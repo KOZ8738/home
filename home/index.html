@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>koz的主頁</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        /* 上橫幅 */
+        .top-banner {
+            background-color: #2c2c2c;
+            color: #ffffff;
+            padding: 18px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-banner .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .left h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .right {
+            display: flex;
+            gap: 35px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-size: 1.08rem;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #ffffff;
+            text-decoration: underline;
+            text-underline-offset: 8px;
+        }
+
+        /* 中間內容 */
+        .main-content {
+            background-color: #e0e0e0;
+            padding: 80px 20px;
+            min-height: 700px;
+        }
+
+        .id-card {
+            background-color: #ffffff;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 50px 55px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: flex-start;
+            gap: 60px;
+            flex-wrap: wrap;
+        }
+
+        .photo {
+            flex: 0 0 360px;
+        }
+
+        .photo img {
+            width: 100%;
+            max-width: 360px;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+        }
+
+        .info {
+            flex: 1;
+            min-width: 320px;
+            line-height: 1.85;
+            color: #333;
+        }
+
+        .info h2 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: #2c2c2c;
+            border-bottom: 3px solid #555;
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        .info p, .info li {
+            margin: 12px 0;
+            font-size: 1.05rem;
+        }
+
+        .info ul {
+            padding-left: 22px;
+        }
+
+        /* 分隔線 */
+        .separator {
+            height: 1px;
+            background-color: #555555;
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+
+        /* 下橫幅 */
+        .bottom-banner {
+            background-color: #e0e0e0;
+            color: #333;
+            padding: 50px 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .bottom-banner a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .bottom-banner a:hover {
+            text-decoration: underline;
+        }
+
+        /* 響應式 */
+        @media (max-width: 768px) {
+            .top-banner .container {
+                padding: 0 15px;
+            }
+            .right {
+                gap: 18px;
+            }
+            .nav-link {
+                font-size: 0.98rem;
+            }
+            .left h1 {
+                font-size: 1.65rem;
+            }
+            .id-card {
+                padding: 35px 25px;
+                gap: 30px;
+            }
+            .photo {
+                flex: 0 0 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 上橫幅 -->
+    <div class="top-banner">
+        <div class="container">
+            <div class="left">
+                <h1>koz8738</h1>
+            </div>
+            <nav class="right">
+                <a href="#" class="nav-link active">主頁</a>
+                <a href="#" class="nav-link">遊戲庫</a>
+                <a href="#" class="nav-link">攝影集</a>
+                <a href="#" class="nav-link">在其他地方找到我</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 中間內容 -->
+    <div class="main-content">
+        <div class="container">
+            <div class="id-card">
+                <div class="photo">
+                    <img src="vagur.png" alt="vague自拍" />
+                </div>
+                <div class="info">
+                    <h1>koz8738</h2>
+                    <p><strong>年齡：</strong> 不詳</p>
+                    <p><strong>性別：</strong> 男性</p>
+                    <p><strong>生日：</strong> 7/2</p>
+                    <p><strong>主推：</strong> 星街</p>
+                    <p><strong>副推：</strong> 太多了，簡稱DD</p>
+
+                    <p><strong>興趣是：</strong></p>
+                    <ul>
+                        <li>聽歌（日文、中文、英文，最喜歡五月天）</li>
+                        <li>ACG相關的東西</li>
+                        <li>玩模擬飛行（特別是空客系列）</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+
+    <!-- 下橫幅 -->
+    <div class="bottom-banner">
+        <div class="container">
+            <p><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p>
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">好東西</a>
+            </p>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,208 +1,869 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>koz的主頁</title>
+    <link rel="icon" href="頭像.png" type="image/png">
     <style>
-      body {
-        margin: 0px;
-      }
-      .top-banner {
-        background-color: #2c2c2c; /* 深灰色 */
-        color: #ffffff;
-        padding: 18px 0;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        position: sticky; /* 滾動時固定在頂部 */
-        top: 0;
-        z-index: 100;
-      }
+        :root {
+            --banner-dark: #2c2c2c;
+            --banner-light: #e0e0e0;
+            --accent-pink: #ff9ed9;
+        }
 
-      .top-banner .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 25px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: nowrap;
-      }
+        * {
+            box-sizing: border-box;
+        }
 
-      .left h1 {
-        margin: 0;
-        font-size: 1.8rem;
-        font-weight: 700;
-        letter-spacing: 2px;
-      }
+        html {
+            scroll-behavior: smooth;
+        }
 
-      /* 右側導航 */
-      .right {
-        display: flex;
-        gap: 35px;
-        align-items: center;
-      }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
 
-      .nav-link {
-        color: #e0e0e0;
-        text-decoration: none;
-        font-size: 1.08rem;
-        font-weight: 500;
-        transition: 0.3s;
-      }
+        /* 上橫幅 */
+        .top-banner {
+            background-color: var(--banner-dark);
+            color: #ffffff;
+            padding: 18px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
 
-      .nav-link:hover {
-        color: #ffffff;
-        text-decoration: underline;
-        text-underline-offset: 8px;
-      }
-
-      /* 響應式 - 手機版 */
-      @media (max-width: 768px) {
         .top-banner .container {
-          padding: 0 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .right {
-          gap: 18px;
-        }
-        .nav-link {
-          font-size: 0.98rem;
-        }
+
         .left h1 {
-          font-size: 1.65rem;
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
         }
-      }
-      .main-content {
-        background-color: #f0f0f0; /* 淺灰色背景 */
-        padding: 80px 20px;
-        min-height: 700px;
-      }
 
-      .id-card {
-        background-color: #ffffff; /* 白色卡片 */
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 40px 45px;
-        border-radius: 16px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-        display: flex;
-        align-items: flex-start;
-        gap: 50px;
-        flex-wrap: wrap;
-      }
+        .right {
+            display: flex;
+            gap: 35px;
+            align-items: center;
+        }
 
-      .photo {
-        flex: 0 0 320px;
-        text-align: center;
-      }
+        .nav-link {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-size: 1.08rem;
+            font-weight: 500;
+            transition: 0.3s;
+        }
 
-      .photo img {
-        width: 100%;
-        max-width: 320px;
-        height: auto;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-      }
+        .nav-link:hover,
+        .nav-link.active {
+            color: #ffffff;
+            text-decoration: underline;
+            text-underline-offset: 8px;
+        }
 
-      .info {
-        flex: 1;
-        min-width: 320px;
-        line-height: 1.85;
-        color: #333;
-      }
+        /* ===== 置頂區：背景固定不動，文字隨捲動交叉淡出 ===== */
+        .pin-section {
+            position: relative;
+            height: 220vh;
+        }
 
-      .info h2 {
-        margin-top: 0;
-        margin-bottom: 25px;
-        color: #2c2c2c;
-        border-bottom: 3px solid #555;
-        padding-bottom: 10px;
-        display: inline-block;
-      }
+        .pin-inner {
+            position: sticky;
+            top: 78px;
+            height: calc(100vh - 78px);
+            overflow: hidden;
+            background: linear-gradient(160deg, #2c2c2c 0%, #3d3d3d 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+        }
 
-      .info p {
-        margin: 12px 0;
-        font-size: 1.05rem;
-      }
+        .pin-text {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 100%;
+            max-width: 900px;
+            padding: 0 20px;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            pointer-events: none;
+            will-change: opacity, transform;
+        }
 
-      .info ul {
-        padding-left: 20px;
-      }
+        .pin-text-hello .hero-hello {
+            font-size: 6.5rem;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--accent-pink);
+        }
 
-      .info li {
-        margin: 8px 0;
-      }
+        .pin-text-hello h1 {
+            font-size: 4rem;
+            margin: 14px 0 0 0;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
 
-      /* 手機版自動變上下排列 */
-      @media (max-width: 768px) {
+        .pin-text-name h2 {
+            font-size: 2.3rem;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .name-highlight {
+            font-size: 1.35em;
+            font-weight: 800;
+            color: var(--accent-pink);
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 44px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: #cfcfcf;
+            font-size: 0.9rem;
+            animation: bounce 2s infinite;
+            will-change: opacity;
+        }
+
+        .scroll-hint svg {
+            width: 22px;
+            height: 22px;
+            stroke: #cfcfcf;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(8px); }
+        }
+
+        /* ===== 捲動揭露動畫 ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(45px);
+            transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-delay-1.visible { transition-delay: 0.15s; }
+        .reveal-delay-2.visible { transition-delay: 0.3s; }
+        .reveal-delay-3.visible { transition-delay: 0.45s; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .reveal {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+        }
+
+        /* ===== About Me 區：接續在置頂區之後，同一組深色背景 ===== */
+        .about-section {
+            background: linear-gradient(160deg, #2c2c2c 0%, #3d3d3d 100%);
+            min-height: 45vh;
+            display: flex;
+            align-items: center;
+            padding: 100px 20px 120px 20px;
+        }
+
+        .about-section-inner {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .about-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 22px 6px;
+            margin-top: 10px;
+        }
+
+        .about-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #ffffff;
+            border: 2px solid #ffffff;
+            border-radius: 999px;
+            padding: 8px 28px 8px 8px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .about-arrow {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+
+        .about-arrow svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--banner-dark);
+            transition: stroke 0.3s;
+        }
+
+        .about-left:hover {
+            background-color: #ffffff;
+            color: var(--banner-dark);
+        }
+
+        .about-left:hover .about-arrow {
+            background-color: var(--banner-dark);
+            transform: translateX(4px);
+        }
+
+        .about-left:hover .about-arrow svg {
+            stroke: #ffffff;
+        }
+
+        .about-label {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+
+        .icon-btn:hover {
+            background-color: var(--accent-pink);
+            transform: scale(1.1);
+        }
+
+        .icon-btn svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--banner-dark);
+            transition: fill 0.3s;
+        }
+
+        .icon-btn:hover svg {
+            fill: #ffffff;
+        }
+
+        /* 中間內容 */
+        .main-content {
+            background-color: #e0e0e0;
+            padding: 80px 20px;
+            min-height: 700px;
+        }
+
         .id-card {
-          padding: 30px 25px;
-          gap: 30px;
+            background-color: #ffffff;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 50px 55px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: flex-start;
+            gap: 60px;
+            flex-wrap: wrap;
         }
+
         .photo {
-          flex: 0 0 100%;
+            flex: 0 0 360px;
         }
-      }
+
+        .photo img {
+            width: 100%;
+            max-width: 360px;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+        }
+
+        .info {
+            flex: 1;
+            min-width: 320px;
+            line-height: 1.85;
+            color: #333;
+        }
+
+        .info h2 {
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: #2c2c2c;
+            border-bottom: 3px solid #555;
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        .info p, .info li {
+            margin: 12px 0;
+            font-size: 1.05rem;
+        }
+
+        .info ul {
+            padding-left: 22px;
+        }
+
+        /* ===== 簡歷手風琴：一次只展開一張 ===== */
+        .resume-stack {
+            max-width: 1300px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .acc-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: border-color 0.4s, box-shadow 0.4s;
+        }
+
+        .acc-card.open {
+            border-color: var(--accent-pink);
+        }
+
+        .acc-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 20px 28px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font: inherit;
+            color: #2c2c2c;
+            text-align: left;
+        }
+
+        .acc-header:hover {
+            background-color: #f6f6f6;
+        }
+
+        .acc-logo-sm {
+            height: 72px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #999;
+            overflow: hidden;
+        }
+
+        .acc-logo-sm img {
+            height: 100%;
+            width: auto;
+            display: block;
+        }
+
+        /* 個人頭像：圓形 */
+        .acc-logo-round {
+            width: 72px;
+            border-radius: 50%;
+        }
+
+        .acc-logo-round img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .acc-title {
+            flex: 1;
+        }
+
+        .acc-title strong {
+            display: block;
+            font-size: 1.35rem;
+        }
+
+        .acc-title span {
+            font-size: 0.95rem;
+            color: #777;
+        }
+
+        .acc-chevron {
+            width: 26px;
+            height: 26px;
+            stroke: #555;
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .acc-card.open .acc-chevron {
+            transform: rotate(180deg);
+        }
+
+        /* 展開/收合動畫 */
+        .acc-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .acc-card.open .acc-body {
+            grid-template-rows: 1fr;
+        }
+
+        .acc-body-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .acc-content {
+            display: flex;
+            align-items: flex-start;
+            gap: 60px;
+            flex-wrap: wrap;
+            padding: 20px 60px 50px 60px;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .acc-card.open .acc-content {
+            opacity: 1;
+            transition-delay: 0.2s;
+        }
+
+        /* 放 logo 的大框：把 img 放進來即可 */
+        .logo-slot {
+            flex: 0 0 640px;
+            max-width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            background: #f4f4f4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 1.1rem;
+            overflow: hidden;
+        }
+
+        .logo-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            padding: 0;
+        }
+
+        /* 分隔線 */
+        .separator {
+            height: 1px;
+            background-color: #555555;
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+
+        /* 下橫幅 */
+        .bottom-banner {
+            background-color: #e0e0e0;
+            color: #333;
+            padding: 50px 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .bottom-banner a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .bottom-banner a:hover {
+            text-decoration: underline;
+        }
+
+        /* 初音回到頂部按鈕 - 全局固定右下角 */
+        #miku-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            left: auto;
+            top: auto;
+            width: 70px;
+            height: 70px;
+            background: white;
+            border: 3px solid var(--accent-pink);
+            border-radius: 50%;
+            box-shadow: 0 6px 20px rgba(255, 158, 217, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 1000;
+            cursor: pointer;
+            padding: 0;
+            transition: transform 0.3s;
+        }
+
+        #miku-btn:hover {
+            transform: scale(1.12);
+        }
+
+        #miku-img {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 響應式 */
+        @media (max-width: 768px) {
+            .top-banner .container {
+                padding: 0 15px;
+            }
+            .right {
+                gap: 18px;
+            }
+            .nav-link {
+                font-size: 0.98rem;
+            }
+            .left h1 {
+                font-size: 1.65rem;
+            }
+            .pin-text-hello .hero-hello {
+                font-size: 3.6rem;
+            }
+            .pin-text-hello h1 {
+                font-size: 2.3rem;
+            }
+            .pin-text-name h2 {
+                font-size: 1.6rem;
+            }
+            .about-row {
+                justify-content: center;
+                text-align: center;
+            }
+            .social-icons {
+                justify-content: center;
+            }
+            .id-card {
+                padding: 35px 25px;
+                gap: 30px;
+            }
+            .photo, .logo-slot {
+                flex: 0 0 100%;
+            }
+            .acc-header {
+                padding: 16px 18px;
+                gap: 12px;
+            }
+            .acc-logo-sm {
+                height: 54px;
+            }
+            .acc-logo-round {
+                width: 54px;
+            }
+            .acc-content {
+                padding: 10px 24px 35px 24px;
+                gap: 30px;
+            }
+            #miku-btn {
+                width: 56px;
+                height: 56px;
+                bottom: 20px;
+                right: 20px;
+            }
+            #miku-img {
+                width: 46px;
+                height: 46px;
+            }
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
+
+    <!-- 上橫幅 -->
     <div class="top-banner">
-      <div class="container">
-        <!-- 左側 -->
-        <div class="left">
-          <h1>koz8738</h1>
+        <div class="container">
+            <div class="left">
+                <h1>koz8738</h1>
+            </div>
+            <nav class="right">
+                <a href="#" class="nav-link active">主頁</a>
+                <a href="game.html" class="nav-link">遊戲庫</a>
+                <a href="photos.html" class="nav-link">攝影集</a>
+                <a href="#" class="nav-link">在其他地方找到我</a>
+            </nav>
         </div>
-
-        <!-- 右側導航 -->
-        <nav class="right">
-          <a href="#" class="nav-link active">主頁</a>
-          <a href="#" class="nav-link">遊戲庫</a>
-          <a href="#" class="nav-link">攝影集</a>
-          <a href="#" class="nav-link">在其他地方找到我</a>
-        </nav>
-      </div>
     </div>
 
-    <!-- 中間內容區 -->
-    <div class="main-content">
-      <div class="container">
-        <div class="id-card">
-          <!-- 左邊照片 -->
-          <div class="photo">
-            <img src="vagur.png" alt="vague自拍" />
-          </div>
+    <!-- 置頂區：背景固定，文字隨捲動從 Hello/Welcome 交叉淡出成自我介紹 -->
+    <section class="pin-section" id="pinSection">
+        <div class="pin-inner">
+            <div class="pin-text pin-text-hello" id="textHello">
+                <p class="hero-hello">Hello</p>
+                <h1>Welcome to my Profile Page</h1>
+            </div>
 
-          <!-- 右邊自我介紹 -->
-          <div class="info">
-            <h1><strong>暱稱：</strong> koz</h1>
-            <p><strong>年齡：</strong> 不詳</p>
-            <p><strong>性別：</strong> 男性</p>
-            <p><strong>生日：</strong> 7/2</p>
-            <p><strong>主推：</strong> 星街</p>
-            <p><strong>副推：</strong> 太多了，簡稱DD</p>
+            <div class="pin-text pin-text-name" id="textName">
+                <h2>My name is <span class="name-highlight">KOZ</span>, a cyber pilot from R.O.C<br>nice to meet you</h2>
+            </div>
 
-            <p><strong>興趣是：</strong></p>
-            <ul>
-              <li>聽歌（日文、中文、英文，最喜歡五月天）</li>
-              <li>ACG相關的東西</li>
-              <li>玩模擬飛行（特別是空客系列）</li>
-            </ul>
-          </div>
+            <div class="scroll-hint" id="scrollHint">
+                <span>Scroll</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M19 12l-7 7-7-7" />
+                </svg>
+            </div>
         </div>
-      </div>
+    </section>
+
+    <!-- 中間內容 -->
+    <div class="main-content" id="about-content">
+        <div class="container">
+            <div class="resume-stack reveal">
+
+                <!-- 第一張：個人 -->
+                <div class="acc-card open">
+                    <button class="acc-header" type="button" aria-expanded="true">
+                        <div class="acc-logo-sm acc-logo-round"><img src="頭像.png" alt=""></div>
+                        <div class="acc-title"><strong>個人</strong><span>koz8738</span></div>
+                        <svg class="acc-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="acc-body"><div class="acc-body-inner">
+                        <div class="acc-content">
+                            <div class="photo">
+                                <img src="vagur.png" alt="vague自拍" />
+                            </div>
+                            <div class="info">
+                                <h1>koz8738</h1>
+                                <p><strong>年齡：</strong> 不詳</p>
+                                <p><strong>性別：</strong> 男性</p>
+                                <p><strong>生日：</strong> 7/2</p>
+                                <p><strong>主推：</strong> 星街</p>
+                                <p><strong>副推：</strong> 太多了，簡稱DD</p>
+
+                                <p><strong>興趣是：</strong></p>
+                                <ul>
+                                    <li>聽歌（日文、中文、英文，最喜歡五月天）</li>
+                                    <li>ACG相關的東西</li>
+                                    <li>玩模擬飛行（特別是空客系列）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div></div>
+                </div>
+
+                <!-- 第二張：海岸航空 -->
+                <div class="acc-card">
+                    <button class="acc-header" type="button" aria-expanded="false">
+                        <div class="acc-logo-sm"><img src="Medium5 Airlinesslogo.png" alt="海岸航空"></div>
+                        <div class="acc-title"><strong>海岸航空</strong><span>Medium5 Airlines</span></div>
+                        <svg class="acc-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="acc-body"><div class="acc-body-inner">
+                        <div class="acc-content">
+                            <div class="logo-slot"><img src="Medium5 Airline.png" alt="海岸航空"></div>
+                            <div class="info">
+                                <h1>海岸航空</h1>
+                                <p><strong>職位：</strong>Second Officer</p>
+                                <p><strong>期間：</strong> 2026/8/26-now</p>
+                                <p><strong>機型：</strong> A320 A321 A330 A350 B737max8</p>
+                                <p><strong>簡介：</strong></p>
+                                <ul>
+                                    <li>飛行時數:21h</li>
+                                    <li>塗裝:B-32AH (A339) B-24BH (B737max8)   </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div></div>
+                </div>
+
+                <!-- 第三張：Polaris Airways -->
+                <div class="acc-card">
+                    <button class="acc-header" type="button" aria-expanded="false">
+                        <div class="acc-logo-sm"><img src="Polaris Airwaysslogo.png" alt="Polaris Airways"></div>
+                        <div class="acc-title"><strong>北極星航空</strong><span>Polaris Airways</span></div>
+                        <svg class="acc-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="acc-body"><div class="acc-body-inner">
+                        <div class="acc-content">   
+                            <div class="logo-slot"><img src="Polaris Airwaysb.png" alt="Polaris Airways"></div>
+                            <div class="info">
+                                <h1>Polaris Airways</h1>
+                                <p><strong>職位：</strong> 美術總監、學員</p>
+                                <p><strong>期間：</strong> 2027/1-now</p>
+                                <p><strong>機型：</strong> A321</p>
+                                <p><strong>簡介：</strong></p>
+                                <ul>
+                                    <li></li>
+                                    <li></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div></div>
+                </div>
+
+            </div>
+        </div>
     </div>
 
-    <div
-      style="
-        background-color: #f1f1f1;
-        text-align: center;
-        padding: 50px;
-        font-size: 20px;
-      "
-    >
-      <p>咕咕嘎嘎</p>
-      <a href="http://discordapp.com/users/1204706460265877534" target="_blank"
-        >Discord好友連結</a
-      >
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+
+    <!-- 下橫幅 -->
+    <div class="bottom-banner">
+        <div class="container reveal">
+            <p><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p>
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">好東西</a>
+            </p>
+        </div>
     </div>
-  </body>
+
+    <!-- 初音回到頂部按鈕 -->
+    <button id="miku-btn" aria-label="回到頂部" type="button">
+        <img id="miku-img" src="頭像.png" alt="回到頂部">
+    </button>
+
+    <script>
+        // 置頂區：背景固定，文字依捲動進度從 Hello/Welcome 交叉淡出成自我介紹
+        const pinSection = document.getElementById('pinSection');
+        const textHello = document.getElementById('textHello');
+        const textName = document.getElementById('textName');
+        let pinTicking = false;
+
+        const pinInner = document.querySelector('.pin-inner');
+        const scrollHint = document.getElementById('scrollHint');
+        const PIN_TOP_OFFSET = 78;
+
+        function updatePinText() {
+            const rect = pinSection.getBoundingClientRect();
+            const scrollRange = pinSection.offsetHeight - pinInner.offsetHeight;
+            let progress = (PIN_TOP_OFFSET - rect.top) / scrollRange;
+            progress = Math.min(Math.max(progress, 0), 1);
+
+            const helloOpacity = 1 - Math.min(progress / 0.45, 1);
+            const nameOpacity = Math.max((progress - 0.55) / 0.45, 0);
+
+            textHello.style.opacity = helloOpacity;
+            textHello.style.transform = `translate(-50%, calc(-50% - ${progress * 40}px))`;
+            textHello.style.pointerEvents = helloOpacity > 0.5 ? 'auto' : 'none';
+
+            textName.style.opacity = nameOpacity;
+            textName.style.transform = `translate(-50%, calc(-50% + ${(1 - nameOpacity) * 40}px))`;
+            textName.style.pointerEvents = nameOpacity > 0.5 ? 'auto' : 'none';
+
+            scrollHint.style.opacity = helloOpacity;
+
+            pinTicking = false;
+        }
+
+        function onPinScroll() {
+            if (!pinTicking) {
+                requestAnimationFrame(updatePinText);
+                pinTicking = true;
+            }
+        }
+
+        window.addEventListener('scroll', onPinScroll, { passive: true });
+        window.addEventListener('resize', updatePinText);
+        updatePinText();
+
+        // 捲動揭露動畫：元素進入畫面時加上 visible class
+        const revealEls = document.querySelectorAll('.reveal');
+
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.15,
+            rootMargin: '0px 0px -60px 0px'
+        });
+
+        revealEls.forEach((el) => revealObserver.observe(el));
+
+
+        // 簡歷手風琴：點一張展開，其餘收回（至少保持一張打開）
+        const accCards = document.querySelectorAll('.acc-card');
+        accCards.forEach((card) => {
+            card.querySelector('.acc-header').addEventListener('click', () => {
+                accCards.forEach((c) => {
+                    const isTarget = c === card;
+                    c.classList.toggle('open', isTarget);
+                    c.querySelector('.acc-header').setAttribute('aria-expanded', isTarget);
+                });
+            });
+        });
+
+        const btn = document.getElementById('miku-btn');
+        const img = document.getElementById('miku-img');
+
+        btn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+
+            img.style.transition = 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            img.style.transform = 'rotate(-720deg)';
+
+            setTimeout(() => {
+                img.style.transition = 'none';
+                img.style.transform = 'rotate(0deg)';
+            }, 800);
+        });
+    </script>
+
+</body>
 </html>

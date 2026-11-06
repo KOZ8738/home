@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>攝影集 | koz的主頁</title>
+    <link rel="icon" href="頭像.png" type="image/png">
+    <style>
+        :root {
+            --banner-dark: #2c2c2c;
+            --banner-light: #e0e0e0;
+            --accent-pink: #ff9ed9;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 上橫幅 */
+        .top-banner {
+            background-color: var(--banner-dark);
+            color: #ffffff;
+            padding: 18px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-banner .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .left h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .right {
+            display: flex;
+            gap: 35px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #e0e0e0;
+            text-decoration: none;
+            font-size: 1.08rem;
+            font-weight: 500;
+            transition: 0.3s;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #ffffff;
+            text-decoration: underline;
+            text-underline-offset: 8px;
+        }
+
+        /* 中間內容 */
+        .main-content {
+            background-color: #e0e0e0;
+            padding: 80px 20px;
+            flex: 1;
+        }
+
+        /* 分隔線 */
+        .separator {
+            height: 1px;
+            background-color: #555555;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        /* 下橫幅 */
+        .bottom-banner {
+            background-color: #e0e0e0;
+            color: #333;
+            padding: 50px 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .bottom-banner a { color: #0066cc; text-decoration: none; }
+        .bottom-banner a:hover { text-decoration: underline; }
+
+        /* 初音回到頂部按鈕 */
+        #miku-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: white;
+            border: 3px solid var(--accent-pink);
+            border-radius: 50%;
+            box-shadow: 0 6px 20px rgba(255, 158, 217, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 1000;
+            cursor: pointer;
+            padding: 0;
+            transition: transform 0.3s;
+        }
+
+        #miku-btn:hover { transform: scale(1.12); }
+
+        #miku-img {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+        }
+
+        /* ===== 攝影集首頁：三個正方形 ===== */
+        .series-grid {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        .series-card {
+            position: relative;
+            display: block;
+            aspect-ratio: 21 / 9;
+            border-radius: 16px;
+            overflow: hidden;
+            text-decoration: none;
+            color: #fff;
+            border: 3px solid transparent;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .series-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-pink);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        }
+
+        /* 封面圖放不進去時的底色（沒放封面圖就會看到漸層） */
+        .cover-realworld { background-image: linear-gradient(135deg, #3a6073, #16222a); }
+        .cover-sim       { background-image: linear-gradient(135deg, #614385, #516395); }
+        .cover-horizon   { background-image: linear-gradient(135deg, #f7971e, #c0392b); }
+
+        /* 圖片滿版：填滿整個長方形，超出的部分裁掉 */
+        .cover-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+            transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .series-card:hover .cover-img {
+            transform: scale(1.05);
+        }
+
+        .series-label {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            padding: 60px 22px 22px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+        }
+
+        .series-label strong {
+            display: block;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+        }
+
+        .series-label span {
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        @media (max-width: 768px) {
+            .top-banner .container { padding: 0 15px; }
+            .right { gap: 18px; }
+            .nav-link { font-size: 0.98rem; }
+            .left h1 { font-size: 1.65rem; }
+            .main-content { padding: 50px 16px; }
+            .series-grid { gap: 22px; }
+            .series-card { aspect-ratio: 16 / 9; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 上橫幅 -->
+    <div class="top-banner">
+        <div class="container">
+            <div class="left">
+                <h1>koz8738</h1>
+            </div>
+            <nav class="right">
+                <a href="index.html" class="nav-link">主頁</a>
+                <a href="game.html" class="nav-link">遊戲庫</a>
+                <a href="photos.html" class="nav-link active">攝影集</a>
+                <a href="#" class="nav-link">在其他地方找到我</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 中間內容：三個系列 -->
+    <div class="main-content">
+        <div class="series-grid">
+            <a class="series-card cover-realworld" href="album.html?s=realworld">
+                <img class="cover-img" src="cover-realworld.jpg" alt="" onerror="this.style.display='none'">
+                <div class="series-label"><strong>地球online</strong><span>現實攝影</span></div>
+            </a>
+            <a class="series-card cover-sim" href="album.html?s=sim">
+                <img class="cover-img" src="cover-sim.jpg" alt="" onerror="this.style.display='none'">
+                <div class="series-label"><strong>模飛</strong><span>模擬飛行</span></div>
+            </a>
+            <a class="series-card cover-horizon" href="album.html?s=horizon">
+                <img class="cover-img" src="cover-horizon.jpg" alt="" onerror="this.style.display='none'">
+                <div class="series-label"><strong>地平線系列</strong><span>Horizon Series</span></div>
+            </a>
+        </div>
+    </div>
+
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+
+    <!-- 下橫幅 -->
+    <div class="bottom-banner">
+        <div class="container">
+            <p><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p>
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">好東西</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- 初音回到頂部按鈕 -->
+    <button id="miku-btn" aria-label="回到頂部" type="button">
+        <img id="miku-img" src="頭像.png" alt="回到頂部">
+    </button>
+
+    <script>
+        document.getElementById('miku-btn').addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
+</body>
+</html>

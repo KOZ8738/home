@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>攝影集 | koz的主頁</title>
+    <meta name="description" content="koz8738 的攝影集，分成 Real World、模飛和地平線系列三個系列。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="攝影集 | koz的主頁" />
+    <meta property="og:description" content="koz8738 的攝影集，分成 Real World、模飛和地平線系列三個系列。" />
+    <link rel="icon" href="頭像.png" type="image/png">
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <a class="skip-link" href="#main">跳到主要內容</a>
+
+    <!-- 上橫幅：浮動導覽列 -->
+    <header class="site-header">
+        <div class="nav-bar">
+            <a class="brand title-1" href="index.html">koz8738</a>
+            <nav class="nav-desktop" aria-label="主要導覽">
+                <ul class="nav-links">
+                    <li><a class="nav-link title-3" href="index.html">主頁</a></li>
+                    <li><a class="nav-link title-3" href="game.html">遊戲庫</a></li>
+                    <li><a class="nav-link title-3" href="photos.html" aria-current="page">攝影集</a></li>
+                    <li><a class="nav-link title-3" href="index.html#find-me">在其他地方找到我</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
+                <span class="line"></span><span class="line"></span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="nav-panel" id="nav-panel" aria-label="行動版選單" inert>
+        <ul class="nav-panel-links">
+            <li style="--i:0"><a class="title-1" href="index.html">主頁</a></li>
+            <li style="--i:1"><a class="title-1" href="game.html">遊戲庫</a></li>
+            <li style="--i:2"><a class="title-1" href="photos.html" aria-current="page">攝影集</a></li>
+            <li style="--i:3"><a class="title-1" href="index.html#find-me">在其他地方找到我</a></li>
+        </ul>
+    </nav>
+
+    <!-- 中間內容：三個系列，由上往下排 -->
+    <main class="page-main" id="main">
+        <h1 class="sr-only">攝影集</h1>
+
+        <div class="series-list">
+            <!-- 封面圖放在同一個資料夾，檔名要和 src 一致 -->
+            <div class="reveal">
+                <a class="series-card cover-realworld" href="album.html?s=realworld">
+                    <img class="cover-img" src="cover-realworld.jpg" alt="" onerror="this.style.display='none'">
+                    <span class="series-label">
+                        <span class="title-1">Real World</span>
+                        <span class="caption-2">現實攝影</span>
+                    </span>
+                </a>
+            </div>
+            <div class="reveal">
+                <a class="series-card cover-sim" href="album.html?s=sim">
+                    <img class="cover-img" src="cover-sim.jpg" alt="" onerror="this.style.display='none'">
+                    <span class="series-label">
+                        <span class="title-1">模飛</span>
+                        <span class="caption-2">模擬飛行</span>
+                    </span>
+                </a>
+            </div>
+            <div class="reveal">
+                <a class="series-card cover-horizon" href="album.html?s=horizon">
+                    <img class="cover-img" src="cover-horizon.jpg" alt="" onerror="this.style.display='none'">
+                    <span class="series-label">
+                        <span class="title-1">地平線系列</span>
+                        <span class="caption-2">Horizon series</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+
+    <!-- 下橫幅 -->
+    <footer class="site-footer">
+        <div class="footer-inner reveal">
+            <p class="body-3"><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p class="body-3">
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">好東西</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 初音回到頂部按鈕 -->
+    <button id="miku-btn" aria-label="回到頂部" type="button">
+        <img id="miku-img" src="頭像.png" alt="">
+    </button>
+
+    <script src="site.js"></script>
+</body>
+</html>

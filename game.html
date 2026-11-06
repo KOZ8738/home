@@ -1,381 +1,171 @@
-<!doctype html>
-<html lang="zh-tw">
-  <head>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>遊戲庫</title>
-    <link rel="icon" href="頭像.png" type="image/png" />
-    <style>
-      :root {
-        --banner-dark: #2c2c2c;
-        --banner-light: #e0e0e0;
-        --text-muted: #555555;
-        --accent-pink: #ff9ed9;
-        --card-radius: 12px;
-      }
+    <title>遊戲庫 | koz的主頁</title>
+    <meta name="description" content="koz8738 的遊戲庫：微軟模擬飛行 2024、地平線系列、歐洲卡車模擬、Star Citizen、首都高バトル和 blender 的遊玩紀錄。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="遊戲庫 | koz的主頁" />
+    <meta property="og:description" content="koz8738 的遊戲庫：微軟模擬飛行 2024、地平線系列、歐洲卡車模擬、Star Citizen、首都高バトル和 blender 的遊玩紀錄。" />
+    <link rel="icon" href="頭像.png" type="image/png">
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-      * {
-        box-sizing: border-box;
-      }
+    <a class="skip-link" href="#main">跳到主要內容</a>
 
-      body {
-        margin: 0;
-        font-family: "Segoe UI", system-ui, sans-serif;
-        color: #222;
-        background-color: #f7f7f7;
-      }
-
-      img {
-        max-width: 100%;
-        display: block;
-      }
-
-      /* 上橫幅 */
-      .top-banner {
-        background-color: var(--banner-dark);
-        color: #ffffff;
-        padding: 18px 0;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        position: sticky;
-        top: 0;
-        z-index: 100;
-      }
-
-      .top-banner .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 25px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-
-      .left h1 {
-        margin: 0;
-        font-size: 1.8rem;
-        font-weight: 700;
-        letter-spacing: 2px;
-      }
-
-      .right {
-        display: flex;
-        gap: 35px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .nav-link {
-        color: #e0e0e0;
-        text-decoration: none;
-        font-size: 1.08rem;
-        font-weight: 500;
-        transition: color 0.3s;
-      }
-
-      .nav-link:hover,
-      .nav-link.active {
-        color: #ffffff;
-        text-decoration: underline;
-        text-underline-offset: 8px;
-      }
-
-      /* 主內容 */
-      .main-content {
-        padding: 0 20px;
-      }
-
-      .main-content h2 {
-        text-align: center;
-        margin: 50px 0 40px 0;
-      }
-
-      .game-container {
-        max-width: 2000px;
-        margin: 0 auto 20px auto;
-      }
-
-      .game-card-horizontal {
-        display: flex;
-        gap: 28px;
-        background-color: #ffffff;
-        border-radius: var(--card-radius);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-        align-items: flex-start;
-        padding: 40px;
-        transition: transform 0.3s;
-        margin: 0 auto;
-      }
-
-      .game-card-horizontal:hover {
-        transform: scale(1.02);
-      }
-
-      .game-pic {
-        width: 66.666%;
-        flex-shrink: 0;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-
-      .game-pic img {
-        width: 100%;
-        height: 320px;
-        border-radius: 8px;
-        object-fit: cover;
-      }
-
-      .game-stats {
-        flex: 1;
-        line-height: 1.6;
-        min-width: 0;
-      }
-
-      .game-stats h3 {
-        margin: 0 0 10px 0;
-        color: var(--banner-dark);
-        border-bottom: 2px solid #e0e0e0;
-        display: inline-block;
-      }
-
-      .game-stats p {
-        margin: 5px 0;
-        color: var(--text-muted);
-        font-size: 0.95rem;
-      }
-
-      /* 下橫幅 */
-      .bottom-banner {
-        background-color: var(--banner-light);
-        color: #333;
-        padding: 50px 20px;
-        text-align: center;
-        font-size: 1.1rem;
-        margin-top: 40px;
-      }
-
-      .bottom-banner a {
-        color: #0066cc;
-        text-decoration: none;
-      }
-
-      .bottom-banner a:hover {
-        text-decoration: underline;
-      }
-
-      /* 初音回到頂部按鈕 - 全局固定右下角，任何寬度、任何捲動位置都不會跑掉 */
-      #miku-btn {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        left: auto;
-        top: auto;
-        width: 70px;
-        height: 70px;
-        background: white;
-        border: 3px solid var(--accent-pink);
-        border-radius: 50%;
-        box-shadow: 0 6px 20px rgba(255, 158, 217, 0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        z-index: 1000;
-        cursor: pointer;
-        padding: 0;
-        transition: transform 0.3s;
-      }
-
-      #miku-btn:hover {
-        transform: scale(1.12);
-      }
-
-      #miku-img {
-        width: 58px;
-        height: 58px;
-        object-fit: contain;
-        transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-      }
-
-      /* 響應式：手機版變回上下排列 */
-      @media (max-width: 600px) {
-        .game-card-horizontal {
-          flex-direction: column;
-          text-align: center;
-          padding: 25px;
-        }
-        .game-pic {
-          width: 100%;
-        }
-        .game-stats h3 {
-          display: block;
-        }
-        #miku-btn {
-          width: 56px;
-          height: 56px;
-          bottom: 20px;
-          right: 20px;
-        }
-        #miku-img {
-          width: 46px;
-          height: 46px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <!-- 上橫幅 -->
-    <div class="top-banner">
-      <div class="container">
-        <div class="left">
-          <h1>koz8738</h1>
+    <!-- 上橫幅：浮動導覽列 -->
+    <header class="site-header">
+        <div class="nav-bar">
+            <a class="brand title-1" href="index.html">koz8738</a>
+            <nav class="nav-desktop" aria-label="主要導覽">
+                <ul class="nav-links">
+                    <li><a class="nav-link title-3" href="index.html">主頁</a></li>
+                    <li><a class="nav-link title-3" href="game.html" aria-current="page">遊戲庫</a></li>
+                    <li><a class="nav-link title-3" href="photos.html">攝影集</a></li>
+                    <li><a class="nav-link title-3" href="flights.html">航班</a></li>
+                    <li><a class="nav-link title-3" href="index.html#find-me">在其他地方找到我</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
+                <span class="line"></span><span class="line"></span>
+            </button>
         </div>
-        <nav class="right">
-          <a href="index.html" class="nav-link">主頁</a>
-          <a href="game.html" class="nav-link active">遊戲庫</a>
-          <a href="photos.html" class="nav-link">攝影集</a>
-          <a href="#" class="nav-link">在其他地方找到我</a>
-        </nav>
-      </div>
-    </div>
+    </header>
 
-    <div class="main-content">
-      <div class="container">
-        <h2>我的遊戲庫</h2>
+    <nav class="nav-panel" id="nav-panel" aria-label="行動版選單" inert>
+        <ul class="nav-panel-links">
+            <li style="--i:0"><a class="title-1" href="index.html">主頁</a></li>
+            <li style="--i:1"><a class="title-1" href="game.html" aria-current="page">遊戲庫</a></li>
+            <li style="--i:2"><a class="title-1" href="photos.html">攝影集</a></li>
+            <li style="--i:3"><a class="title-1" href="flights.html">航班</a></li>
+            <li style="--i:4"><a class="title-1" href="index.html#find-me">在其他地方找到我</a></li>
+        </ul>
+    </nav>
 
-        <!-- 遊戲卡片 -->
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img src="cal.jpg" alt="微軟模擬飛行 2024 遊戲畫面" loading="lazy" />
+    <!-- 主內容：遊戲卡片由上往下排 -->
+    <main class="page-main" id="main">
+        <h1 class="game-heading heading-4 md-heading-3">我的遊戲庫</h1>
+
+        <div class="game-list">
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="cal.jpg" alt="微軟模擬飛行 2024 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">微軟模擬飛行 2024</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> 447小時</p>
+                        <p class="body-6"><strong>常飛的航線：</strong> 北京至上海、上海至桃園</p>
+                        <p class="body-6"><strong>常飛的飛機：</strong> A320、A321、A359、A35K、A380、B777</p>
+                        <p class="body-6"><strong>當前狀況：</strong> 正在挑戰長程航線</p>
+                        <p class="body-6"><strong>評分：</strong> 7/10</p>
+                    </div>
+                </article>
             </div>
-            <div class="game-stats">
-              <h3>微軟模擬飛行 2024</h3>
-              <p><strong>遊玩時數：</strong> 447小時</p>
-              <p><strong>常飛的航線：</strong> 北京 - 上海、上海 - 桃園</p>
-              <p><strong>常飛的飛機：</strong> A320、A321、A359、A35K、A380、B777</p>
-              <p><strong>當前狀況：</strong> 正在挑戰長程航線</p>
-              <p><strong>評分：</strong> 7/10</p>
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="fh5.png" alt="極限競速：地平線 5 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">地平線系列</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> 200 小時</p>
+                        <p class="body-6"><strong>喜愛車輛類型：</strong> 日系、痛車</p>
+                        <p class="body-6"><strong>愛車：</strong> RX7</p>
+                        <p class="body-6"><strong>評分(4代+5代)：</strong> 8/10</p>
+                    </div>
+                </article>
             </div>
-          </div>
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="Euro Truck Simulator 2game library .png" alt="歐洲卡車模擬 2 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">歐洲卡車模擬</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> 66.8小時</p>
+                        <p class="body-6"><strong>常開的車輛：</strong> Scania、Mercedes-Benz</p>
+                        <p class="body-6"><strong>當前狀況：</strong> 架放向盤麻煩，很少玩</p>
+                        <p class="body-6"><strong>評分：</strong> 7/10</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="Star Citizen  game library.png" alt="Star Citizen 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">Star Citizen</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> unknown</p>
+                        <p class="body-6"><strong>當前狀況：</strong> 等更新ing</p>
+                        <p class="body-6"><strong>組織：</strong> 星際遊騎兵 Outrider Interplanetary</p>
+                        <p class="body-6"><strong>評分：</strong> 8/10</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="TokyoXtremeRacer  game library.png" alt="首都高バトル 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">首都高バトル</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> 28小時</p>
+                        <p class="body-6"><strong>車輛：</strong> GR86</p>
+                        <p class="body-6"><strong>當前狀況：</strong> 擺著欣賞</p>
+                        <p class="body-6"><strong>評分：</strong> 7/10</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="reveal">
+                <article class="game-card">
+                    <div class="game-pic">
+                        <img src="blender  game library.png" alt="blender 遊戲畫面" loading="lazy" />
+                    </div>
+                    <div class="game-stats">
+                        <h2 class="heading-5">blender</h2>
+                        <p class="body-6"><strong>遊玩時數：</strong> 96.3小時</p>
+                        <p class="body-6"><strong>當前狀況：</strong> work</p>
+                        <p class="body-6"><strong>評分：</strong> 8/10</p>
+                    </div>
+                </article>
+            </div>
+
         </div>
+    </main>
 
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img src="fh5.png" alt="極限競速：地平線 5 遊戲畫面" loading="lazy" />
-            </div>
-            <div class="game-stats">
-              <h3>地平線系列</h3>
-              <p><strong>遊玩時數：</strong> 200 小時</p>
-              <p><strong>喜愛車輛類型：</strong> 日系、痛車</p>
-              <p><strong>愛車：</strong> RX7</p>
-              <p><strong>評分(4代+5代)：</strong> 8/10</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img
-                src="Euro Truck Simulator 2game library .png"
-                alt="歐洲卡車模擬 2 遊戲畫面"
-                loading="lazy"
-              />
-            </div>
-            <div class="game-stats">
-              <h3>歐洲卡車模擬</h3>
-              <p><strong>遊玩時數：</strong> 66.8小時</p>
-              <p><strong>常開的車輛：</strong> Scania、Mercedes-Benz</p>
-              <p><strong>當前狀況：</strong> 架放向盤麻煩，很少玩</p>
-              <p><strong>評分：</strong> 7/10</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img src="Star Citizen  game library.png" alt="Star Citizen 遊戲畫面" loading="lazy" />
-            </div>
-            <div class="game-stats">
-              <h3>Star Citizen</h3>
-              <p><strong>遊玩時數：</strong> unknown</p>
-              <p><strong>當前狀況：</strong> 等更新ing</p>
-              <p><strong>組織：</strong> 星際遊騎兵 Outrider Interplanetary</p>
-              <p><strong>評分：</strong> 8/10</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img
-                src="TokyoXtremeRacer  game library.png"
-                alt="首都高バトル 遊戲畫面"
-                loading="lazy"
-              />
-            </div>
-            <div class="game-stats">
-              <h3>首都高バトル</h3>
-              <p><strong>遊玩時數：</strong> 28小時</p>
-              <p><strong>車輛：</strong> GR86</p>
-              <p><strong>當前狀況：</strong> 擺著欣賞</p>
-              <p><strong>評分：</strong> 7/10</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="game-container">
-          <div class="game-card-horizontal">
-            <div class="game-pic">
-              <img src="blender  game library.png" alt="blender 遊戲畫面" loading="lazy" />
-            </div>
-            <div class="game-stats">
-              <h3>blender</h3>
-              <p><strong>遊玩時數：</strong> 96.3小時</p>
-              <p><strong>當前狀況：</strong> work</p>
-              <p><strong>評分：</strong> 8/10</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 分隔線 -->
+    <div class="separator"></div>
 
     <!-- 下橫幅 -->
-    <div class="bottom-banner">
-      <div class="container">
-        <p><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
-        <p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">好東西</a></p>
-      </div>
-    </div>
+    <footer class="site-footer">
+        <div class="footer-inner reveal">
+            <p class="body-3"><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p class="body-3">
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">好東西</a>
+            </p>
+        </div>
+    </footer>
 
     <!-- 初音回到頂部按鈕 -->
     <button id="miku-btn" aria-label="回到頂部" type="button">
-      <img id="miku-img" src="頭像.png" alt="回到頂部" />
+        <img id="miku-img" src="頭像.png" alt="">
     </button>
 
-    <script>
-      const btn = document.getElementById('miku-btn');
-      const img = document.getElementById('miku-img');
-
-      btn.addEventListener('click', () => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth',
-        });
-
-        img.style.transition = 'transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
-        img.style.transform = 'rotate(-720deg)';
-
-        setTimeout(() => {
-          img.style.transition = 'none';
-          img.style.transform = 'rotate(0deg)';
-        }, 800);
-      });
-    </script>
-  </body>
+    <script src="site.js"></script>
+</body>
 </html>

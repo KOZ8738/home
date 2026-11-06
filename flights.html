@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>航班 | koz的主頁</title>
+    <meta name="description" content="koz8738 的航班：連線飛行時顯示即時位置、高度、速度和航向，沒有連線時顯示歷史航班。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="航班 | koz的主頁" />
+    <meta property="og:description" content="koz8738 的航班：連線飛行時顯示即時位置、高度、速度和航向，沒有連線時顯示歷史航班。" />
+    <link rel="icon" href="頭像.png" type="image/png">
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <a class="skip-link" href="#main">跳到主要內容</a>
+
+    <!-- 上橫幅：浮動導覽列 -->
+    <header class="site-header">
+        <div class="nav-bar">
+            <a class="brand title-1" href="index.html">koz8738</a>
+            <nav class="nav-desktop" aria-label="主要導覽">
+                <ul class="nav-links">
+                    <li><a class="nav-link title-3" href="index.html">主頁</a></li>
+                    <li><a class="nav-link title-3" href="game.html">遊戲庫</a></li>
+                    <li><a class="nav-link title-3" href="photos.html">攝影集</a></li>
+                    <li><a class="nav-link title-3" href="flights.html" aria-current="page">航班</a></li>
+                    <li><a class="nav-link title-3" href="index.html#find-me">在其他地方找到我</a></li>
+                </ul>
+            </nav>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
+                <span class="line"></span><span class="line"></span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="nav-panel" id="nav-panel" aria-label="行動版選單" inert>
+        <ul class="nav-panel-links">
+            <li style="--i:0"><a class="title-1" href="index.html">主頁</a></li>
+            <li style="--i:1"><a class="title-1" href="game.html">遊戲庫</a></li>
+            <li style="--i:2"><a class="title-1" href="photos.html">攝影集</a></li>
+            <li style="--i:3"><a class="title-1" href="flights.html" aria-current="page">航班</a></li>
+            <li style="--i:4"><a class="title-1" href="index.html#find-me">在其他地方找到我</a></li>
+        </ul>
+    </nav>
+
+    <main class="page-main" id="main">
+        <div class="flights-wrap">
+
+            <div class="flights-head">
+                <div>
+                    <h1 class="heading-4 md-heading-3">航班</h1>
+                    <p class="page-sub body-3" id="flightsSub">連線飛行時顯示即時位置，沒有連線時顯示歷史航班。</p>
+                </div>
+                <div class="flights-actions">
+                    <span class="status-badge" id="statusBadge" hidden>
+                        <span class="status-dot" aria-hidden="true"></span>
+                        <span class="caption-1" id="statusText"></span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- 讀取即時資料失敗時的提示 -->
+            <div id="notice"></div>
+
+            <!-- 讀取中：和內容同樣大小的骨架 -->
+            <section id="loadingSection" aria-label="讀取中">
+                <div class="skeleton-row">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+            </section>
+
+            <!-- 在線：即時位置 -->
+            <section id="liveSection" aria-label="即時位置" hidden>
+                <div class="live-head">
+                    <p class="caption-1 live-kicker">目前飛行中</p>
+                    <h2 class="heading-5" id="liveCallsign"></h2>
+                    <p class="body-3" id="liveRoute"></p>
+                    <p class="caption-2 muted" id="liveMeta"></p>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-tile">
+                        <p class="stat-label caption-1"><i class="ph ph-mountains" aria-hidden="true"></i>高度</p>
+                        <p class="heading-5" id="statAlt"></p>
+                    </div>
+                    <div class="stat-tile">
+                        <p class="stat-label caption-1"><i class="ph ph-gauge" aria-hidden="true"></i>地速</p>
+                        <p class="heading-5" id="statSpeed"></p>
+                    </div>
+                    <div class="stat-tile">
+                        <p class="stat-label caption-1"><i class="ph ph-compass" aria-hidden="true"></i>航向</p>
+                        <p class="heading-5" id="statHeading"></p>
+                    </div>
+                    <div class="stat-tile">
+                        <p class="stat-label caption-1"><i class="ph ph-map-pin" aria-hidden="true"></i>位置</p>
+                        <p class="heading-5" id="statPos"></p>
+                    </div>
+                </div>
+
+                <div class="map-card" id="mapCard">
+                    <div id="map" role="img" aria-label="飛機目前位置的地圖"></div>
+                </div>
+            </section>
+
+            <!-- 不在線：歷史航班 -->
+            <section id="historySection" aria-label="歷史航班" hidden>
+                <div class="summary-grid" id="summary"></div>
+
+                <form class="filter-bar" id="filterBar" role="search" aria-label="篩選航班" hidden>
+                    <div class="filter-search">
+                        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                        <input class="body-2" type="search" id="fSearch" placeholder="搜尋呼號、機場、機型、註冊號、航班編號或日期" aria-label="搜尋航班" autocomplete="off">
+                    </div>
+                    <div class="filter-grid" id="filterSelects"></div>
+                    <div class="filter-segs" id="filterSegs"></div>
+                    <div class="filter-foot">
+                        <p class="caption-1 muted" id="filterCount" aria-live="polite"></p>
+                        <button class="btn btn-on-light button-sm" type="button" id="filterClear">清除篩選</button>
+                    </div>
+                </form>
+
+                <div class="flight-list" id="flightList"></div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- 分隔線 -->
+    <div class="separator"></div>
+
+    <!-- 下橫幅 -->
+    <footer class="site-footer">
+        <div class="footer-inner reveal">
+            <p class="body-3"><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p class="body-3">
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">好東西</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 初音回到頂部按鈕 -->
+    <button id="miku-btn" aria-label="回到頂部" type="button">
+        <img id="miku-img" src="頭像.png" alt="">
+    </button>
+
+    <!-- 航班詳細數據視窗 -->
+    <div class="flight-modal" id="flightModal" role="dialog" aria-modal="true" aria-labelledby="fmTitle">
+        <button class="lb-btn lb-close" id="fmClose" type="button" aria-label="關閉"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <div class="fm-card" id="fmCard" tabindex="-1"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="vatsim-history.js"></script>
+    <script src="site.js"></script>
+    <script>
+        // ================= 設定 =================
+        // VATSIM_CID：你的 VATSIM 會員編號，用來檢查是否在線。
+        // 歷史航班來自 vatsim-history.js（從 VATSIM 官方紀錄整理的快照）。
+        const CONFIG = {
+            VATSIM_CID: 1931319,
+            POLL_ONLINE_MS: 20000,   // 在線時每 20 秒更新一次位置
+            POLL_OFFLINE_MS: 60000   // 不在線時每 60 秒檢查是否上線
+        };
+
+        const SNAPSHOT = window.VATSIM_HISTORY || { flights: [] };
+        const FLIGHTS = SNAPSHOT.flights;
+
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const $ = (id) => document.getElementById(id);
+        const sections = { loading: $('loadingSection'), live: $('liveSection'), history: $('historySection') };
+
+        function show(name) {
+            Object.entries(sections).forEach(([key, el]) => { el.hidden = key !== name; });
+        }
+
+        function setStatus(state) {
+            const badge = $('statusBadge');
+            if (!state) { badge.hidden = true; return; }
+            badge.hidden = false;
+            badge.dataset.state = state;
+            $('statusText').textContent = state === 'online' ? '在線' : '離線';
+        }
+
+        function setNotice(text) {
+            const box = $('notice');
+            if (!text) { box.replaceChildren(); return; }
+            const p = document.createElement('p');
+            p.className = 'notice body-5';
+            p.setAttribute('role', 'status');
+            p.textContent = text;
+            box.replaceChildren(p);
+        }
+
+        // ---------- 歷史航班 ----------
+        function statTile(label, value) {
+            const tile = document.createElement('div');
+            tile.className = 'summary-tile';
+            const l = document.createElement('p');
+            l.className = 'caption-1 muted';
+            l.textContent = label;
+            const v = document.createElement('p');
+            v.className = 'heading-5';
+            v.textContent = value;
+            tile.append(l, v);
+            return tile;
+        }
+
+        function formatMinutes(total) {
+            const h = Math.floor(total / 60);
+            const m = total % 60;
+            return h ? `${h} 小時 ${m} 分` : `${m} 分`;
+        }
+
+        // ---------- 篩選和搜尋 ----------
+        const filters = { q: '', type: '', from: '', to: '', year: '', month: '', shift: '', detail: '' };
+        let filtersBuilt = false;
+
+        const SHIFTS = [
+            ['', '全部'], ['morning', '早班'], ['afternoon', '午班'], ['evening', '晚班']
+        ];
+        const DETAILS = [['', '全部'], ['yes', '有詳細數據'], ['no', '沒有詳細數據']];
+
+        // 早班 05:00 到 12:00，午班 12:00 到 18:00，晚班 18:00 到隔天 05:00，用連線時間（台北時間）
+        function shiftOf(h) {
+            if (h >= 5 && h < 12) return 'morning';
+            if (h >= 12 && h < 18) return 'afternoon';
+            return 'evening';
+        }
+
+        function haystack(f) {
+            return [f.callsign, f.from, f.to, f.aircraft, f.registration, f.v && f.v.fn, f.date]
+                .filter(Boolean).join(' ').toLowerCase();
+        }
+
+        function matches(f) {
+            if (filters.q) {
+                const hay = haystack(f);
+                if (!filters.q.toLowerCase().split(/\s+/).filter(Boolean).every((t) => hay.includes(t))) return false;
+            }
+            if (filters.type && f.aircraft !== filters.type) return false;
+            if (filters.from && f.from !== filters.from) return false;
+            if (filters.to && f.to !== filters.to) return false;
+            if (filters.year && f.date.slice(0, 4) !== filters.year) return false;
+            if (filters.month && String(Number(f.date.slice(5, 7))) !== filters.month) return false;
+            if (filters.shift && (typeof f.h !== 'number' || shiftOf(f.h) !== filters.shift)) return false;
+            if (filters.detail === 'yes' && !f.v) return false;
+            if (filters.detail === 'no' && f.v) return false;
+            return true;
+        }
+
+        function filtersActive() {
+            return Object.values(filters).some(Boolean);
+        }
+
+        function buildFilters() {
+            filtersBuilt = true;
+            const count = (key) => {
+                const m = new Map();
+                FLIGHTS.forEach((f) => { const v = key(f); if (v) m.set(v, (m.get(v) || 0) + 1); });
+                return [...m.entries()];
+            };
+            const sortText = (a, b) => String(a[0]).localeCompare(String(b[0]), 'en', { numeric: true });
+            const specs = [
+                ['type', '機型', count((f) => f.aircraft).sort(sortText).map(([v, n]) => [v, `${v}（${n}）`])],
+                ['from', '起飛機場', count((f) => f.from).sort(sortText).map(([v, n]) => [v, `${v}（${n}）`])],
+                ['to', '降落機場', count((f) => f.to).sort(sortText).map(([v, n]) => [v, `${v}（${n}）`])],
+                ['year', '年', count((f) => f.date.slice(0, 4)).sort(sortText).map(([v, n]) => [v, `${v} 年（${n}）`])],
+                ['month', '月', count((f) => String(Number(f.date.slice(5, 7)))).sort(sortText).map(([v, n]) => [v, `${v} 月（${n}）`])]
+            ];
+            const grid = $('filterSelects');
+            specs.forEach(([key, label, opts]) => {
+                const wrap = el('label', 'filter-field');
+                wrap.appendChild(el('span', 'caption-1 muted', label));
+                const box = el('span', 'select-wrap');
+                const sel = document.createElement('select');
+                sel.className = 'body-2';
+                sel.dataset.key = key;
+                [['', '全部'], ...opts].forEach(([v, t]) => {
+                    const o = document.createElement('option');
+                    o.value = v; o.textContent = t;
+                    sel.appendChild(o);
+                });
+                sel.addEventListener('change', () => { filters[key] = sel.value; renderHistory(); });
+                const caret = el('i', 'ph ph-caret-down');
+                caret.setAttribute('aria-hidden', 'true');
+                box.append(sel, caret);
+                wrap.appendChild(box);
+                grid.appendChild(wrap);
+            });
+
+            const segs = $('filterSegs');
+            [
+                ['shift', '早晚班', SHIFTS, '早班 05:00 到 12:00，午班 12:00 到 18:00，晚班 18:00 到隔天 05:00，以連線時間計算，台北時間。'],
+                ['detail', '詳細數據', DETAILS, '']
+            ].forEach(([key, label, opts, hint]) => {
+                const set = el('fieldset', 'filter-seg');
+                set.appendChild(el('legend', 'caption-1 muted', label));
+                const row = el('div', 'seg-row');
+                opts.forEach(([v, t], i) => {
+                    const lab = el('label', 'seg-opt');
+                    const input = document.createElement('input');
+                    input.type = 'radio'; input.name = key; input.value = v; input.checked = i === 0;
+                    input.addEventListener('change', () => { filters[key] = v; renderHistory(); });
+                    lab.append(input, el('span', 'chip caption-1', t));
+                    row.appendChild(lab);
+                });
+                set.appendChild(row);
+                if (hint) set.appendChild(el('p', 'caption-2 muted', hint));
+                segs.appendChild(set);
+            });
+
+            let timer = null;
+            $('fSearch').addEventListener('input', (e) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => { filters.q = e.target.value.trim(); renderHistory(); }, 150);
+            });
+            $('filterBar').addEventListener('submit', (e) => e.preventDefault());
+            $('filterClear').addEventListener('click', clearFilters);
+            $('filterBar').hidden = false;
+        }
+
+        function clearFilters() {
+            Object.keys(filters).forEach((k) => { filters[k] = ''; });
+            $('fSearch').value = '';
+            document.querySelectorAll('#filterSelects select').forEach((s) => { s.value = ''; });
+            document.querySelectorAll('#filterSegs input').forEach((i) => { i.checked = i.value === ''; });
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const summary = $('summary');
+            const list = $('flightList');
+            summary.replaceChildren();
+            list.replaceChildren();
+
+            if (FLIGHTS.length === 0) {
+                const card = document.createElement('div');
+                card.className = 'state-card';
+                card.innerHTML = '<div class="state-icon"><i class="ph ph-airplane-takeoff" aria-hidden="true"></i></div>' +
+                    '<h2 class="heading-6">還沒有航班紀錄</h2>' +
+                    '<p class="body-3">飛過的航班會整理在這裡。連線飛行時，這一頁會改成顯示即時位置。</p>';
+                list.appendChild(card);
+                return;
+            }
+
+            if (!filtersBuilt) buildFilters();
+
+            const flights = FLIGHTS.filter(matches).sort((a, b) => {
+                const da = Date.parse(a.date.replace(/\//g, '-'));
+                const db = Date.parse(b.date.replace(/\//g, '-'));
+                return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da);
+            });
+            const totalMinutes = flights.reduce((sum, f) => sum + (Number(f.minutes) || 0), 0);
+
+            summary.append(
+                statTile('航班數', `${flights.length} 趟`),
+                statTile('累計飛行時間', formatMinutes(totalMinutes)),
+                statTile('最近一趟', flights.length ? flights[0].date : '沒有'),
+                statTile('有詳細數據', `${flights.filter((f) => f.v).length} 趟`)
+            );
+
+            const active = filtersActive();
+            $('filterClear').disabled = !active;
+            const hint = (filters.type || filters.from || filters.to) ? '，選了機型或機場時，沒有航線資料的舊航班不會顯示' : '';
+            $('filterCount').textContent = active ? `符合的航班 ${flights.length} 趟，共 ${FLIGHTS.length} 趟${hint}` : `共 ${FLIGHTS.length} 趟`;
+
+            if (flights.length === 0) {
+                const card = document.createElement('div');
+                card.className = 'state-card';
+                card.innerHTML = '<div class="state-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></div>' +
+                    '<h2 class="heading-6">沒有符合的航班</h2>' +
+                    '<p class="body-3">換個關鍵字或條件試試，或清除篩選看全部航班。</p>';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-on-light button-sm';
+                btn.textContent = '清除篩選';
+                btn.addEventListener('click', clearFilters);
+                card.appendChild(btn);
+                list.appendChild(card);
+            }
+
+            flights.forEach((f) => {
+                const card = document.createElement('article');
+                card.className = 'flight-card';
+
+                const date = document.createElement('p');
+                date.className = 'caption-1 muted';
+                date.textContent = f.date;
+
+                const route = document.createElement('h2');
+                route.className = 'heading-6 flight-route';
+                const from = document.createElement('span');
+                from.textContent = f.from;
+                const arrow = document.createElement('i');
+                arrow.className = 'ph ph-airplane-in-flight';
+                arrow.setAttribute('aria-label', '飛往');
+                const to = document.createElement('span');
+                to.textContent = f.to;
+                let callsign = null;
+                if (f.from && f.to) {
+                    route.append(from, arrow, to);
+                    callsign = document.createElement('p');
+                    callsign.className = 'heading-4 flight-callsign';
+                    callsign.textContent = f.callsign;
+                } else {
+                    route.className = 'heading-4 flight-route';
+                    route.textContent = f.callsign;
+                }
+
+                const chips = document.createElement('div');
+                chips.className = 'chip-row';
+                [f.aircraft, f.registration, f.minutes ? formatMinutes(Number(f.minutes)) : null]
+                    .filter(Boolean)
+                    .forEach((text) => {
+                        const chip = document.createElement('span');
+                        chip.className = 'chip caption-1';
+                        chip.textContent = text;
+                        chips.appendChild(chip);
+                    });
+
+                card.append(date);
+                if (callsign) card.append(callsign);
+                card.append(route, chips);
+
+                if (f.v) {
+                    card.classList.add('has-detail');
+                    const badge = document.createElement('span');
+                    badge.className = 'chip chip-detail caption-1';
+                    badge.innerHTML = '<i class="ph ph-chart-line-up" aria-hidden="true"></i>';
+                    badge.append('vAMSYS 詳細數據');
+                    chips.prepend(badge);
+
+                    const open = document.createElement('button');
+                    open.type = 'button';
+                    open.className = 'detail-link button-sm';
+                    open.innerHTML = '<span></span><i class="ph ph-arrow-right" aria-hidden="true"></i>';
+                    open.firstChild.textContent = '查看詳細數據';
+                    open.setAttribute('aria-label', `查看 ${f.callsign} ${f.date} 的詳細數據`);
+                    open.addEventListener('click', () => openDetail(f, open));
+                    card.appendChild(open);
+                }
+
+                list.appendChild(card);
+            });
+
+            if (SNAPSHOT.updated) {
+                const note = document.createElement('p');
+                note.className = 'caption-1 muted';
+                note.textContent = `連線紀錄來自 VATSIM，航線、機型和註冊號對照 vAMSYS 和 SimBrief，標有「vAMSYS 詳細數據」的航班可以點開查看軌跡和數據，整理於 ${SNAPSHOT.updated}。8 月 28 日之前的航班沒有可對照的紀錄。`;
+                list.appendChild(note);
+            }
+        }
+
+        // ---------- 航班詳細數據視窗 ----------
+        const modal = $('flightModal');
+        const fmCard = $('fmCard');
+        let lastOpener = null;
+        let trackJob = null;
+
+        function el(tag, className, text) {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        }
+
+        const ft = (n) => Math.round(n).toLocaleString('en-US');
+
+        // 標準值檢查：回傳 {std, bad}，bad 為 true 時磚塊用紅框標示
+        let flagCount = 0;
+        const num = (str) => {
+            const m = String(str || '').replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+            return m ? parseFloat(m[0]) : null;
+        };
+        function chk(value, { min, max }, std) {
+            const n = num(value);
+            if (n === null) return null;
+            const bad = (min !== undefined && n < min) || (max !== undefined && n > max);
+            if (bad) flagCount++;
+            return { std, bad };
+        }
+
+        function fmSection(title, rows) {
+            const items = rows.filter((r) => r[1]);
+            if (!items.length) return null;
+            const box = el('section', 'fm-section');
+            box.appendChild(el('h3', 'title-3', title));
+            const grid = el('div', 'fm-grid');
+            items.forEach(([label, value, check]) => {
+                const tile = el('div', 'fm-tile' + (check && check.bad ? ' bad' : ''));
+                tile.append(el('p', 'caption-1 muted', label), el('p', 'title-3', value));
+                if (check && check.std) {
+                    tile.appendChild(el('p', 'caption-1 ' + (check.bad ? 'fm-flag' : 'muted'), (check.bad ? '不符合標準，' : '標準 ') + (check.bad ? '應為 ' : '') + check.std));
+                }
+                grid.appendChild(tile);
+            });
+            box.appendChild(grid);
+            return box;
+        }
+
+        // 軌跡資料：每個點是和上一點的差值，用 36 進位存，順序為緯度、經度、高度
+        function decodeTrack(str) {
+            let prev = [0, 0, 0];
+            return str.split(';').map((seg) => {
+                const d = seg.split(',').map((x) => parseInt(x, 36));
+                prev = prev.map((v, i) => v + d[i]);
+                return { lat: prev[0] / 1000, lon: prev[1] / 1000, alt: prev[2] * 100 };
+            });
+        }
+
+        function distNm(a, b) {
+            const rad = Math.PI / 180;
+            const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+            const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+            return 2 * 3440.065 * Math.asin(Math.min(1, Math.sqrt(h)));
+        }
+
+        // 取一個好看的刻度間距，讓刻度數不超過 max
+        function niceStep(range, candidates, maxTicks) {
+            return candidates.find((c) => range / c <= maxTicks) || candidates[candidates.length - 1];
+        }
+
+        function profileSvg(pts, from, to) {
+            const W = 600, H = 272, padL = 76, padR = 24, padT = 36, padB = 52;
+            const cum = [0];
+            for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distNm(pts[i - 1], pts[i]));
+            const total = cum[cum.length - 1] || 1;
+            const peak = Math.max(...pts.map((p) => p.alt));
+            const yStep = niceStep(Math.max(peak, 1000), [1000, 2000, 5000, 10000], 7);
+            const maxAlt = Math.max(yStep, Math.ceil((peak * 1.08) / yStep) * yStep);
+            const xStep = niceStep(total, [5, 10, 20, 25, 50, 100, 200, 250, 500], 8);
+            const pw = W - padL - padR, ph = H - padT - padB;
+            const x = (d) => padL + (d / total) * pw;
+            const y = (a) => padT + (1 - Math.max(0, a) / maxAlt) * ph;
+            const NS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            svg.setAttribute('class', 'fm-profile');
+            svg.setAttribute('role', 'img');
+            svg.setAttribute('aria-label', `高度剖面圖，${from} 到 ${to}，最高 ${ft(peak)} 呎，航程約 ${Math.round(total)} 海浬`);
+            const add = (tag, attrs, text, parent) => {
+                const n = document.createElementNS(NS, tag);
+                Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+                if (text !== undefined) n.textContent = text;
+                (parent || svg).appendChild(n);
+                return n;
+            };
+            // 橫線：高度
+            for (let a = 0; a <= maxAlt; a += yStep) {
+                const gy = y(a);
+                add('line', { x1: padL, x2: W - padR, y1: gy.toFixed(1), y2: gy.toFixed(1), class: 'fm-grid-line' });
+                add('text', { x: padL - 8, y: (gy + 4).toFixed(1), 'text-anchor': 'end', class: 'fm-axis' }, ft(a));
+            }
+            // 直線：距離
+            for (let d = 0; d <= total; d += xStep) {
+                const gx = x(d);
+                add('line', { x1: gx.toFixed(1), x2: gx.toFixed(1), y1: padT, y2: padT + ph, class: 'fm-grid-line' });
+                add('text', { x: gx.toFixed(1), y: padT + ph + 16, 'text-anchor': 'middle', class: 'fm-axis' }, String(d));
+            }
+            add('text', { x: padL - 8, y: 24, 'text-anchor': 'end', class: 'fm-axis' }, '呎');
+            add('text', { x: padL + pw / 2, y: H - 6, 'text-anchor': 'middle', class: 'fm-axis' }, '飛行距離（海浬）');
+            add('text', { x: padL, y: H - 6, 'text-anchor': 'start', class: 'fm-axis fm-axis-strong' }, from);
+            add('text', { x: W - padR + 12, y: H - 6, 'text-anchor': 'end', class: 'fm-axis fm-axis-strong' }, to);
+
+            const line = pts.map((p, i) => `${x(cum[i]).toFixed(1)},${y(p.alt).toFixed(1)}`);
+            add('polygon', { points: `${x(0).toFixed(1)},${y(0).toFixed(1)} ${line.join(' ')} ${x(total).toFixed(1)},${y(0).toFixed(1)}`, class: 'fm-profile-area' });
+            add('polyline', { points: line.join(' '), class: 'fm-profile-line' });
+
+            // 最高點
+            const pi = pts.findIndex((p) => p.alt === peak);
+            const px = x(cum[pi]);
+            add('circle', { cx: px.toFixed(1), cy: y(peak).toFixed(1), r: 4, class: 'fm-rw-dot' });
+            const pAnchor = px < padL + 70 ? 'start' : px > W - 90 ? 'end' : 'middle';
+            add('text', { x: px.toFixed(1), y: (y(peak) - 9).toFixed(1), 'text-anchor': pAnchor, class: 'fm-axis fm-axis-strong' }, `最高 ${ft(peak)} 呎`);
+
+            // 指到哪裡就顯示那一點的距離和高度
+            const cursor = add('g', { class: 'fm-cursor', visibility: 'hidden' });
+            const cLine = add('line', { y1: padT, y2: padT + ph, class: 'fm-cursor-line' }, undefined, cursor);
+            const cDot = add('circle', { r: 4, class: 'fm-rw-dot' }, undefined, cursor);
+            const cText = add('text', { x: padL + 4, y: 24, 'text-anchor': 'start', class: 'fm-axis fm-axis-strong' }, '', cursor);
+            const hit = add('rect', { x: padL, y: padT, width: pw, height: ph, fill: 'transparent', class: 'fm-hit' });
+            const move = (e) => {
+                const box = svg.getBoundingClientRect();
+                const vx = ((e.clientX - box.left) / box.width) * W;
+                const d = Math.min(total, Math.max(0, ((vx - padL) / pw) * total));
+                let i = 1;
+                while (i < cum.length - 1 && cum[i] < d) i++;
+                const t = cum[i] === cum[i - 1] ? 0 : (d - cum[i - 1]) / (cum[i] - cum[i - 1]);
+                const alt = pts[i - 1].alt + (pts[i].alt - pts[i - 1].alt) * t;
+                const cx = x(d);
+                cLine.setAttribute('x1', cx.toFixed(1)); cLine.setAttribute('x2', cx.toFixed(1));
+                cDot.setAttribute('cx', cx.toFixed(1)); cDot.setAttribute('cy', y(alt).toFixed(1));
+                cText.textContent = `${Math.round(d)} 海浬，${ft(alt)} 呎`;
+                cursor.setAttribute('visibility', 'visible');
+            };
+            hit.addEventListener('pointermove', move);
+            hit.addEventListener('pointerdown', move);
+            hit.addEventListener('pointerleave', () => cursor.setAttribute('visibility', 'hidden'));
+            return svg;
+        }
+
+        // 跑道資料：開頭是跑道長、寬、離地或接地距離（呎），後面每點是沿跑道和橫向位置的差值，皆為 36 進位
+        function decodeRunway(str) {
+            const [head, ...seg] = str.split(';');
+            const [len, wid, mark] = head.split(',').map((x) => parseInt(x, 36));
+            let a = 0, c = 0;
+            const pts = seg.map((s) => {
+                const d = s.split(',').map((x) => parseInt(x, 36));
+                a += d[0]; c += d[1];
+                return { a, c };
+            });
+            return { len, wid, mark, pts };
+        }
+
+        function runwayFigure(kind, rw, name) {
+            const isArr = kind === 'arr';
+            let pts = rw.pts;
+            let cutHit = false;
+            if (isArr) {
+                // 落地後飛機滑出跑道，後面的滑行路徑不畫，只留到離開跑道的那一點
+                const ti = Math.max(0, pts.findIndex((p) => p.a >= rw.mark));
+                const lim = rw.wid / 2 + 40;
+                for (let i = ti + 1; i < pts.length; i++) {
+                    if (Math.abs(pts[i].c) > lim) { pts = pts.slice(0, i + 1); cutHit = true; break; }
+                }
+            }
+            const scalePts = cutHit ? pts.slice(0, -1) : pts;
+            const maxC = Math.max(rw.wid / 2, ...scalePts.map((p) => Math.abs(p.c)));
+            const R = [200, 400, 800, 1600].find((t) => t >= maxC * 1.15) || 1600;
+            const x0 = Math.min(0, ...scalePts.map((p) => p.a));
+            const x1 = Math.max(rw.len, ...scalePts.map((p) => p.a));
+
+            const W = 600, H = 150, padL = 12, padR = 12, padT = 28, padB = 24;
+            const ph = H - padT - padB;
+            const xs = (W - padL - padR) / (x1 - x0);
+            const ys = ph / (2 * R);
+            const cy = padT + ph / 2;
+            const X = (a) => padL + (a - x0) * xs;
+            const Y = (c) => cy + c * ys;
+
+            const NS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            svg.setAttribute('class', 'fm-rw');
+            svg.setAttribute('role', 'img');
+            svg.setAttribute('aria-label', `${isArr ? '落地' : '起飛'}跑道剖面圖，跑道 ${name || ''}，長 ${ft(rw.len)} 呎，${isArr ? '接地點' : '離地點'}距跑道頭 ${ft(rw.mark)} 呎`);
+            const add = (parent, tag, attrs, text) => {
+                const n = document.createElementNS(NS, tag);
+                Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+                if (text !== undefined) n.textContent = text;
+                parent.appendChild(n);
+                return n;
+            };
+
+            const clipId = isArr ? 'fmRwClipArr' : 'fmRwClipDep';
+            const defs = add(svg, 'defs', {});
+            const clip = add(defs, 'clipPath', { id: clipId });
+            add(clip, 'rect', { x: padL, y: padT, width: W - padL - padR, height: ph });
+
+            const g = add(svg, 'g', { 'clip-path': `url(#${clipId})` });
+            const roadTop = Y(-rw.wid / 2), roadH = rw.wid * ys;
+            add(g, 'rect', { x: X(0).toFixed(1), y: roadTop.toFixed(1), width: ((rw.len) * xs).toFixed(1), height: roadH.toFixed(1), class: 'fm-rw-road' });
+            if (isArr) {
+                add(g, 'rect', { x: X(0).toFixed(1), y: roadTop.toFixed(1), width: (Math.min(3000, rw.len) * xs).toFixed(1), height: roadH.toFixed(1), class: 'fm-rw-zone' });
+            }
+            add(g, 'line', { x1: X(0).toFixed(1), x2: X(rw.len).toFixed(1), y1: cy, y2: cy, class: 'fm-rw-center' });
+            // 跑道標線：兩端的門檻條紋，和距跑道頭 400 公尺（1,312 呎）的瞄準點大白塊
+            const mark = (a0, len, c0, wid) => add(g, 'rect', {
+                x: X(a0).toFixed(1), y: Y(c0).toFixed(1),
+                width: Math.max(1, len * xs).toFixed(1), height: Math.max(1, wid * ys).toFixed(1), class: 'fm-rw-mark-white'
+            });
+            [false, true].forEach((far) => {
+                const at = (d, l) => (far ? rw.len - d - l : d);
+                const stripe = rw.wid / 16;
+                for (let i = 0; i < 8; i++) {
+                    mark(at(20, 100), 100, -rw.wid / 2 + stripe * 0.5 + i * stripe * 2, stripe);
+                }
+                [-1, 1].forEach((side) => mark(at(1312, 197), 197, side > 0 ? 30 : -63, 33));
+            });
+            add(g, 'polyline', { points: pts.map((p) => `${X(p.a).toFixed(1)},${Y(p.c).toFixed(1)}`).join(' '), class: 'fm-rw-path' });
+
+            // 離地或接地點
+            let near = pts[0];
+            pts.forEach((p) => { if (Math.abs(p.a - rw.mark) < Math.abs(near.a - rw.mark)) near = p; });
+            const mx = X(rw.mark);
+            add(svg, 'line', { x1: mx.toFixed(1), x2: mx.toFixed(1), y1: padT - 6, y2: padT + ph, class: 'fm-rw-mark' });
+            add(svg, 'circle', { cx: mx.toFixed(1), cy: Y(near.c).toFixed(1), r: 5, class: 'fm-rw-dot' });
+            const anchor = mx < 110 ? 'start' : mx > W - 110 ? 'end' : 'middle';
+            add(svg, 'text', { x: mx.toFixed(1), y: padT - 12, 'text-anchor': anchor, class: 'fm-axis' }, `${isArr ? '接地' : '離地'} ${ft(rw.mark)} 呎`);
+
+            add(svg, 'text', { x: X(0).toFixed(1), y: H - 6, 'text-anchor': 'middle', class: 'fm-axis' }, '0');
+            add(svg, 'text', { x: X(rw.len).toFixed(1), y: H - 6, 'text-anchor': 'end', class: 'fm-axis' }, `${ft(rw.len)} 呎`);
+
+            const ratio = ys / xs;
+            const fig = el('figure', 'fm-figure');
+            fig.appendChild(svg);
+            fig.appendChild(el('p', 'caption-1 muted',
+                `Runway Profile，從上方俯視。深色是跑道，粉紅線是實際路徑，白點是${isArr ? '接地' : '離地'}位置，兩塊大白塊是瞄準點標線（距跑道頭 1,312 呎）${isArr ? '，粉紅色底是接地區（前 3,000 呎）' : ''}。橫向放大約 ${ratio >= 2 ? Math.round(ratio) : ratio.toFixed(1)} 倍，顯示範圍左右各 ${ft(R)} 呎。`));
+            return fig;
+        }
+
+        let fmMap = null, fmLayer = null;
+
+        function showTrackMap(box, pts) {
+            if (typeof L === 'undefined') { box.hidden = true; return; }
+            if (!fmMap) {
+                fmMap = L.map(box, { zoomControl: true, scrollWheelZoom: false });
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 18,
+                    attribution: 'Tiles &copy; Esri'
+                }).addTo(fmMap);
+            } else if (fmMap.getContainer() !== box) {
+                fmMap.remove();
+                fmMap = null;
+                return showTrackMap(box, pts);
+            }
+            if (fmLayer) fmLayer.remove();
+            const latlngs = pts.map((p) => [p.lat, p.lon]);
+            const dot = (ll, cls) => L.marker(ll, {
+                icon: L.divIcon({ className: 'fm-pin ' + cls, iconSize: [14, 14], iconAnchor: [7, 7] }),
+                interactive: false
+            });
+            fmLayer = L.layerGroup([
+                L.polyline(latlngs, { color: '#d6479f', weight: 3 }),
+                dot(latlngs[0], 'start'),
+                dot(latlngs[latlngs.length - 1], 'end')
+            ]).addTo(fmMap);
+            const fit = () => { fmMap.invalidateSize(); fmMap.fitBounds(L.latLngBounds(latlngs), { padding: [24, 24], animate: false }); };
+            fit();
+            setTimeout(fit, 550);
+        }
+
+        function openDetail(f, opener) {
+            const v = f.v;
+            lastOpener = opener;
+            fmCard.replaceChildren();
+            trackJob = null;
+
+            const head = el('div', 'fm-head');
+            head.appendChild(el('p', 'caption-1 muted', f.date));
+            head.appendChild(el('p', 'heading-4 flight-callsign', f.callsign));
+            const title = el('h2', 'heading-5 flight-route');
+            title.id = 'fmTitle';
+            const arrow = el('i', 'ph ph-airplane-in-flight');
+            arrow.setAttribute('aria-label', '飛往');
+            title.append(el('span', '', f.from), arrow, el('span', '', f.to));
+            head.appendChild(title);
+            const chips = el('div', 'chip-row');
+            [v.fn ? `航班編號 ${v.fn}` : null, f.aircraft, f.registration, v.score ? `總分 ${v.score}` : null].filter(Boolean)
+                .forEach((t) => chips.appendChild(el('span', 'chip caption-1', t)));
+            head.appendChild(chips);
+            fmCard.appendChild(head);
+
+            if (v.trk) {
+                const pts = decodeTrack(v.trk);
+                const mapSec = el('section', 'fm-section');
+                mapSec.appendChild(el('h3', 'title-3', '飛行軌跡'));
+                const box = el('div', 'fm-map');
+                box.setAttribute('role', 'img');
+                box.setAttribute('aria-label', `${f.from} 到 ${f.to} 的飛行軌跡地圖`);
+                mapSec.appendChild(box);
+                mapSec.appendChild(el('p', 'caption-1 muted', '粉紅色線是實際飛行的路線，經過簡化。圓點分別是起點和終點。'));
+                fmCard.appendChild(mapSec);
+                trackJob = { box, pts };
+
+                const profSec = el('section', 'fm-section');
+                profSec.appendChild(el('h3', 'title-3', '高度剖面'));
+                profSec.appendChild(profileSvg(pts, f.from, f.to));
+                profSec.appendChild(el('p', 'caption-1 muted', '把游標移到線上，或用手指滑過，可以看每一點的距離和高度。'));
+                fmCard.appendChild(profSec);
+            }
+
+            const d = v.dep || {};
+            const a = v.arr || {};
+            flagCount = 0;
+            // 擦機尾和拉平姿態上限：A320 系列手冊（FCTM）與東航 SOP，其他機型沒有手冊數值
+            const FAMILY = { A319: 'A319', A19N: 'A319', A320: 'A320', A20N: 'A320', A321: 'A321', A21N: 'A321' };
+            const LIMITS = { A319: { lift: 15.5, td: 10 }, A320: { lift: 13.5, td: 10 }, A321: { lift: 11.2, td: 7.5 } };
+            const fam = FAMILY[f.aircraft];
+            const lim = fam ? LIMITS[fam] : null;
+            const noRef = { std: '此機型沒有手冊數值，不判定', bad: false };
+            const rwaLen = num(a.td) !== null && num(a.lda) !== null ? num(a.td) + num(a.lda) : null;
+            const tdMax = rwaLen ? Math.min(3000, rwaLen / 3) : 3000;
+            const withProfile = (kind, title, rows, rwStr, rwy) => {
+                let box = fmSection(title, rows);
+                if (rwStr) {
+                    if (!box) { box = el('section', 'fm-section'); box.appendChild(el('h3', 'title-3', title)); }
+                    const fig = runwayFigure(kind, decodeRunway(rwStr), rwy);
+                    box.insertBefore(fig, box.querySelector('.fm-grid'));
+                }
+                return box;
+            };
+            [
+                fmSection('時間', [['空中時間', v.air], ['艙內時間', v.block], ['計畫時間', v.sched], ['預估時間', v.est]]),
+                withProfile('dep', `起飛${d.rwy ? '，跑道 ' + d.rwy : ''}`, [
+                    ['離地速度', d.spd],
+                    ['離地仰角', d.pitch, lim ? chk(d.pitch, { max: lim.lift }, `≤ ${lim.lift}°`) : noRef],
+                    ['滑跑距離', d.roll],
+                    ['爬升梯度', d.grad, chk(d.grad, { min: 200 }, '≥ 200 ft/NM')],
+                    ['爬升率', d.rate],
+                    ['中線偏移', d.dev]
+                ], v.rwd, d.rwy),
+                withProfile('arr', `落地${a.rwy ? '，跑道 ' + a.rwy : ''}`, [
+                    ['下沉率', a.rate, chk(a.rate, { max: 600 }, '≤ 600 fpm')],
+                    ['G 值', a.g, chk(a.g, { max: 2 }, '≤ 2.0 G')],
+                    ['接地點', a.td, chk(a.td, { min: 500, max: tdMax }, `${ft(500)} 到 ${ft(tdMax)} ft`)],
+                    ['可用著陸距離', a.lda],
+                    ['滑行距離', a.roll, num(a.lda) !== null ? chk(a.roll, { max: num(a.lda) }, `≤ ${a.lda}`) : null],
+                    ['接地速度', a.spd, { std: 'Vapp 到 Vapp + 5 kt 直到拉平，需要當次的 Vapp，不判定', bad: false }],
+                    ['接地仰角', a.pitch, lim ? chk(a.pitch, { min: -2.5, max: lim.td }, `−2.5° 到 ${lim.td}°`) : noRef]
+                ], v.rwa, a.rwy)
+            ].filter(Boolean).forEach((n) => fmCard.appendChild(n));
+            if (flagCount) chips.appendChild(el('span', 'chip chip-alert caption-1', `${flagCount} 項不符合標準`));
+
+            const notes = el('section', 'fm-section');
+            notes.appendChild(el('h3', 'title-3', '標準值說明'));
+            notes.appendChild(el('p', 'body-5 muted', '標準值來自東航 A320 標準操作程序（SOP）和 A320 系列飛行機組訓練手冊（FCTM）。手冊沒有給數字的項目，用公開資料的參考值補上並寫明。各航空公司會有出入，紅框表示這一項超出標準。'));
+            const ul = el('ul', 'fm-notes');
+            [
+                '離地仰角：FCTM 的擦機尾俯仰極限，起落架伸展時 A319 為 15.5°、A320 為 13.5°、A321 為 11.2°，A320neo 和 A321neo 沿用同系列。標準抬輪速率約每秒 3°，低於每秒 2° 要避免。',
+                '接地仰角：SOP 拉平時 PM 要報出的上限，A319 和 A320 是 10°，A321 是 7.5°，下限是 −2.5°。FCTM 的接地幾何極限是 A320 13.5°、A321 10.8°。',
+                '空中巴士 A330 和 A350 等其他機型，手冊沒有給這兩項數值，所以只列出數字，不判定。',
+                '下沉率 600 fpm、G 值 2.0：手冊沒有給一般重量的重落地數值，這是多數航空公司的通報門檻。FCTM 另外規定超重著陸接地超過 360 fpm 需要維護檢查，這裡沒有重量資料，所以沒有用它判定。',
+                '接地點：SOP 只要求在正常接地區內接地，沒有給數字。這裡用接地區定義：跑道前 3,000 呎或前三分之一（取較小），標線從 500 呎開始。',
+                '滑行距離不能超過可用著陸距離，也就是要在跑道內停下。',
+                '爬升梯度 200 ft/NM（3.3%）：ICAO 離場程序預設的最低梯度，手冊沒有給數字。',
+                '接地速度：SOP 要求維持在 Vapp 到 Vapp + 5 kt 直到拉平，穩定進近範圍是 Vapp − 5 到 Vapp + 10 kt。Vapp 要看當次的重量，這裡沒有資料，所以不判定。'
+            ].forEach((t) => ul.appendChild(el('li', 'caption-1 muted', t)));
+            notes.appendChild(ul);
+            fmCard.appendChild(notes);
+
+            if (v.route) {
+                const box = el('section', 'fm-section');
+                box.appendChild(el('h3', 'title-3', '飛行航路'));
+                box.appendChild(el('p', 'body-5 fm-route', v.route));
+                fmCard.appendChild(box);
+            }
+
+            if (v.id) {
+                const link = el('a', 'btn btn-on-light button-sm fm-link');
+                link.href = `https://vamsys.io/phoenix/flight-center/pireps/${v.id}`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.innerHTML = '<span>在 vAMSYS 查看完整紀錄</span><i class="ph ph-arrow-square-out" aria-hidden="true"></i>';
+                fmCard.append(link, el('p', 'caption-1 muted', '完整紀錄需要登入 vAMSYS 才看得到。'));
+            }
+
+            modal.classList.add('show');
+            document.documentElement.classList.add('modal-open');
+            fmCard.scrollTop = 0;
+            if (trackJob) showTrackMap(trackJob.box, trackJob.pts);
+            $('fmClose').focus();
+        }
+
+        function closeDetail() {
+            modal.classList.remove('show');
+            document.documentElement.classList.remove('modal-open');
+            if (lastOpener) lastOpener.focus();
+        }
+
+        $('fmClose').addEventListener('click', closeDetail);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeDetail(); });
+        document.addEventListener('keydown', (e) => {
+            if (!modal.classList.contains('show')) return;
+            if (e.key === 'Escape') { closeDetail(); return; }
+            if (e.key === 'Tab') {
+                const focusable = [$('fmClose'), ...fmCard.querySelectorAll('a[href]')];
+                const first = focusable[0], last = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        });
+
+        // ---------- 即時位置 ----------
+        const COMPASS = ['北', '東北', '東', '東南', '南', '西南', '西', '西北'];
+
+        function formatPos(lat, lon) {
+            const ns = lat >= 0 ? 'N' : 'S';
+            const ew = lon >= 0 ? 'E' : 'W';
+            return `${Math.abs(lat).toFixed(3)}°${ns}\n${Math.abs(lon).toFixed(3)}°${ew}`;
+        }
+
+        function formatDuration(fromIso) {
+            const mins = Math.max(0, Math.round((Date.now() - Date.parse(fromIso)) / 60000));
+            return formatMinutes(mins);
+        }
+
+        let map = null, marker = null, trail = null, trailPoints = [];
+
+        function updateMap(lat, lon, heading) {
+            const card = $('mapCard');
+            if (typeof L === 'undefined') { card.hidden = true; return; }
+            card.hidden = false;
+
+            if (!map) {
+                map = L.map('map', { zoomControl: true }).setView([lat, lon], 7);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 18,
+                    attribution: 'Tiles &copy; Esri'
+                }).addTo(map);
+                trail = L.polyline([], { color: '#d6479f', weight: 3 }).addTo(map);
+                marker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: 'plane-marker',
+                        html: '<span class="plane-arrow"></span><span class="plane-dot"></span>',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    })
+                }).addTo(map);
+            }
+
+            map.invalidateSize();
+            marker.setLatLng([lat, lon]);
+            const el = marker.getElement();
+            if (el) el.style.setProperty('--hdg', `${heading}deg`);
+
+            trailPoints.push([lat, lon]);
+            trail.setLatLngs(trailPoints);
+            map.panTo([lat, lon], { animate: !reduced.matches });
+        }
+
+        function renderLive(p, updatedAt) {
+            const fp = p.flight_plan;
+            $('liveCallsign').textContent = p.callsign;
+            $('liveRoute').textContent = fp && fp.departure && fp.arrival
+                ? `${fp.departure} 至 ${fp.arrival}${fp.aircraft_short ? '，' + fp.aircraft_short : ''}`
+                : '尚未提交飛行計畫';
+            const time = updatedAt ? new Date(updatedAt).toLocaleTimeString('zh-TW', { hour12: false }) : '';
+            $('liveMeta').textContent = `已連線 ${formatDuration(p.logon_time)}${time ? '，資料更新於 ' + time : ''}`;
+
+            const heading = ((Math.round(p.heading) % 360) + 360) % 360;
+            $('statAlt').textContent = `${Math.round(p.altitude).toLocaleString('en-US')} ft`;
+            $('statSpeed').textContent = `${Math.round(p.groundspeed)} kt`;
+            $('statHeading').textContent = `${String(heading).padStart(3, '0')}° ${COMPASS[Math.round(heading / 45) % 8]}`;
+            $('statPos').textContent = formatPos(p.latitude, p.longitude);
+
+            updateMap(p.latitude, p.longitude, heading);
+        }
+
+        // ---------- 讀取 VATSIM 即時資料 ----------
+        const FEED_URLS = ['https://data.vatsim.net/v3/vatsim-data.json'];
+
+        async function fetchFeed() {
+            let lastError;
+            for (const url of FEED_URLS) {
+                try {
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return await res.json();
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+            // 備用：從官方的狀態檔找目前的資料網址
+            try {
+                const status = await (await fetch('https://status.vatsim.net/status.json', { cache: 'no-store' })).json();
+                for (const url of status.data.v3) {
+                    if (FEED_URLS.includes(url)) continue;
+                    FEED_URLS.push(url);
+                    const res = await fetch(url, { cache: 'no-store' });
+                    if (res.ok) return await res.json();
+                }
+            } catch (err) {
+                lastError = err;
+            }
+            throw lastError || new Error('feed unavailable');
+        }
+
+        async function check() {
+            try {
+                const feed = await fetchFeed();
+                const pilot = feed.pilots.find((p) => p.cid === CONFIG.VATSIM_CID);
+                setNotice('');
+                if (pilot) {
+                    setStatus('online');
+                    renderLive(pilot, feed.general && feed.general.update_timestamp);
+                    show('live');
+                    return true;
+                }
+                setStatus('offline');
+                show('history');
+                return false;
+            } catch (err) {
+                setStatus(null);
+                setNotice('即時資料暫時讀不到，下面先顯示歷史航班。');
+                show('history');
+                return false;
+            }
+        }
+
+        async function loop() {
+            for (;;) {
+                const online = await check();
+                const wait = online ? CONFIG.POLL_ONLINE_MS : CONFIG.POLL_OFFLINE_MS;
+                await new Promise((r) => setTimeout(r, wait));
+                // 分頁在背景時暫停，回來再繼續
+                while (document.hidden) await new Promise((r) => setTimeout(r, 1000));
+            }
+        }
+
+        renderHistory();
+
+        if (CONFIG.VATSIM_CID) {
+            show('loading');
+            loop();
+        } else {
+            show('history');
+        }
+    </script>
+</body>
+</html>

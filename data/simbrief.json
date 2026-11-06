@@ -1,1 +1,23 @@
-{"ofps":[]}
+{
+ "ofps": [
+  {
+   "gen": 1793970704,
+   "callsign": "OVO502",
+   "from": "ZSSS",
+   "to": "RCSS",
+   "type": "A320",
+   "reg": "B-22AH",
+   "out": 1793973000,
+   "fromPos": [
+    31.196667,
+    121.335,
+    "Hongqiao"
+   ],
+   "toPos": [
+    25.069722,
+    121.5525,
+    "Songshan"
+   ]
+  }
+ ]
+}

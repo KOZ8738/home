@@ -1166,6 +1166,47 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     margin-bottom: var(--space-300);
 }
 
+/* 世界地圖 */
+.world-card {
+    position: relative;
+    margin-bottom: var(--space-400);
+    border-radius: var(--radius-2xl);
+    overflow: hidden;
+    background-color: var(--dark-3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.world-map {
+    height: 480px;
+    background-color: var(--dark-3);
+}
+
+.world-map .leaflet-tile-pane { filter: brightness(0.62) saturate(0.9); }
+
+.world-badge {
+    position: absolute;
+    left: var(--space-200);
+    bottom: var(--space-200);
+    z-index: 500;
+    padding: var(--space-50) var(--space-100);
+    border-radius: var(--radius-lg);
+    background-color: var(--dark-2);
+    color: var(--on-dark);
+    pointer-events: none;
+}
+
+.leaflet-tooltip.world-tip {
+    padding: var(--space-50) var(--space-100);
+    border: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--dark-2);
+    color: var(--on-dark);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    box-shadow: none;
+}
+.leaflet-tooltip.world-tip::before { display: none; }
+
 /* 篩選和搜尋 */
 .filter-bar {
     display: flex;
@@ -1514,6 +1555,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     .flights-head { align-items: flex-start; }
     .skeleton-row,
     .summary-grid { grid-template-columns: 1fr; }
+    .world-map { height: 360px; }
     .filter-grid { grid-template-columns: repeat(2, 1fr); }
     .filter-bar { padding: var(--space-200); }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }

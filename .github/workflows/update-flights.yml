@@ -1,0 +1,39 @@
+name: 更新航班資料
+
+on:
+  schedule:
+    - cron: '17 * * * *'   # 每小時一次（UTC）
+  workflow_dispatch:        # 也可以在 Actions 頁面手動按「Run workflow」
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-flights
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 抓 VATSIM 和 SimBrief，更新航班資料
+        run: node scripts/update-flights.mjs
+
+      - name: 有變動才提交
+        run: |
+          git add vatsim-history.js data/simbrief.json
+          if git diff --cached --quiet; then
+            echo "沒有變動"
+            exit 0
+          fi
+          git config user.name "flights-bot"
+          git config user.email "flights-bot@users.noreply.github.com"
+          git commit -m "更新航班資料"
+          git push

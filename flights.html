@@ -53,6 +53,12 @@
     <main class="page-main" id="main">
         <div class="flights-wrap">
 
+            <!-- 飛過的航線世界地圖 -->
+            <section class="world-card" id="worldCard" aria-label="飛過的航線地圖" hidden>
+                <div class="world-map" id="worldMap" role="img" aria-label="地圖，標出飛過的機場和航線，點機場可以篩選航班"></div>
+                <p class="world-badge caption-1" id="worldStat"></p>
+            </section>
+
             <div class="flights-head">
                 <div>
                     <h1 class="heading-4 md-heading-3">航班</h1>
@@ -220,6 +226,92 @@
             return h ? `${h} 小時 ${m} 分` : `${m} 分`;
         }
 
+        // ---------- 世界地圖：飛過的機場和航線 ----------
+        let worldMap = null, worldLayer = null;
+
+        // 大圓航線：沿球面插點，經度接續不跳號
+        function arcPoints(a, b, n = 64) {
+            const rad = Math.PI / 180;
+            const toVec = ([la, lo]) => [Math.cos(la * rad) * Math.cos(lo * rad), Math.cos(la * rad) * Math.sin(lo * rad), Math.sin(la * rad)];
+            const v1 = toVec(a), v2 = toVec(b);
+            const dot = Math.min(1, Math.max(-1, v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]));
+            const om = Math.acos(dot);
+            if (om < 1e-6) return [a, b];
+            const out = [];
+            let prevLon = a[1];
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
+                const k1 = Math.sin((1 - t) * om) / Math.sin(om), k2 = Math.sin(t * om) / Math.sin(om);
+                const x = k1 * v1[0] + k2 * v2[0], y = k1 * v1[1] + k2 * v2[1], z = k1 * v1[2] + k2 * v2[2];
+                let lon = Math.atan2(y, x) / rad;
+                while (lon - prevLon > 180) lon -= 360;
+                while (lon - prevLon < -180) lon += 360;
+                prevLon = lon;
+                out.push([Math.atan2(z, Math.hypot(x, y)) / rad, lon]);
+            }
+            return out;
+        }
+
+        function renderWorld(flights) {
+            const card = $('worldCard');
+            const AP = SNAPSHOT.airports;
+            if (typeof L === 'undefined' || !AP) { card.hidden = true; return; }
+            card.hidden = false;
+            if (!worldMap) {
+                worldMap = L.map('worldMap', {
+                    scrollWheelZoom: false, worldCopyJump: true, minZoom: 2, maxZoom: 9,
+                    zoomAnimation: !reduced.matches, fadeAnimation: !reduced.matches
+                });
+                worldMap.createPane('labels').style.zIndex = 250;
+                worldMap.getPane('labels').style.pointerEvents = 'none';
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 9, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
+                }).addTo(worldMap);
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 9, pane: 'labels'
+                }).addTo(worldMap);
+                worldLayer = L.layerGroup().addTo(worldMap);
+            }
+            worldLayer.clearLayers();
+
+            const airports = new Map(), routes = new Map();
+            flights.forEach((f) => {
+                if (!f.from || !f.to || !AP[f.from] || !AP[f.to]) return;
+                [f.from, f.to].forEach((c) => airports.set(c, (airports.get(c) || 0) + 1));
+                if (f.from === f.to) return;
+                const key = [f.from, f.to].sort().join(' ');
+                routes.set(key, (routes.get(key) || 0) + 1);
+            });
+
+            routes.forEach((n, key) => {
+                const [a, b] = key.split(' ');
+                L.polyline(arcPoints(AP[a], AP[b]), {
+                    color: '#ffffff', weight: 1.5 + Math.min(2, n * 0.25), opacity: Math.min(0.85, 0.3 + n * 0.1), interactive: false
+                }).addTo(worldLayer);
+            });
+            airports.forEach((n, code) => {
+                const dot = L.circleMarker([AP[code][0], AP[code][1]], {
+                    radius: 5 + Math.min(5, Math.sqrt(n)), color: '#ffffff', weight: 1.5, fillColor: '#ff9ed9', fillOpacity: 0.95
+                }).addTo(worldLayer);
+                dot.bindTooltip(`${code} ${AP[code][2]}，${n} 趟，點一下篩選`, { className: 'world-tip', direction: 'top' });
+                dot.on('click', () => {
+                    $('fSearch').value = code;
+                    filters.q = code;
+                    renderHistory();
+                });
+            });
+
+            $('worldStat').textContent = airports.size ? `${airports.size} 個機場，${routes.size} 條航線` : '沒有符合的航線';
+            const pts = [...airports.keys()].map((c) => [AP[c][0], AP[c][1]]);
+            const fit = () => {
+                worldMap.invalidateSize();
+                if (pts.length) worldMap.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 6, animate: false });
+                else worldMap.setView([30, 110], 3);
+            };
+            fit();
+            setTimeout(fit, 300);
+        }
+
         // ---------- 篩選和搜尋 ----------
         const filters = { q: '', type: '', from: '', to: '', year: '', month: '', shift: '', detail: '' };
         let filtersBuilt = false;
@@ -368,10 +460,12 @@
                 statTile('有詳細數據', `${flights.filter((f) => f.v).length} 趟`)
             );
 
+            try { renderWorld(flights); } catch (err) { $('worldCard').hidden = true; }
+
             const active = filtersActive();
             $('filterClear').disabled = !active;
-            const hint = (filters.type || filters.from || filters.to) ? '，選了機型或機場時，沒有航線資料的舊航班不會顯示' : '';
-            $('filterCount').textContent = active ? `符合的航班 ${flights.length} 趟，共 ${FLIGHTS.length} 趟${hint}` : `共 ${FLIGHTS.length} 趟`;
+            const hint = (filters.type || filters.from || filters.to) ? '，沒有航線資料的舊航班不會顯示' : '';
+            $('filterCount').textContent = active ? `符合的航班 ${flights.length} 趟${hint}` : '';
 
             if (flights.length === 0) {
                 const card = document.createElement('div');

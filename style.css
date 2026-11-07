@@ -437,6 +437,31 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 :root[data-theme="dark"] .theme-toggle .ph-sun { display: block; }
 :root[data-theme="dark"] .theme-toggle .ph-moon { display: none; }
 
+/* 彩蛋：連閃模式提示 */
+.strobe-toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-300);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: var(--space-100);
+    padding: var(--space-100) var(--space-300);
+    border-radius: var(--radius-lg);
+    background-color: #1f1f1f;
+    color: var(--on-dark);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, 12px);
+    transition: opacity 300ms var(--ease), transform 500ms var(--ease);
+}
+
+.strobe-toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
 /* 手機選單：整頁高的面板 */
 .nav-panel {
     display: none;

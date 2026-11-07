@@ -26,11 +26,71 @@
 
     applyTheme(readStored() || (dark.matches ? 'dark' : 'light'));
 
+    // ---------- 彩蛋：連閃模式 ----------
+    // 3 秒內連按切換鈕 8 次就會觸發；每秒最多閃 2 次（低於 WCAG 的 3 次上限），
+    // 約 6 秒後自動結束，點任意處或按任意鍵可立刻停止。
+    // 系統設定為「減少動態效果」時不會觸發。
+    const STROBE_BURST = 8;          // 要連按幾次
+    const STROBE_WINDOW = 3000;      // 在多少毫秒內
+    const STROBE_STEP = 250;         // 每隔多久換一次
+    const STROBE_STEPS = 24;         // 共換幾次（6 秒）
+    const presses = [];
+    let strobe = null;
+
+    const stopStrobe = () => {
+        if (!strobe) return;
+        clearInterval(strobe.timer);
+        document.removeEventListener('click', strobe.onClick, true);
+        document.removeEventListener('keydown', strobe.onKey, true);
+        document.removeEventListener('visibilitychange', strobe.onHide);
+        strobe.toast.classList.remove('show');
+        const toast = strobe.toast;
+        setTimeout(() => toast.remove(), 400);
+        applyTheme(strobe.origin);
+        strobe = null;
+        presses.length = 0;
+    };
+
+    const startStrobe = () => {
+        const toast = document.createElement('div');
+        toast.className = 'strobe-toast';
+        toast.setAttribute('role', 'status');
+        toast.innerHTML = '<i class="ph ph-lightning" aria-hidden="true"></i><span>連閃模式啟動，點任意處停止</span>';
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+
+        let n = 0;
+        const origin = currentTheme();
+        strobe = {
+            origin,
+            toast,
+            timer: setInterval(() => {
+                n += 1;
+                if (n > STROBE_STEPS) { stopStrobe(); return; }
+                applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+            }, STROBE_STEP),
+            onClick: (e) => { e.preventDefault(); e.stopPropagation(); stopStrobe(); },
+            onKey: () => stopStrobe(),
+            onHide: () => { if (document.hidden) stopStrobe(); }
+        };
+        document.addEventListener('click', strobe.onClick, true);
+        document.addEventListener('keydown', strobe.onKey, true);
+        document.addEventListener('visibilitychange', strobe.onHide);
+    };
+
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
             const next = currentTheme() === 'dark' ? 'light' : 'dark';
             applyTheme(next);
             try { localStorage.setItem('theme', next); } catch (e) { /* 無痕模式等情況就不記住 */ }
+
+            const now = Date.now();
+            presses.push(now);
+            while (presses.length && now - presses[0] > STROBE_WINDOW) presses.shift();
+            if (presses.length >= STROBE_BURST && !reduced.matches && !strobe) {
+                presses.length = 0;
+                startStrobe();
+            }
         });
     }
 

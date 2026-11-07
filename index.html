@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-    <link rel="stylesheet" href="style.css?v=20261107l">
+    <link rel="stylesheet" href="style.css?v=20261107m">
 </head>
 <body>
 
@@ -183,7 +183,7 @@
         <img id="miku-img" src="頭像.png" alt="">
     </button>
 
-    <script src="site.js?v=20261107l"></script>
+    <script src="site.js?v=20261107m"></script>
     <script>
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -302,8 +302,15 @@
 
             // 用 requestAnimationFrame 逐格改屬性（Safari 對「遮罩內容的 Web Animations」支援不穩，這樣最保險）
             function play(instant) {
-                if (instant) {
+                // 寫完（或被打斷）時一律收尾：拿掉遮罩、整個字完整顯示。
+                // 即使瀏覽器的 rAF 被節流、或遮罩重繪卡住，字最後也一定是完整的
+                const finish = () => {
+                    if (!svg.isConnected) return;
                     all.setAttribute('opacity', 1);
+                    t.removeAttribute('mask');
+                };
+                if (instant) {
+                    finish();
                     return Promise.resolve();
                 }
                 const total = items.reduce((n, it) => n + (it.dot ? 0 : it.len), 0);
@@ -317,9 +324,10 @@
                 const fadeAt = time, end = time + 260;
                 return new Promise((resolve) => {
                     const t0 = performance.now();
+                    const guard = setTimeout(() => { finish(); resolve(); }, end + 400);
                     const frame = (now) => {
                         const e = now - t0;
-                        if (!svg.isConnected) return resolve();   // 已被下一個字換掉
+                        if (!svg.isConnected) { clearTimeout(guard); return resolve(); }   // 已被下一個字換掉
                         for (const it of items) {
                             if (it.done) continue;
                             const k = Math.min(Math.max((e - it.t) / it.dur, 0), 1);
@@ -329,7 +337,7 @@
                         }
                         all.setAttribute('opacity', Math.min(Math.max((e - fadeAt) / 260, 0), 1));
                         if (e < end) requestAnimationFrame(frame);
-                        else resolve();
+                        else { clearTimeout(guard); finish(); resolve(); }
                     };
                     requestAnimationFrame(frame);
                 });

@@ -69,7 +69,7 @@
     --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.12);
 
     /* 導覽列永遠是深色的小方塊；手機選單面板跟著主題 */
-    --nav-bg: rgba(31, 31, 31, 0.92);
+    --nav-bg: rgba(24, 24, 24, 0.72);
     --nav-border: #313131;
     --panel-bg: rgba(224, 224, 224, 0.94);
     --hover-bg: #f4f4f4;
@@ -111,7 +111,7 @@
 
     --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.45);
 
-    --nav-bg: rgba(39, 39, 39, 0.85);
+    --nav-bg: rgba(39, 39, 39, 0.72);
     --nav-border: #404040;
     --panel-bg: rgba(24, 24, 24, 0.94);
     --hover-bg: #272727;
@@ -153,7 +153,7 @@
 
         --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.45);
 
-        --nav-bg: rgba(39, 39, 39, 0.85);
+        --nav-bg: rgba(39, 39, 39, 0.72);
         --nav-border: #404040;
         --panel-bg: rgba(24, 24, 24, 0.94);
         --hover-bg: #272727;
@@ -333,23 +333,25 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     pointer-events: auto;
     display: flex;
     align-items: center;
-    gap: var(--space-400);
+    gap: var(--space-50);
     width: fit-content;
     max-width: 100%;
-    padding: var(--space-75);
+    padding: var(--space-50);
     border: 1px solid var(--nav-border);
     border-radius: var(--radius-2xl);
     background-color: var(--nav-bg);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
     color: var(--on-dark);
 }
 
 .brand,
 .nav-link {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: var(--space-75);
     padding: var(--space-75) var(--space-100);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     text-decoration: none;
     transition: color 300ms var(--ease), background-color 300ms var(--ease), transform 300ms var(--ease);
 }
@@ -377,6 +379,15 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     background-color: var(--nav-current);
 }
 
+.nav-link[aria-current="page"]::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background-color: var(--accent);
+}
+
 .brand:active,
 .nav-link:active { transform: translateY(1px); }
 
@@ -389,7 +400,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     margin-left: auto;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     background-color: transparent;
     color: var(--on-dark);
     cursor: pointer;
@@ -424,7 +435,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     height: 40px;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     background-color: transparent;
     color: var(--on-dark);
     font-size: 1.25rem;
@@ -442,7 +453,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     position: fixed;
     left: 50%;
     bottom: var(--space-300);
-    z-index: 200;
+    z-index: 9999;
     display: flex;
     align-items: center;
     gap: var(--space-100);
@@ -466,7 +477,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 .blackout {
     position: fixed;
     inset: 0;
-    z-index: 300;
+    z-index: 10000;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -626,15 +637,37 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 .pin-text-hello { opacity: 1; }
 .pin-text-name { opacity: 0; }
 
+/* 首頁 Hello：Macintosh Skeletal Filled 手寫字型（裁成只含輪播用到的字，授權與來源見 fonts/LICENSE-macintosh-skeletal.txt） */
+@font-face {
+    font-family: "Macintosh Skeletal Filled";
+    src: url("fonts/macintosh-skeletal-hello.woff") format("woff");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 .hero-hello {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 3.75rem; /* 固定高度，換字時下面的標題不會跳動 */
     color: var(--hero-accent);
+    font-family: "Macintosh Skeletal Filled", "Manrope", sans-serif;
+    font-weight: 400;        /* 手寫字的粗細是字型本身決定的，不要讓瀏覽器假粗體 */
+    font-synthesis: none;
 }
 
 #helloWord { display: block; }
+
+/* 手寫動畫的 SVG：字的視覺高度比容器高，上下超出的部分是空白，不擋點擊 */
+.hello-svg {
+    display: block;
+    height: 6.5rem;
+    width: auto;
+    max-width: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
 
 /* 主視覺標題：由左到右的文字漸層（只用在文字，不用在背景） */
 .gradient-heading {
@@ -1385,6 +1418,16 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 }
 
 .world-map .leaflet-tile-pane { filter: brightness(0.62) saturate(0.9); }
+/* 地圖右下角的資料來源（Esri 要求要顯示，所以只調小調淡） */
+.leaflet-container .leaflet-control-attribution {
+    padding: 0 var(--space-50);
+    border-radius: var(--radius-sm);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.625rem;
+    line-height: 1.5;
+}
+
 .map-card .leaflet-tile-pane,
 .fm-map .leaflet-tile-pane { filter: var(--map-filter); }
 .fm-map.is-sat .leaflet-tile-pane { filter: none; }

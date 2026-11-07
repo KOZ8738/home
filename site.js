@@ -27,13 +27,13 @@
     applyTheme(readStored() || (dark.matches ? 'dark' : 'light'));
 
     // ---------- 彩蛋：連閃模式 ----------
-    // 3 秒內連按切換鈕 8 次就會觸發；每秒最多閃 2 次（低於 WCAG 的 3 次上限），
-    // 約 6 秒後自動結束，點任意處或按任意鍵可立刻停止。
+    // 3 秒內連按切換鈕 8 次就會觸發；每秒最多閃 3 次（WCAG 的上限，不要再調快），
+    // 約 12 秒後自動結束，點任意處或按任意鍵可立刻停止。
     // 系統設定為「減少動態效果」時不會觸發。
     const STROBE_BURST = 8;          // 要連按幾次
     const STROBE_WINDOW = 3000;      // 在多少毫秒內
-    const STROBE_STEP = 250;         // 每隔多久換一次
-    const STROBE_STEPS = 24;         // 共換幾次（6 秒）
+    const STROBE_STEP = 180;         // 每隔多久換一次（每秒約 2.8 次閃，不超過 3 次上限）
+    const STROBE_STEPS = 66;         // 共換幾次（約 12 秒）
     const presses = [];
     let strobe = null;
 

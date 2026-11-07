@@ -17,7 +17,7 @@ VATSIM_CID = "1931319"
 # 允許讀取軌跡的網站（改成你自己的網址）
 ALLOWED_ORIGINS = "https://koz8738.com,https://www.koz8738.com"
 
-# 先執行 `npx wrangler kv namespace create TRAIL`，把印出來的 id 貼到下面
+# KV 已經建好（名稱 flight-trail-TRAIL）
 [[kv_namespaces]]
 binding = "TRAIL"
-id = "把這裡換成 kv namespace 的 id"
+id = "03f3687d6f1644ecb2feb6113f778699"

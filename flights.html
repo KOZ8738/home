@@ -906,8 +906,8 @@
             if (fmMap) { fmMap.remove(); fmMap = null; }
             fmMap = L.map(box, { zoomControl: true, scrollWheelZoom: true });
             fmMap.attributionControl.setPrefix(false);
-            const street = L.tileLayer(ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
-            const sat = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+            const street = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+            const sat = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 17, maxZoom: 19, attribution: 'Imagery &copy; Esri' });
             fmBase = null;
             const setBase = (kind) => {
                 if (fmBase === kind) return;
@@ -1203,10 +1203,15 @@
             if (!map) {
                 map = L.map('map', { zoomControl: true }).setView([lat, lon], 7);
                 map.attributionControl.setPrefix(false);
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 18,
-                    attribution: 'Tiles &copy; Esri'
+                // Esri 街道圖在中國大陸放大後會顯示「Map data not yet available」，改用 OSM 資料的 CARTO 底圖；衛星圖可切換
+                const liveStreet = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    subdomains: 'abcd', maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
                 }).addTo(map);
+                const liveSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxNativeZoom: 17, maxZoom: 19, attribution: 'Imagery &copy; Esri'
+                });
+                L.control.layers({ '街道': liveStreet, '衛星': liveSat }, null, { position: 'topright', collapsed: true }).addTo(map);
                 estLine = L.polyline([], { color: '#d6479f', weight: 3, opacity: 0.6, dashArray: '2 8' }).addTo(map);
                 restLine = L.polyline([], { color: '#8a8a8a', weight: 2, opacity: 0.8, dashArray: '4 8' }).addTo(map);
                 trail = L.polyline([], { color: '#d6479f', weight: 3 }).addTo(map);

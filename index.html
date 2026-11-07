@@ -293,9 +293,10 @@
             mask.appendChild(all);
             svg.appendChild(svgEl('defs', {})).appendChild(mask);
             const rtl = lang === 'ar' || lang === 'he';
+            const maskRef = `url(#${id})`;
             const t = svgEl('text', {
                 x: 1300, y: 520, 'text-anchor': 'middle', 'font-size': 300,
-                fill: 'currentColor', lang, direction: rtl ? 'rtl' : 'ltr', mask: `url(#${id})`
+                fill: 'currentColor', lang, direction: rtl ? 'rtl' : 'ltr', mask: maskRef
             });
             t.textContent = text;
             svg.appendChild(t);
@@ -336,6 +337,8 @@
                             if (k === 1) it.done = true;
                         }
                         all.setAttribute('opacity', Math.min(Math.max((e - fadeAt) / 260, 0), 1));
+                        // 部分 Windows Chrome 在遮罩內容改變後不會重繪：每格重新套用一次遮罩，強迫它更新
+                        t.setAttribute('mask', maskRef);
                         if (e < end) requestAnimationFrame(frame);
                         else { clearTimeout(guard); finish(); resolve(); }
                     };

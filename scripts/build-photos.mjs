@@ -109,8 +109,21 @@ async function readInfo(file, ext) {
 }
 
 // 檔名裡有日期的話也認得，例如 20240512、2024-05-12、IMG_20240512_1830
+const pad = (n) => String(n).padStart(2, '0');
 function dateFromName(name) {
-    const m = /(20\d{2})[-_.]?([01]\d)[-_.]?([0-3]\d)(?:[-_. T]?([0-2]\d)([0-5]\d)([0-5]\d)?)?/.exec(name);
+    // Windows / Xbox Game Bar 英文格式：8_11_2026 6_33_29 AM（月_日_年）
+    let m = /(\d{1,2})_(\d{1,2})_(20\d{2}) (\d{1,2})_(\d\d)_(\d\d) ?(AM|PM)/i.exec(name);
+    if (m) {
+        let h = Number(m[4]) % 12 + (m[7].toUpperCase() === 'PM' ? 12 : 0);
+        return `${m[3]}-${pad(m[1])}-${pad(m[2])}T${pad(h)}:${m[5]}:${m[6]}`;
+    }
+    // 中文格式：2026_5_2 下午 11_29_05（年_月_日）
+    m = /(20\d{2})_(\d{1,2})_(\d{1,2}) (上午|下午) (\d{1,2})_(\d\d)_(\d\d)/.exec(name);
+    if (m) {
+        let h = Number(m[5]) % 12 + (m[4] === '下午' ? 12 : 0);
+        return `${m[1]}-${pad(m[2])}-${pad(m[3])}T${pad(h)}:${m[6]}:${m[7]}`;
+    }
+    m = /(20\d{2})[-_.]?([01]\d)[-_.]?([0-3]\d)(?:[-_. T]?([0-2]\d)([0-5]\d)([0-5]\d)?)?/.exec(name);
     if (!m) return null;
     return `${m[1]}-${m[2]}-${m[3]}T${m[4] || '00'}:${m[5] || '00'}:${m[6] || '00'}`;
 }

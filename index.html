@@ -387,7 +387,7 @@
             try {
                 const [faces, res] = await Promise.all([
                     document.fonts.load(FONT_Q, HELLOS.map((h) => h[0]).join('')),
-                    fetch('fonts/hello-strokes.json?v=20261107l')
+                    fetch('fonts/hello-strokes.json?v=20261107n')
                 ]);
                 if (!res.ok || !faces.length) throw new Error('hello assets');
                 const data = await res.json();

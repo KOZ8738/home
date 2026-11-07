@@ -26,7 +26,9 @@
 
     applyTheme(readStored() || (dark.matches ? 'dark' : 'light'));
 
-    // ---------- 彩蛋：連閃模式 ----------
+    // ---------- 彩蛋：連閃模式／燈泡壞掉 ----------
+    // 3 秒內連按切換鈕 8 次，會隨機觸發其中一個（一次只會有一個）：
+    //   連閃模式：黑白快速交替；燈泡壞掉：閃兩下之後整頁變黑，點一下換新燈泡。
     // 3 秒內連按切換鈕 8 次就會觸發；每秒最多閃 3 次（WCAG 的上限，不要再調快），
     // 約 12 秒後自動結束，點任意處或按任意鍵可立刻停止。
     // 系統設定為「減少動態效果」時不會觸發。
@@ -73,9 +75,72 @@
             onKey: () => stopStrobe(),
             onHide: () => { if (document.hidden) stopStrobe(); }
         };
-        document.addEventListener('click', strobe.onClick, true);
-        document.addEventListener('keydown', strobe.onKey, true);
         document.addEventListener('visibilitychange', strobe.onHide);
+        // 剛觸發時使用者還在狂按，晚一點才開始接受「點任意處停止」
+        const s = strobe;
+        setTimeout(() => {
+            if (strobe !== s) return;
+            document.addEventListener('click', s.onClick, true);
+            document.addEventListener('keydown', s.onKey, true);
+        }, 800);
+    };
+
+    // ---- 燈泡壞掉 ----
+    let blackout = null;
+
+    const stopBlackout = () => {
+        if (!blackout) return;
+        const b = blackout;
+        blackout = null;
+        b.timers.forEach(clearTimeout);
+        document.removeEventListener('click', b.onClick, true);
+        document.removeEventListener('keydown', b.onKey, true);
+        b.el.classList.add('leaving');
+        b.el.classList.remove('show');
+        setTimeout(() => b.el.remove(), 400);
+        presses.length = 0;
+    };
+
+    const startBlackout = () => {
+        const el = document.createElement('div');
+        el.className = 'blackout';
+        el.setAttribute('role', 'status');
+        el.innerHTML = '<i class="ph ph-lightbulb-filament" aria-hidden="true"></i>' +
+            '<p class="title-1">燈泡壞掉了</p><p class="body-3">點任意處換新燈泡</p>';
+        document.body.appendChild(el);
+
+        const timers = [];
+        const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+        const on = () => el.classList.add('show');
+        const off = () => el.classList.remove('show');
+
+        // 閃兩下再熄滅（每秒不超過 3 次閃）。減少動態效果時直接熄滅。
+        if (reduced.matches) {
+            at(0, on);
+        } else {
+            at(0, on); at(350, off); at(700, on); at(900, off); at(1250, on);
+        }
+        at(2000, () => el.classList.add('hint'));
+        at(14000, stopBlackout);   // 沒人理它，十幾秒後自己修好
+
+        blackout = {
+            el,
+            timers,
+            onClick: (e) => { e.preventDefault(); e.stopPropagation(); stopBlackout(); },
+            onKey: () => stopBlackout()
+        };
+        const b = blackout;
+        at(1500, () => {
+            if (blackout !== b) return;
+            document.addEventListener('click', b.onClick, true);
+            document.addEventListener('keydown', b.onKey, true);
+        });
+    };
+
+    const startEgg = () => {
+        // 減少動態效果：不閃，只留燈泡壞掉
+        if (reduced.matches || Math.random() < 0.5) startBlackout();
+        else startStrobe();
     };
 
     if (themeBtn) {
@@ -87,9 +152,9 @@
             const now = Date.now();
             presses.push(now);
             while (presses.length && now - presses[0] > STROBE_WINDOW) presses.shift();
-            if (presses.length >= STROBE_BURST && !reduced.matches && !strobe) {
+            if (presses.length >= STROBE_BURST && !strobe && !blackout) {
                 presses.length = 0;
-                startStrobe();
+                startEgg();
             }
         });
     }

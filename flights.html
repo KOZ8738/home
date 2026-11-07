@@ -9,7 +9,7 @@
     <meta property="og:title" content="航班 | koz的主頁" />
     <meta property="og:description" content="koz8738 的航班：連線飛行時顯示即時位置、高度、速度和航向，沒有連線時顯示歷史航班。" />
     <link rel="icon" href="頭像.png" type="image/png">
-    <script>document.documentElement.classList.add('js');</script>
+    <script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
@@ -31,9 +31,10 @@
                     <li><a class="nav-link title-3" href="game.html">遊戲庫</a></li>
                     <li><a class="nav-link title-3" href="photos.html">攝影集</a></li>
                     <li><a class="nav-link title-3" href="flights.html" aria-current="page">航班</a></li>
-                    <li><a class="nav-link title-3" href="index.html#find-me">在其他地方找到我</a></li>
+                    <li><time class="nav-clock title-3" data-utc-clock aria-label="UTC 時間">UTC 00:00:00</time></li>
                 </ul>
             </nav>
+            <button class="theme-toggle" type="button" aria-label="切換成深色模式"><i class="ph ph-moon" aria-hidden="true"></i><i class="ph ph-sun" aria-hidden="true"></i></button>
             <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
                 <span class="line"></span><span class="line"></span>
             </button>
@@ -46,7 +47,7 @@
             <li style="--i:1"><a class="title-1" href="game.html">遊戲庫</a></li>
             <li style="--i:2"><a class="title-1" href="photos.html">攝影集</a></li>
             <li style="--i:3"><a class="title-1" href="flights.html" aria-current="page">航班</a></li>
-            <li style="--i:4"><a class="title-1" href="index.html#find-me">在其他地方找到我</a></li>
+            <li style="--i:4"><time class="nav-panel-clock title-1" data-utc-clock aria-label="UTC 時間">UTC 00:00:00</time></li>
         </ul>
     </nav>
 
@@ -259,7 +260,7 @@
             card.hidden = false;
             if (!worldMap) {
                 worldMap = L.map('worldMap', {
-                    scrollWheelZoom: false, worldCopyJump: true, minZoom: 2, maxZoom: 9,
+                    scrollWheelZoom: true, worldCopyJump: true, minZoom: 2, maxZoom: 9,
                     zoomAnimation: !reduced.matches, fadeAnimation: !reduced.matches
                 });
                 worldMap.createPane('labels').style.zIndex = 250;
@@ -796,41 +797,173 @@
 
             const ratio = ys / xs;
             const fig = el('figure', 'fm-figure');
+            fig.appendChild(el('h4', 'title-4', '跑道剖面'));
             fig.appendChild(svg);
             fig.appendChild(el('p', 'caption-1 muted',
                 `Runway Profile，從上方俯視。深色是跑道，粉紅線是實際路徑，白點是${isArr ? '接地' : '離地'}位置，兩塊大白塊是瞄準點標線（距跑道頭 1,312 呎）${isArr ? '，粉紅色底是接地區（前 3,000 呎）' : ''}。橫向放大約 ${ratio >= 2 ? Math.round(ratio) : ratio.toFixed(1)} 倍，顯示範圍左右各 ${ft(R)} 呎。`));
             return fig;
         }
 
-        let fmMap = null, fmLayer = null;
-
-        function showTrackMap(box, pts) {
-            if (typeof L === 'undefined') { box.hidden = true; return; }
-            if (!fmMap) {
-                fmMap = L.map(box, { zoomControl: true, scrollWheelZoom: false });
-                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 18,
-                    attribution: 'Tiles &copy; Esri'
-                }).addTo(fmMap);
-            } else if (fmMap.getContainer() !== box) {
-                fmMap.remove();
-                fmMap = null;
-                return showTrackMap(box, pts);
-            }
-            if (fmLayer) fmLayer.remove();
-            const latlngs = pts.map((p) => [p.lat, p.lon]);
-            const dot = (ll, cls) => L.marker(ll, {
-                icon: L.divIcon({ className: 'fm-pin ' + cls, iconSize: [14, 14], iconAnchor: [7, 7] }),
-                interactive: false
+        // 機場地面軌跡：每點是和上一點的差值（36 進位），順序為緯度、經度（1e-5 度，約 1 公尺）、地速（節）、秒
+        function decodeGround(str) {
+            let la = 0, lo = 0, t = 0;
+            return str.split(';').map((seg) => {
+                const d = seg.split(',').map((x) => parseInt(x, 36));
+                la += d[0]; lo += d[1]; t += d[3];
+                return { lat: la / 1e5, lon: lo / 1e5, gs: d[2], t };
             });
-            fmLayer = L.layerGroup([
-                L.polyline(latlngs, { color: '#d6479f', weight: 3 }),
-                dot(latlngs[0], 'start'),
-                dot(latlngs[latlngs.length - 1], 'end')
-            ]).addTo(fmMap);
-            const fit = () => { fmMap.invalidateSize(); fmMap.fitBounds(L.latLngBounds(latlngs), { padding: [24, 24], animate: false }); };
-            fit();
-            setTimeout(fit, 550);
+        }
+
+        const mmss = (sec) => {
+            const s = Math.max(0, Math.round(sec));
+            return s >= 60 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${s} 秒`;
+        };
+
+        // 滑行的範圍：起飛是從起點到開始滑跑（地速達 35 節），落地是從減速到 35 節以下到停妥
+        function groundAnalysis(kind, pts) {
+            const isArr = kind === 'arr';
+            let from = 0, to = pts.length - 1;
+            if (isArr) {
+                for (let i = pts.length - 1; i >= 0; i--) { if (pts[i].gs > 35) { from = i; break; } }
+            } else {
+                const r = pts.findIndex((p) => p.gs >= 35);
+                if (r > 0) to = r;
+            }
+            let dist = 0, maxGs = 0;
+            for (let i = from + 1; i <= to; i++) {
+                dist += distNm(pts[i - 1], pts[i]);
+                if (isArr || i < to) maxGs = Math.max(maxGs, pts[i].gs);
+            }
+            // 停等：位置幾乎沒動，但下一點隔了 25 秒以上
+            const stops = [];
+            for (let i = Math.max(from, isArr ? from : 1); i < to; i++) {
+                const dt = pts[i + 1].t - pts[i].t;
+                if (dt >= 25 && distNm(pts[i], pts[i + 1]) * 1852 < 15) stops.push({ i, sec: dt });
+            }
+            return { from, to, time: pts[to].t - pts[from].t, dist, maxGs, stops };
+        }
+
+        // 機場地面段：解碼、分析，並備好地圖要用的座標
+        function prepGround(kind, str) {
+            if (!str) return null;
+            const pts = decodeGround(str);
+            const info = groundAnalysis(kind, pts);
+            return { kind, pts, info, ll: pts.map((p) => [p.lat, p.lon]) };
+        }
+
+        // 滑行數據的小節：地圖已經整合在上面的飛行軌跡裡
+        function groundFigure(g) {
+            const isArr = g.kind === 'arr';
+            const { info } = g;
+            const fig = el('figure', 'fm-figure');
+            fig.appendChild(el('h4', 'title-4', '機場滑行'));
+            fig.appendChild(el('p', 'caption-1 muted',
+                `${isArr ? '落地後' : '起飛前'}的滑行路線畫在上面的飛行軌跡地圖裡，按「${isArr ? '落地機場' : '起飛機場'}」可以放大到衛星圖。` +
+                '停等是位置沒有動超過 25 秒。'));
+            const grid = el('div', 'fm-grid');
+            [
+                [isArr ? '滑行時間' : '滑行到起飛線', mmss(info.time)],
+                ['滑行距離', `${info.dist.toFixed(1)} 海里`],
+                ['最高滑行速度', `${info.maxGs} kt`],
+                ['停等', info.stops.length ? `${info.stops.length} 次，共 ${mmss(info.stops.reduce((a, s) => a + s.sec, 0))}` : '沒有']
+            ].forEach(([label, value]) => {
+                const tile = el('div', 'fm-tile');
+                tile.append(el('p', 'caption-1 muted', label), el('p', 'title-3', value));
+                grid.appendChild(tile);
+            });
+            fig.appendChild(grid);
+            return fig;
+        }
+
+        // 整條路線：起飛機場的高精度滑行段 + 中段的簡化軌跡 + 落地機場的高精度滑行段
+        function mergedRoute(pts, ground) {
+            let route = pts.map((p) => ({ lat: p.lat, lon: p.lon }));
+            const dep = ground.dep, arr = ground.arr;
+            const radius = (g, o) => Math.max(...g.pts.map((p) => distNm(o, p))) + 0.3;
+            if (dep) {
+                const o = dep.pts[0], r = radius(dep, o);
+                let k = 0;
+                while (k < route.length && distNm(o, route[k]) <= r) k++;
+                route = dep.pts.map((p) => ({ lat: p.lat, lon: p.lon })).concat(route.slice(k));
+            }
+            if (arr) {
+                const e = arr.pts[arr.pts.length - 1], r = radius(arr, e);
+                let k = route.length;
+                while (k > 0 && distNm(e, route[k - 1]) <= r) k--;
+                route = route.slice(0, k).concat(arr.pts.map((p) => ({ lat: p.lat, lon: p.lon })));
+            }
+            return route.map((p) => [p.lat, p.lon]);
+        }
+
+        let fmMap = null, fmLayer = null, fmBase = null;
+        const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/';
+
+        function showTrackMap(box, pts, ground, tools) {
+            if (typeof L === 'undefined') { box.hidden = true; if (tools) tools.hidden = true; return; }
+            if (fmMap) { fmMap.remove(); fmMap = null; }
+            fmMap = L.map(box, { zoomControl: true, scrollWheelZoom: true });
+            const street = L.tileLayer(ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+            const sat = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+            fmBase = null;
+            const setBase = (kind) => {
+                if (fmBase === kind) return;
+                if (fmBase) fmMap.removeLayer(fmBase === 'sat' ? sat : street);
+                (kind === 'sat' ? sat : street).addTo(fmMap);
+                fmBase = kind;
+                box.classList.toggle('is-sat', kind === 'sat');
+            };
+            setBase('street');
+            if (fmLayer) fmLayer.remove();
+            const route = (ground.dep || ground.arr) ? mergedRoute(pts, ground) : pts.map((p) => [p.lat, p.lon]);
+            const dot = (ll, cls, tip) => {
+                const mk = L.marker(ll, {
+                    icon: L.divIcon({ className: 'fm-pin ' + cls, iconSize: [14, 14], iconAnchor: [7, 7] }),
+                    interactive: !!tip, keyboard: false
+                });
+                return tip ? mk.bindTooltip(tip, { direction: 'top', offset: [0, -8] }) : mk;
+            };
+            const layers = [
+                L.polyline(route, { color: '#000000', weight: 6, opacity: 0.35, lineJoin: 'round' }),
+                L.polyline(route, { color: '#d6479f', weight: 3, lineJoin: 'round' }),
+                dot(route[0], 'start', '起點'),
+                dot(route[route.length - 1], 'end', '終點')
+            ];
+            ['dep', 'arr'].forEach((k) => {
+                const g = ground[k];
+                if (!g) return;
+                g.info.stops.forEach((st) => {
+                    layers.push(L.marker([g.pts[st.i].lat, g.pts[st.i].lon], {
+                        icon: L.divIcon({ className: 'fm-pin fm-stop', iconSize: [10, 10], iconAnchor: [5, 5] }),
+                        keyboard: false
+                    }).bindTooltip(`停等 ${mmss(st.sec)}`, { direction: 'top', offset: [0, -6] }));
+                });
+            });
+            fmLayer = L.layerGroup(layers).addTo(fmMap);
+
+            let target = null;
+            const fitTo = (ll, maxZoom) => {
+                fmMap.invalidateSize();
+                fmMap.fitBounds(L.latLngBounds(ll), { padding: [24, 24], maxZoom, animate: false });
+            };
+            const go = (which) => {
+                target = which;
+                if (which === 'all') { setBase('street'); fitTo(route, 12); } else { setBase('sat'); fitTo(ground[which].ll, 18); }
+                if (tools) tools.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.go === which)));
+            };
+            if (tools) {
+                tools.replaceChildren();
+                [['all', '全航程'], ['dep', '起飛機場'], ['arr', '落地機場']].forEach(([key, label]) => {
+                    if (key !== 'all' && !ground[key]) return;
+                    const b = el('button', 'chip fm-tool caption-1', label);
+                    b.type = 'button';
+                    b.dataset.go = key;
+                    b.addEventListener('click', () => go(key));
+                    tools.appendChild(b);
+                });
+                tools.hidden = tools.children.length < 2;
+            }
+            go('all');
+            setTimeout(() => { if (target) go(target); }, 550);
         }
 
         function openDetail(f, opener) {
@@ -838,6 +971,8 @@
             lastOpener = opener;
             fmCard.replaceChildren();
             trackJob = null;
+
+            const ground = { dep: prepGround('dep', v.gd), arr: prepGround('arr', v.ga) };
 
             const head = el('div', 'fm-head');
             head.appendChild(el('p', 'caption-1 muted', f.date));
@@ -861,10 +996,13 @@
                 const box = el('div', 'fm-map');
                 box.setAttribute('role', 'img');
                 box.setAttribute('aria-label', `${f.from} 到 ${f.to} 的飛行軌跡地圖`);
-                mapSec.appendChild(box);
-                mapSec.appendChild(el('p', 'caption-1 muted', '粉紅色線是實際飛行的路線，經過簡化。圓點分別是起點和終點。'));
+                const tools = el('div', 'fm-map-tools');
+                mapSec.append(tools, box);
+                mapSec.appendChild(el('p', 'caption-1 muted', (ground.dep || ground.arr)
+                    ? '粉紅線是實際走過的路線：兩端的機場滑行段精度約 1 公尺，中段經過簡化。按上面的按鈕可以放大到機場，看滑行路線。白點是停等超過 25 秒的地方，圓點分別是起點和終點。'
+                    : '粉紅色線是實際飛行的路線，經過簡化。圓點分別是起點和終點。'));
                 fmCard.appendChild(mapSec);
-                trackJob = { box, pts };
+                trackJob = { box, pts, ground, tools };
 
                 const profSec = el('section', 'fm-section');
                 profSec.appendChild(el('h3', 'title-3', '高度剖面'));
@@ -884,12 +1022,17 @@
             const noRef = { std: '此機型沒有手冊數值，不判定', bad: false };
             const rwaLen = num(a.td) !== null && num(a.lda) !== null ? num(a.td) + num(a.lda) : null;
             const tdMax = rwaLen ? Math.min(3000, rwaLen / 3) : 3000;
-            const withProfile = (kind, title, rows, rwStr, rwy) => {
+            const withProfile = (kind, title, rows, rwStr, rwy, g) => {
                 let box = fmSection(title, rows);
-                if (rwStr) {
+                if (rwStr || g) {
                     if (!box) { box = el('section', 'fm-section'); box.appendChild(el('h3', 'title-3', title)); }
-                    const fig = runwayFigure(kind, decodeRunway(rwStr), rwy);
-                    box.insertBefore(fig, box.querySelector('.fm-grid'));
+                    // 起飛：先滑行再上跑道；落地：先在跑道上再滑行
+                    // 起飛：滑行圖、跑道圖、數據；落地：跑道圖、數據、滑行圖
+                    const grid = box.querySelector(':scope > .fm-grid');
+                    const before = (fig) => (grid ? box.insertBefore(fig, grid) : box.appendChild(fig));
+                    if (kind === 'dep' && g) before(groundFigure(g));
+                    if (rwStr) before(runwayFigure(kind, decodeRunway(rwStr), rwy));
+                    if (kind === 'arr' && g) box.appendChild(groundFigure(g));
                 }
                 return box;
             };
@@ -902,7 +1045,7 @@
                     ['爬升梯度', d.grad, chk(d.grad, { min: 200 }, '≥ 200 ft/NM')],
                     ['爬升率', d.rate],
                     ['中線偏移', d.dev]
-                ], v.rwd, d.rwy),
+                ], v.rwd, d.rwy, ground.dep),
                 withProfile('arr', `落地${a.rwy ? '，跑道 ' + a.rwy : ''}`, [
                     ['下沉率', a.rate, chk(a.rate, { max: 600 }, '≤ 600 fpm')],
                     ['G 值', a.g, chk(a.g, { max: 2 }, '≤ 2.0 G')],
@@ -911,7 +1054,7 @@
                     ['滑行距離', a.roll, num(a.lda) !== null ? chk(a.roll, { max: num(a.lda) }, `≤ ${a.lda}`) : null],
                     ['接地速度', a.spd, { std: 'Vapp 到 Vapp + 5 kt 直到拉平，需要當次的 Vapp，不判定', bad: false }],
                     ['接地仰角', a.pitch, lim ? chk(a.pitch, { min: -2.5, max: lim.td }, `−2.5° 到 ${lim.td}°`) : noRef]
-                ], v.rwa, a.rwy)
+                ], v.rwa, a.rwy, ground.arr)
             ].filter(Boolean).forEach((n) => fmCard.appendChild(n));
             if (flagCount) chips.appendChild(el('span', 'chip chip-alert caption-1', `${flagCount} 項不符合標準`));
 
@@ -951,7 +1094,9 @@
             modal.classList.add('show');
             document.documentElement.classList.add('modal-open');
             fmCard.scrollTop = 0;
-            if (trackJob) showTrackMap(trackJob.box, trackJob.pts);
+            if (trackJob) {
+                try { showTrackMap(trackJob.box, trackJob.pts, trackJob.ground, trackJob.tools); } catch (e) { trackJob.box.hidden = true; trackJob.tools.hidden = true; }
+            }
             $('fmClose').focus();
         }
 

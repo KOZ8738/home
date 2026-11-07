@@ -1,0 +1,38 @@
+# 請把這個檔案移到 .github/workflows/build-photos.yml
+# 作用：photos/ 底下有新增或刪除照片時，自動重建 data/photos.json 和縮圖
+name: Build photo index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'photos/realworld/**'
+      - 'photos/sim/**'
+      - 'photos/horizon/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 要讀 git 歷史才知道每張照片是哪天加入的
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install sharp
+        run: npm install --no-save sharp
+      - name: Build index and thumbnails
+        run: node scripts/build-photos.mjs
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data photos
+          git diff --cached --quiet || git commit -m "Update photo index"
+          git pull --rebase origin main
+          git push

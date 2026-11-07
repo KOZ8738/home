@@ -9,7 +9,7 @@
     <meta property="og:title" content="攝影集 | koz的主頁" />
     <meta property="og:description" content="koz8738 的攝影集，分成 Real World、模飛和地平線系列三個系列。" />
     <link rel="icon" href="頭像.png" type="image/png">
-    <script>document.documentElement.classList.add('js');</script>
+    <script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
@@ -30,9 +30,10 @@
                     <li><a class="nav-link title-3" href="game.html">遊戲庫</a></li>
                     <li><a class="nav-link title-3" href="photos.html" aria-current="page">攝影集</a></li>
                     <li><a class="nav-link title-3" href="flights.html">航班</a></li>
-                    <li><a class="nav-link title-3" href="index.html#find-me">在其他地方找到我</a></li>
+                    <li><time class="nav-clock title-3" data-utc-clock aria-label="UTC 時間">UTC 00:00:00</time></li>
                 </ul>
             </nav>
+            <button class="theme-toggle" type="button" aria-label="切換成深色模式"><i class="ph ph-moon" aria-hidden="true"></i><i class="ph ph-sun" aria-hidden="true"></i></button>
             <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
                 <span class="line"></span><span class="line"></span>
             </button>
@@ -45,7 +46,7 @@
             <li style="--i:1"><a class="title-1" href="game.html">遊戲庫</a></li>
             <li style="--i:2"><a class="title-1" href="photos.html" aria-current="page">攝影集</a></li>
             <li style="--i:3"><a class="title-1" href="flights.html">航班</a></li>
-            <li style="--i:4"><a class="title-1" href="index.html#find-me">在其他地方找到我</a></li>
+            <li style="--i:4"><time class="nav-panel-clock title-1" data-utc-clock aria-label="UTC 時間">UTC 00:00:00</time></li>
         </ul>
     </nav>
 

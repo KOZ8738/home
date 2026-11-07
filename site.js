@@ -1,9 +1,46 @@
-// 各頁共用：手機選單、捲動揭露、回到頂部
+// 各頁共用：淺色／深色模式、手機選單、捲動揭露、回到頂部
 (() => {
     'use strict';
 
     const root = document.documentElement;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    // ---------- 淺色／深色模式 ----------
+    // 沒手動選過就跟著系統；手動選過就記在這個瀏覽器
+    const themeBtn = document.querySelector('.theme-toggle');
+    const dark = window.matchMedia('(prefers-color-scheme: dark)');
+    const readStored = () => {
+        try {
+            const v = localStorage.getItem('theme');
+            return v === 'light' || v === 'dark' ? v : null;
+        } catch (e) { return null; }
+    };
+    const applyTheme = (theme) => {
+        root.setAttribute('data-theme', theme);
+        if (themeBtn) {
+            themeBtn.setAttribute('aria-label', theme === 'dark' ? '切換成淺色模式' : '切換成深色模式');
+        }
+        document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
+    };
+    const currentTheme = () => (root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+    applyTheme(readStored() || (dark.matches ? 'dark' : 'light'));
+
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+            const next = currentTheme() === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            try { localStorage.setItem('theme', next); } catch (e) { /* 無痕模式等情況就不記住 */ }
+        });
+    }
+
+    dark.addEventListener('change', (e) => {
+        if (!readStored()) applyTheme(e.matches ? 'dark' : 'light');
+    });
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'theme') applyTheme(readStored() || (dark.matches ? 'dark' : 'light'));
+    });
 
     // ---------- 手機選單 ----------
     const toggle = document.querySelector('.nav-toggle');
@@ -42,6 +79,22 @@
         window.matchMedia('(min-width: 769px)').addEventListener('change', (e) => {
             if (e.matches) setMenu(false);
         });
+    }
+
+    // ---------- 上橫幅的 UTC 時鐘 ----------
+    const clocks = document.querySelectorAll('[data-utc-clock]');
+    if (clocks.length) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const tick = () => {
+            const d = new Date();
+            const text = `UTC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+            clocks.forEach((el) => {
+                el.textContent = text;
+                el.setAttribute('datetime', d.toISOString());
+            });
+        };
+        tick();
+        setInterval(tick, 1000);
     }
 
     // ---------- 捲動揭露：每個區塊只播放一次 ----------

@@ -17,9 +17,11 @@ workers_dev = false
 [triggers]
 crons = ["* * * * *"]
 
+# 下面的 VATSIM_CID、ALLOWED_ORIGINS 和上面 routes 的網域，是從根目錄的 site-config.json 抄過來的
+# （Cloudflare 只看這個資料夾，讀不到根目錄）。要改請改 site-config.json，再執行 node scripts/sync-shared.mjs
 [vars]
 VATSIM_CID = "1931319"
-# 允許讀取軌跡的網站（改成你自己的網址）
+# 允許讀取軌跡的網站
 ALLOWED_ORIGINS = "https://koz8738.com,https://www.koz8738.com"
 
 # KV 已經建好（名稱 flight-trail-TRAIL）

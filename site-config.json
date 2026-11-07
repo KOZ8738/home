@@ -1,0 +1,71 @@
+{
+  "_說明": "整個網站的設定都在這一個檔案。改完後執行 node scripts/sync-shared.mjs，會自動更新 config.js、各頁的 <head>、導覽列、頁尾、?v= 版本碼、sitemap.xml 和 workers/flight-trail/wrangler.toml 裡對應的值。",
+
+  "siteUrl": "https://koz8738.com",
+  "siteName": "koz的主頁",
+  "locale": "zh_TW",
+
+  "vatsimCid": 1931319,
+  "simbriefId": 1159663,
+  "trailBase": "https://trail.koz8738.com",
+
+  "ogImage": "og-image.png",
+  "ogImageAlt": "koz8738 的個人主頁：遊戲庫、攝影集與航班紀錄",
+  "themeColor": { "light": "#e0e0e0", "dark": "#181818" },
+
+  "pages": [
+    {
+      "file": "index.html",
+      "path": "/",
+      "title": "koz的主頁",
+      "description": "koz8738 的個人主頁：自我介紹、海岸航空與北極星航空的簡歷，以及攝影集。",
+      "nav": "index.html"
+    },
+    {
+      "file": "game.html",
+      "path": "/game.html",
+      "title": "遊戲庫 | koz的主頁",
+      "description": "koz8738 的遊戲庫：微軟模擬飛行 2024、地平線系列、歐洲卡車模擬、Star Citizen、首都高バトル和 blender 的遊玩紀錄。",
+      "nav": "game.html"
+    },
+    {
+      "file": "photos.html",
+      "path": "/photos.html",
+      "title": "攝影集 | koz的主頁",
+      "description": "koz8738 的攝影集，分成 Real World、模飛和地平線系列三個系列。",
+      "nav": "photos.html"
+    },
+    {
+      "file": "album.html",
+      "path": "/album.html",
+      "title": "相簿 | koz的主頁",
+      "description": "koz8738 攝影集裡各個系列的照片。",
+      "nav": "photos.html",
+      "canonical": false,
+      "sitemap": ["/album.html?s=realworld", "/album.html?s=sim", "/album.html?s=horizon"]
+    },
+    {
+      "file": "flights.html",
+      "path": "/flights.html",
+      "title": "航班 | koz的主頁",
+      "description": "koz8738 的航班：連線飛行時顯示即時位置、高度、速度和航向，沒有連線時顯示歷史航班。",
+      "nav": "flights.html"
+    },
+    {
+      "file": "404.html",
+      "path": "/404.html",
+      "title": "找不到頁面 | koz的主頁",
+      "description": "這個網址沒有對應的頁面。",
+      "nav": null,
+      "absolute": true,
+      "noindex": true
+    }
+  ],
+
+  "navLinks": [
+    { "href": "index.html", "label": "主頁" },
+    { "href": "game.html", "label": "遊戲庫" },
+    { "href": "photos.html", "label": "攝影集" },
+    { "href": "flights.html", "label": "航班" }
+  ]
+}

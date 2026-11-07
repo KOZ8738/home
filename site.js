@@ -20,6 +20,10 @@
         if (themeBtn) {
             themeBtn.setAttribute('aria-label', theme === 'dark' ? '切換成淺色模式' : '切換成深色模式');
         }
+        // 手機瀏覽器的網址列顏色跟著頁面背景（顏色取自 style.css 的 --bg）
+        const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta && bg) themeMeta.setAttribute('content', bg);
         document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
     };
     const currentTheme = () => (root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');

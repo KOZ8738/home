@@ -45,16 +45,8 @@ KV 已經建好並寫進 `wrangler.toml`（id `03f3687d…`），可以跳過下
 6. 同一頁 Domains & Routes → Add → Custom domain：填 `trail.koz8738.com`。
 
 ## 接到網頁
-把 `https://trail.koz8738.com/trail` 填進 `flights.html` 的設定：
-
-```js
-const CONFIG = {
-    VATSIM_CID: 1931319,
-    TRAIL_URL: 'https://trail.koz8738.com/trail',
-    LIVE_URL: 'https://trail.koz8738.com/live',
-    ...
-};
-```
+網址和會員編號都寫在根目錄的 `site-config.json`（`trailBase`、`vatsimCid`），執行 `node scripts/sync-shared.mjs` 後會寫進網頁讀的 `config.js`，航班頁再用 `trailBase + '/trail'` 和 `trailBase + '/live'`。
+同一個腳本也會把 `VATSIM_CID`、`ALLOWED_ORIGINS` 和 `routes` 的網域抄進這個資料夾的 `wrangler.toml`（Cloudflare 只看這個資料夾，讀不到根目錄的設定），所以這三個值不要直接改 `wrangler.toml`。
 
 `LIVE_URL` 讀不到（Worker 當機、還沒部署）時，網頁會自動退回直接讀 VATSIM 全球資料，並且 2 分鐘內不再重試 Worker。
 

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://koz8738.com/sitemap.xml

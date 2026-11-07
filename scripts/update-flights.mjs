@@ -5,12 +5,14 @@
 // vAMSYS 的詳細數據（軌跡、跑道剖面）沒有公開介面，不在這裡更新。
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 
-const CID = 1931319;
-const SIMBRIEF_ID = 1159663;
+// 會員編號和 SimBrief 編號統一寫在 site-config.json（不要在這裡另外寫一份）
+const SITE = JSON.parse(readFileSync(new URL('../site-config.json', import.meta.url), 'utf8'));
+const CID = SITE.vatsimCid;
+const SIMBRIEF_ID = SITE.simbriefId;
 const DATA_FILE = process.env.DATA_FILE || 'vatsim-history.js';
 const STORE_FILE = process.env.STORE_FILE || 'data/simbrief.json';
 const MERGE_GAP_MS = 60 * 60 * 1000;
-const HEADER = '// VATSIM 飛行紀錄快照（CID 1931319），資料來源：api.vatsim.net、SimBrief 飛行歷史與 vAMSYS PIREP。\n' +
+const HEADER = `// VATSIM 飛行紀錄快照（CID ${CID}），資料來源：api.vatsim.net、SimBrief 飛行歷史與 vAMSYS PIREP。\n` +
     '// 同一個呼號、中斷時間不超過 60 分鐘的連線合併成一趟。由 .github/workflows/update-flights.yml 定時更新。\n';
 
 async function getJson(url) {

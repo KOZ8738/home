@@ -1,0 +1,23 @@
+    <a class="skip-link" href="#main">跳到主要內容</a>
+
+    <!-- 上橫幅：浮動導覽列 -->
+    <header class="site-header">
+        <div class="nav-bar">
+            <a class="brand title-1" href="index.html">koz8738</a>
+            <nav class="nav-desktop" aria-label="主要導覽">
+                <ul class="nav-links">
+{{NAV_DESKTOP}}
+                </ul>
+            </nav>
+            <button class="theme-toggle" type="button" aria-label="切換成深色模式"><i class="ph ph-moon" aria-hidden="true"></i><i class="ph ph-sun" aria-hidden="true"></i></button>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
+                <span class="line"></span><span class="line"></span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="nav-panel" id="nav-panel" aria-label="行動版選單" inert>
+        <ul class="nav-panel-links">
+{{NAV_MOBILE}}
+        </ul>
+    </nav>

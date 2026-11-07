@@ -1,0 +1,199 @@
+// ========= 系列設定 =========
+// 照片不用手動登記：把圖片丟進對應資料夾就會自動出現
+//   photos/realworld/  現實攝影
+//   photos/sim/        模飛
+//   photos/horizon/    地平線系列
+// 清單由 data/photos.json 提供（GitHub Actions 或 node scripts/build-photos.mjs 產生）
+const SERIES = {
+    realworld: { title: 'Real World', sub: '現實攝影', photos: [] },
+    sim: { title: '模飛', sub: '模擬飛行', photos: [] },
+    horizon: { title: '地平線系列', sub: 'Horizon series', photos: [] }
+};
+const REPO = 'KOZ8738/home';
+// ============================
+
+const params = new URLSearchParams(location.search);
+const key = params.get('s');
+const series = Object.prototype.hasOwnProperty.call(SERIES, key) ? SERIES[key] : null;
+const grid = document.getElementById('photoGrid');
+const stateBox = document.getElementById('albumState');
+let current = 0;
+
+// 空狀態與錯誤狀態共用的卡片
+function showState(iconClass, title, text) {
+    const card = document.createElement('div');
+    card.className = 'state-card';
+
+    const icon = document.createElement('div');
+    icon.className = 'state-icon';
+    icon.innerHTML = '<i class="ph ' + iconClass + '" aria-hidden="true"></i>';
+
+    const h = document.createElement('h2');
+    h.className = 'heading-6';
+    h.textContent = title;
+
+    const p = document.createElement('p');
+    p.className = 'body-3';
+    p.textContent = text;
+
+    const back = document.createElement('a');
+    back.className = 'btn btn-back btn-on-light button-md';
+    back.href = 'photos.html';
+    back.innerHTML = '<i class="ph ph-arrow-left" aria-hidden="true"></i><span>返回攝影集</span>';
+
+    card.append(icon, h, p, back);
+    stateBox.replaceChildren(card);
+}
+
+// 先讀 data/photos.json；讀不到或這個系列是空的，就直接問 GitHub 資料夾裡有什麼
+async function loadPhotos(k) {
+    try {
+        const r = await fetch('data/photos.json', { cache: 'no-cache' });
+        if (r.ok) {
+            const j = await r.json();
+            const list = j.series && j.series[k];
+            if (list && list.length) return list;
+        }
+    } catch (e) { /* 往下走備援 */ }
+    try {
+        const r = await fetch('https://api.github.com/repos/' + REPO + '/contents/photos/' + k);
+        if (r.ok) {
+            const files = await r.json();
+            return files
+                .filter((f) => f.type === 'file' && /\.(jpe?g|png|webp|avif|gif)$/i.test(f.name))
+                .sort((x, y) => y.name.localeCompare(x.name, 'en', { numeric: true }))
+                .map((f) => ({ src: 'photos/' + k + '/' + f.name }));
+        }
+    } catch (e) { /* 離線或被限流 */ }
+    return [];
+}
+
+function render() {
+    series.photos.forEach((p, i) => {
+        const a = document.createElement('a');
+        a.className = 'photo-item is-loading';
+        a.href = encodeURI(p.src);
+        if (p.w && p.h) a.style.aspectRatio = p.w + ' / ' + p.h;
+
+        const img = new Image();
+        img.alt = series.title + ' 第 ' + (i + 1) + ' 張';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        if (p.w && p.h) { img.width = p.w; img.height = p.h; }
+        img.addEventListener('load', () => a.classList.remove('is-loading'));
+        img.addEventListener('error', () => {
+            // 縮圖不見時退回原圖，原圖也失敗才顯示錯誤
+            if (p.thumb && img.dataset.fallback !== '1') {
+                img.dataset.fallback = '1';
+                img.src = encodeURI(p.src);
+                return;
+            }
+            a.classList.remove('is-loading');
+            a.classList.add('is-error');
+            a.removeAttribute('href');
+            a.style.aspectRatio = '';
+            const msg = document.createElement('span');
+            msg.className = 'body-6';
+            msg.textContent = '這張照片載入失敗。請確認檔名和資料夾路徑是否正確。';
+            a.replaceChildren(msg);
+        });
+        img.src = encodeURI(p.thumb || p.src);
+
+        a.appendChild(img);
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!a.classList.contains('is-error')) openLb(i);
+        });
+        grid.appendChild(a);
+    });
+}
+
+if (!series) {
+    document.getElementById('albumTitle').textContent = '找不到這個系列';
+    showState('ph-warning-circle', '網址裡的系列名稱不正確',
+        '請回到攝影集，從三個系列裡選一個再進來。');
+} else {
+    document.title = series.title + ' | koz的主頁';
+    document.getElementById('albumTitle').textContent = series.title;
+    document.getElementById('albumSub').textContent = series.sub;
+    grid.setAttribute('aria-busy', 'true');
+
+    loadPhotos(key).then((list) => {
+        grid.removeAttribute('aria-busy');
+        series.photos = list;
+        if (list.length === 0) {
+            showState('ph-image', '這個系列還沒有照片',
+                '照片整理好之後會放在這裡。你可以先回攝影集看看其他系列。');
+        } else {
+            document.getElementById('albumSub').textContent = series.sub + ' · ' + list.length + ' 張';
+            render();
+        }
+    });
+}
+
+// 大圖瀏覽
+const lb = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbClose = document.getElementById('lbClose');
+const lbPrev = document.getElementById('lbPrev');
+const lbNext = document.getElementById('lbNext');
+let lastFocus = null;
+
+function openLb(i) {
+    const photos = series.photos;
+    current = i;
+    lbImg.src = encodeURI(photos[i].src);
+    [i - 1, i + 1].forEach((j) => {
+        const q = photos[(j + photos.length) % photos.length];
+        if (q) new Image().src = encodeURI(q.src);
+    });
+    lbImg.alt = series.title + ' 第 ' + (i + 1) + ' 張';
+    const single = photos.length < 2;
+    lbPrev.hidden = single;
+    lbNext.hidden = single;
+
+    if (!lb.classList.contains('show')) {
+        lastFocus = document.activeElement;
+        lb.classList.add('show');
+        document.documentElement.classList.add('modal-open');
+        lbClose.focus();
+    }
+}
+
+function closeLb() {
+    lb.classList.remove('show');
+    document.documentElement.classList.remove('modal-open');
+    if (lastFocus) lastFocus.focus();
+}
+
+function step(d) {
+    const n = series.photos.length;
+    openLb((current + d + n) % n);
+}
+
+lbClose.addEventListener('click', closeLb);
+lbPrev.addEventListener('click', () => step(-1));
+lbNext.addEventListener('click', () => step(1));
+lb.addEventListener('click', (e) => { if (e.target === lb) closeLb(); });
+
+document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('show')) return;
+
+    if (e.key === 'Escape') closeLb();
+    if (e.key === 'ArrowLeft' && !lbPrev.hidden) step(-1);
+    if (e.key === 'ArrowRight' && !lbNext.hidden) step(1);
+
+    // 焦點只在大圖裡的按鈕之間輪流
+    if (e.key === 'Tab') {
+        const btns = [lbClose, lbPrev, lbNext].filter((b) => !b.hidden);
+        const first = btns[0];
+        const last = btns[btns.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
+});

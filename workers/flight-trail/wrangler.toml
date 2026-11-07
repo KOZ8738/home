@@ -2,15 +2,16 @@ name = "flight-trail"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
-# 每分鐘跑一次，記錄你在線上時的位置
-[triggers]
-crons = ["* * * * *"]
-
 # 綁在你自己的網域（網域已在 Cloudflare，部署時會自動建立 DNS 紀錄）
-# 注意：trail.koz8738.com 這個名稱底下不能已經有別的 DNS 紀錄
+# 注意：1. 這個設定必須放在所有 [區段] 之前，不然會被當成區段裡的欄位而失效
+#       2. trail.koz8738.com 這個名稱底下不能已經有別的 DNS 紀錄
 routes = [
   { pattern = "trail.koz8738.com", custom_domain = true }
 ]
+
+# 每分鐘跑一次，記錄你在線上時的位置
+[triggers]
+crons = ["* * * * *"]
 
 [vars]
 VATSIM_CID = "1931319"

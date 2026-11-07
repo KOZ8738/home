@@ -114,6 +114,7 @@
                 <div class="map-card" id="mapCard">
                     <div id="map" role="img" aria-label="飛機目前位置的地圖"></div>
                 </div>
+                <p class="caption-2 muted" id="trailNote" hidden>實線是這個瀏覽器記錄到的軌跡，虛線是依起降機場推估的航線（頁面開啟前飛過的部分沒有真實紀錄）。</p>
             </section>
 
             <!-- 不在線：歷史航班 -->
@@ -1134,8 +1135,44 @@
         }
 
         let map = null, marker = null, trail = null, trailPoints = [];
+        let estLine = null, restLine = null, trailId = null;
 
-        function updateMap(lat, lon, heading) {
+        // ---- 軌跡：存在這個瀏覽器的 localStorage，重新整理或關掉再開都還在 ----
+        // 以「呼號＋起降機場」當作同一趟飛行；超過 3 小時沒更新就當成新的一趟
+        const TRAIL_KEY = 'liveTrail.v1';
+        const TRAIL_MAX_AGE = 3 * 3600 * 1000;
+        const TRAIL_MAX_POINTS = 4000;
+
+        function loadTrail(id) {
+            try {
+                const s = JSON.parse(localStorage.getItem(TRAIL_KEY));
+                if (s && s.id === id && Date.now() - s.updated < TRAIL_MAX_AGE && Array.isArray(s.pts)) return s.pts;
+            } catch (err) { /* 沒有或壞掉就當作空的 */ }
+            return [];
+        }
+
+        function saveTrail(id, pts) {
+            try { localStorage.setItem(TRAIL_KEY, JSON.stringify({ id, updated: Date.now(), pts })); } catch (err) { /* 無痕模式等 */ }
+        }
+
+        // 兩點之間的大圓航線（地球上的最短路徑，在地圖上看起來是彎的）
+        function greatCircle(a, b, n = 48) {
+            const r = Math.PI / 180;
+            const [la1, lo1, la2, lo2] = [a[0] * r, a[1] * r, b[0] * r, b[1] * r];
+            const d = 2 * Math.asin(Math.sqrt(Math.sin((la2 - la1) / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin((lo2 - lo1) / 2) ** 2));
+            if (!(d > 1e-4)) return [a, b];
+            const out = [];
+            for (let i = 0; i <= n; i++) {
+                const f = i / n, A = Math.sin((1 - f) * d) / Math.sin(d), B = Math.sin(f * d) / Math.sin(d);
+                const x = A * Math.cos(la1) * Math.cos(lo1) + B * Math.cos(la2) * Math.cos(lo2);
+                const y = A * Math.cos(la1) * Math.sin(lo1) + B * Math.cos(la2) * Math.sin(lo2);
+                const z = A * Math.sin(la1) + B * Math.sin(la2);
+                out.push([Math.atan2(z, Math.hypot(x, y)) / r, Math.atan2(y, x) / r]);
+            }
+            return out;
+        }
+
+        function updateMap(lat, lon, heading, info) {
             const card = $('mapCard');
             if (typeof L === 'undefined') { card.hidden = true; return; }
             card.hidden = false;
@@ -1147,6 +1184,8 @@
                     maxZoom: 18,
                     attribution: 'Tiles &copy; Esri'
                 }).addTo(map);
+                estLine = L.polyline([], { color: '#d6479f', weight: 3, opacity: 0.6, dashArray: '2 8' }).addTo(map);
+                restLine = L.polyline([], { color: '#8a8a8a', weight: 2, opacity: 0.8, dashArray: '4 8' }).addTo(map);
                 trail = L.polyline([], { color: '#d6479f', weight: 3 }).addTo(map);
                 marker = L.marker([lat, lon], {
                     icon: L.divIcon({
@@ -1163,8 +1202,35 @@
             const el = marker.getElement();
             if (el) el.style.setProperty('--hdg', `${heading}deg`);
 
-            trailPoints.push([lat, lon]);
-            trail.setLatLngs(trailPoints);
+            // 換了一趟飛行就重新載入（或清空）軌跡
+            const id = `${info.callsign}|${info.dep || ''}|${info.arr || ''}`;
+            if (id !== trailId) { trailId = id; trailPoints = loadTrail(id); }
+            const last = trailPoints[trailPoints.length - 1];
+            if (!last || Math.abs(last[0] - lat) > 0.0005 || Math.abs(last[1] - lon) > 0.0005) {
+                trailPoints.push([+lat.toFixed(4), +lon.toFixed(4)]);
+                if (trailPoints.length > TRAIL_MAX_POINTS) trailPoints = trailPoints.filter((_, i) => i % 2 === 0 || i === trailPoints.length - 1);
+            }
+            saveTrail(id, trailPoints);
+
+            // 虛線：起飛機場到「記錄的第一個點」（頁面開啟前飛過的部分，用大圓推估）；目前位置到目的地
+            const ap = (c) => { const a = c && SNAPSHOT.airports && SNAPSHOT.airports[c]; return a ? [a[0], a[1]] : null; };
+            const D = ap(info.dep), A = ap(info.arr);
+            const est = D ? greatCircle(D, trailPoints[0]) : [];
+            const rest = A ? greatCircle(trailPoints[trailPoints.length - 1], A) : [];
+            // 跨換日線時把經度接成連續的，再整組對齊到飛機標記所在的那一圈地圖
+            const all = [...est, ...trailPoints, ...rest].map((q) => [q[0], q[1]]);
+            for (let i = 1; i < all.length; i++) {
+                while (all[i][1] - all[i - 1][1] > 180) all[i][1] -= 360;
+                while (all[i][1] - all[i - 1][1] < -180) all[i][1] += 360;
+            }
+            const cur = est.length + trailPoints.length - 1;
+            const shift = Math.round((lon - all[cur][1]) / 360) * 360;
+            all.forEach((q) => { q[1] += shift; });
+            estLine.setLatLngs(all.slice(0, est.length));
+            trail.setLatLngs(all.slice(est.length, cur + 1));
+            restLine.setLatLngs(all.slice(cur));
+            $('trailNote').hidden = !(est.length || rest.length);
+
             map.panTo([lat, lon], { animate: !reduced.matches });
         }
 
@@ -1183,7 +1249,11 @@
             $('statHeading').textContent = `${String(heading).padStart(3, '0')}° ${COMPASS[Math.round(heading / 45) % 8]}`;
             $('statPos').textContent = formatPos(p.latitude, p.longitude);
 
-            updateMap(p.latitude, p.longitude, heading);
+            updateMap(p.latitude, p.longitude, heading, {
+                callsign: p.callsign,
+                dep: fp && fp.departure,
+                arr: fp && fp.arrival
+            });
         }
 
         // ---------- 讀取 VATSIM 即時資料 ----------

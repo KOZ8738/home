@@ -665,6 +665,7 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     height: 6.5rem;
     width: auto;
     max-width: 100%;
+    object-fit: contain;
     overflow: visible;
     pointer-events: none;
 }

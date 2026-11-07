@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-    <link rel="stylesheet" href="style.css?v=20261107m">
+    <link rel="stylesheet" href="style.css?v=20261107p">
 </head>
 <body>
 
@@ -183,7 +183,7 @@
         <img id="miku-img" src="頭像.png" alt="">
     </button>
 
-    <script src="site.js?v=20261107m"></script>
+    <script src="site.js?v=20261107p"></script>
     <script>
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -241,79 +241,98 @@
         let heroVisible = true;
 
         // ---- 手寫動畫 ----
-        // 每個字的筆畫（中線座標）存在 fonts/hello-strokes.json。做法：字用 SVG <text> 畫出來，
-        // 再蓋一層遮罩，遮罩裡的筆畫沿路徑逐段「畫出來」，字就跟著一筆一畫顯現。
-        // 資料或字型載入失敗時，自動退回舊的淡入淡出。
-        const SVGNS = 'http://www.w3.org/2000/svg';
-        const FONT_Q = '300px "Macintosh Skeletal Filled"';
+        // 每個字預先轉成一張透明圖（fonts/hello-words/N.png），筆畫的中線座標存在 fonts/hello-strokes.json。
+        // 用 canvas 畫：先把「已寫到的筆畫」畫成遮罩，再用遮罩去裁字的圖片，所以字是一筆一畫顯現的。
+        // 不依賴瀏覽器的字型排版、也不用 SVG 遮罩，各平台結果一致。圖片或資料載入失敗時，退回淡入淡出。
         const WRITE_SPEED = 1.5;   // 筆速（座標單位／毫秒）
         const WRITE_MAX = 2200;    // 一個字最久寫多久（毫秒）
         const PEN_GAP = 40;        // 換筆停頓（毫秒）
         let strokeData = null;
-        let maskSeq = 0;
+        const wordImgs = [];
 
-        const svgEl = (name, attrs) => {
-            const node = document.createElementNS(SVGNS, name);
-            for (const k in attrs) node.setAttribute(k, attrs[k]);
-            return node;
-        };
+        function getImg(i) {
+            if (!wordImgs[i]) {
+                wordImgs[i] = new Promise((resolve, reject) => {
+                    const im = new Image();
+                    im.onload = () => resolve(im);
+                    im.onerror = () => { wordImgs[i] = null; reject(new Error('hello img')); };
+                    im.src = `fonts/hello-words/${i}.png?v=20261107p`;
+                });
+            }
+            return wordImgs[i];
+        }
 
-        // 建立某個字的 SVG，回傳 { svg, play }；play(instant) 會跑一遍書寫動畫並回傳 Promise
-        function buildHello(i) {
-            const [text, lang] = HELLOS[i];
+        let redrawHello = null;   // 目前畫面上那個字的重畫函式（換深淺色時要用）
+
+        // 建立某個字的 canvas，回傳 { canvas, play }；play(instant) 會跑一遍書寫動畫並回傳 Promise
+        function buildHello(i, img) {
             const wd = strokeData.words[i];
             const [y0, y1] = strokeData.y;
             const [x0, x1] = wd.x;
-            const id = `hm${++maskSeq}`;
-            const svg = svgEl('svg', {
-                class: 'hello-svg', viewBox: `${x0} ${y0} ${x1 - x0} ${y1 - y0}`,
-                'aria-hidden': 'true', focusable: 'false'
-            });
-            const mask = svgEl('mask', { id, maskUnits: 'userSpaceOnUse', x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
-            const items = wd.p.map((p) => {
-                if (typeof p[0] === 'number') {
-                    const c = svgEl('circle', { cx: p[0], cy: p[1], r: p[2] / 2, fill: '#fff', opacity: 0 });
-                    mask.appendChild(c);
-                    return { node: c, dot: true };
-                }
-                const [d, w, len] = p;
-                // 起點多退一個筆頭半徑，這樣還沒寫之前起點不會先冒出一個圓點；
-                // 虛線的空白也要夠長，短筆畫才不會在尾端又露出下一段虛線
-                const start = 1 + (w / 2) / len + 0.05;
-                const path = svgEl('path', {
-                    d, pathLength: 1, fill: 'none', stroke: '#fff', 'stroke-width': w,
-                    'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-                    'stroke-dasharray': `1 ${(start + 2).toFixed(3)}`, 'stroke-dashoffset': start
-                });
-                mask.appendChild(path);
-                return { node: path, len, start };
-            });
-            // 最後整個字淡入補滿，確保骨架沒描到的細節也會出現
-            const all = svgEl('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: '#fff', opacity: 0 });
-            mask.appendChild(all);
-            svg.appendChild(svgEl('defs', {})).appendChild(mask);
-            const rtl = lang === 'ar' || lang === 'he';
-            const maskRef = `url(#${id})`;
-            const t = svgEl('text', {
-                x: 1300, y: 520, 'text-anchor': 'middle', 'font-size': 300,
-                fill: 'currentColor', lang, direction: rtl ? 'rtl' : 'ltr', mask: maskRef
-            });
-            t.textContent = text;
-            svg.appendChild(t);
+            const vw = x1 - x0, vh = y1 - y0;
+            const dpr = Math.min(window.devicePixelRatio || 1, 3);
+            const cssH = parseFloat(getComputedStyle(document.documentElement).fontSize) * 6.5;
+            const H = Math.round(cssH * dpr), W = Math.round(H * vw / vh);
+            const sc = W / vw;
 
-            // 用 requestAnimationFrame 逐格改屬性（Safari 對「遮罩內容的 Web Animations」支援不穩，這樣最保險）
-            function play(instant) {
-                // 寫完（或被打斷）時一律收尾：拿掉遮罩、整個字完整顯示。
-                // 即使瀏覽器的 rAF 被節流、或遮罩重繪卡住，字最後也一定是完整的
-                const finish = () => {
-                    if (!svg.isConnected) return;
-                    all.setAttribute('opacity', 1);
-                    t.removeAttribute('mask');
-                };
-                if (instant) {
-                    finish();
-                    return Promise.resolve();
+            const canvas = document.createElement('canvas');
+            canvas.className = 'hello-svg';
+            canvas.width = W; canvas.height = H;
+            canvas.setAttribute('aria-hidden', 'true');
+            const ctx = canvas.getContext('2d');
+            const mask = document.createElement('canvas');
+            mask.width = W; mask.height = H;
+            const mctx = mask.getContext('2d');
+
+            const items = wd.p.map((p) => (typeof p[0] === 'number'
+                ? { dot: true, x: p[0], y: p[1], w: p[2], k: 0 }
+                : { path: new Path2D(p[0]), w: p[1], len: p[2], k: 0 }));
+
+            // all：整個字淡入補滿的程度（0～1），收尾時用來補上骨架沒描到的細節
+            function draw(all) {
+                mctx.setTransform(1, 0, 0, 1, 0, 0);
+                mctx.globalAlpha = 1;
+                mctx.clearRect(0, 0, W, H);
+                mctx.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc);
+                mctx.strokeStyle = '#fff'; mctx.fillStyle = '#fff';
+                mctx.lineCap = 'round'; mctx.lineJoin = 'round';
+                for (const it of items) {
+                    if (it.k <= 0) continue;
+                    if (it.dot) {
+                        mctx.globalAlpha = it.k;
+                        mctx.beginPath(); mctx.arc(it.x, it.y, it.w / 2, 0, Math.PI * 2); mctx.fill();
+                        mctx.globalAlpha = 1;
+                    } else {
+                        mctx.lineWidth = it.w;
+                        mctx.setLineDash([Math.max(it.len * it.k, 0.01), it.len * 4]);
+                        mctx.stroke(it.path);
+                    }
                 }
+                mctx.setLineDash([]);
+                if (all > 0) {
+                    mctx.setTransform(1, 0, 0, 1, 0, 0);
+                    mctx.globalAlpha = all;
+                    mctx.fillRect(0, 0, W, H);
+                    mctx.globalAlpha = 1;
+                }
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.clearRect(0, 0, W, H);
+                ctx.drawImage(mask, 0, 0);
+                ctx.globalCompositeOperation = 'destination-in';
+                ctx.drawImage(img, 0, 0, W, H);
+                ctx.globalCompositeOperation = 'source-in';
+                ctx.fillStyle = getComputedStyle(helloWord).color;
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            let finished = false;
+            const finish = () => { finished = true; items.forEach((it) => { it.k = 1; }); draw(1); };
+            redrawHello = () => { if (canvas.isConnected && finished) draw(1); };
+
+            function play(instant) {
+                if (instant) { finish(); return Promise.resolve(); }
                 const total = items.reduce((n, it) => n + (it.dot ? 0 : it.len), 0);
                 const speed = Math.max(WRITE_SPEED, total / WRITE_MAX);
                 let time = 0;
@@ -323,53 +342,57 @@
                     time += it.dur + PEN_GAP;
                 }
                 const fadeAt = time, end = time + 260;
+                draw(0);
                 return new Promise((resolve) => {
                     const t0 = performance.now();
-                    const guard = setTimeout(() => { finish(); resolve(); }, end + 400);
+                    // 保險：就算 rAF 被節流，時間到了也一定把完整的字畫出來
+                    const guard = setTimeout(() => { if (canvas.isConnected) finish(); resolve(); }, end + 400);
                     const frame = (now) => {
+                        if (!canvas.isConnected) { clearTimeout(guard); return resolve(); }   // 已被下一個字換掉
                         const e = now - t0;
-                        if (!svg.isConnected) { clearTimeout(guard); return resolve(); }   // 已被下一個字換掉
-                        for (const it of items) {
-                            if (it.done) continue;
-                            const k = Math.min(Math.max((e - it.t) / it.dur, 0), 1);
-                            if (it.dot) it.node.setAttribute('opacity', k);
-                            else it.node.setAttribute('stroke-dashoffset', (it.start * (1 - k)).toFixed(4));
-                            if (k === 1) it.done = true;
+                        for (const it of items) it.k = Math.min(Math.max((e - it.t) / it.dur, 0), 1);
+                        if (e < end) {
+                            draw(Math.min(Math.max((e - fadeAt) / 260, 0), 1));
+                            requestAnimationFrame(frame);
+                        } else {
+                            clearTimeout(guard); finish(); resolve();
                         }
-                        all.setAttribute('opacity', Math.min(Math.max((e - fadeAt) / 260, 0), 1));
-                        // 部分 Windows Chrome 在遮罩內容改變後不會重繪：每格重新套用一次遮罩，強迫它更新
-                        t.setAttribute('mask', maskRef);
-                        if (e < end) requestAnimationFrame(frame);
-                        else { clearTimeout(guard); finish(); resolve(); }
                     };
                     requestAnimationFrame(frame);
                 });
             }
-            return { svg, play };
+            return { canvas, play };
         }
-
-        let helloFirst = true;
 
         async function showHello(i, instant) {
             helloWord.getAnimations().forEach((a) => a.cancel());
             const [text, lang] = HELLOS[i];
-            if (!strokeData) {
+            let built = null;
+            if (strokeData) {
+                try { built = buildHello(i, await getImg(i)); } catch (err) { built = null; }
+            }
+            if (!built) {
                 // 退回方案：直接換字、淡入
+                redrawHello = null;
                 helloWord.textContent = text;
                 helloWord.lang = lang;
                 helloWord.dir = (lang === 'ar' || lang === 'he') ? 'rtl' : 'ltr';
+                helloWord.style.visibility = 'visible';
                 await helloWord.animate(
                     [{ opacity: 0, transform: `translateY(${reduced.matches ? 0 : 16}px)` }, { opacity: 1, transform: 'translateY(0)' }],
                     { duration: 800, easing: EASE, fill: 'forwards' }
                 ).finished;
                 return;
             }
-            const { svg, play } = buildHello(i);
-            helloWord.replaceChildren(svg);
+            helloWord.replaceChildren(built.canvas);
             helloWord.style.visibility = 'visible';
             helloWord.style.opacity = 1;
-            await play(instant || reduced.matches);
+            await built.play(instant || reduced.matches);
         }
+
+        // 切換深淺色時，畫面上的字要用新的顏色重畫
+        new MutationObserver(() => { if (redrawHello) redrawHello(); })
+            .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
 
         async function nextHello() {
             if (helloBusy || !heroVisible || document.hidden) return;
@@ -392,23 +415,22 @@
             helloBusy = false;
         }
 
-        // 先把字型和筆畫資料備好，再開始寫第一個 Hello；任何一步失敗就退回舊做法
+        // 先把筆畫資料和第一張字圖備好，再開始寫第一個 Hello；任何一步失敗就退回舊做法
         (async () => {
             const giveUp = setTimeout(() => { helloWord.style.visibility = 'visible'; }, 3000);
             try {
-                const [faces, res] = await Promise.all([
-                    document.fonts.load(FONT_Q, HELLOS.map((h) => h[0]).join('')),
-                    fetch('fonts/hello-strokes.json?v=20261107n')
-                ]);
-                if (!res.ok || !faces.length) throw new Error('hello assets');
+                const res = await fetch('fonts/hello-strokes.json?v=20261107p');
+                if (!res.ok) throw new Error('hello data');
                 const data = await res.json();
                 if (data.words.length !== HELLOS.length) throw new Error('hello data');
                 strokeData = data;
+                await getImg(0);
                 clearTimeout(giveUp);
                 helloBusy = true;
                 helloWord.style.opacity = 1;
                 await showHello(0, reduced.matches);
                 helloBusy = false;
+                HELLOS.forEach((_, i) => { getImg(i).catch(() => {}); });   // 其餘字圖背景預載
             } catch (err) {
                 clearTimeout(giveUp);
                 strokeData = null;

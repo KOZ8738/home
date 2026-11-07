@@ -173,6 +173,9 @@
         // 歷史航班來自 vatsim-history.js（從 VATSIM 官方紀錄整理的快照）。
         const CONFIG = {
             VATSIM_CID: 1931319,
+            // TRAIL_URL：Cloudflare Worker 的軌跡網址（見 workers/flight-trail/README.md）。
+            // 留空就只用這個瀏覽器自己記錄的軌跡。
+            TRAIL_URL: '',
             POLL_ONLINE_MS: 20000,   // 在線時每 20 秒更新一次位置
             POLL_OFFLINE_MS: 60000   // 不在線時每 60 秒檢查是否上線
         };
@@ -1172,6 +1175,26 @@
             return out;
         }
 
+        // ---- 伺服器軌跡（Cloudflare Worker 邊飛邊存的）----
+        let serverTrail = null;
+        let serverTrailAt = 0;
+
+        async function refreshServerTrail() {
+            if (!CONFIG.TRAIL_URL || Date.now() - serverTrailAt < 15000) return;
+            serverTrailAt = Date.now();
+            try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 5000);
+                const res = await fetch(CONFIG.TRAIL_URL, { cache: 'no-store', signal: ctrl.signal });
+                clearTimeout(timer);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const j = await res.json();
+                serverTrail = j && Array.isArray(j.pts) ? j : null;
+            } catch (err) {
+                serverTrail = null;   // 讀不到就退回瀏覽器自己的記錄
+            }
+        }
+
         function updateMap(lat, lon, heading, info) {
             const card = $('mapCard');
             if (typeof L === 'undefined') { card.hidden = true; return; }
@@ -1210,6 +1233,15 @@
                 trailPoints.push([+lat.toFixed(4), +lon.toFixed(4)]);
                 if (trailPoints.length > TRAIL_MAX_POINTS) trailPoints = trailPoints.filter((_, i) => i % 2 === 0 || i === trailPoints.length - 1);
             }
+            // 有伺服器軌跡就以它為準（它在網頁關著的時候也在記），再接上目前位置
+            let fromServer = false;
+            if (serverTrail && serverTrail.id === id && serverTrail.pts.length) {
+                const base = serverTrail.pts.map((q) => [q[0], q[1]]);
+                const b = base[base.length - 1];
+                if (Math.abs(b[0] - lat) > 0.0005 || Math.abs(b[1] - lon) > 0.0005) base.push([+lat.toFixed(4), +lon.toFixed(4)]);
+                trailPoints = base;
+                fromServer = true;
+            }
             saveTrail(id, trailPoints);
 
             // 虛線：起飛機場到「記錄的第一個點」（頁面開啟前飛過的部分，用大圓推估）；目前位置到目的地
@@ -1229,6 +1261,9 @@
             estLine.setLatLngs(all.slice(0, est.length));
             trail.setLatLngs(all.slice(est.length, cur + 1));
             restLine.setLatLngs(all.slice(cur));
+            $('trailNote').textContent = fromServer
+                ? '實線是伺服器邊飛邊記錄的軌跡，虛線是依起降機場推估的航線。'
+                : '實線是這個瀏覽器記錄到的軌跡，虛線是依起降機場推估的航線（頁面開啟前飛過的部分沒有真實紀錄）。';
             $('trailNote').hidden = !(est.length || rest.length);
 
             map.panTo([lat, lon], { animate: !reduced.matches });
@@ -1291,6 +1326,7 @@
                 const pilot = feed.pilots.find((p) => p.cid === CONFIG.VATSIM_CID);
                 setNotice('');
                 if (pilot) {
+                    await refreshServerTrail();
                     setStatus('online');
                     renderLive(pilot, feed.general && feed.general.update_timestamp);
                     show('live');

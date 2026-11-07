@@ -1,3 +1,5 @@
+# 請把這個檔案的內容貼到 .github/workflows/update-flights.yml（覆蓋原本的），然後刪掉這個檔案
+# 改了什麼：Node 20 → 22；push 前先 git pull --rebase，接不上就從最新版本重做
 name: 更新航班資料
 
 on:
@@ -21,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 抓 VATSIM 和 SimBrief，更新航班資料
         run: node scripts/update-flights.mjs
@@ -36,4 +38,25 @@ jobs:
           git config user.name "flights-bot"
           git config user.email "flights-bot@users.noreply.github.com"
           git commit -m "更新航班資料"
-          git push
+
+          # 你在這段時間剛好也 push 過的話，先接上你的變動再推。
+          # 接不上（例如你同時改了 vatsim-history.js 同一段）就放掉這次的結果，
+          # 從最新版本重新抓一次、重新提交，最多試 3 次，不會留下衝突。
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push; then
+              exit 0
+            fi
+            echo "同步失敗，從最新版本重做（第 ${attempt} 次）"
+            git rebase --abort 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
+            node scripts/update-flights.mjs
+            git add vatsim-history.js data/simbrief.json
+            if git diff --cached --quiet; then
+              echo "沒有變動"
+              exit 0
+            fi
+            git commit -m "更新航班資料"
+          done
+          echo "連續 3 次都推不上去"
+          exit 1

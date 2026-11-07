@@ -9,6 +9,10 @@ routes = [
   { pattern = "trail.koz8738.com", custom_domain = true }
 ]
 
+# 關掉預設的 flight-trail.<你的帳號名稱>.workers.dev 網址，只留自己的網域
+# （那個網址裡有你的 Cloudflare 帳號名稱）
+workers_dev = false
+
 # 每分鐘跑一次，記錄你在線上時的位置
 [triggers]
 crons = ["* * * * *"]

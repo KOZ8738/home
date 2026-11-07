@@ -10,12 +10,9 @@
     <meta property="og:description" content="koz8738 的航班：連線飛行時顯示即時位置、高度、速度和航向，沒有連線時顯示歷史航班。" />
     <link rel="icon" href="頭像.png" type="image/png">
     <script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="style.css?v=20261107p">
+    <link rel="stylesheet" href="style.css?v=20261107q">
 </head>
 <body>
 
@@ -166,7 +163,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="vatsim-history.js"></script>
-    <script src="site.js?v=20261107p"></script>
+    <script src="site.js?v=20261107q"></script>
     <script>
         // ================= 設定 =================
         // VATSIM_CID：你的 VATSIM 會員編號，用來檢查是否在線。
@@ -176,6 +173,9 @@
             // TRAIL_URL：Cloudflare Worker 的軌跡網址（見 workers/flight-trail/README.md）。
             // 留空就只用這個瀏覽器自己記錄的軌跡。
             TRAIL_URL: 'https://trail.koz8738.com/trail',
+            // LIVE_URL：同一個 Worker 的即時資料網址，只回傳你這位飛行員（很小）。
+            // 讀不到時會自動退回直接讀 VATSIM 全球資料；留空就一律直接讀 VATSIM。
+            LIVE_URL: 'https://trail.koz8738.com/live',
             POLL_ONLINE_MS: 20000,   // 在線時每 20 秒更新一次位置
             POLL_OFFLINE_MS: 60000   // 不在線時每 60 秒檢查是否上線
         };
@@ -1325,15 +1325,41 @@
             throw lastError || new Error('feed unavailable');
         }
 
+        // 先問自己的 Worker（只回傳一位飛行員，檔案很小），失敗就退回直接讀 VATSIM 全球資料。
+        // Worker 連續失敗時暫停 2 分鐘不再試，避免每輪都白等逾時。
+        let liveSkipUntil = 0;
+
+        async function fetchLive() {
+            if (CONFIG.LIVE_URL && Date.now() >= liveSkipUntil) {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 6000);
+                try {
+                    const res = await fetch(CONFIG.LIVE_URL, { cache: 'no-store', signal: ctrl.signal });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const j = await res.json();
+                    if (!j || typeof j !== 'object' || !('pilot' in j)) throw new Error('bad payload');
+                    return { pilot: j.pilot, updatedAt: j.updated };
+                } catch (err) {
+                    liveSkipUntil = Date.now() + 120000;
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+            const feed = await fetchFeed();
+            return {
+                pilot: feed.pilots.find((p) => p.cid === CONFIG.VATSIM_CID) || null,
+                updatedAt: feed.general && feed.general.update_timestamp
+            };
+        }
+
         async function check() {
             try {
-                const feed = await fetchFeed();
-                const pilot = feed.pilots.find((p) => p.cid === CONFIG.VATSIM_CID);
+                const { pilot, updatedAt } = await fetchLive();
                 setNotice('');
                 if (pilot) {
                     await refreshServerTrail();
                     setStatus('online');
-                    renderLive(pilot, feed.general && feed.general.update_timestamp);
+                    renderLive(pilot, updatedAt);
                     show('live');
                     return true;
                 }

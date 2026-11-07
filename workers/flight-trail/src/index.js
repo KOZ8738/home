@@ -3,6 +3,8 @@
 // 做兩件事：
 //   1. 排程（Cron，每分鐘一次）：去讀 VATSIM 即時資料，找到你的 CID 在線上就把位置記進 KV
 //   2. GET /trail：把目前這一趟飛行的軌跡以 JSON 回傳給網頁（只允許你的網站讀取）
+//   3. GET /live：只回傳你這位飛行員目前的即時資料（很小的 JSON），航班頁用它取代每位訪客各自去抓
+//      VATSIM 全球的完整資料。Worker 這邊 15 秒才向 VATSIM 抓一次，所以位置更新頻率跟原本差不多
 //
 // 設定（wrangler.toml 或 Cloudflare 後台的 Variables）：
 //   VATSIM_CID       你的 VATSIM 會員編號
@@ -15,6 +17,7 @@ const ENDED_AFTER_MS = 10 * 60 * 1000;    // 離線超過 10 分鐘標記為「�
 const REFRESH_MS = 5 * 60 * 1000;         // 沒有新位置時，最多每 5 分鐘才寫一次（省 KV 寫入額度）
 const MAX_POINTS = 6000;
 const KEY = 'current';
+const LIVE_CACHE_S = 15;                  // /live 的邊緣快取秒數（VATSIM 本身也是每 15 秒更新一次）
 
 export default {
   async scheduled(event, env, ctx) {
@@ -50,9 +53,66 @@ export default {
       }
       return new Response(body, { headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'public, max-age=15' } });
     }
+    if (request.method === 'GET' && url.pathname === '/live') {
+      // 同樣邊緣快取：不管多少人同時開著航班頁，Worker 每 15 秒最多向 VATSIM 抓一次
+      const cacheKey = new Request(url.origin + '/live');
+      const cache = caches.default;
+      let body;
+      const hit = await cache.match(cacheKey);
+      if (hit) {
+        body = await hit.text();
+      } else {
+        try {
+          body = JSON.stringify(await fetchLive(env));
+        } catch (err) {
+          // 抓不到就不要快取，讓網頁自己退回直接讀 VATSIM
+          return new Response(JSON.stringify({ error: 'upstream' }), {
+            status: 502, headers: { ...cors, 'content-type': 'application/json', 'cache-control': 'no-store' },
+          });
+        }
+        ctx.waitUntil(cache.put(cacheKey, new Response(body, {
+          headers: { 'content-type': 'application/json', 'cache-control': `public, max-age=${LIVE_CACHE_S}` },
+        })));
+      }
+      return new Response(body, { headers: { ...cors, 'content-type': 'application/json', 'cache-control': `public, max-age=${LIVE_CACHE_S}` } });
+    }
     return new Response('not found', { status: 404, headers: cors });
   },
 };
+
+// 從 VATSIM 全球資料裡只挑出你這位飛行員（沒在線上就是 null），欄位名稱和官方資料一樣，
+// 所以網頁可以不改解析邏輯。
+export function pickPilot(feed, cid) {
+  const p = (feed.pilots || []).find((x) => x.cid === cid);
+  if (!p) return null;
+  const fp = p.flight_plan || null;
+  return {
+    cid: p.cid,
+    callsign: p.callsign,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    altitude: p.altitude,
+    groundspeed: p.groundspeed,
+    heading: p.heading,
+    logon_time: p.logon_time,
+    flight_plan: fp && {
+      departure: fp.departure || '',
+      arrival: fp.arrival || '',
+      aircraft_short: fp.aircraft_short || '',
+    },
+  };
+}
+
+export async function fetchLive(env) {
+  const cid = Number(env.VATSIM_CID);
+  const res = await fetch(FEED, { headers: { 'User-Agent': 'flight-trail-worker' } });
+  if (!res.ok) throw new Error('feed HTTP ' + res.status);
+  const feed = await res.json();
+  return {
+    updated: (feed.general && feed.general.update_timestamp) || null,
+    pilot: cid ? pickPilot(feed, cid) : null,
+  };
+}
 
 export async function record(env) {
   const cid = Number(env.VATSIM_CID);

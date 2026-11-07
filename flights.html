@@ -906,7 +906,7 @@
             if (fmMap) { fmMap.remove(); fmMap = null; }
             fmMap = L.map(box, { zoomControl: true, scrollWheelZoom: true });
             fmMap.attributionControl.setPrefix(false);
-            const street = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+            const street = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
             const sat = L.tileLayer(ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 17, maxZoom: 19, attribution: 'Imagery &copy; Esri' });
             fmBase = null;
             const setBase = (kind) => {
@@ -1203,10 +1203,10 @@
             if (!map) {
                 map = L.map('map', { zoomControl: true }).setView([lat, lon], 7);
                 map.attributionControl.setPrefix(false);
-                // Esri 街道圖在中國大陸放大後會顯示「Map data not yet available」，改用 OSM 資料的 CARTO 底圖；衛星圖可切換
-                const liveStreet = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    subdomains: 'abcd', maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+                // Esri 街道圖在中國大陸放大後會顯示「Map data not yet available」，改用 OpenStreetMap 底圖；衛星圖可切換
+                const liveStreet = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
                 const liveSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                     maxNativeZoom: 17, maxZoom: 19, attribution: 'Imagery &copy; Esri'

@@ -1,5 +1,5 @@
 // 掃描 photos/<系列>/ 資料夾，產生 data/photos.json（相簿頁用）
-// 有安裝 sharp 的話，另外做縮圖到 photos/_thumbs/<系列>/（相簿格子載入快很多）
+// 有安裝 sharp 的話，另外做縮圖到 photos/thumbs/<系列>/（相簿格子載入快很多）
 // 用法：node scripts/build-photos.mjs
 import { readdir, readFile, writeFile, mkdir, stat, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -177,7 +177,7 @@ for (const s of SERIES) {
 
         let thumb = null;
         if (sharp && ext !== '.gif') {
-            const tp = path.join(ROOT, 'photos', '_thumbs', s, path.relative(dir, file) + '.webp');
+            const tp = path.join(ROOT, 'photos', 'thumbs', s, path.relative(dir, file) + '.webp');
             const o = old.get(src);
             const fresh = o && o.bytes === size && o.thumb && existsSync(tp);
             if (!fresh) {
@@ -204,7 +204,7 @@ for (const s of SERIES) {
 }
 
 // 清掉原圖已刪除的縮圖
-const thumbRoot = path.join(ROOT, 'photos', '_thumbs');
+const thumbRoot = path.join(ROOT, 'photos', 'thumbs');
 for (const f of await walk0(thumbRoot)) {
     if (!keepThumbs.has(f)) await rm(f);
 }

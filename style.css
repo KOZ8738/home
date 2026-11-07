@@ -380,15 +380,6 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 .brand:active,
 .nav-link:active { transform: translateY(1px); }
 
-/* 上橫幅的 UTC 時鐘 */
-.nav-clock {
-    display: block;
-    padding: var(--space-75) var(--space-100);
-    color: rgba(255, 255, 255, 0.72);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
 /* 選單按鈕：兩條線變形成叉叉 */
 .nav-toggle {
     display: none;
@@ -497,13 +488,6 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
     color: var(--ink);
     text-decoration: none;
     transition: color 300ms var(--ease), background-color 300ms var(--ease);
-}
-
-.nav-panel-clock {
-    display: block;
-    padding: var(--space-200) var(--space-100);
-    color: var(--ink-muted);
-    font-variant-numeric: tabular-nums;
 }
 
 .nav-panel-links a:hover { background-color: var(--hover-bg); }

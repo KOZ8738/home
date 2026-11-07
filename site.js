@@ -81,22 +81,6 @@
         });
     }
 
-    // ---------- 上橫幅的 UTC 時鐘 ----------
-    const clocks = document.querySelectorAll('[data-utc-clock]');
-    if (clocks.length) {
-        const pad = (n) => String(n).padStart(2, '0');
-        const tick = () => {
-            const d = new Date();
-            const text = `UTC ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
-            clocks.forEach((el) => {
-                el.textContent = text;
-                el.setAttribute('datetime', d.toISOString());
-            });
-        };
-        tick();
-        setInterval(tick, 1000);
-    }
-
     // ---------- 捲動揭露：每個區塊只播放一次 ----------
     const revealEls = document.querySelectorAll('.reveal');
 

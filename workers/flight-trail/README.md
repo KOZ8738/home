@@ -58,7 +58,8 @@ KV 已經建好並寫進 `wrangler.toml`（id `03f3687d…`），可以跳過下
 ## 額度（免費方案）
 - KV 每天 1,000 次寫入：只有在線上時才寫，每分鐘一次，一天飛 16 小時以內夠用；沒在飛不會寫。
 - KV 讀取每天 10 萬次：網頁有 15 秒邊緣快取，一般用量遠遠不到。
-- `/live` 不用 KV，只有邊緣快取失效時才會向 VATSIM 抓一次（約每 15 秒一次，跟 VATSIM 資料更新頻率一樣），計入 Workers 請求數（免費每天 10 萬次）。
+- `/live` 不用 KV，邊緣快取 5 秒，快取失效時才會向 VATSIM 抓（向 VATSIM 抓的完整資料也在邊緣快取 5 秒）。每一次網頁來問都計入 Workers 請求數（免費每天 10 萬次）：航班頁在線時每 10 秒問一次，一個分頁開一整天約 8,600 次，加上每分鐘一次的排程 1,440 次。同時開著十幾個分頁整天才會接近上限，一般訪客只開一下，而且分頁在背景時網頁會暫停，不會一直問。
+- VATSIM 自己每 15 秒才更新一次資料，所以網頁再問得頻繁也不會更即時；每 10 秒問一次，資料最多比 VATSIM 晚十幾秒。
 - Cron Triggers、Workers 請求數都在免費額度內。額度以 Cloudflare 官網為準，數字可能調整。
 
 ## 資料格式
@@ -78,9 +79,12 @@ KV 已經建好並寫進 `wrangler.toml`（id `03f3687d…`），可以跳過下
   "updated": "2026-11-07T12:00:00.123456Z",
   "pilot": {
     "cid": 1931319, "callsign": "OVO4FD", "latitude": 31.1, "longitude": 121.8,
-    "altitude": 5000, "groundspeed": 250, "heading": 170, "logon_time": "2026-11-07T09:20:00Z",
-    "flight_plan": { "departure": "RCSS", "arrival": "ZSPD", "aircraft_short": "A320" }
+    "altitude": 5000, "groundspeed": 250, "heading": 170, "qnh_i_hg": 30.39, "qnh_mb": 1029,
+    "logon_time": "2026-11-07T09:20:00Z",
+    "flight_plan": { "departure": "RCSS", "arrival": "ZSPD", "aircraft_short": "A320", "altitude": "34100" }
   }
 }
 ```
 沒在線上時 `pilot` 是 `null`；向 VATSIM 抓資料失敗時回 502（不會被快取）。欄位名稱跟 VATSIM 官方資料一樣。
+
+`altitude` 是用當地 QNH 修正過的海平面高度，不是飛行高度層（FL）。網頁用 `qnh_i_hg`（沒有就用 `qnh_mb`）換算成標準氣壓高度再顯示 FL，所以這兩個欄位要留著；舊版 Worker 沒有這兩個欄位時，網頁會退回只顯示海平面高度。`flight_plan.altitude` 是申報的巡航高度，高度剖面圖拿來畫虛線。

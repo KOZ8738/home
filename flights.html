@@ -25,7 +25,7 @@
     <!-- /shared:head -->
     <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <link rel="stylesheet" href="style.css?v=83f584b8">
+    <link rel="stylesheet" href="style.css?v=f3a035b5">
 </head>
 <body>
 
@@ -108,6 +108,7 @@
                     <div class="stat-tile">
                         <p class="stat-label caption-1"><i class="ph ph-mountains" aria-hidden="true"></i>高度</p>
                         <p class="heading-5" id="statAlt"></p>
+                        <p class="caption-2 muted stat-sub" id="statAltSub" hidden></p>
                     </div>
                     <div class="stat-tile">
                         <p class="stat-label caption-1"><i class="ph ph-gauge" aria-hidden="true"></i>地速</p>
@@ -128,6 +129,12 @@
                     <div id="map" role="img" aria-label="飛機目前位置的地圖"></div>
                 </div>
                 <p class="caption-2 muted" id="trailNote" hidden>實線是這個瀏覽器記錄到的軌跡，虛線是依起降機場推估的航線（頁面開啟前飛過的部分沒有真實紀錄）。</p>
+
+                <section class="profile-card" id="liveProfile" aria-label="這趟飛行的高度剖面" hidden>
+                    <h3 class="title-3">高度剖面</h3>
+                    <div id="liveProfileBox"></div>
+                    <p class="caption-2 muted" id="liveProfileNote"></p>
+                </section>
             </section>
 
             <!-- 不在線：歷史航班 -->
@@ -183,7 +190,7 @@
     <script src="config.js?v=efa2ead6"></script>
     <script src="vatsim-history.js"></script>
     <script src="site.js?v=a29b4eda"></script>
-    <script src="js/place.js?v=238f3726"></script>
-    <script src="js/flights.js?v=b67fb15f"></script>
+    <script src="js/place.js?v=f23a5d66"></script>
+    <script src="js/flights.js?v=f67c121f"></script>
 </body>
 </html>

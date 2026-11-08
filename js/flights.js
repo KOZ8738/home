@@ -10,7 +10,7 @@ const CONFIG = {
     // LIVE_URL：同一個 Worker 的即時資料網址，只回傳你這位飛行員（很小）。
     // 讀不到時會自動退回直接讀 VATSIM 全球資料；沒有設定就一律直接讀 VATSIM。
     LIVE_URL: SITE.trailBase ? SITE.trailBase + '/live' : '',
-    POLL_ONLINE_MS: 20000,   // 在線時每 20 秒更新一次位置
+    POLL_ONLINE_MS: 10000,   // 在線時每 10 秒更新一次位置（VATSIM 資料本身每 15 秒才更新一次，再快也不會有新資料）
     POLL_OFFLINE_MS: 60000   // 不在線時每 60 秒檢查是否上線
 };
 
@@ -469,14 +469,18 @@ function niceStep(range, candidates, maxTicks) {
     return candidates.find((c) => range / c <= maxTicks) || candidates[candidates.length - 1];
 }
 
-function profileSvg(pts, from, to) {
+// opts（即時航班才用）：offset 第一個點離起點多遠（海浬）、remain 目前位置離終點還有多遠（海浬，橫軸會畫到終點）、
+// refAlt 申報的巡航高度（呎，畫一條虛線）、current 為 true 時在最後一點畫一個「目前位置」的點
+function profileSvg(pts, from, to, opts = {}) {
     const W = 600, H = 272, padL = 76, padR = 24, padT = 36, padB = 52;
-    const cum = [0];
+    const cum = [opts.offset || 0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distNm(pts[i - 1], pts[i]));
-    const total = cum[cum.length - 1] || 1;
+    const flown = cum[cum.length - 1];
+    const total = flown + (opts.remain || 0) || 1;
     const peak = Math.max(...pts.map((p) => p.alt));
-    const yStep = niceStep(Math.max(peak, 1000), [1000, 2000, 5000, 10000], 7);
-    const maxAlt = Math.max(yStep, Math.ceil((peak * 1.08) / yStep) * yStep);
+    const top = Math.max(peak, opts.refAlt || 0);
+    const yStep = niceStep(Math.max(top, 1000), [1000, 2000, 5000, 10000], 7);
+    const maxAlt = Math.max(yStep, Math.ceil((top * 1.08) / yStep) * yStep);
     const xStep = niceStep(total, [5, 10, 20, 25, 50, 100, 200, 250, 500], 8);
     const pw = W - padL - padR, ph = H - padT - padB;
     const x = (d) => padL + (d / total) * pw;
@@ -511,9 +515,20 @@ function profileSvg(pts, from, to) {
     add('text', { x: padL, y: H - 6, 'text-anchor': 'start', class: 'fm-axis fm-axis-strong' }, from);
     add('text', { x: W - padR + 12, y: H - 6, 'text-anchor': 'end', class: 'fm-axis fm-axis-strong' }, to);
 
+    // 申報的巡航高度：虛線
+    if (opts.refAlt) {
+        const ry = y(opts.refAlt).toFixed(1);
+        add('line', { x1: padL, x2: W - padR, y1: ry, y2: ry, class: 'fm-ref-line' });
+        add('text', { x: W - padR, y: (y(opts.refAlt) + 14).toFixed(1), 'text-anchor': 'end', class: 'fm-axis' }, `申報 ${opts.refLabel || ft(opts.refAlt) + ' 呎'}`);
+    }
+
     const line = pts.map((p, i) => `${x(cum[i]).toFixed(1)},${y(p.alt).toFixed(1)}`);
-    add('polygon', { points: `${x(0).toFixed(1)},${y(0).toFixed(1)} ${line.join(' ')} ${x(total).toFixed(1)},${y(0).toFixed(1)}`, class: 'fm-profile-area' });
+    add('polygon', { points: `${x(cum[0]).toFixed(1)},${y(0).toFixed(1)} ${line.join(' ')} ${x(flown).toFixed(1)},${y(0).toFixed(1)}`, class: 'fm-profile-area' });
     add('polyline', { points: line.join(' '), class: 'fm-profile-line' });
+    if (opts.current) {
+        const last = pts[pts.length - 1];
+        add('circle', { cx: x(flown).toFixed(1), cy: y(last.alt).toFixed(1), r: 6, class: 'fm-live-dot' });
+    }
 
     // 最高點
     const pi = pts.findIndex((p) => p.alt === peak);
@@ -531,7 +546,7 @@ function profileSvg(pts, from, to) {
     const move = (e) => {
         const box = svg.getBoundingClientRect();
         const vx = ((e.clientX - box.left) / box.width) * W;
-        const d = Math.min(total, Math.max(0, ((vx - padL) / pw) * total));
+        const d = Math.min(flown, Math.max(cum[0], ((vx - padL) / pw) * total));
         let i = 1;
         while (i < cum.length - 1 && cum[i] < d) i++;
         const t = cum[i] === cum[i - 1] ? 0 : (d - cum[i - 1]) / (cum[i] - cum[i - 1]);
@@ -1022,7 +1037,7 @@ let serverTrail = null;
 let serverTrailAt = 0;
 
 async function refreshServerTrail() {
-    if (!CONFIG.TRAIL_URL || Date.now() - serverTrailAt < 15000) return;
+    if (!CONFIG.TRAIL_URL || Date.now() - serverTrailAt < 30000) return;   // 伺服器每分鐘才記一個點，不用每次都讀
     serverTrailAt = Date.now();
     try {
         const ctrl = new AbortController();
@@ -1037,7 +1052,61 @@ async function refreshServerTrail() {
     }
 }
 
-function updateMap(lat, lon, heading, info) {
+// 機場座標：先找歷史航班資料裡的，沒有（沒飛過的機場）再用 js/place.js 下載的機場資料
+function airportPos(code) {
+    const a = (code && SNAPSHOT.airports && SNAPSHOT.airports[code]) || (code && window.PlaceLookup && window.PlaceLookup.airport(code));
+    return a ? [a[0], a[1]] : null;
+}
+
+// 把目前位置記進軌跡，回傳軌跡是不是來自伺服器。軌跡點：[緯度, 經度, 高度ft]（舊的紀錄只有緯度和經度）。
+// 地圖和高度剖面都用 trailPoints。
+function collectTrail(lat, lon, alt, info) {
+    // 換了一趟飛行就重新載入（或清空）軌跡
+    const id = `${info.callsign}|${info.dep || ''}|${info.arr || ''}`;
+    if (id !== trailId) { trailId = id; trailPoints = loadTrail(id); }
+    const pt = [+lat.toFixed(4), +lon.toFixed(4), Math.round(alt)];
+    const moved = (q) => !q || Math.abs(q[0] - lat) > 0.0005 || Math.abs(q[1] - lon) > 0.0005;
+    const last = trailPoints[trailPoints.length - 1];
+    if (moved(last)) {
+        trailPoints.push(pt);
+        if (trailPoints.length > TRAIL_MAX_POINTS) trailPoints = trailPoints.filter((_, i) => i % 2 === 0 || i === trailPoints.length - 1);
+    } else {
+        last[2] = pt[2];   // 沒動（在地面等待）就只更新高度
+    }
+    // 有伺服器軌跡就以它為準（它在網頁關著的時候也在記），再接上目前位置
+    let fromServer = false;
+    if (serverTrail && serverTrail.id === id && serverTrail.pts.length) {
+        const base = serverTrail.pts.map((q) => [q[0], q[1], q[3]]);
+        if (moved(base[base.length - 1])) base.push(pt);
+        else base[base.length - 1][2] = pt[2];
+        trailPoints = base;
+        fromServer = true;
+    }
+    saveTrail(id, trailPoints);
+    return fromServer;
+}
+
+// 飛機標記慢慢滑到新位置，不是瞬間跳過去（資料每 10 秒才換一次，這樣看起來是連續在飛）
+const GLIDE_MS = 1500;
+let glideRaf = 0;
+function glideMarker(lat, lon) {
+    cancelAnimationFrame(glideRaf);
+    const from = marker.getLatLng();
+    // 第一次、換了一趟飛行（跳很遠）、跨換日線，或使用者設定減少動態時，直接移過去
+    if (reduced.matches || !(Math.abs(lat - from.lat) < 0.5 && Math.abs(lon - from.lng) < 0.5)) {
+        marker.setLatLng([lat, lon]);
+        return;
+    }
+    const t0 = performance.now();
+    const step = (now) => {
+        const f = Math.min(1, (now - t0) / GLIDE_MS);
+        marker.setLatLng([from.lat + (lat - from.lat) * f, from.lng + (lon - from.lng) * f]);
+        if (f < 1) glideRaf = requestAnimationFrame(step);
+    };
+    glideRaf = requestAnimationFrame(step);
+}
+
+function updateMap(lat, lon, heading, info, fromServer) {
     const card = $('mapCard');
     if (typeof L === 'undefined') { card.hidden = true; return; }
     card.hidden = false;
@@ -1068,32 +1137,12 @@ function updateMap(lat, lon, heading, info) {
     }
 
     map.invalidateSize();
-    marker.setLatLng([lat, lon]);
+    glideMarker(lat, lon);
     const el = marker.getElement();
     if (el) el.style.setProperty('--hdg', `${heading}deg`);
 
-    // 換了一趟飛行就重新載入（或清空）軌跡
-    const id = `${info.callsign}|${info.dep || ''}|${info.arr || ''}`;
-    if (id !== trailId) { trailId = id; trailPoints = loadTrail(id); }
-    const last = trailPoints[trailPoints.length - 1];
-    if (!last || Math.abs(last[0] - lat) > 0.0005 || Math.abs(last[1] - lon) > 0.0005) {
-        trailPoints.push([+lat.toFixed(4), +lon.toFixed(4)]);
-        if (trailPoints.length > TRAIL_MAX_POINTS) trailPoints = trailPoints.filter((_, i) => i % 2 === 0 || i === trailPoints.length - 1);
-    }
-    // 有伺服器軌跡就以它為準（它在網頁關著的時候也在記），再接上目前位置
-    let fromServer = false;
-    if (serverTrail && serverTrail.id === id && serverTrail.pts.length) {
-        const base = serverTrail.pts.map((q) => [q[0], q[1]]);
-        const b = base[base.length - 1];
-        if (Math.abs(b[0] - lat) > 0.0005 || Math.abs(b[1] - lon) > 0.0005) base.push([+lat.toFixed(4), +lon.toFixed(4)]);
-        trailPoints = base;
-        fromServer = true;
-    }
-    saveTrail(id, trailPoints);
-
     // 虛線：起飛機場到「記錄的第一個點」（頁面開啟前飛過的部分，用大圓推估）；目前位置到目的地
-    const ap = (c) => { const a = c && SNAPSHOT.airports && SNAPSHOT.airports[c]; return a ? [a[0], a[1]] : null; };
-    const D = ap(info.dep), A = ap(info.arr);
+    const D = airportPos(info.dep), A = airportPos(info.arr);
     const est = D ? greatCircle(D, trailPoints[0]) : [];
     const rest = A ? greatCircle(trailPoints[trailPoints.length - 1], A) : [];
     // 跨換日線時把經度接成連續的，再整組對齊到飛機標記所在的那一圈地圖
@@ -1113,7 +1162,7 @@ function updateMap(lat, lon, heading, info) {
         : '實線是這個瀏覽器記錄到的軌跡，虛線是依起降機場推估的航線（頁面開啟前飛過的部分沒有真實紀錄）。';
     $('trailNote').hidden = !(est.length || rest.length);
 
-    map.panTo([lat, lon], { animate: !reduced.matches });
+    map.panTo([lat, lon], { animate: !reduced.matches, duration: GLIDE_MS / 1000, easeLinearity: 0.5 });
 }
 
 // 位置欄：在起降機場顯示機場名稱，在機場附近的空中顯示進近，其他時候顯示所在的管制區。
@@ -1125,6 +1174,8 @@ const PLACE_HINT = {
 };
 let placeSeq = 0;
 let placeShown = false;
+let airportsReady = false;
+let lastLive = null;
 
 function renderPlace(p) {
     const el = $('statPos'), sub = $('statPosSub');
@@ -1147,8 +1198,86 @@ function renderPlace(p) {
     if (!window.PlaceLookup) return;
     const seq = ++placeSeq;
     window.PlaceLookup.resolve(p).then((place) => {
-        if (seq === placeSeq) show(place);
+        if (seq !== placeSeq) return;
+        show(place);
+        // 機場資料剛下載好（沒飛過的機場原本查不到座標），高度剖面可以畫到目的地了
+        if (!airportsReady) { airportsReady = true; if (lastLive) renderProfile(lastLive.p, lastLive.fromServer); }
     }).catch(() => {});
+}
+
+// 高度：飛行高度層以上（氣壓高度 18,000 呎以上）顯示 FL，下面一行是用當地 QNH 修正過的海平面高度和 QNH；
+// 低於這個高度就直接顯示海平面高度。VATSIM 資料的 altitude 是後者，所以以前直接顯示會比 FL 多（QNH 高）或少（QNH 低）幾百呎。
+// 沒有 QNH（舊版 Worker 還沒更新）就退回只顯示海平面高度。
+const TRANSITION_FT = 18000;
+
+function renderAltitude(p) {
+    const main = $('statAlt'), sub = $('statAltSub');
+    const alt = Math.round(Number(p.altitude));
+    const pa = window.PlaceLookup ? window.PlaceLookup.pressureAltitude(p) : null;
+    const qnhMb = Number(p.qnh_mb) > 0 ? Math.round(p.qnh_mb) : (Number(p.qnh_i_hg) > 0 ? Math.round(p.qnh_i_hg * 33.8639) : null);
+    const ftText = `${alt.toLocaleString('en-US')} ft`;
+    if (pa !== null && pa >= TRANSITION_FT) {
+        main.textContent = 'FL' + String(Math.round(pa / 100)).padStart(3, '0');
+        main.title = '飛行高度層：用標準氣壓 1013 hPa 算的高度';
+        sub.textContent = qnhMb ? `${ftText} · QNH ${qnhMb}` : ftText;
+    } else {
+        main.textContent = ftText;
+        main.removeAttribute('title');
+        sub.textContent = qnhMb ? `QNH ${qnhMb}` : '';
+    }
+    sub.title = '海平面高度（用當地 QNH 修正）和當地 QNH（hPa）';
+    sub.hidden = !sub.textContent;
+}
+
+// 申報的巡航高度：飛行計畫裡的 "34100"（呎）、"FL341"、"F341"、"A100"
+function cruiseAlt(text) {
+    const t = String(text || '').trim().toUpperCase();
+    let m;
+    if ((m = t.match(/^F(?:L)?\s*(\d{2,3})$/))) return { ft: Number(m[1]) * 100, label: 'FL' + m[1].padStart(3, '0') };
+    if ((m = t.match(/^A\s*(\d{2,3})$/))) return { ft: Number(m[1]) * 100, label: `${(Number(m[1]) * 100).toLocaleString('en-US')} ft` };
+    if ((m = t.match(/^(\d{4,5})$/))) {
+        const v = Number(m[1]);
+        return { ft: v, label: v >= TRANSITION_FT ? 'FL' + String(Math.round(v / 100)).padStart(3, '0') : `${v.toLocaleString('en-US')} ft` };
+    }
+    return null;
+}
+
+// 高度剖面：橫軸是從起飛機場算起的距離，一路畫到目的地；實線是已經飛過的高度，虛線是申報的巡航高度，圓點是目前位置
+let profileBusyUntil = 0;
+const profileBox = $('liveProfileBox');
+if (profileBox) {
+    // 正在用游標或手指看某一點的時候，先不要重畫（每次更新都會重畫，會把正在看的點弄掉）
+    profileBox.addEventListener('pointermove', () => { profileBusyUntil = Date.now() + 6000; });
+    profileBox.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') profileBusyUntil = 0; });
+}
+
+function renderProfile(p, fromServer) {
+    const card = $('liveProfile');
+    if (!card || !profileBox) return;
+    const have = trailPoints.filter((q) => Number.isFinite(q[2]));
+    if (have.length < 3) { card.hidden = true; return; }
+    card.hidden = false;
+    if (Date.now() < profileBusyUntil) return;
+
+    // 點太多畫了也看不出差別：最多留 400 個，頭尾一定留
+    const stride = Math.max(1, Math.ceil(have.length / 400));
+    const pts = have.filter((_, i) => i % stride === 0 || i === have.length - 1).map((q) => ({ lat: q[0], lon: q[1], alt: q[2] }));
+    const fp = p.flight_plan || {};
+    const ap = (c) => { const a = airportPos(c); return a ? { lat: a[0], lon: a[1] } : null; };
+    const D = ap(fp.departure), A = ap(fp.arrival);
+    const offset = D ? distNm(D, pts[0]) : 0;
+    const remain = A ? distNm(pts[pts.length - 1], A) : 0;
+    const cruise = cruiseAlt(fp.altitude);
+    // 圖上畫的是海平面高度，申報的巡航高度（氣壓高度）要換成同一種，虛線才會和實際巡航的高度對齊
+    const pa = window.PlaceLookup ? window.PlaceLookup.pressureAltitude(p) : null;
+    const shift = pa === null ? 0 : Number(p.altitude) - pa;
+
+    profileBox.replaceChildren(profileSvg(pts, fp.departure || '起點', fp.arrival || '終點', {
+        offset, remain, current: true,
+        refAlt: cruise ? cruise.ft + shift : 0, refLabel: cruise ? cruise.label : ''
+    }));
+    $('liveProfileNote').textContent = '橫軸是從起飛機場算起的距離，一路畫到目的地。實線是已經飛過的高度（海平面高度），虛線是申報的巡航高度，圓點是現在的位置；把游標移到線上，或用手指滑過，可以看每一點。'
+        + (fromServer ? '' : '頁面開啟前飛過的部分沒有紀錄。');
 }
 
 function renderLive(p, updatedAt) {
@@ -1161,16 +1290,16 @@ function renderLive(p, updatedAt) {
     $('liveMeta').textContent = `已連線 ${formatDuration(p.logon_time)}${time ? '，資料更新於 ' + time : ''}`;
 
     const heading = ((Math.round(p.heading) % 360) + 360) % 360;
-    $('statAlt').textContent = `${Math.round(p.altitude).toLocaleString('en-US')} ft`;
+    renderAltitude(p);
     $('statSpeed').textContent = `${Math.round(p.groundspeed)} kt`;
     $('statHeading').textContent = `${String(heading).padStart(3, '0')}° ${COMPASS[Math.round(heading / 45) % 8]}`;
     renderPlace(p);
 
-    updateMap(p.latitude, p.longitude, heading, {
-        callsign: p.callsign,
-        dep: fp && fp.departure,
-        arr: fp && fp.arrival
-    });
+    const info = { callsign: p.callsign, dep: fp && fp.departure, arr: fp && fp.arrival };
+    const fromServer = collectTrail(p.latitude, p.longitude, p.altitude, info);
+    updateMap(p.latitude, p.longitude, heading, info, fromServer);
+    renderProfile(p, fromServer);
+    lastLive = { p, fromServer };
 }
 
 // ---------- 讀取 VATSIM 即時資料 ----------

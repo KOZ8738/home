@@ -68,6 +68,18 @@
         return pick(units, la, lo, fl, true) || pick(units, la, lo, fl, false);
     }
 
+    // VATSIM 資料裡的 altitude 是用當地 QNH 修正過的海平面高度；飛行高度層（FL）用的是標準氣壓 1013.25 hPa 算出來的
+    // 氣壓高度。兩者差 (QNH − 1013.25) 約 27 呎／hPa，例如 QNH 1029、海平面高度 34,574 呎 → 氣壓高度 34,144 呎 = FL341。
+    // 資料裡沒有 QNH 就回傳 null。
+    function pressureAltitude(p) {
+        const alt = Number(p && p.altitude);
+        if (!Number.isFinite(alt)) return null;
+        let q = Number(p.qnh_i_hg) * 33.8639;   // inHg → hPa（小數兩位，比整數的 qnh_mb 準）
+        if (!(q > 850 && q < 1100)) q = Number(p.qnh_mb);
+        if (!(q > 850 && q < 1100)) return null;
+        return alt + 145366.45 * (1 - Math.pow(q / 1013.25, 0.190284));
+    }
+
     const hasCjk = (s) => /[㐀-鿿]/.test(s);
     // 中文表裡用「·」隔開城市和機場（上海·浦東）：機場名稱把它換成看不見的換行點（手機上窄的時候會在這裡換行，
     // 變成「上海／浦東機場」，而不是從詞中間斷開），進近只留後半（浦東進近）
@@ -117,8 +129,9 @@
             if (app) return { kind: 'approach', text: approachLabel(app.name), icao: app.icao };
         }
 
-        // 3. 所在的管制區
-        const unit = findUnit(data.units || [], lat, lon, alt);
+        // 3. 所在的管制區（管制區的高度限制是用飛行高度層算的，所以用氣壓高度）
+        const pa = pressureAltitude(p);
+        const unit = findUnit(data.units || [], lat, lon, pa === null ? alt : pa);
         return unit ? { kind: 'acc', text: unit.n, id: unit.id } : null;
     }
 
@@ -165,7 +178,12 @@
             .then(() => describe(p, store));
     }
 
-    const api = { describe, resolve, findUnit, distNm, airportLabel, approachLabel };
+    // 已經下載過的機場資料：[緯度, 經度, 名稱]；還沒下載（或沒有這個機場）就是 null
+    function airport(icao) {
+        return store.airports[String(icao || '').toUpperCase()] || null;
+    }
+
+    const api = { describe, resolve, findUnit, distNm, airportLabel, approachLabel, pressureAltitude, airport };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.PlaceLookup = api;
 })(typeof window !== 'undefined' ? window : globalThis);

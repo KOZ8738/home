@@ -1348,6 +1348,21 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 .stat-sub { overflow-wrap: anywhere; }
 .stat-sub[hidden] { display: none; }
 
+/* 即時航班的高度剖面（圖本身沿用歷史航班詳細視窗的 .fm-profile 樣式） */
+.profile-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-100);
+    margin-top: var(--space-200);
+    padding: var(--space-300);
+    border-radius: var(--radius-2xl);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-card);
+}
+.profile-card[hidden] { display: none; }
+.fm-ref-line { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 5 5; }
+.fm-live-dot { fill: var(--accent); stroke: #ffffff; stroke-width: 2; }
+
 .map-card {
     position: relative;
     isolation: isolate;

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- shared:head （自動產生，請改 site-config.json） -->
+    <title>A320 頂板與 FCU 模擬 | koz的主頁</title>
+    <meta name="description" content="可以操作的空中巴士 A320 頂板和 FCU 簡化模擬：從冷艙啟動、發動機啟動到起飛，或直接練習自動駕駛模式與儀表進場。" />
+    <meta name="theme-color" content="#e0e0e0" />
+    <link rel="canonical" href="https://koz8738.com/a320.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="koz的主頁" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:title" content="A320 頂板與 FCU 模擬 | koz的主頁" />
+    <meta property="og:description" content="可以操作的空中巴士 A320 頂板和 FCU 簡化模擬：從冷艙啟動、發動機啟動到起飛，或直接練習自動駕駛模式與儀表進場。" />
+    <meta property="og:url" content="https://koz8738.com/a320.html" />
+    <meta property="og:image" content="https://koz8738.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="koz8738 的個人主頁：遊戲庫、攝影集與航班紀錄" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script>document.documentElement.classList.add('js');try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==='dark'?'#181818':'#e0e0e0';}catch(e){}</script>
+    <!-- /shared:head -->
+    <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="style.css?v=f3a035b5">
+    <link rel="stylesheet" href="css/a320.css?v=95effc01">
+</head>
+<body>
+
+    <!-- shared:header （自動產生，請改 partials/ 底下的檔案） -->
+    <a class="skip-link" href="#main">跳到主要內容</a>
+
+    <!-- 上橫幅：浮動導覽列 -->
+    <header class="site-header">
+        <div class="nav-bar">
+            <a class="brand title-1" href="index.html">koz8738</a>
+            <nav class="nav-desktop" aria-label="主要導覽">
+                <ul class="nav-links">
+                    <li><a class="nav-link title-3" href="index.html">主頁</a></li>
+                    <li><a class="nav-link title-3" href="game.html">遊戲庫</a></li>
+                    <li><a class="nav-link title-3" href="photos.html">攝影集</a></li>
+                    <li><a class="nav-link title-3" href="flights.html">航班</a></li>
+                    <li><a class="nav-link title-3" href="a320.html" aria-current="page">A320</a></li>
+                </ul>
+            </nav>
+            <button class="theme-toggle" type="button" aria-label="切換成深色模式"><i class="ph ph-moon" aria-hidden="true"></i><i class="ph ph-sun" aria-hidden="true"></i></button>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="開啟選單">
+                <span class="line"></span><span class="line"></span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="nav-panel" id="nav-panel" aria-label="行動版選單" inert>
+        <ul class="nav-panel-links">
+            <li style="--i:0"><a class="title-1" href="index.html">主頁</a></li>
+            <li style="--i:1"><a class="title-1" href="game.html">遊戲庫</a></li>
+            <li style="--i:2"><a class="title-1" href="photos.html">攝影集</a></li>
+            <li style="--i:3"><a class="title-1" href="flights.html">航班</a></li>
+            <li style="--i:4"><a class="title-1" href="a320.html" aria-current="page">A320</a></li>
+        </ul>
+    </nav>
+    <!-- /shared:header -->
+
+    <main class="page-main" id="main">
+        <div class="flights-wrap ck-wrap">
+
+            <div class="flights-head">
+                <div>
+                    <h1 class="heading-4 md-heading-3">A320 頂板與 FCU</h1>
+                    <p class="page-sub body-3">可以操作的空中巴士 A320 頂板和 FCU 簡化模擬。從冷艙一路開到起飛，或直接接手巡航、儀表進場。</p>
+                </div>
+                <div class="ck-ctl">
+                    <fieldset class="filter-seg">
+                        <legend class="caption-1">情境</legend>
+                        <div class="seg-row" id="scnRow">
+                            <label class="seg-opt"><input type="radio" name="scn" value="cruise" checked><span class="chip caption-1">巡航</span></label>
+                            <label class="seg-opt"><input type="radio" name="scn" value="ils"><span class="chip caption-1">儀表進場</span></label>
+                            <label class="seg-opt"><input type="radio" name="scn" value="cold"><span class="chip caption-1">冷艙啟動</span></label>
+                        </div>
+                    </fieldset>
+                    <fieldset class="filter-seg">
+                        <legend class="caption-1">模擬速度</legend>
+                        <div class="seg-row" id="spdRow">
+                            <label class="seg-opt"><input type="radio" name="spd" value="1" checked><span class="chip caption-1">1×</span></label>
+                            <label class="seg-opt"><input type="radio" name="spd" value="4"><span class="chip caption-1">4×</span></label>
+                            <label class="seg-opt"><input type="radio" name="spd" value="10"><span class="chip caption-1">10×</span></label>
+                        </div>
+                    </fieldset>
+                    <button class="btn btn-on-light caption-1" id="ckReset" type="button">重置情境</button>
+                </div>
+            </div>
+
+            <div class="ck-tabs" role="tablist" aria-label="面板">
+                <button class="ck-tab caption-1" role="tab" id="tabFcu" aria-controls="paneFcu" aria-selected="true" type="button">FCU 與飛行</button>
+                <button class="ck-tab caption-1" role="tab" id="tabOh" aria-controls="paneOh" aria-selected="false" tabindex="-1" type="button">頂板</button>
+            </div>
+
+            <!-- FCU 與飛行 -->
+            <section class="ck-pane" id="paneFcu" role="tabpanel" aria-labelledby="tabFcu">
+                <h2 class="sr-only">FCU 與飛行</h2>
+                <div class="ck-panel ck-glare">
+                    <div class="ck-fcu" id="fcu"></div>
+                    <p class="ck-hint caption-5">旋鈕：拖曳、滾輪或方向鍵轉動；點一下（或 Enter）＝推入，Shift＋點、右鍵、空白鍵或「拉」＝拉出。推入是「管理」，拉出是「選定」。</p>
+                </div>
+
+                <div class="ck-flight">
+                    <div class="ck-pfd-card ck-panel">
+                        <div class="ck-fma" id="fma" role="group" aria-label="飛行模式顯示 FMA"></div>
+                        <div class="ck-pfd" id="pfd"></div>
+                        <p class="ck-readout caption-5" id="readout" aria-live="off"></p>
+                    </div>
+                    <div class="ck-side">
+                        <div class="ck-card">
+                            <h3 class="title-4">目前的模式</h3>
+                            <p class="body-6 ck-help" id="modeHelp"></p>
+                            <div class="ck-actions">
+                                <button class="btn btn-on-light caption-1" id="btnTo" type="button">起飛（TOGA）</button>
+                            </div>
+                        </div>
+                        <div class="ck-card ck-mapcard">
+                            <div class="ck-map-head">
+                                <h3 class="title-4">平面圖</h3>
+                                <div class="ck-zoom">
+                                    <button class="ck-mini2" id="mapIn" type="button" aria-label="放大地圖">＋</button>
+                                    <button class="ck-mini2" id="mapOut" type="button" aria-label="縮小地圖">−</button>
+                                </div>
+                            </div>
+                            <div class="ck-map" id="ckMap"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 頂板 -->
+            <section class="ck-pane" id="paneOh" role="tabpanel" aria-labelledby="tabOh" hidden>
+                <h2 class="sr-only">頂板</h2>
+                <div class="ck-panel ck-oh" id="overhead"></div>
+            </section>
+
+            <!-- ECAM 與流程 -->
+            <section class="ck-lower" aria-label="ECAM 與啟動流程">
+                <div class="ck-ecam-card ck-panel">
+                    <h2 class="sr-only">ECAM</h2>
+                    <div class="ck-ecam">
+                        <div class="ck-ewd" id="ewd" aria-label="警告與備忘"></div>
+                        <div class="ck-sd" id="sd" aria-label="系統頁"></div>
+                    </div>
+                    <div class="ck-ecam-btns" id="ecamPages" role="group" aria-label="ECAM 系統頁"></div>
+                </div>
+                <div class="ck-card">
+                    <h2 class="title-4">冷艙啟動流程</h2>
+                    <p class="caption-5 muted ck-steps-sub">做到的步驟會自動打勾，亮色的是下一步。</p>
+                    <ol class="ck-steps" id="steps"></ol>
+                </div>
+            </section>
+
+            <p class="ck-disclaimer caption-5">這是依 A320 操作邏輯簡化的教學示意，不是真實飛機資料，也不能用於訓練。系統啟動時間已大幅縮短（ADIRS 對準 25 秒，實機約 10 分鐘），沒有風、襟翼、起落架和故障的細節。</p>
+        </div>
+    </main>
+
+    <div class="ck-toast" id="ckToast" role="status" aria-live="polite"></div>
+
+    <!-- shared:footer （自動產生，請改 partials/ 底下的檔案） -->
+    <!-- 下橫幅 -->
+    <footer class="site-footer" id="find-me">
+        <div class="footer-inner reveal">
+            <p class="body-3"><strong>My Gmail：</strong> <a href="mailto:wlin38280@gmail.com">wlin38280@gmail.com</a></p>
+            <p class="body-3">
+                <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">好東西</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 初音回到頂部按鈕 -->
+    <button id="miku-btn" aria-label="回到頂部" type="button">
+        <img id="miku-img" src="avatar.webp" alt="" width="354" height="346" decoding="async">
+    </button>
+    <!-- /shared:footer -->
+
+    <script src="config.js?v=efa2ead6"></script>
+    <script src="site.js?v=a29b4eda"></script>
+    <script src="js/a320-ui.js?v=b506959c"></script>
+    <script src="js/a320-sys.js?v=ec68e5d1"></script>
+    <script src="js/a320-ecam.js?v=4f85dddc"></script>
+    <script src="js/a320-fcu.js?v=2f5c0ba8"></script>
+    <script src="js/a320.js?v=af6be53c"></script>
+</body>
+</html>

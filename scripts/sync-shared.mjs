@@ -53,7 +53,7 @@ function versionOf(file) {
     return v;
 }
 function stampVersions(html) {
-    return html.replace(/\b(href|src)="(\/?)(style\.css|site\.js|config\.js|js\/[\w.-]+\.js)(?:\?v=[\w]*)?"/g,
+    return html.replace(/\b(href|src)="(\/?)(style\.css|site\.js|config\.js|js\/[\w.-]+\.js|css\/[\w.-]+\.css)(?:\?v=[\w]*)?"/g,
         (_, attr, slash, file) => `${attr}="${slash}${file}?v=${versionOf(file)}"`);
 }
 

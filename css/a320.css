@@ -182,19 +182,138 @@
 .ck-tgl { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 
 /* ---------- 頂板 ---------- */
-.ck-oh {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 2.2fr) minmax(0, 1fr);
-    gap: var(--space-200);
-    align-items: start;
+.ck-oh { padding: var(--space-150, 14px); }
+.ck-oh-ped { margin-top: var(--space-200); }
+
+/* 真機頂板：固定座標的「舞台」，整個一起縮放 */
+.ck-oh-wrap { overflow-x: auto; overflow-y: hidden; }
+.ck-oh-box { position: relative; margin: 0 auto; }
+.ck-stage {
+    --pl: #61788f;
+    --pl-line: #2b3846;
+    position: relative;
+    transform-origin: top left;
+    background-color: #4d6075;
+    border-radius: 10px;
+    color: #fff;
+    user-select: none;
 }
 
-.ck-oh-col { display: flex; flex-direction: column; gap: var(--space-200); min-width: 0; }
-.ck-oh-row { display: flex; flex-wrap: wrap; gap: var(--space-200); }
-.ck-oh-row > .ck-sec { flex: 1 1 0; min-width: 0; }
-.ck-oh-ped { grid-column: 1 / -1; }
-.ck-brk { flex-basis: 100%; height: 0; }
-.ck-onbat { flex-basis: 100%; margin-top: var(--space-50); }
+.ck-lines { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; }
+.ck-ln { stroke: #a9e9b4; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+
+.ck-at { position: absolute; z-index: 2; transform: translateX(-50%); }
+.ck-pn {
+    position: absolute;
+    box-sizing: border-box;
+    background-color: var(--pl);
+    border: 1px solid var(--pl-line);
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.ck-pn-t {
+    position: absolute;
+    left: 6px;
+    top: 3px;
+    font-size: 8.5px;
+    line-height: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.ck-blank { background-color: #566b81; }
+.ck-tag { font-size: 8px; line-height: 10px; font-weight: 800; color: #fff; white-space: nowrap; }
+.ck-tagbox { padding: 1px 5px; border: 1px solid #fff; background-color: var(--pl); z-index: 1; }
+.ck-vt {
+    position: absolute;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    line-height: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #fff;
+}
+
+.ck-lcd {
+    min-width: 76px;
+    padding: 3px 6px;
+    background-color: #0c1013;
+    border: 1px solid #000;
+    border-radius: 2px;
+    color: var(--p-green);
+    font-size: 11px;
+    line-height: 13px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ck-lcd-s { min-width: 54px; font-size: 10px; }
+.ck-box { padding: 3px 5px; background-color: #14181c; border: 1px solid #000; border-radius: 2px; }
+.ck-box-s { padding: 2px 3px; }
+.ck-busbox {
+    padding: 3px 7px;
+    background-color: #14181c;
+    border: 1px solid #000;
+    border-radius: 2px;
+    color: #4a525b;
+    font-size: 8px;
+    line-height: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+    transition: color 200ms var(--ease);
+}
+
+.ck-busbox.on { color: var(--p-green); }
+
+.ck-stage .ck-pb { width: 48px; gap: 2px; }
+.ck-stage .ck-pb-btn { width: 36px; height: 30px; gap: 2px; border-radius: 3px; }
+.ck-stage .ck-ann { font-size: 6px; line-height: 7px; }
+.ck-stage .ck-pb-label { max-width: 50px; font-size: 6px; line-height: 7px; color: #fff; }
+.ck-stage .ck-small .ck-pb-btn { width: 28px; height: 24px; gap: 0; }
+.ck-stage .ck-small { width: 38px; }
+.ck-stage .red .ck-pb-btn { background-color: #7c2323; border-color: #3a0d0d; }
+.ck-stage .ck-fire .ck-pb-btn { width: 42px; height: 38px; background-color: #8a1f1f; border-color: #3a0d0d; }
+.ck-stage .ck-fire .ck-pb-label { font-weight: 800; }
+.ck-stage .ck-hide { display: none; }
+
+.ck-stage .ck-sel { width: 62px; gap: 2px; }
+.ck-stage .ck-sel-dial { width: 30px; height: 30px; }
+.ck-stage .ck-sel .ck-sel-opts { gap: 1px; }
+.ck-stage .ck-sel .ck-opt,
+.ck-stage .ck-tgl .ck-opt { min-height: 0; padding: 2px 3px; font-size: 6.5px; line-height: 8px; }
+.ck-stage .ck-sel .ck-pb-label { max-width: 62px; }
+.ck-stage .ck-tgl { align-items: center; gap: 2px; }
+.ck-stage .ck-tgl .ck-pb-label { color: #fff; }
+.ck-stage .ck-sel > .ck-pb-label,
+.ck-stage .ck-sel > span:first-child { color: #fff; }
+
+.ck-deco { color: #e8eef4; }
+.ck-deco-t { position: absolute; left: 8px; top: 5px; margin: 0; font-size: 8.5px; font-weight: 800; }
+.ck-deco-dots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 6px; padding: 26px 10px 0; }
+.ck-deco-dots span,
+.ck-deco-btns span {
+    padding: 8px 0 3px;
+    background-color: #1b1d20;
+    border-radius: 2px;
+    color: #cfd6dc;
+    font-size: 7px;
+    line-height: 8px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.ck-freq { display: flex; justify-content: center; gap: 8px; padding: 22px 0 6px; align-items: center; }
+.ck-freq span { padding: 3px 6px; background-color: #0c1013; border-radius: 2px; color: #ffb224; font-size: 12px; font-weight: 700; }
+.ck-freq i { font-style: normal; color: #fff; }
+.ck-deco-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 0 10px; }
+.ck-deco-btns span { padding: 6px 0 4px; }
+
+.ck-oh-info { display: grid; gap: var(--space-50); margin-top: var(--space-200); }
 
 .ck-sec {
     padding: var(--space-200);
@@ -586,26 +705,19 @@
 @media (max-width: 1100px) {
     .ck-fcu { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-400); }
     .ck-fcu .g-mid { order: 5; grid-column: 1 / -1; }
-    .ck-oh { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .ck-oh-mid { grid-column: 1 / -1; order: -1; }
 }
 
 @media (max-width: 900px) {
-    .ck-oh { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .ck-oh-mid { grid-column: 1 / -1; order: -1; }
     .ck-flight,
     .ck-lower { grid-template-columns: minmax(0, 1fr); }
     .ck-ecam { grid-template-columns: minmax(0, 1fr); }
     .ck-ewd { border-right: 0; border-bottom: 1px solid #23262a; padding: 0 0 var(--space-200); }
 }
 
-@media (max-width: 640px) {
-    .ck-oh { grid-template-columns: minmax(0, 1fr); }
-}
-
 @media (max-width: 520px) {
     .ck-panel,
     .ck-card { padding: var(--space-200); }
+    .ck-oh { padding: var(--space-100); }
     .ck-fcu { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-300) var(--space-100); }
     .ck-knob { width: 68px; height: 68px; }
     .ck-seg7 { height: 30px; }

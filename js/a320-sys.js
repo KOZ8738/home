@@ -13,12 +13,13 @@
     const approach = (v, to, rate, dt) => (v < to ? Math.min(to, v + rate * dt) : Math.max(to, v - rate * dt));
 
     let st = null;
+    const DEF = {};   // 畫面上新增的按鈕預設值（build 時登記）
     const refs = { pb: {}, sel: {}, tg: {}, ir: [], live: {} };
     sys.state = null;
 
     function fresh() {
         return {
-            pb: {
+            pb: Object.assign({}, DEF, {
                 bat1: false, bat2: false, ext: false, gen1: true, gen2: true, apugen: true, bustie: true,
                 apumaster: false, apustart: false, apubleed: false, bleed1: true, bleed2: true, pack1: true, pack2: true,
                 hydEng1: true, hydEng2: true, hydBlue: true, hydYel: false, ptu: true,
@@ -31,12 +32,12 @@
                 evacHorn: false, emerMan: false, rcdr: false, oxy: true,
                 hotAir: true, ram: false, blower: false, extract: false,
                 manStart1: false, manStart2: false, ditch: false, probe: false
-            },
+            }),
             sel: {
                 ir1: 'OFF', ir2: 'OFF', ir3: 'OFF', xbleed: 'AUTO', mode: 'NORM', m1: 'OFF', m2: 'OFF',
                 strobe: 'AUTO', beacon: 'OFF', wing: 'OFF', navlogo: 'OFF', rwyto: 'OFF', landl: 'OFF', landr: 'OFF', nose: 'OFF',
                 seat: 'OFF', nosmk: 'OFF', emer: 'ARM',
-                tempC: 'MED', tempF: 'MED', tempA: 'MED', flow: 'NORM', cabMode: 'AUTO', wipC: 'OFF', wipF: 'OFF', dome: 'OFF', ann: 'BRT'
+                evacCapt: 'CAPT', cabVs: 'UP', cargoFwd: 'MED', cargoAft: 'MED', tempC: 'MED', tempF: 'MED', tempA: 'MED', flow: 'NORM', cabMode: 'AUTO', wipC: 'OFF', wipF: 'OFF', dome: 'OFF', ann: 'BRT'
             },
             flash: {},
             eng: [{ s: 'off', n2: 0, n1: 0, egt: 20, ff: 0 }, { s: 'off', n2: 0, n1: 0, egt: 20, ff: 0 }],
@@ -242,6 +243,8 @@
         sys.refresh();
     }
 
+    const MOMENTARY = /^(call|fireTest|smokeTest|cvrTest|emerTest)/;
+
     function press(id) {
         const p = st.pb;
         if (id === 'apustart') { apuStart(); return sys.refresh(); }
@@ -249,7 +252,12 @@
             A.toast(onGround() && sys.enginesRunning() === 0 ? '這個機位沒有地面電源。' : '發動機運轉中或在空中，不能接地面電源。');
             return;
         }
-        if (id.startsWith('call')) { st.flash[id] = st.t + 1.2; A.toast('呼叫送出。'); return sys.refresh(); }
+        if (MOMENTARY.test(id)) {
+            const fire = id.startsWith('fireTest');
+            if (fire) A.toast('FIRE 測試：火警燈全亮 3 秒。');
+            st.flash[fire ? 'fireTest' : id] = st.t + (fire ? 3 : 1.2);
+            return sys.refresh();
+        }
         p[id] = !p[id];
         if (/^fire(1|2|apu)$/.test(id) && p[id]) A.toast('FIRE 按鈕按下：關閉該側的燃油、引氣、液壓和發電機，發動機或 APU 停車。再按一次可放開。');
         if (id === 'apumaster' && p.apumaster) A.toast('APU MASTER SW ON。接著按 START。');
@@ -279,202 +287,357 @@
         };
     }
 
+    // ================= 頂板（照真機頂板的實際位置）=================
+    // 座標系統：928 × 930 的「舞台」，位置照真機頂板圖；畫面寬度不夠時整個縮小（最小 0.62 倍），再不夠就左右捲動。
+    const STAGE_W = 928, STAGE_H = 850;
+
     function build(host) {
         host.textContent = '';
-        const cols = [el('div', 'ck-oh-col'), el('div', 'ck-oh-col ck-oh-mid'), el('div', 'ck-oh-col')];
-        cols.forEach((c) => host.append(c));
-        const row = (col) => { const r = el('div', 'ck-oh-row'); col.append(r); return r; };
-        const sec = (parent, title, note) => {
-            const s2 = el('section', 'ck-sec');
-            const hd = el('div', 'ck-sec-hd');
-            hd.append(el('h3', 'ck-sec-title', title));
-            if (note) hd.append(el('span', 'ck-sec-note', note));
-            const body = el('div', 'ck-sec-body');
-            s2.append(hd, body);
-            parent.append(s2);
-            return body;
+        const wrap = el('div', 'ck-oh-wrap');
+        const box = el('div', 'ck-oh-box');
+        const stage = el('div', 'ck-stage');
+        stage.style.width = STAGE_W + 'px';
+        stage.style.height = STAGE_H + 'px';
+        box.append(stage);
+        wrap.append(box);
+        host.append(wrap);
+
+        const svg = U.svgEl('svg', { class: 'ck-lines', width: STAGE_W, height: STAGE_H, 'aria-hidden': 'true' });
+        stage.append(svg);
+        const line = (pts) => U.svgEl('polyline', { points: pts, class: 'ck-ln', fill: 'none' }, svg);
+
+        const at = (node, x, y, cls) => {
+            node.classList.add('ck-at');
+            if (cls) node.classList.add(cls);
+            node.style.left = x + 'px';
+            node.style.top = y + 'px';
+            stage.append(node);
+            return node;
         };
-        const addPb = (body, id, label, top, bot, lt) => {
-            const x = U.pushButton({ id, label, top, bot }, () => press(id));
-            x.lt = lt;
-            refs.pb[id] = x;
-            body.append(x.el);
+        const panel = (x, y, w, h, title, cls) => {
+            const d = el('div', 'ck-pn' + (cls ? ' ' + cls : ''));
+            d.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+            if (title) d.append(el('span', 'ck-pn-t', title));
+            stage.append(d);
+            return d;
         };
-        const addTgl = (body, id, label, opts) => {
-            const x = tgl({ id, label, opts });
-            refs.tg[id] = x;
-            body.append(x.el);
-        };
-        const live = (body, key) => {
-            const p = el('p', 'ck-live caption-5');
-            refs.live[key] = p;
-            body.append(p);
-        };
-        const brk = (body) => body.append(el('span', 'ck-brk'));
+        const tag = (text, x, y, cls) => at(el('span', 'ck-tag' + (cls ? ' ' + cls : ''), text), x, y);
+        const vtag = (text, x, y) => { const t = el('span', 'ck-vt', text); t.style.left = x + 'px'; t.style.top = y + 'px'; stage.append(t); };
         const F = ['FAULT', 'amber'], OFFL = ['OFF', 'white'], ONL = ['ON', 'blue'];
-        const [L, C, R] = cols;
 
-        // ================= 左側（機長側）=================
-        let b = sec(L, 'ADIRS', '慣性基準');
-        const irRow = el('div', 'ck-row ck-row-ir');
-        [1, 2, 3].forEach((n) => {
-            const col = el('div', 'ck-ir');
-            const al = U.ann('ALIGN', 'green');
-            const sl = U.selector({ id: 'ir' + n, label: 'IR ' + n, opts: ['OFF', 'NAV', 'ATT'] }, setSel);
-            col.append(al, sl.el);
-            irRow.append(col);
-            refs.ir.push(al);
-            refs.sel['ir' + n] = sl;
-        });
-        b.append(irRow);
+        // kind: 'off'（預設按下）或 'on'（預設放開）
+        const pb = (id, label, top, bot, lt, x, y, kind, cls) => {
+            if (kind === 'off') DEF[id] = true;
+            const b = U.pushButton({ id, label, top, bot }, () => press(id));
+            b.lt = lt;
+            refs.pb[id] = b;
+            at(b.el, x, y, cls);
+            return b;
+        };
+        const sw = (id, label, opts, x, y) => {
+            const t = tgl({ id, label, opts });
+            refs.tg[id] = t;
+            at(t.el, x, y);
+        };
+        const knob = (id, label, opts, x, y) => {
+            const k = U.selector({ id, label, opts }, setSel);
+            refs.sel[id] = k;
+            at(k.el, x, y, 'ck-at-knob');
+        };
+        const plain = (id, label, x, y, kind, cls, top, bot) => {
+            const t = top || null, bo = bot || null;
+            return pb(id, label, t, bo, (s2) => [false, bo ? !!s2.pb[id] : false], x, y, kind, cls);
+        };
+        const flashLt = (id) => (s2) => (s2.flash[id] || 0) > s2.t;
+
+        // ---------------- 左欄（x 22–228）----------------
+        const L = 22, LW = 206, MX = 232, MW = 463, R = 698, RW = 210;
+        panel(L, 22, LW, 48, '', 'ck-blank');
+
+        let T = 72;
+        panel(L, T, LW, 168, 'ADIRS');
+        const lcd = el('div', 'ck-lcd');
+        refs.live.adirs = lcd;
+        at(lcd, 88, T + 14);
+        const onb = el('div', 'ck-box');
         refs.onbat = U.ann('ON BAT', 'white');
-        const ob = el('div', 'ck-onbat');
-        ob.append(refs.onbat);
-        b.append(ob);
-        live(b, 'adirs');
+        onb.append(refs.onbat);
+        at(onb, 184, T + 14);
+        [[1, 60], [3, 125], [2, 190]].forEach(([n, x]) => {
+            const bx = el('div', 'ck-box ck-box-s');
+            const al = U.ann('ALIGN', 'green');
+            bx.append(al);
+            refs.ir[n - 1] = al;
+            at(bx, x, T + 56);
+            tag('IR ' + n, x, T + 44);
+            knob('ir' + n, 'IR ' + n, ['OFF', 'NAV', 'ATT'], x, T + 86);
+        });
 
-        b = sec(L, 'FLT CTL', '飛控電腦（左）');
-        addPb(b, 'elac1', 'ELAC 1', F, OFFL, off('elac1'));
-        addPb(b, 'sec1', 'SEC 1', F, OFFL, off('sec1'));
-        addPb(b, 'sec3', 'SEC 3', F, OFFL, off('sec3'));
-        addPb(b, 'fac1', 'FAC 1', F, OFFL, off('fac1'));
+        T = 242;
+        panel(L, T, LW, 70, 'FLT CTL');
+        pb('elac1', 'ELAC 1', F, OFFL, off('elac1'), 62, T + 14, 'off');
+        pb('sec1', 'SEC 1', F, OFFL, off('sec1'), 125, T + 14, 'off');
+        pb('fac1', 'FAC 1', F, OFFL, off('fac1'), 188, T + 14, 'off');
 
-        let r = row(L);
-        b = sec(r, 'EVAC', '撤離');
-        addPb(b, 'evacHorn', 'HORN SHUT OFF', null, ['SHUT OFF', 'white'], on('evacHorn'));
-        b = sec(r, 'EMER ELEC', '緊急電力');
-        addPb(b, 'emerMan', 'MAN ON', F, ONL, on('emerMan'));
+        T = 314;
+        panel(L, T, LW, 70, 'EVAC');
+        plain('evacCmd', 'COMMAND', 56, T + 14, 'on', 'red', null, ['ON', 'white']);
+        plain('evacHorn', 'HORN SHUT OFF', 112, T + 14, 'on', '', null, ['OFF', 'white']);
+        sw('evacCapt', 'CAPT & PURS', ['CAPT', 'C&P'], 180, T + 20);
 
-        b = sec(L, 'GPWS', '近地警告');
-        addPb(b, 'gpwsSys', 'SYS', F, OFFL, off('gpwsSys'));
-        addPb(b, 'gpwsGs', 'G/S MODE', null, OFFL, off('gpwsGs'));
-        addPb(b, 'gpwsFlap', 'FLAP MODE', null, OFFL, off('gpwsFlap'));
-        addPb(b, 'gpwsTerr', 'TERR', null, OFFL, off('gpwsTerr'));
+        T = 386;
+        panel(L, T, LW, 70, 'EMER ELEC PWR');
+        pb('emerTest', 'EMER GEN TEST', null, ['TEST', 'white'], (s2) => [false, (s2.flash.emerTest || 0) > s2.t], 46, T + 14, 'on');
+        plain('gen1Line', 'GEN 1 LINE', 96, T + 14, 'on', '', ['SMOKE', 'amber'], ['ON', 'white']);
+        pb('ratEmer', 'RAT & EMER GEN', ['FAULT', 'amber'], null, () => [false, false], 146, T + 14, 'on');
+        plain('emerMan', 'MAN ON', 190, T + 14, 'on', 'red', ['FAULT', 'amber'], ONL);
 
-        r = row(L);
-        b = sec(r, 'RCDR', '記錄器');
-        addPb(b, 'rcdr', 'GND CTL', null, ONL, on('rcdr'));
-        b = sec(r, 'OXYGEN', '氧氣');
-        addPb(b, 'oxy', 'CREW SUPPLY', null, OFFL, off('oxy'));
+        T = 458;
+        panel(L, T, LW, 70, 'GPWS');
+        pb('gpwsTerr', 'TERR', null, OFFL, off('gpwsTerr'), 40, T + 14, 'off');
+        pb('gpwsSys', 'SYS', F, OFFL, off('gpwsSys'), 81, T + 14, 'off');
+        pb('gpwsGs', 'G/S MODE', null, OFFL, off('gpwsGs'), 122, T + 14, 'off');
+        pb('gpwsFlap', 'FLAP MODE', null, OFFL, off('gpwsFlap'), 163, T + 14, 'off');
+        pb('gpwsLdg', 'LDG FLAP 3', null, ['ON', 'blue'], on('gpwsLdg'), 204, T + 14, 'on');
 
-        b = sec(L, 'CALLS', '呼叫（按一下）');
-        [['callMech', 'MECH'], ['callCapt', 'CAPT'], ['callAll', 'ALL'], ['callFwd', 'FWD'], ['callAft', 'AFT'], ['callPurs', 'PURS']]
-            .forEach(([id, l]) => addPb(b, id, l, ['CALL', 'white'], null, (s2) => [(s2.flash[id] || 0) > s2.t, false]));
+        T = 530;
+        panel(L, T, LW, 66, 'RCDR');
+        pb('rcdr', 'GND CTL', null, ONL, on('rcdr'), 58, T + 12, 'on', 'ck-small');
+        pb('cvrErase', 'CVR ERASE', null, null, () => [false, false], 125, T + 12, 'on', 'ck-small');
+        pb('cvrTest', 'CVR TEST', null, null, () => [false, false], 190, T + 12, 'on', 'ck-small');
 
-        b = sec(L, 'WIPER', '機長雨刷');
-        addTgl(b, 'wipC', 'WIPER', ['OFF', 'SLOW', 'FAST']);
+        T = 598;
+        panel(L, T, LW, 70, 'OXYGEN');
+        plain('hiAlt', 'HIGH ALT LANDING', 46, T + 14, 'on', 'red', null, ['ON', 'white']);
+        plain('maskMan', 'MASK MAN ON', 98, T + 14, 'on', 'red', null, ['ON', 'white']);
+        pb('paxOxy', 'PASSENGERS', null, ['ON', 'white'], on('paxOxy'), 150, T + 14, 'on');
+        pb('oxy', 'CREW SUPPLY', null, OFFL, off('oxy'), 202, T + 14, 'off');
 
-        // ================= 中央 =================
-        b = sec(C, 'FIRE', '火警');
-        addPb(b, 'fire1', 'ENG 1 FIRE', ['FIRE', 'red'], null, (s2) => [!!s2.pb.fire1, false]);
-        addPb(b, 'fireapu', 'APU FIRE', ['FIRE', 'red'], null, (s2) => [!!s2.pb.fireapu, false]);
-        addPb(b, 'fire2', 'ENG 2 FIRE', ['FIRE', 'red'], null, (s2) => [!!s2.pb.fire2, false]);
+        T = 670;
+        panel(L, T, LW, 70, 'CALLS');
+        [['callMech', 'MECH', 52], ['callFwd', 'FWD', 100], ['callAft', 'AFT', 148], ['callEmer', 'EMER', 196]].forEach(([id, l, x]) =>
+            pb(id, l, ['CALL', 'white'], null, (s2) => [(s2.flash[id] || 0) > s2.t, false], x, T + 14, 'on', 'ck-small'));
 
-        r = row(C);
-        b = sec(r, 'HYD', '液壓');
-        addPb(b, 'hydEng1', 'ENG 1 PUMP', F, OFFL, off('hydEng1', (s2) => s2.eng[0].s === 'run' && s2.pb.hydEng1 && s2.hyd.g < 1500));
-        addPb(b, 'hydBlue', 'BLUE ELEC', F, OFFL, off('hydBlue', (s2) => s2.pb.hydBlue && sys.enginesRunning() > 0 && s2.hyd.b < 1500));
-        addPb(b, 'hydEng2', 'ENG 2 PUMP', F, OFFL, off('hydEng2', (s2) => s2.eng[1].s === 'run' && s2.pb.hydEng2 && s2.hyd.y < 1500));
-        addPb(b, 'ptu', 'PTU', F, OFFL, off('ptu'));
-        addPb(b, 'hydYel', 'YELLOW ELEC', F, ONL, on('hydYel'));
-        b = sec(r, 'FUEL', '燃油');
-        [['fL1', 'L TK 1'], ['fC1', 'CTR 1'], ['fR1', 'R TK 1'], ['fL2', 'L TK 2'], ['fC2', 'CTR 2'], ['fR2', 'R TK 2']]
-            .forEach(([id, l]) => addPb(b, id, l, F, OFFL, off(id, (s2) => (id[1] === 'C' ? s2.pb[id] && s2.fuel.C <= 0 : false))));
-        addPb(b, 'xfeed', 'X FEED', null, ['OPEN', 'green'], on('xfeed'));
+        T = 742;
+        panel(L, T, LW, 80, 'RAIN RPLNT   WIPER');
+        pb('rainRplnt', 'RAIN RPLNT', null, null, () => [false, false], 62, T + 16, 'on', 'ck-small');
+        knob('wipC', 'WIPER', ['OFF', 'SLOW', 'FAST'], 150, T + 16);
 
-        b = sec(C, 'ELEC', '電力');
-        addPb(b, 'bat1', 'BAT 1', F, OFFL, (s2) => [s2.pb.bat1 && s2.bat[0] <= 0, !s2.pb.bat1]);
-        addPb(b, 'bat2', 'BAT 2', F, OFFL, (s2) => [s2.pb.bat2 && s2.bat[1] <= 0, !s2.pb.bat2]);
-        brk(b);
-        addPb(b, 'idg1', 'IDG 1', F, null, (s2) => [!!s2.pb.idg1, false]);
-        addPb(b, 'gen1', 'GEN 1', F, OFFL, off('gen1', (s2) => s2.pb.gen1 && s2.eng[0].s === 'run' && s2.eng[0].n2 < 50));
-        addPb(b, 'ext', 'EXT PWR', ['AVAIL', 'green'], ONL, (s2) => [extAvailNow() && !s2.pb.ext, s2.pb.ext && extAvailNow()]);
-        addPb(b, 'apugen', 'APU GEN', ['AVAIL', 'green'], ['OFF', 'white'], (s2) => [s2.apu.s === 'run' && s2.pb.apugen, !s2.pb.apugen]);
-        addPb(b, 'gen2', 'GEN 2', F, OFFL, off('gen2', (s2) => s2.pb.gen2 && s2.eng[1].s === 'run' && s2.eng[1].n2 < 50));
-        addPb(b, 'idg2', 'IDG 2', F, null, (s2) => [!!s2.pb.idg2, false]);
-        brk(b);
-        addPb(b, 'galy', 'GALY & CAB', F, OFFL, off('galy'));
-        addPb(b, 'commercial', 'COMMERCIAL', null, OFFL, off('commercial'));
-        addPb(b, 'bustie', 'BUS TIE', null, OFFL, off('bustie'));
-        addPb(b, 'acess', 'AC ESS FEED', F, ['ALTN', 'white'], on('acess'));
+        // ---------------- 中欄（x 232–695）----------------
+        panel(MX, 22, MW, 48, '', 'ck-blank');
 
-        b = sec(C, 'AIR COND', '空調與引氣');
-        addTgl(b, 'tempC', 'COCKPIT', ['COLD', 'MED', 'HOT']);
-        addTgl(b, 'tempF', 'FWD CABIN', ['COLD', 'MED', 'HOT']);
-        addTgl(b, 'tempA', 'AFT CABIN', ['COLD', 'MED', 'HOT']);
-        brk(b);
-        addPb(b, 'hotAir', 'HOT AIR', F, OFFL, off('hotAir'));
-        addPb(b, 'pack1', 'PACK 1', F, OFFL, off('pack1'));
-        addTgl(b, 'flow', 'PACK FLOW', ['LO', 'NORM', 'HI']);
-        addPb(b, 'pack2', 'PACK 2', F, OFFL, off('pack2'));
-        addPb(b, 'ram', 'RAM AIR', null, ONL, on('ram'));
-        brk(b);
-        addPb(b, 'bleed1', 'ENG 1 BLEED', F, OFFL, off('bleed1'));
-        addPb(b, 'apubleed', 'APU BLEED', F, ONL, on('apubleed'));
-        addPb(b, 'bleed2', 'ENG 2 BLEED', F, OFFL, off('bleed2'));
-        addTgl(b, 'xbleed', 'X BLEED', ['SHUT', 'AUTO', 'OPEN']);
-        live(b, 'air');
+        // FIRE
+        T = 72;
+        panel(MX, T, MW, 124, '');
+        vtag('FIRE', MX + 6, T + 40); vtag('FIRE', MX + MW - 16, T + 40);
+        tag('ENG 1', 316, T + 3); tag('APU', 463, T + 3); tag('ENG 2', 610, T + 3);
+        const agent = (id, fid, x) => pb(id, 'AGENT', ['SQUIB', 'white'], ['DISCH', 'amber'], (s2) => [!!s2.pb[fid], !!s2.pb[id]], x, T + 14, 'on');
+        const fireLt = (fid) => (s2) => [!!s2.pb[fid] || (s2.flash.fireTest || 0) > s2.t, false];
+        agent('ag1a', 'fire1', 268); pb('fire1', 'ENG 1 FIRE', ['FIRE', 'red'], null, fireLt('fire1'), 316, T + 14, 'on', 'ck-fire'); agent('ag1b', 'fire1', 364);
+        pb('fireapu', 'APU FIRE', ['FIRE', 'red'], null, fireLt('fireapu'), 440, T + 14, 'on', 'ck-fire'); agent('agapu', 'fireapu', 490);
+        agent('ag2a', 'fire2', 562); pb('fire2', 'ENG 2 FIRE', ['FIRE', 'red'], null, fireLt('fire2'), 610, T + 14, 'on', 'ck-fire'); agent('ag2b', 'fire2', 658);
+        pb('fireTest', 'ENG 1 TEST', null, null, () => [false, false], 316, T + 82, 'on', 'ck-small');
+        pb('fireTestB', 'APU TEST', null, null, () => [false, false], 463, T + 82, 'on', 'ck-small');
+        pb('fireTestC', 'ENG 2 TEST', null, null, () => [false, false], 610, T + 82, 'on', 'ck-small');
 
-        r = row(C);
-        b = sec(r, 'ANTI ICE', '防冰');
-        addPb(b, 'probe', 'PROBE/WINDOW', null, ONL, on('probe'));
-        addPb(b, 'wai', 'WING', F, ONL, on('wai'));
-        addPb(b, 'eai1', 'ENG 1', F, ONL, on('eai1'));
-        addPb(b, 'eai2', 'ENG 2', F, ONL, on('eai2'));
-        b = sec(r, 'APU', '輔助動力');
-        addPb(b, 'apumaster', 'MASTER SW', F, ONL, on('apumaster'));
-        addPb(b, 'apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run']);
-        live(b, 'apu');
+        // HYD
+        T = 198;
+        panel(MX, T, MW, 78, '');
+        vtag('HYD', MX + 6, T + 22); vtag('HYD', MX + MW - 16, T + 22);
+        line(`300,${T + 18} 625,${T + 18}`);
+        ['300', '456', '540', '625'].forEach((x) => line(`${x},${T + 12} ${x},${T + 22}`));
+        tag('GREEN', 300, T + 5, 'ck-tagbox'); tag('BLUE', 456, T + 5, 'ck-tagbox'); tag('PTU', 540, T + 5, 'ck-tagbox'); tag('YELLOW', 625, T + 5, 'ck-tagbox');
+        pb('hydEng1', 'ENG 1 PUMP', F, OFFL, off('hydEng1', (s2) => s2.eng[0].s === 'run' && s2.pb.hydEng1 && s2.hyd.g < 1500), 300, T + 24, 'off');
+        plain('ratMan', 'RAT MAN ON', 372, T + 24, 'on', 'red', null, ['ON', 'white']);
+        pb('hydBlue', 'BLUE PUMP', F, OFFL, off('hydBlue', (s2) => s2.pb.hydBlue && sys.enginesRunning() > 0 && s2.hyd.b < 1500), 456, T + 24, 'off');
+        pb('ptu', 'PTU', F, OFFL, off('ptu'), 540, T + 24, 'off');
+        pb('hydEng2', 'ENG 2 PUMP', F, OFFL, off('hydEng2', (s2) => s2.eng[1].s === 'run' && s2.pb.hydEng2 && s2.hyd.y < 1500), 600, T + 24, 'off');
+        pb('hydYel', 'YEL ELEC PUMP', F, ONL, on('hydYel'), 654, T + 24, 'on');
 
-        b = sec(C, 'EXT LT', '外部燈光');
-        addTgl(b, 'strobe', 'STROBE', ['ON', 'AUTO', 'OFF']);
-        addTgl(b, 'beacon', 'BEACON', ['ON', 'OFF']);
-        addTgl(b, 'wing', 'WING', ['ON', 'OFF']);
-        addTgl(b, 'navlogo', 'NAV & LOGO', ['1', 'OFF', '2']);
-        addTgl(b, 'rwyto', 'RWY TURN OFF', ['ON', 'OFF']);
-        addTgl(b, 'landl', 'LAND L', ['ON', 'RETR', 'OFF']);
-        addTgl(b, 'landr', 'LAND R', ['ON', 'RETR', 'OFF']);
-        addTgl(b, 'nose', 'NOSE', ['T.O', 'TAXI', 'OFF']);
+        // FUEL
+        T = 278;
+        panel(MX, T, MW, 94, '');
+        vtag('FUEL', MX + 6, T + 40); vtag('FUEL', MX + MW - 16, T + 40);
+        line(`311,${T + 20} 620,${T + 20}`);
+        ['311', '417', '613'].forEach((x) => line(`${x},${T + 12} ${x},${T + 20}`));
+        tag('ENG 1', 311, T + 5, 'ck-tagbox'); tag('APU', 417, T + 5, 'ck-tagbox'); tag('ENG 2', 613, T + 5, 'ck-tagbox');
+        const fp = (id, label, x) => pb(id, label, F, OFFL, off(id, (s2) => (id[1] === 'C' ? s2.pb[id] && s2.fuel.C <= 0 : false)), x, T + 40, 'off');
+        tag('L TK PUMPS', 311, T + 27); fp('fL1', '1', 292); fp('fL2', '2', 332);
+        tag('CTR TK PUMPS', 463, T + 27); fp('fC1', '1', 420); fp('fC2', '2', 506);
+        tag('R TK PUMPS', 613, T + 27); fp('fR1', '1', 594); fp('fR2', '2', 634);
+        pb('xfeed', 'X FEED', null, ['OPEN', 'green'], on('xfeed'), 463, T + 40, 'on');
+        pb('fuelMode', 'MODE SEL', ['MAN', 'amber'], null, on('fuelMode'), 380, T + 40, 'on');
 
-        // ================= 右側（副駕駛側）=================
-        b = sec(R, 'FLT CTL', '飛控電腦（右）');
-        addPb(b, 'elac2', 'ELAC 2', F, OFFL, off('elac2'));
-        addPb(b, 'sec2', 'SEC 2', F, OFFL, off('sec2'));
-        addPb(b, 'fac2', 'FAC 2', F, OFFL, off('fac2'));
+        // ELEC
+        T = 374;
+        panel(MX, T, MW, 150, '');
+        vtag('ELEC', MX + 6, T + 50); vtag('ELEC', MX + MW - 16, T + 50);
+        pb('commercial', 'COMMERCIAL', F, OFFL, off('commercial'), 272, T + 14, 'off');
+        pb('galy', 'GALLEY', F, OFFL, off('galy'), 318, T + 14, 'off');
+        tag('DC BUS 1', 388, T + 5, 'ck-tagbox'); tag('DC BUS 2', 540, T + 5, 'ck-tagbox');
+        const dc = (id, x) => { const d = el('div', 'ck-lcd ck-lcd-s'); refs.live[id] = d; at(d, x, T + 22); };
+        dc('bat1v', 388); dc('bat2v', 540);
+        pb('bat1', 'BAT 1', F, OFFL, (s2) => [s2.pb.bat1 && s2.bat[0] <= 0, !s2.pb.bat1], 448, T + 14, 'on');
+        pb('bat2', 'BAT 2', F, OFFL, (s2) => [s2.pb.bat2 && s2.bat[1] <= 0, !s2.pb.bat2], 486, T + 14, 'on');
+        pb('acess', 'AC ESS FEED', F, ['ALTN', 'white'], on('acess'), 620, T + 14, 'on');
+        line(`388,${T + 12} 388,${T + 4}`);
+        const busBox = (key, label, x) => { const d = el('div', 'ck-busbox', label); refs.live[key] = d; at(d, x, T + 72); };
+        line(`322,${T + 82} 610,${T + 82}`);
+        busBox('ac1', 'AC BUS 1', 322); busBox('acEss', 'AC ESS BUS', 463); busBox('ac2', 'AC BUS 2', 610);
+        const C = T + 96;
+        pb('idg1', 'IDG 1', F, null, (s2) => [!!s2.pb.idg1, false], 258, C, 'on', 'red');
+        pb('gen1', 'GEN 1', F, OFFL, off('gen1', (s2) => s2.pb.gen1 && s2.eng[0].s === 'run' && s2.eng[0].n2 < 50), 322, C, 'off');
+        pb('apugen', 'APU GEN', ['AVAIL', 'green'], OFFL, (s2) => [s2.apu.s === 'run' && s2.pb.apugen, !s2.pb.apugen], 396, C, 'off');
+        pb('bustie', 'BUS TIE', null, OFFL, off('bustie'), 463, C, 'off');
+        pb('ext', 'EXT PWR', ['AVAIL', 'green'], ONL, (s2) => [extAvailNow() && !s2.pb.ext, s2.pb.ext && extAvailNow()], 530, C, 'on');
+        pb('gen2', 'GEN 2', F, OFFL, off('gen2', (s2) => s2.pb.gen2 && s2.eng[1].s === 'run' && s2.eng[1].n2 < 50), 604, C, 'off');
+        pb('idg2', 'IDG 2', F, null, (s2) => [!!s2.pb.idg2, false], 664, C, 'on', 'red');
 
-        b = sec(R, 'VENTILATION', '通風');
-        addPb(b, 'blower', 'BLOWER', F, ['OVRD', 'white'], on('blower'));
-        addPb(b, 'extract', 'EXTRACT', F, ['OVRD', 'white'], on('extract'));
+        // AIR COND
+        T = 526;
+        panel(MX, T, MW, 128, '');
+        vtag('AIR COND', MX + 6, T + 40); vtag('AIR COND', MX + MW - 16, T + 40);
+        knob('flow', 'PACK FLOW', ['LO', 'NORM', 'HI'], 282, T + 8);
+        knob('tempC', 'COCKPIT', ['COLD', 'MED', 'HOT'], 380, T + 8);
+        knob('tempF', 'FWD CABIN', ['COLD', 'MED', 'HOT'], 462, T + 8);
+        knob('tempA', 'AFT CABIN', ['COLD', 'MED', 'HOT'], 544, T + 8);
+        pb('hotAir', 'HOT AIR', F, OFFL, off('hotAir'), 636, T + 10, 'off');
+        const Y = T + 74;
+        line(`270,${Y - 4} 658,${Y - 4}`);
+        pb('pack1', 'PACK 1', F, OFFL, off('pack1'), 270, Y, 'off');
+        pb('bleed1', 'ENG 1 BLEED', F, OFFL, off('bleed1'), 324, Y, 'off');
+        pb('ram', 'RAM AIR', null, ONL, on('ram'), 394, Y, 'on', 'red');
+        pb('apubleed', 'APU BLEED', F, ONL, on('apubleed'), 463, Y, 'on');
+        knob('xbleed', 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 538, Y);
+        pb('bleed2', 'ENG 2 BLEED', F, OFFL, off('bleed2'), 614, Y, 'off');
+        pb('pack2', 'PACK 2', F, OFFL, off('pack2'), 660, Y, 'off');
 
-        b = sec(R, 'ENG MAN START', '手動啟動');
-        addPb(b, 'manStart1', 'ENG 1', null, ONL, on('manStart1'));
-        addPb(b, 'manStart2', 'ENG 2', null, ONL, on('manStart2'));
+        // 下排：ANTI ICE / PROBE / CABIN PRESS
+        T = 656;
+        panel(MX, T, 186, 72, 'ANTI ICE');
+        pb('wai', 'WING', F, ONL, on('wai'), 270, T + 14, 'on');
+        pb('eai1', 'ENG 1', F, ONL, on('eai1'), 340, T + 14, 'on');
+        pb('eai2', 'ENG 2', F, ONL, on('eai2'), 388, T + 14, 'on');
+        panel(MX + 188, T, 76, 72, 'PROBE');
+        pb('probe', 'AUTO', null, ONL, on('probe'), 458, T + 14, 'on');
+        panel(MX + 266, T, 197, 72, 'CABIN PRESS');
+        sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 546, T + 18);
+        sw('cabMode', 'MODE SEL', ['AUTO', 'MAN'], 606, T + 18);
+        pb('ditch', 'DITCHING', null, ONL, on('ditch'), 668, T + 14, 'on');
 
-        b = sec(R, 'CAB PRESS', '客艙增壓');
-        addTgl(b, 'cabMode', 'MODE SEL', ['AUTO', 'MAN']);
-        addPb(b, 'ditch', 'DITCHING', null, ONL, on('ditch'));
-        live(b, 'cab');
+        // EXT LT / APU / INT LT / SIGNS
+        T = 730;
+        panel(MX, T, 204, 112, 'EXT LT');
+        sw('strobe', 'STROBE', ['ON', 'AUTO', 'OFF'], 268, T + 14);
+        sw('beacon', 'BEACON', ['ON', 'OFF'], 330, T + 14);
+        sw('wing', 'WING', ['ON', 'OFF'], 376, T + 14);
+        sw('navlogo', 'NAV&LOGO', ['1', 'OFF', '2'], 264, T + 46);
+        sw('rwyto', 'RWY TURN OFF', ['ON', 'OFF'], 328, T + 46);
+        sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 394, T + 46);
+        sw('landl', 'LAND L', ['ON', 'RETR', 'OFF'], 270, T + 78);
+        sw('landr', 'LAND R', ['ON', 'RETR', 'OFF'], 346, T + 78);
 
-        b = sec(R, 'WIPER', '副駕駛雨刷');
-        addTgl(b, 'wipF', 'WIPER', ['OFF', 'SLOW', 'FAST']);
+        panel(MX + 206, T, 58, 112, 'APU');
+        pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 467, T + 12, 'on');
+        pb('apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run'], 467, T + 62, 'on');
 
-        b = sec(R, 'SIGNS', '客艙燈號');
-        addTgl(b, 'seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF']);
-        addTgl(b, 'nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF']);
-        addTgl(b, 'emer', 'EMER EXIT LT', ['ON', 'ARM', 'OFF']);
+        panel(MX + 266, T, 197, 48, 'INT LT');
+        sw('dome', 'DOME', ['BRT', 'DIM', 'OFF'], 540, T + 14);
+        sw('ann', 'ANN LT', ['TEST', 'BRT', 'DIM'], 626, T + 14);
+        panel(MX + 266, T + 50, 197, 62, 'SIGNS');
+        sw('seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF'], 540, T + 68);
+        sw('nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF'], 626, T + 68);
 
-        b = sec(R, 'INT LT', '駕駛艙燈光');
-        addTgl(b, 'dome', 'DOME', ['BRT', 'DIM', 'OFF']);
-        addTgl(b, 'ann', 'ANN LT', ['TEST', 'BRT', 'DIM']);
+        // ---------------- 右欄（x 698–908）----------------
+        const ap = panel(R, 22, RW, 90, '');
+        ap.classList.add('ck-deco');
+        ap.append(el('p', 'ck-deco-t', 'AUDIO SWITCHING'));
+        const dots = el('div', 'ck-deco-dots');
+        ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB', 'PA'].forEach((t) => dots.append(el('span', '', t)));
+        ap.append(dots);
+        const rmp = panel(R, 114, RW, 110, '');
+        rmp.classList.add('ck-deco');
+        const disp = el('div', 'ck-freq');
+        disp.append(el('span', '', '128.175'), el('i', '', '↔'), el('span', '', '135.550'));
+        rmp.append(el('p', 'ck-deco-t', 'RMP 1'), disp);
+        const rb = el('div', 'ck-deco-btns');
+        ['VHF1', 'VHF2', 'VHF3', 'HF1', 'SEL', 'HF2', 'AM', 'NAV', 'VOR', 'ILS', 'ADF', 'BFO'].forEach((t) => rb.append(el('span', '', t)));
+        rmp.append(rb);
+        panel(R, 226, RW, 66, '', 'ck-blank');
 
-        // ================= 中央座（不在頂板，這裡放在下面方便操作）=================
-        const ped = el('div', 'ck-oh-ped');
+        T = 294;
+        panel(R, T, RW, 70, 'FLT CTL');
+        pb('elac2', 'ELAC 2', F, OFFL, off('elac2'), 736, T + 14, 'off');
+        pb('sec2', 'SEC 2', F, OFFL, off('sec2'), 786, T + 14, 'off');
+        pb('sec3', 'SEC 3', F, OFFL, off('sec3'), 836, T + 14, 'off');
+        pb('fac2', 'FAC 2', F, OFFL, off('fac2'), 884, T + 14, 'off');
+
+        T = 366;
+        panel(R, T, RW, 128, 'CARGO HEAT');
+        pb('fwdIsol', 'FWD ISOL VLV', F, ['OFF', 'white'], off('fwdIsol'), 738, T + 14, 'off');
+        pb('cargoHot', 'HOT AIR', F, ['OFF', 'white'], off('cargoHot'), 803, T + 14, 'off');
+        pb('aftIsol', 'AFT ISOL VLV', F, ['OFF', 'white'], off('aftIsol'), 868, T + 14, 'off');
+        knob('cargoFwd', 'FWD', ['COLD', 'MED', 'HOT'], 756, T + 72);
+        knob('cargoAft', 'AFT', ['COLD', 'MED', 'HOT'], 850, T + 72);
+
+        T = 496;
+        panel(R, T, RW, 70, 'CARGO SMOKE');
+        pb('disch1', 'DISCH', null, ['DISCH', 'amber'], on('disch1'), 726, T + 14, 'on', 'red');
+        pb('smokeFwd', 'FWD', null, null, () => [false, false], 772, T + 14, 'on', 'ck-small');
+        pb('smokeTest', 'TEST', null, null, () => [false, false], 803, T + 14, 'on', 'ck-small');
+        pb('smokeAft', 'AFT', null, null, () => [false, false], 834, T + 14, 'on', 'ck-small');
+        pb('disch2', 'DISCH', null, ['DISCH', 'amber'], on('disch2'), 880, T + 14, 'on', 'red');
+
+        T = 568;
+        panel(R, T, RW, 70, 'VENTILATION');
+        pb('blower', 'BLOWER', F, ['OVRD', 'white'], on('blower'), 740, T + 14, 'on', 'ck-small');
+        pb('extract', 'EXTRACT', F, ['OVRD', 'white'], on('extract'), 803, T + 14, 'on', 'ck-small');
+        pb('cabFans', 'CAB FANS', null, OFFL, off('cabFans'), 868, T + 14, 'off', 'ck-small');
+
+        T = 640;
+        panel(R, T, RW, 70, 'ENG');
+        tag('MAN START', 762, T + 4); tag('N1 MODE', 850, T + 4);
+        pb('manStart1', '1', null, ONL, on('manStart1'), 726, T + 14, 'on');
+        pb('manStart2', '2', null, ONL, on('manStart2'), 770, T + 14, 'on');
+        pb('n1mode1', '1', F, ['MAN', 'white'], on('n1mode1'), 830, T + 14, 'on');
+        pb('n1mode2', '2', F, ['MAN', 'white'], on('n1mode2'), 874, T + 14, 'on');
+
+        T = 712;
+        panel(R, T, RW, 130, 'WIPER');
+        knob('wipF', 'WIPER', ['OFF', 'SLOW', 'FAST'], 764, T + 24);
+        pb('rainRplnt2', 'RAIN RPLNT', null, null, () => [false, false], 862, T + 24, 'on', 'ck-small');
+
+        // ---------------- 下方狀態列與中央座 ----------------
+        const info = el('div', 'ck-oh-info');
+        ['apu', 'air', 'cab'].forEach((k2) => { const p = el('p', 'ck-live caption-5'); refs.live[k2] = p; info.append(p); });
+        host.append(info);
+        const ped = el('div', 'ck-sec ck-oh-ped');
+        const hd = el('div', 'ck-sec-hd');
+        hd.append(el('h3', 'ck-sec-title', 'ENGINE'), el('span', 'ck-sec-note', '中央座：發動機啟動（不在頂板上）'));
+        const body = el('div', 'ck-sec-body');
+        ped.append(hd, body);
         host.append(ped);
-        b = sec(ped, 'ENGINE', '中央座：發動機啟動（不在頂板上）');
-        addTgl(b, 'mode', 'ENG MODE', ['CRANK', 'NORM', 'IGN/START']);
-        addTgl(b, 'm1', 'MASTER 1', ['OFF', 'ON']);
-        addTgl(b, 'm2', 'MASTER 2', ['OFF', 'ON']);
-        live(b, 'eng');
+        [['mode', 'ENG MODE', ['CRANK', 'NORM', 'IGN/START']], ['m1', 'MASTER 1', ['OFF', 'ON']], ['m2', 'MASTER 2', ['OFF', 'ON']]].forEach(([id, l, o]) => {
+            const t = tgl({ id, label: l, opts: o });
+            refs.tg[id] = t;
+            body.append(t.el);
+        });
+        const lv = el('p', 'ck-live caption-5');
+        refs.live.eng = lv;
+        body.append(lv);
+
+        // 依容器寬度縮放舞台
+        const fit = () => {
+            const w = wrap.clientWidth;
+            if (w < 50) return;
+            const sc = Math.max(0.62, Math.min(1.5, w / STAGE_W));
+            stage.style.transform = `scale(${sc})`;
+            box.style.width = STAGE_W * sc + 'px';
+            box.style.height = STAGE_H * sc + 'px';
+        };
+        if (root.ResizeObserver) new ResizeObserver(fit).observe(wrap);
+        else root.addEventListener('resize', fit);
+        fit();
     }
 
     sys.build = build;
@@ -499,7 +662,12 @@
         });
         refs.onbat.set(pw && st.buses.batOnly, false);
         const lv = refs.live;
-        if (lv.adirs) lv.adirs.textContent = pw ? `對準 ${st.ir.map((r, i) => (st.sel['ir' + (i + 1)] === 'NAV' ? Math.round(r.p * 100) + '%' : '—')).join('　')}（實機約 10 分鐘，這裡縮短）` : '沒有電，ADIRS 不運作。';
+        if (lv.adirs) lv.adirs.textContent = pw ? 'IR ' + [0, 1, 2].map((i) => (st.sel['ir' + (i + 1)] === 'NAV' ? (st.ir[i].p >= 1 ? 'OK' : Math.round(st.ir[i].p * 100) + '%') : st.sel['ir' + (i + 1)] === 'ATT' ? 'ATT' : '--')).join(' ') : '';
+        const bs = st.buses;
+        const setBox = (node, on2) => { if (node) node.classList.toggle('on', !!on2); };
+        setBox(lv.ac1, bs.ac1); setBox(lv.ac2, bs.ac2); setBox(lv.acEss, bs.acess);
+        if (lv.bat1v) lv.bat1v.textContent = pw && st.pb.bat1 ? (bs.batOnly ? '26.' + (st.bat[0] > 50 ? '8' : '1') : '27.9') + ' V' : '';
+        if (lv.bat2v) lv.bat2v.textContent = pw && st.pb.bat2 ? (bs.batOnly ? '26.' + (st.bat[1] > 50 ? '8' : '1') : '27.9') + ' V' : '';
         if (lv.apu) lv.apu.textContent = pw ? `APU N ${Math.round(st.apu.n)}%　EGT ${Math.round(st.apu.egt)}°C` : '';
         if (lv.air) lv.air.textContent = pw ? `引氣壓力 左 ${Math.round(st.air.L)}　右 ${Math.round(st.air.R)} psi` : '';
         if (lv.cab) {

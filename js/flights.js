@@ -21,8 +21,15 @@ const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 const $ = (id) => document.getElementById(id);
 const sections = { loading: $('loadingSection'), live: $('liveSection'), history: $('historySection') };
 
+const wrap = document.querySelector('.flights-wrap');
+
 function show(name) {
     Object.entries(sections).forEach(([key, el]) => { el.hidden = key !== name; });
+    // 在線時上面飛過的航線地圖收起來（style.css 用 data-view 控制），只留下面的即時位置地圖；
+    // 回到離線時，地圖剛才是藏著的、尺寸是 0，要重新量一次大小再框住所有航線
+    const wasLive = wrap.dataset.view === 'live';
+    wrap.dataset.view = name;
+    if (wasLive && name !== 'live' && worldFit) requestAnimationFrame(worldFit);
 }
 
 function setStatus(state) {
@@ -64,7 +71,7 @@ function formatMinutes(total) {
 }
 
 // ---------- 世界地圖：飛過的機場和航線 ----------
-let worldMap = null, worldLayer = null;
+let worldMap = null, worldLayer = null, worldFit = null;
 
 // 大圓航線：沿球面插點，經度接續不跳號
 function arcPoints(a, b, n = 64) {
@@ -146,6 +153,7 @@ function renderWorld(flights) {
         if (pts.length) worldMap.fitBounds(L.latLngBounds(pts), { padding: [48, 48], maxZoom: 6, animate: false });
         else worldMap.setView([30, 110], 3);
     };
+    worldFit = fit;
     fit();
     setTimeout(fit, 300);
 }

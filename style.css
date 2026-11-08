@@ -1407,6 +1407,8 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 }
 
 /* 世界地圖 */
+.flights-wrap[data-view="live"] .world-card { display: none; }
+
 .world-card {
     position: relative;
     margin-bottom: var(--space-400);

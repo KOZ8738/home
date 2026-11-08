@@ -1,0 +1,22 @@
+{"v":1,"airports":[
+["UZDP",37.62,67.518,"Kakaydy"],
+["UZFA",40.727,72.293,"Andizhan"],
+["UZFF",40.358,71.745,"Fergana"],
+["UZFK",40.448,70.991,"Kokand"],
+["UZFN",40.985,71.557,"Namangan"],
+["UZNM",43.755,59.032,"Muynak"],
+["UZNN",42.489,59.623,"Nukus"],
+["UZNU",41.583,60.644,"Urgench"],
+["UZSA",40.117,65.171,"Navoi"],
+["UZSB",39.775,64.482,"Bukhara"],
+["UZSH",39.03,66.777,"Shahrisabz"],
+["UZSK",38.802,65.773,"Karshi"],
+["UZSL",38.833,65.922,"Karshi (Khanabad)"],
+["UZSN",41.617,64.233,"Zarafshan"],
+["UZSS",39.702,66.982,"Samarkand"],
+["UZST",37.287,67.308,"Termez"],
+["UZTC",41.517,69.576,"Chirchik"],
+["UZTP",41.312,69.391,"Tashkent (Vostochny)"],
+["UZTT",41.257,69.282,"Tashkent (Islam Karimov)"],
+["UZTZ",40.015,68.41,"Zaamin"]
+]}

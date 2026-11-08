@@ -1,0 +1,22 @@
+{"v":1,"airports":[
+["HSAT",17.7,33.966,"Atbara"],
+["HSDN",19.154,30.429,"Dongola"],
+["HSDZ",11.783,34.383,"Damazine"],
+["HSFS",13.617,25.317,"El Fasher"],
+["HSGF",14.033,35.4,"Gedaref"],
+["HSGN",13.489,22.45,"Geneina"],
+["HSKA",15.467,36.4,"Kassala"],
+["HSKI",13.167,32.666,"Kosti"],
+["HSLI",11,29.716,"Kadugli"],
+["HSMN",18.443,31.844,"Merowe New"],
+["HSNL",12.05,24.883,"Nyala"],
+["HSNN",12.054,24.956,"Nyala"],
+["HSNR",13.55,33.616,"Sennar"],
+["HSOB",13.159,30.249,"El Obeid"],
+["HSPN",19.433,37.233,"Port Sudan"],
+["HSRN",11.75,32.783,"Renk"],
+["HSSG",13.478,22.537,"Sebara Geniena"],
+["HSSK",15.585,32.557,"Khartoum"],
+["HSSP",19.583,37.216,"Port"],
+["HSSW",21.817,31.483,"Wadi Halfa"]
+]}

@@ -1343,7 +1343,10 @@ p, li, [class*="body-"], [class*="caption-"] { text-wrap: pretty; }
 
 .stat-label .ph { font-size: 1.25rem; }
 
-#statPos { white-space: pre-line; }
+#statPos { white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+
+.stat-sub { overflow-wrap: anywhere; }
+.stat-sub[hidden] { display: none; }
 
 .map-card {
     position: relative;

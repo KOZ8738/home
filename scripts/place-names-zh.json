@@ -1,0 +1,101 @@
+{
+  "_說明": "給「航班」頁位置欄用的中文名稱表。沒列在這裡的管制區和機場會顯示英文名稱（資料來自 VATSpy），想補中文就照格式加一行，再執行 build-airspace（或等每週自動更新）。",
+  "_格式": "cities：管制區的英文城市名 → 中文（會自動加「區調」「管制區」「洋區管制」）；firs：用邊界代碼個別指定（優先於 cities）；airports：ICAO 代碼 → 機場簡稱（網頁上會自動補「機場」二字）。",
+
+  "cities": {
+    "Kabul": "喀布爾", "Bahrain": "巴林", "Jeddah": "吉達", "Jeddah Terminal": "吉達終端", "Riyadh": "利雅德", "Riyadh Terminal": "利雅德終端",
+    "Tehran": "德黑蘭", "Amman": "安曼", "Kuwait": "科威特", "Beirut": "貝魯特", "U.A.E": "阿聯酋", "Muscat": "馬斯喀特", "Karachi": "喀拉蚩",
+    "Lahore": "拉合爾", "Baghdad": "巴格達", "Damascus": "大馬士革", "Doha": "杜哈", "Sanaa": "沙那", "Tel Aviv": "特拉維夫", "Tel Aviv North": "特拉維夫北",
+    "Tel Aviv South": "特拉維夫南", "Nicosia": "尼古西亞", "Istanbul": "伊斯坦堡", "Ankara": "安卡拉", "Ankara Control": "安卡拉",
+
+    "Taipei": "台北", "Tokyo": "東京", "Kobe": "神戶", "Fukuoka": "福岡", "Incheon": "仁川", "Manila": "馬尼拉", "Hong Kong": "香港",
+    "Pyongyang": "平壤", "Ulaanbaatar": "烏蘭巴托", "Guam": "關島",
+
+    "Beijing": "北京", "Hohhot": "呼和浩特", "Guangzhou": "廣州", "Changsha": "長沙", "Nanning": "南寧", "Zhengzhou": "鄭州", "Wuhan": "武漢",
+    "Sanya": "三亞", "Lanzhou": "蘭州", "Xi'an": "西安", "Kunming": "昆明", "Xiamen": "廈門", "Nanchang": "南昌", "Jinan": "濟南", "Hefei": "合肥",
+    "Qingdao": "青島", "Shanghai": "上海", "Guiyang": "貴陽", "Lhasa": "拉薩", "Chengdu": "成都", "Urumqi": "烏魯木齊", "Harbin": "哈爾濱",
+    "Dalian": "大連", "Shenyang": "瀋陽",
+
+    "Mumbai": "孟買", "Colombo": "可倫坡", "Phnom Penh": "金邊", "Kolkata": "加爾各答", "Guwahati": "古瓦哈提", "Dhaka": "達卡", "Delhi": "德里",
+    "Vientiane": "永珍", "Kathmandu": "加德滿都", "Chennai": "清奈", "Male": "馬列", "Bangkok": "曼谷", "Ho Chi Minh": "胡志明市", "Ha Noi": "河內",
+    "Yangon": "仰光", "Ujung Pandang": "望加錫", "Kota Kinabalu": "亞庇", "Kuching": "古晉", "Jakarta": "雅加達", "Kuala Lumpur": "吉隆坡",
+    "Singapore": "新加坡", "Mekong": "湄公河",
+
+    "Almaty": "阿拉木圖", "Astana": "阿斯塔納", "Shymkent": "奇姆肯特", "Aktobe": "阿克托別", "Baku": "巴庫", "Bishkek": "比什凱克", "Osh": "奧什",
+    "Yerevan": "葉里溫", "Yakutsk": "雅庫茨克", "Tbilisi": "提比里斯", "Khabarovsk": "哈巴羅夫斯克", "Magadan": "馬加丹", "Irkutsk": "伊爾庫茨克",
+    "Kyiv": "基輔", "Dnipro": "第聶伯", "Simferopol": "辛菲羅波爾", "Lviv": "利維夫", "Odesa": "敖德薩", "Peterburg": "聖彼得堡",
+    "Kaliningrad": "加里寧格勒", "Minsk": "明斯克", "Krasnoyarsk": "克拉斯諾亞爾斯克", "Novosibirsk": "新西伯利亞", "Rostov": "羅斯托夫",
+    "Ural": "烏拉爾", "Tyumen": "秋明", "Ashgabat": "阿什哈巴德", "Turkmenbashi": "土庫曼巴什", "Dashoguz": "達沙古茲", "Turkmenabat": "土庫曼納巴特",
+    "Dushanbe": "杜尚別", "Moscow": "莫斯科", "Samara": "薩馬拉", "Samarkand": "撒馬爾罕", "Tashkent": "塔什干", "Ukraine": "烏克蘭",
+
+    "Amsterdam": "阿姆斯特丹", "Athinai": "雅典", "Barcelona": "巴塞隆納", "Beograd": "貝爾格勒", "Bordeaux": "波爾多", "Bratislava": "布拉提斯拉瓦",
+    "Bremen": "不萊梅", "Brest": "布雷斯特", "Brindisi": "布林迪西", "Brussels": "布魯塞爾", "Bucharest": "布加勒斯特", "Budapest": "布達佩斯",
+    "Chisinau": "基希涅夫", "Dublin": "都柏林", "Helsinki": "赫爾辛基", "Kobenhavn": "哥本哈根", "Langen": "朗根", "Lisboa": "里斯本",
+    "Ljubljana Upper": "盧比安納", "London": "倫敦", "Madrid": "馬德里", "Malta": "馬爾他", "Marseille": "馬賽", "Milano": "米蘭", "Muenchen": "慕尼黑",
+    "Padova": "帕多瓦", "Palma": "帕爾馬", "Paris": "巴黎", "Praha": "布拉格", "Reims": "蘭斯", "Reykjavik": "雷克雅維克", "Riga": "里加", "Roma": "羅馬",
+    "Sarajevo": "塞拉耶佛", "Scottish": "蘇格蘭", "Sevilla": "塞維亞", "Shannon": "香農", "Skopje": "史高彼耶", "Sofia": "索菲亞", "Sweden": "瑞典",
+    "Switzerland": "瑞士", "Tallinn": "塔林", "Tirana": "地拉那", "Valencia": "瓦倫西亞", "Vilnius": "維爾紐斯", "Warszawa High": "華沙", "Wien": "維也納",
+    "Zagreb": "札格拉布", "Canarias": "加那利", "Santa Maria": "亞速爾", "Bodo": "博德", "Shanwick": "香威克", "Shanwick & Gander": "香威克與甘德",
+    "Swanwick Military": "倫敦軍用", "Adria Radar": "亞得里亞",
+
+    "Albuquerque": "阿布奎基", "Anchorage": "安克拉治", "Atlanta": "亞特蘭大", "Boston": "波士頓", "Chicago": "芝加哥", "Cleveland": "克里夫蘭",
+    "Denver": "丹佛", "Edmonton": "愛德蒙吞", "Fort Worth": "沃思堡", "Gander": "甘德", "Honolulu": "檀香山", "Houston": "休士頓",
+    "Indianapolis": "印第安納波利斯", "Jacksonville": "傑克遜維爾", "Kansas City": "堪薩斯城", "Los Angeles": "洛杉磯", "Memphis": "曼菲斯",
+    "Miami": "邁阿密", "Minneapolis": "明尼阿波利斯", "Moncton": "蒙克頓", "Montreal": "蒙特婁", "New York": "紐約", "Oakland": "奧克蘭（美）",
+    "Salt Lake": "鹽湖城", "San Juan": "聖胡安", "Seattle": "西雅圖", "Sept-Iles": "七島", "Toronto": "多倫多", "Vancouver": "溫哥華",
+    "Washington": "華盛頓", "Winnipeg": "溫尼伯", "Nuuk": "努克",
+
+    "Havana": "哈瓦那", "Kingston": "京斯敦", "Port-Au-Prince": "太子港", "Santo Domingo": "聖多明哥", "Curaçao": "古拉索", "Piarco": "特立尼達",
+    "Mexico": "墨西哥城", "Mazatlan": "馬薩特蘭", "Merida": "梅里達", "Monterrey": "蒙特雷", "Cenamer": "中美洲", "Panama": "巴拿馬",
+
+    "Amazonico": "亞馬遜", "Antofagasta": "安托法加斯塔", "Asuncion": "亞松森", "Atlantico": "大西洋", "Barranquilla": "巴蘭基亞", "Bogota": "波哥大",
+    "Brasilia": "巴西利亞", "Cali": "卡利", "Comodoro Rivadavia": "里瓦達維亞", "Cordoba": "科多巴", "Curitiba": "庫里奇巴", "Ezeiza": "布宜諾斯艾利斯",
+    "Georgetown": "喬治城", "Guayaquil": "瓜亞基爾", "Guyanas Control": "圭亞那", "La Paz": "拉巴斯", "Lima": "利馬", "Maiquetia": "加拉加斯",
+    "Mendoza": "門多薩", "Montevideo": "蒙特維多", "Paramaribo": "巴拉馬利波", "Pascua": "復活節島", "Puerto Montt": "蒙特港", "Punta Arenas": "蓬塔阿雷納斯",
+    "Recife": "雷西非", "Resistencia": "雷西斯滕西亞", "Santiago": "聖地牙哥", "Cayenne": "開雲", "Mount Pleasant": "福克蘭群島",
+
+    "Abidjan": "阿比讓", "Accra": "阿克拉", "Addis Ababa": "阿迪斯阿貝巴", "Agadir": "阿加迪爾", "Algiers": "阿爾及爾", "Antananarivo": "塔那那利佛",
+    "Asmara": "阿斯瑪拉", "Beira": "貝拉", "Brazzaville": "布拉薩", "Bujumbura": "布瓊布拉", "Cairo": "開羅", "Cape Town": "開普敦", "Casablanca": "卡薩布蘭加",
+    "Dakar": "達喀爾", "Dar-Es-Salaam": "三蘭港", "Entebbe": "恩德培", "Gaborone": "嘉柏隆里", "Harare": "哈拉雷", "Johannesburg": "約翰尼斯堡",
+    "Juba": "朱巴", "Kano": "卡諾", "Khartoum": "喀土穆", "Kigali": "吉佳利", "Kinshasa": "金夏沙", "Lagos": "拉哥斯", "Lilongwe": "里朗威", "Luanda": "羅安達",
+    "Lusaka": "路沙卡", "Maputo": "馬普托", "Mauritius": "模里西斯", "Mogadishu": "摩加迪休", "N'Djamena": "恩賈梅納", "Nairobi": "奈洛比", "Niamey": "尼阿美",
+    "Roberts": "羅伯茨", "Sal": "薩爾", "Seychelles": "塞席爾", "South Africa": "南非", "Tripoli": "的黎波里", "Tunis": "突尼斯", "Windhoek": "溫荷克",
+
+    "Auckland": "奧克蘭", "Brisbane": "布里斯本", "Christchurch": "基督城", "Faleolo": "薩摩亞", "Honiara": "荷尼阿拉", "McMurdo": "麥克默多",
+    "Melbourne": "墨爾本", "Nadi": "楠迪", "Nauru": "諾魯", "Ohakea": "歐哈凱亞", "Port Moresby": "莫士比港", "Rarotonga": "拉羅湯加", "Tahiti": "大溪地",
+    "Tasman": "塔斯曼"
+  },
+
+  "firs": {},
+
+  "airports": {
+    "RCTP": "台北·桃園", "RCSS": "台北·松山", "RCKH": "高雄", "RCMQ": "台中", "RCNN": "台南", "RCYU": "花蓮", "RCFN": "台東", "RCQC": "澎湖·馬公",
+    "RCKU": "嘉義", "RCBS": "金門", "RCFG": "馬祖·南竿", "RCMT": "馬祖·北竿",
+
+    "RJAA": "東京·成田", "RJTT": "東京·羽田", "RJBB": "大阪·關西", "RJOO": "大阪·伊丹", "RJGG": "名古屋·中部", "RJNN": "名古屋·小牧", "RJFF": "福岡",
+    "RJCC": "札幌·新千歲", "RJSN": "新潟", "RJNK": "小松", "RJOA": "廣島", "RJOM": "松山", "RJFK": "鹿兒島", "RJFT": "熊本", "RJFU": "長崎", "RJFO": "大分",
+    "RJFM": "宮崎", "ROAH": "沖繩·那霸", "RJSS": "仙台", "RJOT": "高松", "RJOB": "岡山", "RJBE": "神戶", "ROIG": "石垣", "ROMY": "宮古", "RJCH": "函館",
+    "RJKA": "奄美", "RJSM": "三澤",
+
+    "RKSI": "首爾·仁川", "RKSS": "首爾·金浦", "RKPC": "濟州", "RKPK": "釜山·金海", "RKTU": "清州", "RKTN": "大邱",
+
+    "ZBAA": "北京·首都", "ZBAD": "北京·大興", "ZBTJ": "天津·濱海", "ZBSJ": "石家莊·正定", "ZBYN": "太原·武宿", "ZBHH": "呼和浩特·白塔",
+    "ZGGG": "廣州·白雲", "ZGSZ": "深圳·寶安", "ZGHA": "長沙·黃花", "ZGNN": "南寧·吳圩", "ZGKL": "桂林·兩江", "ZGOW": "揭陽·潮汕", "ZGBH": "北海·福成",
+    "ZHCC": "鄭州·新鄭", "ZHHH": "武漢·天河", "ZJHK": "海口·美蘭", "ZJSY": "三亞·鳳凰", "ZLXY": "西安·咸陽", "ZLLL": "蘭州·中川", "ZLXN": "西寧·曹家堡",
+    "ZLIC": "銀川·河東", "ZPPP": "昆明·長水", "ZPLJ": "麗江·三義", "ZPJH": "西雙版納·嘎灑",
+    "ZSPD": "上海·浦東", "ZSSS": "上海·虹橋", "ZSHC": "杭州·蕭山", "ZSNJ": "南京·祿口", "ZSAM": "廈門·高崎", "ZSFZ": "福州·長樂", "ZSQD": "青島·膠東",
+    "ZSJN": "濟南·遙牆", "ZSOF": "合肥·新橋", "ZSCN": "南昌·昌北", "ZSNB": "寧波·櫟社", "ZSWZ": "溫州·龍灣", "ZSYT": "煙台·蓬萊",
+    "ZUCK": "重慶·江北", "ZUUU": "成都·雙流", "ZUTF": "成都·天府", "ZUGY": "貴陽·龍洞堡", "ZULS": "拉薩·貢嘎",
+    "ZWWW": "烏魯木齊·地窩堡", "ZYTX": "瀋陽·桃仙", "ZYTL": "大連·周水子", "ZYHB": "哈爾濱·太平", "ZYCC": "長春·龍嘉",
+    "VHHH": "香港", "VMMC": "澳門",
+
+    "WMKK": "吉隆坡", "WSSS": "新加坡·樟宜", "VTBS": "曼谷·素萬那普", "VTBD": "曼谷·廊曼", "VTSP": "普吉", "VTCC": "清邁", "RPLL": "馬尼拉",
+    "RPVM": "宿霧", "VVNB": "河內·內排", "VVTS": "胡志明·新山一", "VVDN": "峴港", "WIII": "雅加達·蘇卡諾哈達", "WADD": "峇里島", "VDPP": "金邊",
+    "VLVT": "永珍", "VYYY": "仰光", "WBKK": "亞庇", "WMKP": "檳城",
+
+    "OMDB": "杜拜", "OMAA": "阿布達比", "OTHH": "杜哈·哈馬德", "VIDP": "德里", "VABB": "孟買",
+    "EGLL": "倫敦·希斯洛", "EDDF": "法蘭克福", "LFPG": "巴黎·戴高樂", "EHAM": "阿姆斯特丹·史基浦", "LTFM": "伊斯坦堡",
+    "KLAX": "洛杉磯", "KSFO": "舊金山", "KJFK": "紐約·甘迺迪", "KSEA": "西雅圖", "KORD": "芝加哥·歐海爾", "KATL": "亞特蘭大", "PHNL": "檀香山", "PGUM": "關島",
+    "CYVR": "溫哥華", "CYYZ": "多倫多", "YSSY": "雪梨", "YMML": "墨爾本", "NZAA": "奧克蘭"
+  }
+}

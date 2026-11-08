@@ -1108,6 +1108,41 @@ function updateMap(lat, lon, heading, info) {
     map.panTo([lat, lon], { animate: !reduced.matches });
 }
 
+// 位置欄：在起降機場顯示機場名稱，在機場附近的空中顯示進近，其他時候顯示所在的管制區。
+// 資料（js/place.js 用的 data/ 底下的檔案）還沒下載好、下載失敗，或對不上任何地方時，就只顯示座標。
+const PLACE_HINT = {
+    airport: '起降機場',
+    approach: '進近範圍是用距離和高度估的（離起降機場 40 海浬內、14,000 呎以下），不是真正的終端區邊界',
+    acc: 'VATSIM 的管制範圍，和真實的飛航情報區大致相同'
+};
+let placeSeq = 0;
+let placeShown = false;
+
+function renderPlace(p) {
+    const el = $('statPos'), sub = $('statPosSub');
+    const coords = formatPos(p.latitude, p.longitude);
+    const show = (place) => {
+        placeShown = !!place;
+        if (place) {
+            el.textContent = place.text;
+            el.title = PLACE_HINT[place.kind] + (place.id ? '（' + place.id + '）' : '');
+            sub.textContent = coords.replace('\n', ' ');
+            sub.hidden = false;
+        } else {
+            el.textContent = coords;
+            el.removeAttribute('title');
+            sub.hidden = true;
+        }
+    };
+    if (placeShown) sub.textContent = coords.replace('\n', ' ');   // 名稱先留著，座標隨時更新
+    else show(null);
+    if (!window.PlaceLookup) return;
+    const seq = ++placeSeq;
+    window.PlaceLookup.resolve(p).then((place) => {
+        if (seq === placeSeq) show(place);
+    }).catch(() => {});
+}
+
 function renderLive(p, updatedAt) {
     const fp = p.flight_plan;
     $('liveCallsign').textContent = p.callsign;
@@ -1121,7 +1156,7 @@ function renderLive(p, updatedAt) {
     $('statAlt').textContent = `${Math.round(p.altitude).toLocaleString('en-US')} ft`;
     $('statSpeed').textContent = `${Math.round(p.groundspeed)} kt`;
     $('statHeading').textContent = `${String(heading).padStart(3, '0')}° ${COMPASS[Math.round(heading / 45) % 8]}`;
-    $('statPos').textContent = formatPos(p.latitude, p.longitude);
+    renderPlace(p);
 
     updateMap(p.latitude, p.longitude, heading, {
         callsign: p.callsign,

@@ -1,0 +1,71 @@
+# 請把這個檔案的內容貼到 .github/workflows/update-airspace.yml（新檔案），然後刪掉這個檔案
+# 作用：產生「航班」頁位置欄用的 data/airspace.json 和 data/airports/*.json
+#   · 你 push 這個檔案、或改了整理程式／中文名稱表時，自動跑一次
+#   · 之後每週一跑一次，跟上 VATSpy 資料的更新（新機場、管制區邊界調整）
+#   · 也可以在 Actions 頁面手動按「Run workflow」
+name: 更新管制區資料
+
+on:
+  schedule:
+    - cron: '41 3 * * 1'   # 每週一 03:41（UTC）
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/update-airspace.yml
+      - scripts/build-airspace.mjs
+      - scripts/airspace-lib.mjs
+      - scripts/place-names-zh.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-airspace
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 下載 VATSpy 資料並整理
+        run: node scripts/build-airspace.mjs
+
+      - name: 有變動才提交
+        run: |
+          git add data/airspace.json data/airports
+          if git diff --cached --quiet; then
+            echo "沒有變動"
+            exit 0
+          fi
+          git config user.name "flights-bot"
+          git config user.email "flights-bot@users.noreply.github.com"
+          git commit -m "更新管制區和機場資料"
+
+          # 這段時間剛好有別人 push 的話，先接上再推；這些檔案只有這個流程會改，所以不會有衝突，
+          # 真的接不上就從最新版本重做，最多試 3 次。
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push; then
+              exit 0
+            fi
+            echo "同步失敗，從最新版本重做（第 ${attempt} 次）"
+            git rebase --abort 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
+            node scripts/build-airspace.mjs
+            git add data/airspace.json data/airports
+            if git diff --cached --quiet; then
+              echo "沒有變動"
+              exit 0
+            fi
+            git commit -m "更新管制區和機場資料"
+          done
+          echo "連續 3 次都推不上去"
+          exit 1

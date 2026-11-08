@@ -354,6 +354,44 @@
     color: var(--p-dim);
 }
 
+/* ---------- 撥桿開關 ---------- */
+.ck-lev { width: 40px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+.ck-lev svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ck-lev:focus-visible { outline: var(--space-25) solid var(--accent-strong); border-radius: 4px; }
+.ck-lev-base { fill: #14171a; stroke: #05070a; stroke-width: 1; }
+.ck-lev-pivot { fill: #3b4046; stroke: #05070a; stroke-width: 1; }
+.ck-lev-arm { transform-box: view-box; transform-origin: 18px 19px; transition: transform 140ms var(--ease); }
+.ck-lev-stem { stroke: #c9ced3; stroke-width: 3.2; stroke-linecap: round; }
+.ck-lev-ball { fill: #e9ecef; stroke: #6b7279; stroke-width: 0.8; }
+.ck-tgl .ck-opt.ck-lopt { min-height: 0; padding: 1px 2px; border: 0; border-radius: 2px; background: none; color: rgba(255, 255, 255, 0.62); }
+.ck-tgl .ck-opt.ck-lopt:hover { color: #fff; }
+.ck-tgl .ck-opt.ck-lopt.on { background: none; color: #fff; text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1.5px; }
+.ck-stage .ck-tgl .ck-lopt { font-size: 6.5px; line-height: 8px; }
+.ck-stage .ck-lev { width: 34px; height: 21px; }
+.ck-stage .ck-tgl { gap: 1px; }
+.ck-oh-ped .ck-tgl .ck-lopt { color: var(--p-dim); font-size: 0.7rem; padding: 3px 5px; }
+.ck-oh-ped .ck-tgl .ck-lopt.on { color: var(--p-white); }
+
+/* ---------- 護蓋 ---------- */
+.ck-gw { position: relative; display: block; }
+.ck-gcover {
+    position: absolute;
+    inset: -3px -3px -2px;
+    padding: 0;
+    border: 1px solid rgba(255, 110, 110, 0.9);
+    border-radius: 4px;
+    background: linear-gradient(180deg, rgba(235, 60, 60, 0.5), rgba(160, 25, 25, 0.62));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    transform-origin: 50% 0;
+    transition: transform 220ms var(--ease), opacity 220ms var(--ease);
+}
+
+.ck-gcover::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 40%; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.55); transform: translateX(-50%); }
+.ck-gcover:focus-visible { outline: var(--space-25) solid var(--accent-strong); outline-offset: 1px; }
+.ck-gw.open .ck-gcover { transform: translateY(-10px) scaleY(0.2); opacity: 1; }
+.ck-gw.open .ck-gcover::after { display: none; }
+
 /* ---------- FCU ---------- */
 .ck-glare { background-color: #1f2124; margin-bottom: var(--space-300); }
 
@@ -728,6 +766,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .ck-gcover, .ck-lev-arm { transition: none; }
     .ck-ann.blink .ck-ann-lit { animation: none; opacity: 1; }
     .ck-toast { transition: opacity 150ms linear; transform: translate(-50%, 0); }
 }

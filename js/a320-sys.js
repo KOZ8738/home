@@ -14,7 +14,7 @@
 
     let st = null;
     const DEF = {};   // 畫面上新增的按鈕預設值（build 時登記）
-    const refs = { pb: {}, sel: {}, tg: {}, ir: [], live: {} };
+    const refs = { pb: {}, sel: {}, tg: {}, ir: [], live: {}, guard: {} };
     sys.state = null;
 
     function fresh() {
@@ -268,28 +268,49 @@
     const off = (id, fault) => (s) => [fault ? fault(s) : false, !s.pb[id]];
     const on = (id, top) => (s) => [top ? top(s) : false, !!s.pb[id]];
 
+    // 撥桿開關：點桿子切到下一格，或直接點下面的文字
     function tgl(def) {
+        const n = def.opts.length;
+        const angles = n === 2 ? [-34, 34] : n === 3 ? [-44, 0, 44] : [-50, -17, 17, 50];
         const wrap = el('div', 'ck-tgl');
         wrap.dataset.id = def.id;
+        const lev = el('button', 'ck-lev');
+        lev.type = 'button';
+        lev.dataset.id = def.id;
+        const sv = U.svgEl('svg', { viewBox: '0 0 36 22', 'aria-hidden': 'true' });
+        U.svgEl('rect', { x: 2, y: 12, width: 32, height: 8, rx: 3, class: 'ck-lev-base' }, sv);
+        const arm = U.svgEl('g', { class: 'ck-lev-arm' }, sv);
+        U.svgEl('line', { x1: 18, y1: 16, x2: 18, y2: 4.5, class: 'ck-lev-stem' }, arm);
+        U.svgEl('circle', { cx: 18, cy: 4, r: 3.2, class: 'ck-lev-ball' }, arm);
+        U.svgEl('circle', { cx: 18, cy: 16, r: 3.4, class: 'ck-lev-pivot' }, sv);
+        lev.append(sv);
+        let cur = def.opts[0];
+        lev.addEventListener('click', () => setSel(def.id, def.opts[(def.opts.indexOf(cur) + 1) % n]));
         const row = el('div', 'ck-tgl-row');
         const btns = def.opts.map((o) => {
-            const bt = el('button', 'ck-opt', o);
+            const bt = el('button', 'ck-opt ck-lopt', o);
             bt.type = 'button';
             bt.dataset.v = o;
             bt.addEventListener('click', () => setSel(def.id, o));
             row.append(bt);
             return bt;
         });
-        wrap.append(el('span', 'ck-pb-label', def.label), row);
+        wrap.append(el('span', 'ck-pb-label', def.label), lev, row);
         return {
             el: wrap,
-            set(v) { btns.forEach((bt) => { const o = bt.dataset.v === v; bt.classList.toggle('on', o); bt.setAttribute('aria-pressed', String(o)); }); }
+            set(v) {
+                cur = v;
+                const k = Math.max(0, def.opts.indexOf(v));
+                arm.style.transform = `rotate(${angles[k]}deg)`;
+                lev.setAttribute('aria-label', `${def.label}：${v}，點一下切到下一格`);
+                btns.forEach((bt) => { const o = bt.dataset.v === v; bt.classList.toggle('on', o); bt.setAttribute('aria-pressed', String(o)); });
+            }
         };
     }
 
     // ================= 頂板（照真機頂板的實際位置）=================
     // 座標系統：928 × 930 的「舞台」，位置照真機頂板圖；畫面寬度不夠時整個縮小（最小 0.62 倍），再不夠就左右捲動。
-    const STAGE_W = 928, STAGE_H = 850;
+    const STAGE_W = 928, STAGE_H = 886;
 
     function build(host) {
         host.textContent = '';
@@ -332,7 +353,30 @@
             b.lt = lt;
             refs.pb[id] = b;
             at(b.el, x, y, cls);
+            if (/\b(red|ck-fire)\b/.test(cls || '') || /^ag(1a|1b|apu|2a|2b)$/.test(id)) addGuard(b, id, label);
             return b;
+        };
+        // 護蓋：先掀開才按得到；按下去的按鈕蓋子會保持掀開
+        const addGuard = (b, id, label) => {
+            const g = el('div', 'ck-gw');
+            const cover = el('button', 'ck-gcover');
+            cover.type = 'button';
+            cover.dataset.for = id;
+            const setOpen = (o) => {
+                g.classList.toggle('open', o);
+                cover.setAttribute('aria-expanded', String(o));
+                cover.setAttribute('aria-label', `${label} 護蓋，目前${o ? '掀開，點一下蓋上' : '蓋著，點一下掀開'}`);
+                b.btn.tabIndex = o ? 0 : -1;
+            };
+            cover.addEventListener('click', () => {
+                const o = !g.classList.contains('open');
+                if (!o && st && st.pb[id]) { A.toast('這個按鈕還按著，先放開才能蓋上護蓋。'); return; }
+                setOpen(o);
+            });
+            b.btn.replaceWith(g);
+            g.append(b.btn, cover);
+            refs.guard[id] = { setOpen, isOpen: () => g.classList.contains('open') };
+            setOpen(false);
         };
         const sw = (id, label, opts, x, y) => {
             const t = tgl({ id, label, opts });
@@ -383,7 +427,7 @@
         panel(L, T, LW, 70, 'EVAC');
         plain('evacCmd', 'COMMAND', 56, T + 14, 'on', 'red', null, ['ON', 'white']);
         plain('evacHorn', 'HORN SHUT OFF', 112, T + 14, 'on', '', null, ['OFF', 'white']);
-        sw('evacCapt', 'CAPT & PURS', ['CAPT', 'C&P'], 180, T + 20);
+        sw('evacCapt', 'CAPT & PURS', ['CAPT', 'C&P'], 180, T + 16);
 
         T = 386;
         panel(L, T, LW, 70, 'EMER ELEC PWR');
@@ -521,32 +565,33 @@
         panel(MX + 188, T, 76, 72, 'PROBE');
         pb('probe', 'AUTO', null, ONL, on('probe'), 458, T + 14, 'on');
         panel(MX + 266, T, 197, 72, 'CABIN PRESS');
-        sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 546, T + 18);
-        sw('cabMode', 'MODE SEL', ['AUTO', 'MAN'], 606, T + 18);
+        sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 546, T + 14);
+        sw('cabMode', 'MODE SEL', ['AUTO', 'MAN'], 606, T + 14);
         pb('ditch', 'DITCHING', null, ONL, on('ditch'), 668, T + 14, 'on');
 
         // EXT LT / APU / INT LT / SIGNS
         T = 730;
-        panel(MX, T, 204, 112, 'EXT LT');
+        panel(MX, T, 204, 148, 'EXT LT');
         sw('strobe', 'STROBE', ['ON', 'AUTO', 'OFF'], 268, T + 14);
         sw('beacon', 'BEACON', ['ON', 'OFF'], 330, T + 14);
         sw('wing', 'WING', ['ON', 'OFF'], 376, T + 14);
-        sw('navlogo', 'NAV&LOGO', ['1', 'OFF', '2'], 264, T + 46);
-        sw('rwyto', 'RWY TURN OFF', ['ON', 'OFF'], 328, T + 46);
-        sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 394, T + 46);
-        sw('landl', 'LAND L', ['ON', 'RETR', 'OFF'], 270, T + 78);
-        sw('landr', 'LAND R', ['ON', 'RETR', 'OFF'], 346, T + 78);
+        sw('navlogo', 'NAV&LOGO', ['1', 'OFF', '2'], 264, T + 58);
+        sw('rwyto', 'RWY TURN OFF', ['ON', 'OFF'], 328, T + 58);
+        sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 394, T + 58);
+        sw('landl', 'LAND L', ['ON', 'RETR', 'OFF'], 270, T + 102);
+        sw('landr', 'LAND R', ['ON', 'RETR', 'OFF'], 346, T + 102);
 
-        panel(MX + 206, T, 58, 112, 'APU');
-        pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 467, T + 12, 'on');
-        pb('apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run'], 467, T + 62, 'on');
+        panel(MX + 206, T, 58, 148, 'APU');
+        pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 467, T + 18, 'on');
+        pb('apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run'], 467, T + 76, 'on');
 
-        panel(MX + 266, T, 197, 48, 'INT LT');
+        panel(MX + 266, T, 197, 62, 'INT LT');
         sw('dome', 'DOME', ['BRT', 'DIM', 'OFF'], 540, T + 14);
         sw('ann', 'ANN LT', ['TEST', 'BRT', 'DIM'], 626, T + 14);
-        panel(MX + 266, T + 50, 197, 62, 'SIGNS');
-        sw('seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF'], 540, T + 68);
-        sw('nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF'], 626, T + 68);
+        panel(MX + 266, T + 64, 197, 84, 'SIGNS');
+        sw('seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF'], 528, T + 81);
+        sw('nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF'], 598, T + 81);
+        sw('emer', 'EMER EXIT', ['ON', 'ARM', 'OFF'], 666, T + 81);
 
         // ---------------- 右欄（x 698–908）----------------
         const ap = panel(R, 22, RW, 90, '');
@@ -654,6 +699,7 @@
             x.btn.setAttribute('aria-pressed', String(!!st.pb[id]));
             x.btn.setAttribute('aria-label', `${x.el.querySelector('.ck-pb-label').textContent}，目前${st.pb[id] ? '按下' : '放開'}`);
         }
+        for (const id in refs.guard) if (st.pb[id] && !refs.guard[id].isOpen()) refs.guard[id].setOpen(true);
         for (const id in refs.sel) refs.sel[id].set(st.sel[id]);
         for (const id in refs.tg) refs.tg[id].set(st.sel[id]);
         st.ir.forEach((r, i) => {
@@ -684,6 +730,7 @@
     sys.apply = function (name) {
         st = fresh();
         sys.state = st;
+        for (const id in refs.guard) refs.guard[id].setOpen(false);
         if (name !== 'cold') {
             st.pb.bat1 = st.pb.bat2 = true;
             st.sel.ir1 = st.sel.ir2 = st.sel.ir3 = 'NAV';

@@ -354,23 +354,42 @@
     color: var(--p-dim);
 }
 
-/* ---------- 撥桿開關 ---------- */
-.ck-lev { width: 40px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+/* ---------- 撥桿開關（直立，選項由上到下）---------- */
+.ck-tgl { align-items: center; }
+.ck-tgl-body { display: flex; align-items: center; gap: 3px; }
+.ck-tgl .ck-tgl-row { flex-direction: column; align-items: flex-start; gap: 0; }
+.ck-lev { width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }
 .ck-lev svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .ck-lev:focus-visible { outline: var(--space-25) solid var(--accent-strong); border-radius: 4px; }
-.ck-lev-base { fill: #14171a; stroke: #05070a; stroke-width: 1; }
-.ck-lev-pivot { fill: #3b4046; stroke: #05070a; stroke-width: 1; }
-.ck-lev-arm { transform-box: view-box; transform-origin: 18px 19px; transition: transform 140ms var(--ease); }
-.ck-lev-stem { stroke: #c9ced3; stroke-width: 3.2; stroke-linecap: round; }
-.ck-lev-ball { fill: #e9ecef; stroke: #6b7279; stroke-width: 0.8; }
-.ck-tgl .ck-opt.ck-lopt { min-height: 0; padding: 1px 2px; border: 0; border-radius: 2px; background: none; color: rgba(255, 255, 255, 0.62); }
+.ck-lev-nut { fill: #23272b; stroke: #07090b; stroke-width: 1; }
+.ck-lev-well { fill: #0c0e10; stroke: #3a3f45; stroke-width: 1; }
+.ck-lev-stem { stroke: #d3b36b; stroke-width: 3.6; stroke-linecap: round; }
+.ck-lev-ball { fill: #ead9a8; stroke: #8b7439; stroke-width: 0.8; }
+.ck-tgl .ck-opt.ck-lopt { min-height: 0; padding: 0 2px; border: 0; border-radius: 2px; background: none; color: rgba(255, 255, 255, 0.6); text-align: left; }
 .ck-tgl .ck-opt.ck-lopt:hover { color: #fff; }
-.ck-tgl .ck-opt.ck-lopt.on { background: none; color: #fff; text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1.5px; }
-.ck-stage .ck-tgl .ck-lopt { font-size: 6.5px; line-height: 8px; }
-.ck-stage .ck-lev { width: 34px; height: 21px; }
+.ck-tgl .ck-opt.ck-lopt.on { background: none; color: #fff; font-weight: 800; }
+.ck-stage .ck-tgl .ck-lopt { font-size: 6.5px; line-height: 9.5px; }
+.ck-stage .ck-lev { width: 22px; height: 28px; }
 .ck-stage .ck-tgl { gap: 1px; }
-.ck-oh-ped .ck-tgl .ck-lopt { color: var(--p-dim); font-size: 0.7rem; padding: 3px 5px; }
+.ck-oh-ped .ck-tgl .ck-lopt { color: var(--p-dim); font-size: 0.7rem; line-height: 1rem; padding: 0 4px; }
 .ck-oh-ped .ck-tgl .ck-lopt.on { color: var(--p-white); }
+
+/* ---------- 旋鈕（鈕頭加指示線，選項排在四周）---------- */
+.ck-dk { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ck-dk-a { position: relative; width: 58px; height: 58px; }
+.ck-dk-ticks { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ck-dk-tick { stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.4; stroke-linecap: round; }
+.ck-dk-dial { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; padding: 0; border: 0; background: none; transform: translate(-50%, -50%); cursor: pointer; }
+.ck-dk-dial:focus-visible { outline: var(--space-25) solid var(--accent-strong); border-radius: 50%; }
+.ck-dk-dial svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ck-dk-shadow { fill: rgba(0, 0, 0, 0.45); }
+.ck-dk-head { transition: transform 160ms var(--ease); }
+.ck-dk-side { fill: #6f6a62; stroke: #1b1a18; stroke-width: 0.8; stroke-linejoin: round; }
+.ck-dk-top { fill: #b7b0a4; }
+.ck-dk-slot { fill: #1d1f21; stroke: rgba(255, 255, 255, 0.5); stroke-width: 0.6; }
+.ck-dk .ck-opt.ck-dopt { position: absolute; min-height: 0; padding: 0 1px; border: 0; background: none; color: rgba(255, 255, 255, 0.62); font-size: 6.5px; line-height: 8px; font-weight: 700; white-space: nowrap; transform: translate(-50%, -50%); }
+.ck-dk .ck-opt.ck-dopt:hover { color: #fff; }
+.ck-dk .ck-opt.ck-dopt.on { background: none; color: #fff; font-weight: 800; }
 
 /* ---------- 護蓋 ---------- */
 .ck-gw { position: relative; display: block; }
@@ -766,7 +785,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ck-gcover, .ck-lev-arm { transition: none; }
+    .ck-gcover, .ck-dk-head { transition: none; }
     .ck-ann.blink .ck-ann-lit { animation: none; opacity: 1; }
     .ck-toast { transition: opacity 150ms linear; transform: translate(-50%, 0); }
 }

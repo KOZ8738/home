@@ -14,7 +14,7 @@
 
     let st = null;
     const DEF = {};   // 畫面上新增的按鈕預設值（build 時登記）
-    const refs = { pb: {}, sel: {}, tg: {}, ir: [], live: {}, guard: {} };
+    const refs = { pb: {}, sel: {}, tg: {}, ir: [], live: {}, guard: {}, extra: [] };
     sys.state = null;
 
     function fresh() {
@@ -268,41 +268,97 @@
     const off = (id, fault) => (s) => [fault ? fault(s) : false, !s.pb[id]];
     const on = (id, top) => (s) => [top ? top(s) : false, !!s.pb[id]];
 
-    // 撥桿開關：點桿子切到下一格，或直接點下面的文字
+    // 撥桿開關：真機是直立的，選項由上到下排（第一個在最上面＝桿子往上扳）。
+    // 點桿子切到下一格，或直接點旁邊的文字。
     function tgl(def) {
         const n = def.opts.length;
-        const angles = n === 2 ? [-34, 34] : n === 3 ? [-44, 0, 44] : [-50, -17, 17, 50];
+        const ys = n === 2 ? [-10, 10] : n === 3 ? [-10, 0, 10] : [-11, -4, 4, 11];
         const wrap = el('div', 'ck-tgl');
         wrap.dataset.id = def.id;
         const lev = el('button', 'ck-lev');
         lev.type = 'button';
         lev.dataset.id = def.id;
-        const sv = U.svgEl('svg', { viewBox: '0 0 36 22', 'aria-hidden': 'true' });
-        U.svgEl('rect', { x: 2, y: 12, width: 32, height: 8, rx: 3, class: 'ck-lev-base' }, sv);
-        const arm = U.svgEl('g', { class: 'ck-lev-arm' }, sv);
-        U.svgEl('line', { x1: 18, y1: 16, x2: 18, y2: 4.5, class: 'ck-lev-stem' }, arm);
-        U.svgEl('circle', { cx: 18, cy: 4, r: 3.2, class: 'ck-lev-ball' }, arm);
-        U.svgEl('circle', { cx: 18, cy: 16, r: 3.4, class: 'ck-lev-pivot' }, sv);
+        const sv = U.svgEl('svg', { viewBox: '-14 -16 28 32', 'aria-hidden': 'true' });
+        U.svgEl('polygon', { points: '0,-11 9.5,-5.5 9.5,5.5 0,11 -9.5,5.5 -9.5,-5.5', class: 'ck-lev-nut' }, sv);
+        U.svgEl('circle', { cx: 0, cy: 0, r: 6, class: 'ck-lev-well' }, sv);
+        const stem = U.svgEl('line', { x1: 0, y1: 0, x2: 0, y2: -10, class: 'ck-lev-stem' }, sv);
+        const ball = U.svgEl('circle', { cx: 0, cy: -10, r: 3, class: 'ck-lev-ball' }, sv);
         lev.append(sv);
         let cur = def.opts[0];
         lev.addEventListener('click', () => setSel(def.id, def.opts[(def.opts.indexOf(cur) + 1) % n]));
-        const row = el('div', 'ck-tgl-row');
+        const col = el('div', 'ck-tgl-row');
         const btns = def.opts.map((o) => {
             const bt = el('button', 'ck-opt ck-lopt', o);
             bt.type = 'button';
             bt.dataset.v = o;
             bt.addEventListener('click', () => setSel(def.id, o));
-            row.append(bt);
+            col.append(bt);
             return bt;
         });
-        wrap.append(el('span', 'ck-pb-label', def.label), lev, row);
+        const body = el('div', 'ck-tgl-body');
+        body.append(lev, col);
+        wrap.append(el('span', 'ck-pb-label', def.label), body);
         return {
             el: wrap,
             set(v) {
                 cur = v;
                 const k = Math.max(0, def.opts.indexOf(v));
-                arm.style.transform = `rotate(${angles[k]}deg)`;
+                const y = ys[k];
+                const mid = n === 3 && k === 1;
+                stem.setAttribute('y2', mid ? 0 : y);
+                ball.setAttribute('cy', mid ? 0 : y);
+                ball.setAttribute('r', mid ? 4.6 : 3);
                 lev.setAttribute('aria-label', `${def.label}：${v}，點一下切到下一格`);
+                btns.forEach((bt) => { const o = bt.dataset.v === v; bt.classList.toggle('on', o); bt.setAttribute('aria-pressed', String(o)); });
+            }
+        };
+    }
+
+    // 旋鈕：厚重的鈕頭加一條指示線，選項文字排在四周
+    function dialKnob(def, onSet) {
+        const n = def.opts.length;
+        const ang = def.angles || (n === 2 ? [-45, 45] : [-60, 0, 60]);
+        const wrap = el('div', 'ck-dk');
+        if (def.label) wrap.append(el('span', 'ck-pb-label', def.label));
+        const area = el('div', 'ck-dk-a');
+        const ticks = U.svgEl('svg', { class: 'ck-dk-ticks', viewBox: '-29 -29 58 58', 'aria-hidden': 'true' });
+        ang.forEach((a) => {
+            const r = a * Math.PI / 180;
+            U.svgEl('line', { x1: Math.sin(r) * 16, y1: -Math.cos(r) * 16, x2: Math.sin(r) * 20, y2: -Math.cos(r) * 20, class: 'ck-dk-tick' }, ticks);
+        });
+        area.append(ticks);
+        const dial = el('button', 'ck-sel-dial ck-dk-dial');
+        dial.type = 'button';
+        dial.dataset.id = def.id;
+        const sv = U.svgEl('svg', { viewBox: '-20 -20 40 40', 'aria-hidden': 'true' });
+        U.svgEl('circle', { cx: 0, cy: 1.5, r: 15.5, class: 'ck-dk-shadow' }, sv);
+        const head = U.svgEl('g', { class: 'ck-dk-head' }, sv);
+        U.svgEl('path', { d: 'M-8,-15 Q0,-18 8,-15 L14,9 Q0,17 -14,9 Z', class: 'ck-dk-side' }, head);
+        U.svgEl('path', { d: 'M-7,-14 Q0,-16.5 7,-14 L12,7 Q0,14 -12,7 Z', class: 'ck-dk-top' }, head);
+        U.svgEl('rect', { x: -1.7, y: -13, width: 3.4, height: 18, rx: 1.2, class: 'ck-dk-slot' }, head);
+        dial.append(sv);
+        area.append(dial);
+        let cur = def.opts[0];
+        dial.addEventListener('click', () => onSet(def.id, def.opts[(def.opts.indexOf(cur) + 1) % n]));
+        const btns = def.opts.map((o, k) => {
+            const bt = el('button', 'ck-opt ck-dopt', o);
+            bt.type = 'button';
+            bt.dataset.v = o;
+            const r = ang[k] * Math.PI / 180;
+            bt.style.left = 29 + Math.sin(r) * 26 + 'px';
+            bt.style.top = 29 - Math.cos(r) * 26 + 'px';
+            bt.addEventListener('click', () => onSet(def.id, o));
+            area.append(bt);
+            return bt;
+        });
+        wrap.append(area);
+        return {
+            el: wrap,
+            set(v) {
+                cur = v;
+                const k = Math.max(0, def.opts.indexOf(v));
+                head.style.transform = `rotate(${ang[k]}deg)`;
+                dial.setAttribute('aria-label', `${def.label || def.id}：${v}，點一下切到下一格`);
                 btns.forEach((bt) => { const o = bt.dataset.v === v; bt.classList.toggle('on', o); bt.setAttribute('aria-pressed', String(o)); });
             }
         };
@@ -383,8 +439,8 @@
             refs.tg[id] = t;
             at(t.el, x, y);
         };
-        const knob = (id, label, opts, x, y) => {
-            const k = U.selector({ id, label, opts }, setSel);
+        const knob = (id, label, opts, x, y, angles) => {
+            const k = dialKnob({ id, label, opts, angles }, setSel);
             refs.sel[id] = k;
             at(k.el, x, y, 'ck-at-knob');
         };
@@ -414,7 +470,7 @@
             refs.ir[n - 1] = al;
             at(bx, x, T + 56);
             tag('IR ' + n, x, T + 44);
-            knob('ir' + n, 'IR ' + n, ['OFF', 'NAV', 'ATT'], x, T + 86);
+            knob('ir' + n, '', ['OFF', 'NAV', 'ATT'], x, T + 84);
         });
 
         T = 242;
@@ -427,7 +483,7 @@
         panel(L, T, LW, 70, 'EVAC');
         plain('evacCmd', 'COMMAND', 56, T + 14, 'on', 'red', null, ['ON', 'white']);
         plain('evacHorn', 'HORN SHUT OFF', 112, T + 14, 'on', '', null, ['OFF', 'white']);
-        sw('evacCapt', 'CAPT & PURS', ['CAPT', 'C&P'], 180, T + 16);
+        sw('evacCapt', 'CAPT & PURS', ['C&P', 'CAPT'], 180, T + 16);
 
         T = 386;
         panel(L, T, LW, 70, 'EMER ELEC PWR');
@@ -463,9 +519,9 @@
             pb(id, l, ['CALL', 'white'], null, (s2) => [(s2.flash[id] || 0) > s2.t, false], x, T + 14, 'on', 'ck-small'));
 
         T = 742;
-        panel(L, T, LW, 80, 'RAIN RPLNT   WIPER');
+        panel(L, T, LW, 90, 'RAIN RPLNT   WIPER');
         pb('rainRplnt', 'RAIN RPLNT', null, null, () => [false, false], 62, T + 16, 'on', 'ck-small');
-        knob('wipC', 'WIPER', ['OFF', 'SLOW', 'FAST'], 150, T + 16);
+        knob('wipC', 'WIPER', ['OFF', 'SLOW', 'FAST'], 150, T + 14);
 
         // ---------------- 中欄（x 232–695）----------------
         panel(MX, 22, MW, 48, '', 'ck-blank');
@@ -541,10 +597,10 @@
         T = 526;
         panel(MX, T, MW, 128, '');
         vtag('AIR COND', MX + 6, T + 40); vtag('AIR COND', MX + MW - 16, T + 40);
-        knob('flow', 'PACK FLOW', ['LO', 'NORM', 'HI'], 282, T + 8);
-        knob('tempC', 'COCKPIT', ['COLD', 'MED', 'HOT'], 380, T + 8);
-        knob('tempF', 'FWD CABIN', ['COLD', 'MED', 'HOT'], 462, T + 8);
-        knob('tempA', 'AFT CABIN', ['COLD', 'MED', 'HOT'], 544, T + 8);
+        knob('flow', 'PACK FLOW', ['LO', 'NORM', 'HI'], 282, T + 6, [-65, -5, 60]);
+        knob('tempC', 'COCKPIT', ['COLD', 'MED', 'HOT'], 380, T + 6, [-115, 0, 115]);
+        knob('tempF', 'FWD CABIN', ['COLD', 'MED', 'HOT'], 462, T + 6, [-115, 0, 115]);
+        knob('tempA', 'AFT CABIN', ['COLD', 'MED', 'HOT'], 544, T + 6, [-115, 0, 115]);
         pb('hotAir', 'HOT AIR', F, OFFL, off('hotAir'), 636, T + 10, 'off');
         const Y = T + 74;
         line(`270,${Y - 4} 658,${Y - 4}`);
@@ -552,7 +608,7 @@
         pb('bleed1', 'ENG 1 BLEED', F, OFFL, off('bleed1'), 324, Y, 'off');
         pb('ram', 'RAM AIR', null, ONL, on('ram'), 394, Y, 'on', 'red');
         pb('apubleed', 'APU BLEED', F, ONL, on('apubleed'), 463, Y, 'on');
-        knob('xbleed', 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 538, Y);
+        knob('xbleed', 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 538, Y - 4, [-65, 0, 65]);
         pb('bleed2', 'ENG 2 BLEED', F, OFFL, off('bleed2'), 614, Y, 'off');
         pb('pack2', 'PACK 2', F, OFFL, off('pack2'), 660, Y, 'off');
 
@@ -566,7 +622,13 @@
         pb('probe', 'AUTO', null, ONL, on('probe'), 458, T + 14, 'on');
         panel(MX + 266, T, 197, 72, 'CABIN PRESS');
         sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 546, T + 14);
-        sw('cabMode', 'MODE SEL', ['AUTO', 'MAN'], 606, T + 14);
+        const cm = U.pushButton({ id: 'cabMode', label: 'MODE SEL', top: F, bot: ['MAN', 'white'] }, () => setSel('cabMode', st.sel.cabMode === 'MAN' ? 'AUTO' : 'MAN'));
+        at(cm.el, 606, T + 14);
+        refs.extra.push((pw2) => {
+            cm.top.set(false, false);
+            cm.bot.set(pw2 && st.sel.cabMode === 'MAN', false);
+            cm.btn.setAttribute('aria-pressed', String(st.sel.cabMode === 'MAN'));
+        });
         pb('ditch', 'DITCHING', null, ONL, on('ditch'), 668, T + 14, 'on');
 
         // EXT LT / APU / INT LT / SIGNS
@@ -575,11 +637,11 @@
         sw('strobe', 'STROBE', ['ON', 'AUTO', 'OFF'], 268, T + 14);
         sw('beacon', 'BEACON', ['ON', 'OFF'], 330, T + 14);
         sw('wing', 'WING', ['ON', 'OFF'], 376, T + 14);
-        sw('navlogo', 'NAV&LOGO', ['1', 'OFF', '2'], 264, T + 58);
+        sw('navlogo', 'NAV&LOGO', ['2', 'OFF', '1'], 264, T + 58);
         sw('rwyto', 'RWY TURN OFF', ['ON', 'OFF'], 328, T + 58);
         sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 394, T + 58);
-        sw('landl', 'LAND L', ['ON', 'RETR', 'OFF'], 270, T + 102);
-        sw('landr', 'LAND R', ['ON', 'RETR', 'OFF'], 346, T + 102);
+        sw('landl', 'LAND L', ['ON', 'OFF', 'RETR'], 270, T + 102);
+        sw('landr', 'LAND R', ['ON', 'OFF', 'RETR'], 346, T + 102);
 
         panel(MX + 206, T, 58, 148, 'APU');
         pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 467, T + 18, 'on');
@@ -618,14 +680,14 @@
         pb('fac2', 'FAC 2', F, OFFL, off('fac2'), 884, T + 14, 'off');
 
         T = 366;
-        panel(R, T, RW, 128, 'CARGO HEAT');
+        panel(R, T, RW, 138, 'CARGO HEAT');
         pb('fwdIsol', 'FWD ISOL VLV', F, ['OFF', 'white'], off('fwdIsol'), 738, T + 14, 'off');
         pb('cargoHot', 'HOT AIR', F, ['OFF', 'white'], off('cargoHot'), 803, T + 14, 'off');
         pb('aftIsol', 'AFT ISOL VLV', F, ['OFF', 'white'], off('aftIsol'), 868, T + 14, 'off');
-        knob('cargoFwd', 'FWD', ['COLD', 'MED', 'HOT'], 756, T + 72);
-        knob('cargoAft', 'AFT', ['COLD', 'MED', 'HOT'], 850, T + 72);
+        knob('cargoFwd', 'FWD', ['COLD', 'MED', 'HOT'], 756, T + 64, [-115, 0, 115]);
+        knob('cargoAft', 'AFT', ['COLD', 'MED', 'HOT'], 850, T + 64, [-115, 0, 115]);
 
-        T = 496;
+        T = 506;
         panel(R, T, RW, 70, 'CARGO SMOKE');
         pb('disch1', 'DISCH', null, ['DISCH', 'amber'], on('disch1'), 726, T + 14, 'on', 'red');
         pb('smokeFwd', 'FWD', null, null, () => [false, false], 772, T + 14, 'on', 'ck-small');
@@ -633,13 +695,13 @@
         pb('smokeAft', 'AFT', null, null, () => [false, false], 834, T + 14, 'on', 'ck-small');
         pb('disch2', 'DISCH', null, ['DISCH', 'amber'], on('disch2'), 880, T + 14, 'on', 'red');
 
-        T = 568;
+        T = 578;
         panel(R, T, RW, 70, 'VENTILATION');
         pb('blower', 'BLOWER', F, ['OVRD', 'white'], on('blower'), 740, T + 14, 'on', 'ck-small');
         pb('extract', 'EXTRACT', F, ['OVRD', 'white'], on('extract'), 803, T + 14, 'on', 'ck-small');
         pb('cabFans', 'CAB FANS', null, OFFL, off('cabFans'), 868, T + 14, 'off', 'ck-small');
 
-        T = 640;
+        T = 650;
         panel(R, T, RW, 70, 'ENG');
         tag('MAN START', 762, T + 4); tag('N1 MODE', 850, T + 4);
         pb('manStart1', '1', null, ONL, on('manStart1'), 726, T + 14, 'on');
@@ -647,9 +709,9 @@
         pb('n1mode1', '1', F, ['MAN', 'white'], on('n1mode1'), 830, T + 14, 'on');
         pb('n1mode2', '2', F, ['MAN', 'white'], on('n1mode2'), 874, T + 14, 'on');
 
-        T = 712;
+        T = 722;
         panel(R, T, RW, 130, 'WIPER');
-        knob('wipF', 'WIPER', ['OFF', 'SLOW', 'FAST'], 764, T + 24);
+        knob('wipF', 'WIPER', ['OFF', 'SLOW', 'FAST'], 764, T + 20);
         pb('rainRplnt2', 'RAIN RPLNT', null, null, () => [false, false], 862, T + 24, 'on', 'ck-small');
 
         // ---------------- 下方狀態列與中央座 ----------------
@@ -662,7 +724,7 @@
         const body = el('div', 'ck-sec-body');
         ped.append(hd, body);
         host.append(ped);
-        [['mode', 'ENG MODE', ['CRANK', 'NORM', 'IGN/START']], ['m1', 'MASTER 1', ['OFF', 'ON']], ['m2', 'MASTER 2', ['OFF', 'ON']]].forEach(([id, l, o]) => {
+        [['mode', 'ENG MODE', ['CRANK', 'NORM', 'IGN/START']], ['m1', 'MASTER 1', ['ON', 'OFF']], ['m2', 'MASTER 2', ['ON', 'OFF']]].forEach(([id, l, o]) => {
             const t = tgl({ id, label: l, opts: o });
             refs.tg[id] = t;
             body.append(t.el);
@@ -700,6 +762,7 @@
             x.btn.setAttribute('aria-label', `${x.el.querySelector('.ck-pb-label').textContent}，目前${st.pb[id] ? '按下' : '放開'}`);
         }
         for (const id in refs.guard) if (st.pb[id] && !refs.guard[id].isOpen()) refs.guard[id].setOpen(true);
+        refs.extra.forEach((f) => f(pw));
         for (const id in refs.sel) refs.sel[id].set(st.sel[id]);
         for (const id in refs.tg) refs.tg[id].set(st.sel[id]);
         st.ir.forEach((r, i) => {

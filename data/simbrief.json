@@ -18,6 +18,25 @@
     121.5525,
     "Songshan"
    ]
+  },
+  {
+   "gen": 1794043180,
+   "callsign": "OVO4FD",
+   "from": "RCSS",
+   "to": "ZSPD",
+   "type": "A320",
+   "reg": "B-22AH",
+   "out": 1794045300,
+   "fromPos": [
+    25.069722,
+    121.5525,
+    "Songshan"
+   ],
+   "toPos": [
+    31.145,
+    121.793333,
+    "Pudong"
+   ]
   }
  ]
 }

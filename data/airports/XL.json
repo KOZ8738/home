@@ -1,0 +1,23 @@
+{"v":1,"airports":[
+["XLAL",64.38,40.725,"Lakhta"],
+["XLAP",62.717,40.493,"Plesetsk"],
+["XLDR",71.615,52.48,"Rogachyovo"],
+["XLLE",59.782,30.08,"Gorelovo"],
+["XLLG",58.815,28.015,"Gdov (Smurovoyevo)"],
+["XLLJ",60.715,30.113,"Gromovo"],
+["XLLL",58.145,30.332,"Soltsy"],
+["XLLN",60.2,33.338,"Kasimovo"],
+["XLLY",60.458,28.748,"Pribylovo"],
+["XLMA",66.977,30.35,"Alakurtti"],
+["XLMD",69.03,33.425,"Severomorsk-1"],
+["XLME",67.455,32.787,"Afrikanda"],
+["XLMG",67.988,33.022,"Monchegorsk"],
+["XLMO",68.152,33.47,"Olenya"],
+["XLMV",68.867,33.717,"Severomorsk-3"],
+["XLMW",69.095,32.405,"Kilpyavr"],
+["XLOS",57.3,28.435,"Ostrov"],
+["XLPG",62.48,33.75,"Girvas"],
+["XLPO",60.71,33.573,"Lodeynoye Pole"],
+["XLPU",64.917,34.283,"Poduzhemye"],
+["XLWF",59.096,39.066,"Kipelovo"]
+]}

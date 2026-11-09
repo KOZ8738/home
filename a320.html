@@ -25,7 +25,7 @@
     <!-- /shared:head -->
     <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css?v=f3a035b5">
-    <link rel="stylesheet" href="css/a320.css?v=1af6bfed">
+    <link rel="stylesheet" href="css/a320.css?v=63ae86d2">
 </head>
 <body>
 
@@ -88,6 +88,14 @@
                             <label class="seg-opt"><input type="radio" name="spd" value="10"><span class="chip caption-1">10×</span></label>
                         </div>
                     </fieldset>
+                    <fieldset class="filter-seg">
+                        <legend class="caption-1">聲音</legend>
+                        <div class="seg-row ck-snd" id="sndRow">
+                            <label class="seg-opt"><input type="radio" name="snd" value="on" checked><span class="chip caption-1">開</span></label>
+                            <label class="seg-opt"><input type="radio" name="snd" value="off"><span class="chip caption-1">關</span></label>
+                            <input class="ck-vol" id="sndVol" type="range" min="0" max="100" value="50" aria-label="音量">
+                        </div>
+                    </fieldset>
                     <button class="btn btn-on-light caption-1" id="ckReset" type="button">重置情境</button>
                 </div>
             </div>
@@ -95,6 +103,7 @@
             <div class="ck-tabs" role="tablist" aria-label="面板">
                 <button class="ck-tab caption-1" role="tab" id="tabFcu" aria-controls="paneFcu" aria-selected="true" type="button">FCU 與飛行</button>
                 <button class="ck-tab caption-1" role="tab" id="tabOh" aria-controls="paneOh" aria-selected="false" tabindex="-1" type="button">頂板</button>
+                <button class="ck-tab caption-1" role="tab" id="tabFlt" aria-controls="paneFlt" aria-selected="false" tabindex="-1" type="button">故障</button>
             </div>
 
             <!-- FCU 與飛行 -->
@@ -139,10 +148,20 @@
                 <div class="ck-panel ck-oh" id="overhead"></div>
             </section>
 
+            <!-- 故障 -->
+            <section class="ck-pane" id="paneFlt" role="tabpanel" aria-labelledby="tabFlt" hidden>
+                <h2 class="sr-only">故障模擬</h2>
+                <div class="ck-flt" id="faults"></div>
+            </section>
+
             <!-- ECAM 與流程 -->
             <section class="ck-lower" aria-label="ECAM 與啟動流程">
                 <div class="ck-ecam-card ck-panel">
                     <h2 class="sr-only">ECAM</h2>
+                    <div class="ck-mw" role="group" aria-label="主警告">
+                        <button class="ck-mw-b ck-mw-warn" id="mwWarn" type="button" aria-pressed="false"><span>MASTER</span><b>WARN</b></button>
+                        <button class="ck-mw-b ck-mw-caut" id="mwCaut" type="button" aria-pressed="false"><span>MASTER</span><b>CAUT</b></button>
+                    </div>
                     <div class="ck-ecam">
                         <div class="ck-ewd" id="ewd" aria-label="警告與備忘"></div>
                         <div class="ck-sd" id="sd" aria-label="系統頁"></div>
@@ -156,7 +175,7 @@
                 </div>
             </section>
 
-            <p class="ck-disclaimer caption-5">這是依 A320 操作邏輯簡化的教學示意，不是真實飛機資料，也不能用於訓練。系統啟動時間已大幅縮短（ADIRS 對準 25 秒，實機約 10 分鐘），沒有風、襟翼、起落架和故障的細節。</p>
+            <p class="ck-disclaimer caption-5">這是依 A320 操作邏輯簡化的教學示意，不是真實飛機資料，也不能用於訓練。系統啟動時間已大幅縮短（ADIRS 對準 25 秒，實機約 10 分鐘），沒有風、襟翼和起落架的細節。故障和處置程序也是簡化版，和真實的 QRH、FCOM 不同。</p>
         </div>
     </main>
 
@@ -181,10 +200,12 @@
 
     <script src="config.js?v=efa2ead6"></script>
     <script src="site.js?v=a29b4eda"></script>
-    <script src="js/a320-ui.js?v=b506959c"></script>
-    <script src="js/a320-sys.js?v=3f01edd0"></script>
-    <script src="js/a320-ecam.js?v=4f85dddc"></script>
-    <script src="js/a320-fcu.js?v=2f5c0ba8"></script>
-    <script src="js/a320.js?v=af6be53c"></script>
+    <script src="js/a320-ui.js?v=aa6f1af4"></script>
+    <script src="js/a320-snd.js?v=6e69228f"></script>
+    <script src="js/a320-sys.js?v=a733e41a"></script>
+    <script src="js/a320-ecam.js?v=6b81b846"></script>
+    <script src="js/a320-fault.js?v=675481cc"></script>
+    <script src="js/a320-fcu.js?v=8fd016fd"></script>
+    <script src="js/a320.js?v=d2e67846"></script>
 </body>
 </html>

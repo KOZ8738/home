@@ -46,6 +46,10 @@
 
 .ck-pane[hidden] { display: none; }
 
+/* ---------- 聲音控制 ---------- */
+.ck-snd { align-items: center; }
+.ck-vol { width: 88px; margin-left: var(--space-100); accent-color: var(--accent-strong); cursor: pointer; }
+
 /* ---------- 面板共通 ---------- */
 .ck-panel {
     background-color: var(--p-bg);
@@ -758,6 +762,53 @@
 
 .ck-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- 故障 ---------- */
+.ck-ecam .b { color: var(--p-cyan); }
+
+.ck-mw { display: flex; gap: var(--space-100); margin-bottom: var(--space-200); }
+.ck-mw-b {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 14px;
+    border: 1px solid #3a3d42;
+    border-radius: var(--radius);
+    background-color: #17191c;
+    color: #5b6068;
+    font-family: inherit;
+    font-size: 0.64rem;
+    line-height: 0.85rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.ck-mw-b b { font-size: 0.78rem; }
+.ck-mw-b:focus-visible { outline: var(--space-25) solid var(--accent-strong); outline-offset: 1px; }
+.ck-mw-warn.on { color: #fff; background-color: #c42b2b; border-color: #ff6b6b; animation: ckBlink 1s steps(1, end) infinite; }
+.ck-mw-caut.on { color: #1b1300; background-color: var(--p-amber); border-color: #ffd37a; animation: ckBlink 1s steps(1, end) infinite; }
+
+.ck-flt-top { display: grid; gap: var(--space-200); margin-bottom: var(--space-300); }
+.ck-flt-ctl { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-200) var(--space-300); }
+.ck-flt-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--space-300); align-items: start; }
+.ck-flt-list { display: grid; gap: var(--space-200); }
+.ck-flt-group h3 { margin: 0 0 var(--space-150, 14px); }
+.ck-flt-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-200); padding: var(--space-100) 0; border-top: 1px solid var(--plate); }
+.ck-flt-item:first-of-type { border-top: 0; }
+.ck-flt-txt p { margin: var(--space-25) 0 0; max-width: 52ch; }
+.ck-flt-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-100); }
+.ck-flt-badge:empty { display: none; }
+.ck-flt-badge { padding: 0 var(--space-75); border-radius: var(--radius); background-color: var(--accent); color: var(--dark-2); }
+.ck-flt-badge[data-s="pend"] { background-color: var(--plate); color: var(--ink); }
+.ck-flt-badge[data-s="done"] { background-color: var(--plate); color: var(--ink); }
+.ck-flt-side { position: sticky; top: var(--space-300); }
+.ck-flt-box { padding: var(--space-150, 14px) 0; border-top: 1px solid var(--plate); }
+.ck-flt-box:first-child { border-top: 0; padding-top: 0; }
+.ck-flt-t { margin: 0; }
+.ck-flt-t.r { color: #d02b2b; }
+.ck-flt-t.a { color: #b87500; }
+.ck-flt-s { margin: var(--space-25) 0 var(--space-100); color: var(--ink-muted); }
+.ck-flt-none { color: var(--ink-muted); }
+
 /* ---------- 響應式 ---------- */
 @media (max-width: 1100px) {
     .ck-fcu { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-400); }
@@ -765,6 +816,8 @@
 }
 
 @media (max-width: 900px) {
+    .ck-flt-grid { grid-template-columns: minmax(0, 1fr); }
+    .ck-flt-side { position: static; order: -1; }
     .ck-flight,
     .ck-lower { grid-template-columns: minmax(0, 1fr); }
     .ck-ecam { grid-template-columns: minmax(0, 1fr); }
@@ -785,6 +838,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .ck-mw-b.on { animation: none; }
     .ck-gcover, .ck-dk-head { transition: none; }
     .ck-ann.blink .ck-ann-lit { animation: none; opacity: 1; }
     .ck-toast { transition: opacity 150ms linear; transform: translate(-50%, 0); }

@@ -169,7 +169,7 @@
         k.appendChild(s);
         let angle = 0;
         const spin = (deg) => { angle += deg; rot.setAttribute('transform', `rotate(${angle} 32 32)`); };
-        const turn = (dir) => { spin(dir * 15); def.onTurn(dir); };
+        const turn = (dir) => { spin(dir * 15); if (A.snd) A.snd.tick(); def.onTurn(dir); };
 
         // 拖曳旋轉：每 18 度一格
         let drag = null;

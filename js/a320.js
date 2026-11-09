@@ -24,6 +24,8 @@
         A.sys.refresh();
         A.ecam.render(true);
         A.fcu.renderSlow();
+        if (A.snd) A.snd.reset();
+        A.fault.reset();
         if (!quiet) A.toast(INTRO[name]);
     }
 
@@ -43,13 +45,16 @@
             A.sys.refresh();
             A.fcu.renderSlow();
             A.ecam.render();
+            if (A.snd) A.snd.update(A.sys.state, A.fcu.state);
+            A.fault.tick();
         }
         root.requestAnimationFrame(frame);
     }
 
     function setupTabs() {
-        const tabs = [$('tabFcu'), $('tabOh')];
-        const panes = [$('paneFcu'), $('paneOh')];
+        const ids = ['Fcu', 'Oh', 'Flt'];
+        const tabs = ids.map((n) => $('tab' + n));
+        const panes = ids.map((n) => $('pane' + n));
         const show = (i, focus) => {
             tabs.forEach((t, j) => {
                 t.setAttribute('aria-selected', String(i === j));
@@ -62,19 +67,24 @@
         tabs.forEach((t, i) => {
             t.addEventListener('click', () => show(i));
             t.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); show((i + 1) % 2, true); }
+                if (e.key === 'ArrowRight') { e.preventDefault(); show((i + 1) % tabs.length, true); }
+                else if (e.key === 'ArrowLeft') { e.preventDefault(); show((i + tabs.length - 1) % tabs.length, true); }
             });
         });
         let saved = null;
         try { saved = localStorage.getItem('a320-tab'); } catch (e) { saved = null; }
         const params = new URLSearchParams(location.search);
-        if (params.get('tab') === 'oh') show(1);
+        const want = params.get('tab');
+        if (want === 'oh') show(1);
+        else if (want === 'flt') show(2);
         else if (saved === '1') show(1);
+        else if (saved === '2') show(2);
         return show;
     }
 
     function init() {
         A.sys.build($('overhead'));
+        A.fault.build($('faults'));
         A.ecam.build({ pages: $('ecamPages'), sd: $('sd'), ewd: $('ewd'), list: $('steps') });
         A.fcu.build({
             fcu: $('fcu'), fma: $('fma'), pfd: $('pfd'), map: $('ckMap'),
@@ -96,7 +106,28 @@
         $('ckReset').addEventListener('click', () => applyScenario(scenario));
         $('btnTo').addEventListener('click', () => A.fcu.takeoff());
 
+        setupSound();
         root.requestAnimationFrame(frame);
+    }
+
+    function setupSound() {
+        const S = A.snd;
+        const row = $('sndRow');
+        if (!S || !row) return;
+        if (!S.supported) { row.closest('fieldset').hidden = true; return; }
+        const vol = $('sndVol');
+        vol.value = String(Math.round(S.getVolume() * 100));
+        const radio = document.querySelector(`input[name="snd"][value="${S.isOn() ? 'on' : 'off'}"]`);
+        if (radio) radio.checked = true;
+        document.querySelectorAll('input[name="snd"]').forEach((r) => r.addEventListener('change', () => {
+            if (r.checked) { S.setEnabled(r.value === 'on'); A.toast(r.value === 'on' ? '聲音開啟。' : '聲音關閉。'); }
+        }));
+        vol.addEventListener('input', () => {
+            S.setVolume(Number(vol.value) / 100);
+            if (!S.isOn()) { S.setEnabled(true); const on = document.querySelector('input[name="snd"][value="on"]'); if (on) on.checked = true; }
+        });
+        vol.addEventListener('change', () => { if (S.click) S.click(); });
+        S.init();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

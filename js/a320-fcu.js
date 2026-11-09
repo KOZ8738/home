@@ -389,6 +389,7 @@
         F.lat = 'ROLL OUT'; F.vert = ''; F.locArm = F.apprArm = false; F.expedite = false;
         F.touchdownMsg = vsAtTouch < -900 ? '重落地（下降率 ' + Math.round(-vsAtTouch) + ' 呎／分）' : '接地，下降率 ' + Math.round(-vsAtTouch) + ' 呎／分';
         A.toast(F.touchdownMsg + '。減速滑行中。');
+        if (A.snd) A.snd.touch(vsAtTouch);
     }
 
     // ---------- 飛行模型 ----------
@@ -444,6 +445,8 @@
         const cmd = vertCmd(tgt, gs);
         const manual = !apOn() && F.vert !== 'SRS';
         if (!manual || F.vert === 'SRS') F.vs += (cmd - F.vs) * Math.min(1, dt / 1.4);
+        // 只剩一具發動機：爬升率受限，高度超過 FL205 就會慢慢飄降
+        if (engines === 1) { if (F.alt >= 20450 && F.vs > -700) F.vs = -700; else F.vs = Math.min(F.vs, 900); }
 
         // 速度
         if (engines === 0) { F.athr = false; F.ias = Math.max(170, F.ias - 1.2 * dt); }

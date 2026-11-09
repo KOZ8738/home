@@ -25,6 +25,7 @@
         const f = A.fcu && A.fcu.state;
         const L = [];
         const inAir = f && f.phase === 'AIR';
+        if (A.fault) A.fault.ewd().forEach((x) => L.push(x));
         if (f && f.apOffWarn) L.push({ t: 'AUTO FLT AP OFF', c: 'a' });
         if (!s.pb.fac1 && !s.pb.fac2) L.push({ t: 'AUTO FLT FAC 1+2 FAULT', c: 'a' });
         if (!s.buses.ac1 && !s.buses.ac2 && (inAir || A.sys.enginesRunning() > 0)) L.push({ t: 'ELEC AC BUS 1+2 FAULT', c: 'a' });
@@ -167,6 +168,8 @@
         clr.addEventListener('click', () => { if (A.fcu) A.fcu.state.apOffWarn = false; ecam.render(true); });
         h.pages.append(clr);
     };
+
+    ecam.setPage = (p) => { if (PAGES.includes(p)) { page = p; ecam.render(true); } };
 
     ecam.render = function (force) {
         if (!hosts || !S()) return;

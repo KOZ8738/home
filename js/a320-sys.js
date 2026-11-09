@@ -40,6 +40,9 @@
                 evacCapt: 'CAPT', cabVs: 'UP', cargoFwd: 'MED', cargoAft: 'MED', tempC: 'MED', tempF: 'MED', tempA: 'MED', flow: 'NORM', cabMode: 'AUTO', wipC: 'OFF', wipF: 'OFF', dome: 'OFF', ann: 'BRT'
             },
             flash: {},
+            flt: {},
+            cabAlt: null,
+            rat: false,
             eng: [{ s: 'off', n2: 0, n1: 0, egt: 20, ff: 0 }, { s: 'off', n2: 0, n1: 0, egt: 20, ff: 0 }],
             apu: { s: 'off', n: 0, egt: 20 },
             ir: [{ p: 0 }, { p: 0 }, { p: 0 }],
@@ -80,6 +83,8 @@
 
     function startBlocker(i) {
         if (!st.buses.dcbat) return '沒有電，發動機啟動不了。';
+        const ef = st.flt['eng' + (i + 1) + 'fail'];
+        if (ef && !ef.restartable) return `ENG ${i + 1} 已經損壞，無法重新啟動。`;
         if (i === 0 ? st.pb.fire1 : st.pb.fire2) return `ENG ${i + 1} FIRE 按鈕被按下，發動機鎖住了：先把它放開。`;
         if (st.sel.mode !== 'IGN/START') return 'ENG MODE 要先撥到 IGN/START，MASTER 才會開始啟動。';
         if (st.air[i === 0 ? 'L' : 'R'] < 25) return '沒有足夠的引氣：先開 APU 和 APU BLEED（或用另一具發動機的引氣）。';
@@ -106,6 +111,7 @@
 
     function apuStart() {
         const a = st.apu;
+        if (st.flt.apuFire) { A.toast('APU 火警之後 APU 被鎖住，不能再啟動。'); return; }
         if (st.pb.fireapu) { A.toast('APU FIRE 按鈕被按下，APU 鎖住了：先把它放開。'); return; }
         if (!st.pb.apumaster) { A.toast('先把 APU MASTER SW 按下（ON 亮藍燈），再按 START。'); return; }
         if (!st.buses.dcbat) { A.toast('沒有電，APU 啟動不了。'); return; }
@@ -117,6 +123,7 @@
         const p = st.pb, e = st.eng, a = st.apu, b = st.buses;
         st.t += dt;
         const th = thrust();
+        if (A.fault) A.fault.step(dt);
         if (p.fire1 && (e[0].s === 'run' || e[0].s === 'start')) { e[0].s = 'down'; st.sel.m1 = 'OFF'; }
         if (p.fire2 && (e[1].s === 'run' || e[1].s === 'start')) { e[1].s = 'down'; st.sel.m2 = 'OFF'; }
         if (p.fireapu && (a.s === 'start' || a.s === 'run')) { a.s = 'down'; p.apumaster = false; }
@@ -167,8 +174,8 @@
         p.apustart = false;
 
         // 電力
-        const gen1 = p.gen1 && !p.idg1 && !p.fire1 && e[0].n2 >= 50;
-        const gen2 = p.gen2 && !p.idg2 && !p.fire2 && e[1].n2 >= 50;
+        const gen1 = p.gen1 && !p.idg1 && !p.fire1 && !st.flt.gen1 && e[0].n2 >= 50;
+        const gen2 = p.gen2 && !p.idg2 && !p.fire2 && !st.flt.gen2 && e[1].n2 >= 50;
         const extOn = p.ext && extAvailNow();
         if (p.ext && !extOn && sys.enginesRunning() > 0) p.ext = false;
         const apuG = p.apugen && a.s === 'run';
@@ -184,6 +191,19 @@
         b.batOnly = !b.dc1 && !b.dc2 && anyBat;
         b.dcbat = b.dc1 || b.dc2 || anyBat;
         b.dcess = b.dcbat;
+        // 兩具發電機都掉了：ELEC EMER CONFIG，靠 RAT 帶動的應急發電機供 AC ESS
+        const fl = A.fcu && A.fcu.state;
+        st.rat = false;
+        if (st.flt.elecEmer && !extOn && !apuG) {
+            const ratOK = !!fl && fl.phase === 'AIR' && fl.ias >= 125;
+            st.rat = ratOK;
+            b.ac1 = b.ac2 = b.dc1 = b.dc2 = false;
+            b.src = '';
+            b.acess = ratOK;
+            b.batOnly = !ratOK;
+            b.dcbat = ratOK || anyBat;
+            b.dcess = b.dcbat;
+        }
         for (let i = 0; i < 2; i++) {
             const on = i === 0 ? p.bat1 : p.bat2;
             if (b.batOnly && on) st.bat[i] = Math.max(0, st.bat[i] - (100 / 2700) * dt);
@@ -200,12 +220,12 @@
 
         // 液壓
         const h = st.hyd;
-        let g = e[0].n2 >= 50 && p.hydEng1 && !p.fire1 ? 3000 : 0;
-        let y = (e[1].n2 >= 50 && p.hydEng2 && !p.fire2) || (p.hydYel && b.ac2) ? 3000 : 0;
-        const bl = p.hydBlue && b.ac2 && (e[0].n2 >= 50 || e[1].n2 >= 50) ? 3000 : 0;
+        let g = e[0].n2 >= 50 && p.hydEng1 && !p.fire1 && !st.flt.hydG ? 3000 : 0;
+        let y = ((e[1].n2 >= 50 && p.hydEng2 && !p.fire2) || (p.hydYel && b.ac2)) && !st.flt.hydY ? 3000 : 0;
+        const bl = p.hydBlue && b.ac2 && (e[0].n2 >= 50 || e[1].n2 >= 50) ? 3000 : (st.rat ? 2600 : 0);
         if (p.ptu) {
-            if (g < 500 && y > 2000 && b.dcbat) g = 2500;
-            else if (y < 500 && g > 2000 && b.dcbat) y = 2500;
+            if (g < 500 && y > 2000 && b.dcbat && !st.flt.hydG) g = 2500;
+            else if (y < 500 && g > 2000 && b.dcbat && !st.flt.hydY) y = 2500;
         }
         h.g = approach(h.g, g, 1500, dt);
         h.b = approach(h.b, bl, 1500, dt);
@@ -213,24 +233,38 @@
 
         // 引氣
         const apuAir = p.apubleed && a.s === 'run';
-        const eAir = (i) => (e[i].n2 >= 50 && (i === 0 ? p.bleed1 && !p.fire1 : p.bleed2 && !p.fire2));
+        const eAir = (i) => (e[i].n2 >= 50 && !st.flt['bleed' + (i + 1)] && (i === 0 ? p.bleed1 && !p.fire1 : p.bleed2 && !p.fire2));
         const xOpen = st.sel.xbleed === 'OPEN' || (st.sel.xbleed === 'AUTO' && apuAir);
         const L = eAir(0) || (xOpen && (apuAir || eAir(1)));
         const R = eAir(1) || (xOpen && (apuAir || eAir(0)));
         st.air.L = approach(st.air.L, L ? 35 : 0, 40, dt);
         st.air.R = approach(st.air.R, R ? 35 : 0, 40, dt);
 
-        // 燃油消耗
+        // 燃油消耗（有漏油時，漏的是發動機油管：那具發動機運轉中就一直漏）
         const f = st.fuel;
         for (let i = 0; i < 2; i++) {
+            const own = i === 0 ? 'L' : 'R';
+            const oth = i === 0 ? 'R' : 'L';
             const use = (e[i].ff / 3600) * dt;
-            if (use <= 0) continue;
             const useC = (p.fC1 || p.fC2) && f.C > 0 && b.acess;
-            if (useC) f.C = Math.max(0, f.C - use);
-            else if (i === 0) f.L = Math.max(0, f.L - use);
-            else f.R = Math.max(0, f.R - use);
+            const tk = f[own] > 0 ? own : (p.xfeed && f[oth] > 0 ? oth : own);
+            if (use > 0) {
+                if (useC) f.C = Math.max(0, f.C - use);
+                else f[tk] = Math.max(0, f[tk] - use);
+            }
+            if (e[i].s === 'run' && st.flt['fuelLeak' + (i + 1)]) f[tk] = Math.max(0, f[tk] - (400 / 60) * dt);
+            // 燃油用完：發動機熄火
+            const fed = useC || f[own] > 0 || (p.xfeed && f[oth] > 0);
+            if (e[i].s === 'run' && !fed && A.fault) A.fault.inject('eng' + (i + 1) + 'fail', 0, { restartable: true, reason: 'fuel' });
         }
         if (a.s === 'run') f.L = Math.max(0, f.L - (130 / 3600) * dt);
+
+        // 客艙高度
+        const alt = (fl && fl.alt) || 0;
+        const pres = b.dcbat && sys.enginesRunning() > 0 && p.pack1 && st.air.L >= 15 && !st.flt.decomp;
+        const cabTgt = pres ? Math.min(alt, 1500 + alt * 0.16) : alt;
+        if (st.cabAlt === null) st.cabAlt = cabTgt;
+        st.cabAlt = approach(st.cabAlt, cabTgt, (st.flt.decomp ? 3500 : 600) / 60, dt);
     };
 
     // ---------- 燈號邏輯 ----------
@@ -248,6 +282,11 @@
     function press(id) {
         const p = st.pb;
         if (id === 'apustart') { apuStart(); return sys.refresh(); }
+        const AG = { ag1a: 'fire1', ag1b: 'fire1', ag2a: 'fire2', ag2b: 'fire2', agapu: 'fireapu' };
+        if (AG[id]) {
+            if (p[id]) { A.toast('滅火瓶已經放出，沒辦法收回。'); return; }
+            if (!p[AG[id]]) { A.toast('要先按下對應的 FIRE 按鈕，SQUIB 燈亮了才能放出滅火劑。'); return; }
+        }
         if (id === 'ext' && !p.ext && !extAvailNow()) {
             A.toast(onGround() && sys.enginesRunning() === 0 ? '這個機位沒有地面電源。' : '發動機運轉中或在空中，不能接地面電源。');
             return;
@@ -756,6 +795,7 @@
         for (const id in refs.pb) {
             const x = refs.pb[id];
             const r = x.lt(st);
+            if (A.fault && A.fault.lit(id)) r[0] = true;
             if (x.top) x.top.set(pw && !!r[0], r[0] === 'blink');
             if (x.bot) x.bot.set(pw && !!r[1], r[1] === 'blink');
             x.btn.setAttribute('aria-pressed', String(!!st.pb[id]));
@@ -781,8 +821,7 @@
         if (lv.air) lv.air.textContent = pw ? `引氣壓力 左 ${Math.round(st.air.L)}　右 ${Math.round(st.air.R)} psi` : '';
         if (lv.cab) {
             const alt = (A.fcu && A.fcu.state.alt) || 0;
-            const pres = pw && sys.enginesRunning() > 0 && st.pb.pack1 && st.air.L >= 15;
-            const cab = pres ? Math.min(alt, 1500 + alt * 0.16) : alt;
+            const cab = st.cabAlt === null ? alt : st.cabAlt;
             const pr = (h) => 14.7 * Math.pow(1 - 6.8756e-6 * h, 5.2559);
             lv.cab.textContent = pw ? `客艙高度 ${Math.round(cab / 50) * 50} 呎　壓差 ${Math.max(0, pr(cab) - pr(alt)).toFixed(1)} psi` : '';
         }
@@ -818,5 +857,6 @@
     // 給 ECAM 和流程表用的小工具
     sys.ref = refs;
     sys.extAvailNow = extAvailNow;
+    sys.cabAlt = () => (st.cabAlt === null ? 0 : st.cabAlt);
     sys.pumpsOK = pumpsOK;
 })(window);

@@ -37,6 +37,25 @@
     121.793333,
     "Pudong"
    ]
+  },
+  {
+   "gen": 1794106389,
+   "callsign": "OVO1366",
+   "from": "ZGHA",
+   "to": "ZJHK",
+   "type": "A320",
+   "reg": "B-22AH",
+   "out": 1794108600,
+   "fromPos": [
+    28.19,
+    113.218333,
+    "Huanghua"
+   ],
+   "toPos": [
+    19.933333,
+    110.46,
+    "Meilan"
+   ]
   }
  ]
 }

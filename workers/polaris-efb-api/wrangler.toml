@@ -1,0 +1,24 @@
+# Polaris EFB 的資料伺服器（暫時放在 koz8738.com）
+# name 必須和 Cloudflare 後台的 Worker 名稱一樣
+name = "polaris-efb-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# 綁自己的網域；Cloudflare 會自動建 DNS 和憑證
+routes = [
+  { pattern = "efb-api.koz8738.com", custom_domain = true }
+]
+
+# 關掉預設的 polaris-efb-api.<帳號名稱>.workers.dev 網址（那個網址裡有你的 Cloudflare 帳號名稱）
+workers_dev = false
+
+[vars]
+# EFB 只需要唯讀權限
+VAMSYS_SCOPE = "ops:read"
+# 只有這些網站的網頁可以讀這個 Worker
+ALLOWED_ORIGINS = "https://koz8738.com,https://www.koz8738.com"
+
+# vAMSYS 金鑰不要寫在這裡（這個檔案會上 GitHub）。
+# 在 Cloudflare 後台 → 這個 Worker → Settings → Variables and Secrets 新增，類型選 Secret：
+#   VAMSYS_CLIENT_ID
+#   VAMSYS_CLIENT_SECRET

@@ -1242,7 +1242,6 @@ const APPS={
  wx:{name:"Weather",bg:"linear-gradient(180deg,#64B6F7,#2D74D6)",fg:"#fff",g:'<circle cx="8" cy="8" r="3" fill="#FFD54A" stroke="#FFD54A"/><path d="M8.5 20h8.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.4 1.6A2.7 2.7 0 0 0 8.5 20z" fill="#fff"/>'},
  charts:{name:"Charts",bg:"linear-gradient(180deg,#FFFFFF,#E9EEEE)",fg:"#1A6772",g:'<rect x="4.5" y="3" width="15" height="18" rx="1"/><path d="M8 18l4-10 4 10M9.6 14h4.8"/>'},
  checklist:{name:"Checklist",bg:"linear-gradient(180deg,#FFFFFF,#ECEFEF)",fg:"#8A8A8E",g:'<path d="M10.5 6h9.5M10.5 12h9.5M10.5 18h9.5"/><path d="M3.5 6l1.6 1.6 3-3M3.5 12l1.6 1.6 3-3M3.5 18l1.6 1.6 3-3" stroke="#34C759" stroke-width="2"/>'},
- descent:{name:"Descent",bg:"linear-gradient(160deg,#6A74D8,#3C459F)",fg:"#fff",g:'<path d="M2.5 6h7.5l7 8.5"/><path d="M17 14.5l-.4-3.6M17 14.5l-3.6-.6"/><path d="M12 19.5h9.5"/>'},
 
  convert:{name:"Convert",bg:"linear-gradient(160deg,#FFAE57,#E77E1C)",fg:"#fff",g:'<path d="M4 8h15l-3.5-3.5M20 16H5l3.5 3.5"/>'},
  music:{name:"Music",bg:"linear-gradient(160deg,#1F7682,#0B3238)",fg:"#E3CDB6",g:'<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5" fill="#E3CDB6"/><circle cx="17.5" cy="16" r="2.5" fill="#E3CDB6"/>'},
@@ -1255,9 +1254,9 @@ const APPS={
  prefs:{name:"Settings",bg:"linear-gradient(180deg,#C2C7CC,#8C949B)",fg:"#3A3F44",g:'<circle cx="12" cy="12" r="7.3" stroke-width="3.2" stroke-dasharray="2.6 3.1" stroke-linecap="butt"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="2"/>'}
 };
 const DOCK=["ofp","map","wx","charts","checklist","logbook"];
-const PAGE1=["perf","load","simbrief","descent","convert","timer","music","prefs"];
+const PAGE1=["perf","load","simbrief","convert","timer","music","prefs"];
 /* phone home screen, page 2: every app not in the 4-icon phone dock */
-const PAGE2=["checklist","logbook","perf","load","simbrief","descent","convert"];
+const PAGE2=["checklist","logbook","perf","load","simbrief","convert"];
 const PAGE3=["music","timer","prefs"];
 function badge(id){
   if(id==="checklist"&&CLP.idx!=null&&CLP.flight){const q=clProgress(CLP.idx);if(q.done<q.total)return `<span class="badge" aria-label="${esc(CL[CLP.idx][0])} checklist due">1</span>`}
@@ -1725,6 +1724,7 @@ function filterNN(q){q=q.trim().toLowerCase();document.querySelectorAll(".nnlist
 
 /* ===== Calculators ===== */
 const stepper=(id,val,step,label)=>`<label class="f">${label}<div class="stepper"><button type="button" data-step="${id}:${-step}" aria-label="Decrease">−</button><input type="number" id="${id}" value="${val}"><button type="button" data-step="${id}:${step}" aria-label="Increase">+</button></div></label>`;
+let pfDs=store.get("pfDs",false)===true;
 V.descent=()=>`<div class="calc"><section class="card">${cardH("Inputs","Descent planning")}<div class="card-b" style="display:grid;gap:16px">
    ${stepper("dsA",N(O().g.initial_altitude)||36000,1000,"Current altitude · FT")}${stepper("dsT",3000,500,"Target altitude · FT")}${stepper("dsG",450,10,"Ground speed · KT")}</div>
    <div class="card-f">3:1 rule on a 3° path. Vertical speed ≈ ground speed × 5. Add about 10 NM to slow to 250 KT below FL100.</div></section>
@@ -2169,7 +2169,7 @@ const EYEBROW={
  music:()=>"Polaris Sound"};
 const TOOLS={
  checklist:()=>`<div class="seg" role="group" aria-label="Checklist type"><button data-clmode="normal" aria-pressed="${clMode==="normal"}">Normal</button><button data-clmode="nn" aria-pressed="${clMode==="nn"}">Non-normal</button></div>`,
- perf:()=>{const m=pfState().mode;return `<div class="seg" role="group" aria-label="Performance"><button data-pfmode="to" aria-pressed="${m==="to"}">Takeoff</button><button data-pfmode="ld" aria-pressed="${m==="ld"}">Landing</button></div>`},
+ perf:()=>{const m=pfDs?"ds":pfState().mode;return `<div class="seg" role="group" aria-label="Performance"><button data-pfmode="to" aria-pressed="${m==="to"}">Takeoff</button><button data-pfmode="ld" aria-pressed="${m==="ld"}">Landing</button><button data-pfmode="ds" aria-pressed="${m==="ds"}">Descent</button></div>`},
  ofp:()=>ofp._sample?`<a class="btn sm hide-n" href="#simbrief">Example plan · Load yours</a>`:(O().pdf?`<a class="btn sm hide-n" href="${esc(O().pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""),
  load:()=>`<button class="btn sm" data-ldact="reset">Reset to OFP</button>`
 };
@@ -2183,7 +2183,7 @@ function tick(){const d=new Date();
   tickHome();cdCheck();if(cur==="timer")updateTimer();if(cur==="map")mapLoadAll()}
 function render(){
   renderHome();
-  if(cur){const sc=[...document.querySelectorAll("#view .side,#view .detail")].map(e=>e.scrollTop);$("#view").innerHTML=V[cur]();document.querySelectorAll("#view .side,#view .detail").forEach((e,i)=>{if(sc[i])e.scrollTop=sc[i]});if(["descent","wind","convert"].includes(cur))calcTools();if(cur==="timer")updateTimer();
+  if(cur){const sc=[...document.querySelectorAll("#view .side,#view .detail")].map(e=>e.scrollTop);$("#view").innerHTML=V[cur]();document.querySelectorAll("#view .side,#view .detail").forEach((e,i)=>{if(sc[i])e.scrollTop=sc[i]});if(["perf","convert"].includes(cur))calcTools();if(cur==="timer")updateTimer();
     if(cur==="map"){mapBind();requestAnimationFrame(()=>{drawMap();updMapNote();mapInfo()});mapLoadAll()}
     if(cur==="charts"&&CH.doc)requestAnimationFrame(chRender);}
   updBar();
@@ -2192,7 +2192,7 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
   if(r.right<s.left||r.left>s.right||!r.width)return null;return{x:r.left-s.left+r.width/2,y:r.top-s.top+r.height/2}}
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
-  const h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
+  const h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
   const next=APPS[h]?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
@@ -2405,7 +2405,7 @@ function pfOut(R){const u=v=>v==null||!isFinite(v)?"—":fmt(v);const cls=R.ok==
    :`<div class="cells dist">${cell("TORA FT",u(R.len))}${cell("TODR FT",u(R.todr),cls)}${cell("ASDR FT",u(R.asdr),cls)}</div><div class="cells spd">${cell("FLEX",R.flex!=null?R.flex+"°":"TOGA","c-cyan")}${cell("V1",R.v1,"c-cyan")}${cell("VR",R.vr,"c-cyan")}${cell("V2",R.v2,"c-cyan")}${cell("THS",R.ths)}${cell("CONF",esc(R.st.flaps))}</div>`;
   return `${rwySvg(R)}${dist}${warn}<div class="pb note ${cls}">${msg}</div>`}
 const tog=(k,opts,v)=>`<div class="seg tg">${opts.map(o=>`<button data-pfset="${k}:${o}" aria-pressed="${String(v)===String(o)}">${o}</button>`).join("")}</div>`;
-V.perf=()=>{const s=pfState(),m=s.mode,st=s[m],R=pfCalc(),x=O(),u=x.unit,ac=R.ac;if(vam.url&&R.icao)txLoad(R.icao);
+V.perf=()=>{if(pfDs)return V.descent();const s=pfState(),m=s.mode,st=s[m],R=pfCalc(),x=O(),u=x.unit,ac=R.ac;if(vam.url&&R.icao)txLoad(R.icao);
   const rk=Object.keys(R.rws);const apts=m==="to"?["DEP"]:["DEST","ALTN"].filter(k=>S(pfApt(k).icao_code));
   const metar=wxFor(x).find(a=>a[1]===st.apt);
   return `<div class="pf-grid"><div class="pf-l">
@@ -2429,7 +2429,7 @@ V.perf=()=>{const s=pfState(),m=s.mode,st=s[m],R=pfCalc(),x=O(),u=x.unit,ac=R.ac
   <div class="pf-r"><section class="panel rwyp"><div class="ph"><span>${m==="to"?"Takeoff":"Landing"} distance</span><b>${esc(R.icao)} ${esc(st.rwy||"")}</b></div><div id="pfOut">${pfOut(R)}</div></section></div></div>`};
 function pfRefresh(){const o=$("#pfOut");if(o)o.innerHTML=pfOut(pfCalc())}
 document.addEventListener("click",e=>{const t=e.target.closest("button");if(!t)return;
-  if(t.dataset.pfmode){const s=pfState();s.mode=t.dataset.pfmode;pfSave(s);render();return}
+  if(t.dataset.pfmode){const md=t.dataset.pfmode;pfDs=md==="ds";store.set("pfDs",pfDs);if(!pfDs){const s=pfState();s.mode=md;pfSave(s)}render();return}
   if(t.dataset.pfset){const s=pfState(),st=s[s.mode];let [k,v]=t.dataset.pfset.split(":");if(k==="cc")v=+v;st[k]=v;
     if(k==="apt"){const a=pfApt(v);st.rwy=S(a.plan_rwy);st.len=null;pfApply(st,v)}pfSave(s);render();return}
   if(t.dataset.pfact==="metar"){const s=pfState(),st=s[s.mode];if(pfApply(st,st.apt)){pfSave(s);toast("METAR applied");render()}return}
@@ -2533,7 +2533,7 @@ document.addEventListener("input",e=>{const t=e.target;
   if(t.id==="sbUser")$("#sbOpen").href=sbHref(t.value);
   if(t.id==="nnQ")filterNN(t.value);
   if(/^cd[HMS]$/.test(t.id)){const g=id=>Math.max(0,parseInt($("#"+id).value)||0);cd.dur=Math.min(86399,g("cdH")*3600+Math.min(59,g("cdM"))*60+Math.min(59,g("cdS")));store.set("cd",cd)}
-  if(["descent","wind","convert"].includes(cur))calcTools();
+  if(["perf","convert"].includes(cur))calcTools();
 });
 document.addEventListener("change",e=>{if(e.target.dataset&&e.target.dataset.ot){const x=O(),key="oooi:"+x.id,o=store.get(key,{});const v=e.target.value.replace(/\D/g,"");
     if(!v)delete o[e.target.dataset.ot];else if(/^([01]\d|2[0-3])[0-5]\d$/.test(v))o[e.target.dataset.ot]=v.slice(0,2)+":"+v.slice(2);else toast("Use HHMM, e.g. 1342");store.set(key,o);render();return}

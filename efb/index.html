@@ -6,6 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -816,14 +817,49 @@ i.by-pm,i.by-fo{background:color-mix(in srgb,var(--bronze) 18%,transparent);colo
 /* stronger icon labels over the light wallpaper */
 .home .apps .lbl{text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 10px rgba(0,0,0,.35)}
 
-/* iPhone home-screen web app: the page is pinned to the full screen (see assist.js), runs to the
-   bottom edge like the real home screen; the dock floats just above the home indicator and open
-   apps keep clear of it. --sat / --sab are the status-bar and home-indicator insets. */
+/* iPhone / iPad home-screen web app (see assist.js): the EFB is one fixed layer filling the
+   viewport. --sat / --sab are the status-bar and home-indicator insets still inside that layer. */
 html.pwa-ios{height:100%!important;overflow:hidden;padding:0!important}
-html.pwa-ios body{position:fixed;left:0;top:0;width:100%;height:var(--fullh,100%);padding-top:var(--sat,0px);overflow:hidden}
+html.pwa-ios body{position:fixed;inset:0;width:auto;height:auto;padding-top:var(--sat,0px);overflow:hidden}
 html.pwa-ios body::before{height:var(--sat,0px)}
 html.pwa-ios .home .dockwrap{padding-bottom:max(12px,calc(var(--sab,0px) - 12px))}
 html.pwa-ios .appwin{padding-bottom:var(--sab,0px);background:linear-gradient(var(--bg),var(--bg)) top/100% calc(100% - var(--sab,0px)) no-repeat,var(--panel)}
+/* pwa-chin: iOS keeps a strip below the page that shows only the page background. The dock sits
+   right above it, and under a tab bar the strip takes the tab bar's colour so it reads as one bar. */
+html.pwa-chin .home .dockwrap{padding-bottom:4px}
+@media (max-width:640px){
+  html.pwa-chin body:has(.screen.in-app .tabbar){background:var(--panel)}
+  html.pwa-chin .tabbar{background:var(--panel)}
+  html.pwa-chin body:has(.screen.in-app .clk){background:var(--ck-bg)}
+}
+/* inside the home-screen app the page already ends above the home indicator */
+html.pwa-ios .maplayers{bottom:10px!important}
+
+/* ---------- detail pass ---------- */
+/* small buttons and the Performance toggles: readable and easy to hit (the compact Performance style used to leak out to every app) */
+.appwin .btn.sm{padding:7px 11px;font-size:12px;min-height:32px}
+.appwin .seg.tg button{padding:8px 13px;font-size:12px;min-height:34px;min-width:42px}
+.cf a.sm{padding:9px 0}
+@media (pointer:coarse){
+  .appwin .btn.sm{min-height:36px}
+  .mapapt .btn,.mapapt form .btn{min-height:36px!important;padding:6px 10px!important}
+  .mapapt input{min-height:36px}
+}
+/* widgets: long titles wrap instead of being cut; the example tag has its own line */
+.rem-t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;flex:none}
+.cal-ex{margin-top:auto;align-self:flex-start;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--bronze);border:1px solid color-mix(in srgb,var(--bronze) 55%,transparent);border-radius:4px;padding:2px 5px}
+.cal-ex+.cal-due{margin-top:5px}
+/* Route: the three airports share the full width */
+.stats.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@container screen (max-width:640px){.stats.c3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* tablets shown full screen: keep the island clear of the first row of the home screen */
+@container screen (min-width:641px){.screen.isl-on .home{padding-top:calc(var(--sbh) + 50px)}}
+@media (pointer:fine) and (min-width:1100px) and (min-height:760px){.screen.isl-on .home{padding-top:var(--sbh)}}
+/* checklist widget: show whole items only (ones that don't fit drop off instead of being sliced) */
+.rem-l{flex:1;min-height:0;flex-wrap:wrap;align-content:flex-start;overflow:hidden}
+.rem-l li{width:100%}
+/* tablets held upright: wider widget column so the widgets can hold their text */
+@container screen (min-width:721px) and (max-aspect-ratio:1/1){.p1{grid-template-columns:min(400px,46cqw) minmax(0,1fr);gap:4cqw}}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1253,8 +1289,8 @@ function renderHome(){
     <a class="w w-s" href="#checklist"><div class="rem-top"><span class="rem-ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="rem-n">${p.total-p.done}</span></div>
       <div class="rem-t">${esc(CL[clIdx][0])}</div>
       <ul class="rem-l">${p.pending.length?p.pending.slice(0,3).map(it=>`<li><i></i>${esc(it[0])}</li>`).join(""):`<li style="color:var(--wg-sub)">All items checked</li>`}</ul></a>
-    <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span><span class="cal-due" id="wDue">${dueText()}</span></div>
-      <div class="cal-r"><div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}${ofp._sample?'<span class="ex">EXAMPLE</span>':""}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
+    <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">Example plan</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
+      <div class="cal-r"><div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
       <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div></div></a>
     <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">Destination</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
       <div class="wx-cond"><b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
@@ -1539,14 +1575,14 @@ function profileSVG(x){
   const pts=[{n:S(x.o.icao_code),d:0,a:N(x.o.elevation)||0}];let cum=0;
   x.fixes.forEach(f=>{cum+=N(f.distance)||0;pts.push({n:S(f.ident),d:cum,a:N(f.altitude_feet)||0})});
   if(pts.length<2)return `<div class="empty">No navigation log in this plan.</div>`;
-  const W=900,H=210,L=50,R=16,T=14,B=40,maxA=Math.max(...pts.map(p=>p.a),10000),maxD=cum||1;
+  const nar=screenEl.clientWidth<=640,W=nar?400:900,H=nar?200:210,L=nar?44:50,R=nar?14:16,T=14,B=40,maxA=Math.max(...pts.map(p=>p.a),10000),maxD=cum||1;
   const X=d=>L+d/maxD*(W-L-R),Y=a=>T+(1-a/maxA)*(H-T-B);
   const line=pts.map(p=>`${X(p.d).toFixed(1)},${Y(p.a).toFixed(1)}`).join(" ");
   const area=`${X(0)},${Y(0)} ${line} ${X(maxD)},${Y(0)}`;
   const grid=[0,.25,.5,.75,1].map(f=>{const a=maxA*f;return `<line x1="${L}" x2="${W-R}" y1="${Y(a)}" y2="${Y(a)}" stroke="var(--line)" stroke-dasharray="${f?"2 4":"0"}"/><text x="${L-8}" y="${Y(a)+4}" text-anchor="end" font-size="10.5" fill="var(--label)">${a?(a>=18000?"FL"+Math.round(a/100):fmt(a)):"0"}</text>`}).join("");
   const labels=pts.map((p,i)=>{const anchor=i===0?"start":i===pts.length-1?"end":"middle";const key=i===0||i===pts.length-1||/^TO[CD]$/.test(p.n);
     return `<circle cx="${X(p.d)}" cy="${Y(p.a)}" r="${key?4:2.5}" fill="${/^TO/.test(p.n)?"var(--bronze)":"var(--brand)"}" stroke="var(--panel)" stroke-width="1.5"/>${key?`<text x="${X(p.d)}" y="${H-B+18}" text-anchor="${anchor}" font-size="11.5" font-weight="500" fill="${/^TO/.test(p.n)?"var(--bronze)":"var(--ink)"}">${esc(p.n)}</text><text x="${X(p.d)}" y="${H-B+32}" text-anchor="${anchor}" font-size="10" fill="var(--label)">${Math.round(p.d)} NM</text>`:""}`}).join("");
-  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:560px;display:block" role="img" aria-label="Vertical profile of the planned flight"><defs><linearGradient id="pfg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#pfg)"/><polyline points="${line}" fill="none" stroke="var(--brand)" stroke-width="2.4" stroke-linejoin="round"/>${labels}</svg></div>`}
+  return `<div><svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="Vertical profile of the planned flight"><defs><linearGradient id="pfg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#pfg)"/><polyline points="${line}" fill="none" stroke="var(--brand)" stroke-width="2.4" stroke-linejoin="round"/>${labels}</svg></div>`}
 function ofpFuel(){const x=O(),f=ofp.fuel||{},wt=ofp.weights||{},u=x.unit;
   const parts=[["Taxi",f.taxi,"#8E979C"],["Trip",f.enroute_burn,"#1A6772"],["Contingency",f.contingency,"#5AA3AD"],["Alternate "+S(x.a.icao_code),f.alternate_burn,"#A78970"],["Final reserve",f.reserve,"#0E3C43"],["Extra",f.extra,"#C9B39F"]].map(p=>[p[0],N(p[1])||0,p[2]]).filter(p=>p[1]>0);
   const tot=parts.reduce((a,p)=>a+p[1],0)||1;
@@ -1562,7 +1598,7 @@ function ofpRoute(){const x=O();const toks=S(x.g.route).split(/\s+/).filter(Bool
   const chips=`<span class="ap">${esc(S(x.o.icao_code))}/${esc(S(x.o.plan_rwy))}</span>`+toks.map((t,i)=>{const aw=/^(DCT|[A-Z]{1,2}\d{1,4}[A-Z]?|[A-Z]+\d[A-Z]?)$/.test(t)&&i%2===1;return `<span class="${aw?"aw":""}">${esc(t)}</span>`}).join("")+`<span class="ap">${esc(S(x.d.icao_code))}/${esc(S(x.d.plan_rwy))}</span>`;
   return `<section class="card">${cardH("ATC route",fmt(N(x.g.route_distance)||N(x.g.air_distance))+" NM",`<button class="btn sm" id="rtCopy">Copy</button>`)}<div class="card-b"><div class="waypts">${chips}</div></div>
    <div class="card-f"><span class="mono" id="rtStr">${esc(S(x.o.icao_code))}/${esc(S(x.o.plan_rwy))} ${esc(S(x.g.route))} ${esc(S(x.d.icao_code))}/${esc(S(x.d.plan_rwy))}</span></div></section>
-  <section class="card">${cardH("Airports","Departure, destination, alternate")}<dl class="stats">${[["Departure",x.o],["Destination",x.d],["Alternate",x.a]].filter(a=>S(a[1].icao_code)).map(a=>`<div><dt>${a[0]}</dt><dd>${esc(S(a[1].icao_code))} <small>${esc(S(a[1].name))}</small></dd><dd><small>RWY ${esc(S(a[1].plan_rwy)||"—")} · ELEV ${fmt(N(a[1].elevation))} FT</small></dd></div>`).join("")}</dl></section>
+  <section class="card">${cardH("Airports","Departure, destination, alternate")}<dl class="stats c3">${[["Departure",x.o],["Destination",x.d],["Alternate",x.a]].filter(a=>S(a[1].icao_code)).map(a=>`<div><dt>${a[0]}</dt><dd>${esc(S(a[1].icao_code))} <small>${esc(S(a[1].name))}</small></dd><dd><small>RWY ${esc(S(a[1].plan_rwy)||"—")} · ELEV ${fmt(N(a[1].elevation))} FT</small></dd></div>`).join("")}</dl></section>
   <div class="row"><a class="btn pri" href="#map">Open in Map</a><a class="btn" href="#charts">Charts</a></div>`}
 function ofpNavlog(){const x=O();
   if(!x.fixes.length)return `<section class="card"><div class="empty">No navigation log in this plan.</div></section>`;
@@ -1709,7 +1745,7 @@ function calcTools(){
       $("#dsSvg").innerHTML=`<svg class="dprof" viewBox="0 0 ${W} ${H}" role="img" aria-label="Descent profile"><rect class="dp-gnd" x="0" y="${bot}" width="${W}" height="${H-bot}"/>
        <line class="dp-dash" x1="${L}" x2="${X(nm)}" y1="${Y(A)}" y2="${Y(A)}"/><path class="dp-path" d="M${L} ${Y(A)}H${X(nm)}L${X(0)} ${Y(T)}"/><circle cx="${X(nm)}" cy="${Y(A)}" r="6" fill="var(--bronze)"/><circle cx="${X(0)}" cy="${Y(T)}" r="5" fill="var(--brand)"/>
        <text class="dp-sub" x="${X(nm)}" y="${Y(A)-14}" text-anchor="middle">TOP OF DESCENT</text><text class="dp-lab" x="${X(nm)}" y="${Y(A)+22}" text-anchor="middle">${nm.toFixed(0)} NM</text>
-       <text class="dp-lab" x="${L}" y="${Y(A)-8}">${A>=18000?"FL"+Math.round(A/100):fmt(A)}</text><text class="dp-lab" x="${X(0)-6}" y="${Y(T)-10}" text-anchor="end">${fmt(T)} FT</text><text class="dp-sub" x="${(X(nm)+X(0))/2+14}" y="${(Y(A)+Y(T))/2}" >3°</text></svg>`}
+       <text class="dp-lab" x="${L}" y="${Y(A)-8}">${A>=18000?"FL"+Math.round(A/100):fmt(A)}</text><text class="dp-lab" x="${X(0)-6}" y="${Math.min(Y(T)+17,H-8)}" text-anchor="end">${fmt(T)} FT</text><text class="dp-sub" x="${(X(nm)+X(0))/2+14}" y="${(Y(A)+Y(T))/2}" >3°</text></svg>`}
     else $("#dsSvg").innerHTML=`<p class="note">Target altitude must be below the current altitude.</p>`}
   if($("#ucOut")){const x=v("ucV"),r=UC[ucMode][3](x);$("#ucOut").textContent=isFinite(r)?(Math.abs(r)<100?r.toFixed(2):fmt(r)):"—";if(isFinite(x))store.set("ucV",x)}
 }
@@ -1789,11 +1825,16 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]);
    <p class="sgf">The server is the Polaris EFB Worker. It holds the vAMSYS API key, so the key never reaches this page. It also serves FAA charts, airport layouts and SIGMETs.</p>`;
   else if(psec==="data")main=`<span class="sgl">Stored on this device</span><div class="sgroup">${row("plan",ofp._sample?"No OFP loaded":"OFP "+esc(O().flight),"The loaded SimBrief plan","Remove OFP",ofp._sample)}${row("cl","Checklist progress","Ticked items for this flight","Reset",false)}${row("log",log.length+" logbook entr"+(log.length===1?"y":"ies"),"Flights saved on this device","Clear logbook",!log.length)}</div>`;
   else if(psec==="about")main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">Polaris Airways</span><h2>Electronic <em>flight bag</em></h2><p>Version 2.0 · Base KSFO · A321neo and A350-900. For flight simulation only. Not for real-world navigation.</p></section>
-   <span class="sgl">Data sources</span><div class="sgroup">${[["SimBrief","Flight plans (OFP JSON)"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedures charts"],["OpenStreetMap","Airport layouts"],["Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"]].map(r=>`<div class="setrow"><span>${r[0]}<small>${r[1]}</small></span></div>`).join("")}</div>`;
+   <span class="sgl">Data sources</span><div class="sgroup">${[["SimBrief","Flight plans (OFP JSON)"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedures charts"],["OpenStreetMap","Airport layouts"],["Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"]].map(r=>`<div class="setrow"><span>${r[0]}<small>${r[1]}</small></span></div>`).join("")}</div>
+   <span class="sgl">This device</span><div class="sgroup"><div class="setrow"><span>Display<small class="mono">${esc(devInfo())}</small></span></div></div>`;
   else main=`<span class="sgl">Appearance</span><div class="sgroup"><div class="setrow"><span>Theme<small>Auto follows the system setting</small></span><div class="seg" role="group" aria-label="Appearance">${[["auto","Auto"],["day","Day"],["night","Night"]].map(o=>`<button data-theme-set="${o[0]}" aria-pressed="${t===o[0]}">${o[1]}</button>`).join("")}</div></div>
    <div class="setrow"><span>Dynamic Island<small>Live flight, music, timers and checklist alerts at the top of the screen</small></span><div class="seg" role="group" aria-label="Dynamic Island"><button data-island="0" aria-pressed="${store.get("island",true)===false}">Off</button><button data-island="1" aria-pressed="${store.get("island",true)!==false}">On</button></div></div>
-   <div class="setrow"><span>Keep screen on<small>Stops the tablet from sleeping during a flight</small></span><div class="seg" role="group" aria-label="Keep screen on"><button data-wake="0" aria-pressed="${!wl}">Off</button><button data-wake="1" aria-pressed="${!!wl}">On</button></div></div></div>`;
+   <div class="setrow"><span>Keep screen on<small>Stops the screen from sleeping during a flight</small></span><div class="seg" role="group" aria-label="Keep screen on"><button data-wake="0" aria-pressed="${!wl}">Off</button><button data-wake="1" aria-pressed="${!!wl}">On</button></div></div></div>`;
   return split(side,main,"",tabbar(secs.map(s=>[`data-psec="${s[0]}"`,psec===s[0],ico(s[2]),s[3]])))};
+
+/* Settings > About: viewport, screen and safe-area figures as this device reports them */
+function devInfo(){const f=window.__fit,sa=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches),vv=window.visualViewport;
+  return `${innerWidth}×${innerHeight} · screen ${screen.width}×${screen.height}`+(f?` · insets ${f.et}/${f.eb}`+(f.chin?` · strip ${f.chin}`:""):"")+(vv?` · view ${Math.round(vv.height)}@${Math.round(vv.offsetTop)}`:"")+` · scroll ${Math.round(scrollY)} · ${sa?"home-screen app":"browser"}`}
 
 /* ===== Music (Polaris Sound) =====
    Polaris tracks: listed in music/tracks.json next to the EFB, e.g.
@@ -2087,8 +2128,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airpo
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */
 /* Hosted on koz8738.com for now: use its EFB server unless one is set in Settings */
 const EFB_HOST_SERVER=/(^|\.)koz8738\.com$/.test(location.hostname)?"https://efb-api.koz8738.com":"";
-let vam=store.get("vam",{url:"",user:""}),vamTest="";if(!vam.url&&EFB_HOST_SERVER)vam.url=EFB_HOST_SERVER;
-const vamData={};
+let vam=store.get("vam",{url:"",user:""}),vamTest="";if(!vam.url&&EFB_HOST_SERVER)vam.url=EFB_HOST_SERVER;const vamData={};
 const vamOn=()=>!!(vam.url&&vam.user);
 const isoZ=v=>{const d=new Date(v);return isNaN(d)?String(v):pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"};
 async function vamGet(path){const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),12000);
@@ -2345,12 +2385,16 @@ function rwySvg(R){const H=580,top=78,bot=500,x0=72,x1=148,len=R.len||Math.max(R
   for(let y=bot-70;y>yEnd+14;y-=36)s+=`<rect class="rw-cl" x="${(x0+x1)/2-1.5}" y="${y-18}" width="3" height="18"/>`;
   const step=len>9000?2000:1000;for(let d=0;d<=far;d+=step){const y=Y(d);s+=`<line class="rw-tick" x1="${x0-12}" x2="${x0-4}" y1="${y}" y2="${y}"/><text class="rw-tk" x="${x0-15}" y="${y+3.5}" text-anchor="end">${d/1000}k</text>`}
   const col=R.ok==="no"?"red":R.ok==="marg"?"amber":"green";
-  const mark=(d,lab,cls)=>{const y=Y(d);return `<line class="rw-m ${cls||""}" x1="${x0-2}" x2="${x1+10}" y1="${y}" y2="${y}"/><text class="rw-ml ${cls||""}" x="${x1+13}" y="${y+4}">${lab}</text>`};
+  const labs=[];const mark=(d,lab,cls)=>{const y=Y(d);labs.push({y,lab,cls});return `<line class="rw-m ${cls||""}" x1="${x0-2}" x2="${x1+10}" y1="${y}" y2="${y}"/>`};
   if(R.m==="ld"){s+=`<rect class="rw-bar air" x="${x0+10}" y="${Y(R.air)}" width="${x1-x0-20}" height="${bot-Y(R.air)}"/><rect class="rw-bar ${col}" x="${x0+10}" y="${Y(R.ldr)}" width="${x1-x0-20}" height="${Y(R.air)-Y(R.ldr)}"/>`;
     s+=mark(R.ldr,"LDR",col)+mark(R.f115,"×1.15",col+" dash")+mark(R.air,"TDZ","")}
   else{s+=`<rect class="rw-bar ${col}" x="${x0+10}" y="${Y(R.todr)}" width="${x1-x0-20}" height="${bot-Y(R.todr)}"/>`;
     const vd=v=>R.todr*0.78*Math.pow(v/R.v2,2);s+=mark(vd(R.v1),"V1","cyan")+mark(vd(R.vr),"VR","cyan")+mark(R.todr,"35 FT",col)+mark(R.asdr,"ASDR",col+" dash")}
+  /* labels that land on the same spot are spread out */
+  labs.sort((a,b)=>a.y-b.y);for(let i=1;i<labs.length;i++)if(labs[i].y-labs[i-1].y<11)labs[i].y=labs[i-1].y+11;
+  s+=labs.map(l=>`<text class="rw-ml ${l.cls||""}" x="${x1+13}" y="${l.y+4}">${l.lab}</text>`).join("");
   if(R.len)s+=`<line class="rw-end" x1="${x0}" x2="${x1}" y1="${yEnd}" y2="${yEnd}"/>`;
+
   const wa=Math.atan2(-R.xw,-R.hw)*180/Math.PI;const sp=Math.hypot(R.hw,R.xw);
   s+=`<g transform="translate(${x0-6},32)"><circle class="wnd-c" r="18"/>${sp>0?`<path class="wnd-a" transform="rotate(${wa})" d="M0 -14V11M-5 5L0 12 5 5"/>`:""}</g><text class="rw-ml" x="${x0+20}" y="29">${R.hw>=0?"HW":"TW"} ${Math.abs(R.hw)} KT</text><text class="rw-ml" x="${x0+20}" y="43">XW ${Math.abs(R.xw)} KT ${R.xw>0?"R":R.xw<0?"L":""}</text>`;
   return `<svg class="rwy" viewBox="0 0 230 ${H-50}" role="img" aria-label="Runway distance diagram">${s}</svg>`}
@@ -2501,7 +2545,7 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
 (function(){
   const b=document.createElement("button");b.type="button";b.className="atouch";b.id="atouch";b.setAttribute("aria-label","Home");b.title="Home";
   b.innerHTML='<span class="at-r3"></span><span class="at-r2"></span><span class="at-r1"></span>';screenEl.appendChild(b);
-  let pos=store.get("atPos",null);if(!pos||!/^[lr]$/.test(pos.side)||!isFinite(pos.y))pos={side:"l",y:.62};
+  let pos=store.get("atPos",null);if(!pos||!/^[lr]$/.test(pos.side)||!isFinite(pos.y))pos={side:"r",y:.72};
   const M=10,ease="left .32s cubic-bezier(.2,.9,.3,1.15),top .32s cubic-bezier(.2,.9,.3,1.15),opacity .35s,transform .2s";
   const lim=()=>{const W=screenEl.clientWidth,H=screenEl.clientHeight,s=b.offsetWidth||60,sb=parseFloat(getComputedStyle(screenEl).getPropertyValue("--sbh"))||0;return{W,H,s,top:sb+M,bot:H-s-M}};
   function place(anim){const L=lim();b.style.transition=anim?ease:"opacity .35s,transform .2s";b.style.left=(pos.side==="l"?M:L.W-L.s-M)+"px";b.style.top=Math.min(L.bot,Math.max(L.top,pos.y*L.H))+"px"}
@@ -2522,23 +2566,31 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
   place(false);wake();window.addEventListener("hashchange",wake);
 })();
 
-/* iPhone home-screen web app. Some iOS versions keep the status bar and home indicator areas
-   for themselves: the page gets a shorter viewport, env(safe-area-inset-*) reads 0, and a band is
-   left under the dock (and if the page can scroll, iOS pushes it down under the status bar).
-   Pin the page to the full screen, stop it from scrolling, and supply the insets ourselves. */
+/* iPhone / iPad home-screen web app.
+   Seen on a notch iPhone (iOS with the blurred status bar): the page is laid out in a viewport that
+   is short by the status-bar height, fixed-position content is pinned to the top of the screen and
+   is only drawn that far down, while normal-flow content may sit one status bar lower after a
+   relaunch. So the whole EFB is pinned as one fixed layer, and the strip iOS keeps below it only
+   ever shows the page background colour, which is matched to whatever sits at the bottom edge. */
 (function(){
-  if(!/iPhone|iPod/.test(navigator.userAgent))return;
+  const ios=/iPhone|iPod|iPad/.test(navigator.userAgent)||(/Mac/.test(navigator.platform||"")&&navigator.maxTouchPoints>1);
+  if(!ios)return;
   const sa=()=>navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
   const pr=document.createElement("div");pr.style.cssText="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";document.body.appendChild(pr);
   function fit(){const r=document.documentElement,on=sa();r.classList.toggle("pwa-ios",on);
-    if(!on){["--fullh","--sat","--sab"].forEach(v=>r.style.removeProperty(v));return}
-    const land=innerWidth>innerHeight,full=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
+    if(!on){r.classList.remove("pwa-chin");["--sat","--sab"].forEach(v=>r.style.removeProperty(v));return}
     const cs=getComputedStyle(pr),et=parseFloat(cs.paddingTop)||0,eb=parseFloat(cs.paddingBottom)||0;
-    const H=Math.max(full,innerHeight),miss=H-innerHeight;let t=et,b=eb;
-    if(miss>8&&et<1&&eb<1){b=Math.min(land?21:34,miss);t=land?0:miss-b}
-    r.style.setProperty("--fullh",H+"px");r.style.setProperty("--sat",t+"px");r.style.setProperty("--sab",b+"px");
-    scrollTo(0,0)}
-  fit();addEventListener("resize",fit);addEventListener("orientationchange",()=>setTimeout(fit,250));
+    const land=innerWidth>innerHeight,full=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
+    /* strip below the page: only when the status bar is translucent (top inset reported) and the
+       viewport is short by about that much */
+    const gap=full-innerHeight,chin=et>0&&gap>4&&gap<=et+2?gap:0;
+    r.classList.toggle("pwa-chin",chin>0);
+    r.style.setProperty("--sat",et+"px");r.style.setProperty("--sab",Math.max(0,eb-chin)+"px");
+    window.__fit={w:innerWidth,h:innerHeight,sw:screen.width,sh:screen.height,et,eb,chin}}
+  fit();addEventListener("resize",fit);addEventListener("pageshow",fit);addEventListener("orientationchange",()=>setTimeout(fit,250));
+  if(window.visualViewport)visualViewport.addEventListener("resize",fit);
+  /* after the keyboard closes iOS can leave the page panned; put it back */
+  addEventListener("focusout",()=>setTimeout(()=>{if(sa()&&!(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)))scrollTo(0,0)},60));
 })();
 
 /* ===== Dynamic Island: live activities (flight, timer, music, stopwatch) and checklist alerts ===== */

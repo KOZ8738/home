@@ -816,6 +816,12 @@ i.by-pm,i.by-fo{background:color-mix(in srgb,var(--bronze) 18%,transparent);colo
 /* stronger icon labels over the light wallpaper */
 .home .apps .lbl{text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 10px rgba(0,0,0,.35)}
 
+/* iPhone home-screen web app: the screen runs to the bottom edge like the real home screen.
+   The dock floats just above the home indicator; open apps keep clear of it. */
+html.pwa-ios{padding-bottom:0!important}
+html.pwa-ios .home .dockwrap{padding-bottom:max(12px,calc(env(safe-area-inset-bottom,0px) - 12px))}
+html.pwa-ios .appwin{padding-bottom:env(safe-area-inset-bottom,0px);background:linear-gradient(var(--bg),var(--bg)) top/100% calc(100% - env(safe-area-inset-bottom,0px)) no-repeat,var(--panel)}
+
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--map-sea:#071114;--map-bg:#071114;--map-land:#13201E;--map-border:#2F403C;--map-grat:rgba(120,190,198,.12);--map-fir:rgba(79,194,126,.6);--map-firl:#5FCF92}}
@@ -2513,6 +2519,18 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
   place(false);wake();window.addEventListener("hashchange",wake);
 })();
 
+/* iPhone home-screen web app: iOS can report a page height that is short by the status bar,
+   which leaves a band under the dock. Size the page to the real screen instead. */
+(function(){
+  const ios=/iPhone|iPod/.test(navigator.userAgent);
+  const sa=()=>navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
+  if(!ios)return;
+  function fit(){const r=document.documentElement,on=sa();r.classList.toggle("pwa-ios",on);if(!on){r.style.removeProperty("height");return}
+    const land=innerWidth>innerHeight,full=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
+    r.style.height=Math.max(full,innerHeight)+"px"}
+  fit();addEventListener("resize",fit);addEventListener("orientationchange",()=>setTimeout(fit,250));
+})();
+
 /* ===== Dynamic Island: live activities (flight, timer, music, stopwatch) and checklist alerts ===== */
 (function(){
   const wrap=document.createElement("div");wrap.className="isl-wrap";wrap.id="isl";wrap.hidden=true;
@@ -2521,7 +2539,8 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
   const pill=wrap.querySelector(".isl"),cEl=wrap.querySelector(".isl-c"),xEl=wrap.querySelector(".isl-x"),bub=wrap.querySelector(".isl-b");
   /* iPhone with a notch or Dynamic Island, running full screen: sit in the status area over the real island. */
   const probe=document.createElement("div");probe.style.cssText="position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";document.body.appendChild(probe);
-  const hw=()=>probe.offsetHeight>=40;
+  /* Only Dynamic Island iPhones (top inset 54pt+) get the in-status-bar island; notch iPhones (44-50pt) would hide it behind the notch. */
+  const hw=()=>probe.offsetHeight>=52;
   let open=false,alertA=null,lastC="",lastX="",rot=0,kinds=[];
   const islOn=()=>store.get("island",true)!==false;window.__islOn=islOn;
   const PL='<svg viewBox="0 0 24 24" class="isl-pl"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" fill="currentColor"/></svg>';

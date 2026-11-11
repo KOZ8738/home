@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1256">
+<meta name="efb-build" content="1111.1259">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1714,7 +1714,7 @@ function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!
   const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b></div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
   if(OV.loading)bar.innerHTML=head+`<p class="note">Opening chart…</p>`;
   else if(OV.err)bar.innerHTML=head+`<p class="note">${esc(OV.err)}</p>`;
-  else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it. Pinch to resize and rotate it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
+  else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it, pinch to resize and turn it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="rot">Rotate 90°</button><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
   else bar.innerHTML=head+`<label class="ov-op"><span>Opacity</span><input type="range" id="ovOp" min="15" max="100" step="5" value="${Math.round(OV.op*100)}" aria-label="Chart opacity"></label>
     <div class="ov-row"><button class="btn sm" data-ov="edit" aria-pressed="false">Adjust</button><button class="btn sm" data-ov="blend" aria-pressed="${OV.blend}">See-through</button><button class="btn sm" data-ov="fly">Centre</button>${OV.pages>1?`<button class="btn sm" data-ov="prev" aria-label="Previous page"${OV.page<=1?" disabled":""}>‹</button><span class="mono">${OV.page}/${OV.pages}</span><button class="btn sm" data-ov="next" aria-label="Next page"${OV.page>=OV.pages?" disabled":""}>›</button>`:""}</div>`}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-ovapt],[data-ovpdf],#chMap");if(!t)return;
@@ -1724,6 +1724,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-
   const a=t.dataset.ov;
   if(a==="open"){OV.open=!OV.open;ovUi()}else if(a==="hide"){OV.open=false;ovUi()}else if(a==="close")ovClose();
   else if(a==="edit"){OV.edit=!OV.edit;if(!OV.edit)ovSave();ovUi();ovSched()}
+  else if(a==="rot"&&OV.geo){OV.geo={...OV.geo,rot:(OV.geo.rot+90)%360};ovSave();ovSched()}
   else if(a==="reset"){store.set(ovKey(),null);OV.geo=ovDefault();ovSched()}
   else if(a==="blend"){OV.blend=!OV.blend;store.set("ovBlend",OV.blend);ovUi();ovSched()}
   else if(a==="fly")ovFly();

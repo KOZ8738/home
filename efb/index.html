@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1235">
+<meta name="efb-build" content="1111.1242">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -931,6 +931,9 @@ tspan.wx-VFR{fill:var(--green)} tspan.wx-MVFR{fill:var(--cyan)} tspan.wx-IFR{fil
 :root{--tx-grass:#DCE6D8;--tx-pave:#FFFFFF;--tx-edge:#A9B2B4;--tx-rwy:#3E4447;--tx-apron:#ECEEEB;--tx-bldg:#C8C0B2;--tx-cl:#D9A400}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx-grass:#0B1311;--tx-pave:#2B3436;--tx-edge:#11181A;--tx-rwy:#5A6164;--tx-apron:#1C2426;--tx-bldg:#3A3530;--tx-cl:#F0C000}}
 :root[data-theme="dark"]{--tx-grass:#0B1311;--tx-pave:#2B3436;--tx-edge:#11181A;--tx-rwy:#5A6164;--tx-apron:#1C2426;--tx-bldg:#3A3530;--tx-cl:#F0C000}
+:root{--tx-ground:#E6EBE3;--tx-pave:#AEB3B5;--tx-apron:#BFC4C5;--tx-rwy:#3A3F42;--tx-mark:#FFFFFF;--tx-term:#8E92CC;--tx-bldg:#B4AEA4;--tx-cl:#B98F00;--tx-txt:#1B2426;--tx-halo:#FFFFFF}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}}
+:root[data-theme="dark"]{--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}
 .txwrap{display:flex;flex-direction:column;height:calc(100cqh - var(--sbh) - 66px);background:var(--tx-grass)}
 .txhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--line)}
 .txpad{padding:14px max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px}
@@ -1525,18 +1528,27 @@ function radarBar(){const el=$("#radarBar");if(!el)return;if(!ML.radar||!RADAR.f
 document.addEventListener("click",e=>{const t=e.target.closest("[data-rad]");if(!t)return;const v=t.dataset.rad;if(v==="play")radarPlay(!RADAR.play);else{radarPlay(false);radarSet(+v)}});
 
 /* ---------- Airport geometry on a canvas ----------
-   Runways, taxiways, aprons, buildings, holds and stands are painted on a canvas that sits between
-   the base map and the SVG overlay. Painting it takes a few milliseconds, so it is redrawn sharp on
-   every frame of a pan or pinch instead of rebuilding hundreds of SVG elements. */
+   Pavement, runways with their markings, buildings, holds, stands and names are painted on a canvas that
+   sits between the base map and the SVG overlay. Painting takes a few milliseconds, so it is redrawn sharp
+   on every frame of a pan or pinch instead of rebuilding hundreds of SVG elements. */
 let txPal=null,txPalKey="";
 function txColors(el){const key=isDark()?"d":"l";if(txPal&&txPalKey===key)return txPal;const cs=getComputedStyle(el),g=n=>cs.getPropertyValue(n).trim();txPalKey=key;
-  return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),rwy:g("--tx-rwy"),edge:g("--tx-edge"),pave:g("--tx-pave"),cl:g("--tx-cl"),cyan:g("--cyan"),grass:g("--tx-grass"),font:cs.fontFamily||"sans-serif"}}
+  return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),term:g("--tx-term"),rwy:g("--tx-rwy"),mark:g("--tx-mark"),pave:g("--tx-pave"),cl:g("--tx-cl"),ground:g("--tx-ground"),txt:g("--tx-txt"),halo:g("--tx-halo"),mono:g("--f-mono")||"monospace",ui:g("--f-ui")||"sans-serif"}}
 /* project once to normalised web-mercator (0..1); per frame it is then just a multiply and a subtract */
 function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s=Math.sin(Math.max(-85,Math.min(85,la))*Math.PI/180);return .5-Math.log((1+s)/(1-s))/(4*Math.PI)};
   const L=pts=>{const a=new Float64Array(pts.length*2);let x0=9,x1=-9,y0=9,y1=-9;pts.forEach((q,i)=>{const x=nx(q[0]),y=ny(q[1]);a[i*2]=x;a[i*2+1]=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y});return{a,x0,x1,y0,y1}};
   const pt=q=>[nx(q[0]),ny(q[1])];
-  return d._m={ax:nx(d.airport.lon),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>L(b.pts)),
-    rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:d.runways.filter(r=>!r.area).map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),
+  const lines=d.runways.filter(r=>!r.area);
+  /* one pair of painted designators per runway, however many pieces OpenStreetMap split it into */
+  const groups={};lines.filter(r=>!r.stopway&&r.ref&&r.pts.length>1).forEach(r=>{const parts=String(r.ref).toUpperCase().split("/").map(s=>s.trim().replace(/^0+(?=\d)/,"")).filter(Boolean);if(!parts.length)return;
+    const key=parts.slice().sort().join("/");const G=groups[key]||(groups[key]={parts,w:0,ends:[]});G.w=Math.max(G.w,r.width||45);const e0=pt(r.pts[0]),e1=pt(r.pts[r.pts.length-1]);e0.ll=r.pts[0];e1.ll=r.pts[r.pts.length-1];G.ends.push(e0,e1)});
+  const ends=[];Object.keys(groups).forEach(key=>{const G=groups[key];let A=null,B=null,best=-1;for(let i=0;i<G.ends.length;i++)for(let j=i+1;j<G.ends.length;j++){const dd=Math.hypot(G.ends[i][0]-G.ends[j][0],G.ends[i][1]-G.ends[j][1]);if(dd>best){best=dd;A=G.ends[i];B=G.ends[j]}}
+    if(!A||best<=0)return;const ux=(B[0]-A[0])/best,uy=(B[1]-A[1])/best,brg=(Math.atan2(ux,-uy)*180/Math.PI+360)%360;
+    const off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
+    let a=G.parts[0],b=G.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
+    if(a)ends.push({p:A,ll:A.ll,ux,uy,name:a,w:G.w});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:b,w:G.w})});
+  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>({l:L(b.pts),term:b.kind==="terminal",name:b.name||""})),
+    rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
     holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:d.stands.map(o=>({p:pt(o.pt),ref:o.ref||""}))}}
 function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;const {w,h}=mapSize();if(!w||!h||!MAP.c)return;const dpr=Math.min(2,window.devicePixelRatio||1);
@@ -1548,20 +1560,39 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     const vis=l=>!(X(l.x1)<-pad||X(l.x0)>w+pad||Y(l.y1)<-pad||Y(l.y0)>h+pad);
     const trace=l=>{const a=l.a;g.moveTo(X(a[0]),Y(a[1]));for(let i=2;i<a.length;i+=2)g.lineTo(X(a[i]),Y(a[i+1]))};
     const fillAll=(list,col)=>{g.fillStyle=col;g.beginPath();let n=0;list.forEach(l=>{if(vis(l)){trace(l);g.closePath();n++}});if(n)g.fill()};
-    g.setLineDash([]);g.globalAlpha=1;fillAll(m.aprons,C.apron);fillAll(m.bldg,C.bldg);fillAll(m.rwyArea,C.rwy);
-    /* taxiways: all casings first, then all pavement, batched by width */
+    g.setLineDash([]);g.globalAlpha=1;
+    /* pavement: aprons and taxiways read as one grey surface */
+    fillAll(m.outline,C.ground);fillAll(m.aprons,C.apron);
     const groups=new Map();m.twy.forEach(t=>{if(!vis(t.l))return;const W=Math.max(2,t.w*k),key=W.toFixed(1);if(!groups.has(key))groups.set(key,{W,ls:[]});groups.get(key).ls.push(t.l)});
-    g.lineCap="round";g.lineJoin="round";
-    const strokeGroups=(extra,col)=>groups.forEach(G=>{g.strokeStyle=col;g.lineWidth=G.W+extra;g.beginPath();G.ls.forEach(trace);g.stroke()});
-    strokeGroups(2,C.edge);strokeGroups(0,C.pave);
-    g.lineCap="butt";
-    m.rwy.forEach(r=>{if(!vis(r.l))return;const W=Math.max(3,r.w*k);g.strokeStyle=C.rwy;g.lineWidth=W;g.beginPath();trace(r.l);
-      if(r.stop){g.setLineDash([6,4]);g.globalAlpha=.7;g.stroke();g.setLineDash([]);g.globalAlpha=1}
-      else{g.stroke();if(z>=13){g.strokeStyle="#fff";g.globalAlpha=.85;g.lineWidth=Math.max(1,.9*k);g.setLineDash([14,10]);g.beginPath();trace(r.l);g.stroke();g.setLineDash([]);g.globalAlpha=1}}});
-    if(z>=13){g.strokeStyle=C.cl;g.lineWidth=Math.max(1,Math.min(2,.5*k));g.beginPath();groups.forEach(G=>G.ls.forEach(trace));g.stroke()}
-    if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=4;g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else{const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-3.5,y-3.5,7,7)}});g.stroke()}
-    if(z>=15){const lab=z>=16;g.fillStyle=C.cyan;if(lab){g.font="700 10px "+C.font;g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.grass;g.textBaseline="alphabetic"}
-      m.stands.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<-20||y<-20||x>w+20||y>h+20)return;g.beginPath();g.arc(x,y,3,0,6.2832);g.fill();if(lab&&o.ref){g.strokeText(o.ref,x+5,y+3.5);g.fillText(o.ref,x+5,y+3.5)}})}
+    g.lineCap="round";g.lineJoin="round";groups.forEach(G=>{g.strokeStyle=C.pave;g.lineWidth=G.W;g.beginPath();G.ls.forEach(trace);g.stroke()});
+    /* runways: white edge, dark surface, dashed centreline */
+    fillAll(m.rwyArea,C.rwy);g.lineCap="butt";g.lineJoin="miter";
+    const rw=m.rwy.filter(r=>vis(r.l)),edge=Math.max(1,Math.min(2.5,.9*k));
+    rw.forEach(r=>{if(r.stop)return;g.strokeStyle=C.mark;g.lineWidth=Math.max(3,r.w*k);g.beginPath();trace(r.l);g.stroke()});
+    rw.forEach(r=>{const W=Math.max(3,r.w*k);g.strokeStyle=C.rwy;g.beginPath();trace(r.l);if(r.stop){g.lineWidth=W;g.setLineDash([6,4]);g.globalAlpha=.75;g.stroke();g.setLineDash([]);g.globalAlpha=1}else{g.lineWidth=Math.max(1.5,W-2*edge);g.stroke()}});
+    if(z>=13){g.strokeStyle=C.mark;g.lineWidth=Math.max(1,.9*k);g.setLineDash([Math.max(6,30*k),Math.max(5,20*k)]);g.beginPath();rw.forEach(r=>{if(!r.stop)trace(r.l)});g.stroke();g.setLineDash([])}
+    /* taxiway centrelines */
+    if(z>=13){g.strokeStyle=C.cl;g.lineWidth=Math.max(1,Math.min(1.6,.5*k));g.lineJoin="round";g.beginPath();groups.forEach(G=>G.ls.forEach(trace));g.stroke()}
+    /* threshold bars and painted designators */
+    m.ends.forEach(e=>{const W=e.w*k;if(W<14)return;const x=X(e.p[0]),y=Y(e.p[1]);if(x<-200||y<-200||x>w+200||y>h+200)return;
+      g.save();g.translate(x,y);g.rotate(Math.atan2(e.ux,-e.uy));g.fillStyle=C.mark;
+      const bw=W*.062,gap=W*.036,y0=-36*k,bh=30*k;for(let i=0;i<4;i++){const bx=W*.05+i*(bw+gap);g.fillRect(bx,y0,bw,bh);g.fillRect(-bx-bw,y0,bw,bh)}
+      g.font=`700 ${Math.max(8,W*.42).toFixed(1)}px ${C.ui}`;g.textAlign="center";g.textBaseline="alphabetic";g.fillText(e.name,0,-48*k);g.restore()});
+    /* buildings above the pavement */
+    fillAll(m.bldg.filter(b=>!b.term).map(b=>b.l),C.bldg);fillAll(m.bldg.filter(b=>b.term).map(b=>b.l),C.term);
+    if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
+    /* stands: a dot first, a small boxed label once there is room */
+    const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};
+    if(z>=15){const lab=z>=16;g.font="700 9px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
+      m.stands.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<-20||y<-20||x>w+20||y>h+20)return;
+        if(lab&&o.ref&&o.ref.length<=5){const bw=o.ref.length*5.6+6;if(!free(x-bw/2-1,y-7,x+bw/2+1,y+7))return;g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-6,bw,12);g.strokeStyle="#E8E8E8";g.strokeRect(x-bw/2+.5,y-5.5,bw-1,11);g.fillStyle="#FFFFFF";g.fillText(o.ref,x,y+.5)}
+        else{g.fillStyle=C.txt;g.beginPath();g.arc(x,y,2,0,6.2832);g.fill()}})}
+    /* building names */
+    if(z>=14.5){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
+      m.bldg.forEach(b=>{if(!b.name||!vis(b.l))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<34)return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;
+        const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
+        const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
+        rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
   })}
 
 /* Stroke-only outlines (FIR boundaries, borders): emit just the parts near the screen. Zoomed in on an
@@ -1989,9 +2020,7 @@ const rwNum=r=>{const m=String(r).match(/^(\d{1,2})/);return m?+m[1]:null};
 /** SVG for one airport layout. P(lat,lon)->[x,y]; k = pixels per metre at this zoom. */
 function aptLayerSvg(d,P,k,z,w,h,fits){const Q=q=>{let lo=q[0];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(q[1],lo)};const pl=pts=>pts.map(q=>Q(q).join(",")).join(" ");let s="";
   let lab="";
-  d.runways.filter(r=>!r.area&&!r.stopway&&r.ref).forEach(r=>{const a=r.pts[0],b=r.pts[r.pts.length-1];const A=Q(a),B=Q(b);const brg=(Math.atan2(B[0]-A[0],-(B[1]-A[1]))*180/Math.PI+360)%360;
-    const parts=String(r.ref).split("/").map(q=>q.trim()).filter(Boolean);let first=parts[0],second=parts[1]||"";if(parts.length===2){const n0=rwNum(parts[0]),n1=rwNum(parts[1]);const dd=n=>n==null?999:Math.min(Math.abs(n*10-brg),360-Math.abs(n*10-brg));if(dd(n1)<dd(n0)){first=parts[1];second=parts[0]}}
-    [[A,first],[B,second]].forEach(([q,t])=>{if(!t)return;const [x,y]=q;if(x<-30||y<-30||x>w+30||y>h+30)return;const wd=t.length*8+10;fits(x,y,wd);lab+=`<g class="tx-rlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t)}</text></g>`})});
+  txPrep(d).ends.forEach(e=>{if(e.w*k>=14||!e.ll)return;const [x,y]=Q(e.ll),t=e.name;if(x<-30||y<-30||x>w+30||y>h+30)return;const wd=t.length*8+10;fits(x,y,wd);lab+=`<g class="tx-rlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t)}</text></g>`});
   if(z>=13.5)d.taxiways.filter(t=>t.ref).sort((a,b)=>b.pts.length-a.pts.length).forEach(t=>{const pts=t.pts.map(Q);let best=null,bl=0,tot=0;for(let i=1;i<pts.length;i++){const L=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);tot+=L;if(L>bl){bl=L;best=[(pts[i][0]+pts[i-1][0])/2,(pts[i][1]+pts[i-1][1])/2]}}
     if(!best||tot<40)return;const [x,y]=best;if(x<0||y<0||x>w||y>h)return;const wd=String(t.ref).length*7.5+10;if(!fits(x,y,wd))return;
     lab+=`<g class="tx-tlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t.ref)}</text></g>`});

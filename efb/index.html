@@ -1562,6 +1562,19 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
       m.stands.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<-20||y<-20||x>w+20||y>h+20)return;g.beginPath();g.arc(x,y,3,0,6.2832);g.fill();if(lab&&o.ref){g.strokeText(o.ref,x+5,y+3.5);g.fillText(o.ref,x+5,y+3.5)}})}
   })}
 
+/* Stroke-only outlines (FIR boundaries, borders): emit just the parts near the screen. Zoomed in on an
+   airport, a FIR ring is millions of pixels long, and dashing or stroking all of it is what made the map stutter. */
+function geoLine(items,P,V,k0,w,h,close){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y1=h+m;let d="";
+  const clip=(ax,ay,bx,by)=>{let t0=0,t1=1;const dx=bx-ax,dy=by-ay;const ch=(p,q)=>{if(p===0)return q>=0;const r=q/p;if(p<0){if(r>t1)return false;if(r>t0)t0=r}else{if(r<t0)return false;if(r<t1)t1=r}return true};
+    if(!ch(-dx,ax-x0)||!ch(dx,x1-ax)||!ch(-dy,ay-y0)||!ch(dy,y1-ay))return null;return[ax+t0*dx,ay+t0*dy,ax+t1*dx,ay+t1*dy]};
+  for(const it of items){for(const k of k0){const b=it.b;if(b[2]+k<V.lo1||b[0]+k>V.lo2||b[3]<V.la1||b[1]>V.la2)continue;
+    const n=it.p.length;if(n<2)continue;let px=null,py=null,ex=null,ey=null;const last=close?n:n-1;
+    for(let i=0;i<=last;i++){const q=it.p[i%n],r=P(q[1],q[0]+k),x=r[0],y=r[1];
+      if(px!==null){const c=clip(px,py,x,y);if(c){const a=Math.round(c[0]),bb=Math.round(c[1]),e=Math.round(c[2]),f=Math.round(c[3]);
+        if(a!==e||bb!==f){d+=(ex===a&&ey===bb?"":"M"+a+" "+bb)+"L"+e+" "+f;ex=e;ey=f}}}
+      px=x;py=y}}}
+  return d}
+
 /* ===== shared app building blocks ===== */
 const ICO={
  doc:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/>',
@@ -2050,13 +2063,13 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2;const P=(la,lo)=>{const q=mpx(la,lo,z);return[+(q[0]-ox).toFixed(1),+(q[1]-oy).toFixed(1)]};
   const tl=munpx(ox,oy,z),br=munpx(ox+w,oy+h,z),V={lo1:tl[1],lo2:br[1],la1:br[0],la2:tl[0]};const K=[-360,0,360];let s="";
   const geo=z<4.5?(GEO.lo||GEO.hi):(GEO.hi||GEO.lo);
-  if(geo){s+=`<path class="land" d="${geoPath(geo.land,P,V,true,K)}"/><path class="bord" d="${geoPath(geo.bord,P,V,false,K)}"/>`}
+  if(geo){s+=`<path class="land" d="${geoPath(geo.land,P,V,true,K)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
   if(ML.tiles&&!MAP.tileFail){const sty=isDark()?"dark_all":"light_all";s+=tileLayer((zt,x,y)=>`https://${"abcd"[(x+y)%4]}.basemaps.cartocdn.com/${sty}/${zt}/${x}/${y}.png`,"tile",z,ox,oy,w,h,18)}
   if(ML.radar&&RADAR.path&&!RADAR.err)s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
   const sBase=s;s="";
   if(ML.fir&&FIR.data){let a="",o="",lb="";const seen=new Set(),occ=[];const fs=z<3?11:z<5?12.5:13.5;
     {const rp=routePts();rp.pts.filter(q=>q.apt).concat(rp.altn?[rp.altn]:[]).forEach(q=>{const [X,Y]=P(q.lat,q.lon);occ.push([X-14,Y-14,X+100,Y+14])})}
-    FIR.data.forEach(f=>{const d=geoPath(f.rings,P,V,true,K);if(!d)return;if(f.oc)o+=d;else a+=d;
+    FIR.data.forEach(f=>{const d=geoLine(f.rings,P,V,K,w,h,true);if(!d)return;if(f.oc)o+=d;else a+=d;
       if(z>=2.2&&z<=9.5&&!f.id.includes("-")&&!seen.has(f.id)&&isFinite(f.lx)&&isFinite(f.ly)){for(const k of K){if(f.lx+k<V.lo1||f.lx+k>V.lo2||f.ly<V.la1||f.ly>V.la2)continue;const q=P(f.ly,f.lx+k);
         const wd=f.id.length*fs*.62+6,r=[q[0]-wd/2,q[1]-fs,q[0]+wd/2,q[1]+4];if(occ.some(o=>r[0]<o[2]&&r[2]>o[0]&&r[1]<o[3]&&r[3]>o[1]))continue;occ.push(r);seen.add(f.id);
         lb+=`<text class="firl${f.oc?" oc":""}" x="${q[0]}" y="${q[1]}" text-anchor="middle" style="font-size:${fs}px">${esc(f.id)}</text>`}}});

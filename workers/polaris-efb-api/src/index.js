@@ -332,11 +332,32 @@ async function airportPos(icao) {
   const e = (j.elements || [])[0]; if (!e) return null;
   const c = e.center || e; return isFinite(c.lat) ? { lat: c.lat, lon: c.lon, name: (e.tags || {}).name || '' } : null;
 }
+/* Join boundary pieces end to end into closed rings (a relation's outline usually comes in several ways). */
+function stitchRings(ways) {
+  const eq = (a, b) => a[0] === b[0] && a[1] === b[1], segs = ways.filter((w) => w.length > 1).map((w) => w.slice()), rings = [];
+  while (segs.length) {
+    let cur = segs.pop(), grew = true;
+    while (grew && !eq(cur[0], cur[cur.length - 1])) {
+      grew = false;
+      for (let i = 0; i < segs.length; i++) {
+        const sg = segs[i], head = cur[0], tail = cur[cur.length - 1];
+        if (eq(sg[0], tail)) cur = cur.concat(sg.slice(1));
+        else if (eq(sg[sg.length - 1], tail)) cur = cur.concat(sg.slice(0, -1).reverse());
+        else if (eq(sg[sg.length - 1], head)) cur = sg.slice(0, -1).concat(cur);
+        else if (eq(sg[0], head)) cur = sg.slice(1).reverse().concat(cur);
+        else continue;
+        segs.splice(i, 1); grew = true; break;
+      }
+    }
+    if (cur.length > 3 && eq(cur[0], cur[cur.length - 1])) rings.push(cur);
+  }
+  return rings;
+}
 const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_position|parking_position|stopway|gate';
 async function layoutRoute(icaoIn) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout4:' + icao, 6 * 3600_000, () => edgeCache(`layout/v4/${icao}`, 7 * 86400, async () => {
+  return cached('layout5:' + icao, 6 * 3600_000, () => edgeCache(`layout/v5/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
@@ -360,8 +381,7 @@ async function layoutRoute(icaoIn) {
     /* the airport boundary, so the app can paint the airfield ground under the pavement */
     if (mine) {
       const rings = mine.type === 'way' ? [mine.geometry] : (mine.members || []).filter((mb) => mb.type === 'way' && mb.role !== 'inner').map((mb) => mb.geometry);
-      out.outline = rings.map((gm) => (gm || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)]))
-        .filter((pts) => pts.length > 3 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1]);
+      out.outline = stitchRings(rings.map((gm) => (gm || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)])));
     }
     for (const e of j.elements || []) {
       const t = e.tags || {}, a = t.aeroway;

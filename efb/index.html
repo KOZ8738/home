@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2254">
+<meta name="efb-build" content="1111.2255">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1955,6 +1955,11 @@ function asOpen(icao,tab){if(icao)AS.icao=String(icao).toUpperCase();if(!AS.icao
   const lp=$("#mlPanel");if(lp)lp.hidden=true;asLoad(AS.icao);if(typeof ovLoad==="function")ovLoad(AS.icao);asUi()}
 function asLoad(icao){if(!vam.url||!icao||AS.data[icao]||AS.loading[icao])return;AS.loading[icao]=true;delete AS.err[icao];
   vamGet("/api/efb/airport?icao="+encodeURIComponent(icao)).then(j=>{AS.data[icao]=j}).catch(e=>{AS.err[icao]=e.message}).finally(()=>{AS.loading[icao]=false;asUi()})}
+/* "SAN FRANCISCO/SAN FRANCISCO INTL" -> name "San Francisco Intl", city "San Francisco" */
+const asTitle=t=>String(t||"").trim().toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\b(Intl|Rgnl|Muni|Fld|Arpt)\b/g,m=>m);
+let asCN=null;try{asCN=new Intl.DisplayNames(["en"],{type:"region"})}catch(e){}
+function asNames(a){const raw=String(a.name||"").trim(),p=raw.split("/");const city=p.length>1?asTitle(p[0]):"",name=asTitle(p.length>1?p.slice(1).join("/"):raw);
+  let cn=a.country||"";try{if(asCN&&/^[A-Z]{2}$/.test(cn))cn=asCN.of(cn)}catch(e){}return{name,loc:[city,/^(US|CA|AU)$/.test(a.country||"")?a.state:"",cn].filter(Boolean).join(", ")}}
 const asFt=m=>m==null?"—":fmt(m*3.28084)+" ft ("+fmt(m)+" m)";
 const asLen=ft=>ft==null?"—":fmt(ft)+" ft ("+fmt(ft*.3048)+" m)";
 const AS_SURF={A:"Asphalt",C:"Concrete",H:"Hard",G:"Grass",T:"Turf",W:"Water",D:"Dirt",S:"Sand",M:"Mat"};
@@ -1965,9 +1970,9 @@ function asInfo(icao){const j=AS.data[icao],a=j&&j.airport;
   if(AS.err[icao]&&!j)return `<p class="as-empty">${esc(AS.err[icao])}</p>`;
   if(!a)return `<p class="as-empty">No airport details for ${esc(icao)}.</p>`;
   const rw=a.runways.filter(r=>r.lengthFt),lng=rw.reduce((m,r)=>Math.max(m,r.lengthFt||0),0),md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i);
-  const loc=[a.state,a.country].filter(Boolean).join(", "),usca=/^(US|CA)$/i.test(a.country||"");
+  const nm=asNames(a),loc=nm.loc,usca=/^(US|CA)$/i.test(a.country||"");
   const freq=a.freqs.filter(f=>f.freq).map(f=>`${esc(f.type||"")} ${esc(f.freq)}`).join(" · ");
-  return asRow("ICAO / IATA",esc(a.icao)+(a.iata?" / "+esc(a.iata):""))+asRow("Name",esc(a.name))+asRow("Location",esc(loc||"—"),`<button class="as-pin" data-asgo="${esc(a.icao)}" aria-label="Show on map"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></button>`)
+  return asRow("ICAO / IATA",esc(a.icao)+(a.iata?" / "+esc(a.iata):""))+asRow("Name",esc(nm.name))+asRow("Location",esc(loc||"—"),`<button class="as-pin" data-asgo="${esc(a.icao)}" aria-label="Show on map"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></button>`)
     +asRow("Elevation",asFt(a.elevM))+asRow("Longest runway",lng?asLen(lng):"—")
     +(rw.length?asRow("Runways",rw.map(r=>`<span class="as-rw"><span class="mono">${esc(r.id)}</span>${fmt(r.lengthFt)} × ${fmt(r.widthFt)} ft · ${esc(AS_SURF[r.surface]||r.surface||"")}</span>`).join("")):"")
     +asRow("Magnetic variation",md?md[1]+"° "+md[2].toUpperCase():esc(a.magdec||"—"))
@@ -1990,14 +1995,14 @@ function asCharts(icao){const d=CH.data[icao];
   return `<div class="as-cats" role="group" aria-label="Chart type">${AS_CATS.map(c=>`<button class="as-c c-${c[0].toLowerCase()}" data-ascat="${c[0]}" aria-pressed="${AS.cat===c[0]}"${cnt[c[0]]?"":" disabled"}>${c[0]}</button>`).join("")}</div>
     <div class="as-list">${list.length?list.map(c=>`<button class="as-ch" data-aspdf="${esc(c.pdf)}" data-asname="${esc(c.name)}" data-asgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<i class="as-chg">Changed</i>':""}</button>`).join(""):`<p class="as-empty">No ${AS.cat} charts.</p>`}</div>`}
 function asList(){const apts=chApts(),seen=new Set(apts.map(a=>a[1]));const rec=store.get("asRecent",[]).filter(i=>!seen.has(i)).slice(0,6);
-  const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?a.name:"")}</span><small>${esc(role)}</small></button>`};
+  const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?asNames(a).name:"")}</span><small>${esc(role)}</small></button>`};
   return `<div class="as-search"><input type="text" id="asIcao" placeholder="Search ICAO" maxlength="4" aria-label="Airport ICAO code" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></div>
     <div class="as-list">${apts.map(a=>row({DEP:"Departure",DEST:"Destination",ALTN:"Alternate"}[a[0]]||a[0],a[1])).join("")}${rec.length?`<div class="as-sub">Recent</div>`+rec.map(i=>row("",i)).join(""):""}</div>`}
 function asUi(){const el=$("#asSheet");if(!el)return;if(!AS.open){if(!el.hidden){el.hidden=true;el.innerHTML="";AS.html=""}const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","false");return}
   const icao=AS.icao,j=AS.data[icao],a=j&&j.airport,d=CH.data[icao];
   const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
     :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
-     <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?a.name:(d&&d.airport&&d.airport.name)||"")}${a?`<small>${esc([a.state,a.country].filter(Boolean).join(", "))}</small>`:""}</p>
+     <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?asNames(a).name:asTitle((d&&d.airport&&d.airport.name)||""))}${a?`<small>${esc(asNames(a).loc)}</small>`:""}</p>
      <div class="as-tabs" role="tablist">${[["info","Info"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
   const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):asCharts(icao);
   const html=`<div class="as-head">${head}</div><div class="as-body">${body}</div>`;

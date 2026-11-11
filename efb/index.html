@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1314">
+<meta name="efb-build" content="1111.1317">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -888,8 +888,19 @@ html.pwa-ios .maplayers{bottom:10px!important}
   .ovbar:not([hidden])~.radarbar{top:auto;bottom:calc(66px + env(safe-area-inset-bottom,0px))}
   .ov-row{gap:5px}.ov-row .btn{min-height:34px;padding:6px 8px!important;font-size:11.5px!important}.ov-top .btn{padding:6px 8px!important;font-size:11.5px!important}
 }
+/* No title bar in any app: the bar keeps only the app's own controls (Takeoff/Landing, Normal/Non-normal…),
+   centred, and disappears when there are none. With a floating island it also keeps the island's row. */
+.nav .nav-title,.nav .nav-r{display:none!important}
+.nav{grid-template-columns:minmax(0,1fr)!important;justify-items:center;min-height:0!important;padding-block:8px!important;row-gap:0!important}
+.nav .nav-tools{grid-column:1!important;grid-row:1!important;justify-self:center!important;max-width:100%;overflow-x:auto}
+.screen.no-tools .nav{display:none}
+.screen.isl-on.in-app .nav{display:grid;padding-top:54px!important}
+.screen.isl-on.in-app.no-tools .nav{padding:46px 0 0!important;border-bottom:0;background:var(--bg)}
+@container screen (max-width:640px){.screen.isl-on.in-app .nav{padding-top:52px!important}.screen.isl-on.in-app.no-tools .nav{padding-top:48px!important}}
+/* desktop preview of the iPad frame: the island sits inside the status bar, so no extra row is needed */
+@media (pointer:fine) and (min-width:1100px) and (min-height:760px){.screen.isl-on.in-app .nav{padding-top:8px!important}.screen.isl-on.in-app.no-tools .nav{padding-top:8px!important}}
 /* Map runs without the title bar: the map fills the window and the island floats over it */
-.screen[data-app="map"] .nav{min-height:0!important;height:0!important;padding-top:0!important;padding-bottom:0!important;border:0!important;overflow:hidden!important;visibility:hidden}
+.screen.in-app[data-app="map"] .nav,.screen.isl-on.in-app.no-tools[data-app="map"] .nav{display:grid;min-height:0!important;height:0!important;padding-top:0!important;padding-bottom:0!important;border:0!important;overflow:hidden!important;visibility:hidden}
 @container screen (min-width:641px){
   .screen.isl-on[data-app="map"] .mapbar{max-width:calc(50% - 140px)}
   .screen.isl-on[data-app="map"] .ovbar{top:56px}
@@ -2427,7 +2438,7 @@ const TOOLS={
 };
 function appChrome(id){const a=APPS[id];$("#appTitle").textContent=a.name;const ic=$("#navIc");ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;
   screenEl.dataset.app=id;screenEl.dataset.layout=LAYOUT[id]||"page"}
-function updBar(){$("#wake").hidden=!wl;const mm=$("#muMini");if(mm){const on=typeof muA!=="undefined"&&!muA.paused&&cur!=="music"&&!(window.__islOn&&window.__islOn());mm.hidden=!on;if(on){const t=muCur();mm.innerHTML=`<span class="eq"><i></i><i></i><i></i></span><span>${esc(t?t.title:"Music")}</span>`;mm.setAttribute("aria-label","Now playing: "+(t?t.title:"music"))}}if(!cur)return;const x=O();$("#navEyebrow").textContent=(EYEBROW[cur]||(()=>""))(x);$("#navTools").innerHTML=(TOOLS[cur]||(()=>""))()}
+function updBar(){$("#wake").hidden=!wl;const mm=$("#muMini");if(mm){const on=typeof muA!=="undefined"&&!muA.paused&&cur!=="music"&&!(window.__islOn&&window.__islOn());mm.hidden=!on;if(on){const t=muCur();mm.innerHTML=`<span class="eq"><i></i><i></i><i></i></span><span>${esc(t?t.title:"Music")}</span>`;mm.setAttribute("aria-label","Now playing: "+(t?t.title:"music"))}}if(!cur)return;const x=O();$("#navEyebrow").textContent=(EYEBROW[cur]||(()=>""))(x);const th=(TOOLS[cur]||(()=>""))();$("#navTools").innerHTML=th;screenEl.classList.toggle("no-tools",!th.trim())}
 function tick(){const d=new Date();
   $("#sbTime").textContent=pad(d.getHours())+":"+pad(d.getMinutes());
   $("#sbDate").textContent=d.toLocaleDateString("en-US",{weekday:"short",day:"numeric",month:"short"});

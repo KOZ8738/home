@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1324">
+<meta name="efb-build" content="1111.1340">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -918,6 +918,12 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .isl-ulab{font:600 11px var(--f-os);letter-spacing:.16em;color:#A9C4C7;padding-left:4px}
 @container screen (max-width:640px){.isl-u{font-size:11.5px;margin:0 5px}.isl[data-k="clock"]:not(.open){width:140px}}
 
+/* vector base map under the map overlays */
+.mapvec{position:absolute;inset:0;pointer-events:none}
+.mapvec[hidden]{display:none}
+.mapvec .maplibregl-canvas-container,.mapvec canvas{position:absolute;left:0;top:0}
+.mapvec .maplibregl-control-container{display:none}
+
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--map-sea:#071114;--map-bg:#071114;--map-land:#13201E;--map-border:#2F403C;--map-grat:rgba(120,190,198,.12);--map-fir:rgba(79,194,126,.6);--map-firl:#5FCF92}}
@@ -1680,7 +1686,7 @@ function geoFill(items,P,V,k0,w,h){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y
    geometry and below the labels, route and traffic. The FAA PDFs carry no usable georeference, so the chart is
    placed from a sensible guess and the pilot lines it up once (Adjust: drag, pinch to resize and rotate); the
    alignment is remembered per chart. */
-const OV={open:false,icao:null,sel:null,doc:null,img:null,inv:null,page:1,pages:1,geo:null,op:store.get("ovOp",.8),blend:store.get("ovBlend",true),edit:false,loading:false,err:null,raf:0,raw:"",auto:null,src:""};
+const OV={open:false,icao:null,sel:null,doc:null,img:null,inv:null,page:1,pages:1,geo:null,op:store.get("ovOp",.8),blend:store.get("ovBlend",true),edit:false,loading:false,err:null,raf:0,raw:"",auto:null,src:"",crop:null,cropOn:store.get("ovCrop",true)!==false};
 const ovKey=()=>OV.sel?"ovgeo:"+OV.sel.icao+":"+OV.sel.pdf+":"+OV.page:"";
 function ovSched(){if(!OV.raf)OV.raf=requestAnimationFrame(()=>{OV.raf=0;if(cur==="map")mapCanvas()})}
 function ovDefault(){if(OV.auto)return{...OV.auto};const s=OV.sel,d=TX.data[s.icao];let lat=null,lon=null,hM=20000;
@@ -1697,7 +1703,7 @@ async function ovPage(n){const pg=await OV.doc.getPage(n),v1=pg.getViewport({sca
   const cv=document.createElement("canvas");cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);const g=cv.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:g,viewport:vp}).promise;
   const iv=document.createElement("canvas");iv.width=cv.width;iv.height=cv.height;const g2=iv.getContext("2d");g2.drawImage(cv,0,0);
   try{const im=g2.getImageData(0,0,iv.width,iv.height),dd=im.data;for(let i=0;i<dd.length;i+=4){dd[i]=255-dd[i];dd[i+1]=255-dd[i+1];dd[i+2]=255-dd[i+2]}g2.putImageData(im,0,0)}catch(e){}
-  OV.img=cv;OV.inv=iv;OV.page=n;OV.auto=ovGeoref(OV.raw,pg.view,pg.rotate,n,OV.pages);const saved=store.get(ovKey(),null);OV.geo=saved||ovDefault();OV.src=saved?"saved":OV.auto?"auto":""}
+  OV.crop=ovPlanView(cv);OV.img=cv;OV.inv=iv;OV.page=n;OV.auto=ovGeoref(OV.raw,pg.view,pg.rotate,n,OV.pages);const saved=store.get(ovKey(),null);OV.geo=saved||ovDefault();OV.src=saved?"saved":OV.auto?"auto":""}
 async function ovOpen(c,icao,cycle){OV.sel={name:c.name,pdf:c.pdf,group:c.group,icao,cycle};OV.doc=null;OV.img=null;OV.inv=null;OV.page=1;OV.pages=1;OV.err=null;OV.edit=false;OV.loading=true;OV.open=false;ovUi();
   const mine=OV.sel;OV.raw="";OV.auto=null;OV.src="";try{const lib=await loadPdfJs();const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),30000);let buf;
     try{const r=await fetch(vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf),{signal:ctrl.signal});if(!r.ok)throw new Error("Chart server answered HTTP "+r.status);buf=await r.arrayBuffer()}finally{clearTimeout(tm)}
@@ -1706,7 +1712,7 @@ async function ovOpen(c,icao,cycle){OV.sel={name:c.name,pdf:c.pdf,group:c.group,
     if(OV.sel!==mine)return;OV.doc=doc;OV.pages=doc.numPages;await ovPage(1);if(OV.sel!==mine)return;if(cur==="map")ovFly()}
   catch(e){if(OV.sel!==mine)return;OV.err=/fetch|network|load/i.test(e.message||"")?"This chart can’t load here. Charts open when the EFB runs on the Polaris site.":(e.message||"Chart couldn’t load")}
   OV.loading=false;ovUi();ovSched()}
-function ovClose(){OV.sel=null;OV.doc=null;OV.img=null;OV.inv=null;OV.raw="";OV.auto=null;OV.src="";OV.geo=null;OV.edit=false;OV.err=null;OV.loading=false;ovUi();ovSched()}
+function ovClose(){OV.crop=null;OV.sel=null;OV.doc=null;OV.img=null;OV.inv=null;OV.raw="";OV.auto=null;OV.src="";OV.geo=null;OV.edit=false;OV.err=null;OV.loading=false;ovUi();ovSched()}
 function ovLoad(icao){if(!vam.url||!icao||CH.data[icao]||CH.loading[icao])return;CH.loading[icao]=true;CH.err[icao]=null;
   vamGet("/api/efb/charts?icao="+encodeURIComponent(icao)).then(j=>{CH.data[icao]=j}).catch(e=>{CH.err[icao]=e.message}).finally(()=>{CH.loading[icao]=false;if(cur==="map")ovUi();if(cur==="charts")render()})}
 /* Georeference embedded in the PDF. FAA approach charts are geospatial PDFs: the page carries a viewport
@@ -1729,13 +1735,22 @@ function ovGeoref(raw,view,rotate,page,pages){try{if(!raw||!view||(rotate||0)%36
     const cx=W/2-pm[0],cy=H/2-pm[1],ll=munpx((qm[0]+ar*cx-ai*cy)*TS,(qm[1]+ai*cx+ar*cy)*TS,0),hM=H*sc*40075016.7*Math.cos(ll[0]*Math.PI/180);
     if(!isFinite(ll[0])||!isFinite(ll[1])||hM<500||hM>3e6)return null;
     return{lat:ll[0],lon:ll[1],h:hM,rot:((Math.atan2(ai,ar)*180/Math.PI)%360+360)%360}}catch(e){return null}}
+/* The plan view of an FAA chart is the tallest box between full-width ruled lines (below the briefing
+   strip, above the profile). Found on the rendered page; null when the page has no such structure. */
+function ovPlanView(cv){try{const sc=Math.min(1,800/Math.max(cv.width,cv.height)),W=Math.round(cv.width*sc),H=Math.round(cv.height*sc),t=document.createElement("canvas");t.width=W;t.height=H;const g=t.getContext("2d");g.drawImage(cv,0,0,W,H);
+  const d=g.getImageData(0,0,W,H).data,rules=[];
+  for(let y=0;y<H;y++){let best=0,run=0,s=0,bs=0;for(let x=0;x<W;x++){const i=(y*W+x)*4;if(d[i]+d[i+1]+d[i+2]<330){if(!run)s=x;run++;if(run>best){best=run;bs=s}}else run=0}
+    if(best>W*.6){const l=rules[rules.length-1];if(l&&y-l.y1<=2){l.y1=y;l.x0=Math.min(l.x0,bs);l.x1=Math.max(l.x1,bs+best)}else rules.push({y0:y,y1:y,x0:bs,x1:bs+best})}}
+  let b=null;for(let i=1;i<rules.length;i++){const gap=rules[i].y0-rules[i-1].y1;if(!b||gap>b.gap)b={gap,top:rules[i-1].y1,bot:rules[i].y0,x0:Math.min(rules[i-1].x0,rules[i].x0),x1:Math.max(rules[i-1].x1,rules[i].x1)}}
+  if(!b||b.gap<H*.25)return null;const r=[b.x0/W,b.top/H,b.x1/W,b.bot/H];if((r[2]-r[0])*(r[3]-r[1])>.8)return null;return r}catch(e){return null}}
 /* painted by mapCanvas, last, so the chart lies over the airport geometry */
 function ovDraw(g,w,h){if(!OV.img||!OV.geo||!MAP.c)return;const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);let lo=OV.geo.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
   const p=mpx(OV.geo.lat,lo,z),x=p[0]-c[0]+w/2,y=p[1]-c[1]+h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(OV.geo.lat*Math.PI/180)),H=OV.geo.h*k,W=H*OV.img.width/OV.img.height,R=Math.hypot(W,H)/2;
   if(H<24||x+R<0||y+R<0||x-R>w||y-R>h)return;const dark=isDark();
   g.save();g.translate(x,y);g.rotate(OV.geo.rot*Math.PI/180);g.globalAlpha=OV.op;g.globalCompositeOperation=OV.blend?(dark?"screen":"multiply"):"source-over";g.imageSmoothingEnabled=true;g.imageSmoothingQuality="high";
-  g.drawImage(dark?OV.inv:OV.img,-W/2,-H/2,W,H);g.globalAlpha=1;g.globalCompositeOperation="source-over";
-  if(OV.edit){g.strokeStyle="#F2C200";g.lineWidth=2;g.setLineDash([8,6]);g.strokeRect(-W/2,-H/2,W,H);g.setLineDash([]);g.fillStyle="#F2C200";g.beginPath();g.arc(0,0,4,0,6.2832);g.fill()}
+  const im=dark?OV.inv:OV.img,cr=OV.cropOn&&OV.crop?OV.crop:[0,0,1,1],rx=-W/2+cr[0]*W,ry=-H/2+cr[1]*H,rw=(cr[2]-cr[0])*W,rh=(cr[3]-cr[1])*H;
+  g.drawImage(im,cr[0]*im.width,cr[1]*im.height,(cr[2]-cr[0])*im.width,(cr[3]-cr[1])*im.height,rx,ry,rw,rh);g.globalAlpha=1;g.globalCompositeOperation="source-over";
+  if(OV.edit){g.strokeStyle="#F2C200";g.lineWidth=2;g.setLineDash([8,6]);g.strokeRect(rx,ry,rw,rh);g.setLineDash([]);g.fillStyle="#F2C200";g.beginPath();g.arc(0,0,4,0,6.2832);g.fill()}
   g.restore()}
 /* Adjust mode: fingers act on the chart, not the map. st.ov is the chart placement when the gesture began. */
 function ovGesture(st,pts,rect,w,h){const g0=st.ov;if(!g0)return;const z=MAP.z,c0=mpx(g0.lat,g0.lon,z),ids=[...pts.keys()];
@@ -1763,13 +1778,13 @@ function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!
        <div class="ov-list">${list}</div>`;pn.hidden=false;const s2=pn.querySelector(".ov-list");if(s2&&top)s2.scrollTop=top}}
   /* control bar */
   if(!OV.sel){bar.hidden=true;bar.innerHTML="";bar.dataset.sig="";return}
-  const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img,OV.src].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
+  const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img,OV.src,OV.cropOn,!!OV.crop].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
   const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b>${OV.img?`<small class="ov-src">${OV.src==="auto"?"Positioned from the chart’s own coordinates":OV.src==="saved"?"Your saved alignment":"Not georeferenced. Use Adjust to line it up"}</small>`:""}</div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
   if(OV.loading)bar.innerHTML=head+`<p class="note">Opening chart…</p>`;
   else if(OV.err)bar.innerHTML=head+`<p class="note">${esc(OV.err)}</p>`;
   else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it, pinch to resize and turn it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="rot">Rotate 90°</button><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
   else bar.innerHTML=head+`<label class="ov-op"><span>Opacity</span><input type="range" id="ovOp" min="15" max="100" step="5" value="${Math.round(OV.op*100)}" aria-label="Chart opacity"></label>
-    <div class="ov-row"><button class="btn sm" data-ov="edit" aria-pressed="false">Adjust</button><button class="btn sm" data-ov="blend" aria-pressed="${OV.blend}">See-through</button><button class="btn sm" data-ov="fly">Centre</button>${OV.pages>1?`<button class="btn sm" data-ov="prev" aria-label="Previous page"${OV.page<=1?" disabled":""}>‹</button><span class="mono">${OV.page}/${OV.pages}</span><button class="btn sm" data-ov="next" aria-label="Next page"${OV.page>=OV.pages?" disabled":""}>›</button>`:""}</div>`}
+    <div class="ov-row"><button class="btn sm" data-ov="edit" aria-pressed="false">Adjust</button>${OV.crop?`<button class="btn sm" data-ov="crop" aria-pressed="${OV.cropOn}">Plan view</button>`:""}<button class="btn sm" data-ov="blend" aria-pressed="${OV.blend}">See-through</button><button class="btn sm" data-ov="fly">Centre</button>${OV.pages>1?`<button class="btn sm" data-ov="prev" aria-label="Previous page"${OV.page<=1?" disabled":""}>‹</button><span class="mono">${OV.page}/${OV.pages}</span><button class="btn sm" data-ov="next" aria-label="Next page"${OV.page>=OV.pages?" disabled":""}>›</button>`:""}</div>`}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-ovapt],[data-ovpdf],#chMap");if(!t)return;
   if(t.id==="chMap"){if(CH.sel){ovOpen(CH.sel,CH.icao,CH.sel.cycle);location.hash="#map"}return}
   if(t.dataset.ovapt){OV.icao=t.dataset.ovapt;ovUi();return}
@@ -1779,11 +1794,67 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-
   else if(a==="edit"){OV.edit=!OV.edit;ovUi();ovSched()}
   else if(a==="rot"&&OV.geo){OV.geo={...OV.geo,rot:(OV.geo.rot+90)%360};ovSave();ovSched()}
   else if(a==="reset"){store.set(ovKey(),null);OV.geo=ovDefault();OV.src=OV.auto?"auto":"";ovUi();ovSched()}
+  else if(a==="crop"){OV.cropOn=!OV.cropOn;store.set("ovCrop",OV.cropOn);ovUi();ovSched()}
   else if(a==="blend"){OV.blend=!OV.blend;store.set("ovBlend",OV.blend);ovUi();ovSched()}
   else if(a==="fly")ovFly();
   else if((a==="prev"||a==="next")&&OV.doc){const n=OV.page+(a==="next"?1:-1);if(n>=1&&n<=OV.pages)ovPage(n).then(()=>{ovUi();ovSched()}).catch(()=>{})}});
 document.addEventListener("input",e=>{if(e.target.id==="ovOp"){OV.op=Math.max(.15,Math.min(1,+e.target.value/100));store.set("ovOp",OV.op);ovSched()}});
 document.addEventListener("keydown",e=>{if(e.target.id!=="ovIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}OV.icao=v.length===3?"K"+v:v;e.target.blur();ovUi()});
+
+/* ---------- Vector base map ----------
+   MapLibre GL draws OpenFreeMap vector tiles (OpenStreetMap data) under everything else. It is not
+   interactive: the EFB keeps its own camera (MAP.c, MAP.z) and copies it to MapLibre on every frame,
+   so the base map stays sharp during a pan or pinch while the overlays are moved as a picture. */
+const VEC={map:null,el:null,lib:null,ready:false,err:null,key:"",t0:0};
+const OFM="https://tiles.openfreemap.org";
+function vecStyle(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E3260",green:"#0A100E",urban:"#0D1012",ice:"#11161A",road:"#2A2F33",major:"#3A4046",motor:"#4A5158",casing:"#070909",bord:"#4B5866",bord2:"#2F3A44",rail:"#22272B",city:"#B9C3C8",town:"#8C979D",vill:"#6A757B",halo:"#000000",wtxt:"#5B86B8",apt:"#1C2124",rwy:"#2E3337",aptl:"#7FA7B5"}
+    :{land:"#F3F4F1",water:"#C9E2EC",wline:"#B5D5E2",green:"#E2EBDD",urban:"#EBECE8",ice:"#F8FAFB",road:"#FFFFFF",major:"#FFFFFF",motor:"#FBE9C8",casing:"#D5D9D9",bord:"#9AA6AA",bord2:"#C2CACB",rail:"#D3D6D6",city:"#2F3A3D",town:"#4E5A5D",vill:"#6E797C",halo:"#FFFFFF",wtxt:"#4E7C96",apt:"#E2E4E3",rwy:"#C5C9CA",aptl:"#3D6A78"};
+  const F=["Noto Sans Regular"],FB=["Noto Sans Bold"],name=["coalesce",["get","name:en"],["get","name:latin"],["get","name"]];
+  const W=(z0,w0,z1,w1)=>["interpolate",["exponential",1.5],["zoom"],z0,w0,z1,w1];
+  return{version:8,glyphs:OFM+"/fonts/{fontstack}/{range}.pbf",sources:{o:{type:"vector",url:OFM+"/planet"}},layers:[
+    {id:"bg",type:"background",paint:{"background-color":C.land}},
+    {id:"lc-ice",type:"fill",source:"o","source-layer":"landcover",filter:["==",["get","class"],"ice"],paint:{"fill-color":C.ice}},
+    {id:"lc-green",type:"fill",source:"o","source-layer":"landcover",filter:["in",["get","class"],["literal",["wood","grass","farmland","wetland"]]],paint:{"fill-color":C.green,"fill-opacity":.7}},
+    {id:"lu-urban",type:"fill",source:"o","source-layer":"landuse",minzoom:8,filter:["in",["get","class"],["literal",["residential","suburb","neighbourhood","commercial","industrial","retail"]]],paint:{"fill-color":C.urban}},
+    {id:"park",type:"fill",source:"o","source-layer":"park",minzoom:8,paint:{"fill-color":C.green,"fill-opacity":.6}},
+    {id:"water",type:"fill",source:"o","source-layer":"water",paint:{"fill-color":C.water}},
+    {id:"waterway",type:"line",source:"o","source-layer":"waterway",minzoom:8,paint:{"line-color":C.wline,"line-width":W(8,.5,15,3)}},
+    {id:"apt-area",type:"fill",source:"o","source-layer":"aeroway",minzoom:10,filter:["==",["geometry-type"],"Polygon"],paint:{"fill-color":C.apt}},
+    {id:"apt-rwy",type:"line",source:"o","source-layer":"aeroway",minzoom:9,filter:["all",["==",["geometry-type"],"LineString"],["==",["get","class"],"runway"]],paint:{"line-color":C.rwy,"line-width":W(9,1,16,40)}},
+    {id:"apt-twy",type:"line",source:"o","source-layer":"aeroway",minzoom:12,filter:["all",["==",["geometry-type"],"LineString"],["==",["get","class"],"taxiway"]],paint:{"line-color":C.rwy,"line-width":W(12,.5,17,12)}},
+    {id:"bld",type:"fill",source:"o","source-layer":"building",minzoom:14,paint:{"fill-color":C.urban,"fill-outline-color":C.casing}},
+    {id:"rail",type:"line",source:"o","source-layer":"transportation",minzoom:10,filter:["==",["get","class"],"rail"],paint:{"line-color":C.rail,"line-width":W(10,.6,16,2)}},
+    {id:"road-minor",type:"line",source:"o","source-layer":"transportation",minzoom:11,filter:["in",["get","class"],["literal",["minor","tertiary","service"]]],paint:{"line-color":C.road,"line-width":W(11,.4,17,8)}},
+    {id:"road-major-c",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.casing,"line-width":W(6,.8,17,14)}},
+    {id:"road-major",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.major,"line-width":W(6,.4,17,11)}},
+    {id:"road-motor-c",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.casing,"line-width":W(5,1,17,17)}},
+    {id:"road-motor",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.motor,"line-width":W(5,.6,17,14)}},
+    {id:"bord2",type:"line",source:"o","source-layer":"boundary",minzoom:3,filter:["all",["==",["get","admin_level"],4],["!=",["get","maritime"],1]],paint:{"line-color":C.bord2,"line-dasharray":[3,2],"line-width":W(3,.5,10,1.2)}},
+    {id:"bord",type:"line",source:"o","source-layer":"boundary",filter:["all",["==",["get","admin_level"],2],["!=",["get","maritime"],1]],paint:{"line-color":C.bord,"line-width":W(1,.6,10,1.8)}},
+    {id:"water-name",type:"symbol",source:"o","source-layer":"water_name",layout:{"text-field":name,"text-font":["Noto Sans Italic"],"text-size":["interpolate",["linear"],["zoom"],2,10,10,13],"text-max-width":8},paint:{"text-color":C.wtxt,"text-halo-color":C.halo,"text-halo-width":1}},
+    {id:"apt-name",type:"symbol",source:"o","source-layer":"aerodrome_label",minzoom:8,filter:["has","icao"],layout:{"text-field":["get","icao"],"text-font":FB,"text-size":11,"text-offset":[0,1.2]},paint:{"text-color":C.aptl,"text-halo-color":C.halo,"text-halo-width":1.2}},
+    {id:"place-vill",type:"symbol",source:"o","source-layer":"place",minzoom:10,filter:["in",["get","class"],["literal",["village","suburb"]]],layout:{"text-field":name,"text-font":F,"text-size":11,"text-max-width":7},paint:{"text-color":C.vill,"text-halo-color":C.halo,"text-halo-width":1.2}},
+    {id:"place-town",type:"symbol",source:"o","source-layer":"place",minzoom:7,filter:["==",["get","class"],"town"],layout:{"text-field":name,"text-font":F,"text-size":["interpolate",["linear"],["zoom"],7,11,12,14],"text-max-width":7},paint:{"text-color":C.town,"text-halo-color":C.halo,"text-halo-width":1.2}},
+    {id:"place-city",type:"symbol",source:"o","source-layer":"place",minzoom:4,filter:["==",["get","class"],"city"],layout:{"text-field":name,"text-font":F,"text-size":["interpolate",["linear"],["zoom"],4,11,10,16],"text-max-width":7},paint:{"text-color":C.city,"text-halo-color":C.halo,"text-halo-width":1.4}},
+    {id:"place-country",type:"symbol",source:"o","source-layer":"place",maxzoom:7,filter:["==",["get","class"],"country"],layout:{"text-field":name,"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],2,10,6,14],"text-transform":"uppercase","text-letter-spacing":.12,"text-max-width":8},paint:{"text-color":C.town,"text-halo-color":C.halo,"text-halo-width":1.2}}]}}
+function vecLib(){if(VEC.lib)return VEC.lib;VEC.lib=new Promise((res,rej)=>{if(window.maplibregl)return res(window.maplibregl);const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js";
+  sc.onload=()=>window.maplibregl?res(window.maplibregl):rej(new Error("no maplibre"));sc.onerror=()=>rej(new Error("Map library couldn’t load"));document.head.appendChild(sc)}).catch(e=>{VEC.lib=null;VEC.err="The detail map couldn’t load here; showing the simple map.";throw e});return VEC.lib}
+const vecOn=()=>ML.vec&&!VEC.err;
+const vecReady=()=>vecOn()&&VEC.ready;
+function vecSync(){const m=VEC.map;if(!m||!MAP.c||!vecOn())return;try{m.jumpTo({center:[MAP.c.lon,MAP.c.lat],zoom:Math.max(0,MAP.z-1)})}catch(e){}}
+/* called from drawMap: makes sure the map exists, sits in the current map view, matches the theme */
+function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;
+  if(!VEC.el){VEC.el=document.createElement("div");VEC.el.className="mapvec";VEC.el.setAttribute("aria-hidden","true")}
+  if(VEC.el.parentNode!==wrap){wrap.insertBefore(VEC.el,wrap.firstChild);if(VEC.map)try{VEC.map.resize()}catch(e){}}
+  VEC.el.hidden=!vecOn();if(!vecOn())return;
+  const key=isDark()?"d":"l";
+  if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
+      VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
+      VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
+      setTimeout(()=>{if(!VEC.ready&&!VEC.err){VEC.err="The detail map is taking long to load; showing the simple map.";if(cur==="map"){drawMap();updMapNote()}}},20000);
+      vecSync()}).catch(()=>{if(cur==="map"){drawMap();updMapNote()}});return}
+  if(VEC.key!==key){VEC.key=key;try{VEC.map.setStyle(vecStyle(key==="d"))}catch(e){}}
+  vecSync()}
 
 /* ===== shared app building blocks ===== */
 const ICO={
@@ -2091,7 +2162,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]);
    <p class="sgf">The server is the Polaris EFB Worker. It holds the vAMSYS API key, so the key never reaches this page. It also serves FAA charts, airport layouts and SIGMETs.</p>`;
   else if(psec==="data")main=`<span class="sgl">Stored on this device</span><div class="sgroup">${row("plan",ofp._sample?"No OFP loaded":"OFP "+esc(O().flight),"The loaded SimBrief plan","Remove OFP",ofp._sample)}${row("cl","Checklist progress","Ticked items for this flight","Reset",false)}${row("log",log.length+" logbook entr"+(log.length===1?"y":"ies"),"Flights saved on this device","Clear logbook",!log.length)}</div>`;
   else if(psec==="about")main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">Polaris Airways</span><h2>Electronic <em>flight bag</em></h2><p>Version 2.0 · Base KSFO · A321neo and A350-900. For flight simulation only. Not for real-world navigation.</p></section>
-   <span class="sgl">Data sources</span><div class="sgroup">${[["SimBrief","Flight plans (OFP JSON)"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedures charts"],["OpenStreetMap","Airport layouts"],["Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"]].map(r=>`<div class="setrow"><span>${r[0]}<small>${r[1]}</small></span></div>`).join("")}</div>
+   <span class="sgl">Data sources</span><div class="sgroup">${[["SimBrief","Flight plans (OFP JSON)"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedures charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"]].map(r=>`<div class="setrow"><span>${r[0]}<small>${r[1]}</small></span></div>`).join("")}</div>
    <span class="sgl">This device</span><div class="sgroup"><div class="setrow"><span>Display<small class="mono">${esc(devInfo())}</small></span></div></div>`;
   else main=`<span class="sgl">Appearance</span><div class="sgroup"><div class="setrow"><span>Theme<small>Auto follows the system setting</small></span><div class="seg" role="group" aria-label="Appearance">${[["auto","Auto"],["day","Day"],["night","Night"]].map(o=>`<button data-theme-set="${o[0]}" aria-pressed="${t===o[0]}">${o[1]}</button>`).join("")}</div></div>
    <div class="setrow"><span>Dynamic Island<small>Live flight, music, timers and checklist alerts at the top of the screen</small></span><div class="seg" role="group" aria-label="Dynamic Island"><button data-island="0" aria-pressed="${store.get("island",true)===false}">Off</button><button data-island="1" aria-pressed="${store.get("island",true)!==false}">On</button></div></div>
@@ -2208,7 +2279,7 @@ V.timer=()=>{let body="";
   const tabs=[["world","World Clock",'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>'],["sw","Stopwatch",'<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4M10 2.5h4"/>'],["cd","Timer",'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>']];
   return `<div class="clk"><div class="ck-body">${body}</div><nav class="ck-tabs" aria-label="Clock sections">${tabs.map(t=>`<button data-ctab="${t[0]}" aria-pressed="${clockTab===t[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${t[2]}</svg>${t[1]}</button>`).join("")}</nav></div>`};
 /* ---------- Map ---------- */
-const ML=Object.assign({tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}));
+const ML=Object.assign({vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}));
 const MAP={z:5,c:null,tileFail:false,sel:null,live:null,liveAt:0,liveErr:null,loading:false,follow:false};
 const ZMAX=18;
 const TS=256;
@@ -2271,7 +2342,8 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2;const P=(la,lo)=>{const q=mpx(la,lo,z);return[+(q[0]-ox).toFixed(1),+(q[1]-oy).toFixed(1)]};
   const tl=munpx(ox,oy,z),br=munpx(ox+w,oy+h,z),V={lo1:tl[1],lo2:br[1],la1:br[0],la2:tl[0]};const K=[-360,0,360];let s="";
   const geo=z<4.5?(GEO.lo||GEO.hi):(GEO.hi||GEO.lo);
-  if(geo){s+=`<path class="land" d="${geoFill(geo.land,P,V,K,w,h)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
+  vecEnsure();
+  if(geo&&!vecReady()){s+=`<path class="land" d="${geoFill(geo.land,P,V,K,w,h)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
   if(ML.tiles&&!MAP.tileFail){const sty=isDark()?"dark_all":"light_all";s+=tileLayer((zt,x,y)=>`https://${"abcd"[(x+y)%4]}.basemaps.cartocdn.com/${sty}/${zt}/${x}/${y}.png`,"tile",z,ox,oy,w,h,18)}
   if(ML.radar&&RADAR.path&&!RADAR.err)s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
   const sBase=s;s="";
@@ -2329,7 +2401,7 @@ function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();
   if(!el||!d||!MAP.c||d.w!==w||d.h!==h||(d.z===MAP.z&&d.lat===MAP.c.lat&&d.lon===MAP.c.lon)){drawMap();return}
   const k=Math.pow(2,MAP.z-d.z),c1=mpx(MAP.c.lat,MAP.c.lon,d.z),world=TS*Math.pow(2,d.z);let dx=c1[0]-d.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-d.cy;
   if((k>2.6||k<.45||Math.abs(dx)>w*.55||Math.abs(dy)>h*.55)&&performance.now()-d.at>260){drawMap();return}
-  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;mapCanvas();
+  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;mapCanvas();vecSync();
   clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130)}
 function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==null){sx=w/2;sy=h/2}
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
@@ -2370,7 +2442,8 @@ function mapInfo(){const box=$("#mapInfo");if(!box)return;const S2=MAP.sel;
     box.innerHTML=`<div class="ph"><span class="sigt h-${HZ(g.hazard)}"><b>${esc(g.kind)}</b> ${esc(String(g.hazard).toUpperCase())} ${esc(g.qualifier||"")}</span><button class="btn" id="mapX" aria-label="Close">✕</button></div><div class="cells">${cell("FIR",esc(g.fir||"—"))}${cell("Levels",lvl(g.base)+" <small>–</small> "+lvl(g.top))}${cell("Valid",tz2(g.from)+" <small>–</small> "+tz2(g.to))}</div>${g.raw?`<div class="raw" style="max-height:150px;overflow:auto;border-bottom:0">${esc(g.raw)}</div>`:""}`;return}
   box.hidden=true}
 function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
-  if(GEO.err)m.push(GEO.err);else if(!GEO.lo)m.push("Loading world map…");
+  if(ML.vec&&VEC.err)m.push(VEC.err);else if(ML.vec&&!VEC.ready)m.push("Loading detail map…");
+  if(!vecReady()){if(GEO.err)m.push(GEO.err);else if(!GEO.lo)m.push("Loading world map…")}
   if(ML.tiles&&MAP.tileFail)m.push("Detail map tiles load on the Polaris site.");
   if((ML.fir&&FIR.err)||(ML.radar&&RADAR.err))m.push((ML.fir&&FIR.err?"Airspace boundaries":"")+(ML.fir&&FIR.err&&ML.radar&&RADAR.err?" and radar":ML.radar&&RADAR.err?"Radar":"")+" couldn’t load here. This preview blocks outside data; they appear when the EFB runs on the Polaris site"+(vam.url?"":" (or set the EFB server in Settings)")+".");
   if(ML.sig&&SIG.err)m.push(SIG.err);else if(ML.sig&&SIG.list)m.push(SIG.list.length+" SIGMET/AIRMET");
@@ -2379,13 +2452,13 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
   else if(ML.apt)m.push("Zoom in on an airport, or pick one above, to see taxiways.");
   if(ML.traffic){if(!vamOn())m.push("Connect vAMSYS in Settings for Polaris traffic.");else if(MAP.liveErr)m.push("Traffic: "+MAP.liveErr);else if(MAP.live)m.push(MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online")}
   n.textContent=m.join(" · ");n.hidden=!m.length;
-  const a=$("#mapAttr");if(a){const at=['Map © <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>'];
+  const a=$("#mapAttr");if(a){const at=[vecReady()?'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>':'Map © <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>'];
     if(ML.tiles&&!MAP.tileFail)at.push('© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>');
     if(ML.fir&&FIR.data)at.push('Airspace <a href="https://github.com/vatsimnetwork/vatspy-data-project" target="_blank" rel="noopener">VATSpy Data Project</a> (CC BY-SA 4.0)');
     if(ML.radar&&RADAR.path&&!RADAR.err)at.push('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'+(RADAR.time?" "+tz2(RADAR.time):""));
     if(ML.sig&&SIG.list)at.push('SIGMET <a href="https://aviationweather.gov/" target="_blank" rel="noopener">AWC</a>');
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
-V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["tiles","Detail map"]];
+V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapbar"><span class="mono"><b>${esc(x.flight)}</b> ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))} · ${fmt(N(x.g.route_distance)||N(x.g.air_distance))} NM</span>${pts.length<2?'<span class="c-amber">No fix coordinates in this plan</span>':""}</div>
    <div class="mapctl"><button class="btn" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>

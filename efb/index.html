@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="efb-build" content="1111.1231">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1575,6 +1576,17 @@ function geoLine(items,P,V,k0,w,h,close){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1
       px=x;py=y}}}
   return d}
 
+/* Filled shapes (land): clip each ring to a box around the screen, so a continent is not sent to the
+   renderer as a polygon millions of pixels wide when zoomed in on an airport. */
+function geoFill(items,P,V,k0,w,h){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y1=h+m;let d="";
+  const cut=(pts,ins,isect)=>{const out=[];for(let i=0,n=pts.length;i<n;i++){const a=pts[i],b=pts[(i+1)%n],ia=ins(a),ib=ins(b);if(ia){out.push(a);if(!ib)out.push(isect(a,b))}else if(ib)out.push(isect(a,b))}return out};
+  const ix=X=>(a,b)=>[X,a[1]+(b[1]-a[1])*(X-a[0])/(b[0]-a[0])],iy=Y=>(a,b)=>[a[0]+(b[0]-a[0])*(Y-a[1])/(b[1]-a[1]),Y];
+  for(const it of items){for(const k of k0){const b=it.b;if(b[2]+k<V.lo1||b[0]+k>V.lo2||b[3]<V.la1||b[1]>V.la2)continue;
+    let pts=it.p.map(q=>P(q[1],q[0]+k)),all=true;for(const p of pts){if(p[0]<x0||p[0]>x1||p[1]<y0||p[1]>y1){all=false;break}}
+    if(!all){pts=cut(pts,p=>p[0]>=x0,ix(x0));if(pts.length>2)pts=cut(pts,p=>p[0]<=x1,ix(x1));if(pts.length>2)pts=cut(pts,p=>p[1]>=y0,iy(y0));if(pts.length>2)pts=cut(pts,p=>p[1]<=y1,iy(y1))}
+    if(pts.length<3)continue;let s="",lx=null,ly=null;for(const p of pts){const x=Math.round(p[0]),y=Math.round(p[1]);if(x===lx&&y===ly)continue;s+=(s?"L":"M")+x+" "+y;lx=x;ly=y}d+=s+"Z"}}
+  return d}
+
 /* ===== shared app building blocks ===== */
 const ICO={
  doc:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/>',
@@ -1890,7 +1902,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]);
 
 /* Settings > About: viewport, screen and safe-area figures as this device reports them */
 function devInfo(){const f=window.__fit,sa=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches),vv=window.visualViewport;
-  return `${innerWidth}×${innerHeight} · screen ${screen.width}×${screen.height}`+(f?` · insets ${f.et}/${f.eb}`+(f.chin?` · strip ${f.chin}`:""):"")+(vv?` · view ${Math.round(vv.height)}@${Math.round(vv.offsetTop)}`:"")+` · scroll ${Math.round(scrollY)} · ${sa?"home-screen app":"browser"}`}
+  return `build ${EFB_BUILD||"?"} · ${innerWidth}×${innerHeight} · screen ${screen.width}×${screen.height}`+(f?` · insets ${f.et}/${f.eb}`+(f.chin?` · strip ${f.chin}`:""):"")+(vv?` · view ${Math.round(vv.height)}@${Math.round(vv.offsetTop)}`:"")+` · scroll ${Math.round(scrollY)} · ${sa?"home-screen app":"browser"}`}
 
 /* ===== Music (Polaris Sound) =====
    Polaris tracks: listed in music/tracks.json next to the EFB, e.g.
@@ -2063,7 +2075,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2;const P=(la,lo)=>{const q=mpx(la,lo,z);return[+(q[0]-ox).toFixed(1),+(q[1]-oy).toFixed(1)]};
   const tl=munpx(ox,oy,z),br=munpx(ox+w,oy+h,z),V={lo1:tl[1],lo2:br[1],la1:br[0],la2:tl[0]};const K=[-360,0,360];let s="";
   const geo=z<4.5?(GEO.lo||GEO.hi):(GEO.hi||GEO.lo);
-  if(geo){s+=`<path class="land" d="${geoPath(geo.land,P,V,true,K)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
+  if(geo){s+=`<path class="land" d="${geoFill(geo.land,P,V,K,w,h)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
   if(ML.tiles&&!MAP.tileFail){const sty=isDark()?"dark_all":"light_all";s+=tileLayer((zt,x,y)=>`https://${"abcd"[(x+y)%4]}.basemaps.cartocdn.com/${sty}/${zt}/${x}/${y}.png`,"tile",z,ox,oy,w,h,18)}
   if(ML.radar&&RADAR.path&&!RADAR.err)s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
   const sBase=s;s="";
@@ -2646,6 +2658,17 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
   /* after the keyboard closes iOS can leave the page panned; put it back */
   addEventListener("focusout",()=>setTimeout(()=>{if(sa()&&!(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)))scrollTo(0,0)},60));
 })();
+
+/* ---------- Pick up a new version without waiting for the browser cache ----------
+   Pages are cached for about ten minutes and a home-screen app keeps its page even longer. On launch and
+   whenever the app comes back to the front, ask the server (uncached) which build it has; if it differs,
+   reload once onto that build. */
+const EFB_BUILD=(document.querySelector('meta[name="efb-build"]')||{}).content||"";
+(function(){if(!/^https?:$/.test(location.protocol)||!EFB_BUILD)return;
+  const check=()=>fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(t=>{const m=t.match(/name="efb-build" content="([^"]+)"/);if(!m||m[1]===EFB_BUILD)return;
+    let tried="";try{tried=sessionStorage.getItem("efbUpd")||""}catch(e){}if(tried===m[1])return;try{sessionStorage.setItem("efbUpd",m[1])}catch(e){}
+    const u=new URL(location.href);u.searchParams.set("b",m[1]);location.replace(u.toString())}).catch(()=>{});
+  check();document.addEventListener("visibilitychange",()=>{if(!document.hidden)check()})})();
 
 /* ===== Dynamic Island: live activities (flight, timer, music, stopwatch) and checklist alerts ===== */
 (function(){

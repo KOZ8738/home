@@ -869,6 +869,8 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .screen[data-app="map"] .wrap{max-width:none;gap:0}
 .mapwrap{position:relative;height:100%;background:var(--map-sea);overflow:hidden}
 .mapsvg{transform-origin:0 0;will-change:transform}
+.mapbase{pointer-events:none}
+.mapcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .land{fill:var(--map-land);stroke:var(--map-border);stroke-width:.8}
 .bord{fill:none;stroke:var(--map-border);stroke-width:.8;stroke-dasharray:3 2}
 .fir{fill:none;stroke:var(--map-fir);stroke-width:1.15;stroke-linejoin:round}
@@ -1520,6 +1522,46 @@ function radarBar(){const el=$("#radarBar");if(!el)return;if(!ML.radar||!RADAR.f
    <div class="rb-leg"><i></i><span>Light</span><span>Heavy</span></div></div>`}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-rad]");if(!t)return;const v=t.dataset.rad;if(v==="play")radarPlay(!RADAR.play);else{radarPlay(false);radarSet(+v)}});
 
+/* ---------- Airport geometry on a canvas ----------
+   Runways, taxiways, aprons, buildings, holds and stands are painted on a canvas that sits between
+   the base map and the SVG overlay. Painting it takes a few milliseconds, so it is redrawn sharp on
+   every frame of a pan or pinch instead of rebuilding hundreds of SVG elements. */
+let txPal=null,txPalKey="";
+function txColors(el){const key=isDark()?"d":"l";if(txPal&&txPalKey===key)return txPal;const cs=getComputedStyle(el),g=n=>cs.getPropertyValue(n).trim();txPalKey=key;
+  return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),rwy:g("--tx-rwy"),edge:g("--tx-edge"),pave:g("--tx-pave"),cl:g("--tx-cl"),cyan:g("--cyan"),grass:g("--tx-grass"),font:cs.fontFamily||"sans-serif"}}
+/* project once to normalised web-mercator (0..1); per frame it is then just a multiply and a subtract */
+function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s=Math.sin(Math.max(-85,Math.min(85,la))*Math.PI/180);return .5-Math.log((1+s)/(1-s))/(4*Math.PI)};
+  const L=pts=>{const a=new Float64Array(pts.length*2);let x0=9,x1=-9,y0=9,y1=-9;pts.forEach((q,i)=>{const x=nx(q[0]),y=ny(q[1]);a[i*2]=x;a[i*2+1]=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y});return{a,x0,x1,y0,y1}};
+  const pt=q=>[nx(q[0]),ny(q[1])];
+  return d._m={ax:nx(d.airport.lon),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>L(b.pts)),
+    rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:d.runways.filter(r=>!r.area).map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),
+    twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
+    holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:d.stands.map(o=>({p:pt(o.pt),ref:o.ref||""}))}}
+function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;const {w,h}=mapSize();if(!w||!h||!MAP.c)return;const dpr=Math.min(2,window.devicePixelRatio||1);
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);const z=MAP.z;if(!ML.apt||z<11)return;
+  const Wd=TS*Math.pow(2,z),c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180)),C=txColors(el);
+  const seen=new Set();mapAptCandidates().forEach(a=>{const d=TX.data[a.icao];if(!d||seen.has(a.icao)||d.notFound||!d.airport||d.airport.lat==null)return;seen.add(a.icao);
+    const m=txPrep(d),wrap=Math.round(c[0]/Wd-m.ax),X=x=>(x+wrap)*Wd-ox,Y=y=>y*Wd-oy,pad=40;
+    const vis=l=>!(X(l.x1)<-pad||X(l.x0)>w+pad||Y(l.y1)<-pad||Y(l.y0)>h+pad);
+    const trace=l=>{const a=l.a;g.moveTo(X(a[0]),Y(a[1]));for(let i=2;i<a.length;i+=2)g.lineTo(X(a[i]),Y(a[i+1]))};
+    const fillAll=(list,col)=>{g.fillStyle=col;g.beginPath();let n=0;list.forEach(l=>{if(vis(l)){trace(l);g.closePath();n++}});if(n)g.fill()};
+    g.setLineDash([]);g.globalAlpha=1;fillAll(m.aprons,C.apron);fillAll(m.bldg,C.bldg);fillAll(m.rwyArea,C.rwy);
+    /* taxiways: all casings first, then all pavement, batched by width */
+    const groups=new Map();m.twy.forEach(t=>{if(!vis(t.l))return;const W=Math.max(2,t.w*k),key=W.toFixed(1);if(!groups.has(key))groups.set(key,{W,ls:[]});groups.get(key).ls.push(t.l)});
+    g.lineCap="round";g.lineJoin="round";
+    const strokeGroups=(extra,col)=>groups.forEach(G=>{g.strokeStyle=col;g.lineWidth=G.W+extra;g.beginPath();G.ls.forEach(trace);g.stroke()});
+    strokeGroups(2,C.edge);strokeGroups(0,C.pave);
+    g.lineCap="butt";
+    m.rwy.forEach(r=>{if(!vis(r.l))return;const W=Math.max(3,r.w*k);g.strokeStyle=C.rwy;g.lineWidth=W;g.beginPath();trace(r.l);
+      if(r.stop){g.setLineDash([6,4]);g.globalAlpha=.7;g.stroke();g.setLineDash([]);g.globalAlpha=1}
+      else{g.stroke();if(z>=13){g.strokeStyle="#fff";g.globalAlpha=.85;g.lineWidth=Math.max(1,.9*k);g.setLineDash([14,10]);g.beginPath();trace(r.l);g.stroke();g.setLineDash([]);g.globalAlpha=1}}});
+    if(z>=13){g.strokeStyle=C.cl;g.lineWidth=Math.max(1,Math.min(2,.5*k));g.beginPath();groups.forEach(G=>G.ls.forEach(trace));g.stroke()}
+    if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=4;g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else{const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-3.5,y-3.5,7,7)}});g.stroke()}
+    if(z>=15){const lab=z>=16;g.fillStyle=C.cyan;if(lab){g.font="700 10px "+C.font;g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.grass;g.textBaseline="alphabetic"}
+      m.stands.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<-20||y<-20||x>w+20||y>h+20)return;g.beginPath();g.arc(x,y,3,0,6.2832);g.fill();if(lab&&o.ref){g.strokeText(o.ref,x+5,y+3.5);g.fillText(o.ref,x+5,y+3.5)}})}
+  })}
+
 /* ===== shared app building blocks ===== */
 const ICO={
  doc:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/>',
@@ -1919,16 +1961,7 @@ function txLoad(icao,force){if(!vam.url||!icao)return;if(!force&&(TX.data[icao]|
     .catch(e=>{TX.err[icao]={msg:e.message,at:Date.now()};if(TX.fly===icao){TX.fly=null;toast(icao+": "+e.message)}}).finally(()=>{TX.loading[icao]=false;if(cur==="map"){mapSched();updMapNote()}})}
 const rwNum=r=>{const m=String(r).match(/^(\d{1,2})/);return m?+m[1]:null};
 /** SVG for one airport layout. P(lat,lon)->[x,y]; k = pixels per metre at this zoom. */
-function aptLayerSvg(d,P,k,z,w,h,fits){const Q=q=>{let lo=q[0];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(q[1],lo)};const mx=w*.6,my=h*.6;const pl=pts=>{let a=1e9,b=-1e9,c=1e9,e=-1e9;const o=pts.map(q=>{const p=Q(q);if(p[0]<a)a=p[0];if(p[0]>b)b=p[0];if(p[1]<c)c=p[1];if(p[1]>e)e=p[1];return p.join(",")});return b<-mx||a>w+mx||e<-my||c>h+my?"":o.join(" ")};let s="";
-  d.aprons.forEach(a=>{s+=`<polygon class="tx-apron" points="${pl(a)}"/>`});
-  d.buildings.forEach(b=>{s+=`<polygon class="tx-bldg" points="${pl(b.pts)}"/>`});
-  d.runways.filter(r=>r.area).forEach(r=>{s+=`<polygon class="tx-rwyarea" points="${pl(r.pts)}"/>`});
-  let cas="",pav="",cl="";d.taxiways.forEach(t=>{const W=Math.max(2,(t.width||(t.kind==="taxilane"?15:23))*k);const p=pl(t.pts);cas+=`<polyline points="${p}" stroke-width="${(W+2).toFixed(1)}"/>`;pav+=`<polyline points="${p}" stroke-width="${W.toFixed(1)}"/>`;if(z>=13)cl+=`<polyline points="${p}"/>`});
-  s+=`<g class="tx-cas">${cas}</g><g class="tx-pave">${pav}</g>`;
-  d.runways.filter(r=>!r.area).forEach(r=>{const W=Math.max(3,(r.width||45)*k);const p=pl(r.pts);s+=`<polyline class="tx-rwy${r.stopway?" stop":""}" points="${p}" stroke-width="${W.toFixed(1)}"/>`+(r.stopway||z<13?"":`<polyline class="tx-rcl" points="${p}" stroke-width="${Math.max(1,.9*k).toFixed(1)}"/>`)});
-  if(cl)s+=`<g class="tx-cl" stroke-width="${Math.max(1,Math.min(2,.5*k)).toFixed(1)}">${cl}</g>`;
-  if(z>=13.5)d.holds.forEach(o=>{if(o.pts)s+=`<polyline class="tx-hold" points="${pl(o.pts)}"/>`;else{const [x,y]=Q(o.pt);s+=`<rect class="tx-holdpt" x="${x-3.5}" y="${y-3.5}" width="7" height="7"/>`}});
-  if(z>=15)d.stands.forEach(o=>{const [x,y]=Q(o.pt);if(x<-20||y<-20||x>w+20||y>h+20)return;s+=`<circle class="tx-stand" cx="${x}" cy="${y}" r="3"/>${o.ref&&z>=16?`<text class="tx-standl" x="${x+5}" y="${y+3.5}">${esc(o.ref)}</text>`:""}`});
+function aptLayerSvg(d,P,k,z,w,h,fits){const Q=q=>{let lo=q[0];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(q[1],lo)};const pl=pts=>pts.map(q=>Q(q).join(",")).join(" ");let s="";
   let lab="";
   d.runways.filter(r=>!r.area&&!r.stopway&&r.ref).forEach(r=>{const a=r.pts[0],b=r.pts[r.pts.length-1];const A=Q(a),B=Q(b);const brg=(Math.atan2(B[0]-A[0],-(B[1]-A[1]))*180/Math.PI+360)%360;
     const parts=String(r.ref).split("/").map(q=>q.trim()).filter(Boolean);let first=parts[0],second=parts[1]||"";if(parts.length===2){const n0=rwNum(parts[0]),n1=rwNum(parts[1]);const dd=n=>n==null?999:Math.min(Math.abs(n*10-brg),360-Math.abs(n*10-brg));if(dd(n1)<dd(n0)){first=parts[1];second=parts[0]}}
@@ -1936,7 +1969,7 @@ function aptLayerSvg(d,P,k,z,w,h,fits){const Q=q=>{let lo=q[0];while(lo-MAP.c.lo
   if(z>=13.5)d.taxiways.filter(t=>t.ref).sort((a,b)=>b.pts.length-a.pts.length).forEach(t=>{const pts=t.pts.map(Q);let best=null,bl=0,tot=0;for(let i=1;i<pts.length;i++){const L=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);tot+=L;if(L>bl){bl=L;best=[(pts[i][0]+pts[i-1][0])/2,(pts[i][1]+pts[i-1][1])/2]}}
     if(!best||tot<40)return;const [x,y]=best;if(x<0||y<0||x>w||y>h)return;const wd=String(t.ref).length*7.5+10;if(!fits(x,y,wd))return;
     lab+=`<g class="tx-tlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t.ref)}</text></g>`});
-  return{base:s.replace(/<poly(?:gon|line)[^>]*points=""[^>]*[/]>/g,""),labels:lab}}
+  return{base:s,labels:lab}}
 
 V.timer=()=>{let body="";
   if(clockTab==="world")body=`<h2 class="ck-title">World Clock</h2><div id="wcList">${worldRows()}</div>`;
@@ -2020,6 +2053,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   if(geo){s+=`<path class="land" d="${geoPath(geo.land,P,V,true,K)}"/><path class="bord" d="${geoPath(geo.bord,P,V,false,K)}"/>`}
   if(ML.tiles&&!MAP.tileFail){const sty=isDark()?"dark_all":"light_all";s+=tileLayer((zt,x,y)=>`https://${"abcd"[(x+y)%4]}.basemaps.cartocdn.com/${sty}/${zt}/${x}/${y}.png`,"tile",z,ox,oy,w,h,18)}
   if(ML.radar&&RADAR.path&&!RADAR.err)s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
+  const sBase=s;s="";
   if(ML.fir&&FIR.data){let a="",o="",lb="";const seen=new Set(),occ=[];const fs=z<3?11:z<5?12.5:13.5;
     {const rp=routePts();rp.pts.filter(q=>q.apt).concat(rp.altn?[rp.altn]:[]).forEach(q=>{const [X,Y]=P(q.lat,q.lon);occ.push([X-14,Y-14,X+100,Y+14])})}
     FIR.data.forEach(f=>{const d=geoPath(f.rings,P,V,true,K);if(!d)return;if(f.oc)o+=d;else a+=d;
@@ -2036,7 +2070,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
     const k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180));
     mapAptCandidates().forEach(a=>{const d=TX.data[a.icao];if(!d){if(a.lat!=null){let lo=a.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const q=P(a.lat,lo);if(q[0]>-w&&q[0]<2*w&&q[1]>-h&&q[1]<2*h)txLoad(a.icao)}return}
       if(d.notFound||d.airport.lat==null)return;let lo=d.airport.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const q=P(d.airport.lat,lo);if(q[0]<-w*1.5||q[0]>w*2.5||q[1]<-h*1.5||q[1]>h*2.5)return;
-      const r=aptLayerSvg(d,P,k,z,w,h,fits);s+=r.base;aptLabels+=r.labels})}
+      const r=aptLayerSvg(d,P,k,z,w,h,fits);aptLabels+=r.labels})}
   const step=z<3?20:z<4.5?10:z<6?5:z<7.5?2:z<10?1:z<12?.5:z<14?.1:.05;
   if(z<13)for(let lo=Math.ceil(V.lo1/step)*step;lo<=V.lo2;lo+=step){const X=P(0,lo)[0];s+=`<line x1="${X}" x2="${X}" y1="0" y2="${h}" class="grat"/><text x="${X+3}" y="${h-8}" class="gl">${llb(lo,"E","W")}</text>`}
   if(z<13)for(let la=Math.ceil(V.la1/step)*step;la<=V.la2;la+=step){const Y=P(la,0)[1];s+=`<line x1="0" x2="${w}" y1="${Y}" y2="${Y}" class="grat"/><text x="5" y="${Y-3}" class="gl">${llb(la,"N","S")}</text>`}
@@ -2065,16 +2099,16 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
-  el.innerHTML=s;el.style.transform="";clearTimeout(mapIdle);mapDrawn={z,lat:MAP.c.lat,lon:MAP.c.lon,cx:c[0],cy:c[1],w,h,at:performance.now()};radarBar();
-  const t1=el.querySelector("image.tile");if(t1)t1.addEventListener("error",()=>{if(!MAP.tileFail){MAP.tileFail=true;mapSched();updMapNote()}},{once:true});
-  const r1=el.querySelector("image.radar");if(r1)r1.addEventListener("error",()=>{if(!RADAR.err){RADAR.err=true;RADAR.at=Date.now();mapSched();updMapNote()}},{once:true});
+  const bs=$("#mapBase");if(bs){bs.innerHTML=sBase;bs.style.transform=""}else s=sBase+s;el.innerHTML=s;el.style.transform="";mapCanvas();clearTimeout(mapIdle);mapDrawn={z,lat:MAP.c.lat,lon:MAP.c.lon,cx:c[0],cy:c[1],w,h,at:performance.now()};radarBar();
+  const t1=(bs||el).querySelector("image.tile");if(t1)t1.addEventListener("error",()=>{if(!MAP.tileFail){MAP.tileFail=true;mapSched();updMapNote()}},{once:true});
+  const r1=(bs||el).querySelector("image.radar");if(r1)r1.addEventListener("error",()=>{if(!RADAR.err){RADAR.err=true;RADAR.at=Date.now();mapSched();updMapNote()}},{once:true});
 }
 let mapRaf=0,mapIdle=0,mapDrawn=null;function mapSched(){if(!mapRaf)mapRaf=requestAnimationFrame(()=>{mapRaf=0;mapFast()})}
 function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();
   if(!el||!d||!MAP.c||d.w!==w||d.h!==h||(d.z===MAP.z&&d.lat===MAP.c.lat&&d.lon===MAP.c.lon)){drawMap();return}
   const k=Math.pow(2,MAP.z-d.z),c1=mpx(MAP.c.lat,MAP.c.lon,d.z),world=TS*Math.pow(2,d.z);let dx=c1[0]-d.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-d.cy;
   if((k>2.6||k<.45||Math.abs(dx)>w*.55||Math.abs(dy)>h*.55)&&performance.now()-d.at>260){drawMap();return}
-  el.style.transform=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;
+  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;mapCanvas();
   clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130)}
 function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==null){sx=w/2;sy=h/2}
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
@@ -2125,7 +2159,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.sig&&SIG.list)at.push('SIGMET <a href="https://aviationweather.gov/" target="_blank" rel="noopener">AWC</a>');
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
 V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["tiles","Detail map"]];
-  return `<div class="mapwrap"><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
+  return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapbar"><span class="mono"><b>${esc(x.flight)}</b> ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))} · ${fmt(N(x.g.route_distance)||N(x.g.air_distance))} NM</span>${pts.length<2?'<span class="c-amber">No fix coordinates in this plan</span>':""}</div>
    <div class="mapctl"><button class="btn" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}">${a[0]} ${esc(a[1])}</button>`).join("")}<form id="mapForm" class="row" style="gap:4px"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" style="width:80px;text-transform:uppercase"><button class="btn" type="submit">Go</button></form></div>

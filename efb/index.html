@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2322">
+<meta name="efb-build" content="1111.2329">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1096,9 +1096,9 @@ tspan.wx-VFR{fill:var(--green)} tspan.wx-MVFR{fill:var(--cyan)} tspan.wx-IFR{fil
 :root{--tx-grass:#DCE6D8;--tx-pave:#FFFFFF;--tx-edge:#A9B2B4;--tx-rwy:#3E4447;--tx-apron:#ECEEEB;--tx-bldg:#C8C0B2;--tx-cl:#D9A400}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx-grass:#0B1311;--tx-pave:#2B3436;--tx-edge:#11181A;--tx-rwy:#5A6164;--tx-apron:#1C2426;--tx-bldg:#3A3530;--tx-cl:#F0C000}}
 :root[data-theme="dark"]{--tx-grass:#0B1311;--tx-pave:#2B3436;--tx-edge:#11181A;--tx-rwy:#5A6164;--tx-apron:#1C2426;--tx-bldg:#3A3530;--tx-cl:#F0C000}
-:root{--tx-ground:#E6EBE3;--tx-pave:#AEB3B5;--tx-apron:#BFC4C5;--tx-rwy:#3A3F42;--tx-mark:#FFFFFF;--tx-term:#8E92CC;--tx-bldg:#B4AEA4;--tx-cl:#B98F00;--tx-txt:#1B2426;--tx-halo:#FFFFFF}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}}
-:root[data-theme="dark"]{--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}
+:root{--tx-ground:#E6EBE3;--tx-pave:#AEB3B5;--tx-apron:#BFC4C5;--tx-rwy:#3A3F42;--tx-mark:#FFFFFF;--tx-term:#8E92CC;--tx-cargo:#A7A3C9;--tx-bldg:#B4AEA4;--tx-cl:#B98F00;--tx-txt:#1B2426;--tx-halo:#FFFFFF}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-cargo:#4A4C7A;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}}
+:root[data-theme="dark"]{--tx-ground:#0B0C0D;--tx-pave:#7E8082;--tx-apron:#727476;--tx-rwy:#232527;--tx-mark:#F4F4F4;--tx-term:#5B5FA3;--tx-cargo:#4A4C7A;--tx-bldg:#3B3D44;--tx-cl:#F5E400;--tx-txt:#FFFFFF;--tx-halo:#000000;--map-sea:#0A2748;--map-bg:#0A2748;--map-land:#070909;--map-border:#2A3136}
 .txwrap{display:flex;flex-direction:column;height:calc(100cqh - var(--sbh) - 66px);background:var(--tx-grass)}
 .txhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--line)}
 .txpad{padding:14px max(16px,env(safe-area-inset-left,0px));display:grid;gap:12px}
@@ -1698,7 +1698,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-rad]");if(
    on every frame of a pan or pinch instead of rebuilding hundreds of SVG elements. */
 let txPal=null,txPalKey="";
 function txColors(el){const key=isDark()?"d":"l";if(txPal&&txPalKey===key)return txPal;const cs=getComputedStyle(el),g=n=>cs.getPropertyValue(n).trim();txPalKey=key;
-  return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),term:g("--tx-term"),rwy:g("--tx-rwy"),mark:g("--tx-mark"),pave:g("--tx-pave"),cl:g("--tx-cl"),ground:g("--tx-ground"),txt:g("--tx-txt"),halo:g("--tx-halo"),mono:g("--f-mono")||"monospace",ui:g("--f-ui")||"sans-serif"}}
+  return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),term:g("--tx-term"),cargo:g("--tx-cargo"),rwy:g("--tx-rwy"),mark:g("--tx-mark"),pave:g("--tx-pave"),cl:g("--tx-cl"),ground:g("--tx-ground"),txt:g("--tx-txt"),halo:g("--tx-halo"),mono:g("--f-mono")||"monospace",ui:g("--f-ui")||"sans-serif"}}
 /* project once to normalised web-mercator (0..1); per frame it is then just a multiply and a subtract */
 /* Stands like a chart: one label per stand at its stop point, with the lead-in line when OpenStreetMap has one.
    Gate nodes on the terminal are dropped when a parking position with the same name is close by. */
@@ -1721,7 +1721,7 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
     const off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
     let a=G.parts[0],b=G.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
     if(a)ends.push({p:A,ll:A.ll,ux,uy,name:a,w:G.w});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:b,w:G.w})});
-  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>({l:L(b.pts),term:b.kind==="terminal",name:b.name||""})),
+  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>({l:L(b.pts),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
     rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
     holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:txStands(d,L,pt)}}
@@ -1753,21 +1753,24 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
       const bw=W*.062,gap=W*.036,y0=-36*k,bh=30*k;for(let i=0;i<4;i++){const bx=W*.05+i*(bw+gap);g.fillRect(bx,y0,bw,bh);g.fillRect(-bx-bw,y0,bw,bh)}
       g.font=`700 ${Math.max(8,W*.42).toFixed(1)}px ${C.ui}`;g.textAlign="center";g.textBaseline="alphabetic";g.fillText(e.name,0,-48*k);g.restore()});
     /* buildings above the pavement */
-    fillAll(m.bldg.filter(b=>!b.term).map(b=>b.l),C.bldg);fillAll(m.bldg.filter(b=>b.term).map(b=>b.l),C.term);
+    fillAll(m.bldg.filter(b=>b.kind!=="terminal"&&b.kind!=="cargo").map(b=>b.l),C.bldg);fillAll(m.bldg.filter(b=>b.kind==="cargo").map(b=>b.l),C.cargo||C.term);fillAll(m.bldg.filter(b=>b.kind==="terminal").map(b=>b.l),C.term);
     if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
     /* stands: a dot first, a small boxed label once there is room */
     const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};
+    /* building names */
+    if(z>=14){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
+      m.bldg.forEach(b=>{if(!b.name||!vis(b.l)||(z<14.5&&b.kind!=="terminal"&&b.kind!=="cargo"))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<(b.kind==="terminal"||b.kind==="cargo"?22:30))return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;
+        const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
+        const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
+        rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
     if(z>=14.5){/* lead-in lines */g.strokeStyle=C.cl;g.lineWidth=Math.max(.8,Math.min(1.4,.35*k));g.setLineDash([]);g.lineCap="round";g.beginPath();m.stands.forEach(o=>{if(o.l&&vis(o.l))trace(o.l)});g.stroke()}
     if(z>=15){const fs=z>=17?11:z>=16?10:9;g.font=`700 ${fs}px ${C.mono}`;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
       m.stands.forEach(o=>{if(!o.ref||o.ref.length>6)return;const x=X(o.p[0]),y=Y(o.p[1]);if(x<-30||y<-20||x>w+30||y>h+20)return;
         const bw=o.ref.length*fs*.62+7,bh=fs+5;if(!free(x-bw/2-2,y-bh/2-2,x+bw/2+2,y+bh/2+2))return;
         g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-bh/2,bw,bh);g.strokeStyle="#EDEDED";g.strokeRect(x-bw/2+.5,y-bh/2+.5,bw-1,bh-1);g.fillStyle="#FFFFFF";g.fillText(o.ref,x,y+.5)})}
-    /* building names */
-    if(z>=14.5){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
-      m.bldg.forEach(b=>{if(!b.name||!vis(b.l))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<34)return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;
-        const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
-        const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
-        rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
+    /* apron and area names */
+    if(z>=14.5){g.font="italic 500 11px "+C.ui;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;g.globalAlpha=.85;
+      m.places.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<0||y<0||x>w||y>h)return;const tw=o.name.length*6.2;if(!free(x-tw/2,y-8,x+tw/2,y+8))return;g.strokeText(o.name,x,y);g.fillText(o.name,x,y)});g.globalAlpha=1}
   });ovDraw(g,w,h)}
 
 /* Stroke-only outlines (FIR boundaries, borders): emit just the parts near the screen. Zoomed in on an

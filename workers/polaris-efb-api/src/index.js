@@ -376,17 +376,19 @@ function stitchRings(ways) {
   }
   return rings;
 }
+const CARGO = /cargo|freight|warehouse|logistic|fedex|\bups\b|dhl|usps|mail/i;
+const mid = (pts) => { let x = 0, y = 0; pts.forEach((p) => { x += p[0]; y += p[1]; }); return [Math.round(x / pts.length * 1e6) / 1e6, Math.round(y / pts.length * 1e6) / 1e6]; };
 const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_position|parking_position|stopway|gate';
 async function layoutRoute(icaoIn) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout7:' + icao, 6 * 3600_000, () => edgeCache(`layout/v7/${icao}`, 7 * 86400, async () => {
+  return cached('layout8:' + icao, 6 * 3600_000, () => edgeCache(`layout/v8/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
     const bb = [pos.lat - dLat, pos.lon - dLon, pos.lat + dLat, pos.lon + dLon].map((v) => v.toFixed(5)).join(',');
     const q = `[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out body bb geom;` +
-      `(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];);out geom qt;`;
+      `(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];way["building"]["name"];);out geom qt;`;
     const j0 = await overpass(q);
     /* keep only what lies inside this airport: its own outline if OSM has one, else a tight box */
     const fields = (j0.elements || []).filter((e) => (e.tags || {}).aeroway === 'aerodrome' && e.bounds);
@@ -400,7 +402,7 @@ async function layoutRoute(icaoIn) {
 
     const r6 = (v) => Math.round(v * 1e6) / 1e6;
     const line = (e) => (e.geometry || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)]);
-    const out = { airport: { icao, name: (mine && mine.tags.name) || pos.name || '', lat: r6(pos.lat), lon: r6(pos.lon) }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [] };
+    const out = { airport: { icao, name: (mine && mine.tags.name) || pos.name || '', lat: r6(pos.lat), lon: r6(pos.lon) }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], places: [] };
     /* the airport boundary, so the app can paint the airfield ground under the pavement */
     if (mine) {
       const rings = mine.type === 'way' ? [mine.geometry] : (mine.members || []).filter((mb) => mb.type === 'way' && mb.role !== 'inner').map((mb) => mb.geometry);
@@ -416,8 +418,9 @@ async function layoutRoute(icaoIn) {
       const pts = line(e); if (pts.length < 2) continue;
       if (a === 'runway' || a === 'stopway') out.runways.push({ ref: t.ref || '', width: +t.width || null, stopway: a === 'stopway', area: t.area === 'yes', pts });
       else if (a === 'taxiway' || a === 'taxilane') { if (t.area === 'yes') out.aprons.push(pts); else out.taxiways.push({ ref: t.ref || '', kind: a, width: +t.width || null, pts }); }
-      else if (a === 'apron') out.aprons.push(pts);
-      else if (a === 'terminal' || a === 'hangar') out.buildings.push({ kind: a, name: t.name || '', pts });
+      else if (a === 'apron') { out.aprons.push(pts); if (t.name) out.places.push({ kind: 'apron', name: t.name, pt: mid(pts) }); }
+      else if (a === 'terminal' || a === 'hangar') out.buildings.push({ kind: CARGO.test(t.name || '') ? 'cargo' : a, name: t.name || '', pts });
+      else if (!a && t.building && t.name && pts.length > 3) out.buildings.push({ kind: CARGO.test(t.name) || /^(warehouse|industrial)$/.test(t.building) ? 'cargo' : t.building === 'hangar' ? 'hangar' : 'bldg', name: t.name, pts });
       else if (a === 'holding_position') out.holds.push({ ref: t.ref || '', pts });
       else if (a === 'parking_position' || a === 'gate') out.stands.push({ ref: t.ref || t.name || '', kind: a, pt: pts[Math.floor(pts.length / 2)], line: pts.length > 1 && pts.length < 60 ? pts : undefined });
     }

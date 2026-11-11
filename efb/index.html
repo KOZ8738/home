@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2257">
+<meta name="efb-build" content="1111.2301">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -963,6 +963,9 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .assheet{position:absolute;z-index:6;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 44px -18px var(--shadow);font-family:var(--f-ui);overflow:hidden;
   left:var(--mg);top:calc(var(--mt) + 56px);bottom:26px;width:380px;border-radius:10px}
 .assheet[hidden]{display:none}
+.assheet{transform:translateX(calc(-100% - 30px));opacity:0;transition:transform .34s cubic-bezier(.2,.9,.25,1),opacity .22s ease,height .3s cubic-bezier(.2,.9,.25,1);will-change:transform}
+.assheet.in{transform:none;opacity:1}
+.as-head{touch-action:none}
 .as-head{flex:none;padding:10px 14px 0;border-bottom:1px solid var(--line);background:var(--panel)}
 .as-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px}
 .as-top .btn{min-height:32px;padding:0 12px!important;font:500 13px var(--f-ui)!important}
@@ -1002,12 +1005,16 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .as-empty{margin:18px 16px;color:var(--label);font-size:13.5px;line-height:1.5}
 @container screen (max-width:640px){
   .assheet{left:0;right:0;width:auto;top:auto;bottom:0;height:62%;border-radius:14px 14px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .assheet{transform:translateY(102%);opacity:1}
+  .assheet.in{transform:none}
   .assheet.full{height:calc(100% - var(--mt) - 6px)}
   .as-t{font-size:21px}
 }
 .assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar{left:calc(var(--mg) + 392px)!important}
 @container screen (max-width:640px){.assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar,.assheet:not([hidden])~.mapinfo{display:none!important}}
 @container screen (min-width:641px) and (max-width:1300px){.screen.isl-on[data-app="map"] .mapwrap .ovbar{top:56px!important}}
+
+@media (prefers-reduced-motion:reduce){.assheet{transition:opacity .15s}}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1999,7 +2006,11 @@ function asList(){const apts=chApts(),seen=new Set(apts.map(a=>a[1]));const rec=
   const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?asNames(a).name:"")}</span><small>${esc(role)}</small></button>`};
   return `<div class="as-search"><input type="text" id="asIcao" placeholder="Search ICAO" maxlength="4" aria-label="Airport ICAO code" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></div>
     <div class="as-list">${apts.map(a=>row({DEP:"Departure",DEST:"Destination",ALTN:"Alternate"}[a[0]]||a[0],a[1])).join("")}${rec.length?`<div class="as-sub">Recent</div>`+rec.map(i=>row("",i)).join(""):""}</div>`}
-function asUi(){const el=$("#asSheet");if(!el)return;if(!AS.open){if(!el.hidden){el.hidden=true;el.innerHTML="";AS.html=""}const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","false");return}
+function asUi(){const el=$("#asSheet");if(!el)return;
+  if(!AS.open){const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","false");
+    if(!el.hidden&&el.classList.contains("in")){el.classList.remove("in");clearTimeout(AS.tm);AS.tm=setTimeout(()=>{if(!AS.open){el.hidden=true;el.innerHTML="";AS.html=""}},340)}
+    else if(!el.hidden&&!AS.tm){el.hidden=true;el.innerHTML="";AS.html=""}return}
+  clearTimeout(AS.tm);AS.tm=0;
   const icao=AS.icao,j=AS.data[icao],a=j&&j.airport,d=CH.data[icao];
   const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
     :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
@@ -2007,9 +2018,10 @@ function asUi(){const el=$("#asSheet");if(!el)return;if(!AS.open){if(!el.hidden)
      <div class="as-tabs" role="tablist">${[["info","Info"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
   const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):asCharts(icao);
   const html=`<div class="as-head">${head}</div><div class="as-body">${body}</div>`;
+  el.classList.toggle("full",AS.full);
   if(html===AS.html&&!el.hidden&&el.innerHTML)return;
   const keep=el.querySelector(".as-body"),top=keep&&AS.html&&AS.html.split('<div class="as-body">')[0]===html.split('<div class="as-body">')[0]?keep.scrollTop:0;
-  AS.html=html;el.innerHTML=html;el.hidden=false;el.classList.toggle("full",AS.full);const nb=el.querySelector(".as-body");if(nb&&top)nb.scrollTop=top;
+  const wasHidden=el.hidden;AS.html=html;el.innerHTML=html;el.hidden=false;el.classList.toggle("full",AS.full);if(wasHidden||!el.classList.contains("in")){void el.offsetWidth;el.classList.add("in")}const nb=el.querySelector(".as-body");if(nb&&top)nb.scrollTop=top;
   const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","true")}
 document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as],[data-astab],[data-ascat],[data-aspdf],[data-asapt],[data-asgo]");if(!t)return;
   if(t.id==="asBtn"){if(AS.open){AS.open=false;asUi()}else asOpen(AS.icao||(OV.sel&&OV.sel.icao),"charts");return}
@@ -2021,6 +2033,16 @@ document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as]
   if(t.dataset.aspdf){const d=CH.data[AS.icao];if(!d)return;ovOpen({name:t.dataset.asname,pdf:t.dataset.aspdf,group:t.dataset.asgroup},AS.icao,d.cycle);AS.open=false;asUi()}});
 document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
   const ic=v.length===3?"K"+v:v;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));e.target.blur();mapGoApt(ic);asOpen(ic,null)});
+
+/* drag the sheet by its header on a phone: down to close, up to expand */
+(function(){let st=null;
+  document.addEventListener("pointerdown",e=>{const el=$("#asSheet");if(!el||el.hidden||!e.target.closest(".as-head")||e.target.closest("button,input"))return;
+    if(el.offsetWidth<el.parentNode.offsetWidth-4)return;st={y:e.clientY,id:e.pointerId,dy:0,el};el.style.transition="none"});
+  document.addEventListener("pointermove",e=>{if(!st||e.pointerId!==st.id)return;st.dy=e.clientY-st.y;st.el.style.transform=st.dy>0?`translateY(${st.dy}px)`:""});
+  const end=e=>{if(!st||e.pointerId!==st.id)return;const {el,dy}=st;st=null;el.style.transition="";el.style.transform="";
+    if(Math.abs(dy)<6){if(e.target.closest&&e.target.closest(".as-grab")){}return}
+    if(dy>90){if(AS.full&&dy<220){AS.full=false}else AS.open=false}else if(dy<-50)AS.full=true;asUi()};
+  document.addEventListener("pointerup",end);document.addEventListener("pointercancel",end)})();
 
 /* ===== shared app building blocks ===== */
 const ICO={

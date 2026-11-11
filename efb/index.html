@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2308">
+<meta name="efb-build" content="1111.2312">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1700,6 +1700,15 @@ let txPal=null,txPalKey="";
 function txColors(el){const key=isDark()?"d":"l";if(txPal&&txPalKey===key)return txPal;const cs=getComputedStyle(el),g=n=>cs.getPropertyValue(n).trim();txPalKey=key;
   return txPal={apron:g("--tx-apron"),bldg:g("--tx-bldg"),term:g("--tx-term"),rwy:g("--tx-rwy"),mark:g("--tx-mark"),pave:g("--tx-pave"),cl:g("--tx-cl"),ground:g("--tx-ground"),txt:g("--tx-txt"),halo:g("--tx-halo"),mono:g("--f-mono")||"monospace",ui:g("--f-ui")||"sans-serif"}}
 /* project once to normalised web-mercator (0..1); per frame it is then just a multiply and a subtract */
+/* Stands like a chart: one label per stand at its stop point, with the lead-in line when OpenStreetMap has one.
+   Gate nodes on the terminal are dropped when a parking position with the same name is close by. */
+function txStands(d,L,pt){const norm=r=>String(r||"").toUpperCase().replace(/^(GATE|STAND|STAND NO\.?|GATE NO\.?)\s*/,"").trim();
+  const tw=[];d.taxiways.forEach(t=>t.pts.forEach(q=>tw.push(pt(q))));const near=p=>{let b=1e9;for(const q of tw){const dx=q[0]-p[0],dy=q[1]-p[1],v=dx*dx+dy*dy;if(v<b)b=v}return b};
+  const out=d.stands.map(o=>{const ref=norm(o.ref);if(o.line&&o.line.length>1){const a=pt(o.line[0]),b=pt(o.line[o.line.length-1]);const stop=tw.length&&near(a)>near(b)?a:b;
+      return{ref,p:stop,l:L(o.line),kind:o.kind,line:true}}return{ref,p:pt(o.pt),kind:o.kind,line:false}});
+  const m=1/40075016.7,keep=[];out.sort((x,y)=>(y.line-x.line)||((y.kind==="parking_position")-(x.kind==="parking_position")));
+  for(const s of out){if(s.ref&&keep.some(k=>k.ref===s.ref&&Math.hypot(k.p[0]-s.p[0],k.p[1]-s.p[1])<250*m))continue;keep.push(s)}
+  return keep}
 function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s=Math.sin(Math.max(-85,Math.min(85,la))*Math.PI/180);return .5-Math.log((1+s)/(1-s))/(4*Math.PI)};
   const L=pts=>{const a=new Float64Array(pts.length*2);let x0=9,x1=-9,y0=9,y1=-9;pts.forEach((q,i)=>{const x=nx(q[0]),y=ny(q[1]);a[i*2]=x;a[i*2+1]=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y});return{a,x0,x1,y0,y1}};
   const pt=q=>[nx(q[0]),ny(q[1])];
@@ -1715,7 +1724,7 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
   return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>({l:L(b.pts),term:b.kind==="terminal",name:b.name||""})),
     rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
-    holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:d.stands.map(o=>({p:pt(o.pt),ref:o.ref||""}))}}
+    holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:txStands(d,L,pt)}}
 function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;const {w,h}=mapSize();if(!w||!h||!MAP.c)return;const dpr=Math.min(2,window.devicePixelRatio||1);
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
   const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);const z=MAP.z;if(!ML.apt||z<11){ovDraw(g,w,h);return}
@@ -1748,10 +1757,11 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
     /* stands: a dot first, a small boxed label once there is room */
     const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};
-    if(z>=15){const lab=z>=16;g.font="700 9px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
-      m.stands.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<-20||y<-20||x>w+20||y>h+20)return;
-        if(lab&&o.ref&&o.ref.length<=5){const bw=o.ref.length*5.6+6;if(!free(x-bw/2-1,y-7,x+bw/2+1,y+7))return;g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-6,bw,12);g.strokeStyle="#E8E8E8";g.strokeRect(x-bw/2+.5,y-5.5,bw-1,11);g.fillStyle="#FFFFFF";g.fillText(o.ref,x,y+.5)}
-        else{g.fillStyle=C.txt;g.beginPath();g.arc(x,y,2,0,6.2832);g.fill()}})}
+    if(z>=14.5){/* lead-in lines */g.strokeStyle=C.cl;g.lineWidth=Math.max(.8,Math.min(1.4,.35*k));g.setLineDash([]);g.lineCap="round";g.beginPath();m.stands.forEach(o=>{if(o.l&&vis(o.l))trace(o.l)});g.stroke()}
+    if(z>=15){const fs=z>=17?11:z>=16?10:9;g.font=`700 ${fs}px ${C.mono}`;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
+      m.stands.forEach(o=>{if(!o.ref||o.ref.length>6)return;const x=X(o.p[0]),y=Y(o.p[1]);if(x<-30||y<-20||x>w+30||y>h+20)return;
+        const bw=o.ref.length*fs*.62+7,bh=fs+5;if(!free(x-bw/2-2,y-bh/2-2,x+bw/2+2,y+bh/2+2))return;
+        g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-bh/2,bw,bh);g.strokeStyle="#EDEDED";g.strokeRect(x-bw/2+.5,y-bh/2+.5,bw-1,bh-1);g.fillStyle="#FFFFFF";g.fillText(o.ref,x,y+.5)})}
     /* building names */
     if(z>=14.5){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
       m.bldg.forEach(b=>{if(!b.name||!vis(b.l))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<34)return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;

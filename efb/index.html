@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1308">
+<meta name="efb-build" content="1111.1314">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -887,6 +887,18 @@ html.pwa-ios .maplayers{bottom:10px!important}
   .ovbar{left:8px;right:72px;width:auto;top:104px;padding:8px 10px;gap:6px}
   .ovbar:not([hidden])~.radarbar{top:auto;bottom:calc(66px + env(safe-area-inset-bottom,0px))}
   .ov-row{gap:5px}.ov-row .btn{min-height:34px;padding:6px 8px!important;font-size:11.5px!important}.ov-top .btn{padding:6px 8px!important;font-size:11.5px!important}
+}
+/* Map runs without the title bar: the map fills the window and the island floats over it */
+.screen[data-app="map"] .nav{min-height:0!important;height:0!important;padding-top:0!important;padding-bottom:0!important;border:0!important;overflow:hidden!important;visibility:hidden}
+@container screen (min-width:641px){
+  .screen.isl-on[data-app="map"] .mapbar{max-width:calc(50% - 140px)}
+  .screen.isl-on[data-app="map"] .ovbar{top:56px}
+}
+@container screen (max-width:640px){
+  .screen.isl-on[data-app="map"] .mapbar{top:54px!important}
+  .screen.isl-on[data-app="map"] .mapapt,.screen.isl-on[data-app="map"] .mapctl{top:98px!important}
+  .screen.isl-on[data-app="map"] .ovbar,.screen.isl-on[data-app="map"] .radarbar{top:150px}
+  .screen.isl-on[data-app="map"] .ovbar:not([hidden])~.radarbar{top:auto}
 }
 
 /* Map app */

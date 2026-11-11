@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1231">
+<meta name="efb-build" content="1111.1235">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -871,6 +871,7 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .mapwrap{position:relative;height:100%;background:var(--map-sea);overflow:hidden}
 .mapsvg{transform-origin:0 0;will-change:transform}
 .mapbase{pointer-events:none}
+.mapwrap{touch-action:none}
 .mapcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .land{fill:var(--map-land);stroke:var(--map-border);stroke-width:.8}
 .bord{fill:none;stroke:var(--map-border);stroke-width:.8;stroke-dasharray:3 2}
@@ -2137,16 +2138,21 @@ function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();
   clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130)}
 function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==null){sx=w/2;sy=h/2}
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
-function mapBind(){const el=$("#mapSvg");if(!el||el._bound)return;el._bound=1;const pts=new Map();let st=null;
+function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bound)return;wrap._bound=1;const pts=new Map();let st=null;
+  const onMap=e=>e.target===wrap||e.target===el||el.contains(e.target)||e.target.id==="mapCv"||e.target.id==="mapBase";
   const snap=()=>({c:{...MAP.c},z:MAP.z,p:new Map([...pts].map(([k,v])=>[k,{...v}])),moved:!!(st&&st.moved)});
-  el.addEventListener("pointerdown",e=>{if(!MAP.c)return;try{el.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st=snap();if(pts.size===1)st.moved=false});
-  el.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
+  wrap.addEventListener("pointerdown",e=>{if(!MAP.c||!onMap(e))return;try{wrap.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st=snap();if(pts.size===1)st.moved=false});
+  wrap.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
     if(ids.length===1){const a=st.p.get(ids[0]);if(!a)return;const dx=e.clientX-a.x,dy=e.clientY-a.y;if(Math.abs(dx)+Math.abs(dy)>4)st.moved=true;if(!st.moved)return;MAP.follow=false;const c=mpx(st.c.lat,st.c.lon,st.z);const n=munpx(c[0]-dx,c[1]-dy,st.z);MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
-    else{const [i,j]=ids,a=st.p.get(i),b=st.p.get(j);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(pts.get(i).x-pts.get(j).x,pts.get(i).y-pts.get(j).y);if(d0>10){st.moved=true;MAP.follow=false;MAP.z=Math.max(2,Math.min(ZMAX,st.z+Math.log2(d1/d0)))}}
+    else{const [i,j]=ids,a=st.p.get(i),b=st.p.get(j),p=pts.get(i),q=pts.get(j);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(p.x-q.x,p.y-q.y);if(d0<10)return;st.moved=true;MAP.follow=false;
+      const z=Math.max(2,Math.min(ZMAX,st.z+Math.log2(Math.max(d1,1)/d0))),r=wrap.getBoundingClientRect(),{w,h}=mapSize(),k=Math.pow(2,z-st.z),c0=mpx(st.c.lat,st.c.lon,st.z);
+      const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
+      const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{const was=st;pts.delete(e.pointerId);if(!pts.size){if(was&&!was.moved){const hit=document.elementFromPoint(e.clientX,e.clientY);const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}st=null}else st=snap()};
-  el.addEventListener("pointerup",end);el.addEventListener("pointercancel",end);
-  el.parentNode.addEventListener("wheel",e=>{if(e.target.closest&&e.target.closest("button,.mapctl,.mapinfo,input,a"))return;e.preventDefault();const r=el.parentNode.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(!pts.size){if(was&&!was.moved){const hit=document.elementFromPoint(e.clientX,e.clientY);const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}st=null}else st=snap()};
+  wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
+  ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
+  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   if(window.ResizeObserver)new ResizeObserver(()=>mapSched()).observe(el)}
 function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase()):null}
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}

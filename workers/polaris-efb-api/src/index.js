@@ -382,7 +382,7 @@ const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_posi
 async function layoutRoute(icaoIn) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout8:' + icao, 6 * 3600_000, () => edgeCache(`layout/v8/${icao}`, 7 * 86400, async () => {
+  return cached('layout9:' + icao, 6 * 3600_000, () => edgeCache(`layout/v9/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
@@ -420,9 +420,17 @@ async function layoutRoute(icaoIn) {
       else if (a === 'taxiway' || a === 'taxilane') { if (t.area === 'yes') out.aprons.push(pts); else out.taxiways.push({ ref: t.ref || '', kind: a, width: +t.width || null, pts }); }
       else if (a === 'apron') { out.aprons.push(pts); if (t.name) out.places.push({ kind: 'apron', name: t.name, pt: mid(pts) }); }
       else if (a === 'terminal' || a === 'hangar') out.buildings.push({ kind: CARGO.test(t.name || '') ? 'cargo' : a, name: t.name || '', pts });
-      else if (!a && t.building && t.name && pts.length > 3) out.buildings.push({ kind: CARGO.test(t.name) || /^(warehouse|industrial)$/.test(t.building) ? 'cargo' : t.building === 'hangar' ? 'hangar' : 'bldg', name: t.name, pts });
+      else if (!a && t.building && t.name && pts.length > 3) out.buildings.push({ kind: CARGO.test(t.name) ? 'cargo' : t.building === 'hangar' ? 'hangar' : 'bldg', name: t.name, pts, osmb: true });
       else if (a === 'holding_position') out.holds.push({ ref: t.ref || '', pts });
       else if (a === 'parking_position' || a === 'gate') out.stands.push({ ref: t.ref || t.name || '', kind: a, pt: pts[Math.floor(pts.length / 2)], line: pts.length > 1 && pts.length < 60 ? pts : undefined });
+    }
+    /* plain named buildings only count when they stand on the airport itself */
+    {
+      const inRing = (p, r) => { let c = false; for (let i = 0, k = r.length - 1; i < r.length; k = i++) { const a1 = r[i], b1 = r[k]; if ((a1[1] > p[1]) !== (b1[1] > p[1]) && p[0] < (b1[0] - a1[0]) * (p[1] - a1[1]) / (b1[1] - a1[1]) + a1[0]) c = !c; } return c; };
+      const rings = out.outline || [], bb = mine && mine.bounds;
+      const onAirport = (p) => rings.length ? rings.some((r) => inRing(p, r)) : bb ? p[1] >= bb.minlat && p[1] <= bb.maxlat && p[0] >= bb.minlon && p[0] <= bb.maxlon : true;
+      out.buildings = out.buildings.filter((b) => !b.osmb || onAirport(mid(b.pts))).map((b) => { delete b.osmb; return b; });
+      out.places = out.places.filter((p) => onAirport(p.pt));
     }
     if (out.airport.lat == null && out.runways.length) { const p = out.runways[0].pts[0]; out.airport.lon = p[0]; out.airport.lat = p[1]; }
     if (!out.runways.length && !out.taxiways.length) out.notFound = true;

@@ -241,12 +241,13 @@ function airac(t = Date.now()) {
 }
 const CHART_GROUP = { APD: 'Airport diagram', HOT: 'Hot spots', LAH: 'LAHSO', DP: 'Departures', ODP: 'Departures', STR: 'Arrivals', IAP: 'Approaches', MIN: 'Minimums', DAU: 'Other' };
 const xmlField = (rec, k) => { const m = rec.match(new RegExp('<' + k + '>([^<]*)</' + k + '>')); return m ? m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim() : ''; };
-async function edgeCache(key, ttlSec, fn) {
+async function edgeCache(key, ttlSec, fn, keep) {
   const req = new Request('https://polaris-efb-cache/' + key);
   const c = caches.default;
   const hit = await c.match(req);
   if (hit) return hit.json();
   const val = await fn();
+  if (keep && !keep(val)) return val;
   await c.put(req, new Response(JSON.stringify(val), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${ttlSec}` } }));
   return val;
 }
@@ -290,34 +291,74 @@ async function chartPdfRoute(url, h) {
 }
 
 /* ---------- airport layout from OpenStreetMap (Overpass) ---------- */
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-async function overpass(query) {
-  let last = null;
-  for (const ep of OVERPASS) {
+/* The public Overpass servers are often at capacity, so the query is kept cheap (a small
+   bounding box, no area lookup) and is sent to several servers a few seconds apart; the
+   first good answer wins. */
+const OVERPASS = ['https://overpass.openstreetmap.fr/api/interpreter', 'https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+async function overpass(query, perTry = 20_000, stagger = 2_500) {
+  let done = false, last = null; const ctrls = [];
+  const one = async (ep) => {
+    const ctrl = new AbortController(); ctrls.push(ctrl);
+    const t = setTimeout(() => ctrl.abort(), perTry);
     try {
-      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 45_000);
       const r = await fetch(ep, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' }, body: 'data=' + encodeURIComponent(query) });
-      clearTimeout(t);
       const txt = await r.text();
-      if (r.ok && txt[0] === '{') return JSON.parse(txt);
-      last = new Error(`HTTP ${r.status}`);
-    } catch (e) { last = e; }
-  }
-  throw new HttpError(503, 'OpenStreetMap is busy right now, try again in a minute' + (last ? ` (${last.message})` : ''));
+      if (!r.ok || txt[0] !== '{') throw new Error(`HTTP ${r.status}`);
+      const j = JSON.parse(txt);
+      if (j.remark && /timed out|out of memory|error/i.test(j.remark)) throw new Error('query ran out of time');
+      return j;
+    } catch (e) { if (!done) last = e.name === 'AbortError' ? new Error('no answer in time') : e; throw e; } finally { clearTimeout(t); }
+  };
+  /* start the next server as soon as one fails, or after `stagger` ms if it is just slow */
+  return new Promise((resolve, reject) => {
+    let i = 0, active = 0, timer = null;
+    const next = () => {
+      clearTimeout(timer); if (done) return;
+      if (i >= OVERPASS.length) { if (!active) reject(new HttpError(503, 'OpenStreetMap is busy right now, try again in a minute' + (last ? ` (${last.message})` : ''))); return; }
+      active++;
+      one(OVERPASS[i++]).then((j) => { if (done) return; done = true; clearTimeout(timer); ctrls.forEach((c) => { try { c.abort(); } catch (e) { /* finished */ } }); resolve(j); }, () => { active--; next(); });
+      timer = setTimeout(next, stagger);
+    };
+    next();
+  });
 }
+/* Where is the airport? aviationweather.gov knows most ICAO airports; OpenStreetMap is the fallback. */
+async function airportPos(icao) {
+  try {
+    const r = await fetch(`https://aviationweather.gov/api/data/airport?ids=${icao}&format=json`, { headers: { 'User-Agent': 'PolarisEFB/1.0' }, cf: { cacheTtl: 86400, cacheEverything: true } });
+    if (r.ok) { const a = (await r.json())[0]; if (a && isFinite(a.lat) && isFinite(a.lon) && (a.lat || a.lon)) return { lat: +a.lat, lon: +a.lon, name: String(a.name || '').trim() }; }
+  } catch (e) { /* fall through to OpenStreetMap */ }
+  const j = await overpass(`[out:json][timeout:15];(way["aeroway"="aerodrome"]["icao"="${icao}"];relation["aeroway"="aerodrome"]["icao"="${icao}"];node["aeroway"="aerodrome"]["icao"="${icao}"];);out tags center 1;`);
+  const e = (j.elements || [])[0]; if (!e) return null;
+  const c = e.center || e; return isFinite(c.lat) ? { lat: c.lat, lon: c.lon, name: (e.tags || {}).name || '' } : null;
+}
+const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_position|parking_position|stopway|gate';
 async function layoutRoute(icaoIn) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout:' + icao, 6 * 3600_000, () => edgeCache(`layout/v1/${icao}`, 7 * 86400, async () => {
-    const q = `[out:json][timeout:40];(way["aeroway"="aerodrome"]["icao"="${icao}"];relation["aeroway"="aerodrome"]["icao"="${icao}"];)->.a;.a out tags center;.a map_to_area->.ar;` +
-      `(way(area.ar)["aeroway"~"^(runway|taxiway|taxilane|apron|terminal|hangar|holding_position|parking_position|stopway|gate)$"];node(area.ar)["aeroway"~"^(gate|parking_position|holding_position)$"];);out geom qt;`;
-    const j = await overpass(q);
+  return cached('layout:' + icao, 6 * 3600_000, () => edgeCache(`layout/v2/${icao}`, 7 * 86400, async () => {
+    const pos = await airportPos(icao);
+    if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
+    const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
+    const bb = [pos.lat - dLat, pos.lon - dLon, pos.lat + dLat, pos.lon + dLon].map((v) => v.toFixed(5)).join(',');
+    const q = `[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out tags bb;` +
+      `(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];);out geom qt;`;
+    const j0 = await overpass(q);
+    /* keep only what lies inside this airport: its own outline if OSM has one, else a tight box */
+    const fields = (j0.elements || []).filter((e) => (e.tags || {}).aeroway === 'aerodrome' && e.bounds);
+    const mine = fields.find((e) => String(e.tags.icao || '').toUpperCase() === icao)
+      || fields.filter((e) => !e.tags.icao && pos.lat >= e.bounds.minlat && pos.lat <= e.bounds.maxlat && pos.lon >= e.bounds.minlon && pos.lon <= e.bounds.maxlon)
+        .sort((x, y) => (x.bounds.maxlat - x.bounds.minlat) - (y.bounds.maxlat - y.bounds.minlat))[0];
+    const m = 0.003, box = mine ? { a: mine.bounds.minlat - m, b: mine.bounds.maxlat + m, c: mine.bounds.minlon - m, d: mine.bounds.maxlon + m }
+      : { a: pos.lat - 0.04, b: pos.lat + 0.04, c: pos.lon - dLon * 4 / 7, d: pos.lon + dLon * 4 / 7 };
+    const inBox = (e) => { const p = e.type === 'node' ? e : e.bounds ? { lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2 } : null; return !!p && p.lat >= box.a && p.lat <= box.b && p.lon >= box.c && p.lon <= box.d; };
+    const j = { elements: (j0.elements || []).filter((e) => (e.tags || {}).aeroway !== 'aerodrome' && inBox(e)) };
+
     const r6 = (v) => Math.round(v * 1e6) / 1e6;
     const line = (e) => (e.geometry || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)]);
-    const out = { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [] };
+    const out = { airport: { icao, name: (mine && mine.tags.name) || pos.name || '', lat: r6(pos.lat), lon: r6(pos.lon) }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [] };
     for (const e of j.elements || []) {
       const t = e.tags || {}, a = t.aeroway;
-      if (a === 'aerodrome') { out.airport.name = t.name || ''; const c = e.center || e; if (isFinite(c.lat)) { out.airport.lat = r6(c.lat); out.airport.lon = r6(c.lon); } continue; }
       if (e.type === 'node') {
         if (a === 'holding_position') out.holds.push({ ref: t.ref || '', pt: [r6(e.lon), r6(e.lat)] });
         else out.stands.push({ ref: t.ref || t.name || '', kind: a, pt: [r6(e.lon), r6(e.lat)] });
@@ -334,7 +375,7 @@ async function layoutRoute(icaoIn) {
     if (out.airport.lat == null && out.runways.length) { const p = out.runways[0].pts[0]; out.airport.lon = p[0]; out.airport.lat = p[1]; }
     if (!out.runways.length && !out.taxiways.length) out.notFound = true;
     return out;
-  }));
+  }, (v) => !v.notFound));
 }
 
 function cors(req, env) {
@@ -346,7 +387,7 @@ function cors(req, env) {
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
@@ -359,7 +400,7 @@ export default {
         case '/api/efb/bookings': if (!configured) break; return json({ ...(await bookingsRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
-        case '/api/efb/airport-layout': return json({ ...(await layoutRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao')); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

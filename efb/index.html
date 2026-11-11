@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2301">
+<meta name="efb-build" content="1111.2305">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -969,7 +969,8 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .as-head{flex:none;padding:10px 14px 0;border-bottom:1px solid var(--line);background:var(--panel)}
 .as-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px}
 .as-top .btn{min-height:32px;padding:0 12px!important;font:500 13px var(--f-ui)!important}
-.as-grab{justify-self:center;width:44px;height:5px;border-radius:3px;background:var(--line);cursor:pointer}
+.as-grab{justify-self:center;width:96px;height:32px;margin:-8px 0;display:grid;place-items:center;cursor:grab}
+.as-grab::before{content:"";width:44px;height:5px;border-radius:3px;background:var(--label);opacity:.55}
 .as-t{margin:10px 0 0;text-align:center;font:600 22px/1.15 var(--f-ui);letter-spacing:.02em;color:var(--ink)}
 .as-n{margin:6px 0 12px;text-align:center;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
 .as-n small{display:block;font:400 13.5px/1.4 var(--f-ui);color:var(--label);margin-top:2px}
@@ -2012,8 +2013,8 @@ function asUi(){const el=$("#asSheet");if(!el)return;
     else if(!el.hidden&&!AS.tm){el.hidden=true;el.innerHTML="";AS.html=""}return}
   clearTimeout(AS.tm);AS.tm=0;
   const icao=AS.icao,j=AS.data[icao],a=j&&j.airport,d=CH.data[icao];
-  const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
-    :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
+  const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
+    :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
      <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?asNames(a).name:asTitle((d&&d.airport&&d.airport.name)||""))}${a?`<small>${esc(asNames(a).loc)}</small>`:""}</p>
      <div class="as-tabs" role="tablist">${[["info","Info"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
   const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):asCharts(icao);
@@ -2025,7 +2026,7 @@ function asUi(){const el=$("#asSheet");if(!el)return;
   const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","true")}
 document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as],[data-astab],[data-ascat],[data-aspdf],[data-asapt],[data-asgo]");if(!t)return;
   if(t.id==="asBtn"){if(AS.open){AS.open=false;asUi()}else asOpen(AS.icao||(OV.sel&&OV.sel.icao),"charts");return}
-  if(t.dataset.as){const a=t.dataset.as;if(a==="hide")AS.open=false;else if(a==="list")AS.view="list";else if(a==="back")AS.view="apt";else if(a==="grow")AS.full=!AS.full;asUi();return}
+  if(t.dataset.as){const a=t.dataset.as;if(a==="hide")AS.open=false;else if(a==="list")AS.view="list";else if(a==="back")AS.view="apt";asUi();return}
   if(t.dataset.astab){AS.tab=t.dataset.astab;store.set("asTab",AS.tab);asUi();return}
   if(t.dataset.ascat){AS.cat=t.dataset.ascat;store.set("asCat",AS.cat);asUi();return}
   if(t.dataset.asapt){const ic=t.dataset.asapt;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));mapGoApt(ic);asOpen(ic,null);return}
@@ -2034,15 +2035,23 @@ document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as]
 document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
   const ic=v.length===3?"K"+v:v;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));e.target.blur();mapGoApt(ic);asOpen(ic,null)});
 
-/* drag the sheet by its header on a phone: down to close, up to expand */
+/* drag the sheet by its header on a phone: down to close, up to expand.
+   Touch events with preventDefault, because iOS can cancel pointer events mid-drag; pointer events for a mouse. */
 (function(){let st=null;
-  document.addEventListener("pointerdown",e=>{const el=$("#asSheet");if(!el||el.hidden||!e.target.closest(".as-head")||e.target.closest("button,input"))return;
-    if(el.offsetWidth<el.parentNode.offsetWidth-4)return;st={y:e.clientY,id:e.pointerId,dy:0,el};el.style.transition="none"});
-  document.addEventListener("pointermove",e=>{if(!st||e.pointerId!==st.id)return;st.dy=e.clientY-st.y;st.el.style.transform=st.dy>0?`translateY(${st.dy}px)`:""});
-  const end=e=>{if(!st||e.pointerId!==st.id)return;const {el,dy}=st;st=null;el.style.transition="";el.style.transform="";
-    if(Math.abs(dy)<6){if(e.target.closest&&e.target.closest(".as-grab")){}return}
-    if(dy>90){if(AS.full&&dy<220){AS.full=false}else AS.open=false}else if(dy<-50)AS.full=true;asUi()};
-  document.addEventListener("pointerup",end);document.addEventListener("pointercancel",end)})();
+  const start=(t,y)=>{const el=$("#asSheet");if(!el||el.hidden||!t.closest||!t.closest(".as-head")||t.closest("button,input"))return false;
+    if(el.offsetWidth<el.parentNode.offsetWidth-4)return false;st={y,dy:0,el,t0:Date.now()};el.style.transition="none";return true};
+  const move=y=>{if(!st)return;st.dy=y-st.y;st.el.style.transform=st.dy>0?`translateY(${st.dy}px)`:st.dy<0&&!AS.full?`translateY(${Math.max(st.dy,-40)*.3}px)`:""};
+  const end=tap=>{if(!st)return;const {el,dy,t0}=st;st=null;el.style.transition="";el.style.transform="";
+    if(Math.abs(dy)<6){if(tap&&tap.closest&&tap.closest(".as-grab")){AS.full=!AS.full;asUi()}return}
+    const fast=Date.now()-t0<250;
+    if(dy>90||(fast&&dy>30)){if(AS.full&&dy<240&&!fast)AS.full=false;else AS.open=false}else if(dy<-40||(fast&&dy<-15))AS.full=true;asUi()};
+  document.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;start(e.target,e.touches[0].clientY)},{passive:true});
+  document.addEventListener("touchmove",e=>{if(!st)return;e.preventDefault();move(e.touches[0].clientY)},{passive:false});
+  document.addEventListener("touchend",e=>{if(st){e.preventDefault();end(e.target)}},{passive:false});
+  document.addEventListener("touchcancel",()=>end(null));
+  document.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse")return;start(e.target,e.clientY)});
+  document.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")move(e.clientY)});
+  document.addEventListener("pointerup",e=>{if(e.pointerType==="mouse")end(e.target)})})();
 
 /* ===== shared app building blocks ===== */
 const ICO={

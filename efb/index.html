@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1340">
+<meta name="efb-build" content="1111.2247">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -901,16 +901,6 @@ html.pwa-ios .maplayers{bottom:10px!important}
 @media (pointer:fine) and (min-width:1100px) and (min-height:760px){.screen.isl-on.in-app .nav{padding-top:8px!important}.screen.isl-on.in-app.no-tools .nav{padding-top:8px!important}}
 /* Map runs without the title bar: the map fills the window and the island floats over it */
 .screen.in-app[data-app="map"] .nav,.screen.isl-on.in-app.no-tools[data-app="map"] .nav{display:grid;min-height:0!important;height:0!important;padding-top:0!important;padding-bottom:0!important;border:0!important;overflow:hidden!important;visibility:hidden}
-@container screen (min-width:641px){
-  .screen.isl-on[data-app="map"] .mapbar{max-width:calc(50% - 140px)}
-  .screen.isl-on[data-app="map"] .ovbar{top:56px}
-}
-@container screen (max-width:640px){
-  .screen.isl-on[data-app="map"] .mapbar{top:54px!important}
-  .screen.isl-on[data-app="map"] .mapapt,.screen.isl-on[data-app="map"] .mapctl{top:98px!important}
-  .screen.isl-on[data-app="map"] .ovbar,.screen.isl-on[data-app="map"] .radarbar{top:150px}
-  .screen.isl-on[data-app="map"] .ovbar:not([hidden])~.radarbar{top:auto}
-}
 
 /* UTC in the island */
 .isl-u{flex:none;font:600 12.5px var(--f-mono);letter-spacing:.02em;color:#A9C4C7;margin:0 8px}
@@ -923,6 +913,51 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .mapvec[hidden]{display:none}
 .mapvec .maplibregl-canvas-container,.mapvec canvas{position:absolute;left:0;top:0}
 .mapvec .maplibregl-control-container{display:none}
+/* ---------- Map controls, tidy layout ---------- */
+.screen[data-app="map"] .mapwrap{--mt:12px;--mg:max(12px,env(safe-area-inset-left,0px))}
+.screen[data-app="map"] .mapbar{display:none!important}
+.screen[data-app="map"] .mapctl{position:absolute;top:var(--mt)!important;right:max(12px,env(safe-area-inset-right,0px))!important;left:auto!important;display:flex;flex-direction:column;gap:0!important;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 10px 28px -16px var(--shadow);z-index:3}
+.screen[data-app="map"] .mapctl .btn{min-width:46px!important;min-height:44px!important;padding:0!important;justify-content:center;border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;background:transparent!important;font:600 13px var(--f-ui)!important;color:var(--ink)}
+.screen[data-app="map"] .mapctl .btn:last-child{border-bottom:0!important}
+.screen[data-app="map"] .mapctl .btn.sep{border-top:3px solid var(--line)!important}
+.screen[data-app="map"] .mapctl .btn.ic svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.screen[data-app="map"] .mapctl .btn[aria-pressed="true"],.screen[data-app="map"] .mapctl .btn[aria-expanded="true"]{background:var(--brand)!important;color:var(--brand-ink)!important}
+.screen[data-app="map"] .mapctl .btn:disabled{opacity:.35}
+@media (pointer:coarse){.screen[data-app="map"] #mapIn,.screen[data-app="map"] #mapOut{display:none}.screen[data-app="map"] .mapctl .btn#mapFit{border-top:3px solid var(--line)!important}}
+.screen[data-app="map"] .mapapt{position:absolute;top:var(--mt)!important;left:var(--mg)!important;right:auto;max-width:calc(100% - 90px)!important;display:flex;flex-wrap:nowrap!important;gap:4px!important;padding:4px!important;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 10px 28px -16px var(--shadow);overflow-x:auto;scrollbar-width:none;z-index:3}
+.screen[data-app="map"] .mapapt::-webkit-scrollbar{display:none}
+.screen[data-app="map"] .mapapt .btn{flex:none;min-height:36px!important;padding:0 11px!important;border:0!important;border-radius:4px!important;background:var(--panel-2)!important;font:600 12.5px var(--f-mono)!important;letter-spacing:.03em}
+.screen[data-app="map"] .mapapt form{display:flex;flex:none;margin:0}
+.screen[data-app="map"] .mapapt input{width:66px!important;min-height:36px!important;padding:0 9px!important;font:500 12.5px var(--f-mono)!important;text-transform:uppercase;border-radius:4px}
+.screen[data-app="map"] .maplayers{position:absolute;top:var(--mt)!important;right:calc(max(12px,env(safe-area-inset-right,0px)) + 56px)!important;left:auto!important;bottom:auto!important;width:220px;max-width:calc(100% - 80px)!important;display:flex;flex-direction:column;flex-wrap:nowrap!important;gap:0!important;padding:6px 0!important;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 14px 34px -14px var(--shadow);overflow:visible!important;z-index:4}
+.screen[data-app="map"] .maplayers[hidden]{display:none!important}
+.ml-h{padding:6px 14px 8px;font:500 10.5px/1 var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--label)}
+.ml-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:42px;padding:0 14px;border:0;background:transparent;color:var(--ink);font:500 14px var(--f-ui);text-align:left;cursor:pointer}
+.ml-row+.ml-row{border-top:1px solid var(--line)}
+.ml-row i{width:34px;height:20px;border-radius:10px;background:var(--line);position:relative;flex:none;transition:background .15s}
+.ml-row i::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.ml-row[aria-pressed="true"] i{background:var(--brand)}
+.ml-row[aria-pressed="true"] i::after{transform:translateX(14px)}
+.screen[data-app="map"] .ovbar{top:var(--mt)!important;right:calc(max(12px,env(safe-area-inset-right,0px)) + 56px)!important}
+.screen[data-app="map"] .ovpanel{top:calc(var(--mt) + 54px)!important}
+.screen[data-app="map"] .radarbar{top:auto!important;bottom:26px!important;left:var(--mg)!important;right:auto!important;width:auto!important;min-width:0;padding:6px 12px 6px 6px!important;gap:8px}
+.screen[data-app="map"] .radarbar .rb-play{width:32px;height:32px}
+.screen[data-app="map"] .radarbar .rb-mid{width:150px}
+.screen[data-app="map"] .radarbar .rb-leg{display:none}
+.screen[data-app="map"] .mapnote{left:var(--mg)!important;right:auto;bottom:26px!important;max-width:min(460px,calc(100% - 24px))!important;max-height:none!important;font-size:11.5px!important}
+.screen[data-app="map"] .radarbar:not([hidden])~.mapnote{bottom:78px!important}
+.screen[data-app="map"] .mapinfo{bottom:26px!important}
+@container screen (max-width:640px){
+  .screen[data-app="map"] .mapwrap{--mt:10px;--mg:8px}
+  .screen.isl-on[data-app="map"] .mapwrap{--mt:52px}
+  .screen[data-app="map"] .mapctl{right:8px!important}
+  .screen[data-app="map"] .mapctl .btn{min-width:44px!important}
+  .screen[data-app="map"] .mapapt{max-width:calc(100% - 68px)!important}
+  .screen[data-app="map"] .maplayers{right:60px!important}
+  .screen[data-app="map"] .ovbar{left:8px!important;right:60px!important;top:calc(var(--mt) + 52px)!important}
+  .screen[data-app="map"] .ovpanel{top:auto!important}
+  .screen[data-app="map"] .mapinfo{left:8px!important;right:8px!important;bottom:26px!important}
+}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1856,6 +1891,10 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(VEC.key!==key){VEC.key=key;try{VEC.map.setStyle(vecStyle(key==="d"))}catch(e){}}
   vecSync()}
 
+/* layers popover */
+document.addEventListener("click",e=>{const b=e.target.closest("#mlBtn");if(!b)return;const p=$("#mlPanel");if(!p)return;p.hidden=!p.hidden;b.setAttribute("aria-expanded",String(!p.hidden));if(!p.hidden){const o=$("#ovPanel");if(o&&!o.hidden&&typeof OV!=="undefined"){OV.open=false;ovUi()}}});
+document.addEventListener("pointerdown",e=>{const p=$("#mlPanel");if(!p||p.hidden)return;if(e.target.closest("#mlPanel,#mlBtn"))return;p.hidden=true;const b=$("#mlBtn");if(b)b.setAttribute("aria-expanded","false")},true);
+
 /* ===== shared app building blocks ===== */
 const ICO={
  doc:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/>',
@@ -2441,6 +2480,7 @@ function mapInfo(){const box=$("#mapInfo");if(!box)return;const S2=MAP.sel;
   if(S2&&S2.t==="sig"&&SIG.list&&SIG.list[S2.i]){const g=SIG.list[S2.i];box.hidden=false;
     box.innerHTML=`<div class="ph"><span class="sigt h-${HZ(g.hazard)}"><b>${esc(g.kind)}</b> ${esc(String(g.hazard).toUpperCase())} ${esc(g.qualifier||"")}</span><button class="btn" id="mapX" aria-label="Close">✕</button></div><div class="cells">${cell("FIR",esc(g.fir||"—"))}${cell("Levels",lvl(g.base)+" <small>–</small> "+lvl(g.top))}${cell("Valid",tz2(g.from)+" <small>–</small> "+tz2(g.to))}</div>${g.raw?`<div class="raw" style="max-height:150px;overflow:auto;border-bottom:0">${esc(g.raw)}</div>`:""}`;return}
   box.hidden=true}
+const MAPN={t:"",until:0,tm:0};
 function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
   if(ML.vec&&VEC.err)m.push(VEC.err);else if(ML.vec&&!VEC.ready)m.push("Loading detail map…");
   if(!vecReady()){if(GEO.err)m.push(GEO.err);else if(!GEO.lo)m.push("Loading world map…")}
@@ -2451,7 +2491,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
       if(ld.length)m.push("Loading "+ld.join(", ")+" layout…");er.forEach(k=>m.push(k+": "+TX.err[k].msg));nf.forEach(k=>m.push("No OpenStreetMap layout for "+k))}}
   else if(ML.apt)m.push("Zoom in on an airport, or pick one above, to see taxiways.");
   if(ML.traffic){if(!vamOn())m.push("Connect vAMSYS in Settings for Polaris traffic.");else if(MAP.liveErr)m.push("Traffic: "+MAP.liveErr);else if(MAP.live)m.push(MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online")}
-  n.textContent=m.join(" · ");n.hidden=!m.length;
+  const tx=m.join(" · ");if(tx!==MAPN.t){MAPN.t=tx;MAPN.until=Date.now()+6000;clearTimeout(MAPN.tm);MAPN.tm=setTimeout(updMapNote,6100)}n.textContent=tx;n.hidden=!tx||Date.now()>MAPN.until;
   const a=$("#mapAttr");if(a){const at=[vecReady()?'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>':'Map © <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>'];
     if(ML.tiles&&!MAP.tileFail)at.push('© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>');
     if(ML.fir&&FIR.data)at.push('Airspace <a href="https://github.com/vatsimnetwork/vatspy-data-project" target="_blank" rel="noopener">VATSpy Data Project</a> (CC BY-SA 4.0)');
@@ -2460,11 +2500,10 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
 V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
-   <div class="mapbar"><span class="mono"><b>${esc(x.flight)}</b> ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))} · ${fmt(N(x.g.route_distance)||N(x.g.air_distance))} NM</span>${pts.length<2?'<span class="c-amber">No fix coordinates in this plan</span>':""}</div>
-   <div class="mapctl"><button class="btn" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
-   <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}">${a[0]} ${esc(a[1])}</button>`).join("")}<form id="mapForm" class="row" style="gap:4px"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" style="width:80px;text-transform:uppercase"><button class="btn" type="submit">Go</button></form><button class="btn" id="ovBtn" data-ov="open" aria-pressed="false">Charts</button></div>
+   <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="ovBtn" data-ov="open" aria-pressed="false" aria-label="Charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
+   <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div>
-   <div class="maplayers" role="group" aria-label="Map layers">${L.map(l=>`<button class="btn" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}">${l[1]}</button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Map layers</span>${L.map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}</span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

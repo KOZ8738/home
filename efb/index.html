@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1242">
+<meta name="efb-build" content="1111.1256">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -861,6 +861,32 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .rem-l li{width:100%}
 /* tablets held upright: wider widget column so the widgets can hold their text */
 @container screen (min-width:721px) and (max-aspect-ratio:1/1){.p1{grid-template-columns:min(400px,46cqw) minmax(0,1fr);gap:4cqw}}
+/* chart overlay on the map */
+.ovpanel,.ovbar{position:absolute;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:4px;box-shadow:0 10px 28px -16px var(--shadow);font-family:var(--f-ui)}
+.ovpanel{left:max(12px,env(safe-area-inset-left,0px));top:110px;width:340px;max-height:calc(100% - 190px);display:flex;flex-direction:column;overflow:hidden}
+.ovpanel[hidden],.ovbar[hidden]{display:none}
+.ov-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px 8px}
+.ov-head h3{margin:2px 0 0;font:400 17px/1.2 var(--f-display,var(--f-ui));color:var(--ink)}
+.ov-pick{display:flex;gap:8px;align-items:center;padding:0 14px 10px;border-bottom:1px solid var(--line)}
+.ov-pick .seg{flex:1;display:flex}.ov-pick .seg button{flex:1}
+.ov-pick input{width:76px;text-transform:uppercase;padding:7px 8px;font-size:13px}
+.ov-list{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;flex:1;min-height:0}
+.ov-list .chitem{padding:11px 14px}.ov-list .nn-cat{padding:14px 14px 6px}
+.ovbar{right:calc(max(12px,env(safe-area-inset-right,0px)) + 56px);top:12px;width:372px;padding:10px 12px;display:grid;gap:8px}
+.ov-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ov-top b{display:block;font:600 13px/1.25 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ov-top>div{min-width:0}
+.ovbar .note{margin:0;font-size:12px}
+.ov-op{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;font-size:11.5px;color:var(--label)}
+.ov-op input{width:100%;accent-color:var(--brand);touch-action:pan-x}
+.ov-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ov-row .btn[aria-pressed="true"],#ovBtn[aria-pressed="true"]{background:var(--brand)!important;color:var(--brand-ink)!important;border-color:var(--brand)!important}
+@container screen (max-width:640px){
+  .ovpanel{left:8px;right:8px;width:auto;top:auto;bottom:calc(66px + env(safe-area-inset-bottom,0px));max-height:58%}
+  .ovbar{left:8px;right:72px;width:auto;top:104px;padding:8px 10px;gap:6px}
+  .ovbar:not([hidden])~.radarbar{top:auto;bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+  .ov-row{gap:5px}.ov-row .btn{min-height:34px;padding:6px 8px!important;font-size:11.5px!important}.ov-top .btn{padding:6px 8px!important;font-size:11.5px!important}
+}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1553,7 +1579,7 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
     holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:d.stands.map(o=>({p:pt(o.pt),ref:o.ref||""}))}}
 function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;const {w,h}=mapSize();if(!w||!h||!MAP.c)return;const dpr=Math.min(2,window.devicePixelRatio||1);
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
-  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);const z=MAP.z;if(!ML.apt||z<11)return;
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);const z=MAP.z;if(!ML.apt||z<11){ovDraw(g,w,h);return}
   const Wd=TS*Math.pow(2,z),c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180)),C=txColors(el);
   const seen=new Set();mapAptCandidates().forEach(a=>{const d=TX.data[a.icao];if(!d||seen.has(a.icao)||d.notFound||!d.airport||d.airport.lat==null)return;seen.add(a.icao);
     const m=txPrep(d),wrap=Math.round(c[0]/Wd-m.ax),X=x=>(x+wrap)*Wd-ox,Y=y=>y*Wd-oy,pad=40;
@@ -1593,7 +1619,7 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
         const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
         const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
         rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
-  })}
+  });ovDraw(g,w,h)}
 
 /* Stroke-only outlines (FIR boundaries, borders): emit just the parts near the screen. Zoomed in on an
    airport, a FIR ring is millions of pixels long, and dashing or stroking all of it is what made the map stutter. */
@@ -1618,6 +1644,92 @@ function geoFill(items,P,V,k0,w,h){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y
     if(!all){pts=cut(pts,p=>p[0]>=x0,ix(x0));if(pts.length>2)pts=cut(pts,p=>p[0]<=x1,ix(x1));if(pts.length>2)pts=cut(pts,p=>p[1]>=y0,iy(y0));if(pts.length>2)pts=cut(pts,p=>p[1]<=y1,iy(y1))}
     if(pts.length<3)continue;let s="",lx=null,ly=null;for(const p of pts){const x=Math.round(p[0]),y=Math.round(p[1]);if(x===lx&&y===ly)continue;s+=(s?"L":"M")+x+" "+y;lx=x;ly=y}d+=s+"Z"}}
   return d}
+
+/* ---------- Chart overlay on the map ----------
+   A chart (FAA d-TPP PDF page) is rendered once to a bitmap and painted on the map canvas, above the airport
+   geometry and below the labels, route and traffic. The FAA PDFs carry no usable georeference, so the chart is
+   placed from a sensible guess and the pilot lines it up once (Adjust: drag, pinch to resize and rotate); the
+   alignment is remembered per chart. */
+const OV={open:false,icao:null,sel:null,doc:null,img:null,inv:null,page:1,pages:1,geo:null,op:store.get("ovOp",.8),blend:store.get("ovBlend",true),edit:false,loading:false,err:null,raf:0};
+const ovKey=()=>OV.sel?"ovgeo:"+OV.sel.icao+":"+OV.sel.pdf+":"+OV.page:"";
+function ovSched(){if(!OV.raf)OV.raf=requestAnimationFrame(()=>{OV.raf=0;if(cur==="map")mapCanvas()})}
+function ovDefault(){const s=OV.sel,d=TX.data[s.icao];let lat=null,lon=null,hM=20000;
+  if(d&&d.airport&&d.airport.lat!=null){lat=d.airport.lat;lon=d.airport.lon}else{const a=mapAptCandidates().find(q=>q.icao===s.icao&&q.lat!=null);if(a){lat=a.lat;lon=a.lon}}
+  if(lat==null){lat=MAP.c.lat;lon=MAP.c.lon}
+  const g=s.group||"";
+  if(/diagram|hot spot|lahso/i.test(g)){let ext=5200;const rw=d&&d.runways?d.runways.filter(r=>!r.stopway&&r.pts.length>1):[];
+    if(rw.length){let a=90,b=-90,c=180,e=-180;rw.forEach(r=>r.pts.forEach(q=>{if(q[1]<a)a=q[1];if(q[1]>b)b=q[1];if(q[0]<c)c=q[0];if(q[0]>e)e=q[0]}));lat=(a+b)/2;lon=(c+e)/2;ext=Math.max((b-a)*111320,(e-c)*111320*Math.cos(lat*Math.PI/180)*1.45)}
+    hM=ext/.62}
+  else if(/approach/i.test(g))hM=110000;else if(/depart|arriv/i.test(g))hM=450000;
+  return{lat,lon,h:hM,rot:0}}
+function ovFly(){if(!OV.geo||!MAP.c)return;const {h}=mapSize();MAP.follow=false;MAP.c={lat:OV.geo.lat,lon:OV.geo.lon};const k=.82*h/OV.geo.h;MAP.z=Math.max(2,Math.min(ZMAX,Math.log2(k*40075016.7*Math.cos(OV.geo.lat*Math.PI/180)/TS)));mapSched();updMapNote()}
+async function ovPage(n){const pg=await OV.doc.getPage(n),v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:2000/Math.max(v1.width,v1.height)});
+  const cv=document.createElement("canvas");cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);const g=cv.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:g,viewport:vp}).promise;
+  const iv=document.createElement("canvas");iv.width=cv.width;iv.height=cv.height;const g2=iv.getContext("2d");g2.drawImage(cv,0,0);
+  try{const im=g2.getImageData(0,0,iv.width,iv.height),dd=im.data;for(let i=0;i<dd.length;i+=4){dd[i]=255-dd[i];dd[i+1]=255-dd[i+1];dd[i+2]=255-dd[i+2]}g2.putImageData(im,0,0)}catch(e){}
+  OV.img=cv;OV.inv=iv;OV.page=n;OV.geo=store.get(ovKey(),null)||ovDefault()}
+async function ovOpen(c,icao,cycle){OV.sel={name:c.name,pdf:c.pdf,group:c.group,icao,cycle};OV.doc=null;OV.img=null;OV.inv=null;OV.page=1;OV.pages=1;OV.err=null;OV.edit=false;OV.loading=true;OV.open=false;ovUi();
+  const mine=OV.sel;try{const lib=await loadPdfJs();const doc=await lib.getDocument({url:vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf),isEvalSupported:false}).promise;
+    if(OV.sel!==mine)return;OV.doc=doc;OV.pages=doc.numPages;await ovPage(1);if(OV.sel!==mine)return;if(cur==="map")ovFly()}
+  catch(e){if(OV.sel!==mine)return;OV.err=/fetch|network|load/i.test(e.message||"")?"This chart can’t load here. Charts open when the EFB runs on the Polaris site.":(e.message||"Chart couldn’t load")}
+  OV.loading=false;ovUi();ovSched()}
+function ovClose(){OV.sel=null;OV.doc=null;OV.img=null;OV.inv=null;OV.geo=null;OV.edit=false;OV.err=null;OV.loading=false;ovUi();ovSched()}
+function ovLoad(icao){if(!vam.url||!icao||CH.data[icao]||CH.loading[icao])return;CH.loading[icao]=true;CH.err[icao]=null;
+  vamGet("/api/efb/charts?icao="+encodeURIComponent(icao)).then(j=>{CH.data[icao]=j}).catch(e=>{CH.err[icao]=e.message}).finally(()=>{CH.loading[icao]=false;if(cur==="map")ovUi();if(cur==="charts")render()})}
+/* painted by mapCanvas, last, so the chart lies over the airport geometry */
+function ovDraw(g,w,h){if(!OV.img||!OV.geo||!MAP.c)return;const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);let lo=OV.geo.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
+  const p=mpx(OV.geo.lat,lo,z),x=p[0]-c[0]+w/2,y=p[1]-c[1]+h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(OV.geo.lat*Math.PI/180)),H=OV.geo.h*k,W=H*OV.img.width/OV.img.height,R=Math.hypot(W,H)/2;
+  if(H<24||x+R<0||y+R<0||x-R>w||y-R>h)return;const dark=isDark();
+  g.save();g.translate(x,y);g.rotate(OV.geo.rot*Math.PI/180);g.globalAlpha=OV.op;g.globalCompositeOperation=OV.blend?(dark?"screen":"multiply"):"source-over";g.imageSmoothingEnabled=true;g.imageSmoothingQuality="high";
+  g.drawImage(dark?OV.inv:OV.img,-W/2,-H/2,W,H);g.globalAlpha=1;g.globalCompositeOperation="source-over";
+  if(OV.edit){g.strokeStyle="#F2C200";g.lineWidth=2;g.setLineDash([8,6]);g.strokeRect(-W/2,-H/2,W,H);g.setLineDash([]);g.fillStyle="#F2C200";g.beginPath();g.arc(0,0,4,0,6.2832);g.fill()}
+  g.restore()}
+/* Adjust mode: fingers act on the chart, not the map. st.ov is the chart placement when the gesture began. */
+function ovGesture(st,pts,rect,w,h){const g0=st.ov;if(!g0)return;const z=MAP.z,c0=mpx(g0.lat,g0.lon,z),ids=[...pts.keys()];
+  if(ids.length===1){const a=st.p.get(ids[0]),p=pts.get(ids[0]);if(!a)return;if(Math.abs(p.x-a.x)+Math.abs(p.y-a.y)>4)st.moved=true;if(!st.moved)return;const n=munpx(c0[0]+p.x-a.x,c0[1]+p.y-a.y,z);OV.geo={...g0,lat:n[0],lon:n[1]}}
+  else{const a=st.p.get(ids[0]),b=st.p.get(ids[1]),p=pts.get(ids[0]),q=pts.get(ids[1]);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(p.x-q.x,p.y-q.y);if(d0<10)return;st.moved=true;
+    const s=Math.max(d1,1)/d0,ang=Math.atan2(q.y-p.y,q.x-p.x)-Math.atan2(b.y-a.y,b.x-a.x),mc=mpx(MAP.c.lat,MAP.c.lon,z);
+    const cx=c0[0]-mc[0]+w/2+rect.left,cy=c0[1]-mc[1]+h/2+rect.top,m0x=(a.x+b.x)/2,m0y=(a.y+b.y)/2,m1x=(p.x+q.x)/2,m1y=(p.y+q.y)/2;
+    const vx=cx-m0x,vy=cy-m0y,nx=m1x+(vx*Math.cos(ang)-vy*Math.sin(ang))*s,ny=m1y+(vx*Math.sin(ang)+vy*Math.cos(ang))*s,n=munpx(c0[0]+nx-cx,c0[1]+ny-cy,z);
+    OV.geo={lat:n[0],lon:n[1],h:Math.max(200,Math.min(4e6,g0.h*s)),rot:((g0.rot+ang*180/Math.PI)%360+360)%360}}
+  ovSched()}
+function ovSave(){if(OV.sel&&OV.geo)store.set(ovKey(),OV.geo)}
+function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!bar)return;if(btn)btn.setAttribute("aria-pressed",String(OV.open||!!OV.sel));
+  /* picker */
+  if(!OV.open){pn.hidden=true;pn.innerHTML=""}else{const apts=chApts().map(a=>a[1]);if(!OV.icao)OV.icao=apts[0]||"KSFO";const icao=OV.icao;if(!apts.includes(icao))apts.push(icao);const d=CH.data[icao];ovLoad(icao);let list="";
+    if(!vam.url)list=`<div class="empty">Set the EFB server in Settings to load FAA charts.</div>`;
+    else if(CH.loading[icao]&&!d)list=`<div class="empty">Loading FAA charts for ${esc(icao)}…</div>`;
+    else if(CH.err[icao]&&!d)list=`<div class="empty">${esc(CH.err[icao])}</div>`;
+    else if(d&&(d.notFound||!d.charts.length))list=`<div class="empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</div>`;
+    else if(d){const groups={};d.charts.forEach(c=>{(groups[c.group]=groups[c.group]||[]).push(c)});
+      list=CH_ORDER.filter(g=>groups[g]).map(g=>`<div class="nn-cat">${g} <span>${groups[g].length}</span></div>${groups[g].map(c=>`<button class="chitem" data-ovpdf="${esc(c.pdf)}" data-ovname="${esc(c.name)}" data-ovgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span></button>`).join("")}`).join("")}
+    const sig=icao+"|"+list.length+"|"+(OV.sel?OV.sel.pdf+OV.sel.name:"");
+    if(pn.hidden||pn.dataset.sig!==sig){const sc=pn.querySelector(".ov-list"),top=sc&&pn.dataset.icao===icao?sc.scrollTop:0;pn.dataset.sig=sig;pn.dataset.icao=icao;
+      pn.innerHTML=`<div class="ov-head"><div><span class="eyebrow">Chart overlay${d&&d.cycle?" · cycle "+esc(d.cycle):""}</span><h3>${esc(icao)}${d&&d.airport&&d.airport.name?" · "+esc(d.airport.name):""}</h3></div><button class="btn sm" data-ov="hide" aria-label="Close chart list">Close</button></div>
+       <div class="ov-pick"><div class="seg" role="group" aria-label="Airport">${apts.map(a=>`<button data-ovapt="${esc(a)}" aria-pressed="${a===icao}">${esc(a)}</button>`).join("")}</div><input type="text" id="ovIcao" placeholder="ICAO" maxlength="4" aria-label="Other airport" enterkeyhint="go"></div>
+       <div class="ov-list">${list}</div>`;pn.hidden=false;const s2=pn.querySelector(".ov-list");if(s2&&top)s2.scrollTop=top}}
+  /* control bar */
+  if(!OV.sel){bar.hidden=true;bar.innerHTML="";bar.dataset.sig="";return}
+  const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
+  const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b></div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
+  if(OV.loading)bar.innerHTML=head+`<p class="note">Opening chart…</p>`;
+  else if(OV.err)bar.innerHTML=head+`<p class="note">${esc(OV.err)}</p>`;
+  else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it. Pinch to resize and rotate it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
+  else bar.innerHTML=head+`<label class="ov-op"><span>Opacity</span><input type="range" id="ovOp" min="15" max="100" step="5" value="${Math.round(OV.op*100)}" aria-label="Chart opacity"></label>
+    <div class="ov-row"><button class="btn sm" data-ov="edit" aria-pressed="false">Adjust</button><button class="btn sm" data-ov="blend" aria-pressed="${OV.blend}">See-through</button><button class="btn sm" data-ov="fly">Centre</button>${OV.pages>1?`<button class="btn sm" data-ov="prev" aria-label="Previous page"${OV.page<=1?" disabled":""}>‹</button><span class="mono">${OV.page}/${OV.pages}</span><button class="btn sm" data-ov="next" aria-label="Next page"${OV.page>=OV.pages?" disabled":""}>›</button>`:""}</div>`}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-ovapt],[data-ovpdf],#chMap");if(!t)return;
+  if(t.id==="chMap"){if(CH.sel){ovOpen(CH.sel,CH.icao,CH.sel.cycle);location.hash="#map"}return}
+  if(t.dataset.ovapt){OV.icao=t.dataset.ovapt;ovUi();return}
+  if(t.dataset.ovpdf){const d=CH.data[OV.icao];if(d)ovOpen({name:t.dataset.ovname,pdf:t.dataset.ovpdf,group:t.dataset.ovgroup},OV.icao,d.cycle);return}
+  const a=t.dataset.ov;
+  if(a==="open"){OV.open=!OV.open;ovUi()}else if(a==="hide"){OV.open=false;ovUi()}else if(a==="close")ovClose();
+  else if(a==="edit"){OV.edit=!OV.edit;if(!OV.edit)ovSave();ovUi();ovSched()}
+  else if(a==="reset"){store.set(ovKey(),null);OV.geo=ovDefault();ovSched()}
+  else if(a==="blend"){OV.blend=!OV.blend;store.set("ovBlend",OV.blend);ovUi();ovSched()}
+  else if(a==="fly")ovFly();
+  else if((a==="prev"||a==="next")&&OV.doc){const n=OV.page+(a==="next"?1:-1);if(n>=1&&n<=OV.pages)ovPage(n).then(()=>{ovUi();ovSched()}).catch(()=>{})}});
+document.addEventListener("input",e=>{if(e.target.id==="ovOp"){OV.op=Math.max(.15,Math.min(1,+e.target.value/100));store.set("ovOp",OV.op);ovSched()}});
+document.addEventListener("keydown",e=>{if(e.target.id!=="ovIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}OV.icao=v.length===3?"K"+v:v;e.target.blur();ovUi()});
 
 /* ===== shared app building blocks ===== */
 const ICO={
@@ -1790,7 +1902,7 @@ V.charts=()=>{const apts=chApts();if(!CH.icao)CH.icao=(apts[0]||[])[1]||"KSFO";c
   else if(d){const q=CH.q.trim().toUpperCase();const groups={};d.charts.filter(c=>!q||c.name.toUpperCase().includes(q)).forEach(c=>{(groups[c.group]=groups[c.group]||[]).push(c)});
     list=CH_ORDER.filter(g=>groups[g]).map(g=>`<div class="nn-cat">${g} <span>${groups[g].length}</span></div>${groups[g].map(c=>`<button class="chitem" data-chpdf="${esc(c.pdf)}" data-chname="${esc(c.name)}" aria-pressed="${!!(CH.sel&&CH.sel.pdf===c.pdf&&CH.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<span class="pill c-amber">Changed</span>':""}</button>`).join("")}`).join("")||`<div class="empty">No charts match.</div>`}
   const sel=CH.sel;const pdfU=sel?"https://aeronav.faa.gov/d-tpp/"+sel.cycle+"/"+sel.pdf:"";
-  const viewer=sel?`<div class="chtool"><div class="row"><button class="btn sm chback" id="chBack">‹ List</button><div><span class="eyebrow">${esc(icao)} · ${esc(sel.group||"Chart")}</span><h3>${esc(sel.name)}</h3></div></div><div class="row" style="gap:6px"><button class="btn sm" id="chOut" aria-label="Zoom out">−</button><button class="btn sm" id="chIn" aria-label="Zoom in">+</button><button class="btn sm" id="chFit">Fit</button>${CH.pages>1?`<button class="btn sm" id="chPrev" aria-label="Previous page">‹</button><span class="mono">${CH.page}/${CH.pages}</span><button class="btn sm" id="chNext" aria-label="Next page">›</button>`:""}<button class="btn sm" id="chInv" aria-pressed="${CH.invert}">Night</button><a class="btn sm" href="${esc(pdfU)}" target="_blank" rel="noopener">PDF ↗</a></div></div>
+  const viewer=sel?`<div class="chtool"><div class="row"><button class="btn sm chback" id="chBack">‹ List</button><div><span class="eyebrow">${esc(icao)} · ${esc(sel.group||"Chart")}</span><h3>${esc(sel.name)}</h3></div></div><div class="row" style="gap:6px"><button class="btn sm" id="chOut" aria-label="Zoom out">−</button><button class="btn sm" id="chIn" aria-label="Zoom in">+</button><button class="btn sm" id="chFit">Fit</button>${CH.pages>1?`<button class="btn sm" id="chPrev" aria-label="Previous page">‹</button><span class="mono">${CH.page}/${CH.pages}</span><button class="btn sm" id="chNext" aria-label="Next page">›</button>`:""}<button class="btn sm" id="chMap">On map</button><button class="btn sm" id="chInv" aria-pressed="${CH.invert}">Night</button><a class="btn sm" href="${esc(pdfU)}" target="_blank" rel="noopener">PDF ↗</a></div></div>
      <div class="chview${CH.invert&&isDark()?" inv":""}" id="chView">${CH.pdfLoading?`<div class="chempty">Opening chart…</div>`:CH.pdfErr?`<div class="chempty">${esc(CH.pdfErr)}<br><a class="btn" style="margin-top:12px" href="${esc(pdfU)}" target="_blank" rel="noopener">Open the FAA PDF ↗</a></div>`:`<canvas id="chCanvas"></canvas>`}</div>`
     :`<div class="chview"><div class="chempty">${ROSE_SVG.replace('class="rose"','')}<h3>Select a chart</h3><p class="note">The airport diagram is at the top of the list. Charts are FAA d-TPP, for flight simulation only.</p></div></div>`;
   return `<div class="split chwrap${sel?" has-sel":""}"><aside class="side chlist">${head}${pick}<div class="sx"><input type="text" id="chQ" placeholder="Search charts" value="${esc(CH.q)}" aria-label="Search charts"></div>${list}</aside><div class="chpanel">${viewer}</div></div>`};
@@ -2154,7 +2266,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
-  const bs=$("#mapBase");if(bs){bs.innerHTML=sBase;bs.style.transform=""}else s=sBase+s;el.innerHTML=s;el.style.transform="";mapCanvas();clearTimeout(mapIdle);mapDrawn={z,lat:MAP.c.lat,lon:MAP.c.lon,cx:c[0],cy:c[1],w,h,at:performance.now()};radarBar();
+  const bs=$("#mapBase");if(bs){bs.innerHTML=sBase;bs.style.transform=""}else s=sBase+s;el.innerHTML=s;el.style.transform="";mapCanvas();clearTimeout(mapIdle);mapDrawn={z,lat:MAP.c.lat,lon:MAP.c.lon,cx:c[0],cy:c[1],w,h,at:performance.now()};radarBar();ovUi();
   const t1=(bs||el).querySelector("image.tile");if(t1)t1.addEventListener("error",()=>{if(!MAP.tileFail){MAP.tileFail=true;mapSched();updMapNote()}},{once:true});
   const r1=(bs||el).querySelector("image.radar");if(r1)r1.addEventListener("error",()=>{if(!RADAR.err){RADAR.err=true;RADAR.at=Date.now();mapSched();updMapNote()}},{once:true});
 }
@@ -2169,19 +2281,20 @@ function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==n
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
 function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bound)return;wrap._bound=1;const pts=new Map();let st=null;
   const onMap=e=>e.target===wrap||e.target===el||el.contains(e.target)||e.target.id==="mapCv"||e.target.id==="mapBase";
-  const snap=()=>({c:{...MAP.c},z:MAP.z,p:new Map([...pts].map(([k,v])=>[k,{...v}])),moved:!!(st&&st.moved)});
+  const snap=()=>({c:{...MAP.c},z:MAP.z,ov:OV.geo?{...OV.geo}:null,p:new Map([...pts].map(([k,v])=>[k,{...v}])),moved:!!(st&&st.moved)});
   wrap.addEventListener("pointerdown",e=>{if(!MAP.c||!onMap(e))return;try{wrap.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st=snap();if(pts.size===1)st.moved=false});
   wrap.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
+    if(OV.edit&&OV.img){const sz=mapSize();ovGesture(st,pts,wrap.getBoundingClientRect(),sz.w,sz.h);return}
     if(ids.length===1){const a=st.p.get(ids[0]);if(!a)return;const dx=e.clientX-a.x,dy=e.clientY-a.y;if(Math.abs(dx)+Math.abs(dy)>4)st.moved=true;if(!st.moved)return;MAP.follow=false;const c=mpx(st.c.lat,st.c.lon,st.z);const n=munpx(c[0]-dx,c[1]-dy,st.z);MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     else{const [i,j]=ids,a=st.p.get(i),b=st.p.get(j),p=pts.get(i),q=pts.get(j);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(p.x-q.x,p.y-q.y);if(d0<10)return;st.moved=true;MAP.follow=false;
       const z=Math.max(2,Math.min(ZMAX,st.z+Math.log2(Math.max(d1,1)/d0))),r=wrap.getBoundingClientRect(),{w,h}=mapSize(),k=Math.pow(2,z-st.z),c0=mpx(st.c.lat,st.c.lon,st.z);
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
       const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(!pts.size){if(was&&!was.moved){const hit=document.elementFromPoint(e.clientX,e.clientY);const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}st=null}else st=snap()};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
-  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   if(window.ResizeObserver)new ResizeObserver(()=>mapSched()).observe(el)}
 function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase()):null}
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}
@@ -2222,7 +2335,8 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airpo
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapbar"><span class="mono"><b>${esc(x.flight)}</b> ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))} · ${fmt(N(x.g.route_distance)||N(x.g.air_distance))} NM</span>${pts.length<2?'<span class="c-amber">No fix coordinates in this plan</span>':""}</div>
    <div class="mapctl"><button class="btn" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
-   <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}">${a[0]} ${esc(a[1])}</button>`).join("")}<form id="mapForm" class="row" style="gap:4px"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" style="width:80px;text-transform:uppercase"><button class="btn" type="submit">Go</button></form></div>
+   <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}">${a[0]} ${esc(a[1])}</button>`).join("")}<form id="mapForm" class="row" style="gap:4px"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" style="width:80px;text-transform:uppercase"><button class="btn" type="submit">Go</button></form><button class="btn" id="ovBtn" data-ov="open" aria-pressed="false">Charts</button></div>
+   <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div>
    <div class="maplayers" role="group" aria-label="Map layers">${L.map(l=>`<button class="btn" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}">${l[1]}</button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><div class="mapattr" id="mapAttr"></div></div>`};
 

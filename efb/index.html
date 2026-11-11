@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.1259">
+<meta name="efb-build" content="1111.1308">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -876,6 +876,7 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .ov-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ov-top b{display:block;font:600 13px/1.25 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ov-top>div{min-width:0}
+.ov-src{display:block;margin-top:3px;font:400 11px/1.3 var(--f-ui);color:var(--label)}
 .ovbar .note{margin:0;font-size:12px}
 .ov-op{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;font-size:11.5px;color:var(--label)}
 .ov-op input{width:100%;accent-color:var(--brand);touch-action:pan-x}
@@ -1650,10 +1651,10 @@ function geoFill(items,P,V,k0,w,h){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y
    geometry and below the labels, route and traffic. The FAA PDFs carry no usable georeference, so the chart is
    placed from a sensible guess and the pilot lines it up once (Adjust: drag, pinch to resize and rotate); the
    alignment is remembered per chart. */
-const OV={open:false,icao:null,sel:null,doc:null,img:null,inv:null,page:1,pages:1,geo:null,op:store.get("ovOp",.8),blend:store.get("ovBlend",true),edit:false,loading:false,err:null,raf:0};
+const OV={open:false,icao:null,sel:null,doc:null,img:null,inv:null,page:1,pages:1,geo:null,op:store.get("ovOp",.8),blend:store.get("ovBlend",true),edit:false,loading:false,err:null,raf:0,raw:"",auto:null,src:""};
 const ovKey=()=>OV.sel?"ovgeo:"+OV.sel.icao+":"+OV.sel.pdf+":"+OV.page:"";
 function ovSched(){if(!OV.raf)OV.raf=requestAnimationFrame(()=>{OV.raf=0;if(cur==="map")mapCanvas()})}
-function ovDefault(){const s=OV.sel,d=TX.data[s.icao];let lat=null,lon=null,hM=20000;
+function ovDefault(){if(OV.auto)return{...OV.auto};const s=OV.sel,d=TX.data[s.icao];let lat=null,lon=null,hM=20000;
   if(d&&d.airport&&d.airport.lat!=null){lat=d.airport.lat;lon=d.airport.lon}else{const a=mapAptCandidates().find(q=>q.icao===s.icao&&q.lat!=null);if(a){lat=a.lat;lon=a.lon}}
   if(lat==null){lat=MAP.c.lat;lon=MAP.c.lon}
   const g=s.group||"";
@@ -1667,15 +1668,38 @@ async function ovPage(n){const pg=await OV.doc.getPage(n),v1=pg.getViewport({sca
   const cv=document.createElement("canvas");cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);const g=cv.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:g,viewport:vp}).promise;
   const iv=document.createElement("canvas");iv.width=cv.width;iv.height=cv.height;const g2=iv.getContext("2d");g2.drawImage(cv,0,0);
   try{const im=g2.getImageData(0,0,iv.width,iv.height),dd=im.data;for(let i=0;i<dd.length;i+=4){dd[i]=255-dd[i];dd[i+1]=255-dd[i+1];dd[i+2]=255-dd[i+2]}g2.putImageData(im,0,0)}catch(e){}
-  OV.img=cv;OV.inv=iv;OV.page=n;OV.geo=store.get(ovKey(),null)||ovDefault()}
+  OV.img=cv;OV.inv=iv;OV.page=n;OV.auto=ovGeoref(OV.raw,pg.view,pg.rotate,n,OV.pages);const saved=store.get(ovKey(),null);OV.geo=saved||ovDefault();OV.src=saved?"saved":OV.auto?"auto":""}
 async function ovOpen(c,icao,cycle){OV.sel={name:c.name,pdf:c.pdf,group:c.group,icao,cycle};OV.doc=null;OV.img=null;OV.inv=null;OV.page=1;OV.pages=1;OV.err=null;OV.edit=false;OV.loading=true;OV.open=false;ovUi();
-  const mine=OV.sel;try{const lib=await loadPdfJs();const doc=await lib.getDocument({url:vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf),isEvalSupported:false}).promise;
+  const mine=OV.sel;OV.raw="";OV.auto=null;OV.src="";try{const lib=await loadPdfJs();const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),30000);let buf;
+    try{const r=await fetch(vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf),{signal:ctrl.signal});if(!r.ok)throw new Error("Chart server answered HTTP "+r.status);buf=await r.arrayBuffer()}finally{clearTimeout(tm)}
+    if(OV.sel!==mine)return;try{OV.raw=new TextDecoder("latin1").decode(buf)}catch(e){OV.raw=""}
+    const doc=await lib.getDocument({data:buf,isEvalSupported:false}).promise;
     if(OV.sel!==mine)return;OV.doc=doc;OV.pages=doc.numPages;await ovPage(1);if(OV.sel!==mine)return;if(cur==="map")ovFly()}
   catch(e){if(OV.sel!==mine)return;OV.err=/fetch|network|load/i.test(e.message||"")?"This chart can’t load here. Charts open when the EFB runs on the Polaris site.":(e.message||"Chart couldn’t load")}
   OV.loading=false;ovUi();ovSched()}
-function ovClose(){OV.sel=null;OV.doc=null;OV.img=null;OV.inv=null;OV.geo=null;OV.edit=false;OV.err=null;OV.loading=false;ovUi();ovSched()}
+function ovClose(){OV.sel=null;OV.doc=null;OV.img=null;OV.inv=null;OV.raw="";OV.auto=null;OV.src="";OV.geo=null;OV.edit=false;OV.err=null;OV.loading=false;ovUi();ovSched()}
 function ovLoad(icao){if(!vam.url||!icao||CH.data[icao]||CH.loading[icao])return;CH.loading[icao]=true;CH.err[icao]=null;
   vamGet("/api/efb/charts?icao="+encodeURIComponent(icao)).then(j=>{CH.data[icao]=j}).catch(e=>{CH.err[icao]=e.message}).finally(()=>{CH.loading[icao]=false;if(cur==="map")ovUi();if(cur==="charts")render()})}
+/* Georeference embedded in the PDF. FAA approach charts are geospatial PDFs: the page carries a viewport
+   (/VP) whose /Measure lists ground points (/GPTS, lat lon) and where they sit in the viewport box (/LPTS).
+   A similarity fit of page points to web-mercator gives the chart's centre, size and rotation on the map. */
+function ovGeoref(raw,view,rotate,page,pages){try{if(!raw||!view||(rotate||0)%360!==0)return null;const re=/\/VP\s*\[\s*<</g,found=[];let m;
+    while((m=re.exec(raw))){const seg=raw.slice(m.index,m.index+8000),end=seg.indexOf("/Viewport"),sg=end>0?seg.slice(0,end):seg,nums=k=>{const q=sg.match(new RegExp("/"+k+"\\s*\\[([^\\]]+)\\]"));return q?q[1].trim().split(/\s+/).map(Number):null};
+      found.push({bb:nums("BBox"),gp:nums("GPTS"),lp:nums("LPTS")||[0,0,1,0,1,1,0,1]})}
+    /* one viewport per page, or a single one that belongs to the first page */
+    if(!found.length||(found.length!==pages&&!(found.length===1&&page===1)))return null;const f=found[page-1];
+    if(!f.bb||f.bb.length!==4||!f.gp||f.gp.length<6||f.gp.length!==f.lp.length||f.gp.concat(f.lp,f.bb).some(v=>!isFinite(v)))return null;
+    const W=view[2]-view[0],H=view[3]-view[1],n=f.gp.length/2,P=[],Q=[];
+    for(let i=0;i<n;i++){const x=f.bb[0]+f.lp[i*2]*(f.bb[2]-f.bb[0])-view[0],y=f.bb[1]+f.lp[i*2+1]*(f.bb[3]-f.bb[1])-view[1];P.push([x,H-y]);const q=mpx(f.gp[i*2],f.gp[i*2+1],0);Q.push([q[0]/TS,q[1]/TS])}
+    const mean=a=>[a.reduce((s,p)=>s+p[0],0)/n,a.reduce((s,p)=>s+p[1],0)/n],pm=mean(P),qm=mean(Q);let ar=0,ai=0,den=0;
+    for(let i=0;i<n;i++){const px=P[i][0]-pm[0],py=P[i][1]-pm[1],qx=Q[i][0]-qm[0],qy=Q[i][1]-qm[1];ar+=qx*px+qy*py;ai+=qy*px-qx*py;den+=px*px+py*py}
+    if(!den)return null;ar/=den;ai/=den;const sc=Math.hypot(ar,ai);if(!(sc>0))return null;
+    /* reject a fit that does not actually match its own control points */
+    let worst=0;for(let i=0;i<n;i++){const px=P[i][0]-pm[0],py=P[i][1]-pm[1];worst=Math.max(worst,Math.hypot(qm[0]+ar*px-ai*py-Q[i][0],qm[1]+ai*px+ar*py-Q[i][1]))}
+    if(worst>.03*sc*Math.hypot(W,H))return null;
+    const cx=W/2-pm[0],cy=H/2-pm[1],ll=munpx((qm[0]+ar*cx-ai*cy)*TS,(qm[1]+ai*cx+ar*cy)*TS,0),hM=H*sc*40075016.7*Math.cos(ll[0]*Math.PI/180);
+    if(!isFinite(ll[0])||!isFinite(ll[1])||hM<500||hM>3e6)return null;
+    return{lat:ll[0],lon:ll[1],h:hM,rot:((Math.atan2(ai,ar)*180/Math.PI)%360+360)%360}}catch(e){return null}}
 /* painted by mapCanvas, last, so the chart lies over the airport geometry */
 function ovDraw(g,w,h){if(!OV.img||!OV.geo||!MAP.c)return;const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);let lo=OV.geo.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
   const p=mpx(OV.geo.lat,lo,z),x=p[0]-c[0]+w/2,y=p[1]-c[1]+h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(OV.geo.lat*Math.PI/180)),H=OV.geo.h*k,W=H*OV.img.width/OV.img.height,R=Math.hypot(W,H)/2;
@@ -1693,7 +1717,7 @@ function ovGesture(st,pts,rect,w,h){const g0=st.ov;if(!g0)return;const z=MAP.z,c
     const vx=cx-m0x,vy=cy-m0y,nx=m1x+(vx*Math.cos(ang)-vy*Math.sin(ang))*s,ny=m1y+(vx*Math.sin(ang)+vy*Math.cos(ang))*s,n=munpx(c0[0]+nx-cx,c0[1]+ny-cy,z);
     OV.geo={lat:n[0],lon:n[1],h:Math.max(200,Math.min(4e6,g0.h*s)),rot:((g0.rot+ang*180/Math.PI)%360+360)%360}}
   ovSched()}
-function ovSave(){if(OV.sel&&OV.geo)store.set(ovKey(),OV.geo)}
+function ovSave(){if(OV.sel&&OV.geo){store.set(ovKey(),OV.geo);OV.src="saved"}}
 function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!bar)return;if(btn)btn.setAttribute("aria-pressed",String(OV.open||!!OV.sel));
   /* picker */
   if(!OV.open){pn.hidden=true;pn.innerHTML=""}else{const apts=chApts().map(a=>a[1]);if(!OV.icao)OV.icao=apts[0]||"KSFO";const icao=OV.icao;if(!apts.includes(icao))apts.push(icao);const d=CH.data[icao];ovLoad(icao);let list="";
@@ -1710,8 +1734,8 @@ function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!
        <div class="ov-list">${list}</div>`;pn.hidden=false;const s2=pn.querySelector(".ov-list");if(s2&&top)s2.scrollTop=top}}
   /* control bar */
   if(!OV.sel){bar.hidden=true;bar.innerHTML="";bar.dataset.sig="";return}
-  const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
-  const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b></div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
+  const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img,OV.src].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
+  const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b>${OV.img?`<small class="ov-src">${OV.src==="auto"?"Positioned from the chart’s own coordinates":OV.src==="saved"?"Your saved alignment":"Not georeferenced. Use Adjust to line it up"}</small>`:""}</div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
   if(OV.loading)bar.innerHTML=head+`<p class="note">Opening chart…</p>`;
   else if(OV.err)bar.innerHTML=head+`<p class="note">${esc(OV.err)}</p>`;
   else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it, pinch to resize and turn it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="rot">Rotate 90°</button><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
@@ -1723,9 +1747,9 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-
   if(t.dataset.ovpdf){const d=CH.data[OV.icao];if(d)ovOpen({name:t.dataset.ovname,pdf:t.dataset.ovpdf,group:t.dataset.ovgroup},OV.icao,d.cycle);return}
   const a=t.dataset.ov;
   if(a==="open"){OV.open=!OV.open;ovUi()}else if(a==="hide"){OV.open=false;ovUi()}else if(a==="close")ovClose();
-  else if(a==="edit"){OV.edit=!OV.edit;if(!OV.edit)ovSave();ovUi();ovSched()}
+  else if(a==="edit"){OV.edit=!OV.edit;ovUi();ovSched()}
   else if(a==="rot"&&OV.geo){OV.geo={...OV.geo,rot:(OV.geo.rot+90)%360};ovSave();ovSched()}
-  else if(a==="reset"){store.set(ovKey(),null);OV.geo=ovDefault();ovSched()}
+  else if(a==="reset"){store.set(ovKey(),null);OV.geo=ovDefault();OV.src=OV.auto?"auto":"";ovUi();ovSched()}
   else if(a==="blend"){OV.blend=!OV.blend;store.set("ovBlend",OV.blend);ovUi();ovSched()}
   else if(a==="fly")ovFly();
   else if((a==="prev"||a==="next")&&OV.doc){const n=OV.page+(a==="next"?1:-1);if(n>=1&&n<=OV.pages)ovPage(n).then(()=>{ovUi();ovSched()}).catch(()=>{})}});

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2255">
+<meta name="efb-build" content="1111.2257">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1007,6 +1007,7 @@ html.pwa-ios .maplayers{bottom:10px!important}
 }
 .assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar{left:calc(var(--mg) + 392px)!important}
 @container screen (max-width:640px){.assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar,.assheet:not([hidden])~.mapinfo{display:none!important}}
+@container screen (min-width:641px) and (max-width:1300px){.screen.isl-on[data-app="map"] .mapwrap .ovbar{top:56px!important}}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}

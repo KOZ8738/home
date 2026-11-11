@@ -357,12 +357,12 @@ const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_posi
 async function layoutRoute(icaoIn) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout5:' + icao, 6 * 3600_000, () => edgeCache(`layout/v5/${icao}`, 7 * 86400, async () => {
+  return cached('layout6:' + icao, 6 * 3600_000, () => edgeCache(`layout/v6/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
     const bb = [pos.lat - dLat, pos.lon - dLon, pos.lat + dLat, pos.lon + dLon].map((v) => v.toFixed(5)).join(',');
-    const q = `[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out tags bb geom;` +
+    const q = `[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out body bb geom;` +
       `(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];);out geom qt;`;
     const j0 = await overpass(q);
     /* keep only what lies inside this airport: its own outline if OSM has one, else a tight box */

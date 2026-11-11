@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2247">
+<meta name="efb-build" content="1111.2254">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -959,6 +959,55 @@ html.pwa-ios .maplayers{bottom:10px!important}
   .screen[data-app="map"] .mapinfo{left:8px!important;right:8px!important;bottom:26px!important}
 }
 
+/* ---------- Airport sheet ---------- */
+.assheet{position:absolute;z-index:6;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 44px -18px var(--shadow);font-family:var(--f-ui);overflow:hidden;
+  left:var(--mg);top:calc(var(--mt) + 56px);bottom:26px;width:380px;border-radius:10px}
+.assheet[hidden]{display:none}
+.as-head{flex:none;padding:10px 14px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+.as-top{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px}
+.as-top .btn{min-height:32px;padding:0 12px!important;font:500 13px var(--f-ui)!important}
+.as-grab{justify-self:center;width:44px;height:5px;border-radius:3px;background:var(--line);cursor:pointer}
+.as-t{margin:10px 0 0;text-align:center;font:600 22px/1.15 var(--f-ui);letter-spacing:.02em;color:var(--ink)}
+.as-n{margin:6px 0 12px;text-align:center;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
+.as-n small{display:block;font:400 13.5px/1.4 var(--f-ui);color:var(--label);margin-top:2px}
+.as-tabs{display:flex;gap:3px;padding:3px;margin:0 0 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.as-tabs button{flex:1;min-height:34px;border:0;border-radius:6px;background:transparent;color:var(--ink);font:600 13.5px var(--f-ui);cursor:pointer}
+.as-tabs button[aria-selected="true"]{background:var(--brand);color:var(--brand-ink)}
+.as-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 0 14px}
+.as-cats{position:sticky;top:0;z-index:1;display:flex;gap:3px;padding:3px;margin:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.as-c{flex:1;min-height:32px;border:0;border-radius:6px;background:transparent;font:700 13px var(--f-ui);letter-spacing:.03em;cursor:pointer}
+.as-c:disabled{opacity:.3;cursor:default}
+.c-star{--cc:#5E9447}.c-app{--cc:#E07B1F}.c-taxi{--cc:#2E93D1}.c-sid{--cc:#D9548E}.c-ref{--cc:#9A5BD6}
+.as-c{color:var(--cc)}.as-c[aria-pressed="true"]{background:var(--cc);color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.as-list{display:flex;flex-direction:column}
+.as-ch,.as-apt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:10px 16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:500 14px/1.3 var(--f-ui);text-align:left;cursor:pointer}
+.as-ch[aria-pressed="true"]{background:color-mix(in srgb,var(--brand) 14%,transparent);box-shadow:inset 3px 0 0 var(--brand)}
+.as-chg{font:600 10.5px var(--f-ui);font-style:normal;color:var(--amber);border:1px solid currentColor;border-radius:999px;padding:2px 7px;flex:none}
+.as-apt{display:grid;grid-template-columns:auto 1fr auto;gap:12px}
+.as-apt b{font-size:15px}.as-apt span{color:var(--label);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.as-apt small{color:var(--bronze);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.as-sub{padding:16px 16px 6px;font:500 10.5px/1 var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--label)}
+.as-search{padding:12px 14px}.as-search input{width:100%;min-height:40px;padding:0 12px;font:500 15px var(--f-mono);text-transform:uppercase;border-radius:8px}
+.as-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}
+.as-row>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.as-row span{font:600 13px var(--f-ui);color:var(--label)}
+.as-row b{font:400 15.5px/1.35 var(--f-ui);color:var(--ink)}
+.as-rw{display:block;font:400 14px/1.6 var(--f-ui)!important;color:var(--ink)!important}.as-rw .mono{display:inline-block;min-width:68px;font-weight:600}
+.as-pin{flex:none;width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);display:grid;place-items:center;cursor:pointer}
+.as-pin svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+.as-wx{margin:12px 14px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.as-wxh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 12px var(--f-ui);letter-spacing:.14em;color:var(--label)}
+.as-wx p{margin:0;font-size:13px;line-height:1.55;color:var(--ink);word-break:break-word}
+.as-cat{font-style:normal;font:700 11px var(--f-mono);padding:2px 8px;border-radius:4px;color:#fff;background:#3E8E5E}
+.as-cat.wx-MVFR{background:#2F6FD6}.as-cat.wx-IFR{background:#C6372E}.as-cat.wx-LIFR{background:#A23CB8}
+.as-empty{margin:18px 16px;color:var(--label);font-size:13.5px;line-height:1.5}
+@container screen (max-width:640px){
+  .assheet{left:0;right:0;width:auto;top:auto;bottom:0;height:62%;border-radius:14px 14px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .assheet.full{height:calc(100% - var(--mt) - 6px)}
+  .as-t{font-size:21px}
+}
+.assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar{left:calc(var(--mg) + 392px)!important}
+@container screen (max-width:640px){.assheet:not([hidden])~.mapnote,.assheet:not([hidden])~.radarbar,.assheet:not([hidden])~.mapinfo{display:none!important}}
+
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--map-sea:#071114;--map-bg:#071114;--map-land:#13201E;--map-border:#2F403C;--map-grat:rgba(120,190,198,.12);--map-fir:rgba(79,194,126,.6);--map-firl:#5FCF92}}
@@ -1797,7 +1846,7 @@ function ovGesture(st,pts,rect,w,h){const g0=st.ov;if(!g0)return;const z=MAP.z,c
     OV.geo={lat:n[0],lon:n[1],h:Math.max(200,Math.min(4e6,g0.h*s)),rot:((g0.rot+ang*180/Math.PI)%360+360)%360}}
   ovSched()}
 function ovSave(){if(OV.sel&&OV.geo){store.set(ovKey(),OV.geo);OV.src="saved"}}
-function ovUi(){const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!bar)return;if(btn)btn.setAttribute("aria-pressed",String(OV.open||!!OV.sel));
+function ovUi(){if(typeof asUi==="function")asUi();const pn=$("#ovPanel"),bar=$("#ovBar"),btn=$("#ovBtn");if(!pn||!bar)return;if(btn)btn.setAttribute("aria-pressed",String(OV.open||!!OV.sel));
   /* picker */
   if(!OV.open){pn.hidden=true;pn.innerHTML=""}else{const apts=chApts().map(a=>a[1]);if(!OV.icao)OV.icao=apts[0]||"KSFO";const icao=OV.icao;if(!apts.includes(icao))apts.push(icao);const d=CH.data[icao];ovLoad(icao);let list="";
     if(!vam.url)list=`<div class="empty">Set the EFB server in Settings to load FAA charts.</div>`;
@@ -1894,6 +1943,78 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
 /* layers popover */
 document.addEventListener("click",e=>{const b=e.target.closest("#mlBtn");if(!b)return;const p=$("#mlPanel");if(!p)return;p.hidden=!p.hidden;b.setAttribute("aria-expanded",String(!p.hidden));if(!p.hidden){const o=$("#ovPanel");if(o&&!o.hidden&&typeof OV!=="undefined"){OV.open=false;ovUi()}}});
 document.addEventListener("pointerdown",e=>{const p=$("#mlPanel");if(!p||p.hidden)return;if(e.target.closest("#mlPanel,#mlBtn"))return;p.hidden=true;const b=$("#mlBtn");if(b)b.setAttribute("aria-expanded","false")},true);
+
+/* ---------- Airport sheet (Map) ----------
+   One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
+   charts button: Info, Charts (STAR / APP / TAXI / SID / REF) and Weather. Picking a chart lays it over
+   the map and tucks the sheet away. A bottom sheet on a phone, a side panel on a tablet. */
+const AS={open:false,icao:null,tab:store.get("asTab","charts"),cat:store.get("asCat","APP"),view:"apt",full:false,data:{},loading:{},err:{},html:""};
+const AS_CATS=[["STAR","Arrivals"],["APP","Approaches"],["TAXI","Airport diagram,Hot spots,LAHSO"],["SID","Departures"],["REF","Minimums,Other"]];
+const asCatOf=g=>{for(const c of AS_CATS)if(c[1].split(",").includes(g))return c[0];return"REF"};
+function asOpen(icao,tab){if(icao)AS.icao=String(icao).toUpperCase();if(!AS.icao){const a=chApts()[0];AS.icao=a?a[1]:"KSFO"}if(tab){AS.tab=tab;store.set("asTab",tab)}AS.view="apt";AS.open=true;
+  const lp=$("#mlPanel");if(lp)lp.hidden=true;asLoad(AS.icao);if(typeof ovLoad==="function")ovLoad(AS.icao);asUi()}
+function asLoad(icao){if(!vam.url||!icao||AS.data[icao]||AS.loading[icao])return;AS.loading[icao]=true;delete AS.err[icao];
+  vamGet("/api/efb/airport?icao="+encodeURIComponent(icao)).then(j=>{AS.data[icao]=j}).catch(e=>{AS.err[icao]=e.message}).finally(()=>{AS.loading[icao]=false;asUi()})}
+const asFt=m=>m==null?"—":fmt(m*3.28084)+" ft ("+fmt(m)+" m)";
+const asLen=ft=>ft==null?"—":fmt(ft)+" ft ("+fmt(ft*.3048)+" m)";
+const AS_SURF={A:"Asphalt",C:"Concrete",H:"Hard",G:"Grass",T:"Turf",W:"Water",D:"Dirt",S:"Sand",M:"Mat"};
+function asRow(k,v,extra){return `<div class="as-row"><div><span>${k}</span><b>${v}</b></div>${extra||""}</div>`}
+function asInfo(icao){const j=AS.data[icao],a=j&&j.airport;
+  if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load airport details.</p>`;
+  if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading ${esc(icao)}…</p>`;
+  if(AS.err[icao]&&!j)return `<p class="as-empty">${esc(AS.err[icao])}</p>`;
+  if(!a)return `<p class="as-empty">No airport details for ${esc(icao)}.</p>`;
+  const rw=a.runways.filter(r=>r.lengthFt),lng=rw.reduce((m,r)=>Math.max(m,r.lengthFt||0),0),md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i);
+  const loc=[a.state,a.country].filter(Boolean).join(", "),usca=/^(US|CA)$/i.test(a.country||"");
+  const freq=a.freqs.filter(f=>f.freq).map(f=>`${esc(f.type||"")} ${esc(f.freq)}`).join(" · ");
+  return asRow("ICAO / IATA",esc(a.icao)+(a.iata?" / "+esc(a.iata):""))+asRow("Name",esc(a.name))+asRow("Location",esc(loc||"—"),`<button class="as-pin" data-asgo="${esc(a.icao)}" aria-label="Show on map"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg></button>`)
+    +asRow("Elevation",asFt(a.elevM))+asRow("Longest runway",lng?asLen(lng):"—")
+    +(rw.length?asRow("Runways",rw.map(r=>`<span class="as-rw"><span class="mono">${esc(r.id)}</span>${fmt(r.lengthFt)} × ${fmt(r.widthFt)} ft · ${esc(AS_SURF[r.surface]||r.surface||"")}</span>`).join("")):"")
+    +asRow("Magnetic variation",md?md[1]+"° "+md[2].toUpperCase():esc(a.magdec||"—"))
+    +asRow("Type",a.owner==="P"?"Public":a.owner==="R"?"Private":a.owner==="M"?"Military":"—")+asRow("Tower",a.tower==="T"?"Yes":"No")
+    +(freq?asRow("Frequencies",freq):"")+(usca?asRow("Transition altitude","18,000 ft (5,486 m)")+asRow("Transition level","FL180"):"")}
+function asWx(icao){const j=AS.data[icao];
+  if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load weather.</p>`;
+  if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading weather for ${esc(icao)}…</p>`;
+  if(!j||(!j.metar&&!j.taf))return `<p class="as-empty">No METAR or TAF for ${esc(icao)}.</p>`;
+  const cat=j.metar?(j.metar.cat||((typeof decodeMetar==="function"&&decodeMetar(j.metar.raw))||{}).cat||""):"";
+  return (j.metar?`<div class="as-wx"><div class="as-wxh"><span>METAR</span>${cat?`<i class="as-cat wx-${esc(cat)}">${esc(cat)}</i>`:""}</div><p class="mono">${esc(j.metar.raw)}</p></div>`:"")
+    +(j.taf?`<div class="as-wx"><div class="as-wxh"><span>TAF</span></div><p class="mono">${esc(j.taf.raw).replace(/\s(?=(FM\d{6}|TEMPO|BECMG|PROB\d{2}))/g,"<br>")}</p></div>`:"")}
+function asCharts(icao){const d=CH.data[icao];
+  if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load FAA charts.</p>`;
+  if(CH.loading[icao]&&!d)return `<p class="as-empty">Loading charts for ${esc(icao)}…</p>`;
+  if(CH.err[icao]&&!d)return `<p class="as-empty">${esc(CH.err[icao])}</p>`;
+  if(!d||d.notFound||!d.charts.length)return `<p class="as-empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</p>`;
+  const cnt={};d.charts.forEach(c=>{const k=asCatOf(c.group);cnt[k]=(cnt[k]||0)+1});
+  const list=d.charts.filter(c=>asCatOf(c.group)===AS.cat);
+  return `<div class="as-cats" role="group" aria-label="Chart type">${AS_CATS.map(c=>`<button class="as-c c-${c[0].toLowerCase()}" data-ascat="${c[0]}" aria-pressed="${AS.cat===c[0]}"${cnt[c[0]]?"":" disabled"}>${c[0]}</button>`).join("")}</div>
+    <div class="as-list">${list.length?list.map(c=>`<button class="as-ch" data-aspdf="${esc(c.pdf)}" data-asname="${esc(c.name)}" data-asgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<i class="as-chg">Changed</i>':""}</button>`).join(""):`<p class="as-empty">No ${AS.cat} charts.</p>`}</div>`}
+function asList(){const apts=chApts(),seen=new Set(apts.map(a=>a[1]));const rec=store.get("asRecent",[]).filter(i=>!seen.has(i)).slice(0,6);
+  const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?a.name:"")}</span><small>${esc(role)}</small></button>`};
+  return `<div class="as-search"><input type="text" id="asIcao" placeholder="Search ICAO" maxlength="4" aria-label="Airport ICAO code" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></div>
+    <div class="as-list">${apts.map(a=>row({DEP:"Departure",DEST:"Destination",ALTN:"Alternate"}[a[0]]||a[0],a[1])).join("")}${rec.length?`<div class="as-sub">Recent</div>`+rec.map(i=>row("",i)).join(""):""}</div>`}
+function asUi(){const el=$("#asSheet");if(!el)return;if(!AS.open){if(!el.hidden){el.hidden=true;el.innerHTML="";AS.html=""}const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","false");return}
+  const icao=AS.icao,j=AS.data[icao],a=j&&j.airport,d=CH.data[icao];
+  const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
+    :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" data-as="grow" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
+     <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?a.name:(d&&d.airport&&d.airport.name)||"")}${a?`<small>${esc([a.state,a.country].filter(Boolean).join(", "))}</small>`:""}</p>
+     <div class="as-tabs" role="tablist">${[["info","Info"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
+  const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):asCharts(icao);
+  const html=`<div class="as-head">${head}</div><div class="as-body">${body}</div>`;
+  if(html===AS.html&&!el.hidden&&el.innerHTML)return;
+  const keep=el.querySelector(".as-body"),top=keep&&AS.html&&AS.html.split('<div class="as-body">')[0]===html.split('<div class="as-body">')[0]?keep.scrollTop:0;
+  AS.html=html;el.innerHTML=html;el.hidden=false;el.classList.toggle("full",AS.full);const nb=el.querySelector(".as-body");if(nb&&top)nb.scrollTop=top;
+  const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","true")}
+document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as],[data-astab],[data-ascat],[data-aspdf],[data-asapt],[data-asgo]");if(!t)return;
+  if(t.id==="asBtn"){if(AS.open){AS.open=false;asUi()}else asOpen(AS.icao||(OV.sel&&OV.sel.icao),"charts");return}
+  if(t.dataset.as){const a=t.dataset.as;if(a==="hide")AS.open=false;else if(a==="list")AS.view="list";else if(a==="back")AS.view="apt";else if(a==="grow")AS.full=!AS.full;asUi();return}
+  if(t.dataset.astab){AS.tab=t.dataset.astab;store.set("asTab",AS.tab);asUi();return}
+  if(t.dataset.ascat){AS.cat=t.dataset.ascat;store.set("asCat",AS.cat);asUi();return}
+  if(t.dataset.asapt){const ic=t.dataset.asapt;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));mapGoApt(ic);asOpen(ic,null);return}
+  if(t.dataset.asgo){mapGoApt(t.dataset.asgo);if(window.matchMedia&&!matchMedia("(min-width:700px)").matches){AS.open=false;asUi()}return}
+  if(t.dataset.aspdf){const d=CH.data[AS.icao];if(!d)return;ovOpen({name:t.dataset.asname,pdf:t.dataset.aspdf,group:t.dataset.asgroup},AS.icao,d.cycle);AS.open=false;asUi()}});
+document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
+  const ic=v.length===3?"K"+v:v;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));e.target.blur();mapGoApt(ic);asOpen(ic,null)});
 
 /* ===== shared app building blocks ===== */
 const ICO={
@@ -2418,7 +2539,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const apts=pts.filter(q=>q.apt).concat(altn?[Object.assign({alt:1},altn)]:[]);
   const aptXY=apts.map(q=>{const [X,Y]=P(q.lat,q.lon);boxes.push([X-8,Y-8,X+8,Y+8]);return{q,X,Y}});
   let marks="",labs="";
-  aptXY.forEach(({q,X,Y})=>{const cat=ML.wx?wxm[q.n]:null,cls=q.alt?"alt":"";marks+=`${cat?`<circle class="wxr wx-${cat}" cx="${X}" cy="${Y}" r="10"/>`:""}<circle class="apt ${cls}" cx="${X}" cy="${Y}" r="5.5"/>`;
+  aptXY.forEach(({q,X,Y})=>{const cat=ML.wx?wxm[q.n]:null,cls=q.alt?"alt":"";marks+=`${cat?`<circle class="wxr wx-${cat}" cx="${X}" cy="${Y}" r="10"/>`:""}<circle class="apt ${cls}" cx="${X}" cy="${Y}" r="5.5"/><circle class="apthit" data-apt="${esc(q.n)}" cx="${X}" cy="${Y}" r="18" fill="transparent"/>`;
     const wd=q.n.length*8.4+(cat?6+cat.length*8.4:0)+2,p=place(X,Y,wd,17,13,true);labs+=tx(p,"lbl1 "+(q.alt?"altl":"aptl"),X,Y,wd,17,esc(q.n)+(cat?`<tspan class="wx-${cat}" dx="5">${cat}</tspan>`:""))});
   const showFix=z>=5;
   if(showFix){const shown=aptXY.map(a=>[a.X,a.Y]);
@@ -2456,7 +2577,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
       const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}st=null}else st=snap()};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -2500,9 +2621,9 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
 V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
-   <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="ovBtn" data-ov="open" aria-pressed="false" aria-label="Charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
+   <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
-   <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div>
+   <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
    <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Map layers</span>${L.map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}</span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><div class="mapattr" id="mapAttr"></div></div>`};
 
@@ -2888,7 +3009,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="mapIn"||t.id==="mapOut"){mapZoomAt(t.id==="mapIn"?1:-1);return}
   if(t.id==="mapFit"){MAP.c=null;MAP.follow=false;mapFit();drawMap();const b=$("#mapMe");if(b)b.setAttribute("aria-pressed","false");return}
   if(t.id==="mapMe"){const me=mapMine();if(!me)return;MAP.follow=!MAP.follow;t.setAttribute("aria-pressed",String(MAP.follow));if(MAP.follow){MAP.z=Math.max(MAP.z,me.groundspeed<60?15:9);mapFollow()}drawMap();updMapNote();return}
-  if(t.dataset.goapt){mapGoApt(t.dataset.goapt);return}
+  if(t.dataset.goapt){mapGoApt(t.dataset.goapt);asOpen(t.dataset.goapt,null);return}
   if(t.dataset.ml){const k=t.dataset.ml;ML[k]=!ML[k];store.set("mapL",ML);if(k==="tiles")MAP.tileFail=false;t.setAttribute("aria-pressed",String(ML[k]));if(MAP.sel&&((k==="traffic"&&MAP.sel.t==="ac")||(k==="sig"&&MAP.sel.t==="sig"))){MAP.sel=null;mapInfo()}mapLoadAll();drawMap();updMapNote();return}
   if(t.id==="mapX"){MAP.sel=null;mapInfo();drawMap();return}
   if(t.id==="vamSave"){const u=$("#vamUrl").value.trim(),n=$("#vamUser").value.trim();if(!/^https:\/\//i.test(u)){toast("Enter the server address starting with https://");return}if(!n){toast("Enter your vAMSYS username");return}
@@ -2906,7 +3027,7 @@ document.addEventListener("click",async e=>{
     pendingReset=null;render();return}
 });
 document.addEventListener("submit",e=>{const f=e.target;if(f.id!=="chForm"&&f.id!=="mapForm")return;e.preventDefault();const inp=f.querySelector("input");const v=inp.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
-  const ic=v.length===3?"K"+v:v;if(f.id==="chForm"){CH.icao=ic;CH.sel=null;CH.doc=null;render()}else{inp.value="";inp.blur();mapGoApt(ic)}});
+  const ic=v.length===3?"K"+v:v;if(f.id==="chForm"){CH.icao=ic;CH.sel=null;CH.doc=null;render()}else{inp.value="";inp.blur();mapGoApt(ic);asOpen(ic,null)}});
 document.addEventListener("input",e=>{const t=e.target;
   if(t.id==="chQ"){CH.q=t.value;const q=t.value.trim().toUpperCase();document.querySelectorAll(".chitem").forEach(b=>{b.hidden=!!q&&!b.dataset.chname.toUpperCase().includes(q)});return}
   if(t.dataset.fl!==undefined){const x=O(),key="fuel:"+x.id,l=store.get(key,{});const i=+t.dataset.fl;const val=parseFloat(t.value);if(isFinite(val))l[i]=val;else delete l[i];store.set(key,l);

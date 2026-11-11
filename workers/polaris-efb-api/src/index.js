@@ -9,6 +9,7 @@
  *   GET /api/efb/bookings?username=XXX  -> the pilot's current bookings
  *   GET /api/efb/fleet                  -> fleets with their aircraft registrations
  *   GET /api/efb/live                   -> Polaris flights in the air now (vAMSYS flight map)
+ *   GET /api/efb/airport?icao=KSFO      -> airport info, METAR and TAF (aviationweather.gov)
  *   GET /api/efb/sigmets                -> international SIGMETs and US SIGMET/AIRMETs (aviationweather.gov)
  *   GET /api/efb/charts?icao=KSFO       -> FAA d-TPP chart list for the current AIRAC cycle
  *   GET /api/efb/chart-pdf?cycle=&file= -> one FAA chart PDF (passed through, cached)
@@ -228,6 +229,28 @@ async function sigmetRoute() {
   });
 }
 
+/* ---------- airport info, METAR and TAF (aviationweather.gov) ---------- */
+async function airportRoute(icaoIn) {
+  const icao = String(icaoIn || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{3,4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
+  const opt = { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } };
+  const get = (u) => fetch(u, opt).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const info = await cached('apt:' + icao, 12 * 3600_000, async () => {
+    const j = await get(`https://aviationweather.gov/api/data/airport?ids=${icao}&format=json`);
+    const a = Array.isArray(j) ? j[0] : null;
+    if (!a) return null;
+    const freqs = Array.isArray(a.freqs) ? a.freqs.map((f) => ({ type: f.type || '', freq: String(f.freq || '') })) : typeof a.freqs === 'string' ? a.freqs.split(';').map((p) => { const [type, freq] = p.split(','); return { type: (type || '').trim(), freq: (freq || '').trim() }; }).filter((f) => f.freq) : [];
+    return { icao: a.icaoId || icao, iata: a.iataId || '', faa: a.faaId || '', name: a.name || '', state: a.state || '', country: a.country || '', lat: +a.lat, lon: +a.lon, elevM: a.elev != null ? +a.elev : null, magdec: a.magdec || '', owner: a.owner || '', tower: a.tower || '', freqs,
+      runways: (Array.isArray(a.runways) ? a.runways : []).map((r) => { const [l, w] = String(r.dimension || '').split('x').map(Number); return { id: r.id || '', lengthFt: isFinite(l) ? l : null, widthFt: isFinite(w) ? w : null, surface: r.surface || '', alignment: r.alignment ?? null }; }) };
+  });
+  const wx = await cached('aptwx:' + icao, 5 * 60_000, async () => {
+    const [m, t] = await Promise.all([get(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`), get(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)]);
+    const mm = Array.isArray(m) ? m[0] : null, tt = Array.isArray(t) ? t[0] : null;
+    return { metar: mm ? { raw: mm.rawOb || '', time: mm.reportTime || mm.obsTime || null, cat: mm.fltCat || mm.fltcat || '' } : null, taf: tt ? { raw: tt.rawTAF || '', time: tt.issueTime || null } : null };
+  });
+  return { airport: info, notFound: !info, ...wx };
+}
+
 /* ---------- FAA d-TPP charts ---------- */
 const DAY = 86_400_000;
 /** AIRAC cycle in effect at `t` (cycles start 0901Z every 28 days; 2401 began 25 Jan 2024). */
@@ -427,6 +450,7 @@ export default {
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao')); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2220">
+<meta name="efb-build" content="1112.2223">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2217,9 +2217,9 @@ function wnBarb(X,Y,d,s,t,showT){if(s<3)return `<g class="wb" transform="transla
 function wnDraw(P,z,w,h,V){const fl=wnFl();if(fl==null||z<3||z>=10||!MAP.c)return"";const hp=wnHpa(fl);
   const step=z<5?5:2.5,keys=[];const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10);
   for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<40;lo+=10){const n=((lo+180)%360+360)%360-180,k=step+":"+la+","+n;if(!keys.includes(k))keys.push(k)}
-  keys.forEach(wnLoad);const gap=z<4?70:z<6?60:54,occ=[];let s="";
+  keys.forEach(wnLoad);const gap=z<4?120:z<6?105:95,occ=[];let s="";
   keys.forEach(k=>{const c=WN.cells[k];if(!c)return;c.pts.forEach(q=>{const v=q.lv&&q.lv[hp];if(!v)return;let lo=q.lo;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
-    const [X,Y]=P(q.la,lo);if(X<-20||Y<-20||X>w+20||Y>h+20)return;if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);s+=wnBarb(X,Y,v[0],v[1],v[2],z>=4)})});
+    const [X,Y]=P(q.la,lo);if(X<-20||Y<-20||X>w+20||Y>h+20)return;if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);s+=wnBarb(X,Y,v[0],v[1],v[2],z>=5.5)})});
   return `<g class="wnd">${s}</g>`}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlwind]");if(!t)return;const v=t.dataset.mlwind;ML.wind=v==="off"?null:v;store.set("mapL",ML);
   document.querySelectorAll("[data-mlwind]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlwind===v)));drawMap();updMapNote()});

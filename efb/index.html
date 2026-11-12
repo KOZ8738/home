@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1251">
+<meta name="efb-build" content="1112.1256">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1032,6 +1032,20 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .ml-base button{min-height:34px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font:600 12px var(--f-ui);cursor:pointer}
 .ml-base button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 .ml-base+.ml-h{border-top:1px solid var(--line);padding-top:12px}
+/* compact radar player: play button + frame time; tap the time for the timeline */
+.screen[data-app="map"] .radarbar.rb-c{padding:5px 12px 5px 5px!important;gap:8px}
+.rb-time{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;color:var(--label);font:500 10px var(--f-ui);text-align:left}
+.rb-time b{font:600 12px var(--f-mono);color:var(--ink);letter-spacing:.04em}
+/* map credits: inline on wide screens, behind an (i) button on phones */
+.mapattr-i{display:none}
+@container screen (max-width:640px){
+  .mapattr-i{display:grid;place-items:center;position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:8px;z-index:3;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--label);font:italic 600 13px/1 Georgia,"Times New Roman",serif;box-shadow:0 6px 18px -10px var(--shadow);cursor:pointer}
+  .mapattr-i[aria-expanded="true"]{background:var(--brand);color:#fff;border-color:transparent}
+  .mapattr{display:none}
+  .mapwrap.attr-open .mapattr{display:block;right:max(8px,env(safe-area-inset-right,0px));bottom:40px;max-width:calc(100% - 16px);font-size:11px;line-height:1.45;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);z-index:3}
+  .screen[data-app="map"] .radarbar{bottom:8px!important}
+  .screen[data-app="map"] .radarbar:not([hidden])~.mapnote{bottom:60px!important}
+}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1663,13 +1677,17 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden)clLivePoll
 /* ===== Radar timeline: last ~80 minutes of RainViewer frames, play / step, intensity legend ===== */
 function radarSet(i){if(!RADAR.frames.length)return;RADAR.i=(i+RADAR.frames.length)%RADAR.frames.length;const f=RADAR.frames[RADAR.i];RADAR.path=f.path;RADAR.time=f.time;mapSched();radarBar()}
 function radarPlay(on){RADAR.play=on;clearInterval(RADAR.tm);if(on)RADAR.tm=setInterval(()=>{if(cur!=="map"){radarPlay(false);return}radarSet(RADAR.i+1)},750);radarBar()}
-function radarBar(){const el=$("#radarBar");if(!el)return;if(!ML.radar||!RADAR.frames.length||RADAR.err){el.hidden=true;return}el.hidden=false;
+function radarIdle(ms){clearTimeout(RADAR.ct);RADAR.ct=setTimeout(()=>{if(!RADAR.play&&RADAR.open){RADAR.open=false;radarBar()}},ms||5000)}
+function radarBar(){const el=$("#radarBar");if(!el)return;if(!ML.radar||!RADAR.frames.length||RADAR.err){el.hidden=true;return}el.hidden=false;const rc=!RADAR.open&&!RADAR.play;el.classList.toggle("rb-c",rc);
   const n=RADAR.frames.length,f=RADAR.frames[RADAR.i],d=new Date(f.time*1000),ago=Math.max(0,Math.round((Date.now()/1000-f.time)/60)),live=RADAR.i===n-1;
   el.innerHTML=`<button class="rb-play" data-rad="play" aria-label="${RADAR.play?"Pause":"Play"} radar loop">${RADAR.play?'<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>':'<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>'}</button>
+${rc?`<button class="rb-time" data-rad="open" aria-label="Show radar timeline"><b>${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}Z</b><span class="${live?"rb-live":""}">${live?"Latest":ago+" min"}</span></button>`:`
    <div class="rb-mid"><div class="rb-top"><b>RADAR ${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}Z</b><span class="${live?"rb-live":""}">${live?"Latest":ago+" min ago"}</span></div>
    <div class="rb-dots">${RADAR.frames.map((q,k)=>`<button data-rad="${k}" aria-label="Frame ${k+1}" aria-pressed="${k===RADAR.i}"></button>`).join("")}</div>
-   <div class="rb-leg"><i></i><span>Light</span><span>Heavy</span></div></div>`}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-rad]");if(!t)return;const v=t.dataset.rad;if(v==="play")radarPlay(!RADAR.play);else{radarPlay(false);radarSet(+v)}});
+   <div class="rb-leg"><i></i><span>Light</span><span>Heavy</span></div></div>`}`}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-rad]");if(!t)return;const v=t.dataset.rad;if(v==="open"){RADAR.open=true;radarBar();radarIdle(6000)}else if(v==="play"){RADAR.open=true;radarPlay(!RADAR.play);if(!RADAR.play)radarIdle(4000)}else{RADAR.open=true;radarPlay(false);radarSet(+v);radarIdle(5000)}});
+document.addEventListener("click",e=>{const b=e.target.closest("#mapAttrI");const w=document.querySelector(".mapwrap");if(!w)return;if(b){const o=!w.classList.contains("attr-open");w.classList.toggle("attr-open",o);b.setAttribute("aria-expanded",String(o));return}
+  if(w.classList.contains("attr-open")&&!e.target.closest("#mapAttr")){w.classList.remove("attr-open");const i=$("#mapAttrI");if(i)i.setAttribute("aria-expanded","false")}});
 
 /* ---------- Airport geometry on a canvas ----------
    Pavement, runways with their markings, buildings, holds, stands and names are painted on a canvas that
@@ -2744,7 +2762,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airpo
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
    <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
-   <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><div class="mapattr" id="mapAttr"></div></div>`};
+   <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */
 /* Hosted on koz8738.com for now: use its EFB server unless one is set in Settings */

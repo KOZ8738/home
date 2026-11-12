@@ -274,11 +274,11 @@ async function edgeCache(key, ttlSec, fn, keep) {
   await c.put(req, new Response(JSON.stringify(val), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${ttlSec}` } }));
   return val;
 }
-async function chartsRoute(icaoIn) {
+async function chartsRoute(icaoIn, env, ctx) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{3,4}$/.test(icao)) throw new HttpError(400, 'Enter a 3 or 4 letter airport code');
   const ac = airac();
-  return cached('charts:' + ac.cycle + ':' + icao, 6 * 3600_000, () => edgeCache(`charts/${ac.cycle}/${icao}`, 86400, async () => {
+  return cached('charts:' + ac.cycle + ':' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'charts:' + ac.cycle + ':' + icao, 40 * 86400_000, () => edgeCache(`charts/${ac.cycle}/${icao}`, 86400, async () => {
     const res = await fetch(`https://aeronav.faa.gov/d-tpp/${ac.cycle}/xml_data/d-TPP_Metafile.xml`, { cf: { cacheTtl: 86400, cacheEverything: true } });
     if (!res.ok || !res.body) throw new HttpError(502, `FAA chart index for cycle ${ac.cycle} is not available (HTTP ${res.status})`);
     const keys = [`icao_ident="${icao}"`]; if (icao.length === 3) keys.push(`apt_ident="${icao}"`); else if (icao[0] === 'K') keys.push(`apt_ident="${icao.slice(1)}"`);
@@ -303,7 +303,7 @@ async function chartsRoute(icaoIn) {
       code: xmlField(m[1], 'chart_code'), name: xmlField(m[1], 'chart_name'), pdf: xmlField(m[1], 'pdf_name'), action: xmlField(m[1], 'useraction'),
     })).filter((c) => c.pdf && c.action !== 'D').map((c) => ({ code: c.code, group: CHART_GROUP[c.code] || 'Other', name: c.name, pdf: c.pdf, changed: c.action === 'C', url: `https://aeronav.faa.gov/d-tpp/${ac.cycle}/${c.pdf}` }));
     return { cycle: ac.cycle, from: ac.from, to: ac.to, airport: { icao, name }, charts };
-  }));
+  }), (v) => v && !v.notFound));
 }
 async function chartPdfRoute(url, h) {
   const cycle = url.searchParams.get('cycle') || '', file = url.searchParams.get('file') || '';
@@ -313,6 +313,21 @@ async function chartPdfRoute(url, h) {
   return new Response(res.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
 }
 
+const MAJOR = ['KATL','KDFW','KDEN','KORD','KLAX','KJFK','KLAS','KMCO','KMIA','KCLT','KSEA','KPHX','KEWR','KSFO','KIAH','KBOS','KFLL','KMSP','KLGA','KDTW','KPHL','KSLC','KBWI','KIAD','KDCA','KSAN','KTPA','KBNA','KAUS','PHNL','PANC','KPDX','KMSY','KRDU','KSJC','KOAK','KSAT','KMCI','KSMF','KSTL'];
+/* Permanent store (Workers KV): a value is served from the store, refreshed in the background once it is
+   older than maxAge, and built on the spot only the first time. Without the binding it just builds. */
+async function kvStore(env, ctx, key, maxAge, fn, keep) {
+  const kv = env && env.STORE;
+  if (!kv) return fn();
+  let hit = null;
+  try { hit = await kv.get(key, 'json'); } catch (e) { hit = null; }
+  const build = async () => { const v = await fn(); if (!keep || keep(v)) { try { await kv.put(key, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* store full or offline */ } } return v; };
+  if (hit && hit.v) {
+    if (Date.now() - (hit.t || 0) > maxAge && ctx && ctx.waitUntil) ctx.waitUntil(build().catch(() => {}));
+    return hit.v;
+  }
+  return build();
+}
 /* ---------- airport layout from OpenStreetMap (Overpass) ---------- */
 /* The public Overpass servers are often at capacity, so the query is kept cheap (a small
    bounding box, no area lookup) and is sent to several servers a few seconds apart; the
@@ -379,10 +394,10 @@ function stitchRings(ways) {
 const CARGO = /cargo|freight|warehouse|logistic|fedex|\bups\b|dhl|usps|mail/i;
 const mid = (pts) => { let x = 0, y = 0; pts.forEach((p) => { x += p[0]; y += p[1]; }); return [Math.round(x / pts.length * 1e6) / 1e6, Math.round(y / pts.length * 1e6) / 1e6]; };
 const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_position|parking_position|stopway|gate';
-async function layoutRoute(icaoIn) {
+async function layoutRoute(icaoIn, env, ctx) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout9:' + icao, 6 * 3600_000, () => edgeCache(`layout/v9/${icao}`, 7 * 86400, async () => {
+  return cached('layout9:' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'layout:v9:' + icao, 30 * 86400_000, () => edgeCache(`layout/v9/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
@@ -435,7 +450,7 @@ async function layoutRoute(icaoIn) {
     if (out.airport.lat == null && out.runways.length) { const p = out.runways[0].pts[0]; out.airport.lon = p[0]; out.airport.lat = p[1]; }
     if (!out.runways.length && !out.taxiways.length) out.notFound = true;
     return out;
-  }, (v) => !v.notFound));
+  }, (v) => !v.notFound), (v) => v && !v.notFound));
 }
 
 function cors(req, env) {
@@ -446,7 +461,28 @@ function cors(req, env) {
 }
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
+/* what is stored for the major airports (for the app list and for checking) */
+async function majorRoute(env) {
+  const kv = env && env.STORE, cyc = airac().cycle;
+  const rows = await Promise.all(MAJOR.map(async (icao) => {
+    if (!kv) return { icao };
+    const [l, c] = await Promise.all([kv.get('layout:v9:' + icao, 'json').catch(() => null), kv.get('charts:' + cyc + ':' + icao, 'json').catch(() => null)]);
+    const v = l && l.v, cv = c && c.v;
+    return { icao, name: (v && v.airport && v.airport.name) || (cv && cv.airport && cv.airport.name) || '', layoutAt: l ? l.t : null, runways: v ? v.runways.length : 0, taxiways: v ? v.taxiways.length : 0, stands: v ? v.stands.length : 0, buildings: v ? v.buildings.length : 0, chartsAt: c ? c.t : null, charts: cv ? cv.charts.length : 0 };
+  }));
+  return { cycle: cyc, airports: rows };
+}
+/* daily: keep the major airports stored. A few layouts per run (oldest first) to go easy on Overpass,
+   and every chart list of the current AIRAC cycle. */
+async function refreshMajor(env, ctx) {
+  const kv = env && env.STORE; if (!kv) return;
+  const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v9:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
+  const due = ages.filter((a) => Date.now() - a.t > 25 * 86400_000).sort((a, b) => a.t - b.t).slice(0, 6);
+  for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v9:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
+  for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
+}
 export default {
+  async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
@@ -458,10 +494,11 @@ export default {
         case '/api/efb/health': return json({ ok: true, configured, updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/pilot': if (!configured) break; return json({ ...(await pilotRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/bookings': if (!configured) break; return json({ ...(await bookingsRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
-        case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
-        case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao')); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

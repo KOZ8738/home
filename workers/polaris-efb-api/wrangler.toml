@@ -12,6 +12,15 @@ routes = [
 # 關掉預設的 polaris-efb-api.<帳號名稱>.workers.dev 網址（那個網址裡有你的 Cloudflare 帳號名稱）
 workers_dev = false
 
+# 永久存放機場滑行圖和航圖清單（Workers KV）
+[[kv_namespaces]]
+binding = "STORE"
+id = "f07c7d20558c4ecf84df98ddb5ea235a"
+
+# 每天更新一次美國大型機場的資料（UTC 時間）
+[triggers]
+crons = ["23 9 * * *"]
+
 [vars]
 # EFB 只需要唯讀權限
 VAMSYS_SCOPE = "ops:read"

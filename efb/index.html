@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2328">
+<meta name="efb-build" content="1112.2342">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3398,6 +3398,19 @@ function ldRefresh(){const L=ldCalc();$("#ldEnv").innerHTML=envSvg(L);$("#ldCell
   $("#ldPax").innerHTML=ldPaxTxt(L);document.querySelectorAll(".hold").forEach((h,i)=>{const k=["fwd","aft","bulk"][i],v=toKg(L.s[k]||0),c=L.ac.holds[i][2];const b=h.querySelector("i");b.style.width=Math.min(100,v/c*100).toFixed(1)+"%";b.className=v>c?"over":""})}
 
 /* ---------- Performance ---------- */
+/* A321 in-flight landing distance (no failure): a compact model fitted to Airbus in-flight landing data for
+   the A321 (CONF FULL/3, max manual / autobrake MED / LOW, runway condition codes 6..1). Per code:
+   ref = distance (m) at 78 t, sea level, ISA, no wind, no slope, no reverser, VAPP = VLS, for [MAX, MED, LOW];
+   c3 = CONF 3 factor; wgt = fraction per t above 78 t; wb = m per t below [FULL, 3]; spd per 5 kt above VLS;
+   alt per 1000 ft; tw per 5 kt tailwind; tmp per 10 °C above ISA; slp per 1 % downslope;
+   rev per reverser [MAX FULL, MAX 3, MED FULL, MED 3, LOW FULL, LOW 3]; al = autoland (m).
+   The result gets +3 % so the fit stays on the safe side. */
+const LD321={"6":{"ref":[1210,1480,2090],"c3":1.065,"wgt":0.0325,"spd":0.0645,"alt":0.039,"tw":0.103,"tmp":0.0358,"slp":0.017,"rev":[-0.0165,-0.0155,0.0,0.0,0.0,0.0],"al":220,"wb":[10,10]},"5":{"ref":[1520,1560,2090],"c3":1.081,"wgt":0.0277,"spd":0.0711,"alt":0.0476,"tw":0.1227,"tmp":0.0406,"slp":0.0285,"rev":[-0.0329,-0.0364,-0.0064,-0.0176,0.0,0.0],"al":250,"wb":[10,20]},"4":{"ref":[1730,1780,2090],"c3":1.073,"wgt":0.0206,"spd":0.0555,"alt":0.0388,"tw":0.1046,"tmp":0.0345,"slp":0.0353,"rev":[-0.052,-0.0591,-0.0618,-0.0628,-0.0048,-0.0045],"al":250,"wb":[10,10]},"3":{"ref":[1930,1980,2170],"c3":1.071,"wgt":0.0199,"spd":0.0546,"alt":0.0406,"tw":0.1106,"tmp":0.035,"slp":0.0496,"rev":[-0.0674,-0.0725,-0.0758,-0.0755,-0.023,-0.0216],"al":250,"wb":[10,20]},"2":{"ref":[2220,2240,2260],"c3":1.095,"wgt":0.0299,"spd":0.0689,"alt":0.0596,"tw":0.1621,"tmp":0.0497,"slp":0.0766,"rev":[-0.0721,-0.0782,-0.0759,-0.0816,-0.0265,-0.0323],"al":300,"wb":[20,30]},"1":{"ref":[3430,3460,3490],"c3":1.078,"wgt":0.0195,"spd":0.0431,"alt":0.0524,"tw":0.1615,"tmp":0.0408,"slp":0.228,"rev":[-0.1283,-0.1324,-0.1358,-0.1421,-0.1375,-0.141],"al":290,"wb":[30,30]}}
+;
+const RCC_XW={6:38,5:38,4:29,3:25,2:20,1:15};
+function ld321(c,brake,conf,wT,spd5,altK,tw5,tmp10,slope,nRev,auto){const f=LD321[c];if(!f)return null;const bi={MAX:0,MED:1,LOW:2}[brake]??1,ci=conf==="3"?1:0;
+  const ref=f.ref[bi]*(ci?f.c3:1);let d=ref+(wT>78?f.wgt*ref*(wT-78):-f.wb[ci]*(78-wT));
+  d+=ref*(f.spd*Math.max(0,spd5)+f.alt*Math.max(0,altK)+f.tw*Math.max(0,tw5)+f.tmp*Math.max(0,tmp10)+f.slp*Math.max(0,slope)+f.rev[bi*2+ci]*nRev);if(auto)d+=f.al;return d*1.03}
 const RCC=[[6,"DRY"],[5,"GOOD"],[4,"GOOD/MED"],[3,"MED"],[2,"MED/POOR"],[1,"POOR"]];
 function metarCC(m){if(!m)return 6;const w=m.wx.join(" ");if(/FZ/.test(w))return 2;if(/SN|PL|GS|GR/.test(w))return 3;if(/RA|DZ|TS|SH/.test(w))return 5;return 6}
 function pfApt(k){const x=O();return k==="DEP"?x.o:k==="ALTN"?x.a:x.d}
@@ -3414,7 +3427,15 @@ function pfCalc(){const s=pfState(),m=s.mode,st=s[m],ac=AC(),apt=pfApt(st.apt),i
   const c=components(st.wd||0,st.ws||0,hdg);const hw=c.hw,xw=c.xw;
   const L=ldCalc();const wKg=m==="to"?L.tow:L.lw;
   const res={m,st,ac,icao,rws,len,hdg,elev,pa,isa,hw,xw,w:wKg,src:r.src||(st.len?"manual":null)};
-  if(m==="ld"){const ccF={6:1,5:1.18,4:1.36,3:1.6,2:1.95,1:2.4}[st.cc];const ab=ac.ld[st.abk];const brakeLim=ac.ld.MAX*ccF*(st.rev==="ON"||st.cc===6?1:st.cc>=5?1.06:1.14);
+  if(m==="ld"&&ac===ACDB.A21N){const vls=Math.round(ac.vref*Math.sqrt(wKg/ac.ldRef)*(st.flaps==="3"?1.04:1));
+    /* APPR COR (FCTM/QRH method): highest of 5 kt with A/THR, 5 kt with ice accretion, 1/3 of the headwind; max 15 kt; at least 5 kt in crosswind above 20 kt */
+    const third=Math.max(0,hw)/3;let cor=Math.min(15,Math.max(5,st.ai==="ON"?5:0,Math.round(third)));if(Math.abs(xw)>20)cor=Math.max(cor,5);
+    const spd5=Math.max(0,cor-third)/5;const oat=st.oat==null?15:st.oat;
+    const dm=ld321(st.cc,st.abk,st.flaps,wKg/1000,spd5,pa/1000,hw<0?-hw/5:0,(oat-isa)/10,st.slope||0,st.rev==="ON"?2:0,st.al==="ON");
+    res.ldr=ft(dm);res.f115=res.ldr*1.15;res.vls=vls;res.vapp=vls+cor;res.cor=cor;res.air=ft(360);res.model="A321 in-flight landing data";
+    res.xwMax=RCC_XW[st.cc];res.xwOver=Math.abs(xw)>res.xwMax;
+    res.ok=len==null?null:res.f115<=len?"ok":res.ldr<=len?"marg":"no";res.over=res.w>ac.mlw}
+  else if(m==="ld"){const ccF={6:1,5:1.18,4:1.36,3:1.6,2:1.95,1:2.4}[st.cc];const ab=ac.ld[st.abk];const brakeLim=ac.ld.MAX*ccF*(st.rev==="ON"||st.cc===6?1:st.cc>=5?1.06:1.14);
     let d=Math.max(ab*(st.cc<6?1.05:1),brakeLim);d*=Math.pow(wKg/ac.ldRef,0.9)*(1+0.035*pa/1000)*(1+0.0025*((st.oat||15)-isa));
     d*=hw>=0?(1-0.0045*hw):(1+0.032*(-hw));if(st.flaps==="3")d*=1.09;if(st.al==="ON")d*=1.06;if(st.ai==="ON")d*=1.05;
     const vls=Math.round(ac.vref*Math.sqrt(wKg/ac.ldRef)*(st.flaps==="3"?1.04:1));const inc=Math.max(5,Math.min(15,Math.round(Math.max(0,hw)/3+(st.gust?Math.max(0,st.gust-st.ws):0))));
@@ -3454,8 +3475,8 @@ function rwySvg(R){const H=580,top=78,bot=500,x0=72,x1=148,len=R.len||Math.max(R
   return `<svg class="rwy" viewBox="0 0 230 ${H-50}" role="img" aria-label="Runway distance diagram">${s}</svg>`}
 function pfOut(R){const u=v=>v==null||!isFinite(v)?"—":fmt(v);const cls=R.ok==="no"?"c-red":R.ok==="marg"?"c-amber":R.ok==="ok"?"c-green":"";
   const msg=R.ok==null?"Enter the runway length to check the distances.":R.m==="ld"?(R.ok==="ok"?"Factored distance fits the runway.":R.ok==="marg"?"Fits unfactored only. Check conditions and consider another runway.":"Landing distance exceeds the runway."):(R.ok==="ok"?(R.flex!=null?"FLEX takeoff available.":"TOGA required."):R.ok==="marg"?"TOGA required — little margin.":R.st.cc===1?"No takeoff on POOR runway.":"Runway too short at this weight.");
-  const warn=R.over?`<div class="pb c-red" style="font-weight:700">Weight above ${R.m==="ld"?"MLW":"MTOW"}</div>`:"";
-  const dist=R.m==="ld"?`<div class="cells dist">${cell("LDA FT",u(R.len))}${cell("LDR FT",u(R.ldr),cls)}${cell("1.15 LDR FT",u(R.f115),cls)}</div><div class="cells">${cell("VLS",R.vls)}${cell("VAPP",R.vapp,"c-cyan")}${cell("Margin FT",R.len?u(R.len-R.f115):"—",cls)}</div>`
+  const warn=(R.over?`<div class="pb c-red" style="font-weight:700">Weight above ${R.m==="ld"?"MLW":"MTOW"}</div>`:"")+(R.xwOver?`<div class="pb c-red" style="font-weight:700">Crosswind ${Math.abs(R.xw)} kt above the ${R.xwMax} kt limit for runway code ${R.st.cc}</div>`:"");
+  const dist=R.m==="ld"?`<div class="cells dist">${cell("LDA FT",u(R.len))}${cell("LDR FT",u(R.ldr),cls)}${cell("1.15 LDR FT",u(R.f115),cls)}</div><div class="cells">${cell("VLS",R.vls)}${cell("VAPP",R.vapp+(R.cor!=null?` <small>+${R.cor}</small>`:""),"c-cyan")}${cell("Margin FT",R.len?u(R.len-R.f115):"—",cls)}</div>`
    :`<div class="cells dist">${cell("TORA FT",u(R.len))}${cell("TODR FT",u(R.todr),cls)}${cell("ASDR FT",u(R.asdr),cls)}</div><div class="cells spd">${cell("FLEX",R.flex!=null?R.flex+"°":"TOGA","c-cyan")}${cell("V1",R.v1,"c-cyan")}${cell("VR",R.vr,"c-cyan")}${cell("V2",R.v2,"c-cyan")}${cell("THS",R.ths)}${cell("CONF",esc(R.st.flaps))}</div>`;
   return `${rwySvg(R)}${dist}${warn}<div class="pb note ${cls}">${msg}</div>`}
 const tog=(k,opts,v)=>`<div class="seg tg">${opts.map(o=>`<button data-pfset="${k}:${o}" aria-pressed="${String(v)===String(o)}">${o}</button>`).join("")}</div>`;
@@ -3470,7 +3491,7 @@ V.perf=()=>{if(pfDs)return V.descent();const s=pfState(),m=s.mode,st=s[m],R=pfCa
     <div class="rcc">${RCC.map(([n,l])=>`<button class="cc${n}" data-pfset="cc:${n}" aria-pressed="${st.cc===n}"><b>${n}</b>${l}</button>`).join("")}</div></section>
    <section class="panel"><div class="ph"><span>Weather</span>${metar&&S(metar[3])?`<button class="btn sm" data-pfact="metar">Apply METAR</button>`:""}</div>
     ${metar&&S(metar[3])?`<div class="raw">${esc(metar[3])}</div>`:""}
-    <div class="pb fields"><label class="f">Wind °<input type="number" data-pf="wd" value="${st.wd}"></label><label class="f">Wind KT<input type="number" data-pf="ws" value="${st.ws}"></label>${m==="ld"?`<label class="f">Gust KT<input type="number" data-pf="gust" value="${st.gust||""}"></label>`:""}<label class="f">OAT °C<input type="number" data-pf="oat" value="${st.oat}"></label><label class="f">QNH hPa<input type="number" data-pf="qnh" value="${st.qnh}"></label></div></section>
+    <div class="pb fields"><label class="f">Wind °<input type="number" data-pf="wd" value="${st.wd}"></label><label class="f">Wind KT<input type="number" data-pf="ws" value="${st.ws}"></label>${m==="ld"?`<label class="f">Gust KT<input type="number" data-pf="gust" value="${st.gust||""}"></label>`:""}<label class="f">OAT °C<input type="number" data-pf="oat" value="${st.oat}"></label><label class="f">QNH hPa<input type="number" data-pf="qnh" value="${st.qnh}"></label>${m==="ld"?`<label class="f">Slope % down<input type="number" step="0.1" data-pf="slope" value="${st.slope||""}" placeholder="0"></label>`:""}</div></section>
    <section class="panel"><div class="ph"><span>Aircraft config</span><span>${esc(ac.name)}</span></div>
     <div class="cfg">
      <div class="cf"><span>${m==="to"?"TOW":"LDW"} ${u}</span><b class="${R.over?"c-red":""}">${fmt(fromKg(R.w))}</b><a href="#load" class="sm">Loadsheet ▶</a></div>
@@ -3478,7 +3499,7 @@ V.perf=()=>{if(pfDs)return V.descent();const s=pfState(),m=s.mode,st=s[m],R=pfCa
      ${m==="ld"?`<div class="cf"><span>Autobrake</span>${tog("abk",["LOW","MED","MAX"],st.abk)}</div><div class="cf"><span>Reversers</span>${tog("rev",["ON","IDLE"],st.rev)}</div><div class="cf"><span>Autoland</span>${tog("al",["OFF","ON"],st.al)}</div>`
       :`<div class="cf"><span>Packs</span>${tog("packs",["ON","OFF"],st.packs)}</div>`}
      <div class="cf"><span>Anti-ice</span>${tog("ai",["OFF","ON"],st.ai)}</div></div></section>
-   <p class="note">Simplified ${esc(ac.name)} model for simulator use. It is not certified data and does not model obstacles or climb limits.</p>
+   <p class="note">${m==="ld"&&ac===ACDB.A21N?"In-flight landing distance from a model fitted to Airbus A321 data (A321ceo for now), without margins; the factored value adds 15 %. VAPP = VLS + APPR COR. Runway code from the RCAM, with its crosswind limit.":`Simplified ${esc(ac.name)} model for simulator use. It is not certified data and does not model obstacles or climb limits.`} For simulator use only.</p>
   </div>
   <div class="pf-r"><section class="panel rwyp"><div class="ph"><span>${m==="to"?"Takeoff":"Landing"} distance</span><b>${esc(R.icao)} ${esc(st.rwy||"")}</b></div><div id="pfOut">${pfOut(R)}</div></section></div></div>`};
 function pfRefresh(){const o=$("#pfOut");if(o)o.innerHTML=pfOut(pfCalc())}

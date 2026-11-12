@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1023">
+<meta name="efb-build" content="1112.1245">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1985,10 +1985,11 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
       VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
+      VEC.map.on("styledata",()=>{if(VEC.ready&&!VEC.map.getLayer("fir-lbl")&&ML.fir&&FIR.data){VEC.firOk=false;setTimeout(()=>{vecFirSync();if(cur==="map")drawMap()},0)}});
       setTimeout(()=>{if(!VEC.ready&&!VEC.err){VEC.err="The detail map is taking long to load; showing the simple map.";if(cur==="map"){drawMap();updMapNote()}}},20000);
       vecSync()}).catch(()=>{if(cur==="map"){drawMap();updMapNote()}});return}
-  if(VEC.key!==key){VEC.key=key;try{VEC.map.setStyle(vecStyle(key[0]==="d"))}catch(e){}}
-  vecSync()}
+  if(VEC.key!==key){VEC.key=key;VEC.firOk=false;try{VEC.map.setStyle(vecStyle(key[0]==="d"))}catch(e){}}
+  vecFirSync();vecSync()}
 
 /* layers popover */
 document.addEventListener("click",e=>{const b=e.target.closest("#mlBtn");if(!b)return;const p=$("#mlPanel");if(!p)return;p.hidden=!p.hidden;b.setAttribute("aria-expanded",String(!p.hidden));if(!p.hidden){const o=$("#ovPanel");if(o&&!o.hidden&&typeof OV!=="undefined"){OV.open=false;ovUi()}}});
@@ -2010,6 +2011,23 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
 /* base map preset buttons in the layers popover */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlbase]");if(!t)return;ML.base=t.dataset.mlbase;ML.vec=true;store.set("mapL",ML);
   document.querySelectorAll("[data-mlbase]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlbase===ML.base)));const r=document.querySelector('[data-ml="vec"]');if(r)r.setAttribute("aria-pressed","true");drawMap();updMapNote()});
+
+/* FIR identifiers as a vector-map symbol layer: placed on top, so where one collides with a country or city name the base-map name gives way */
+const vecFirOn=()=>vecReady()&&ML.fir&&!!FIR.data&&VEC.firOk===true;
+function vecFirSync(){const m=VEC.map;if(!m||!VEC.ready)return;let ok=false;
+  try{if(!m.isStyleLoaded()){VEC.firOk=!!m.getLayer("fir-lbl");return}
+    const want=vecOn()&&ML.fir&&FIR.data;
+    if(want){const cs=getComputedStyle(document.documentElement),cv=(k,d)=>(cs.getPropertyValue(k)||"").trim()||d;
+      const col=cv("--map-firl","#2f9e6e"),land=cv("--map-land","#f2f2f2"),sea=cv("--map-sea","#cfe3ea"),ck=col+land+sea;
+      if(!m.getSource("firlbl")||VEC.firSrc!==FIR.data){const seen=new Set(),fs=[];FIR.data.forEach(f=>{if(f.id.includes("-")||seen.has(f.id)||!isFinite(f.lx)||!isFinite(f.ly))return;seen.add(f.id);fs.push({type:"Feature",geometry:{type:"Point",coordinates:[f.lx,f.ly]},properties:{id:f.id,oc:f.oc?1:0}})});
+        const fc={type:"FeatureCollection",features:fs};if(m.getSource("firlbl"))m.getSource("firlbl").setData(fc);else m.addSource("firlbl",{type:"geojson",data:fc});VEC.firSrc=FIR.data}
+      if(m.getLayer("fir-lbl")&&VEC.firCk!==ck){m.removeLayer("fir-lbl")}
+      if(!m.getLayer("fir-lbl")){m.addLayer({id:"fir-lbl",type:"symbol",source:"firlbl",minzoom:1.2,maxzoom:8.5,
+        layout:{"text-field":["get","id"],"text-font":["Noto Sans Bold"],"text-size":["interpolate",["linear"],["zoom"],1.2,11,4,12.5,6,13.5],"text-letter-spacing":.04,"text-padding":3,"symbol-sort-key":["get","oc"]},
+        paint:{"text-color":col,"text-halo-color":["case",["==",["get","oc"],1],sea,land],"text-halo-width":1.8}});VEC.firCk=ck}
+      ok=true}
+    else if(m.getLayer("fir-lbl"))m.removeLayer("fir-lbl")}catch(e){ok=false}
+  VEC.firOk=ok}
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
@@ -2596,7 +2614,8 @@ function tileLayer(urlFn,cls,z,ox,oy,w,h,zmax){const zt=Math.max(1,Math.min(zmax
   const x0=Math.floor(ox/ts),x1=Math.floor((ox+w)/ts),y0=Math.max(0,Math.floor(oy/ts)),y1=Math.min(n-1,Math.floor((oy+h)/ts));
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){const wx=((tx%n)+n)%n;s+=`<image class="${cls}" href="${urlFn(zt,wx,ty)}" x="${(tx*ts-ox).toFixed(1)}" y="${(ty*ts-oy).toFixed(1)}" width="${(ts+.6).toFixed(1)}" height="${(ts+.6).toFixed(1)}" preserveAspectRatio="none"/>`}return s}
 const HZ=h=>{h=String(h||"").toUpperCase();return /TS|CONVECTIVE|TC/.test(h)?"ts":/TURB/.test(h)?"tb":/ICE|IC/.test(h)?"ic":/VA|ASH/.test(h)?"va":/MTN|IFR|OBSC/.test(h)?"ifr":"ot"};
-function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(!w||!h)return;if(!MAP.c)mapFit();
+function mapClampC(h){if(!MAP.c||!h)return;const W=TS*Math.pow(2,MAP.z),y=mpx(MAP.c.lat,0,MAP.z)[1];const y2=W<=h?W/2:Math.max(h/2,Math.min(W-h/2,y));if(Math.abs(y2-y)<.5)return;const n=Math.PI-2*Math.PI*y2/W;MAP.c={lat:180/Math.PI*Math.atan(Math.sinh(n)),lon:MAP.c.lon}}
+function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(!w||!h)return;if(!MAP.c)mapFit();mapClampC(h);
   const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2;const P=(la,lo)=>{const q=mpx(la,lo,z);return[+(q[0]-ox).toFixed(1),+(q[1]-oy).toFixed(1)]};
   const tl=munpx(ox,oy,z),br=munpx(ox+w,oy+h,z),V={lo1:tl[1],lo2:br[1],la1:br[0],la2:tl[0]};const K=[-360,0,360];let s="";
   const geo=z<4.5?(GEO.lo||GEO.hi):(GEO.hi||GEO.lo);
@@ -2608,14 +2627,14 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   if(ML.fir&&FIR.data){let a="",o="",lb="";const seen=new Set(),occ=[];const fs=z<3?11:z<5?12.5:13.5;
     {const rp=routePts();rp.pts.filter(q=>q.apt).concat(rp.altn?[rp.altn]:[]).forEach(q=>{const [X,Y]=P(q.lat,q.lon);occ.push([X-14,Y-14,X+100,Y+14])})}
     FIR.data.forEach(f=>{const d=geoLine(f.rings,P,V,K,w,h,true);if(!d)return;if(f.oc)o+=d;else a+=d;
-      if(z>=2.2&&z<=9.5&&!f.id.includes("-")&&!seen.has(f.id)&&isFinite(f.lx)&&isFinite(f.ly)){for(const k of K){if(f.lx+k<V.lo1||f.lx+k>V.lo2||f.ly<V.la1||f.ly>V.la2)continue;const q=P(f.ly,f.lx+k);
+      if(!vecFirOn()&&z>=2.2&&z<=9.5&&!f.id.includes("-")&&!seen.has(f.id)&&isFinite(f.lx)&&isFinite(f.ly)){for(const k of K){if(f.lx+k<V.lo1||f.lx+k>V.lo2||f.ly<V.la1||f.ly>V.la2)continue;const q=P(f.ly,f.lx+k);
         const wd=f.id.length*fs*.62+6,r=[q[0]-wd/2,q[1]-fs,q[0]+wd/2,q[1]+4];if(occ.some(o=>r[0]<o[2]&&r[2]>o[0]&&r[1]<o[3]&&r[3]>o[1]))continue;occ.push(r);seen.add(f.id);
         lb+=`<text class="firl${f.oc?" oc":""}" x="${q[0]}" y="${q[1]}" text-anchor="middle" style="font-size:${fs}px">${esc(f.id)}</text>`}}});
-    s+=`<path class="fir" d="${a}"/><path class="fir oc" d="${o}"/>${lb}`}
+    const fst=z<3?"stroke-opacity:.4;stroke-width:.7":z<4.5?"stroke-opacity:.65;stroke-width:.9":"";s+=`<path class="fir" style="${fst}" d="${a}"/><path class="fir oc" style="${fst}" d="${o}"/>${lb}`}
   if(ML.sig&&SIG.list)SIG.list.forEach((g,i)=>{let pl=null;const uw=g.coords.map(q=>{let lo=+q[1];if(pl!=null){while(lo-pl>180)lo-=360;while(lo-pl<-180)lo+=360}pl=lo;return[+q[0],lo]});const mlo=uw.reduce((a,q)=>a+q[1],0)/(uw.length||1);let sh=0;while(mlo+sh-MAP.c.lon>180)sh-=360;while(mlo+sh-MAP.c.lon<-180)sh+=360;const pts=uw.map(q=>P(q[0],q[1]+sh));
     const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]);if(Math.max(...xs)<0||Math.min(...xs)>w||Math.max(...ys)<0||Math.min(...ys)>h)return;
     const cx=xs.reduce((a,b)=>a+b,0)/xs.length,cy=ys.reduce((a,b)=>a+b,0)/ys.length;const sel=MAP.sel&&MAP.sel.t==="sig"&&MAP.sel.i===i;
-    s+=`<polygon class="sig h-${HZ(g.hazard)}${sel?" sel":""}" data-sig="${i}" points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});
+    s+=`<polygon class="sig h-${HZ(g.hazard)}${sel?" sel":""}" data-sig="${i}"${!sel&&z<3.5?' style="stroke-width:1;fill-opacity:.06"':""} points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});
   let aptLabels="";
   if(ML.apt&&z>=11){const occ=new Set(),fits=(x,y,wd)=>{const cells=[];for(let gx=Math.floor((x-wd/2)/24);gx<=Math.floor((x+wd/2)/24);gx++)for(let gy=Math.floor((y-9)/18);gy<=Math.floor((y+9)/18);gy++)cells.push(gx+":"+gy);if(cells.some(q=>occ.has(q)))return false;cells.forEach(q=>occ.add(q));return true};
     const k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180));
@@ -2655,7 +2674,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const r1=(bs||el).querySelector("image.radar");if(r1)r1.addEventListener("error",()=>{if(!RADAR.err){RADAR.err=true;RADAR.at=Date.now();mapSched();updMapNote()}},{once:true});
 }
 let mapRaf=0,mapIdle=0,mapDrawn=null;function mapSched(){if(!mapRaf)mapRaf=requestAnimationFrame(()=>{mapRaf=0;mapFast()})}
-function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();
+function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();mapClampC(h);
   if(!el||!d||!MAP.c||d.w!==w||d.h!==h||(d.z===MAP.z&&d.lat===MAP.c.lat&&d.lon===MAP.c.lon)){drawMap();return}
   const k=Math.pow(2,MAP.z-d.z),c1=mpx(MAP.c.lat,MAP.c.lon,d.z),world=TS*Math.pow(2,d.z);let dx=c1[0]-d.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-d.cy;
   if((k>2.6||k<.45||Math.abs(dx)>w*.55||Math.abs(dy)>h*.55)&&performance.now()-d.at>260){drawMap();return}

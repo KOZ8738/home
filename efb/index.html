@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2237">
+<meta name="efb-build" content="1112.2240">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2205,12 +2205,14 @@ const WN={cells:{},loading:{},q:0,LV:[[100,700],[180,500],[240,400],[300,300],[3
 function wnFl(){if(ML.wind==null||ML.wind===false)return null;if(ML.wind!=="auto")return +ML.wind;let fl=0;try{fl=Math.round(N(O().g.initial_altitude)/100)}catch(e){}if(!fl)return 340;
   return WN.LV.reduce((b,l)=>Math.abs(l[0]-fl)<Math.abs(b[0]-fl)?l:b)[0]}
 const wnHpa=fl=>(WN.LV.find(l=>l[0]===fl)||[0,250])[1];
-function wnLoad(key){if(!vam.url||WN.loading[key]||WN.q>=3)return;const c=WN.cells[key];if(c&&Date.now()-c.at<30*60000)return;WN.loading[key]=true;WN.q++;const [st,cl]=key.split(":");
-  vamGet("/api/efb/winds?step="+st+"&cell="+cl,30000).then(j=>{WN.cells[key]={at:Date.now(),pts:(j&&j.pts)||[],hour:j&&j.hour};WN.err=null;WN.fails=0;WN.hour=j&&j.hour})
-    .catch(e=>{/* a slow or interrupted request (the app was in the background, weak signal) just retries in ~20 s;
-       the error only shows once several tries in a row failed and nothing is on screen */
-      WN.fails=(WN.fails||0)+1;WN.cells[key]={at:Date.now()-(30*60000-20000),pts:c?c.pts:[]};
-      const any=Object.values(WN.cells).some(x=>x.pts&&x.pts.length);if(WN.fails>=4&&!any)WN.err=e.message}).finally(()=>{WN.loading[key]=false;WN.q--;if(cur==="map")mapSched()})}
+/* one request per view: every cell in view that is missing or older than 30 min, for the chosen level */
+function wnLoad(hp,keys){if(!vam.url||WN.busy)return;const now=Date.now();const need=keys.filter(k=>{const c=WN.cells[hp+":"+k];return !c||now-c.at>30*60000});if(!need.length)return;
+  if(WN.retryAt&&now<WN.retryAt)return;WN.busy=true;
+  vamGet("/api/efb/winds?lv="+hp+"&cells="+need.join(";"),30000).then(j=>{const got=(j&&j.cells)||{};Object.keys(got).forEach(k=>{WN.cells[hp+":"+k]={at:Date.now(),pts:got[k]}});WN.hour=j&&j.hour;
+      if(j&&j.error){WN.fails=(WN.fails||0)+1;WN.retryAt=Date.now()+Math.min(60000,10000*WN.fails)}else{WN.fails=0;WN.retryAt=0}
+      const any=Object.keys(WN.cells).some(k=>k.startsWith(hp+":")&&WN.cells[k].pts.length);WN.err=j&&j.error&&!any&&WN.fails>=3?j.error:null})
+    .catch(e=>{WN.fails=(WN.fails||0)+1;WN.retryAt=Date.now()+Math.min(60000,10000*WN.fails);const any=Object.keys(WN.cells).some(k=>k.startsWith(hp+":"));if(WN.fails>=3&&!any)WN.err=e.message})
+    .finally(()=>{WN.busy=false;if(cur==="map")mapSched()})}
 function wnBarb(X,Y,d,s,t,showT){if(s<3)return `<g class="wb" transform="translate(${X} ${Y})"><circle r="4"/><circle r="1.5" class="wbc"/></g>`;
   const L=26;let v=Math.round(s/5)*5,y=-L,p="";const sp=4.5;
   while(v>=50){p+=`M0 ${y}L9 ${y+3}L0 ${y+6}Z`;y+=7.5;v-=50}
@@ -2218,11 +2220,11 @@ function wnBarb(X,Y,d,s,t,showT){if(s<3)return `<g class="wb" transform="transla
   if(v>=5){if(y===-L)y+=sp;p+=`M0 ${y}L5 ${y-2.5}`}
   return `<g class="wb" transform="translate(${X} ${Y}) rotate(${d})"><path class="wbs" d="M0 0V${-L}"/><path class="wbf" d="${p}"/></g>${showT&&t!=null?`<text class="wbt" x="${X+7}" y="${Y+13}">${t>0?"+":""}${t}</text>`:""}`}
 function wnDraw(P,z,w,h,V){const fl=wnFl();if(fl==null||z<3||z>=10||!MAP.c)return"";const hp=wnHpa(fl);
-  const step=z<5?5:2.5,keys=[];const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10);
-  for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<40;lo+=10){const n=((lo+180)%360+360)%360-180,k=step+":"+la+","+n;if(!keys.includes(k))keys.push(k)}
-  keys.forEach(wnLoad);const gap=z<4?150:z<6?150:140,occ=[];let s="";
-  keys.forEach(k=>{const c=WN.cells[k];if(!c)return;c.pts.forEach(q=>{const v=q.lv&&q.lv[hp];if(!v)return;let lo=q.lo;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
-    const [X,Y]=P(q.la,lo);if(X<-20||Y<-20||X>w+20||Y>h+20)return;if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);s+=wnBarb(X,Y,v[0],v[1],v[2],z>=7)})});
+  const keys=[];const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10);
+  for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<60;lo+=10){const n=((lo+180)%360+360)%360-180,k=la+","+n;if(!keys.includes(k))keys.push(k)}
+  wnLoad(hp,keys);const gap=z<4?150:z<6?150:140,occ=[];let s="";
+  keys.forEach(k=>{const c=WN.cells[hp+":"+k];if(!c)return;c.pts.forEach(q=>{if(q.s==null||q.d==null)return;let lo=q.lo;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
+    const [X,Y]=P(q.la,lo);if(X<-20||Y<-20||X>w+20||Y>h+20)return;if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);s+=wnBarb(X,Y,q.d,q.s,q.t,z>=7)})});
   return `<g class="wnd">${s}</g>`}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlwind]");if(!t)return;const v=t.dataset.mlwind;ML.wind=v==="off"?null:v;store.set("mapL",ML);
   document.querySelectorAll("[data-mlwind]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlwind===v)));drawMap();updMapNote()});

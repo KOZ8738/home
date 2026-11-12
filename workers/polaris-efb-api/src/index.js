@@ -542,34 +542,41 @@ async function metarCellRoute(cellIn, sizeIn, ctx, h) {
   return new Response(r.body, { status: 200, headers: hd });
 }
 
-/* Winds and temperatures aloft from Open-Meteo (GFS/ICON blend, free for non-commercial use), on a grid
-   inside one 10x10 degree cell. step 5 or 2.5 degrees. Cached at the edge for the hour. */
+/* Winds and temperatures aloft from Open-Meteo (free for non-commercial use). One flight level, many 10x10 degree
+   cells per request: the cells not already cached this hour go to Open-Meteo in ONE call (4 grid points per cell,
+   5 degree spacing), so a whole map view costs a single upstream request. */
 const WIND_LV = [700, 500, 400, 300, 250, 200];
-async function windCellRoute(cellIn, stepIn, ctx, h) {
-  const m = String(cellIn || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
-  const la = +m[1], lo = +m[2], st = String(stepIn) === '2.5' ? 2.5 : 5;
-  if (la % 10 || lo % 10 || la < -90 || la > 80 || lo < -180 || lo > 170) throw new HttpError(400, 'cell must be on the 10 degree grid');
-  const hour = new Date().toISOString().slice(0, 13);
-  const cache = caches.default, ck = new Request('https://wind-cache.local/' + hour + '/' + st + '/' + la + '/' + lo);
-  let r = await cache.match(ck);
-  if (!r) {
-    const lats = [], lons = [];
-    for (let a = la + st / 2; a < la + 10; a += st) for (let b = lo + st / 2; b < lo + 10; b += st) { if (Math.abs(a) <= 85) { lats.push(a); lons.push(b); } }
-    const vars = WIND_LV.flatMap((l) => ['wind_speed_' + l + 'hPa', 'wind_direction_' + l + 'hPa', 'temperature_' + l + 'hPa']).join(',');
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=${vars}&wind_speed_unit=kn&forecast_hours=1&timezone=GMT`;
-    let up; try { up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: AbortSignal.timeout(15000) }); } catch (e) { throw new HttpError(504, 'Winds service is slow, try again'); }
-    if (!up.ok) throw new HttpError(up.status === 429 ? 503 : 502, up.status === 429 ? 'Winds service is busy, try again shortly' : 'Winds service ' + up.status);
-    let j = await up.json(); if (!Array.isArray(j)) j = [j];
-    const pts = j.map((x, i) => {
-      const hr = x.hourly || {}, lv = {};
-      WIND_LV.forEach((l) => { const s = (hr['wind_speed_' + l + 'hPa'] || [])[0], d = (hr['wind_direction_' + l + 'hPa'] || [])[0], t = (hr['temperature_' + l + 'hPa'] || [])[0]; if (s != null && d != null) lv[l] = [Math.round(d), Math.round(s), t == null ? null : Math.round(t)]; });
-      return { la: lats[i], lo: lons[i], lv };
-    });
-    r = new Response(JSON.stringify({ cell: [la, lo], step: st, hour: hour + ':00Z', pts }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
-    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+async function windRoute(url, ctx, h) {
+  const lv = +url.searchParams.get('lv'); if (!WIND_LV.includes(lv)) throw new HttpError(400, 'lv must be one of ' + WIND_LV.join(', '));
+  const cells = String(url.searchParams.get('cells') || '').split(';').map((c) => c.match(/^(-?\d{1,2}),(-?\d{1,3})$/)).filter(Boolean)
+    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 10) && !(lo % 10) && la >= -90 && la <= 80 && lo >= -180 && lo <= 170).slice(0, 60);
+  if (!cells.length) throw new HttpError(400, 'cells=lat,lon;lat,lon');
+  const hour = new Date().toISOString().slice(0, 13), cache = caches.default;
+  const key = (c) => new Request('https://wind-cache.local/v2/' + hour + '/' + lv + '/' + c[0] + '/' + c[1]);
+  const out = {}, miss = [];
+  await Promise.all(cells.map(async (c) => { const r = await cache.match(key(c)); if (r) out[c.join(',')] = await r.json(); else miss.push(c); }));
+  let err = null;
+  if (miss.length) {
+    const lats = [], lons = [], owner = [];
+    miss.forEach((c) => { for (let a = c[0] + 2.5; a < c[0] + 10; a += 5) for (let b = c[1] + 2.5; b < c[1] + 10; b += 5) if (Math.abs(a) <= 85) { lats.push(a); lons.push(b); owner.push(c.join(',')); } });
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=wind_speed_${lv}hPa,wind_direction_${lv}hPa,temperature_${lv}hPa&wind_speed_unit=kn&forecast_hours=1&timezone=GMT`;
+    let j = null;
+    for (let tries = 0; tries < 2 && !j; tries++) {
+      try {
+        const up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+        if (up.ok) j = await up.json(); else { err = up.status === 429 ? 'Winds service is busy, try again shortly' : 'Winds service ' + up.status; if (up.status === 429 && tries === 0) await new Promise((r) => setTimeout(r, 1500)); }
+      } catch (e) { err = 'Winds service is slow, try again'; }
+    }
+    if (j) {
+      if (!Array.isArray(j)) j = [j];
+      const fresh = {};
+      j.forEach((x, i) => { const hr = x.hourly || {}, s = (hr['wind_speed_' + lv + 'hPa'] || [])[0], d = (hr['wind_direction_' + lv + 'hPa'] || [])[0], t = (hr['temperature_' + lv + 'hPa'] || [])[0];
+        (fresh[owner[i]] = fresh[owner[i]] || []).push({ la: lats[i], lo: lons[i], d: d == null ? null : Math.round(d), s: s == null ? null : Math.round(s), t: t == null ? null : Math.round(t) }); });
+      miss.forEach((c) => { const k = c.join(','), v = fresh[k] || []; out[k] = v; const p = cache.put(key(c), new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(p); });
+      err = null;
+    }
   }
-  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
-  return new Response(r.body, { status: 200, headers: hd });
+  return json({ lv, hour: hour + ':00Z', cells: out, error: err, missing: err ? miss.map((c) => c.join(',')) : [] }, 200, h);
 }
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
@@ -592,7 +599,7 @@ export default {
         case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
-        case '/api/efb/winds': return await windCellRoute(url.searchParams.get('cell'), url.searchParams.get('step'), ctx, h);
+        case '/api/efb/winds': return await windRoute(url, ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

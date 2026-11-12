@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1331">
+<meta name="efb-build" content="1112.1337">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1063,6 +1063,27 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .mtc-d.wx-VFR{background:var(--green)}.mtc-d.wx-MVFR{background:var(--cyan)}.mtc-d.wx-IFR{background:var(--red)}.mtc-d.wx-LIFR{background:var(--magenta)}.mtc-d.wx-NA{background:var(--label)}
 .mtc-c{font-weight:700}.mtc-c.wx-VFR{color:var(--green)}.mtc-c.wx-MVFR{color:var(--cyan)}.mtc-c.wx-IFR{color:var(--red)}.mtc-c.wx-LIFR{color:var(--magenta)}
 .assheet:not([hidden])~.mtchip{display:none}
+/* measure tool */
+.msl{fill:none;stroke:var(--magenta);stroke-width:2.4;stroke-dasharray:7 5;stroke-linecap:round}
+.msp{fill:var(--panel);stroke:var(--magenta);stroke-width:2.4}
+.msp.first{fill:var(--magenta)}
+.mspl{font:600 11px var(--f-mono);fill:var(--ink);paint-order:stroke;stroke:var(--map-land);stroke-width:3px}
+.msb rect{fill:var(--magenta)}
+.msb text{font:600 11px var(--f-mono);fill:#fff;letter-spacing:.02em}
+.mapwrap.measuring .mtchip{display:none}
+.mspanel{position:absolute;top:calc(var(--mt) + 56px);left:var(--mg);z-index:4;width:224px;padding:10px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);box-shadow:0 14px 34px -14px var(--shadow);font:13px var(--f-ui);color:var(--ink)}
+.mspanel[hidden]{display:none}
+.ms-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ms-h b{font-weight:600}.ms-h span{font-size:11.5px;color:var(--label)}
+.ms-big{font:600 26px var(--f-mono);margin:6px 0 4px;letter-spacing:.01em}
+.ms-big small{font-size:12px;color:var(--label);font-weight:500}
+.ms-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
+.ms-row span{color:var(--label)}.ms-row b{font:600 12px var(--f-mono)}
+.ms-btns{display:flex;gap:6px;margin-top:9px}
+.ms-btns button{flex:1;padding:6px 0;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--ink);font:500 12px var(--f-ui);cursor:pointer}
+.ms-btns button[disabled]{opacity:.4;cursor:default}
+.ms-btns button.pri{background:var(--brand);color:#fff;border-color:transparent}
+.mapwrap.measuring{cursor:crosshair}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2109,6 +2130,60 @@ function mtDraw(P,z,w,h,V,skip,hit,take,place,tx){let marks="",labs="";if(!ML.wx
       const t=s.i+wnd,wd=t.length*6.5+2,p=place(X,Y,wd,14,7,false);if(p)labs+=tx(p,"mtl",X,Y,wd,14,esc(s.i)+(wnd?`<tspan class="mtw">${esc(wnd)}</tspan>`:""))}}
   return{marks,labs}}
 
+/* Magnetic variation from the World Magnetic Model WMM2025 (NOAA/NCEI, public domain), valid 2025-2030. */
+const WMM_C=[1,0,-29351.8,0.0,12.0,0.0,1,1,-1410.8,4545.4,9.7,-21.5,2,0,-2556.6,0.0,-11.6,0.0,2,1,2951.1,-3133.6,-5.2,-27.7,2,2,1649.3,-815.1,-8.0,-12.1,3,0,1361.0,0.0,-1.3,0.0,3,1,-2404.1,-56.6,-4.2,4.0,3,2,1243.8,237.5,0.4,-0.3,3,3,453.6,-549.5,-15.6,-4.1,4,0,895.0,0.0,-1.6,0.0,4,1,799.5,278.6,-2.4,-1.1,4,2,55.7,-133.9,-6.0,4.1,4,3,-281.1,212.0,5.6,1.6,4,4,12.1,-375.6,-7.0,-4.4,5,0,-233.2,0.0,0.6,0.0,5,1,368.9,45.4,1.4,-0.5,5,2,187.2,220.2,0.0,2.2,5,3,-138.7,-122.9,0.6,0.4,5,4,-142.0,43.0,2.2,1.7,5,5,20.9,106.1,0.9,1.9,6,0,64.4,0.0,-0.2,0.0,6,1,63.8,-18.4,-0.4,0.3,6,2,76.9,16.8,0.9,-1.6,6,3,-115.7,48.8,1.2,-0.4,6,4,-40.9,-59.8,-0.9,0.9,6,5,14.9,10.9,0.3,0.7,6,6,-60.7,72.7,0.9,0.9,7,0,79.5,0.0,-0.0,0.0,7,1,-77.0,-48.9,-0.1,0.6,7,2,-8.8,-14.4,-0.1,0.5,7,3,59.3,-1.0,0.5,-0.8,7,4,15.8,23.4,-0.1,0.0,7,5,2.5,-7.4,-0.8,-1.0,7,6,-11.1,-25.1,-0.8,0.6,7,7,14.2,-2.3,0.8,-0.2,8,0,23.2,0.0,-0.1,0.0,8,1,10.8,7.1,0.2,-0.2,8,2,-17.5,-12.6,0.0,0.5,8,3,2.0,11.4,0.5,-0.4,8,4,-21.7,-9.7,-0.1,0.4,8,5,16.9,12.7,0.3,-0.5,8,6,15.0,0.7,0.2,-0.6,8,7,-16.8,-5.2,-0.0,0.3,8,8,0.9,3.9,0.2,0.2,9,0,4.6,0.0,-0.0,0.0,9,1,7.8,-24.8,-0.1,-0.3,9,2,3.0,12.2,0.1,0.3,9,3,-0.2,8.3,0.3,-0.3,9,4,-2.5,-3.3,-0.3,0.3,9,5,-13.1,-5.2,0.0,0.2,9,6,2.4,7.2,0.3,-0.1,9,7,8.6,-0.6,-0.1,-0.2,9,8,-8.7,0.8,0.1,0.4,9,9,-12.9,10.0,-0.1,0.1,10,0,-1.3,0.0,0.1,0.0,10,1,-6.4,3.3,0.0,0.0,10,2,0.2,0.0,0.1,-0.0,10,3,2.0,2.4,0.1,-0.2,10,4,-1.0,5.3,-0.0,0.1,10,5,-0.6,-9.1,-0.3,-0.1,10,6,-0.9,0.4,0.0,0.1,10,7,1.5,-4.2,-0.1,0.0,10,8,0.9,-3.8,-0.1,-0.1,10,9,-2.7,0.9,-0.0,0.2,10,10,-3.9,-9.1,-0.0,-0.0,11,0,2.9,0.0,0.0,0.0,11,1,-1.5,0.0,-0.0,-0.0,11,2,-2.5,2.9,0.0,0.1,11,3,2.4,-0.6,0.0,-0.0,11,4,-0.6,0.2,0.0,0.1,11,5,-0.1,0.5,-0.1,-0.0,11,6,-0.6,-0.3,0.0,-0.0,11,7,-0.1,-1.2,-0.0,0.1,11,8,1.1,-1.7,-0.1,-0.0,11,9,-1.0,-2.9,-0.1,0.0,11,10,-0.2,-1.8,-0.1,0.0,11,11,2.6,-2.3,-0.1,0.0,12,0,-2.0,0.0,0.0,0.0,12,1,-0.2,-1.3,0.0,-0.0,12,2,0.3,0.7,-0.0,0.0,12,3,1.2,1.0,-0.0,-0.1,12,4,-1.3,-1.4,-0.0,0.1,12,5,0.6,-0.0,-0.0,-0.0,12,6,0.6,0.6,0.1,-0.0,12,7,0.5,-0.1,-0.0,-0.0,12,8,-0.1,0.8,0.0,0.0,12,9,-0.4,0.1,0.0,-0.0,12,10,-0.2,-1.0,-0.1,-0.0,12,11,-1.3,0.1,-0.0,0.0,12,12,-0.7,0.2,-0.1,-0.1];
+function wmmDecl(lat,lon,hKm,yr){const N=12,d2r=Math.PI/180,t=(yr||2025+(Date.now()-Date.UTC(2025,0,1))/31557600000)-2025;
+  const g=[],h=[];for(let i=0;i<WMM_C.length;i+=6){const n=WMM_C[i],m=WMM_C[i+1];(g[n]=g[n]||[])[m]=WMM_C[i+2]+t*WMM_C[i+4];(h[n]=h[n]||[])[m]=WMM_C[i+3]+t*WMM_C[i+5]}
+  const a=6378.137,f=1/298.257223563,e2=f*(2-f),re=6371.2,ph=lat*d2r,la=lon*d2r,hh=hKm||0;
+  const Rc=a/Math.sqrt(1-e2*Math.sin(ph)**2),p=(Rc+hh)*Math.cos(ph),z=(Rc*(1-e2)+hh)*Math.sin(ph),r=Math.hypot(p,z),ps=Math.asin(z/r);
+  const leg=x=>{const c=Math.sqrt(1-x*x),P=[[1]];for(let n=1;n<=N;n++){P[n]=[];for(let m=0;m<=n;m++){if(m===n)P[n][m]=n===1?c:P[n-1][n-1]*c*Math.sqrt((2*n-1)/(2*n));else P[n][m]=((2*n-1)*x*P[n-1][m]-(n>=2&&m<=n-2?Math.sqrt((n-1)**2-m*m)*P[n-2][m]:0))/Math.sqrt(n*n-m*m)}}return P};
+  const eps=1e-7,P=leg(Math.sin(ps)),P1=leg(Math.sin(ps+eps)),P0=leg(Math.sin(ps-eps));let X=0,Y=0,Z=0;
+  for(let n=1;n<=N;n++){const k=Math.pow(re/r,n+2);for(let m=0;m<=n;m++){const cm=Math.cos(m*la),sm=Math.sin(m*la),gc=g[n][m]*cm+h[n][m]*sm,dP=(P1[n][m]-P0[n][m])/(2*eps);
+    X-=k*gc*dP;Y+=k*m*(g[n][m]*sm-h[n][m]*cm)*P[n][m];Z-=(n+1)*k*gc*P[n][m]}}
+  Y/=Math.cos(ps);const dps=ps-ph,Xe=X*Math.cos(dps)-Z*Math.sin(dps);return Math.atan2(Y,Xe)/d2r}
+
+/* Measure tool: tap points on the map for great-circle distance, true/magnetic course (WMM2025) and time at plan ground speed. */
+const MS={on:false,pts:[]};
+const msR=3440.065,msRad=Math.PI/180;
+function msDist(a,b){const p1=a.lat*msRad,p2=b.lat*msRad,dp=p2-p1,dl=(b.lon-a.lon)*msRad;const x=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*msR*Math.asin(Math.min(1,Math.sqrt(x)))}
+function msBrg(a,b){const p1=a.lat*msRad,p2=b.lat*msRad,dl=(b.lon-a.lon)*msRad;const y=Math.sin(dl)*Math.cos(p2),x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);return(Math.atan2(y,x)/msRad+360)%360}
+function msMag(a,t){let v=0;try{v=wmmDecl(a.lat,a.lon,0)}catch(e){}return((t-v)%360+360)%360}
+function msGc(a,b,n){const p1=a.lat*msRad,l1=a.lon*msRad,p2=b.lat*msRad,l2=b.lon*msRad,d=msDist(a,b)/msR;if(d<1e-9)return[a,b];const out=[];
+  for(let i=0;i<=n;i++){const f=i/n,A=Math.sin((1-f)*d)/Math.sin(d),B=Math.sin(f*d)/Math.sin(d);const x=A*Math.cos(p1)*Math.cos(l1)+B*Math.cos(p2)*Math.cos(l2),y=A*Math.cos(p1)*Math.sin(l1)+B*Math.cos(p2)*Math.sin(l2),z=A*Math.sin(p1)+B*Math.sin(p2);
+    out.push({lat:Math.atan2(z,Math.hypot(x,y))/msRad,lon:Math.atan2(y,x)/msRad})}return out}
+const ms3=v=>String(Math.round(v)%360||360).padStart(3,"0");
+function msGs(){try{const x=O();const d=N(x.g.route_distance)||N(x.g.air_distance),t=N((ofp.times||{}).est_time_enroute);if(d&&t)return d/(t/3600)}catch(e){}return null}
+/* points the tap can snap to: plan route, loaded airport layouts, METAR stations */
+function msTargets(){const L=[];try{const {pts,altn}=routePts();pts.concat(altn?[altn]:[]).forEach(q=>L.push({lat:q.lat,lon:q.lon,n:q.n}))}catch(e){}
+  Object.keys(TX.data).forEach(k=>{const d=TX.data[k];if(d&&d.airport&&d.airport.lat!=null)L.push({lat:d.airport.lat,lon:d.airport.lon,n:k})});
+  if(typeof MT!=="undefined")Object.values(MT.cells).forEach(c=>(c.st||[]).forEach(s=>L.push({lat:s.la,lon:s.lo,n:s.i})));return L}
+function msTap(cx,cy){const sv=$("#mapSvg");if(!sv||!MAP.c)return;const r=sv.getBoundingClientRect(),{w,h}=mapSize(),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);
+  const x=cx-r.left,y=cy-r.top;let best=null,bd=18;
+  msTargets().forEach(t=>{let lo=t.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const q=mpx(t.lat,lo,z),dx=q[0]-c[0]+w/2-x,dy=q[1]-c[1]+h/2-y,d=Math.hypot(dx,dy);if(d<bd){bd=d;best=t}});
+  let p=best?{lat:best.lat,lon:best.lon,n:best.n}:null;if(!p){const n=munpx(c[0]-w/2+x,c[1]-h/2+y,z);p={lat:n[0],lon:((n[1]+540)%360)-180}}
+  MS.pts.push(p);msUi();drawMap()}
+function msSvg(P,w,h){if(!MS.on||!MS.pts.length||!MAP.c)return"";let s="",pl=null;const Q=q=>{let lo=q.lon;if(pl==null){while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360}else{while(lo-pl>180)lo-=360;while(lo-pl<-180)lo+=360}pl=lo;return P(q.lat,lo)};
+  const segs=[];for(let i=1;i<MS.pts.length;i++){const a=MS.pts[i-1],b=MS.pts[i];const g=msGc(a,b,Math.max(8,Math.min(96,Math.round(msDist(a,b)/20))));pl=null;
+    {let q=a.lon;while(q-MAP.c.lon>180)q-=360;while(q-MAP.c.lon<-180)q+=360;pl=q}const xy=g.map(Q);
+    s+=`<polyline class="msl" points="${xy.map(q=>q.join(",")).join(" ")}"/>`;segs.push({a,b,mid:xy[Math.floor(xy.length/2)]})}
+  segs.forEach(({a,b,mid})=>{const d=msDist(a,b),t=msBrg(a,b),txt=`${d<100?d.toFixed(1):Math.round(d)} NM · ${ms3(msMag(a,t))}°M`,wd=txt.length*6.6+12;
+    s+=`<g class="msb" transform="translate(${mid[0]} ${mid[1]})"><rect x="${-wd/2}" y="-10" width="${wd}" height="20" rx="4"/><text y="4" text-anchor="middle">${txt}</text></g>`});
+  pl=null;MS.pts.forEach((q,i)=>{let lo=q.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(q.lat,lo);s+=`<circle class="msp${i===0?" first":""}" cx="${X}" cy="${Y}" r="5"/>${q.n?`<text class="mspl" x="${X+9}" y="${Y-8}">${esc(q.n)}</text>`:""}`});
+  return s}
+function msUi(){const w=document.querySelector(".mapwrap");const b=$("#msBtn");if(b)b.setAttribute("aria-pressed",String(MS.on));if(!w)return;let el=document.getElementById("msPanel");
+  if(!MS.on){if(el)el.hidden=true;w.classList.remove("measuring");return}
+  w.classList.add("measuring");if(!el){el=document.createElement("div");el.id="msPanel";el.className="mspanel";w.appendChild(el)}el.hidden=false;
+  const n=MS.pts.length;let tot=0;for(let i=1;i<n;i++)tot+=msDist(MS.pts[i-1],MS.pts[i]);const gs=msGs();
+  const last=n>1?MS.pts[n-1]:null,prev=n>1?MS.pts[n-2]:null,t=last?msBrg(prev,last):null;
+  el.innerHTML=`<div class="ms-h"><b>Measure</b><span>${n<2?"Tap the map to add points":(n-1)+" leg"+(n>2?"s":"")}</span></div>
+   ${n>1?`<div class="ms-big">${tot<100?tot.toFixed(1):Math.round(tot).toLocaleString("en-US")} <small>NM</small></div>
+   <div class="ms-row"><span>Last leg</span><b>${ms3(msMag(prev,t))}°M · ${ms3(t)}°T</b></div>
+   ${gs?`<div class="ms-row"><span>Time at ${Math.round(gs)} kt</span><b>${hhmm(tot/gs*3600)}</b></div>`:""}`:""}
+   <div class="ms-btns"><button type="button" data-ms="undo" ${n?"":"disabled"}>Undo</button><button type="button" data-ms="clear" ${n?"":"disabled"}>Clear</button><button type="button" data-ms="done" class="pri">Done</button></div>`}
+function msToggle(on){MS.on=on==null?!MS.on:on;if(!MS.on)MS.pts=[];msUi();if(cur==="map")drawMap()}
+document.addEventListener("click",e=>{if(e.target.closest("#msBtn")){msToggle();return}const t=e.target.closest("[data-ms]");if(!t)return;const a=t.dataset.ms;
+  if(a==="undo")MS.pts.pop();else if(a==="clear")MS.pts=[];else if(a==="done"){msToggle(false);return}msUi();drawMap()});
+
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
    charts button: Info, Charts (STAR / APP / TAXI / SID / REF) and Weather. Picking a chart lays it over
@@ -2746,7 +2821,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
       if(q.toc)marks+=`<circle class="toc" cx="${X}" cy="${Y}" r="3.5"/>`;else marks+=`<path class="fix" d="M${X} ${Y-5}l4.5 8h-9z"/>`;
       boxes.push([X-6,Y-6,X+6,Y+6]);
       if(z>=6){const wd=q.n.length*7.4+2,p=place(X,Y,wd,15,8,false);if(p)labs+=tx(p,q.toc?"tocl":"fixl",X,Y,wd,15,esc(q.n))}})}
-  s+=marks+labs;
+  s+=marks+labs+msSvg(P,w,h);
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
@@ -2775,7 +2850,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
       const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -2820,7 +2895,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
 V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
-   <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
+   <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn" id="msBtn" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
    <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>

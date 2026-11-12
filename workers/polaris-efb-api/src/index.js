@@ -557,8 +557,8 @@ async function windCellRoute(cellIn, stepIn, ctx, h) {
     for (let a = la + st / 2; a < la + 10; a += st) for (let b = lo + st / 2; b < lo + 10; b += st) { if (Math.abs(a) <= 85) { lats.push(a); lons.push(b); } }
     const vars = WIND_LV.flatMap((l) => ['wind_speed_' + l + 'hPa', 'wind_direction_' + l + 'hPa', 'temperature_' + l + 'hPa']).join(',');
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=${vars}&wind_speed_unit=kn&forecast_hours=1&timezone=GMT`;
-    const up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
-    if (!up.ok) throw new HttpError(502, 'Winds service ' + up.status);
+    let up; try { up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: AbortSignal.timeout(15000) }); } catch (e) { throw new HttpError(504, 'Winds service is slow, try again'); }
+    if (!up.ok) throw new HttpError(up.status === 429 ? 503 : 502, up.status === 429 ? 'Winds service is busy, try again shortly' : 'Winds service ' + up.status);
     let j = await up.json(); if (!Array.isArray(j)) j = [j];
     const pts = j.map((x, i) => {
       const hr = x.hourly || {}, lv = {};

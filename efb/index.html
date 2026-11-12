@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1016">
+<meta name="efb-build" content="1112.1023">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1306,34 +1306,7 @@ applyTheme();
 
 /* sample OFP in SimBrief JSON shape; times relative to now */
 const T0=Math.ceil(Date.now()/300000)*300+3000;
-const SAMPLE={_sample:true,
- params:{request_id:"SAMPLE-214",units:"kgs"},
- general:{icao_airline:"PAW",flight_number:"214",route:"SSTIK5 SSTIK DCT ENI Q1 ETCHY MLBEC BTG HAWKZ8",initial_altitude:"36000",costindex:"30",air_distance:"702",route_distance:"688",cruise_mach:"0.78"},
- origin:{icao_code:"KSFO",name:"San Francisco Intl",plan_rwy:"28R",elevation:"13",pos_lat:"37.6189",pos_long:"-122.3750"},
- destination:{icao_code:"KSEA",name:"Seattle-Tacoma Intl",plan_rwy:"16R",elevation:"433",pos_lat:"47.4502",pos_long:"-122.3088"},
- alternate:{icao_code:"KPDX",name:"Portland Intl",plan_rwy:"10R",elevation:"31",pos_lat:"45.5887",pos_long:"-122.5975"},
- aircraft:{icaocode:"A21N",name:"A321NEO",reg:"N321PA"},
- atc:{callsign:"PAW214"},
- fuel:{taxi:"200",enroute_burn:"6420",contingency:"330",alternate_burn:"1380",reserve:"1120",extra:"300",min_takeoff:"9250",plan_takeoff:"9550",plan_ramp:"9750",plan_landing:"3130"},
- weights:{pax_count:"186",payload:"18600",est_zfw:"62100",max_zfw:"75600",est_tow:"71650",max_tow:"97000",est_ldw:"65230",max_ldw:"79200"},
- times:{est_time_enroute:"6780",sched_out:String(T0),sched_off:String(T0+900),sched_on:String(T0+7680),sched_in:String(T0+8100)},
- weather:{orig_metar:"KSFO 091356Z 29012KT 10SM FEW008 SCT200 14/11 A3008 RMK AO2 SLP186",
-  orig_taf:"KSFO 091120Z 0912/1018 28010KT P6SM FEW008 SCT200\n  FM091800 29016G24KT P6SM FEW015\n  FM100300 28008KT P6SM SCT012",
-  dest_metar:"KSEA 091353Z 17009KT 10SM -RA BKN035 OVC060 11/08 A2989 RMK AO2 SLP127",
-  dest_taf:"KSEA 091120Z 0912/1012 17010KT P6SM -RA BKN035 OVC060\n  FM091900 19014G22KT 5SM -RA BKN020 OVC040\n  FM100200 18010KT P6SM BKN030",
-  altn_metar:"KPDX 091353Z 16006KT 10SM OVC045 12/07 A2993 RMK AO2",
-  altn_taf:"KPDX 091120Z 0912/1012 16008KT P6SM OVC045\n  FM092000 18012KT 6SM -RA OVC030"},
- navlog:{fix:[
-  {ident:"SSTIK",pos_lat:"38.05",pos_long:"-122.80",via_airway:"SSTIK5",distance:"24",altitude_feet:"12000",wind_dir:"290",wind_spd:"18",oat:"-4",time_total:"420",fuel_plan_onboard:"8910"},
-  {ident:"TOC",pos_lat:"38.75",pos_long:"-123.05",via_airway:"DCT",distance:"96",altitude_feet:"36000",wind_dir:"300",wind_spd:"42",oat:"-55",time_total:"1260",fuel_plan_onboard:"7890"},
-  {ident:"ENI",pos_lat:"39.0533",pos_long:"-123.2737",via_airway:"DCT",distance:"28",altitude_feet:"36000",wind_dir:"305",wind_spd:"46",oat:"-56",time_total:"1500",fuel_plan_onboard:"7720"},
-  {ident:"ETCHY",pos_lat:"41.05",pos_long:"-123.30",via_airway:"Q1",distance:"152",altitude_feet:"36000",wind_dir:"310",wind_spd:"51",oat:"-57",time_total:"2760",fuel_plan_onboard:"6640"},
-  {ident:"MLBEC",pos_lat:"43.10",pos_long:"-123.10",via_airway:"Q1",distance:"126",altitude_feet:"36000",wind_dir:"315",wind_spd:"48",oat:"-57",time_total:"3810",fuel_plan_onboard:"5750"},
-  {ident:"TOD",pos_lat:"44.80",pos_long:"-122.90",via_airway:"Q1",distance:"112",altitude_feet:"36000",wind_dir:"320",wind_spd:"40",oat:"-56",time_total:"4740",fuel_plan_onboard:"4960"},
-  {ident:"BTG",pos_lat:"45.7477",pos_long:"-122.5924",via_airway:"Q1",distance:"58",altitude_feet:"21000",wind_dir:"240",wind_spd:"28",oat:"-22",time_total:"5340",fuel_plan_onboard:"4320"},
-  {ident:"HAWKZ",pos_lat:"46.65",pos_long:"-122.45",via_airway:"HAWKZ8",distance:"54",altitude_feet:"9000",wind_dir:"190",wind_spd:"20",oat:"-2",time_total:"6120",fuel_plan_onboard:"3720"},
-  {ident:"KSEA",pos_lat:"47.4502",pos_long:"-122.3088",via_airway:"DCT",distance:"38",altitude_feet:"433",wind_dir:"170",wind_spd:"9",oat:"11",time_total:"6780",fuel_plan_onboard:"3130"}]}
-};
+const SAMPLE={_sample:true,_empty:true,params:{request_id:"",units:"kgs"},general:{},origin:{},destination:{},alternate:{},aircraft:{},atc:{},fuel:{},weights:{},times:{},weather:{},navlog:{fix:[]}};
 let ofp=store.get("ofp",null)||SAMPLE;
 
 function O(){
@@ -1467,10 +1440,10 @@ function renderHome(){
     <a class="w w-s" href="#checklist"><div class="rem-top"><span class="rem-ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="rem-n">${p.total-p.done}</span></div>
       <div class="rem-t">${esc(CL[clIdx][0])}</div>
       <ul class="rem-l">${p.pending.length?p.pending.slice(0,3).map(it=>`<li><i></i>${esc(it[0])}</li>`).join(""):`<li style="color:var(--wg-sub)">All items checked</li>`}</ul></a>
-    <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">Example plan</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
-      <div class="cal-r"><div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
-      <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div></div></a>
-    <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">Destination</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
+    <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
+      <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Dispatch</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
+      <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>
+    <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?"Destination":"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
       <div class="wx-cond"><b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
       <div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);return `<div class="wx-row"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div></a>
    </div>
@@ -2168,7 +2141,7 @@ const cardH=(eb,h,r)=>`<div class="card-h"><div><span class="eyebrow">${eb}</spa
 const plane='<svg viewBox="0 0 36 18" aria-hidden="true"><path d="M1 9h30M25 3l7 6-7 6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 const ring=(d,t)=>{const f=t?d/t:0,c=2*Math.PI*12;return `<svg class="ring${t&&d===t?" done":""}" viewBox="0 0 30 30" aria-hidden="true"><circle class="bg" cx="15" cy="15" r="12"/><circle class="fg" cx="15" cy="15" r="12" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c*(1-f)).toFixed(1)}"/></svg>`};
 const ROSE_SVG='';
-const sampleNote=()=>ofp._sample?`<div class="notice"><b>Example plan</b><span>This is a sample Polaris flight. Load your own OFP in Dispatch.</span><a class="btn pri" href="#simbrief">Open Dispatch</a></div>`:"";
+const sampleNote=()=>ofp._sample?`<div class="notice"><b>No flight plan</b><span>Fetch your SimBrief OFP in Dispatch to see it here.</span><a class="btn pri" href="#simbrief">Open Dispatch</a></div>`:"";
 
 /* ===== Flight Plan ===== */
 let ofpTab=store.get("ofpTab","sum");if(!["sum","fuel","route","navlog","oooi"].includes(ofpTab))ofpTab="sum";
@@ -2181,7 +2154,7 @@ function ofpSide(){const x=O(),tm=ofp.times||{},o=store.get("oooi:"+x.id,{});con
    <div class="tb"><div><b>${esc(S(x.o.icao_code))}</b><small>${utcHM(N(tm.sched_out))} · ${esc(S(x.o.plan_rwy)||"—")}</small></div>${plane}<div class="r"><b>${esc(S(x.d.icao_code))}</b><small>${utcHM(N(tm.sched_in))} · ${esc(S(x.d.plan_rwy)||"—")}</small></div></div>
    <div class="tf"><div><span>ETE</span><b>${hhmm(N(tm.est_time_enroute))}</b></div><div><span>Altn</span><b>${esc(S(x.a.icao_code)||"—")}</b></div><div><span>Block</span><b>${fmt(N((ofp.fuel||{}).plan_ramp))}</b></div></div></div>
    <div class="slabel">Plan</div><nav class="snav" aria-label="Flight plan sections">${items.map(i=>navBtn(`data-tab="${i[0]}"`,ofpTab===i[0],ico(i[1]),i[2],i[3])).join("")}</nav>
-   <div class="sfoot">${ofp._sample?"Example plan · load yours in Dispatch":"SimBrief OFP "+esc(x.id)}</div>`}
+   <div class="sfoot">${ofp._sample?"No plan · load yours in Dispatch":"SimBrief OFP "+esc(x.id)}</div>`}
 function ofpSummary(){const x=O(),wt=ofp.weights||{},tm=ofp.times||{};const dist=N(x.g.route_distance)||N(x.g.air_distance);
   const st=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
   return `${sampleNote()}
@@ -2241,7 +2214,7 @@ function ofpTimes(){const x=O(),o=store.get("oooi:"+x.id,{}),s=oooiSummary(o);co
    ${next?`<div class="card-b"><button class="btn pri stamp" id="ooStamp">Stamp ${next} now <small>· ${OOL[next]}</small></button></div>`:""}
    <dl class="stats big"><div><dt>Block time</dt><dd>${s.blk}</dd></div><div><dt>Air time</dt><dd>${s.air}</dd></div></dl></section>
   ${next?`<p class="note">Tap Stamp at each event. To correct a time, type it as HHMM.</p>`:`<section class="card">${cardH("Save to logbook","Add this flight to your logbook")}<div class="card-b" style="display:grid;gap:14px"><div class="fields"><label class="f">Touchdown FPM<input type="number" id="ooFpm" placeholder="-140"></label><label class="f" style="grid-column:span 2">Remarks<input type="text" id="ooRmk" placeholder="ILS 16R, light rain"></label></div><div class="row"><button class="btn pri" id="ooSave">Save to logbook</button></div></div></section>`}`}
-V.ofp=()=>split(ofpSide(),ofpTab==="navlog"?ofpNavlog():ofpTab==="oooi"?ofpTimes():ofpTab==="fuel"?ofpFuel():ofpTab==="route"?ofpRoute():ofpSummary(),"",tabbar([["sum","doc","Overview"],["fuel","fuel","Fuel"],["route","route","Route"],["navlog","list","Nav log"],["oooi","clock","Block"]].map(t=>[`data-tab="${t[0]}"`,ofpTab===t[0],ico(t[1]),t[2]])));
+V.ofp=()=>ofp._sample?`<div style="padding:24px 16px;max-width:760px;margin:0 auto">${sampleNote()}</div>`:split(ofpSide(),ofpTab==="navlog"?ofpNavlog():ofpTab==="oooi"?ofpTimes():ofpTab==="fuel"?ofpFuel():ofpTab==="route"?ofpRoute():ofpSummary(),"",tabbar([["sum","doc","Overview"],["fuel","fuel","Fuel"],["route","route","Route"],["navlog","list","Nav log"],["oooi","clock","Block"]].map(t=>[`data-tab="${t[0]}"`,ofpTab===t[0],ico(t[1]),t[2]])));
 
 /* ===== Weather ===== */
 let wxSel=store.get("wxSel","DEST");
@@ -2419,7 +2392,7 @@ function vamBookHtml(){if(!vamOn())return "";vamLoad("bookings");const s=vamStat
   return `<section class="card">${head}${b.map(x=>`<div class="bk"><div><b>${esc(x.flight||x.callsign)} · ${esc(x.from)} → ${esc(x.to)}</b><small>${esc(x.type)} ${esc(x.registration)}${x.departureTime?" · STD "+esc(isoZ(x.departureTime)):""}${x.altitude?" · FL"+Math.round(x.altitude/100):""}${x.costIndex?" · CI "+esc(x.costIndex):""}</small></div><a class="btn sm" href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">Plan in SimBrief ↗</a></div>`).join("")}<div class="card-f">Generate the OFP for this booking in SimBrief, then load it here.</div></section>`}
 V.simbrief=()=>{const x=O(),u=store.get("sbUser","");const tm=ofp.times||{};
   return `<section class="hero">${ROSE_SVG}<span class="eyebrow">${ofp._sample?"No plan loaded":"Current OFP · "+esc(x.id)}</span>
-    ${ofp._sample?`<h2>Load your <em>next flight.</em></h2><p>Every app is showing the example Polaris flight until you load a SimBrief plan.</p>`
+    ${ofp._sample?`<h2>Load your <em>next flight.</em></h2><p>Fetch your SimBrief plan and every app fills in with your flight.</p>`
     :`<div class="route"><div class="ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span></div><div class="mid">${plane}<span>${esc(x.flight)} · ${utcHM(N(tm.sched_out))}</span></div><div class="ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span></div></div><div class="row" style="margin-top:16px"><a class="btn pri" href="#ofp">Open Flight Plan</a><span class="note">${esc(S(x.ac.name))} · ${esc(S(x.ac.reg))}</span></div>`}</section>
   ${vamBookHtml()}
   <div class="steps">
@@ -2797,7 +2770,7 @@ const EYEBROW={
 const TOOLS={
  checklist:()=>`<div class="seg" role="group" aria-label="Checklist type"><button data-clmode="normal" aria-pressed="${clMode==="normal"}">Normal</button><button data-clmode="nn" aria-pressed="${clMode==="nn"}">Non-normal</button></div>`,
  perf:()=>{const m=pfDs?"ds":pfState().mode;return `<div class="seg" role="group" aria-label="Performance"><button data-pfmode="to" aria-pressed="${m==="to"}">Takeoff</button><button data-pfmode="ld" aria-pressed="${m==="ld"}">Landing</button><button data-pfmode="ds" aria-pressed="${m==="ds"}">Descent</button></div>`},
- ofp:()=>ofp._sample?`<a class="btn sm hide-n" href="#simbrief">Example plan · Load yours</a>`:(O().pdf?`<a class="btn sm hide-n" href="${esc(O().pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""),
+ ofp:()=>ofp._sample?`<a class="btn sm hide-n" href="#simbrief">No plan · Load yours</a>`:(O().pdf?`<a class="btn sm hide-n" href="${esc(O().pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""),
  load:()=>`<button class="btn sm" data-ldact="reset">Reset to OFP</button>`
 };
 function appChrome(id){const a=APPS[id];$("#appTitle").textContent=a.name;const ic=$("#navIc");ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;

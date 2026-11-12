@@ -1,5 +1,18 @@
-
-
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Polaris Airways EFB</title>
+<meta name="theme-color" content="#1A6772">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Polaris EFB">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="efb-build" content="1112.0959">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<meta name="robots" content="noindex,nofollow">
+</head><body>
 <style>
 /* Layout: an iPad running iPadOS — wallpaper, widgets, labelled app icons, page dots and dock; apps zoom open full screen in the airline EFB style (dark app bar, flat panels, cockpit colours). On desktop the screen sits inside an iPad bezel with a working Home button. */
 :root{
@@ -918,6 +931,7 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .screen[data-app="map"] .mapapt input{width:66px!important;min-height:36px!important;padding:0 9px!important;font:500 12.5px var(--f-mono)!important;text-transform:uppercase;border-radius:4px}
 .screen[data-app="map"] .maplayers{position:absolute;top:var(--mt)!important;right:calc(max(12px,env(safe-area-inset-right,0px)) + 56px)!important;left:auto!important;bottom:auto!important;width:220px;max-width:calc(100% - 80px)!important;display:flex;flex-direction:column;flex-wrap:nowrap!important;gap:0!important;padding:6px 0!important;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 14px 34px -14px var(--shadow);overflow:visible!important;z-index:4}
 .screen[data-app="map"] .maplayers[hidden]{display:none!important}
+.screen[data-app="map"] .maplayers{max-height:calc(100% - var(--mt) - 30px);overflow-y:auto!important}
 .ml-h{padding:6px 14px 8px;font:500 10.5px/1 var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--label)}
 .ml-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:42px;padding:0 14px;border:0;background:transparent;color:var(--ink);font:500 14px var(--f-ui);text-align:left;cursor:pointer}
 .ml-row+.ml-row{border-top:1px solid var(--line)}
@@ -1013,6 +1027,11 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .screen[data-app="map"] .maplayers{width:260px}
 .screen[data-app="map"] .mapctl #mlBtn{position:relative}
 #mlBtn.warn::after{content:"";position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 2px var(--panel)}
+
+.ml-base{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:0 10px 10px}
+.ml-base button{min-height:34px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font:600 12px var(--f-ui);cursor:pointer}
+.ml-base button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.ml-base+.ml-h{border-top:1px solid var(--line);padding-top:12px}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1934,7 +1953,22 @@ document.addEventListener("keydown",e=>{if(e.target.id!=="ovIcao"||e.key!=="Ente
    so the base map stays sharp during a pan or pinch while the overlays are moved as a picture. */
 const VEC={map:null,el:null,lib:null,ready:false,err:null,key:"",t0:0};
 const OFM="https://tiles.openfreemap.org";
-function vecStyle(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E3260",green:"#0A100E",urban:"#0D1012",ice:"#11161A",road:"#2A2F33",major:"#3A4046",motor:"#4A5158",casing:"#070909",bord:"#4B5866",bord2:"#2F3A44",rail:"#22272B",city:"#B9C3C8",town:"#8C979D",vill:"#6A757B",halo:"#000000",wtxt:"#5B86B8",apt:"#1C2124",rwy:"#2E3337",aptl:"#7FA7B5"}
+/* Base map presets. FAA charts are the FAA's own published raster charts (US only); outside their coverage
+   and beyond their zoom range the vector map shows through. */
+const FAA_T="https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/";
+const BASES={map:{name:"Map"},sat:{name:"Satellite",ras:[{id:"sat",url:"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{z}/{y}/{x}.jpg",min:0,max:14}],attr:'Satellite <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless by EOX</a> (Copernicus Sentinel data 2023)'},
+  ifrh:{name:"IFR High",us:1,ras:[{id:"ifrh",url:FAA_T+"IFR_High/MapServer/tile/{z}/{y}/{x}",min:4,max:9}]},
+  ifrl:{name:"IFR Low",us:1,ras:[{id:"ifrl",url:FAA_T+"IFR_AreaLow/MapServer/tile/{z}/{y}/{x}",min:7,max:12}]},
+  vfr:{name:"VFR",us:1,ras:[{id:"sec",url:FAA_T+"VFR_Sectional/MapServer/tile/{z}/{y}/{x}",min:8,max:12},{id:"tac",url:FAA_T+"VFR_Terminal/MapServer/tile/{z}/{y}/{x}",min:9,max:12}]}};
+const baseKey=()=>BASES[ML.base]?ML.base:"map";
+function vecAttr(){const b=BASES[baseKey()];return (b.us?'Charts <a href="https://www.faa.gov/air_traffic/flight_info/aeronav/" target="_blank" rel="noopener">FAA AIS</a> · ':"")+(b.attr?b.attr+" · ":"")+'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}
+function vecPreset(st,dark){const b=BASES[baseKey()];if(!b.ras)return st;
+  b.ras.forEach(r=>{st.sources[r.id]={type:"raster",tiles:[r.url],tileSize:256,minzoom:r.min,maxzoom:r.max,attribution:""}});
+  const ras=b.ras.map(r=>({id:"r-"+r.id,type:"raster",source:r.id,minzoom:Math.max(0,r.min-.5),paint:{"raster-fade-duration":0,"raster-opacity":1,...(dark&&b.us?{"raster-brightness-max":.82,"raster-contrast":.05}:{})}}));
+  if(baseKey()==="sat"){const keep=st.layers.filter(l=>/^(bord|place-|water-name|apt-name)/.test(l.id));st.layers=[st.layers[0],...ras,...keep];return st}
+  st.layers=st.layers.concat(ras);return st}
+function vecStyle(dark){return vecPreset(vecStyle0(dark),dark)}
+function vecStyle0(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E3260",green:"#0A100E",urban:"#0D1012",ice:"#11161A",road:"#2A2F33",major:"#3A4046",motor:"#4A5158",casing:"#070909",bord:"#4B5866",bord2:"#2F3A44",rail:"#22272B",city:"#B9C3C8",town:"#8C979D",vill:"#6A757B",halo:"#000000",wtxt:"#5B86B8",apt:"#1C2124",rwy:"#2E3337",aptl:"#7FA7B5"}
     :{land:"#F3F4F1",water:"#C9E2EC",wline:"#B5D5E2",green:"#E2EBDD",urban:"#EBECE8",ice:"#F8FAFB",road:"#FFFFFF",major:"#FFFFFF",motor:"#FBE9C8",casing:"#D5D9D9",bord:"#9AA6AA",bord2:"#C2CACB",rail:"#D3D6D6",city:"#2F3A3D",town:"#4E5A5D",vill:"#6E797C",halo:"#FFFFFF",wtxt:"#4E7C96",apt:"#E2E4E3",rwy:"#C5C9CA",aptl:"#3D6A78"};
   const F=["Noto Sans Regular"],FB=["Noto Sans Bold"],name=["coalesce",["get","name:en"],["get","name:latin"],["get","name"]];
   const W=(z0,w0,z1,w1)=>["interpolate",["exponential",1.5],["zoom"],z0,w0,z1,w1];
@@ -1974,13 +2008,13 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.el){VEC.el=document.createElement("div");VEC.el.className="mapvec";VEC.el.setAttribute("aria-hidden","true")}
   if(VEC.el.parentNode!==wrap){wrap.insertBefore(VEC.el,wrap.firstChild);if(VEC.map)try{VEC.map.resize()}catch(e){}}
   VEC.el.hidden=!vecOn();if(!vecOn())return;
-  const key=isDark()?"d":"l";
+  const key=(isDark()?"d":"l")+baseKey();
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
-      VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
+      VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
       setTimeout(()=>{if(!VEC.ready&&!VEC.err){VEC.err="The detail map is taking long to load; showing the simple map.";if(cur==="map"){drawMap();updMapNote()}}},20000);
       vecSync()}).catch(()=>{if(cur==="map"){drawMap();updMapNote()}});return}
-  if(VEC.key!==key){VEC.key=key;try{VEC.map.setStyle(vecStyle(key==="d"))}catch(e){}}
+  if(VEC.key!==key){VEC.key=key;try{VEC.map.setStyle(vecStyle(key[0]==="d"))}catch(e){}}
   vecSync()}
 
 /* layers popover */
@@ -1989,7 +2023,7 @@ document.addEventListener("pointerdown",e=>{const p=$("#mlPanel");if(!p||p.hidde
 
 /* layer status lives in the layers popover instead of a note over the map; the layers button gets a dot on trouble */
 function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
-  if(VEC.err)E("vec","Couldn’t load, showing the simple map");else if(ML.vec&&!VEC.ready)st.vec="Loading…";else st.vec="OpenStreetMap";
+  if(VEC.err)E("vec","Couldn’t load, showing the simple map");else if(ML.vec&&!VEC.ready)st.vec="Loading…";else st.vec=BASES[baseKey()].us?BASES[baseKey()].name+" (FAA, US only)":BASES[baseKey()].name;
   if(!vam.url)E("apt","Set the EFB server in Settings");else{const ld=Object.keys(TX.loading).filter(k=>TX.loading[k]),er=Object.keys(TX.err);
     if(er.length)E("apt",er.map(k=>k+": "+TX.err[k].msg).join(" · "));else if(ld.length)st.apt="Loading "+ld.join(", ")+"…";else st.apt=MAP.z<11?"Zoom in on an airport to see them":"Runways, taxiways, stands"}
   st.wx="Flight category at plan airports";
@@ -1999,6 +2033,10 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
   if(!vamOn())st.traffic="Connect vAMSYS in Settings";else if(MAP.liveErr)E("traffic",MAP.liveErr);else if(MAP.live)st.traffic=MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online";
   document.querySelectorAll("[data-mls]").forEach(e=>{const k=e.dataset.mls;e.textContent=st[k]||"";e.classList.toggle("err",!!err[k])});
   const b=$("#mlBtn");if(b)b.classList.toggle("warn",Object.keys(err).some(k=>ML[k]))}
+
+/* base map preset buttons in the layers popover */
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mlbase]");if(!t)return;ML.base=t.dataset.mlbase;ML.vec=true;store.set("mapL",ML);
+  document.querySelectorAll("[data-mlbase]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlbase===ML.base)));const r=document.querySelector('[data-ml="vec"]');if(r)r.setAttribute("aria-pressed","true");drawMap();updMapNote()});
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
@@ -2700,7 +2738,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
   else if(ML.apt)m.push("Zoom in on an airport, or pick one above, to see taxiways.");
   if(ML.traffic){if(!vamOn())m.push("Connect vAMSYS in Settings for Polaris traffic.");else if(MAP.liveErr)m.push("Traffic: "+MAP.liveErr);else if(MAP.live)m.push(MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online")}
   const tx=m.join(" · ");if(tx!==MAPN.t){MAPN.t=tx;MAPN.until=Date.now()+6000;clearTimeout(MAPN.tm);MAPN.tm=setTimeout(updMapNote,6100)}n.hidden=true;mlStatus();
-  const a=$("#mapAttr");if(a){const at=[vecReady()?'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>':'Map © <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>'];
+  const a=$("#mapAttr");if(a){const at=[vecReady()?vecAttr():'Map © <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>'];
     if(ML.tiles&&!MAP.tileFail)at.push('© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>');
     if(ML.fir&&FIR.data)at.push('Airspace <a href="https://github.com/vatsimnetwork/vatspy-data-project" target="_blank" rel="noopener">VATSpy Data Project</a> (CC BY-SA 4.0)');
     if(ML.radar&&RADAR.path&&!RADAR.err)at.push('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'+(RADAR.time?" "+tz2(RADAR.time):""));
@@ -2711,7 +2749,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airpo
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Map layers</span>${L.map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */
@@ -3290,3 +3328,4 @@ const EFB_BUILD=(document.querySelector('meta[name="efb-build"]')||{}).content||
 })();
 </script>
 
+</body></html>

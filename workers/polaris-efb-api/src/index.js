@@ -474,12 +474,13 @@ async function majorRoute(env) {
   }));
   return { cycle: cyc, airports: rows };
 }
-/* daily: keep the major airports stored. A few layouts per run (oldest first) to go easy on Overpass,
+/* every 20 minutes: keep the major airports stored. Three layouts per run at most (missing or oldest
+   first) to go easy on the public Overpass servers,
    and every chart list of the current AIRAC cycle. */
 async function refreshMajor(env, ctx) {
   const kv = env && env.STORE; if (!kv) return;
   const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v9:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
-  const due = ages.filter((a) => Date.now() - a.t > 25 * 86400_000).sort((a, b) => a.t - b.t).slice(0, 6);
+  const due = ages.filter((a) => Date.now() - a.t > 25 * 86400_000).sort((a, b) => a.t - b.t).slice(0, 3);
   for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v9:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
   for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
 }

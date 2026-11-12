@@ -17,9 +17,9 @@ workers_dev = false
 binding = "STORE"
 id = "f07c7d20558c4ecf84df98ddb5ea235a"
 
-# 每天更新一次美國大型機場的資料（UTC 時間）
+# 每 20 分鐘檢查一次美國大型機場的資料，缺的或超過 25 天的才重抓（每次最多 3 座）
 [triggers]
-crons = ["23 9 * * *"]
+crons = ["*/20 * * * *"]
 
 [vars]
 # EFB 只需要唯讀權限

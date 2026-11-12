@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1343">
+<meta name="efb-build" content="1112.1400">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1084,6 +1084,7 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .ms-btns button[disabled]{opacity:.4;cursor:default}
 .ms-btns button.pri{background:var(--brand);color:#fff;border-color:transparent}
 .mapwrap.measuring{cursor:crosshair}
+.ml-err{margin:6px 10px 4px;padding:6px 8px;border-radius:4px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);font:500 10.5px/1.35 var(--f-mono);word-break:break-word}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2072,6 +2073,8 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
   if(RADAR.err)E("radar","Couldn’t load");else if(RADAR.loading)st.radar="Loading…";else if(RADAR.time)st.radar="Updated "+tz2(RADAR.time);else st.radar="";
   if(SIG.err)E("sig",String(SIG.err).replace(/^SIGMET:\s*/,""));else if(SIG.loading)st.sig="Loading…";else if(SIG.list)st.sig=SIG.list.length+" active";
   if(!vamOn())st.traffic="Connect vAMSYS in Settings";else if(MAP.liveErr)E("traffic",MAP.liveErr);else if(MAP.live)st.traffic=MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online";
+  {const pn=$("#mlPanel");if(pn){let el=document.getElementById("mlErr");const msg=MAP.lastErr||(()=>{try{return localStorage.getItem("efb:maperr")}catch(e){return null}})();
+    if(msg){if(!el){el=document.createElement("div");el.id="mlErr";el.className="ml-err";pn.appendChild(el)}el.textContent="Map error: "+msg}else if(el)el.remove()}}
   document.querySelectorAll("[data-mls]").forEach(e=>{const k=e.dataset.mls;e.textContent=st[k]||"";e.classList.toggle("err",!!err[k])});
   const b=$("#mlBtn");if(b)b.classList.toggle("warn",Object.keys(err).some(k=>ML[k]))}
 
@@ -2771,7 +2774,8 @@ function tileLayer(urlFn,cls,z,ox,oy,w,h,zmax){const zt=Math.max(1,Math.min(zmax
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){const wx=((tx%n)+n)%n;s+=`<image class="${cls}" href="${urlFn(zt,wx,ty)}" x="${(tx*ts-ox).toFixed(1)}" y="${(ty*ts-oy).toFixed(1)}" width="${(ts+.6).toFixed(1)}" height="${(ts+.6).toFixed(1)}" preserveAspectRatio="none"/>`}return s}
 const HZ=h=>{h=String(h||"").toUpperCase();return /TS|CONVECTIVE|TC/.test(h)?"ts":/TURB/.test(h)?"tb":/ICE|IC/.test(h)?"ic":/VA|ASH/.test(h)?"va":/MTN|IFR|OBSC/.test(h)?"ifr":"ot"};
 function mapClampC(h){if(!MAP.c||!h)return;const W=TS*Math.pow(2,MAP.z),y=mpx(MAP.c.lat,0,MAP.z)[1];const y2=W<=h?W/2:Math.max(h/2,Math.min(W-h/2,y));if(Math.abs(y2-y)<.5)return;const n=Math.PI-2*Math.PI*y2/W;MAP.c={lat:180/Math.PI*Math.atan(Math.sinh(n)),lon:MAP.c.lon}}
-function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(!w||!h)return;if(!MAP.c)mapFit();mapClampC(h);
+function drawMap(){try{drawMap0()}catch(e){const m=(e&&e.message)||String(e),at=((e&&e.stack)||"").split("\n").find(l=>/\d+:\d+/.test(l))||"";MAP.lastErr=m+(at?" · "+at.trim().slice(-60):"");try{localStorage.setItem("efb:maperr",MAP.lastErr+" · "+new Date().toISOString().slice(0,16)+"Z")}catch(x){}const a=$("#mapSvg"),b=$("#mapBase");if(a)a.style.transform="";if(b)b.style.transform="";try{mapCanvas()}catch(x){}try{if(typeof mlStatus==="function")mlStatus()}catch(x){}}}
+function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(!w||!h)return;if(!MAP.c)mapFit();mapClampC(h);
   const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2;const P=(la,lo)=>{const q=mpx(la,lo,z);return[+(q[0]-ox).toFixed(1),+(q[1]-oy).toFixed(1)]};
   const tl=munpx(ox,oy,z),br=munpx(ox+w,oy+h,z),V={lo1:tl[1],lo2:br[1],la1:br[0],la2:tl[0]};const K=[-360,0,360];let s="";
   const geo=z<4.5?(GEO.lo||GEO.hi):(GEO.hi||GEO.lo);
@@ -2830,13 +2834,13 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
   const t1=(bs||el).querySelector("image.tile");if(t1)t1.addEventListener("error",()=>{if(!MAP.tileFail){MAP.tileFail=true;mapSched();updMapNote()}},{once:true});
   const r1=(bs||el).querySelector("image.radar");if(r1)r1.addEventListener("error",()=>{if(!RADAR.err){RADAR.err=true;RADAR.at=Date.now();mapSched();updMapNote()}},{once:true});
 }
-let mapRaf=0,mapIdle=0,mapDrawn=null;function mapSched(){if(!mapRaf)mapRaf=requestAnimationFrame(()=>{mapRaf=0;mapFast()})}
+let mapRaf=0,mapIdle=0,mapDrawn=null;function mapSched(){if(!mapRaf)mapRaf=requestAnimationFrame(()=>{mapRaf=0;try{mapFast()}catch(e){MAP.lastErr="fast: "+((e&&e.message)||e);try{localStorage.setItem("efb:maperr",MAP.lastErr)}catch(x){}clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130)}})}
 function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();mapClampC(h);
   if(!el||!d||!MAP.c||d.w!==w||d.h!==h||(d.z===MAP.z&&d.lat===MAP.c.lat&&d.lon===MAP.c.lon)){drawMap();return}
   const k=Math.pow(2,MAP.z-d.z),c1=mpx(MAP.c.lat,MAP.c.lon,d.z),world=TS*Math.pow(2,d.z);let dx=c1[0]-d.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-d.cy;
   if((k>2.6||k<.45||Math.abs(dx)>w*.55||Math.abs(dy)>h*.55)&&performance.now()-d.at>260){drawMap();return}
-  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;mapCanvas();vecSync();
-  clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130)}
+  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130);el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;
+  try{mapCanvas()}catch(e){MAP.lastErr="canvas: "+((e&&e.message)||e);try{localStorage.setItem("efb:maperr",MAP.lastErr)}catch(x){}}try{vecSync()}catch(e){}}
 function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==null){sx=w/2;sy=h/2}
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
 function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bound)return;wrap._bound=1;const pts=new Map();let st=null;

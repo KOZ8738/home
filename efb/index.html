@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2223">
+<meta name="efb-build" content="1112.2237">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2206,8 +2206,11 @@ function wnFl(){if(ML.wind==null||ML.wind===false)return null;if(ML.wind!=="auto
   return WN.LV.reduce((b,l)=>Math.abs(l[0]-fl)<Math.abs(b[0]-fl)?l:b)[0]}
 const wnHpa=fl=>(WN.LV.find(l=>l[0]===fl)||[0,250])[1];
 function wnLoad(key){if(!vam.url||WN.loading[key]||WN.q>=3)return;const c=WN.cells[key];if(c&&Date.now()-c.at<30*60000)return;WN.loading[key]=true;WN.q++;const [st,cl]=key.split(":");
-  vamGet("/api/efb/winds?step="+st+"&cell="+cl,20000).then(j=>{WN.cells[key]={at:Date.now(),pts:(j&&j.pts)||[],hour:j&&j.hour};WN.err=null;WN.hour=j&&j.hour})
-    .catch(e=>{WN.err=e.message;WN.cells[key]={at:Date.now()-25*60000,pts:c?c.pts:[]}}).finally(()=>{WN.loading[key]=false;WN.q--;if(cur==="map")mapSched()})}
+  vamGet("/api/efb/winds?step="+st+"&cell="+cl,30000).then(j=>{WN.cells[key]={at:Date.now(),pts:(j&&j.pts)||[],hour:j&&j.hour};WN.err=null;WN.fails=0;WN.hour=j&&j.hour})
+    .catch(e=>{/* a slow or interrupted request (the app was in the background, weak signal) just retries in ~20 s;
+       the error only shows once several tries in a row failed and nothing is on screen */
+      WN.fails=(WN.fails||0)+1;WN.cells[key]={at:Date.now()-(30*60000-20000),pts:c?c.pts:[]};
+      const any=Object.values(WN.cells).some(x=>x.pts&&x.pts.length);if(WN.fails>=4&&!any)WN.err=e.message}).finally(()=>{WN.loading[key]=false;WN.q--;if(cur==="map")mapSched()})}
 function wnBarb(X,Y,d,s,t,showT){if(s<3)return `<g class="wb" transform="translate(${X} ${Y})"><circle r="4"/><circle r="1.5" class="wbc"/></g>`;
   const L=26;let v=Math.round(s/5)*5,y=-L,p="";const sp=4.5;
   while(v>=50){p+=`M0 ${y}L9 ${y+3}L0 ${y+6}Z`;y+=7.5;v-=50}

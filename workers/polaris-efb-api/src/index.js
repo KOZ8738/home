@@ -563,9 +563,10 @@ async function windRoute(url, ctx, h) {
     let j = null;
     for (let tries = 0; tries < 2 && !j; tries++) {
       try {
-        const up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+        const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 15000);
+        const up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: ac.signal }).finally(() => clearTimeout(tm));
         if (up.ok) j = await up.json(); else { err = up.status === 429 ? 'Winds service is busy, try again shortly' : 'Winds service ' + up.status; if (up.status === 429 && tries === 0) await new Promise((r) => setTimeout(r, 1500)); }
-      } catch (e) { err = 'Winds service is slow, try again'; }
+      } catch (e) { err = (e && e.name === 'AbortError') ? 'Winds service is slow, try again' : 'Winds service: ' + ((e && e.message) || e); }
     }
     if (j) {
       if (!Array.isArray(j)) j = [j];

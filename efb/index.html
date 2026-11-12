@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1323">
+<meta name="efb-build" content="1112.1325">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2066,11 +2066,12 @@ function vecFirSync(){const m=VEC.map;if(!m||!VEC.ready)return;let ok=false;
 /* METAR dots: every reporting airport in view, coloured by flight category. Data in 10x10 degree cells from the EFB server. */
 const MT={cells:{},loading:{},q:0};
 function mtLoad(key){if(!vam.url||MT.loading[key]||MT.q>=4)return;const c=MT.cells[key];if(c&&Date.now()-c.at<8*60000)return;
-  MT.loading[key]=true;MT.q++;vamGet("/api/efb/metars?cell="+key,15000).then(j=>{MT.cells[key]={at:Date.now(),st:(j&&j.stations)||[]};MT.err=null})
+  MT.loading[key]=true;MT.q++;const [sz,cl]=key.split(":");vamGet("/api/efb/metars?size="+sz+"&cell="+cl,15000).then(j=>{MT.cells[key]={at:Date.now(),st:(j&&j.stations)||[]};MT.err=null})
     .catch(e=>{MT.err=e.message;MT.cells[key]={at:Date.now()-5*60000,st:c?c.st:[]}}).finally(()=>{MT.loading[key]=false;MT.q--;if(cur==="map")mapSched()})}
 function mtDraw(P,z,w,h,V,skip,hit,take,place,tx){let marks="",labs="";if(!ML.wx||z<5||z>=11||!MAP.c)return{marks,labs};
-  const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10),keys=[];
-  for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<48;lo+=10){let n=((lo+180)%360+360)%360-180;const k=la+","+n;if(!keys.includes(k))keys.push(k)}
+  /* aviationweather.gov thins out big boxes, which suits the overview; zoomed in, small cells bring every station */
+  const G=z<7?10:2,la1=Math.max(-90,Math.floor(V.la1/G)*G),la2=Math.min(90-G,Math.floor(V.la2/G)*G),keys=[];
+  for(let la=la1;la<=la2;la+=G)for(let lo=Math.floor(V.lo1/G)*G;lo<=V.lo2&&keys.length<60;lo+=G){let n=((lo+180)%360+360)%360-180;const k=G+":"+la+","+n;if(!keys.includes(k))keys.push(k)}
   keys.forEach(mtLoad);
   const rank={LIFR:0,IFR:1,MVFR:2,VFR:3},all=[];keys.forEach(k=>{const c=MT.cells[k];if(c)c.st.forEach(s=>all.push(s))});
   all.sort((a,b)=>(rank[a.c]??4)-(rank[b.c]??4));

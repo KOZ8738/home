@@ -519,14 +519,15 @@ async function oaipTile(m, req, env, ctx, h) {
 
 /* METARs for one 10x10 degree cell (SW corner lat,lon): flight category and wind for the map dots.
    Edge cache 5 minutes so many viewers share one aviationweather.gov request per cell. */
-async function metarCellRoute(cellIn, ctx, h) {
+async function metarCellRoute(cellIn, sizeIn, ctx, h) {
+  const sz = String(sizeIn) === '2' ? 2 : 10;
   const m = String(cellIn || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
   const la = +m[1], lo = +m[2];
-  if (la % 10 || lo % 10 || la < -90 || la > 80 || lo < -180 || lo > 170) throw new HttpError(400, 'cell must be on the 10 degree grid');
-  const cache = caches.default, ck = new Request('https://metar-cache.local/' + la + '/' + lo);
+  if (la % sz || lo % sz || la < -90 || la > 90 - sz || lo < -180 || lo > 180 - sz) throw new HttpError(400, 'cell must be on the grid');
+  const cache = caches.default, ck = new Request('https://metar-cache.local/' + sz + '/' + la + '/' + lo);
   let r = await cache.match(ck);
   if (!r) {
-    const up = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${la},${lo},${la + 10},${lo + 10}&format=json`, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    const up = await fetch(`https://aviationweather.gov/api/data/metar?bbox=${la},${lo},${la + sz},${lo + sz}&format=json`, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
     if (!up.ok && up.status !== 204) throw new HttpError(502, 'METAR service ' + up.status);
     let j = []; if (up.status !== 204) { try { j = await up.json(); } catch (e) { j = []; } }
     const seen = new Set(), st = [];
@@ -534,7 +535,7 @@ async function metarCellRoute(cellIn, ctx, h) {
       const i = String(x.icaoId || ''); if (!/^[A-Z0-9]{4}$/.test(i) || seen.has(i) || !isFinite(x.lat) || !isFinite(x.lon)) return; seen.add(i);
       st.push({ i, la: Math.round(x.lat * 1e4) / 1e4, lo: Math.round(x.lon * 1e4) / 1e4, c: /^(VFR|MVFR|IFR|LIFR)$/.test(x.fltCat) ? x.fltCat : null, wd: x.wdir === 'VRB' ? 'VRB' : (isFinite(x.wdir) ? +x.wdir : null), ws: isFinite(x.wspd) ? +x.wspd : null, wg: isFinite(x.wgst) ? +x.wgst : null, t: x.obsTime || null });
     });
-    r = new Response(JSON.stringify({ cell: [la, lo], stations: st, updatedAt: new Date().toISOString() }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+    r = new Response(JSON.stringify({ cell: [la, lo, sz], stations: st, updatedAt: new Date().toISOString() }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
     if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
   }
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=120');
@@ -560,7 +561,7 @@ export default {
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
-        case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), ctx, h);
+        case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

@@ -1947,7 +1947,6 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-ov],[data-
 document.addEventListener("input",e=>{if(e.target.id==="ovOp"){OV.op=Math.max(.15,Math.min(1,+e.target.value/100));store.set("ovOp",OV.op);ovSched()}});
 document.addEventListener("keydown",e=>{if(e.target.id!=="ovIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}OV.icao=v.length===3?"K"+v:v;e.target.blur();ovUi()});
 
-ML.apt=true; // taxiways always on (toggle removed)
 /* ---------- Vector base map ----------
    MapLibre GL draws OpenFreeMap vector tiles (OpenStreetMap data) under everything else. It is not
    interactive: the EFB keeps its own camera (MAP.c, MAP.z) and copies it to MapLibre on every frame,
@@ -2565,7 +2564,7 @@ V.timer=()=>{let body="";
   const tabs=[["world","World Clock",'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>'],["sw","Stopwatch",'<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4M10 2.5h4"/>'],["cd","Timer",'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>']];
   return `<div class="clk"><div class="ck-body">${body}</div><nav class="ck-tabs" aria-label="Clock sections">${tabs.map(t=>`<button data-ctab="${t[0]}" aria-pressed="${clockTab===t[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${t[2]}</svg>${t[1]}</button>`).join("")}</nav></div>`};
 /* ---------- Map ---------- */
-const ML=Object.assign({vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}));
+const ML=Object.assign({vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}),{apt:true});
 const MAP={z:5,c:null,tileFail:false,sel:null,live:null,liveAt:0,liveErr:null,loading:false,follow:false};
 const ZMAX=18;
 const TS=256;

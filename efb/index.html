@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1111.2338">
+<meta name="efb-build" content="1112.0824">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -990,7 +990,7 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .as-apt{display:grid;grid-template-columns:auto 1fr auto;gap:12px}
 .as-apt b{font-size:15px}.as-apt span{color:var(--label);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.as-apt small{color:var(--bronze);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
 .as-sub{padding:16px 16px 6px;font:500 10.5px/1 var(--f-ui);letter-spacing:.18em;text-transform:uppercase;color:var(--label)}
-.as-search{padding:12px 14px}.as-search input{width:100%;min-height:40px;padding:0 12px;font:500 15px var(--f-mono);text-transform:uppercase;border-radius:8px}
+.as-search{padding:12px 14px}.as-search input{width:100%;min-height:40px;padding:0 12px;font:500 15px var(--f-ui);border-radius:8px}
 .as-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}
 .as-row>div{display:flex;flex-direction:column;gap:4px;min-width:0}
 .as-row span{font:600 13px var(--f-ui);color:var(--label)}
@@ -2051,10 +2051,11 @@ function asCharts(icao){const d=CH.data[icao];
   const list=d.charts.filter(c=>asCatOf(c.group)===AS.cat);
   return `<div class="as-cats" role="group" aria-label="Chart type">${AS_CATS.map(c=>`<button class="as-c c-${c[0].toLowerCase()}" data-ascat="${c[0]}" aria-pressed="${AS.cat===c[0]}"${cnt[c[0]]?"":" disabled"}>${c[0]}</button>`).join("")}</div>
     <div class="as-list">${list.length?list.map(c=>`<button class="as-ch" data-aspdf="${esc(c.pdf)}" data-asname="${esc(c.name)}" data-asgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<i class="as-chg">Changed</i>':""}</button>`).join(""):`<p class="as-empty">No ${AS.cat} charts.</p>`}</div>`}
+const AS_US=[["KATL","Atlanta","Hartsfield-Jackson"],["KBOS","Boston","Logan"],["KBWI","Baltimore","BWI Marshall"],["KBNA","Nashville","Nashville Intl"],["KAUS","Austin","Austin-Bergstrom"],["KCLT","Charlotte","Charlotte Douglas"],["KDCA","Washington","Reagan National"],["KDEN","Denver","Denver Intl"],["KDFW","Dallas/Fort Worth","DFW Intl"],["KDTW","Detroit","Detroit Metro"],["KEWR","Newark","Newark Liberty"],["KFLL","Fort Lauderdale","Fort Lauderdale-Hollywood"],["KIAD","Washington","Dulles"],["KIAH","Houston","George Bush Intercontinental"],["KJFK","New York","John F. Kennedy"],["KLAS","Las Vegas","Harry Reid"],["KLAX","Los Angeles","Los Angeles Intl"],["KLGA","New York","LaGuardia"],["KMCI","Kansas City","Kansas City Intl"],["KMCO","Orlando","Orlando Intl"],["KMIA","Miami","Miami Intl"],["KMSP","Minneapolis","Minneapolis-St Paul"],["KMSY","New Orleans","Louis Armstrong"],["KOAK","Oakland","Oakland Intl"],["KORD","Chicago","O'Hare"],["KPDX","Portland","Portland Intl"],["KPHL","Philadelphia","Philadelphia Intl"],["KPHX","Phoenix","Sky Harbor"],["KRDU","Raleigh-Durham","Raleigh-Durham Intl"],["KSAN","San Diego","San Diego Intl"],["KSAT","San Antonio","San Antonio Intl"],["KSEA","Seattle","Seattle-Tacoma"],["KSFO","San Francisco","San Francisco Intl"],["KSJC","San Jose","Mineta San Jose"],["KSLC","Salt Lake City","Salt Lake City Intl"],["KSMF","Sacramento","Sacramento Intl"],["KSTL","St. Louis","Lambert"],["KTPA","Tampa","Tampa Intl"],["PANC","Anchorage","Ted Stevens"],["PHNL","Honolulu","Daniel K. Inouye"]];
 function asList(){const apts=chApts(),seen=new Set(apts.map(a=>a[1]));const rec=store.get("asRecent",[]).filter(i=>!seen.has(i)).slice(0,6);
   const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?asNames(a).name:"")}</span><small>${esc(role)}</small></button>`};
-  return `<div class="as-search"><input type="text" id="asIcao" placeholder="Search ICAO" maxlength="4" aria-label="Airport ICAO code" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></div>
-    <div class="as-list">${apts.map(a=>row({DEP:"Departure",DEST:"Destination",ALTN:"Alternate"}[a[0]]||a[0],a[1])).join("")}${rec.length?`<div class="as-sub">Recent</div>`+rec.map(i=>row("",i)).join(""):""}</div>`}
+  return `<div class="as-search"><input type="text" id="asIcao" placeholder="Search code, city or airport" maxlength="30" aria-label="Airport ICAO code" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></div>
+    <div class="as-list">${apts.map(a=>row({DEP:"Departure",DEST:"Destination",ALTN:"Alternate"}[a[0]]||a[0],a[1])).join("")}${rec.length?`<div class="as-sub">Recent</div>`+rec.map(i=>row("",i)).join(""):""}<div class="as-sub">US international airports</div>${AS_US.map(a=>`<button class="as-apt" data-asapt="${a[0]}"><b class="mono">${a[0]}</b><span>${esc(a[2])}</span><small>${esc(a[1])}</small></button>`).join("")}</div>`}
 function asUi(){const el=$("#asSheet");if(!el)return;
   if(!AS.open){const b=$("#asBtn");if(b)b.setAttribute("aria-pressed","false");
     if(!el.hidden&&el.classList.contains("in")){el.classList.remove("in");clearTimeout(AS.tm);AS.tm=setTimeout(()=>{if(!AS.open){el.hidden=true;el.innerHTML="";AS.html=""}},340)}
@@ -2080,7 +2081,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("#asBtn,[data-as]
   if(t.dataset.asapt){const ic=t.dataset.asapt;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));mapGoApt(ic);asOpen(ic,null);return}
   if(t.dataset.asgo){mapGoApt(t.dataset.asgo);if(window.matchMedia&&!matchMedia("(min-width:700px)").matches){AS.open=false;asUi()}return}
   if(t.dataset.aspdf){const d=CH.data[AS.icao];if(!d)return;ovOpen({name:t.dataset.asname,pdf:t.dataset.aspdf,group:t.dataset.asgroup},AS.icao,d.cycle);AS.open=false;asUi()}});
-document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
+document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Enter")return;e.preventDefault();const v=e.target.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){const first=[...document.querySelectorAll("#asSheet .as-apt")].find(b=>!b.hidden);if(first){first.click();return}toast("Enter an airport code like KLAX");return}
   const ic=v.length===3?"K"+v:v;store.set("asRecent",[ic,...store.get("asRecent",[]).filter(i=>i!==ic)].slice(0,8));e.target.blur();mapGoApt(ic);asOpen(ic,null)});
 
 /* drag the sheet by its header on a phone: down to close, up to expand.
@@ -2100,6 +2101,8 @@ document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Ente
   document.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse")return;start(e.target,e.clientY)});
   document.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")move(e.clientY)});
   document.addEventListener("pointerup",e=>{if(e.pointerType==="mouse")end(e.target)})})();
+/* typing in the airport search filters the list by code, city or name */
+document.addEventListener("input",e=>{if(e.target.id!=="asIcao")return;const q=e.target.value.trim().toUpperCase();document.querySelectorAll("#asSheet .as-apt").forEach(b=>{b.hidden=!!q&&!b.textContent.toUpperCase().includes(q)});document.querySelectorAll("#asSheet .as-sub").forEach(h=>{h.hidden=!!q})});
 
 /* ===== shared app building blocks ===== */
 const ICO={

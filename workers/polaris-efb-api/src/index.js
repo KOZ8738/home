@@ -402,9 +402,9 @@ async function layoutRoute(icaoIn, env, ctx) {
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
     const bb = [pos.lat - dLat, pos.lon - dLon, pos.lat + dLat, pos.lon + dLon].map((v) => v.toFixed(5)).join(',');
-    const q = `[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out body bb geom;` +
-      `(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];way["building"]["name"];);out geom qt;`;
-    const j0 = await overpass(q);
+    /* two small queries: the airport outline first, then everything inside its own box (named buildings in
+       a wide box around a city airport made one big query too slow) */
+    const j0 = await overpass(`[out:json][timeout:20][bbox:${bb}];(way["aeroway"="aerodrome"];relation["aeroway"="aerodrome"];);out body bb geom;`);
     /* keep only what lies inside this airport: its own outline if OSM has one, else a tight box */
     const fields = (j0.elements || []).filter((e) => (e.tags || {}).aeroway === 'aerodrome' && e.bounds);
     const mine = fields.find((e) => String(e.tags.icao || '').toUpperCase() === icao)
@@ -413,7 +413,9 @@ async function layoutRoute(icaoIn, env, ctx) {
     const m = 0.003, box = mine ? { a: mine.bounds.minlat - m, b: mine.bounds.maxlat + m, c: mine.bounds.minlon - m, d: mine.bounds.maxlon + m }
       : { a: pos.lat - 0.04, b: pos.lat + 0.04, c: pos.lon - dLon * 4 / 7, d: pos.lon + dLon * 4 / 7 };
     const inBox = (e) => { const p = e.type === 'node' ? e : e.bounds ? { lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2 } : null; return !!p && p.lat >= box.a && p.lat <= box.b && p.lon >= box.c && p.lon <= box.d; };
-    const j = { elements: (j0.elements || []).filter((e) => (e.tags || {}).aeroway !== 'aerodrome' && inBox(e)) };
+    const bb2 = [box.a, box.c, box.b, box.d].map((v) => v.toFixed(5)).join(',');
+    const j1 = await overpass(`[out:json][timeout:40][bbox:${bb2}];(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];way["building"]["name"];);out geom qt;`, 45_000, 6_000);
+    const j = { elements: (j1.elements || []).filter((e) => (e.tags || {}).aeroway !== 'aerodrome' && inBox(e)) };
 
     const r6 = (v) => Math.round(v * 1e6) / 1e6;
     const line = (e) => (e.geometry || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)]);

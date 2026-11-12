@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2324">
+<meta name="efb-build" content="1112.2328">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2791,11 +2791,11 @@ function devInfo(){const f=window.__fit,sa=navigator.standalone===true||(window.
 /* ===== Winter Ops: cold temperature altitude correction (ICAO Doc 8168) and de/anti-icing holdover times (FAA) ===== */
 let wiTab=store.get("wiTab","cold");
 const WI=store.get("wi",{});const wiSave=()=>store.set("wi",WI);
-/* ---- cold temperature correction: ICAO PANS-OPS (Doc 8168) Vol I formula ----
-   dH = (-dT_std / L0) * ln(1 + L0 * h_PAA / (T0 + L0 * h_ad)), metres; L0 = -0.0065 K/m, T0 = 288.15 K,
-   dT_std = aerodrome temperature - ISA temperature at the aerodrome, h_PAA = height of the altitude above the aerodrome. */
-function wiCorr(altFt,elevFt,tC){const L0=-0.0065,T0=288.15,hAd=elevFt*.3048,h=(altFt-elevFt)*.3048;if(!(h>0))return 0;const dT=tC-(15+L0*hAd);if(dT>=0)return 0;
-  return Math.max(0,(-dT/L0)*Math.log(1+L0*h/(T0+L0*hAd)))/.3048}
+/* ---- cold temperature correction: ICAO PANS-OPS (Doc 8168) formula
+   dH = H * (15 - t0) / (273 + t0 - 0.5 * L0 * (H + Hss)), metres; L0 = 0.0065 °C/m,
+   H = height above the altimeter setting source (here the aerodrome), Hss = its elevation, t0 = aerodrome temperature.
+   Reproduces the published ICAO / FCOM "values to be added" table cell for cell (0 to -50 °C, 200 to 5000 ft). */
+function wiCorr(altFt,elevFt,tC){const L0=0.0065,h=(altFt-elevFt)*.3048,hs=elevFt*.3048;if(!(h>0)||tC>0)return 0;return h*(15-tC)/(273+tC-0.5*L0*(h+hs))/.3048}
 const WI_ROWS=[["iaf","IAF / initial"],["if","IF / intermediate"],["faf","FAF / FAP"],["da","DA / MDA"],["ma","Missed approach"],["msa","MSA / other"]];
 /* ---- holdover times: FAA Holdover Time Guidelines, Winter 2026-2027 (original issue 11 Aug 2026), generic tables 2, 3, 4, 20.
    Minutes [low, high]; null = no holdover time guidelines exist. */
@@ -2837,7 +2837,7 @@ function wiPrefill(){const x=O();if(WI._for===x.id)return;WI._for=x.id;
   const md=dep&&decodeMetar(dep[3]);if(md&&md.temp!=null)WI.oat=md.temp;const sug=dep&&hotFromMetar(dep[3]);if(sug)WI.cond=sug;
   const t=S(x.ac.icaocode);if(t&&!WI.fl)WI.fl=/^A35/.test(t)?"t1c":"t1a";
   const ma=dst&&decodeMetar(dst[3]);if(dst){WI.ad=S(dst[2].icao_code);const el=N(dst[2].elevation);if(el!=null)WI.elev=el;if(ma&&ma.temp!=null)WI.tad=ma.temp}wiSave()}
-function wiColdCalc(){const el=N(WI.elev),t=N(WI.tad);const ok=el!=null&&t!=null;let isa="Enter the aerodrome elevation and temperature.";if(ok){const dev=t-(15-1.98*el/1000);isa=`ISA ${dev>=0?"+":"−"}${Math.abs(dev).toFixed(0)} °C`+(t>=0?" · no correction needed at 0 °C and above":"")}
+function wiColdCalc(){const el=N(WI.elev),t=N(WI.tad);const ok=el!=null&&t!=null;let isa="Enter the aerodrome elevation and temperature.";if(ok){const dev=t-(15-1.98*el/1000);isa=`ISA ${dev>=0?"+":"−"}${Math.abs(dev).toFixed(0)} °C`+(t>0?" · no correction above 0 °C":"")}
   const rows={};WI_ROWS.forEach(([k])=>{const a=N((WI.alt||{})[k]);let out="—",add="";if(ok&&a!=null&&a>el){const cr=Math.ceil(wiCorr(a,el,t)/10)*10;out=fmt(a+cr);add=cr?`+${fmt(cr)}`:"0"}else if(ok&&a!=null)out="below aerodrome";rows[k]=[add,out]});return{isa,rows}}
 function wiColdOut(){const c=wiColdCalc();
   const rows=WI_ROWS.map(([k,l])=>{const a=N((WI.alt||{})[k]);return `<tr><td>${l}</td><td><input class="wi-in" type="number" inputmode="numeric" data-wi="alt.${k}" value="${a??""}" placeholder="ft" aria-label="${l} published altitude"></td><td class="num" id="wiA_${k}">${c.rows[k][0]}</td><td class="num"><b id="wiF_${k}">${c.rows[k][1]}</b></td></tr>`}).join("");
@@ -2858,7 +2858,7 @@ V.winter=()=>{wiPrefill();const tabs=`<div class="chips" role="group" aria-label
      <label class="f">Temperature °C<input type="number" inputmode="numeric" data-wi="tad" value="${WI.tad??""}"></label>
      <button class="btn" type="button" data-wi-act="fetch">Use METAR</button></div>
     <div id="wiOut">${wiColdOut()}</div>
-    <p class="wi-note">ICAO Doc 8168 formula, corrections rounded up to the next 10 ft. Correct all published altitudes and heights on the approach (DA/MDA included) when the aerodrome temperature is below ISA and at or below 0 °C, or as your procedure requires. Tell ATC before flying corrected altitudes; don’t correct altitudes ATC assigns while vectoring without their agreement.</p></div></section>`;
+    <p class="wi-note">ICAO Doc 8168 formula (matches the published cold temperature table), rounded up to the next 10 ft. Correct all published altitudes and heights on the approach (DA/MDA included) when the aerodrome temperature is below ISA and at or below 0 °C, or as your procedure requires. Tell ATC before flying corrected altitudes; don’t correct altitudes ATC assigns while vectoring without their agreement.</p></div></section>`;
   const t=HOT[WI.fl||"t1a"];
   return `<section class="card">${cardH("Winter Ops","Holdover time")}<div class="card-b wi">${tabs}
    <div class="wi-sub">Fluid</div><div class="chips" role="group">${Object.keys(HOT).map(k=>`<button data-wi-set="fl:${k}" aria-pressed="${(WI.fl||"t1a")===k}">${esc(HOT[k].name)}</button>`).join("")}</div>

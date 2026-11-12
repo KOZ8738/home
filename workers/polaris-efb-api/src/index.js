@@ -541,6 +541,36 @@ async function metarCellRoute(cellIn, sizeIn, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=120');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* Winds and temperatures aloft from Open-Meteo (GFS/ICON blend, free for non-commercial use), on a grid
+   inside one 10x10 degree cell. step 5 or 2.5 degrees. Cached at the edge for the hour. */
+const WIND_LV = [700, 500, 400, 300, 250, 200];
+async function windCellRoute(cellIn, stepIn, ctx, h) {
+  const m = String(cellIn || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
+  const la = +m[1], lo = +m[2], st = String(stepIn) === '2.5' ? 2.5 : 5;
+  if (la % 10 || lo % 10 || la < -90 || la > 80 || lo < -180 || lo > 170) throw new HttpError(400, 'cell must be on the 10 degree grid');
+  const hour = new Date().toISOString().slice(0, 13);
+  const cache = caches.default, ck = new Request('https://wind-cache.local/' + hour + '/' + st + '/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const lats = [], lons = [];
+    for (let a = la + st / 2; a < la + 10; a += st) for (let b = lo + st / 2; b < lo + 10; b += st) { if (Math.abs(a) <= 85) { lats.push(a); lons.push(b); } }
+    const vars = WIND_LV.flatMap((l) => ['wind_speed_' + l + 'hPa', 'wind_direction_' + l + 'hPa', 'temperature_' + l + 'hPa']).join(',');
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=${vars}&wind_speed_unit=kn&forecast_hours=1&timezone=GMT`;
+    const up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    if (!up.ok) throw new HttpError(502, 'Winds service ' + up.status);
+    let j = await up.json(); if (!Array.isArray(j)) j = [j];
+    const pts = j.map((x, i) => {
+      const hr = x.hourly || {}, lv = {};
+      WIND_LV.forEach((l) => { const s = (hr['wind_speed_' + l + 'hPa'] || [])[0], d = (hr['wind_direction_' + l + 'hPa'] || [])[0], t = (hr['temperature_' + l + 'hPa'] || [])[0]; if (s != null && d != null) lv[l] = [Math.round(d), Math.round(s), t == null ? null : Math.round(t)]; });
+      return { la: lats[i], lo: lons[i], lv };
+    });
+    r = new Response(JSON.stringify({ cell: [la, lo], step: st, hour: hour + ':00Z', pts }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -562,6 +592,7 @@ export default {
         case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
+        case '/api/efb/winds': return await windCellRoute(url.searchParams.get('cell'), url.searchParams.get('step'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

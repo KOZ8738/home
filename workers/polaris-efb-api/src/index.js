@@ -549,16 +549,21 @@ const WIND_LV = [700, 500, 400, 300, 250, 200];
 async function windRoute(url, ctx, h) {
   const lv = +url.searchParams.get('lv'); if (!WIND_LV.includes(lv)) throw new HttpError(400, 'lv must be one of ' + WIND_LV.join(', '));
   const cells = String(url.searchParams.get('cells') || '').split(';').map((c) => c.match(/^(-?\d{1,2}),(-?\d{1,3})$/)).filter(Boolean)
-    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 10) && !(lo % 10) && la >= -90 && la <= 80 && lo >= -180 && lo <= 170).slice(0, 60);
+    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 10) && !(lo % 10) && la >= -90 && la <= 80 && lo >= -180 && lo <= 170);
   if (!cells.length) throw new HttpError(400, 'cells=lat,lon;lat,lon');
+  /* cached in 30x30 degree blocks (36 grid points) so a view needs only a handful of cache reads:
+     a Worker invocation may make at most 50 subrequests, cache reads and writes included */
+  const blk = (v) => Math.floor(v / 30) * 30, blocks = [];
+  cells.forEach(([la, lo]) => { const b = [blk(la), blk(lo)]; if (!blocks.some((x) => x[0] === b[0] && x[1] === b[1])) blocks.push(b); });
+  blocks.splice(14);
   const hour = new Date().toISOString().slice(0, 13), cache = caches.default;
-  const key = (c) => new Request('https://wind-cache.local/v2/' + hour + '/' + lv + '/' + c[0] + '/' + c[1]);
-  const out = {}, miss = [];
-  await Promise.all(cells.map(async (c) => { const r = await cache.match(key(c)); if (r) out[c.join(',')] = await r.json(); else miss.push(c); }));
+  const key = (b) => new Request('https://wind-cache.local/v3/' + hour + '/' + lv + '/' + b[0] + '/' + b[1]);
+  const got = {}, miss = [];
+  await Promise.all(blocks.map(async (b) => { const r = await cache.match(key(b)); if (r) got[b.join(',')] = await r.json(); else miss.push(b); }));
   let err = null;
   if (miss.length) {
     const lats = [], lons = [], owner = [];
-    miss.forEach((c) => { for (let a = c[0] + 2.5; a < c[0] + 10; a += 5) for (let b = c[1] + 2.5; b < c[1] + 10; b += 5) if (Math.abs(a) <= 85) { lats.push(a); lons.push(b); owner.push(c.join(',')); } });
+    miss.forEach((b) => { for (let a = b[0] + 2.5; a < b[0] + 30; a += 5) for (let o = b[1] + 2.5; o < b[1] + 30; o += 5) if (Math.abs(a) <= 85) { lats.push(a); lons.push(o); owner.push(b.join(',')); } });
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&hourly=wind_speed_${lv}hPa,wind_direction_${lv}hPa,temperature_${lv}hPa&wind_speed_unit=kn&forecast_hours=1&timezone=GMT`;
     let j = null;
     for (let tries = 0; tries < 2 && !j; tries++) {
@@ -571,13 +576,16 @@ async function windRoute(url, ctx, h) {
     if (j) {
       if (!Array.isArray(j)) j = [j];
       const fresh = {};
-      j.forEach((x, i) => { const hr = x.hourly || {}, s = (hr['wind_speed_' + lv + 'hPa'] || [])[0], d = (hr['wind_direction_' + lv + 'hPa'] || [])[0], t = (hr['temperature_' + lv + 'hPa'] || [])[0];
-        (fresh[owner[i]] = fresh[owner[i]] || []).push({ la: lats[i], lo: lons[i], d: d == null ? null : Math.round(d), s: s == null ? null : Math.round(s), t: t == null ? null : Math.round(t) }); });
-      miss.forEach((c) => { const k = c.join(','), v = fresh[k] || []; out[k] = v; const p = cache.put(key(c), new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(p); });
+      j.forEach((x, i) => { const hr = x.hourly || {}, sp = (hr['wind_speed_' + lv + 'hPa'] || [])[0], d = (hr['wind_direction_' + lv + 'hPa'] || [])[0], t = (hr['temperature_' + lv + 'hPa'] || [])[0];
+        (fresh[owner[i]] = fresh[owner[i]] || []).push({ la: lats[i], lo: lons[i], d: d == null ? null : Math.round(d), s: sp == null ? null : Math.round(sp), t: t == null ? null : Math.round(t) }); });
+      miss.forEach((b) => { const k = b.join(','), v = fresh[k] || []; got[k] = v; const p = cache.put(key(b), new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(p); });
       err = null;
     }
   }
-  return json({ lv, hour: hour + ':00Z', cells: out, error: err, missing: err ? miss.map((c) => c.join(',')) : [] }, 200, h);
+  /* hand back per requested 10-degree cell, as the app asks */
+  const out = {};
+  cells.forEach(([la, lo]) => { const v = got[blk(la) + ',' + blk(lo)]; if (v) out[la + ',' + lo] = v.filter((q) => q.la >= la && q.la < la + 10 && q.lo >= lo && q.lo < lo + 10); });
+  return json({ lv, hour: hour + ':00Z', cells: out, error: err }, 200, h);
 }
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },

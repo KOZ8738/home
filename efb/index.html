@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.0929">
+<meta name="efb-build" content="1112.0932">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1726,7 +1726,7 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
     const off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
     let a=G.parts[0],b=G.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
     const lenM=best*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180);if(a)ends.push({p:A,ll:A.ll,ux,uy,name:a,w:G.w,len:lenM});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:b,w:G.w,len:lenM})});
-  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),bldg:d.buildings.map(b=>({l:L(b.pts),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
+  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),holes:(d.apronHoles||[]).map(L),bldg:d.buildings.map(b=>({l:L(b.pts),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
     rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,stops:lines.filter(r=>r.stopway&&r.pts.length>1).map(r=>{let a=pt(r.pts[0]),b=pt(r.pts[r.pts.length-1]);const dn=p=>ends.reduce((m,e)=>Math.min(m,Math.hypot(e.p[0]-p[0],e.p[1]-p[1])),9);if(dn(b)<dn(a)){const t=a;a=b;b=t}const L0=Math.hypot(b[0]-a[0],b[1]-a[1]);return{t:a,f:b,len:L0*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180),vx:(b[0]-a[0])/(L0||1),vy:(b[1]-a[1])/(L0||1),w:r.width||45}}),
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
     holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:txStands(d,L,pt)}}
@@ -1741,7 +1741,7 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     const fillAll=(list,col)=>{g.fillStyle=col;g.beginPath();let n=0;list.forEach(l=>{if(vis(l)){trace(l);g.closePath();n++}});if(n)g.fill()};
     g.setLineDash([]);g.globalAlpha=1;
     /* pavement: aprons and taxiways read as one grey surface */
-    fillAll(m.outline,C.ground);fillAll(m.aprons,C.apron);
+    fillAll(m.outline,C.ground);fillAll(m.aprons,C.apron);if(m.holes.length)fillAll(m.holes,m.outline.length?C.ground:C.ground);
     const groups=new Map();m.twy.forEach(t=>{if(!vis(t.l))return;const W=Math.max(2,t.w*k),key=W.toFixed(1);if(!groups.has(key))groups.set(key,{W,ls:[]});groups.get(key).ls.push(t.l)});
     g.lineCap="round";g.lineJoin="round";groups.forEach(G=>{g.strokeStyle=C.pave;g.lineWidth=G.W;g.beginPath();G.ls.forEach(trace);g.stroke()});
     /* runways: white edge, dark surface, dashed centreline */

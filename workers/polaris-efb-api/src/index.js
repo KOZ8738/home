@@ -399,7 +399,7 @@ const LAYOUT_KINDS = 'runway|taxiway|taxilane|apron|terminal|hangar|holding_posi
 async function layoutRoute(icaoIn, env, ctx) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
-  return cached('layout9:' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'layout:v9:' + icao, 30 * 86400_000, () => edgeCache(`layout/v9/${icao}`, 7 * 86400, async () => {
+  return cached('layout10:' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'layout:v10:' + icao, 30 * 86400_000, () => edgeCache(`layout/v10/${icao}`, 7 * 86400, async () => {
     const pos = await airportPos(icao);
     if (!pos) return { airport: { icao, name: '', lat: null, lon: null }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], notFound: true };
     const dLat = 0.07, dLon = dLat / Math.max(0.2, Math.cos(pos.lat * Math.PI / 180));
@@ -416,12 +416,12 @@ async function layoutRoute(icaoIn, env, ctx) {
       : { a: pos.lat - 0.04, b: pos.lat + 0.04, c: pos.lon - dLon * 4 / 7, d: pos.lon + dLon * 4 / 7 };
     const inBox = (e) => { const p = e.type === 'node' ? e : e.bounds ? { lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2 } : null; return !!p && p.lat >= box.a && p.lat <= box.b && p.lon >= box.c && p.lon <= box.d; };
     const bb2 = [box.a, box.c, box.b, box.d].map((v) => v.toFixed(5)).join(',');
-    const j1 = await overpass(`[out:json][timeout:40][bbox:${bb2}];(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];way["building"]["name"];);out geom qt;`, 45_000, 6_000);
+    const j1 = await overpass(`[out:json][timeout:40][bbox:${bb2}];(way["aeroway"~"^(${LAYOUT_KINDS})$"];node["aeroway"~"^(gate|parking_position|holding_position)$"];way["building"]["name"];relation["aeroway"="apron"];);out geom qt;`, 45_000, 6_000);
     const j = { elements: (j1.elements || []).filter((e) => (e.tags || {}).aeroway !== 'aerodrome' && inBox(e)) };
 
     const r6 = (v) => Math.round(v * 1e6) / 1e6;
     const line = (e) => (e.geometry || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)]);
-    const out = { airport: { icao, name: (mine && mine.tags.name) || pos.name || '', lat: r6(pos.lat), lon: r6(pos.lon) }, runways: [], taxiways: [], aprons: [], buildings: [], stands: [], holds: [], places: [] };
+    const out = { airport: { icao, name: (mine && mine.tags.name) || pos.name || '', lat: r6(pos.lat), lon: r6(pos.lon) }, runways: [], taxiways: [], aprons: [], apronHoles: [], buildings: [], stands: [], holds: [], places: [] };
     /* the airport boundary, so the app can paint the airfield ground under the pavement */
     if (mine) {
       const rings = mine.type === 'way' ? [mine.geometry] : (mine.members || []).filter((mb) => mb.type === 'way' && mb.role !== 'inner').map((mb) => mb.geometry);
@@ -429,6 +429,15 @@ async function layoutRoute(icaoIn, env, ctx) {
     }
     for (const e of j.elements || []) {
       const t = e.tags || {}, a = t.aeroway;
+      if (e.type === 'relation') {
+        /* multipolygon aprons: outer rings are pavement, inner rings are holes in it */
+        if (a === 'apron') {
+          const ring = (role) => stitchRings((e.members || []).filter((mb) => mb.type === 'way' && (role === 'inner' ? mb.role === 'inner' : mb.role !== 'inner')).map((mb) => (mb.geometry || []).filter((p) => p && isFinite(p.lat)).map((p) => [r6(p.lon), r6(p.lat)])));
+          ring('outer').forEach((r) => out.aprons.push(r)); ring('inner').forEach((r) => out.apronHoles.push(r));
+          if (t.name) { const o = ring('outer')[0]; if (o) out.places.push({ kind: 'apron', name: t.name, pt: mid(o) }); }
+        }
+        continue;
+      }
       if (e.type === 'node') {
         if (a === 'holding_position') out.holds.push({ ref: t.ref || '', pt: [r6(e.lon), r6(e.lat)] });
         else out.stands.push({ ref: t.ref || t.name || '', kind: a, pt: [r6(e.lon), r6(e.lat)] });
@@ -470,7 +479,7 @@ async function majorRoute(env) {
   const kv = env && env.STORE, cyc = airac().cycle;
   const rows = await Promise.all(MAJOR.map(async (icao) => {
     if (!kv) return { icao };
-    const [l, c] = await Promise.all([kv.get('layout:v9:' + icao, 'json').catch(() => null), kv.get('charts:' + cyc + ':' + icao, 'json').catch(() => null)]);
+    const [l, c] = await Promise.all([kv.get('layout:v10:' + icao, 'json').catch(() => null), kv.get('charts:' + cyc + ':' + icao, 'json').catch(() => null)]);
     const v = l && l.v, cv = c && c.v;
     return { icao, name: (v && v.airport && v.airport.name) || (cv && cv.airport && cv.airport.name) || '', layoutAt: l ? l.t : null, runways: v ? v.runways.length : 0, taxiways: v ? v.taxiways.length : 0, stands: v ? v.stands.length : 0, buildings: v ? v.buildings.length : 0, chartsAt: c ? c.t : null, charts: cv ? cv.charts.length : 0 };
   }));
@@ -481,9 +490,9 @@ async function majorRoute(env) {
    and every chart list of the current AIRAC cycle. */
 async function refreshMajor(env, ctx) {
   const kv = env && env.STORE; if (!kv) return;
-  const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v9:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
+  const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v10:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
   const due = ages.filter((a) => Date.now() - a.t > 25 * 86400_000).sort((a, b) => a.t - b.t).slice(0, 3);
-  for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v9:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
+  for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v10:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
   for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
 }
 export default {

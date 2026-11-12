@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1009">
+<meta name="efb-build" content="1112.1016">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2639,7 +2639,7 @@ function drawMap(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if(
         const wd=f.id.length*fs*.62+6,r=[q[0]-wd/2,q[1]-fs,q[0]+wd/2,q[1]+4];if(occ.some(o=>r[0]<o[2]&&r[2]>o[0]&&r[1]<o[3]&&r[3]>o[1]))continue;occ.push(r);seen.add(f.id);
         lb+=`<text class="firl${f.oc?" oc":""}" x="${q[0]}" y="${q[1]}" text-anchor="middle" style="font-size:${fs}px">${esc(f.id)}</text>`}}});
     s+=`<path class="fir" d="${a}"/><path class="fir oc" d="${o}"/>${lb}`}
-  if(ML.sig&&SIG.list)SIG.list.forEach((g,i)=>{const pts=g.coords.map(q=>{let lo=q[1];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(q[0],lo)});
+  if(ML.sig&&SIG.list)SIG.list.forEach((g,i)=>{let pl=null;const uw=g.coords.map(q=>{let lo=+q[1];if(pl!=null){while(lo-pl>180)lo-=360;while(lo-pl<-180)lo+=360}pl=lo;return[+q[0],lo]});const mlo=uw.reduce((a,q)=>a+q[1],0)/(uw.length||1);let sh=0;while(mlo+sh-MAP.c.lon>180)sh-=360;while(mlo+sh-MAP.c.lon<-180)sh+=360;const pts=uw.map(q=>P(q[0],q[1]+sh));
     const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]);if(Math.max(...xs)<0||Math.min(...xs)>w||Math.max(...ys)<0||Math.min(...ys)>h)return;
     const cx=xs.reduce((a,b)=>a+b,0)/xs.length,cy=ys.reduce((a,b)=>a+b,0)/ys.length;const sel=MAP.sel&&MAP.sel.t==="sig"&&MAP.sel.i===i;
     s+=`<polygon class="sig h-${HZ(g.hazard)}${sel?" sel":""}" data-sig="${i}" points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});

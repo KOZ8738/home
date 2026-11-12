@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.0824">
+<meta name="efb-build" content="1112.0929">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1703,8 +1703,13 @@ function txColors(el){const key=isDark()?"d":"l";if(txPal&&txPalKey===key)return
 /* Stands like a chart: one label per stand at its stop point, with the lead-in line when OpenStreetMap has one.
    Gate nodes on the terminal are dropped when a parking position with the same name is close by. */
 function txStands(d,L,pt){const norm=r=>String(r||"").toUpperCase().replace(/^(GATE|STAND|STAND NO\.?|GATE NO\.?)\s*/,"").trim();
-  const tw=[];d.taxiways.forEach(t=>t.pts.forEach(q=>tw.push(pt(q))));const near=p=>{let b=1e9;for(const q of tw){const dx=q[0]-p[0],dy=q[1]-p[1],v=dx*dx+dy*dy;if(v<b)b=v}return b};
-  const out=d.stands.map(o=>{const ref=norm(o.ref);if(o.line&&o.line.length>1){const a=pt(o.line[0]),b=pt(o.line[o.line.length-1]);const stop=tw.length&&near(a)>near(b)?a:b;
+  /* The stop end of a lead-in line is the end away from the taxiways and toward the buildings: score each end by
+     its distance to the nearest taxiway segment minus its distance to the nearest building edge. */
+  const segs=(lines,closed)=>{const out=[];lines.forEach(p=>{const q=p.map(pt);for(let i=1;i<q.length;i++)out.push([q[i-1],q[i]]);if(closed&&q.length>2)out.push([q[q.length-1],q[0]])});return out};
+  const tw=segs(d.taxiways.map(t=>t.pts)),bd=segs(d.buildings.map(b=>b.pts),true);
+  const dseg=(p,S)=>{let b=1e9;for(const [a,c] of S){const vx=c[0]-a[0],vy=c[1]-a[1],L2=vx*vx+vy*vy;let t=L2?((p[0]-a[0])*vx+(p[1]-a[1])*vy)/L2:0;t=t<0?0:t>1?1:t;const dx=a[0]+t*vx-p[0],dy=a[1]+t*vy-p[1],v=dx*dx+dy*dy;if(v<b)b=v}return Math.sqrt(b)};
+  const score=p=>(tw.length?dseg(p,tw):0)-(bd.length?Math.min(dseg(p,bd),1e-3):0);
+  const out=d.stands.map(o=>{const ref=norm(o.ref);if(o.line&&o.line.length>1){const a=pt(o.line[0]),b=pt(o.line[o.line.length-1]);const stop=score(a)>score(b)?a:b;
       return{ref,p:stop,l:L(o.line),kind:o.kind,line:true}}return{ref,p:pt(o.pt),kind:o.kind,line:false}});
   const m=1/40075016.7,keep=[];out.sort((x,y)=>(y.line-x.line)||((y.kind==="parking_position")-(x.kind==="parking_position")));
   for(const s of out){if(s.ref&&keep.some(k=>k.ref===s.ref&&Math.hypot(k.p[0]-s.p[0],k.p[1]-s.p[1])<250*m))continue;keep.push(s)}

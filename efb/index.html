@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.0932">
+<meta name="efb-build" content="1112.0939">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1742,6 +1742,9 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     g.setLineDash([]);g.globalAlpha=1;
     /* pavement: aprons and taxiways read as one grey surface */
     fillAll(m.outline,C.ground);fillAll(m.aprons,C.apron);if(m.holes.length)fillAll(m.holes,m.outline.length?C.ground:C.ground);
+    /* ramps: many airports map only the stand aprons, so pave a band around every lead-in line and stand */
+    if(z>=13){g.strokeStyle=C.apron;g.fillStyle=C.apron;g.lineCap="round";g.lineJoin="round";g.lineWidth=Math.max(4,58*k);g.beginPath();let n=0;m.stands.forEach(o=>{if(o.l&&vis(o.l)){trace(o.l);n++}});if(n)g.stroke();
+      const r=Math.max(2,30*k);g.beginPath();m.stands.forEach(o=>{if(o.l)return;const x=X(o.p[0]),y=Y(o.p[1]);if(x<-r||y<-r||x>w+r||y>h+r)return;g.moveTo(x+r,y);g.arc(x,y,r,0,6.2832)});g.fill()}
     const groups=new Map();m.twy.forEach(t=>{if(!vis(t.l))return;const W=Math.max(2,t.w*k),key=W.toFixed(1);if(!groups.has(key))groups.set(key,{W,ls:[]});groups.get(key).ls.push(t.l)});
     g.lineCap="round";g.lineJoin="round";groups.forEach(G=>{g.strokeStyle=C.pave;g.lineWidth=G.W;g.beginPath();G.ls.forEach(trace);g.stroke()});
     /* runways: white edge, dark surface, dashed centreline */

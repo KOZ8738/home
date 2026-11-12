@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.0939">
+<meta name="efb-build" content="1112.0944">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1777,17 +1777,21 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
     /* stands: a dot first, a small boxed label once there is room */
     const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};
+    if(z>=14.5){/* lead-in lines */g.strokeStyle=C.cl;g.lineWidth=Math.max(.8,Math.min(1.4,.35*k));g.setLineDash([]);g.lineCap="round";g.beginPath();m.stands.forEach(o=>{if(o.l&&vis(o.l))trace(o.l)});g.stroke()}
+    if(z>=15){const fs=z>=17?11:z>=16?10:9;g.font=`700 ${fs}px ${C.mono}`;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
+      /* label at the stop point; if that spot is taken, slide it back along the lead-in line */
+      m.stands.forEach(o=>{if(!o.ref||o.ref.length>10)return;const x0=X(o.p[0]),y0=Y(o.p[1]);if(x0<-30||y0<-20||x0>w+30||y0>h+20)return;
+        const t=o.ref.length>6?o.ref.replace(/\s*\/\s*/g,"/"):o.ref,bw=t.length*fs*.62+7,bh=fs+5;let ux=0,uy=0;
+        if(o.l){const a=o.l.a,n=a.length;const fx=a[0],fy=a[1],lx=a[n-2],ly=a[n-1];const far=Math.hypot(fx-o.p[0],fy-o.p[1])>Math.hypot(lx-o.p[0],ly-o.p[1])?[fx,fy]:[lx,ly];
+          const dx=X(far[0])-x0,dy=Y(far[1])-y0,L0=Math.hypot(dx,dy);if(L0>1){ux=dx/L0;uy=dy/L0}}
+        for(const step of [0,.9,1.8,2.7]){const x=x0+ux*step*bh*1.05,y=y0+uy*step*bh*1.05;if(!free(x-bw/2-1,y-bh/2-1,x+bw/2+1,y+bh/2+1))continue;
+          g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-bh/2,bw,bh);g.strokeStyle="#EDEDED";g.strokeRect(x-bw/2+.5,y-bh/2+.5,bw-1,bh-1);g.fillStyle="#FFFFFF";g.fillText(t,x,y+.5);break}})}
     /* building names */
     if(z>=14){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
       m.bldg.forEach(b=>{if(!b.name||!vis(b.l)||(z<14.5&&b.kind!=="terminal"&&b.kind!=="cargo"))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<(b.kind==="terminal"||b.kind==="cargo"?22:30))return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;
         const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
         const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
         rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
-    if(z>=14.5){/* lead-in lines */g.strokeStyle=C.cl;g.lineWidth=Math.max(.8,Math.min(1.4,.35*k));g.setLineDash([]);g.lineCap="round";g.beginPath();m.stands.forEach(o=>{if(o.l&&vis(o.l))trace(o.l)});g.stroke()}
-    if(z>=15){const fs=z>=17?11:z>=16?10:9;g.font=`700 ${fs}px ${C.mono}`;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
-      m.stands.forEach(o=>{if(!o.ref||o.ref.length>6)return;const x=X(o.p[0]),y=Y(o.p[1]);if(x<-30||y<-20||x>w+30||y>h+20)return;
-        const bw=o.ref.length*fs*.62+7,bh=fs+5;if(!free(x-bw/2-2,y-bh/2-2,x+bw/2+2,y+bh/2+2))return;
-        g.fillStyle="#0B0B0C";g.fillRect(x-bw/2,y-bh/2,bw,bh);g.strokeStyle="#EDEDED";g.strokeRect(x-bw/2+.5,y-bh/2+.5,bw-1,bh-1);g.fillStyle="#FFFFFF";g.fillText(o.ref,x,y+.5)})}
     /* apron and area names */
     if(z>=14.5){g.font="italic 500 11px "+C.ui;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;g.globalAlpha=.85;
       m.places.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<0||y<0||x>w||y>h)return;const tw=o.name.length*6.2;if(!free(x-tw/2,y-8,x+tw/2,y+8))return;g.strokeText(o.name,x,y);g.fillText(o.name,x,y)});g.globalAlpha=1}

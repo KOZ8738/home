@@ -495,6 +495,27 @@ async function refreshMajor(env, ctx) {
   for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v10:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
   for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
 }
+
+/* openAIP raster tiles (airspaces, navaids, reporting points, airports), proxied so the key stays on the server.
+   Cached at the edge for a week: openAIP rate-limits its tile server. Key: Cloudflare secret OPENAIP_API_KEY. */
+const OAIP_LAYERS = new Set(['airspaces', 'navaids', 'reporting-points', 'airports']);
+async function oaipTile(m, req, env, ctx, h) {
+  const [, layer, z, x, y] = m; const zi = +z;
+  if (!OAIP_LAYERS.has(layer) || zi < 0 || zi > 14) return new Response(null, { status: 404, headers: h });
+  if (!env.OPENAIP_API_KEY) return json({ error: 'openAIP key is not set on the server' }, 503, h);
+  const cache = caches.default, ck = new Request('https://oaip-cache.local/' + layer + '/' + z + '/' + x + '/' + y + '.png');
+  let r = await cache.match(ck);
+  if (!r) {
+    const sub = 'abc'[(+x + +y) % 3];
+    const up = await fetch('https://' + sub + '.api.tiles.openaip.net/api/data/' + layer + '/' + z + '/' + x + '/' + y + '.png?apiKey=' + encodeURIComponent(env.OPENAIP_API_KEY), { headers: { Accept: 'image/png', 'User-Agent': 'PolarisEFB/1.0' } });
+    if (up.status === 404 || up.status === 204) { r = new Response(null, { status: 204, headers: { 'Cache-Control': 'public, max-age=604800' } }); }
+    else if (!up.ok) return json({ error: 'openAIP tiles ' + up.status }, up.status === 401 || up.status === 403 ? 503 : 502, h);
+    else r = new Response(await up.arrayBuffer(), { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=604800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: r.status, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -504,8 +525,10 @@ export default {
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
     try {
+      const om = url.pathname.match(/^\/api\/efb\/oaip\/([a-z-]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
+      if (om) return await oaipTile(om, req, env, ctx, h);
       switch (url.pathname.replace(/\/+$/, '')) {
-        case '/api/efb/health': return json({ ok: true, configured, updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/health': return json({ ok: true, configured, openaip: Boolean(env.OPENAIP_API_KEY), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/pilot': if (!configured) break; return json({ ...(await pilotRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/bookings': if (!configured) break; return json({ ...(await bookingsRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);

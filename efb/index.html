@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1256">
+<meta name="efb-build" content="1112.1310">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1952,8 +1952,17 @@ const BASES={map:{name:"Map"},sat:{name:"Satellite",ras:[{id:"sat",url:"https://
   ifrl:{name:"IFR Low",us:1,ras:[{id:"ifrl",url:FAA_T+"IFR_AreaLow/MapServer/tile/{z}/{y}/{x}",min:7,max:12}]},
   vfr:{name:"VFR",us:1,ras:[{id:"sec",url:FAA_T+"VFR_Sectional/MapServer/tile/{z}/{y}/{x}",min:8,max:12},{id:"tac",url:FAA_T+"VFR_Terminal/MapServer/tile/{z}/{y}/{x}",min:9,max:12}]}};
 const baseKey=()=>BASES[ML.base]?ML.base:"map";
-function vecAttr(){const b=BASES[baseKey()];return (b.us?'Charts <a href="https://www.faa.gov/air_traffic/flight_info/aeronav/" target="_blank" rel="noopener">FAA AIS</a> · ':"")+(b.attr?b.attr+" · ":"")+'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}
-function vecPreset(st,dark){const b=BASES[baseKey()];if(!b.ras)return st;
+function vecAttr(){const b=BASES[baseKey()];return (oaipOn()?'Aero data <a href="https://www.openaip.net" target="_blank" rel="noopener">openAIP</a> (CC BY-NC) · ':"")+(b.us?'Charts <a href="https://www.faa.gov/air_traffic/flight_info/aeronav/" target="_blank" rel="noopener">FAA AIS</a> · ':"")+(b.attr?b.attr+" · ":"")+'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}
+/* openAIP overlay (airspace, navaids, reporting points), raster tiles through the EFB server */
+const OAIP={ok:false,t:0};
+const oaipOn=()=>!!(ML.oaip&&OAIP.ok&&vam.url);
+function oaipCheck(){if(OAIP.t||!vam.url)return;OAIP.t=Date.now();vamGet("/api/efb/health",10000).then(j=>{OAIP.ok=!!(j&&j.openaip);OAIP.err=null}).catch(e=>{OAIP.err=e.message;OAIP.t=0}).finally(()=>{if(cur==="map"){drawMap();updMapNote()}})}
+function oaipAdd(st,dark){if(!oaipOn())return st;const base=vam.url.replace(/\/+$/,"")+"/api/efb/oaip/";
+  const ls=["airspaces","reporting-points","navaids"].map(k=>{st.sources["oaip-"+k]={type:"raster",tiles:[base+k+"/{z}/{x}/{y}.png"],tileSize:256,minzoom:5,maxzoom:14,attribution:""};
+    return{id:"oaip-"+k,type:"raster",source:"oaip-"+k,minzoom:4.5,paint:{"raster-fade-duration":0,...(dark?{"raster-brightness-max":.9,"raster-saturation":-.1}:{})}}});
+  const i=st.layers.findIndex(l=>/^(water-name|apt-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(ls);else st.layers.splice(i,0,...ls);return st}
+function vecPreset(st,dark){return oaipAdd(vecPreset0(st,dark),dark)}
+function vecPreset0(st,dark){const b=BASES[baseKey()];if(!b.ras)return st;
   b.ras.forEach(r=>{st.sources[r.id]={type:"raster",tiles:[r.url],tileSize:256,minzoom:r.min,maxzoom:r.max,attribution:""}});
   const ras=b.ras.map(r=>({id:"r-"+r.id,type:"raster",source:r.id,minzoom:Math.max(0,r.min-.5),paint:{"raster-fade-duration":0,"raster-opacity":1,...(dark&&b.us?{"raster-brightness-max":.82,"raster-contrast":.05}:{})}}));
   if(baseKey()==="sat"){const keep=st.layers.filter(l=>/^(bord|place-|water-name|apt-name)/.test(l.id));st.layers=[st.layers[0],...ras,...keep];return st}
@@ -1999,7 +2008,7 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.el){VEC.el=document.createElement("div");VEC.el.className="mapvec";VEC.el.setAttribute("aria-hidden","true")}
   if(VEC.el.parentNode!==wrap){wrap.insertBefore(VEC.el,wrap.firstChild);if(VEC.map)try{VEC.map.resize()}catch(e){}}
   VEC.el.hidden=!vecOn();if(!vecOn())return;
-  const key=(isDark()?"d":"l")+baseKey();
+  oaipCheck();const key=(isDark()?"d":"l")+baseKey()+(oaipOn()?"+oaip":"");
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
       VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
@@ -2020,7 +2029,8 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
   if(!vam.url)E("apt","Set the EFB server in Settings");else{const ld=Object.keys(TX.loading).filter(k=>TX.loading[k]),er=Object.keys(TX.err);
     if(er.length)E("apt",er.map(k=>k+": "+TX.err[k].msg).join(" · "));else if(ld.length)st.apt="Loading "+ld.join(", ")+"…";else st.apt=MAP.z<11?"Zoom in on an airport to see them":"Runways, taxiways, stands"}
   st.wx="Flight category at plan airports";
-  if(FIR.err)E("fir","Couldn’t load");else if(FIR.loading)st.fir="Loading…";else st.fir="FIR boundaries";
+  if(!vam.url)E("oaip","Set the EFB server in Settings");else if(OAIP.err)E("oaip","Couldn’t reach the EFB server");else if(!OAIP.ok)st.oaip=OAIP.t?"Waiting for the openAIP key on the server":"Checking…";else st.oaip="Airspace, navaids, reporting points";
+  if(FIR.err)E("fir","Couldn’t load");else if(FIR.loading)st.fir="Loading…";else st.fir="VATSpy FIR outlines";
   if(RADAR.err)E("radar","Couldn’t load");else if(RADAR.loading)st.radar="Loading…";else if(RADAR.time)st.radar="Updated "+tz2(RADAR.time);else st.radar="";
   if(SIG.err)E("sig",String(SIG.err).replace(/^SIGMET:\s*/,""));else if(SIG.loading)st.sig="Loading…";else if(SIG.list)st.sig=SIG.list.length+" active";
   if(!vamOn())st.traffic="Connect vAMSYS in Settings";else if(MAP.liveErr)E("traffic",MAP.liveErr);else if(MAP.live)st.traffic=MAP.live.length+" Polaris flight"+(MAP.live.length===1?"":"s")+" online";
@@ -2574,7 +2584,7 @@ V.timer=()=>{let body="";
   const tabs=[["world","World Clock",'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>'],["sw","Stopwatch",'<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4M10 2.5h4"/>'],["cd","Timer",'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>']];
   return `<div class="clk"><div class="ck-body">${body}</div><nav class="ck-tabs" aria-label="Clock sections">${tabs.map(t=>`<button data-ctab="${t[0]}" aria-pressed="${clockTab===t[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${t[2]}</svg>${t[1]}</button>`).join("")}</nav></div>`};
 /* ---------- Map ---------- */
-const ML=Object.assign({vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}),{apt:true});
+const ML=Object.assign({oaip:true,vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}),{apt:true});
 const MAP={z:5,c:null,tileFail:false,sel:null,live:null,liveAt:0,liveErr:null,loading:false,follow:false};
 const ZMAX=18;
 const TS=256;
@@ -2756,7 +2766,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.radar&&RADAR.path&&!RADAR.err)at.push('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'+(RADAR.time?" "+tz2(RADAR.time):""));
     if(ML.sig&&SIG.list)at.push('SIGMET <a href="https://aviationweather.gov/" target="_blank" rel="noopener">AWC</a>');
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
-V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","Airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
+V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","Airport WX"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>

@@ -283,19 +283,21 @@ async function chartsRoute(icaoIn, env, ctx) {
     if (!res.ok || !res.body) throw new HttpError(502, `FAA chart index for cycle ${ac.cycle} is not available (HTTP ${res.status})`);
     const keys = [`icao_ident="${icao}"`]; if (icao.length === 3) keys.push(`apt_ident="${icao}"`); else if (icao[0] === 'K') keys.push(`apt_ident="${icao.slice(1)}"`);
     const reader = res.body.getReader(), dec = new TextDecoder();
-    let buf = '', block = null;
+    /* scan the multi-megabyte index chunk by chunk, keeping only a short tail, so CPU time stays small */
+    let buf = '', block = null, found = false;
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
-      let i = -1;
-      for (const k of keys) { i = buf.indexOf(k); if (i >= 0) break; }
-      if (i >= 0) {
-        const e = buf.indexOf('</airport_name>', i);
-        if (e >= 0) { block = buf.slice(buf.lastIndexOf('<airport_name', i), e); try { await reader.cancel(); } catch (_) {} break; }
-        continue;
+      if (!found) {
+        let i = -1;
+        for (const k of keys) { i = buf.indexOf(k); if (i >= 0) break; }
+        if (i < 0) { if (buf.length > 4000) buf = buf.slice(-1500); continue; }
+        const st = buf.lastIndexOf('<airport_name', i);
+        buf = buf.slice(st >= 0 ? st : 0); found = true;
       }
-      if (buf.length > 400_000) buf = buf.slice(-4000);
+      const e = buf.indexOf('</airport_name>');
+      if (e >= 0) { block = buf.slice(0, e); try { await reader.cancel(); } catch (_) {} break; }
     }
     if (!block) return { cycle: ac.cycle, from: ac.from, to: ac.to, airport: { icao, name: '' }, charts: [], notFound: true };
     const name = (block.match(/ID="([^"]*)"/) || [])[1] || '';

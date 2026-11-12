@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2240">
+<meta name="efb-build" content="1112.2243">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2208,7 +2208,7 @@ const wnHpa=fl=>(WN.LV.find(l=>l[0]===fl)||[0,250])[1];
 /* one request per view: every cell in view that is missing or older than 30 min, for the chosen level */
 function wnLoad(hp,keys){if(!vam.url||WN.busy)return;const now=Date.now();const need=keys.filter(k=>{const c=WN.cells[hp+":"+k];return !c||now-c.at>30*60000});if(!need.length)return;
   if(WN.retryAt&&now<WN.retryAt)return;WN.busy=true;
-  vamGet("/api/efb/winds?lv="+hp+"&cells="+need.join(";"),30000).then(j=>{const got=(j&&j.cells)||{};Object.keys(got).forEach(k=>{WN.cells[hp+":"+k]={at:Date.now(),pts:got[k]}});WN.hour=j&&j.hour;
+  vamGet("/api/efb/winds?lv="+hp+"&cells="+need.join(";"),30000).then(j=>{const got=(j&&j.cells)||{};need.forEach(k=>{if(got[k])WN.cells[hp+":"+k]={at:Date.now(),pts:got[k]};else if(!(j&&j.error))WN.cells[hp+":"+k]={at:Date.now(),pts:[]}});WN.hour=j&&j.hour;
       if(j&&j.error){WN.fails=(WN.fails||0)+1;WN.retryAt=Date.now()+Math.min(60000,10000*WN.fails)}else{WN.fails=0;WN.retryAt=0}
       const any=Object.keys(WN.cells).some(k=>k.startsWith(hp+":")&&WN.cells[k].pts.length);WN.err=j&&j.error&&!any&&WN.fails>=3?j.error:null})
     .catch(e=>{WN.fails=(WN.fails||0)+1;WN.retryAt=Date.now()+Math.min(60000,10000*WN.fails);const any=Object.keys(WN.cells).some(k=>k.startsWith(hp+":"));if(WN.fails>=3&&!any)WN.err=e.message})

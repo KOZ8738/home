@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1400">
+<meta name="efb-build" content="1112.2220">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1085,6 +1085,17 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .ms-btns button.pri{background:var(--brand);color:#fff;border-color:transparent}
 .mapwrap.measuring{cursor:crosshair}
 .ml-err{margin:6px 10px 4px;padding:6px 8px;border-radius:4px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);font:500 10.5px/1.35 var(--f-mono);word-break:break-word}
+/* winds aloft */
+.ml-wind{grid-template-columns:repeat(4,1fr)!important}
+.ml-h small.ml-s{display:block;margin-top:3px;letter-spacing:0;text-transform:none;font-size:10.5px}
+.wb{pointer-events:none}
+.wbs,.wbf{stroke:var(--wind,#5A2D91);stroke-width:1.5;fill:none;stroke-linecap:round}
+.wbf{fill:var(--wind,#5A2D91)}
+.wb circle{fill:none;stroke:var(--wind,#5A2D91);stroke-width:1.3}.wb .wbc{fill:var(--wind,#5A2D91)}
+.wbt{font:600 9.5px var(--f-mono);fill:var(--wind,#5A2D91);paint-order:stroke;stroke:var(--map-land);stroke-width:2.5px;pointer-events:none}
+:root{--wind:#4B2A86}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--wind:#C9B6FF}}
+:root[data-theme="dark"]{--wind:#C9B6FF}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2068,6 +2079,7 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
   if(!vam.url)E("apt","Set the EFB server in Settings");else{const ld=Object.keys(TX.loading).filter(k=>TX.loading[k]),er=Object.keys(TX.err);
     if(er.length)E("apt",er.map(k=>k+": "+TX.err[k].msg).join(" · "));else if(ld.length)st.apt="Loading "+ld.join(", ")+"…";else st.apt=MAP.z<11?"Zoom in on an airport to see them":"Runways, taxiways, stands"}
   st.wx=MT.err?"METAR: "+MT.err:"Plan airports, and the airport you zoom into";
+  {const fl=typeof wnFl==="function"?wnFl():null;if(fl!=null){if(WN.err)E("wind","Winds: "+WN.err);else st.wind="FL"+String(fl).padStart(3,"0")+" · "+wnHpa(fl)+" hPa"+(WN.hour?" · "+WN.hour.slice(11,16).replace(":","")+"Z":"")+(MAP.z<3?" · zoom in":"")}else st.wind="Off"}
   if(!vam.url)E("oaip","Set the EFB server in Settings");else if(OAIP.err)E("oaip","Couldn’t reach the EFB server");else if(!OAIP.ok)st.oaip=OAIP.t?"Waiting for the openAIP key on the server":"Checking…";else st.oaip="Airspace, navaids, reporting points";
   if(FIR.err)E("fir","Couldn’t load");else if(FIR.loading)st.fir="Loading…";else st.fir="VATSpy FIR outlines";
   if(RADAR.err)E("radar","Couldn’t load");else if(RADAR.loading)st.radar="Loading…";else if(RADAR.time)st.radar="Updated "+tz2(RADAR.time);else st.radar="";
@@ -2187,6 +2199,30 @@ function msUi(){const w=document.querySelector(".mapwrap");const b=$("#msBtn");i
 function msToggle(on){MS.on=on==null?!MS.on:on;if(!MS.on)MS.pts=[];msUi();if(cur==="map")drawMap()}
 document.addEventListener("click",e=>{if(e.target.closest("#msBtn")){msToggle();return}const t=e.target.closest("[data-ms]");if(!t)return;const a=t.dataset.ms;
   if(a==="undo")MS.pts.pop();else if(a==="clear")MS.pts=[];else if(a==="done"){msToggle(false);return}msUi();drawMap()});
+
+/* Winds aloft: barbs and temperature at a chosen flight level, from the EFB server (Open-Meteo). */
+const WN={cells:{},loading:{},q:0,LV:[[100,700],[180,500],[240,400],[300,300],[340,250],[390,200]]};
+function wnFl(){if(ML.wind==null||ML.wind===false)return null;if(ML.wind!=="auto")return +ML.wind;let fl=0;try{fl=Math.round(N(O().g.initial_altitude)/100)}catch(e){}if(!fl)return 340;
+  return WN.LV.reduce((b,l)=>Math.abs(l[0]-fl)<Math.abs(b[0]-fl)?l:b)[0]}
+const wnHpa=fl=>(WN.LV.find(l=>l[0]===fl)||[0,250])[1];
+function wnLoad(key){if(!vam.url||WN.loading[key]||WN.q>=3)return;const c=WN.cells[key];if(c&&Date.now()-c.at<30*60000)return;WN.loading[key]=true;WN.q++;const [st,cl]=key.split(":");
+  vamGet("/api/efb/winds?step="+st+"&cell="+cl,20000).then(j=>{WN.cells[key]={at:Date.now(),pts:(j&&j.pts)||[],hour:j&&j.hour};WN.err=null;WN.hour=j&&j.hour})
+    .catch(e=>{WN.err=e.message;WN.cells[key]={at:Date.now()-25*60000,pts:c?c.pts:[]}}).finally(()=>{WN.loading[key]=false;WN.q--;if(cur==="map")mapSched()})}
+function wnBarb(X,Y,d,s,t,showT){if(s<3)return `<g class="wb" transform="translate(${X} ${Y})"><circle r="4"/><circle r="1.5" class="wbc"/></g>`;
+  const L=26;let v=Math.round(s/5)*5,y=-L,p="";const sp=4.5;
+  while(v>=50){p+=`M0 ${y}L9 ${y+3}L0 ${y+6}Z`;y+=7.5;v-=50}
+  let first=true;while(v>=10){p+=`M0 ${y}L10 ${y-5}`;y+=sp;v-=10;first=false}
+  if(v>=5){if(y===-L)y+=sp;p+=`M0 ${y}L5 ${y-2.5}`}
+  return `<g class="wb" transform="translate(${X} ${Y}) rotate(${d})"><path class="wbs" d="M0 0V${-L}"/><path class="wbf" d="${p}"/></g>${showT&&t!=null?`<text class="wbt" x="${X+7}" y="${Y+13}">${t>0?"+":""}${t}</text>`:""}`}
+function wnDraw(P,z,w,h,V){const fl=wnFl();if(fl==null||z<3||z>=10||!MAP.c)return"";const hp=wnHpa(fl);
+  const step=z<5?5:2.5,keys=[];const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10);
+  for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<40;lo+=10){const n=((lo+180)%360+360)%360-180,k=step+":"+la+","+n;if(!keys.includes(k))keys.push(k)}
+  keys.forEach(wnLoad);const gap=z<4?70:z<6?60:54,occ=[];let s="";
+  keys.forEach(k=>{const c=WN.cells[k];if(!c)return;c.pts.forEach(q=>{const v=q.lv&&q.lv[hp];if(!v)return;let lo=q.lo;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
+    const [X,Y]=P(q.la,lo);if(X<-20||Y<-20||X>w+20||Y>h+20)return;if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);s+=wnBarb(X,Y,v[0],v[1],v[2],z>=4)})});
+  return `<g class="wnd">${s}</g>`}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mlwind]");if(!t)return;const v=t.dataset.mlwind;ML.wind=v==="off"?null:v;store.set("mapL",ML);
+  document.querySelectorAll("[data-mlwind]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlwind===v)));drawMap();updMapNote()});
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
@@ -2826,7 +2862,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
       if(q.toc)marks+=`<circle class="toc" cx="${X}" cy="${Y}" r="3.5"/>`;else marks+=`<path class="fix" d="M${X} ${Y-5}l4.5 8h-9z"/>`;
       boxes.push([X-6,Y-6,X+6,Y+6]);
       if(z>=6){const wd=q.n.length*7.4+2,p=place(X,Y,wd,15,8,false);if(p)labs+=tx(p,q.toc?"tocl":"fixl",X,Y,wd,15,esc(q.n))}})}
-  s+=marks+labs+msSvg(P,w,h);
+  s+=wnDraw(P,z,w,h,V)+marks+labs+msSvg(P,w,h);
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
@@ -2903,7 +2939,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","METAR
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

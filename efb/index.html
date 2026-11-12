@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1245">
+<meta name="efb-build" content="1112.1251">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1985,6 +1985,7 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
       VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
+      VEC.map.on("idle",()=>{if(cur!=="map"||!MAP.c||MAP.z<11||!vam.url)return;try{mapAptCandidates().forEach(c=>{if(!TX.data[c.icao]&&!TX.loading[c.icao])txLoad(c.icao)})}catch(e){}});
       VEC.map.on("styledata",()=>{if(VEC.ready&&!VEC.map.getLayer("fir-lbl")&&ML.fir&&FIR.data){VEC.firOk=false;setTimeout(()=>{vecFirSync();if(cur==="map")drawMap()},0)}});
       setTimeout(()=>{if(!VEC.ready&&!VEC.err){VEC.err="The detail map is taking long to load; showing the simple map.";if(cur==="map"){drawMap();updMapNote()}}},20000);
       vecSync()}).catch(()=>{if(cur==="map"){drawMap();updMapNote()}});return}
@@ -2703,6 +2704,7 @@ function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.t
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}
 function mapAptCandidates(){const x=O(),out=[];const add=(a)=>{const ic=S(a.icao_code);if(ic&&!out.some(o=>o.icao===ic))out.push({icao:ic,lat:N(a.pos_lat),lon:N(a.pos_long)})};add(x.o);add(x.d);add(x.a);
   Object.keys(TX.data).forEach(ic=>{const d=TX.data[ic];if(!out.some(o=>o.icao===ic)&&d.airport)out.push({icao:ic,lat:d.airport.lat,lon:d.airport.lon})});
+  try{if(MAP.z>=11&&MAP.c&&typeof VEC!=="undefined"&&VEC.map&&VEC.ready){const seen={};VEC.map.querySourceFeatures("o",{sourceLayer:"aerodrome_label"}).forEach(f=>{const p=f.properties||{},ic=String(p.icao||"").toUpperCase();if(!/^[A-Z]{4}$/.test(ic)||seen[ic]||out.some(o=>o.icao===ic))return;const g=f.geometry&&f.geometry.coordinates;if(!g||!isFinite(g[0]))return;seen[ic]={icao:ic,lat:g[1],lon:g[0],d:Math.hypot(g[1]-MAP.c.lat,(g[0]-MAP.c.lon)*Math.cos(MAP.c.lat*Math.PI/180))}});Object.values(seen).filter(a=>a.d<Math.max(.15,40/Math.pow(2,MAP.z-4))).sort((a,b)=>a.d-b.d).slice(0,3).forEach(a=>out.push({icao:a.icao,lat:a.lat,lon:a.lon}))}}catch(e){}
   const me=mapMine();return out}
 function mapGoApt(icao){const d=TX.data[icao];MAP.follow=false;if(d&&d.airport&&d.airport.lat!=null){MAP.c={lat:d.airport.lat,lon:d.airport.lon};MAP.z=14.2;mapSched();updMapNote();return}
   const c=mapAptCandidates().find(a=>a.icao===icao&&a.lat!=null);if(c){MAP.c={lat:c.lat,lon:c.lon};MAP.z=14.2;mapSched()}

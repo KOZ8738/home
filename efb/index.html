@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1327">
+<meta name="efb-build" content="1112.1331">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1053,6 +1053,16 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .mtw{font-weight:500;fill:var(--label)}
 .mtd.wx-VFR{fill:var(--green)}.mtd.wx-MVFR{fill:var(--cyan)}.mtd.wx-IFR{fill:var(--red)}.mtd.wx-LIFR{fill:var(--magenta)}
 svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
+/* weather chip for the airport on screen (shown with the taxi diagram) */
+.mtchip{position:absolute;top:calc(var(--mt) + 56px);left:var(--mg);z-index:3;display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 12px var(--f-ui);box-shadow:0 10px 28px -16px var(--shadow);cursor:pointer}
+.mtchip[hidden]{display:none}
+.mtchip b{font:600 12.5px var(--f-mono);letter-spacing:.04em}
+.mtchip span{font-family:var(--f-mono)}
+.mtchip small{color:var(--label);font-size:11px}
+.mtc-d{width:9px;height:9px;border-radius:50%;flex:none}
+.mtc-d.wx-VFR{background:var(--green)}.mtc-d.wx-MVFR{background:var(--cyan)}.mtc-d.wx-IFR{background:var(--red)}.mtc-d.wx-LIFR{background:var(--magenta)}.mtc-d.wx-NA{background:var(--label)}
+.mtc-c{font-weight:700}.mtc-c.wx-VFR{color:var(--green)}.mtc-c.wx-MVFR{color:var(--cyan)}.mtc-c.wx-IFR{color:var(--red)}.mtc-c.wx-LIFR{color:var(--magenta)}
+.assheet:not([hidden])~.mtchip{display:none}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2035,7 +2045,7 @@ function mlStatus(){const st={},err={};const E=(k,t)=>{st[k]=t;err[k]=true};
   if(VEC.err)E("vec","Couldn’t load, showing the simple map");else if(ML.vec&&!VEC.ready)st.vec="Loading…";else st.vec=BASES[baseKey()].us?BASES[baseKey()].name+" (FAA, US only)":BASES[baseKey()].name;
   if(!vam.url)E("apt","Set the EFB server in Settings");else{const ld=Object.keys(TX.loading).filter(k=>TX.loading[k]),er=Object.keys(TX.err);
     if(er.length)E("apt",er.map(k=>k+": "+TX.err[k].msg).join(" · "));else if(ld.length)st.apt="Loading "+ld.join(", ")+"…";else st.apt=MAP.z<11?"Zoom in on an airport to see them":"Runways, taxiways, stands"}
-  st.wx=MT.err?"METAR: "+MT.err:MAP.z<5?"Plan airports · zoom in for all METARs":"METAR flight category at airports in view";
+  st.wx=MT.err?"METAR: "+MT.err:"Plan airports, and the airport you zoom into";
   if(!vam.url)E("oaip","Set the EFB server in Settings");else if(OAIP.err)E("oaip","Couldn’t reach the EFB server");else if(!OAIP.ok)st.oaip=OAIP.t?"Waiting for the openAIP key on the server":"Checking…";else st.oaip="Airspace, navaids, reporting points";
   if(FIR.err)E("fir","Couldn’t load");else if(FIR.loading)st.fir="Loading…";else st.fir="VATSpy FIR outlines";
   if(RADAR.err)E("radar","Couldn’t load");else if(RADAR.loading)st.radar="Loading…";else if(RADAR.time)st.radar="Updated "+tz2(RADAR.time);else st.radar="";
@@ -2070,7 +2080,21 @@ const MT={cells:{},loading:{},q:0};
 function mtLoad(key){if(!vam.url||MT.loading[key]||MT.q>=4)return;const c=MT.cells[key];if(c&&Date.now()-c.at<8*60000)return;
   MT.loading[key]=true;MT.q++;const [sz,cl]=key.split(":");vamGet("/api/efb/metars?size="+sz+"&cell="+cl,15000).then(j=>{MT.cells[key]={at:Date.now(),st:(j&&j.stations)||[]};MT.err=null})
     .catch(e=>{MT.err=e.message;MT.cells[key]={at:Date.now()-5*60000,st:c?c.st:[]}}).finally(()=>{MT.loading[key]=false;MT.q--;if(cur==="map")mapSched()})}
-function mtDraw(P,z,w,h,V,skip,hit,take,place,tx){let marks="",labs="";if(!ML.wx||z<5||z>=11||!MAP.c)return{marks,labs};
+/* Only once an airport diagram is on screen: one weather chip for the airport nearest the middle of the view. */
+function mtChip(st){const w=document.querySelector(".mapwrap");if(!w)return;let el=document.getElementById("mtChip");
+  if(!st){if(el)el.hidden=true;return}
+  if(!el){el=document.createElement("button");el.id="mtChip";el.type="button";el.className="mtchip";w.appendChild(el)}
+  const wnd=st.ws==null?"":st.ws===0?"Calm":(st.wd==="VRB"?"VRB":String(st.wd??0).padStart(3,"0"))+String(st.ws).padStart(2,"0")+(st.wg?"G"+st.wg:"")+"KT";
+  const ago=st.t?Math.max(0,Math.round((Date.now()/1000-st.t)/60)):null;
+  el.hidden=false;el.dataset.apt=st.i;el.dataset.aptab="wx";el.setAttribute("aria-label",st.i+" weather");
+  el.innerHTML=`<i class="mtc-d wx-${st.c||"NA"}"></i><b>${esc(st.i)}</b><span class="mtc-c wx-${st.c||"NA"}">${st.c||"—"}</span>${wnd?`<span>${wnd}</span>`:""}${ago!=null?`<small>${ago<120?ago+" min":Math.round(ago/60)+" h"}</small>`:""}`}
+document.addEventListener("click",e=>{const c=e.target.closest("#mtChip");if(c&&c.dataset.apt)asOpen(c.dataset.apt,"wx")});
+function mtDraw(P,z,w,h,V,skip,hit,take,place,tx){let marks="",labs="";if(!ML.wx||z<11||!MAP.c){mtChip(null);return{marks,labs}}
+  {const G=2,la=Math.floor(MAP.c.lat/G)*G,lo=Math.floor(MAP.c.lon/G)*G,keys=[];for(let a=-G;a<=G;a+=G)for(let b=-G;b<=G;b+=G){let n=(((lo+b)+180)%360+360)%360-180;keys.push(G+":"+(la+a)+","+n)}
+    keys.forEach(mtLoad);let best=null,bd=1e9;const cs=Math.cos(MAP.c.lat*Math.PI/180);
+    keys.forEach(k=>{const c=MT.cells[k];if(c)c.st.forEach(s=>{const d=Math.hypot(s.la-MAP.c.lat,(s.lo-MAP.c.lon)*cs);if(d<bd){bd=d;best=s}})});
+    mtChip(best&&bd<.12?best:null);return{marks,labs}}
+  if(true)return{marks,labs};
   /* aviationweather.gov thins out big boxes, which suits the overview; zoomed in, small cells bring every station */
   const G=z<7?10:2,la1=Math.max(-90,Math.floor(V.la1/G)*G),la2=Math.min(90-G,Math.floor(V.la2/G)*G),keys=[];
   for(let la=la1;la<=la2;la+=G)for(let lo=Math.floor(V.lo1/G)*G;lo<=V.lo2&&keys.length<60;lo+=G){let n=((lo+180)%360+360)%360-180;const k=G+":"+la+","+n;if(!keys.includes(k))keys.push(k)}

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.1337">
+<meta name="efb-build" content="1112.1340">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2156,6 +2156,7 @@ function msGs(){try{const x=O();const d=N(x.g.route_distance)||N(x.g.air_distanc
 /* points the tap can snap to: plan route, loaded airport layouts, METAR stations */
 function msTargets(){const L=[];try{const {pts,altn}=routePts();pts.concat(altn?[altn]:[]).forEach(q=>L.push({lat:q.lat,lon:q.lon,n:q.n}))}catch(e){}
   Object.keys(TX.data).forEach(k=>{const d=TX.data[k];if(d&&d.airport&&d.airport.lat!=null)L.push({lat:d.airport.lat,lon:d.airport.lon,n:k})});
+  try{if(VEC.map&&VEC.ready)VEC.map.querySourceFeatures("o",{sourceLayer:"aerodrome_label"}).forEach(f=>{const ic=String((f.properties||{}).icao||"").toUpperCase(),g=f.geometry&&f.geometry.coordinates;if(/^[A-Z]{4}$/.test(ic)&&g)L.push({lat:g[1],lon:g[0],n:ic})})}catch(e){}
   if(typeof MT!=="undefined")Object.values(MT.cells).forEach(c=>(c.st||[]).forEach(s=>L.push({lat:s.la,lon:s.lo,n:s.i})));return L}
 function msTap(cx,cy){const sv=$("#mapSvg");if(!sv||!MAP.c)return;const r=sv.getBoundingClientRect(),{w,h}=mapSize(),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);
   const x=cx-r.left,y=cy-r.top;let best=null,bd=18;

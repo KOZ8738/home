@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.0039">
+<meta name="efb-build" content="1113.0043">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1168,6 +1168,9 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .wx-flt span{display:inline-flex;align-items:center;gap:5px;font-weight:600}
 .wx-flt em{font-style:normal;opacity:.7;font-weight:500;font-size:10.5px}
 .wx-flt i{width:7px;height:7px;border-radius:50%}
+.wx-cond .wi-ico{margin-bottom:1px}
+.wx-row.ic{grid-template-columns:40px 46px 1fr 22px auto}
+.wx-ri{display:flex;align-items:center;justify-content:center}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -1471,6 +1474,8 @@ function wIco(k,sz){const S0=sz||22,sun=(x,y,r)=>`<g fill="#FFD43B" stroke="#FFD
 const wmoKind=(c,day)=>c==null?"cloud":c===0?(day?"sun":"moon"):c<=2?(day?"psun":"pmoon"):c===3?"cloud":c<=48?"fog":c<=57?"drizzle":c<=67||c>=80&&c<=82?"rain":c<=77||c===85||c===86?"snow":c>=95?"thunder":"cloud";
 function metarKind(m,day){if(!m)return null;const w=m.wx.join(" ");if(/TS/.test(w))return"thunder";if(/SN|SG|PL|GS/.test(w))return"snow";if(/RA|SH/.test(w))return"rain";if(/DZ/.test(w))return"drizzle";if(/FG|BR|HZ|FU/.test(w))return"fog";
   if(m.ceiling!=null)return"cloud";if(m.clouds.length)return day?"psun":"pmoon";return day?"sun":"moon"}
+/* day or night at an airport, from its longitude (good enough for an icon) */
+function wxDay(a){const lo=a?N(a[2].pos_long):null;const hl=((new Date().getUTCHours()+new Date().getUTCMinutes()/60+(lo||0)/15)%24+24)%24;return hl>=6.5&&hl<18.5}
 const FC={key:"",at:0,data:null,busy:false};
 function fcLoad(lat,lon){if(lat==null||lon==null||!vam.url)return null;const key=lat.toFixed(1)+","+lon.toFixed(1);if(FC.key===key&&Date.now()-FC.at<20*60000)return FC.data;
   if(!FC.busy){FC.busy=true;vamGet(`/api/efb/forecast?lat=${lat}&lon=${lon}`,15000).then(j=>{FC.key=key;FC.at=Date.now();FC.data=j;if(!cur)render()}).catch(()=>{FC.key=key;FC.at=Date.now()-15*60000}).finally(()=>{FC.busy=false})}
@@ -1607,13 +1612,8 @@ function renderHome(){
       <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Dispatch</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
       <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>
     <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?(dest[1]==="BASE"?"Polaris base · live":"Destination"):"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
-      <div class="wx-cond">${(()=>{const fc=dest?fcLoad(N(dest[2].pos_lat),N(dest[2].pos_long)):null,day=fc&&fc.cur?!!fc.cur.day:(()=>{const lo=N(dest&&dest[2].pos_long)||0,hl=((new Date().getUTCHours()+lo/15)%24+24)%24;return hl>=6&&hl<18})();
-        const k=metarKind(dm,day)||(fc&&fc.cur?wmoKind(fc.cur.code,day):null);window.__wxFc=fc;
-        return `${k?wIco(k,30):""}<b>${esc(condText(dm))}</b>${fc&&fc.hi!=null?`<span class="wx-hl">H ${Math.round(fc.hi)}° · L ${Math.round(fc.lo)}°</span>`:`<span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span>`}`})()}</div></div>
-      ${(()=>{const fc=window.__wxFc,hrs=fc&&fc.hours?fc.hours.slice(1,7):[];const others=wxFor(x).filter(a=>!dest||a[1]!==dest[1]);
-        const flt=others.length?`<div class="wx-flt">${others.map(a=>{const m=decodeMetar(a[3]);return `<span><em>${a[1]}</em> ${esc(S(a[2].icao_code))} ${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span>`}).join("")}</div>`:"";
-        if(!hrs.length)return flt+`<div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);return `<div class="wx-row"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div>`;
-        return flt+`<div class="wx-hrs">${hrs.map(q=>`<div><span>${q.t.slice(11,13)}Z</span>${wIco(wmoKind(q.code,!!q.day),26)}<b>${Math.round(q.temp)}°</b></div>`).join("")}</div>`})()}</a>
+      <div class="wx-cond">${wIco(metarKind(dm,wxDay(dest))||"cloud",30)}<b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
+      <div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);const k=metarKind(m,wxDay(a));return `<div class="wx-row ic"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="wx-ri">${k?wIco(k,18):""}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div></a>
    </div>
    <div class="apps">${PAGE1.map(id=>appIcon(id)).join("")}</div>`;
   const wxw=$("#page1 .w-wx");$("#page2").innerHTML=`<div class="widgets p2w">${wxw?wxw.outerHTML:""}</div><div class="apps">${PAGE2.map(id=>appIcon(id)).join("")}</div>`;

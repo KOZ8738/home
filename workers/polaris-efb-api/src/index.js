@@ -675,6 +675,31 @@ async function tzRoute(url, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* Model forecast for the Weather app (Open-Meteo, free for non-commercial use): 48 h hourly + 7 days, in the airport's local time. Cached 30 min. */
+async function fcRoute(url, ctx, h) {
+  const la = Math.round(+url.searchParams.get('lat') * 10) / 10, lo = Math.round(+url.searchParams.get('lon') * 10) / 10;
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) throw new HttpError(400, 'lat and lon are required');
+  const slot = Math.floor(Date.now() / 1800000);
+  const cache = caches.default, ck = new Request('https://fc2-cache.local/' + slot + '/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&timezone=auto&forecast_days=7&wind_speed_unit=kn`
+      + '&hourly=temperature_2m,relative_humidity_2m,weather_code,precipitation_probability,wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility,cloud_cover_low,is_day'
+      + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max';
+    let up; try { up = await fetchT(u, 12000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } }); } catch (e) { throw new HttpError(504, 'Forecast service is slow right now'); }
+    if (!up.ok) throw new HttpError(502, 'Forecast service ' + up.status);
+    const j = await up.json(), H = j.hourly || {}, D = j.daily || {}, off = +j.utc_offset_seconds || 0;
+    const now = Date.now(), hours = [];
+    (H.time || []).forEach((t, i) => { const ms = Date.parse(t + 'Z') - off * 1000; if (ms < now - 3600000 || hours.length >= 48) return;
+      hours.push({ t: new Date(ms).toISOString().slice(0, 13) + ':00Z', temp: H.temperature_2m[i], rh: H.relative_humidity_2m[i], code: H.weather_code[i], pop: H.precipitation_probability[i], wd: H.wind_direction_10m[i], ws: H.wind_speed_10m[i], wg: H.wind_gusts_10m[i], vis: H.visibility[i], low: H.cloud_cover_low[i], day: H.is_day[i] }); });
+    const days = (D.time || []).map((d, i) => ({ d, code: D.weather_code[i], hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i], ws: D.wind_speed_10m_max[i], wg: D.wind_gusts_10m_max[i] }));
+    r = new Response(JSON.stringify({ tz: j.timezone || null, tzAbbr: j.timezone_abbreviation || '', off, hours, days }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=1800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -697,6 +722,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/fc': return await fcRoute(url, ctx, h);
         case '/api/efb/tz': return await tzRoute(url, ctx, h);
         case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);

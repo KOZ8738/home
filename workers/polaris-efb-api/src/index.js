@@ -25,14 +25,13 @@ const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
 
 let token = null; // { value, expires }
-const cache = new Map(); // key -> { at, ttl, promise }
-
+const cache = new Map(); // key -> { at, value }
+/* Keeps finished results only. A promise must never be shared between requests: if the request that started it
+   ends first, Workers refuses to settle it in another request ("This promise was created by a request that has since ended"). */
 function cached(key, ttl, fn) {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttl) return hit.promise;
-  const promise = fn().catch((e) => { cache.delete(key); throw e; });
-  cache.set(key, { at: Date.now(), ttl, promise });
-  return promise;
+  if (hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.value);
+  return fn().then((value) => { cache.set(key, { at: Date.now(), value }); return value; });
 }
 
 async function getToken(env) {

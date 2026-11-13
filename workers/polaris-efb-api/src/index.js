@@ -701,7 +701,7 @@ async function fcRoute(url, ctx, h) {
   return new Response(r.body, { status: 200, headers: hd });
 }
 
-/* Vector IFR enroute data (FAA AIS open data: ATS routes, designated points, NAVAIDs) for one cell.
+/* Vector IFR enroute data (FAA AIS open data, public domain: ATS routes, designated points, NAVAIDs) for one cell.
    lv=L: 4-degree cells, low-altitude chart items; lv=H: 8-degree cells, high-altitude chart items. Cached 7 days at the edge. */
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
 async function aisQuery(svc, where, fields, env4, maxPages) {

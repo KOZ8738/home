@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1516">
+<meta name="efb-build" content="1113.1553">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2176,8 +2176,9 @@ const OFM="https://tiles.openfreemap.org";
    and beyond their zoom range the vector map shows through. */
 const FAA_T="https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/";
 const BASES={map:{name:"Map"},sat:{name:"Satellite",ras:[{id:"sat",url:"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{z}/{y}/{x}.jpg",min:0,max:14}],attr:'Satellite <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless by EOX</a> (Copernicus Sentinel data 2023)'},
-  ifrh:{name:"IFR High",us:1,ras:[{id:"ifrh",url:FAA_T+"IFR_High/MapServer/tile/{z}/{y}/{x}",min:4,max:9}]},
-  ifrl:{name:"IFR Low",us:1,ras:[{id:"ifrl",url:FAA_T+"IFR_AreaLow/MapServer/tile/{z}/{y}/{x}",min:7,max:12}]},
+  ifrh:{name:"IFR High",us:1,ifr:"H"},ifrl:{name:"IFR Low",us:1,ifr:"L"},
+  faah:{name:"FAA High chart",us:1,ras:[{id:"ifrh",url:FAA_T+"IFR_High/MapServer/tile/{z}/{y}/{x}",min:4,max:9}]},
+  faal:{name:"FAA Low chart",us:1,ras:[{id:"ifrl",url:FAA_T+"IFR_AreaLow/MapServer/tile/{z}/{y}/{x}",min:7,max:12}]},
   vfr:{name:"VFR",us:1,ras:[{id:"sec",url:FAA_T+"VFR_Sectional/MapServer/tile/{z}/{y}/{x}",min:8,max:12},{id:"tac",url:FAA_T+"VFR_Terminal/MapServer/tile/{z}/{y}/{x}",min:9,max:12}]}};
 const baseKey=()=>BASES[ML.base]?ML.base:"map";
 function vecAttr(){const b=BASES[baseKey()];return (oaipOn()?'Aero data <a href="https://www.openaip.net" target="_blank" rel="noopener">openAIP</a> (CC BY-NC) · ':"")+(b.us?'Charts <a href="https://www.faa.gov/air_traffic/flight_info/aeronav/" target="_blank" rel="noopener">FAA AIS</a> · ':"")+(b.attr?b.attr+" · ":"")+'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}
@@ -2347,6 +2348,67 @@ function wmmDecl(lat,lon,hKm,yr){const N=12,d2r=Math.PI/180,t=(yr||2025+(Date.no
   for(let n=1;n<=N;n++){const k=Math.pow(re/r,n+2);for(let m=0;m<=n;m++){const cm=Math.cos(m*la),sm=Math.sin(m*la),gc=g[n][m]*cm+h[n][m]*sm,dP=(P1[n][m]-P0[n][m])/(2*eps);
     X-=k*gc*dP;Y+=k*m*(g[n][m]*sm-h[n][m]*cm)*P[n][m];Z-=(n+1)*k*gc*P[n][m]}}
   Y/=Math.cos(ps);const dps=ps-ph,Xe=X*Math.cos(dps)-Z*Math.sin(dps);return Math.atan2(Y,Xe)/d2r}
+
+/* ---------- Vector IFR enroute charts (US) ----------
+   Airways, fixes and NAVAIDs from FAA AIS open data, drawn by MapLibre so they stay sharp at any zoom.
+   IFR Low: Victor and T routes, low-chart fixes. IFR High: Jet and Q routes, high-chart fixes. */
+const IFR={cells:{},loading:{},q:0,ver:0,setVer:-1,setAt:0,tickAt:0,err:null};
+const ifrLv=()=>{const b=BASES[baseKey()];return b&&b.ifr||null};
+const IFR_SZ={L:4,H:8},IFR_MINZ={L:6,H:4.3};
+function ifrLoad(lv,key){if(!vam.url||IFR.loading[lv+key]||IFR.q>=4)return;const c=IFR.cells[lv+key];if(c&&(!c.fail||Date.now()-c.at<60000))return;
+  IFR.loading[lv+key]=true;IFR.q++;
+  vamGet(`/api/efb/ifr?lv=${lv}&cell=${key}`,40000).then(j=>{if(!j||!j.routes)throw new Error((j&&j.error)||"No data");IFR.cells[lv+key]={at:Date.now(),d:j};IFR.err=null})
+    .catch(e=>{IFR.cells[lv+key]={at:Date.now(),fail:true};IFR.err=e.message||"Couldn’t load"})
+    .finally(()=>{IFR.loading[lv+key]=false;IFR.q--;IFR.ver++;if(cur==="map"){mapSched();setTimeout(()=>{try{ifrTick()}catch(e){}},420)}})}
+const ifrMea=r=>{const e=r[3],w=r[4];if(e==null&&w==null)return"";if(e!=null&&w!=null&&e!==w)return e+"/"+w;return String(e!=null?e:w)};
+function ifrFC(lv){const F=[],seenR={},seenF={},seenN={};if(!lv)return{type:"FeatureCollection",features:F};
+  Object.keys(IFR.cells).forEach(k=>{if(k[0]!==lv)return;const c=IFR.cells[k];if(!c||!c.d)return;const d=c.d;
+    d.routes.forEach(r=>{if(seenR[r[0]])return;seenR[r[0]]=1;const id=r[1],rn=/^[TQ]\d/.test(id)||/RNAV/i.test(r[2]);
+      const mea=ifrMea(r),moca=r[5]!=null?"*"+r[5]:"",sub=[mea+(moca?" "+moca:""),r[8]!=null?r[8]+"":""].filter(Boolean).join("  ·  ");
+      r[9].forEach(g=>F.push({type:"Feature",geometry:{type:"LineString",coordinates:g},properties:{t:"awy",i:id,rn:rn?1:0,sub}}))});
+    d.fixes.forEach(f=>{if(seenF[f[0]])return;seenF[f[0]]=1;F.push({type:"Feature",geometry:{type:"Point",coordinates:[f[2],f[3]]},properties:{t:"fix",i:f[1],c:f[4]}})});
+    d.navs.forEach(n=>{if(seenN[n[0]])return;seenN[n[0]]=1;const ndb=/NDB/i.test(n[3])&&!/VOR|TAC/i.test(n[3]);
+      F.push({type:"Feature",geometry:{type:"Point",coordinates:[n[4],n[5]]},properties:{t:"nav",i:n[1],n:n[2],k:ndb?"ndb":"vor",lbl:(n[2]||"")+"\n"+n[1]}})})});
+  return{type:"FeatureCollection",features:F}}
+/* icons drawn on a canvas, added when MapLibre asks for them */
+function ifrIcon(id){const dark=/-d$/.test(id),ink=dark?"#D7E0E8":"#24323D",blue=dark?"#8DBAFF":"#1D4E9E",bg=dark?"#05080A":"#FFFFFF",ndbc=dark?"#E0A36B":"#8A4F1D";
+  const s=40,c=document.createElement("canvas");c.width=c.height=s;const x=c.getContext("2d");x.lineJoin="round";
+  if(/^ifr-fix/.test(id)){const comp=/^ifr-fixc/.test(id);x.beginPath();x.moveTo(20,7);x.lineTo(32,29);x.lineTo(8,29);x.closePath();x.fillStyle=comp?ink:bg;x.fill();x.lineWidth=3;x.strokeStyle=ink;x.stroke()}
+  else if(/^ifr-vor/.test(id)){x.beginPath();for(let i=0;i<6;i++){const a=Math.PI/3*i;x.lineTo(20+13*Math.cos(a),20+13*Math.sin(a))}x.closePath();x.fillStyle=bg;x.fill();x.lineWidth=3.2;x.strokeStyle=blue;x.stroke();x.beginPath();x.arc(20,20,2.6,0,7);x.fillStyle=blue;x.fill()}
+  else if(/^ifr-ndb/.test(id)){x.fillStyle=ndbc;for(let r=6;r<=15;r+=3)for(let a=0;a<12;a++){const t=a/12*Math.PI*2+r;x.beginPath();x.arc(20+r*Math.cos(t),20+r*Math.sin(t),1.3,0,7);x.fill()}x.beginPath();x.arc(20,20,3.4,0,7);x.fill()}
+  return{width:s,height:s,data:new Uint8Array(x.getImageData(0,0,s,s).data.buffer)}}
+function ifrLayers(lv,dark){const C=dark?{conv:"#C9D3DC",rnav:"#8DBAFF",txt:"#E8EEF2",sub:"#AEB9C2",halo:"#05080A",box:"#05080A",nav:"#8DBAFF",fix:"#D7E0E8"}:{conv:"#33424E",rnav:"#1D4E9E",txt:"#14202A",sub:"#43525E",halo:"#FFFFFF",box:"#FFFFFF",nav:"#1D4E9E",fix:"#24323D"};
+  const t=dark?"-d":"-l",F=["Noto Sans Regular"],FB=["Noto Sans Bold"],z0=lv==="H"?4.3:6;
+  const W=lv==="H"?["interpolate",["linear"],["zoom"],4.5,.7,8,1.6,11,2.2]:["interpolate",["linear"],["zoom"],6,.6,9,1.4,12,2.2];
+  return[
+   {id:"ifr-awy",type:"line",source:"ifr",minzoom:z0,filter:["==",["get","t"],"awy"],layout:{"line-cap":"round","line-join":"round"},paint:{"line-color":["case",["==",["get","rn"],1],C.rnav,C.conv],"line-width":W,"line-opacity":.9}},
+   {id:"ifr-awy-id",type:"symbol",source:"ifr",minzoom:z0+1,filter:["==",["get","t"],"awy"],layout:{"symbol-placement":"line-center","text-field":["get","i"],"text-font":FB,"text-size":lv==="H"?11:10.5,"text-offset":[0,-.85],"text-keep-upright":true,"text-max-angle":40,"text-padding":2},paint:{"text-color":["case",["==",["get","rn"],1],C.rnav,C.txt],"text-halo-color":C.box,"text-halo-width":2.2}},
+   {id:"ifr-awy-sub",type:"symbol",source:"ifr",minzoom:z0+2.2,filter:["all",["==",["get","t"],"awy"],["!=",["get","sub"],""]],layout:{"symbol-placement":"line-center","text-field":["get","sub"],"text-font":F,"text-size":9.5,"text-offset":[0,.9],"text-keep-upright":true,"text-max-angle":40,"text-optional":true},paint:{"text-color":C.sub,"text-halo-color":C.halo,"text-halo-width":1.6}},
+   {id:"ifr-fix",type:"symbol",source:"ifr",minzoom:z0+1.5,filter:["==",["get","t"],"fix"],layout:{"icon-image":["case",["==",["get","c"],1],"ifr-fixc"+t,"ifr-fix"+t],"icon-size":["interpolate",["linear"],["zoom"],z0+1.5,.5,z0+5,.75],"icon-allow-overlap":true,"text-field":["step",["zoom"],"",z0+2.6,["get","i"]],"text-font":F,"text-size":9.5,"text-offset":[0,.85],"text-anchor":"top","text-optional":true},paint:{"text-color":C.fix,"text-halo-color":C.halo,"text-halo-width":1.5}},
+   {id:"ifr-nav",type:"symbol",source:"ifr",minzoom:z0,filter:["==",["get","t"],"nav"],layout:{"icon-image":["case",["==",["get","k"],"ndb"],"ifr-ndb"+t,"ifr-vor"+t],"icon-size":["interpolate",["linear"],["zoom"],z0,.75,z0+5,1.05],"icon-allow-overlap":true,"text-field":["step",["zoom"],["get","i"],z0+2,["get","lbl"]],"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],z0,9.5,z0+4,11],"text-offset":[0,1.15],"text-anchor":"top","text-optional":true,"text-line-height":1.15},paint:{"text-color":C.nav,"text-halo-color":C.halo,"text-halo-width":1.8}}]}
+/* style hook: vector IFR presets get the overlay; the openAIP navaid / reporting point layers step aside */
+{const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);const lv=ifrLv();if(!lv)return st;
+  st.sources.ifr={type:"geojson",data:ifrFC(lv),buffer:64,tolerance:.4};IFR.setVer=IFR.ver;
+  st.layers=st.layers.filter(l=>!/^oaip-(nav|rp)/.test(l.id));
+  const L=ifrLayers(lv,dark),i=st.layers.findIndex(l=>/^(water-name|apt-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L);else st.layers.splice(i,0,...L);return st}}
+/* keep the data in step with the view */
+function ifrTick(){const lv=ifrLv(),m=VEC.map;if(!lv||!m||!VEC.ready)return;
+  if(!m._ifrImg){m._ifrImg=true;m.on("styleimagemissing",e=>{if(/^ifr-/.test(e.id)&&!m.hasImage(e.id))try{m.addImage(e.id,ifrIcon(e.id),{pixelRatio:2})}catch(er){}})}
+  const now=Date.now();
+  if(IFR.ver!==IFR.setVer&&now-IFR.setAt>350){const s=m.getSource("ifr");if(s){IFR.setVer=IFR.ver;IFR.setAt=now;try{s.setData(ifrFC(lv))}catch(e){}}}
+  if(now-IFR.tickAt<250)return;IFR.tickAt=now;
+  const z=m.getZoom();if(z<IFR_MINZ[lv])return;let b;try{b=m.getBounds()}catch(e){return}
+  const sz=IFR_SZ[lv],la1=Math.max(-88,Math.floor(b.getSouth()/sz)*sz),la2=Math.min(88-sz,Math.floor(b.getNorth()/sz)*sz);const keys=[];
+  for(let la=la1;la<=la2;la+=sz)for(let lo=Math.floor(b.getWest()/sz)*sz;lo<=b.getEast()&&keys.length<36;lo+=sz){const n=((lo+180)%360+360)%360-180;const k=la+","+n;if(!keys.includes(k))keys.push(k)}
+  /* nearest to the centre first */
+  const c=m.getCenter();keys.sort((a,b2)=>{const d=k=>{const p=k.split(",").map(Number);return Math.hypot(p[0]+sz/2-c.lat,p[1]+sz/2-c.lng)};return d(a)-d(b2)}).forEach(k=>ifrLoad(lv,k))}
+{const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{ifrTick()}catch(e){}}}
+function ifrStat(){const lv=ifrLv();if(!lv)return null;const z=VEC.map?VEC.map.getZoom():MAP.z-1;if(!vam.url)return"Set the EFB server in Settings";
+  if(z<IFR_MINZ[lv])return(lv==="H"?"Jet and Q routes":"Victor and T routes")+" · zoom in to see airways";
+  const ld=Object.keys(IFR.loading).some(k=>IFR.loading[k]);if(IFR.err&&!Object.keys(IFR.cells).some(k=>k[0]===lv&&IFR.cells[k].d))return"FAA data: "+IFR.err;
+  return(ld?"Loading airways… ":"")+(lv==="H"?"Jet and Q routes":"Victor and T routes")+" · FAA AIS data, US only"}
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const s=ifrStat(),el=document.querySelector('[data-mls="vec"]');if(s&&el)el.textContent=s;return r}}
+try{window.__efbIfr={IFR,ifrFC,ifrIcon,ifrLayers,ifrStat}}catch(e){}
 
 /* Measure tool: tap points on the map for great-circle distance, true/magnetic course (WMM2025) and time at plan ground speed. */
 const MS={on:false,pts:[]};
@@ -3628,7 +3690,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","METAR
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

@@ -614,6 +614,39 @@ async function pirepCellRoute(cellIn, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=180');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* ATIS for one airport: real-world D-ATIS (atis.info, FAA airports) and VATSIM ATIS (network data feed). Cached 60-120 s. */
+async function fetchT(u, ms, init) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms); try { return await fetch(u, { ...(init || {}), signal: ac.signal }); } finally { clearTimeout(tm); } }
+async function vatsimAtisAll(ctx) {
+  const cache = caches.default, ck = new Request('https://vatsim-atis-cache.local/all');
+  let r = await cache.match(ck); if (r) return await r.json();
+  const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
+  if (!up.ok) throw new Error('VATSIM ' + up.status);
+  const j = await up.json();
+  const list = (j.atis || []).map((a) => ({ cs: a.callsign, f: a.frequency, code: a.atis_code || '', text: Array.isArray(a.text_atis) ? a.text_atis.join(' ') : String(a.text_atis || ''), since: a.logon_time || null, upd: a.last_updated || null }));
+  const out = { at: j.general && j.general.update_timestamp, list };
+  const res = new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
+  return out;
+}
+async function datisReal(icao, ctx) {
+  const cache = caches.default, ck = new Request('https://datis-cache.local/' + icao);
+  let r = await cache.match(ck); if (r) return await r.json();
+  const up = await fetchT('https://atis.info/api/' + icao, 8000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+  let j = null; try { j = await up.json(); } catch (e) { j = null; }
+  if (!up.ok && up.status !== 404 && !(j && j.error)) throw new Error('D-ATIS ' + up.status);
+  const list = Array.isArray(j) ? j.map((a) => ({ type: a.type || 'combined', code: a.code || '', text: a.datis || '', time: a.time || '', upd: a.updatedAt || null })) : [];
+  const res = new Response(JSON.stringify(list), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=120' } });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
+  return list;
+}
+async function atisRoute(icaoIn, ctx, h) {
+  const icao = String(icaoIn || '').toUpperCase(); if (!/^[A-Z0-9]{3,4}$/.test(icao)) throw new HttpError(400, 'icao is required');
+  const [re, va] = await Promise.allSettled([datisReal(icao, ctx), vatsimAtisAll(ctx)]);
+  const vat = va.status === 'fulfilled' ? va.value.list.filter((a) => a.cs === icao + '_ATIS' || new RegExp('^' + icao + '_[A-Z0-9]+_ATIS$').test(a.cs)) : [];
+  return json({ icao, real: re.status === 'fulfilled' ? re.value : [], realErr: re.status === 'rejected' ? String(re.reason && re.reason.message || re.reason) : null,
+    vatsim: vat, vatsimErr: va.status === 'rejected' ? String(va.reason && va.reason.message || va.reason) : null }, 200, { ...h, 'Cache-Control': 'public, max-age=60' });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -636,6 +669,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1240">
+<meta name="efb-build" content="1113.1242">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2375,7 +2375,7 @@ function reHit(cx,cy,touch){const g=reGeo();if(!g)return null;const x=cx-g.r.lef
   bd=rs;for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i],vx=b[0]-a[0],vy=b[1]-a[1],L=vx*vx+vy*vy;if(!L)continue;let t=((x-a[0])*vx+(y-a[1])*vy)/L;t=Math.max(0,Math.min(1,t));
     const d=Math.hypot(a[0]+t*vx-x,a[1]+t*vy-y);if(d<bd){bd=d;best={t:"seg",i}}}return best}
 function reSnap(x,y,g,skip){let best=null,bd=14;const names=new Set(rePts().map(q=>q.n));
-  msTargets().forEach(t=>{if(names.has(t.n)&&t.n!==skip)return;let lo=t.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const p=g.xy(t.lat,lo),d=Math.hypot(p[0]-x,p[1]-y);if(d<bd){bd=d;best=t}});return best}
+  msTargets().forEach(t=>{if(names.has(t.n)||/^[NS]\d{4}\.\d [EW]\d{5}\.\d$/.test(t.n))return;let lo=t.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const p=g.xy(t.lat,lo),d=Math.hypot(p[0]-x,p[1]-y);if(d<bd){bd=d;best=t}});return best}
 let reRaf=0;const reRedraw=()=>{if(!reRaf)reRaf=requestAnimationFrame(()=>{reRaf=0;if(cur==="map")drawMap()})};
 function reTapPoint(i){const a=reWork();
   if(RE.dct!=null&&i!==RE.dct){const s=Math.min(RE.dct,i),t=Math.max(RE.dct,i);if(t-s>1){a.splice(s+1,t-s-1);reSave(a);toast("Direct "+a[s].n+" → "+a[s+1].n)}RE.sel=null;RE.dct=null}
@@ -2448,7 +2448,7 @@ function reRoute(){const x=O();const nav=x.fixes.filter(f=>!/^TO[CD]$/.test(S(f.
   const e=reGet();if(!e)return S(x.g.route);
   const pts=e.slice(1,-1);const idx=q=>q.u?-1:nav.findIndex(f=>S(f.ident)===q.n&&Math.abs(N(f.pos_lat)-q.lat)<.02);
   const segs=[];let prev=-1;/* prev = nav index of the last kept original fix, -1 at the origin */
-  pts.forEach((q,i)=>{const k=idx(q),name=q.u&&!q.snap?reLL11(q.lat,q.lon):q.n;let via="DCT";
+  pts.forEach((q,i)=>{const k=idx(q),name=q.u&&(!q.snap||/^[NS]\d{4}\.\d /.test(q.n))?reLL11(q.lat,q.lon):q.n;let via="DCT";
     if(k>=0&&k===prev+1&&(i===0?prev===-1:true)){const v=S(nav[k].via_airway).toUpperCase();if(v&&v!=="DCT")via=v}
     else if(k>=0&&i===0&&k===0){const v=S(nav[0].via_airway).toUpperCase();if(v)via=v}
     segs.push({via,name});prev=k>=0?k:-99});

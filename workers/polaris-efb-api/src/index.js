@@ -708,9 +708,18 @@ async function aisQuery(svc, where, fields, env4, maxPages) {
   const out = [];
   for (let page = 0; page < (maxPages || 4); page++) {
     const q = new URLSearchParams({ where, outFields: fields, geometry: env4.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326', geometryPrecision: '5', resultOffset: String(page * 2000), resultRecordCount: '2000', f: 'geojson' });
-    const r = await fetchT(AIS_FS + svc + '/FeatureServer/0/query?' + q.toString(), 15000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
-    if (!r.ok) throw new Error('FAA AIS ' + svc + ' ' + r.status);
-    const j = await r.json(); if (j.error) throw new Error('FAA AIS ' + svc + ': ' + (j.error.message || 'error'));
+    /* the FAA service rate-limits bursts: back off and try again a few times */
+    let j = null;
+    for (let tr = 0; tr < 4; tr++) {
+      if (tr) await new Promise((res) => setTimeout(res, 900 * tr + Math.random() * 400));
+      let r; try { r = await fetchT(AIS_FS + svc + '/FeatureServer/0/query?' + q.toString(), 15000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } }); } catch (e) { if (tr === 3) throw new Error('FAA AIS ' + svc + ' timed out'); continue; }
+      if (r.status === 429 || r.status >= 500) { if (tr === 3) throw new Error('FAA AIS ' + svc + ' ' + r.status); continue; }
+      if (!r.ok) throw new Error('FAA AIS ' + svc + ' ' + r.status);
+      j = await r.json();
+      if (j.error) { if (/too many|rate|busy/i.test(j.error.message || '') && tr < 3) { j = null; continue; } throw new Error('FAA AIS ' + svc + ': ' + (j.error.message || 'error')); }
+      break;
+    }
+    if (!j) throw new Error('FAA AIS ' + svc + ' is busy, try again');
     (j.features || []).forEach((f) => out.push(f));
     if (!j.exceededTransferLimit && !(j.properties && j.properties.exceededTransferLimit)) break;
   }
@@ -725,10 +734,10 @@ async function ifrRoute(url, ctx, h) {
   let r = await cache.match(ck);
   if (!r) {
     const env4 = [lo, la, lo + sz, la + sz], fl = lv === 'H' ? '(US_HIGH=1 OR AK_HIGH=1)' : '(US_LOW=1 OR AK_LOW=1)';
-    const [rt, pt, nv] = await Promise.all([
-      aisQuery('ATS_Route', fl, 'OBJECTID,IDENT,TYPE_CODE,LEVEL_,MEA_E_VAL,MEA_W_VAL,MOCA_VAL,NMAGTRK,NREVMAGTRK,LENGTH_VAL', env4, 4),
-      aisQuery('DesignatedPoints', fl, 'OBJECTID,IDENT,TYPE_CODE,REPATC', env4, 4),
-      aisQuery('NAVAIDSystem', fl, 'OBJECTID,IDENT,NAME_TXT,CLASS_TXT,TYPE_CODE', env4, 1)]);
+    /* one query at a time: the FAA service throttles parallel bursts */
+    const rt = await aisQuery('ATS_Route', fl, 'OBJECTID,IDENT,TYPE_CODE,LEVEL_,MEA_E_VAL,MEA_W_VAL,MOCA_VAL,NMAGTRK,NREVMAGTRK,LENGTH_VAL', env4, 4);
+    const pt = await aisQuery('DesignatedPoints', fl, 'OBJECTID,IDENT,TYPE_CODE,REPATC', env4, 4);
+    const nv = await aisQuery('NAVAIDSystem', fl, 'OBJECTID,IDENT,NAME_TXT,CLASS_TXT,TYPE_CODE', env4, 1);
     const routes = rt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}; const g = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates];
       return [p.OBJECTID, p.IDENT || '', p.TYPE_CODE || '', aisV(p.MEA_E_VAL), aisV(p.MEA_W_VAL), aisV(p.MOCA_VAL), aisV(p.NMAGTRK), aisV(p.NREVMAGTRK), p.LENGTH_VAL != null ? Math.round(+p.LENGTH_VAL) : null, g]; });
     const fixes = pt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', +c[0].toFixed(5), +c[1].toFixed(5), p.REPATC === 'C' ? 1 : 0]; });

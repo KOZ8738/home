@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1112.2342">
+<meta name="efb-build" content="1113.0030">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1145,6 +1145,18 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .wi-tb{max-width:320px}
 .wi-timer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;padding:8px 10px;border-radius:6px;border:1px solid var(--line)}
 .wi-timer b{font-family:var(--f-mono)}.wi-timer.warn{border-color:var(--amber);color:var(--amber)}.wi-timer.over{border-color:var(--red);color:var(--red)}
+/* Winter Ops on narrow screens: nothing wider than the card */
+.wi{min-width:0}
+.wi-row{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.wi-row .f{min-width:0}.wi-row .f input{width:100%;min-width:0;box-sizing:border-box}
+.wi-row .btn{grid-column:1/-1;justify-self:start}
+.wi-tbl{table-layout:fixed}
+.wi-tbl th:nth-child(1),.wi-tbl td:nth-child(1){width:30%}
+.wi-tbl th:nth-child(2),.wi-tbl td:nth-child(2){width:30%}
+.wi-tbl th:nth-child(3),.wi-tbl td:nth-child(3){width:17%}
+.wi-tbl td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wi-in{max-width:100%;box-sizing:border-box}
+.wi-row.one{grid-template-columns:minmax(0,1fr)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2796,7 +2808,7 @@ const WI=store.get("wi",{});const wiSave=()=>store.set("wi",WI);
    H = height above the altimeter setting source (here the aerodrome), Hss = its elevation, t0 = aerodrome temperature.
    Reproduces the published ICAO / FCOM "values to be added" table cell for cell (0 to -50 °C, 200 to 5000 ft). */
 function wiCorr(altFt,elevFt,tC){const L0=0.0065,h=(altFt-elevFt)*.3048,hs=elevFt*.3048;if(!(h>0)||tC>0)return 0;return h*(15-tC)/(273+tC-0.5*L0*(h+hs))/.3048}
-const WI_ROWS=[["iaf","IAF / initial"],["if","IF / intermediate"],["faf","FAF / FAP"],["da","DA / MDA"],["ma","Missed approach"],["msa","MSA / other"]];
+const WI_ROWS=[["iaf","IAF"],["if","IF"],["faf","FAF / FAP"],["da","DA / MDA"],["ma","Missed"],["msa","MSA"]];
 /* ---- holdover times: FAA Holdover Time Guidelines, Winter 2026-2027 (original issue 11 Aug 2026), generic tables 2, 3, 4, 20.
    Minutes [low, high]; null = no holdover time guidelines exist. */
 const HOT_COND=[["fzfg","Freezing fog, freezing mist or ice crystals"],["snfg","Snow mixed with freezing fog"],["svl","Very light snow, snow grains or pellets"],["sl","Light snow, snow grains or pellets"],["sm","Moderate snow, snow grains or pellets"],["fzdz","Freezing drizzle"],["lfzra","Light freezing rain"],["smra","Moderate snow mixed with rain"],["rcsw","Rain on cold-soaked wing"],["oth","Heavy snow, ice pellets, moderate or heavy freezing rain, hail"]];
@@ -2838,11 +2850,11 @@ function wiPrefill(){const x=O();if(WI._for===x.id)return;WI._for=x.id;
   const t=S(x.ac.icaocode);if(t&&!WI.fl)WI.fl=/^A35/.test(t)?"t1c":"t1a";
   const ma=dst&&decodeMetar(dst[3]);if(dst){WI.ad=S(dst[2].icao_code);const el=N(dst[2].elevation);if(el!=null)WI.elev=el;if(ma&&ma.temp!=null)WI.tad=ma.temp}wiSave()}
 function wiColdCalc(){const el=N(WI.elev),t=N(WI.tad);const ok=el!=null&&t!=null;let isa="Enter the aerodrome elevation and temperature.";if(ok){const dev=t-(15-1.98*el/1000);isa=`ISA ${dev>=0?"+":"−"}${Math.abs(dev).toFixed(0)} °C`+(t>0?" · no correction above 0 °C":"")}
-  const rows={};WI_ROWS.forEach(([k])=>{const a=N((WI.alt||{})[k]);let out="—",add="";if(ok&&a!=null&&a>el){const cr=Math.ceil(wiCorr(a,el,t)/10)*10;out=fmt(a+cr);add=cr?`+${fmt(cr)}`:"0"}else if(ok&&a!=null)out="below aerodrome";rows[k]=[add,out]});return{isa,rows}}
+  const rows={};WI_ROWS.forEach(([k])=>{const a=N((WI.alt||{})[k]);let out="—",add="";if(ok&&a!=null&&a>el){const cr=Math.ceil(wiCorr(a,el,t)/10)*10;out=fmt(a+cr);add=cr?`+${fmt(cr)}`:"0"}else if(ok&&a!=null)out="below AD";rows[k]=[add,out]});return{isa,rows}}
 function wiColdOut(){const c=wiColdCalc();
   const rows=WI_ROWS.map(([k,l])=>{const a=N((WI.alt||{})[k]);return `<tr><td>${l}</td><td><input class="wi-in" type="number" inputmode="numeric" data-wi="alt.${k}" value="${a??""}" placeholder="ft" aria-label="${l} published altitude"></td><td class="num" id="wiA_${k}">${c.rows[k][0]}</td><td class="num"><b id="wiF_${k}">${c.rows[k][1]}</b></td></tr>`}).join("");
   return `<div class="wi-isa" id="wiIsa">${c.isa}</div>
-   <table class="tbl wi-tbl"><thead><tr><th>Fix</th><th>Published ft</th><th class="num">Corr.</th><th class="num">Fly ft</th></tr></thead><tbody>${rows}</tbody></table>`}
+   <table class="tbl wi-tbl"><thead><tr><th>Fix</th><th>Published</th><th class="num">Corr.</th><th class="num">Fly</th></tr></thead><tbody>${rows}</tbody></table>`}
 function wiHotOut(){const r=hotLook(),t=HOT[WI.fl||"t1a"];if(r.msg)return `<div class="wi-res"><span>${r.msg}</span></div>`;
   const st=WI.hotStart?new Date(WI.hotStart):null,now=Date.now();
   let timer="";if(st&&r.v){const el=Math.floor((now-WI.hotStart)/60000),lo=new Date(WI.hotStart+r.v[0]*60000),hi=new Date(WI.hotStart+r.v[1]*60000);
@@ -2854,8 +2866,8 @@ function wiHotOut(){const r=hotLook(),t=HOT[WI.fl||"t1a"];if(r.msg)return `<div 
 V.winter=()=>{wiPrefill();const tabs=`<div class="chips" role="group" aria-label="Winter Ops">${[["cold","Cold temperature"],["hot","Holdover time"]].map(t=>`<button data-wi-tab="${t[0]}" aria-pressed="${wiTab===t[0]}">${t[1]}</button>`).join("")}</div>`;
   if(wiTab==="cold")return `<section class="card">${cardH("Winter Ops","Cold temperature correction")}<div class="card-b wi">${tabs}
     <div class="wi-row"><label class="f">Aerodrome<input type="text" data-wi="ad" value="${esc(WI.ad||"")}" maxlength="4" placeholder="ICAO" autocapitalize="characters"></label>
-     <label class="f">Elevation ft<input type="number" inputmode="numeric" data-wi="elev" value="${WI.elev??""}"></label>
-     <label class="f">Temperature °C<input type="number" inputmode="numeric" data-wi="tad" value="${WI.tad??""}"></label>
+     <label class="f">Elev ft<input type="number" inputmode="numeric" data-wi="elev" value="${WI.elev??""}"></label>
+     <label class="f">Temp °C<input type="number" inputmode="numeric" data-wi="tad" value="${WI.tad??""}"></label>
      <button class="btn" type="button" data-wi-act="fetch">Use METAR</button></div>
     <div id="wiOut">${wiColdOut()}</div>
     <p class="wi-note">ICAO Doc 8168 formula (matches the published cold temperature table), rounded up to the next 10 ft. Correct all published altitudes and heights on the approach (DA/MDA included) when the aerodrome temperature is below ISA and at or below 0 °C, or as your procedure requires. Tell ATC before flying corrected altitudes; don’t correct altitudes ATC assigns while vectoring without their agreement.</p></div></section>`;
@@ -2863,7 +2875,7 @@ V.winter=()=>{wiPrefill();const tabs=`<div class="chips" role="group" aria-label
   return `<section class="card">${cardH("Winter Ops","Holdover time")}<div class="card-b wi">${tabs}
    <div class="wi-sub">Fluid</div><div class="chips" role="group">${Object.keys(HOT).map(k=>`<button data-wi-set="fl:${k}" aria-pressed="${(WI.fl||"t1a")===k}">${esc(HOT[k].name)}</button>`).join("")}</div>
    ${t.conc?`<div class="wi-sub">Concentration (fluid/water)</div><div class="chips" role="group">${t.conc.map(c=>`<button data-wi-set="conc:${c}" aria-pressed="${(WI.conc||"100/0")===c}">${c}</button>`).join("")}</div>`:""}
-   <div class="wi-row"><label class="f">Outside air temp °C<input type="number" inputmode="numeric" data-wi="oat" value="${WI.oat??""}"></label></div>
+   <div class="wi-row one"><label class="f">Outside air temp °C<input type="number" inputmode="numeric" data-wi="oat" value="${WI.oat??""}"></label></div>
    <div class="wi-sub">Weather</div><div class="chips wi-cond" role="group">${HOT_COND.map(c=>`<button data-wi-set="cond:${c[0]}" aria-pressed="${(WI.cond||"sl")===c[0]}">${esc(c[1])}</button>`).join("")}</div>
    <div id="wiOut">${wiHotOut()}</div>
    <p class="wi-note">FAA Holdover Time Guidelines, Winter 2026–2027 (${t.tbl}, generic values). For simulation only. Times shrink in heavy precipitation, high wind or jet blast, and when the wing is colder than the air; a pre-takeoff check is still needed.</p></div></section>`};

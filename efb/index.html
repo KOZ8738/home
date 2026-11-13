@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1641">
+<meta name="efb-build" content="1113.1713">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2188,15 +2188,23 @@ const oaipOn=()=>!!(ML.oaip&&OAIP.ok&&vam.url);
 function oaipCheck(){if(OAIP.t||!vam.url)return;OAIP.t=Date.now();vamGet("/api/efb/health",10000).then(j=>{OAIP.ok=!!(j&&j.openaip);OAIP.err=null}).catch(e=>{OAIP.err=e.message;OAIP.t=0}).finally(()=>{if(cur==="map"){drawMap();updMapNote()}})}
 function oaipAdd(st,dark){if(!oaipOn())return st;const base=vam.url.replace(/\/+$/,"")+"/api/efb/oaip/v/";
   st.sources.oaip={type:"vector",tiles:[base+"{z}/{x}/{y}.pbf"],minzoom:4,maxzoom:14,attribution:""};
-  const C=dark?{rdp:"#FF6B6B",ctr:"#7FB2FF",tma:"#6C9CE8",cls:"#5FBF8F",nav:"#9EC9FF",ndb:"#D8A06A",rp:"#E2B64C",txt:"#E8EEF2",halo:"#05080A"}:{rdp:"#B3261E",ctr:"#1F4FA3",tma:"#2C5FB0",cls:"#2E8B57",nav:"#1F4FA3",ndb:"#8A5A2B",rp:"#7A5A00",txt:"#14202A",halo:"#FFFFFF"};
+  /* chart colours: class B solid blue, class C solid magenta, class D dashed blue, class E (surface) dashed magenta,
+     other controlled airspace thin grey-blue, restricted / prohibited / danger red */
+  const C=dark?{rdp:"#FF6B6B",B:"#6FA8FF",Cc:"#E482CF",oth:"#7F93A8",nav:"#9EC9FF",ndb:"#D8A06A",rp:"#E2B64C",txt:"#E8EEF2",halo:"#05080A"}:{rdp:"#B3261E",B:"#1F5BB5",Cc:"#A2338A",oth:"#6A7F94",nav:"#1F4FA3",ndb:"#8A5A2B",rp:"#7A5A00",txt:"#14202A",halo:"#FFFFFF"};
+  const K=["downcase",["to-string",["get","icao_class"]]],CL=v=>["==",K,v],CTL=["!",["match",["get","type"],["restricted","danger","prohibited","fir","uir","awy","mtr","tra","tsa"],true,false]];
+  const W=(a,b)=>["interpolate",["linear"],["zoom"],5,a,11,b];
   const F=["Noto Sans Regular"],FB=["Noto Sans Bold"],T=(a,b)=>["match",["get","type"],a,b,!b];
   const L=[
    {id:"oaip-rdp-fill",type:"fill","source-layer":"airspaces",minzoom:5,filter:T(["restricted","danger","prohibited"],true),paint:{"fill-color":C.rdp,"fill-opacity":dark?.07:.06}},
    {id:"oaip-rdp",type:"line","source-layer":"airspaces",minzoom:5,filter:T(["restricted","danger","prohibited"],true),paint:{"line-color":C.rdp,"line-width":["interpolate",["linear"],["zoom"],5,.6,10,1.8],"line-opacity":.85}},
-   {id:"oaip-ctr",type:"line","source-layer":"airspaces",minzoom:6,filter:T(["ctr"],true),paint:{"line-color":C.ctr,"line-width":["interpolate",["linear"],["zoom"],6,.8,11,2.2],"line-dasharray":[4,2]}},
-   {id:"oaip-tma",type:"line","source-layer":"airspaces",minzoom:5,filter:T(["tma","cta"],true),paint:{"line-color":C.tma,"line-width":["interpolate",["linear"],["zoom"],5,.5,10,1.6],"line-opacity":.8}},
-   {id:"oaip-cls",type:"line","source-layer":"airspaces",minzoom:6,filter:["all",T(["other"],true),["match",["get","icao_class"],["a","b","c","d"],true,false]],paint:{"line-color":C.cls,"line-width":["interpolate",["linear"],["zoom"],6,.6,11,1.8],"line-opacity":.85}},
-   {id:"oaip-asp-lbl",type:"symbol","source-layer":"airspaces",minzoom:8,filter:["any",T(["restricted","danger","prohibited","ctr","tma","cta"],true)],layout:{"symbol-placement":"line","text-field":["get","name"],"text-font":F,"text-size":10.5,"symbol-spacing":420,"text-max-angle":30},paint:{"text-color":C.txt,"text-halo-color":C.halo,"text-halo-width":1.4,"text-opacity":.8}},
+   {id:"oaip-b-fill",type:"fill","source-layer":"airspaces",minzoom:6,filter:["all",CTL,CL("b")],paint:{"fill-color":C.B,"fill-opacity":dark?.05:.04}},
+   {id:"oaip-oth",type:"line","source-layer":"airspaces",minzoom:6,filter:["all",CTL,["match",K,["a","b","c","d","e"],false,true]],paint:{"line-color":C.oth,"line-width":W(.4,1),"line-opacity":.6}},
+   {id:"oaip-e",type:"line","source-layer":"airspaces",minzoom:7,filter:["all",CTL,CL("e"),["==",["get","type"],"ctr"]],paint:{"line-color":C.Cc,"line-width":W(.6,1.6),"line-dasharray":[3,2],"line-opacity":.8}},
+   {id:"oaip-d",type:"line","source-layer":"airspaces",minzoom:6,filter:["all",CTL,CL("d")],paint:{"line-color":C.B,"line-width":W(.7,2),"line-dasharray":[4,2.5]}},
+   {id:"oaip-c",type:"line","source-layer":"airspaces",minzoom:5,filter:["all",CTL,CL("c")],paint:{"line-color":C.Cc,"line-width":W(.8,2.4)}},
+   {id:"oaip-a",type:"line","source-layer":"airspaces",minzoom:5,filter:["all",CTL,CL("a")],paint:{"line-color":C.oth,"line-width":W(.5,1.4),"line-opacity":.75}},
+   {id:"oaip-b",type:"line","source-layer":"airspaces",minzoom:5,filter:["all",CTL,CL("b")],paint:{"line-color":C.B,"line-width":W(1,2.8)}},
+   {id:"oaip-asp-lbl",type:"symbol","source-layer":"airspaces",minzoom:8,filter:["any",["match",["get","type"],["restricted","danger","prohibited"],true,false],["all",CTL,["match",K,["b","c","d"],true,false]]],layout:{"symbol-placement":"line","text-field":["get","name"],"text-font":F,"text-size":10.5,"symbol-spacing":420,"text-max-angle":30},paint:{"text-color":["case",["match",["get","type"],["restricted","danger","prohibited"],true,false],C.rdp,CL("c"),C.Cc,C.B],"text-halo-color":C.halo,"text-halo-width":1.4,"text-opacity":.85}},
    {id:"oaip-rp",type:"circle","source-layer":"reporting_points",minzoom:9,paint:{"circle-radius":3,"circle-color":C.halo,"circle-stroke-color":C.rp,"circle-stroke-width":1.6}},
    {id:"oaip-rp-lbl",type:"symbol","source-layer":"reporting_points",minzoom:10,layout:{"text-field":["get","name"],"text-font":F,"text-size":10,"text-offset":[0,1.1],"text-anchor":"top","text-optional":true},paint:{"text-color":C.rp,"text-halo-color":C.halo,"text-halo-width":1.3}},
    {id:"oaip-nav",type:"circle","source-layer":"navaids",minzoom:5,paint:{"circle-radius":["interpolate",["linear"],["zoom"],5,2.5,10,5],"circle-color":C.halo,"circle-stroke-color":["match",["get","type"],["ndb"],C.ndb,C.nav],"circle-stroke-width":["interpolate",["linear"],["zoom"],5,1.2,10,2.2]}},

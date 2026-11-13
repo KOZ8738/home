@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.0043">
+<meta name="efb-build" content="1113.0050">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1171,6 +1171,15 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .wx-cond .wi-ico{margin-bottom:1px}
 .wx-row.ic{grid-template-columns:40px 46px 1fr 22px auto}
 .wx-ri{display:flex;align-items:center;justify-content:center}
+/* Convert reference tables */
+.uct{margin-top:16px}
+.uct-w{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+.uct-t{width:100%;border-collapse:collapse;font:500 13px var(--f-mono)}
+.uct-t th{position:sticky;top:0;background:var(--panel);text-align:right;font:500 10.5px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label);padding:8px 10px;border-bottom:1px solid var(--line)}
+.uct-t td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.uct-t tr:last-child td{border-bottom:0}
+.uct-t tr:nth-child(even) td{background:color-mix(in srgb,var(--line) 25%,transparent)}
+.uct-t td:nth-child(3),.uct-t th:nth-child(3){border-left:1px solid var(--line)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2934,6 +2943,37 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-wi-tab],[d
     t.disabled=true;vamGet("/api/efb/airport?icao="+ic,15000).then(j=>{const a=j&&j.airport;if(a&&a.elevM!=null)WI.elev=Math.round(a.elevM/.3048);const m=j&&j.metar&&decodeMetar(j.metar.raw);if(m&&m.temp!=null)WI.tad=m.temp;
       if(!a&&!m)toast("No data for "+ic);wiSave();render()}).catch(err=>toast(err.message)).finally(()=>{t.disabled=false})}});
 setInterval(()=>{if(cur==="winter"&&wiTab==="hot"&&WI.hotStart)wiRefresh()},30000);
+
+/* ===== Convert: imperial / metric reference tables ===== */
+let ucT=store.get("ucT","alt");
+const ucR=(v,d)=>{const p=Math.pow(10,d||0);return(Math.round(v*p)/p).toLocaleString("en-US",{minimumFractionDigits:d||0,maximumFractionDigits:d||0})};
+const UCT={
+ alt:{name:"Metric flight levels",head:["Metres","Feet","FL","Direction"],note:"Metric cruising levels (China and others), feet rounded to the nearest 100 ft. Eastbound: track 000°–179°; westbound: 180°–359°.",
+  rows:()=>{const m=[600,900,1200,1500,1800,2100,2400,2700,3000,3300,3600,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8900,9200,9500,9800,10100,10400,10700,11000,11300,11600,11900,12200,12500,13100,13700,14300,14900];
+   const east=new Set([900,1500,2100,2700,3300,3900,4500,5100,5700,6300,6900,7500,8100,8900,9500,10100,10700,11300,11900,12500,13700,14900]);
+   return m.map(v=>{const f=Math.round(v*3.28084/100)*100;return[ucR(v),ucR(f),"FL"+String(f/100).padStart(3,"0"),east.has(v)?"East":"West"]})}},
+ len:{name:"Length",head:["Metres","Feet","Metres","Feet"],note:"Runway and obstacle lengths. 1 m = 3.2808 ft.",
+  rows:()=>[500,1000,1500,1800,2000,2200,2500,2800,3000,3200,3500,3800,4000,4500].map((v,i)=>{const f=[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000,12000,13000,15000][i];return[ucR(v),ucR(v*3.28084),ucR(f*.3048),ucR(f)]})},
+ vis:{name:"Visibility · RVR",head:["Statute miles","Metres","RVR ft","RVR m"],note:"Visibility in statute miles and RVR in feet (US charts) against metres. 1 SM = 1,609 m; 1 ft = 0.3048 m.",
+  rows:()=>{const sm=[["1/4",.25],["1/2",.5],["3/4",.75],["1",1],["1 1/4",1.25],["1 1/2",1.5],["2",2],["2 1/2",2.5],["3",3],["4",4],["5",5],["6",6]],rv=[300,600,1000,1200,1400,1600,1800,2000,2400,3000,4000,5000];
+   return sm.map((r,i)=>[r[0],ucR(Math.round(r[1]*1609.344/10)*10),ucR(rv[i]),ucR(Math.round(rv[i]*.3048/5)*5)])}},
+ spd:{name:"Speed",head:["Knots","km/h","m/s","mph"],note:"1 kt = 1.852 km/h = 0.5144 m/s.",
+  rows:()=>[5,10,15,20,25,30,35,40,50,60,80,100,150,200,250,300,450,500].map(k=>[ucR(k),ucR(k*1.852),ucR(k*.514444,1),ucR(k*1.150779)])},
+ dist:{name:"Distance",head:["NM","km","Statute miles","Feet"],note:"1 NM = 1.852 km = 1.1508 statute miles = 6,076 ft.",
+  rows:()=>[.5,1,2,3,5,10,20,25,50,100,200,250,500,1000].map(n=>[ucR(n,n<1?1:0),ucR(n*1.852,1),ucR(n*1.150779,1),ucR(n*6076.12)])},
+ tmp:{name:"Temperature",head:["°C","°F","°C","°F"],note:"°F = °C × 9/5 + 32.",
+  rows:()=>{const a=[-50,-40,-30,-25,-20,-15,-10,-5,0,5,10,15];return a.map((c,i)=>{const c2=[20,25,30,35,40,45,50,55,60,65,70,75][i];return[c,ucR(c*9/5+32),c2,ucR(c2*9/5+32)]})}},
+ prs:{name:"Pressure",head:["hPa","inHg","hPa","inHg"],note:"1 inHg = 33.864 hPa. Standard: 1013.25 hPa = 29.92 inHg.",
+  rows:()=>{const a=[];for(let h=960;h<=1000;h+=5)a.push(h);return a.map(h=>{const h2=h+50;return[h,ucR(h/33.8639,2),h2,ucR(h2/33.8639,2)]})}},
+ wt:{name:"Weight · fuel",head:["kg","lb","Litres","US gal"],note:"1 kg = 2.2046 lb. Fuel litres and US gallons at a density of 0.80 kg/L (Jet A-1 is about 0.78–0.84).",
+  rows:()=>[100,500,1000,2000,5000,10000,15000,20000,30000,50000,75000,100000].map(k=>[ucR(k),ucR(k*2.20462),ucR(k/.8),ucR(k/.8/3.78541)])}};
+function ucTables(){const t=UCT[ucT]||UCT.alt;
+  return `<section class="card uct">${cardH("Reference","Imperial · metric tables")}<div class="card-b" style="display:grid;gap:12px">
+   <div class="chips" role="group" aria-label="Table">${Object.keys(UCT).map(k=>`<button data-uct="${k}" aria-pressed="${ucT===k}">${UCT[k].name}</button>`).join("")}</div>
+   <div class="uct-w"><table class="uct-t"><thead><tr>${t.head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${t.rows().map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+   <p class="wi-note">${t.note}</p></div></section>`}
+{const _vc=V.convert;V.convert=()=>_vc()+ucTables()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-uct]");if(!b)return;ucT=b.dataset.uct;store.set("ucT",ucT);render()});
 
 /* ===== Music (Polaris Sound) =====
    Polaris tracks: listed in music/tracks.json next to the EFB, e.g.

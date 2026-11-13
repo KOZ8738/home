@@ -751,6 +751,79 @@ async function ifrRoute(url, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* Airways for the route editor (FAA AIS, US only).
+   ?at=lat,lon  -> the airways that pass through that point
+   ?id=J84      -> the whole airway as ordered chains of named points, with each leg's MEA. Cached 7 days. */
+async function aisPost(svc, params) {
+  for (let tr = 0; tr < 4; tr++) {
+    if (tr) await new Promise((res) => setTimeout(res, 900 * tr + Math.random() * 400));
+    let r; try { r = await fetchT(AIS_FS + svc + '/FeatureServer/0/query', 15000, { method: 'POST', headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params).toString() }); } catch (e) { if (tr === 3) throw new Error('FAA AIS ' + svc + ' timed out'); continue; }
+    if (r.status === 429 || r.status >= 500) { if (tr === 3) throw new Error('FAA AIS ' + svc + ' ' + r.status); continue; }
+    if (!r.ok) throw new Error('FAA AIS ' + svc + ' ' + r.status);
+    const j = await r.json();
+    if (j.error) { if (/too many|rate|busy/i.test(j.error.message || '') && tr < 3) continue; throw new Error('FAA AIS ' + svc + ': ' + (j.error.message || 'error')); }
+    return j;
+  }
+  throw new Error('FAA AIS ' + svc + ' is busy, try again');
+}
+async function awyRoute(url, ctx, h) {
+  const at = url.searchParams.get('at'), id = String(url.searchParams.get('id') || '').toUpperCase();
+  const cache = caches.default;
+  if (at) {
+    const m = at.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/); if (!m) throw new HttpError(400, 'at=lat,lon');
+    const la = Math.round(+m[1] * 1000) / 1000, lo = Math.round(+m[2] * 1000) / 1000, e = 0.004;
+    const ck = new Request('https://awy-at.local/v1/' + la + '/' + lo);
+    let r = await cache.match(ck);
+    if (!r) {
+      const j = await aisPost('ATS_Route', { where: '1=1', outFields: 'IDENT,LEVEL_', geometry: [lo - e, la - e, lo + e, la + e].join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', returnGeometry: 'false', returnDistinctValues: 'true', f: 'json' });
+      const seen = {}, list = [];
+      (j.features || []).forEach((f) => { const a = f.attributes || {}; if (!a.IDENT) return; const k = a.IDENT; if (!seen[k]) { seen[k] = { id: k, lv: a.LEVEL_ || '' }; list.push(seen[k]); } else if (seen[k].lv !== a.LEVEL_) seen[k].lv = 'B'; });
+      list.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }));
+      r = new Response(JSON.stringify({ at: [la, lo], airways: list }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+    }
+    const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+    return new Response(r.body, { status: 200, headers: hd });
+  }
+  if (!/^[A-Z]{1,2}\d{1,4}[A-Z]?$/.test(id)) throw new HttpError(400, 'id=airway, for example J84');
+  const ck = new Request('https://awy-id.local/v1/' + id);
+  let r = await cache.match(ck);
+  if (!r) {
+    const segs = [];
+    for (let page = 0; page < 5; page++) {
+      const j = await aisPost('ATS_Route', { where: "IDENT='" + id + "'", outFields: 'OBJECTID,STARTPT_ID,ENDPT_ID,MEA_E_VAL,MEA_W_VAL,LEVEL_', returnGeometry: 'true', outSR: '4326', geometryPrecision: '6', resultOffset: String(page * 2000), resultRecordCount: '2000', f: 'json' });
+      (j.features || []).forEach((f) => { const a = f.attributes || {}, g = f.geometry && f.geometry.paths; if (!g || !g.length || !a.STARTPT_ID || !a.ENDPT_ID) return; const p0 = g[0][0], pl = g[g.length - 1][g[g.length - 1].length - 1];
+        segs.push({ s: a.STARTPT_ID, e: a.ENDPT_ID, ps: [p0[1], p0[0]], pe: [pl[1], pl[0]], mea: [aisV(a.MEA_E_VAL), aisV(a.MEA_W_VAL)].filter((v) => v != null).join('/'), lv: a.LEVEL_ || '' }); });
+      if (!j.exceededTransferLimit) break;
+    }
+    /* names for the points: designated points first, then NAVAIDs */
+    const ids = [...new Set(segs.flatMap((x) => [x.s, x.e]))], names = {};
+    for (const [svc, fld] of [['DesignatedPoints', 'IDENT'], ['NAVAIDSystem', 'IDENT']]) {
+      const left = ids.filter((x) => !names[x]);
+      for (let i = 0; i < left.length; i += 150) {
+        const part = left.slice(i, i + 150);
+        const j = await aisPost(svc, { where: 'GLOBAL_ID IN (' + part.map((x) => "'" + x.replace(/'/g, '') + "'").join(',') + ')', outFields: 'GLOBAL_ID,' + fld, returnGeometry: 'false', f: 'json' });
+        (j.features || []).forEach((f) => { const a = f.attributes || {}; if (a.GLOBAL_ID) names[a.GLOBAL_ID] = { n: a[fld], k: svc === 'NAVAIDSystem' ? 'nav' : 'fix' }; });
+      }
+    }
+    /* walk the segments into chains (an airway can have gaps) */
+    const pos = {}, adj = {};
+    segs.forEach((x, i) => { pos[x.s] = x.ps; pos[x.e] = x.pe; (adj[x.s] = adj[x.s] || []).push(i); (adj[x.e] = adj[x.e] || []).push(i); });
+    const used = new Set(), chains = [];
+    const ends = Object.keys(adj).filter((k) => adj[k].length === 1);
+    const walk = (start) => { const ch = [start], legs = []; let cur = start;
+      for (;;) { const nx = (adj[cur] || []).find((i) => !used.has(i)); if (nx == null) break; used.add(nx); const x = segs[nx]; cur = x.s === cur ? x.e : x.s; ch.push(cur); legs.push(x.mea); }
+      return { ch, legs }; };
+    ends.forEach((k) => { if ((adj[k] || []).some((i) => !used.has(i))) chains.push(walk(k)); });
+    Object.keys(adj).forEach((k) => { if ((adj[k] || []).some((i) => !used.has(i))) chains.push(walk(k)); });
+    const out = chains.filter((c) => c.ch.length > 1).map((c) => ({ pts: c.ch.map((k) => { const p = pos[k], nm = names[k]; return [nm ? nm.n : '', +p[0].toFixed(6), +p[1].toFixed(6), nm ? nm.k : '']; }), mea: c.legs }));
+    r = new Response(JSON.stringify({ id, chains: out }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -773,6 +846,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/awy': return await awyRoute(url, ctx, h);
         case '/api/efb/ifr': return await ifrRoute(url, ctx, h);
         case '/api/efb/fc': return await fcRoute(url, ctx, h);
         case '/api/efb/tz': return await tzRoute(url, ctx, h);

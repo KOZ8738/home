@@ -608,6 +608,20 @@ async function forecastRoute(url, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* temporary: which openAIP tile endpoints answer (statuses only, the key is never returned) */
+async function oaipProbe(env, h) {
+  const k = encodeURIComponent(env.OPENAIP_API_KEY || ''), z = 8, x = 41, y = 98, out = {};
+  const urls = {
+    raster_a: `https://a.api.tiles.openaip.net/api/data/airspaces/${z}/${x}/${y}.png?apiKey=${k}`,
+    raster_root: `https://api.tiles.openaip.net/api/data/airspaces/${z}/${x}/${y}.png?apiKey=${k}`,
+    vector: `https://api.tiles.openaip.net/api/data/openaip/${z}/${x}/${y}.pbf?apiKey=${k}`,
+    style: `https://api.tiles.openaip.net/api/styles/openaip-default-style.json?apiKey=${k}`,
+    core: `https://api.core.openaip.net/api/navaids?pos=37.6,-122.4&dist=50000&limit=2&apiKey=${k}`,
+  };
+  await Promise.all(Object.entries(urls).map(async ([n, u]) => { try { const r = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0' } }); const b = await r.arrayBuffer(); out[n] = [r.status, r.headers.get('content-type'), b.byteLength, n === 'style' || n === 'core' ? new TextDecoder().decode(b.slice(0, 1500)) : '']; } catch (e) { out[n] = ['ERR', e.message]; } }));
+  return json(out, 200, h);
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -631,6 +645,7 @@ export default {
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
         case '/api/efb/forecast': return await forecastRoute(url, ctx, h);
+        case '/api/efb/oaip-probe': return await oaipProbe(env, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

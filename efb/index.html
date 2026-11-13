@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1418">
+<meta name="efb-build" content="1113.1433">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2577,8 +2577,12 @@ const AS_CATS=[["STAR","Arrivals"],["APP","Approaches"],["TAXI","Airport diagram
 const asCatOf=g=>{for(const c of AS_CATS)if(c[1].split(",").includes(g))return c[0];return"REF"};
 function asOpen(icao,tab){if(icao)AS.icao=String(icao).toUpperCase();if(!AS.icao){const a=chApts()[0];AS.icao=a?a[1]:"KSFO"}if(tab){AS.tab=tab;store.set("asTab",tab)}AS.view="apt";AS.open=true;
   const lp=$("#mlPanel");if(lp)lp.hidden=true;asLoad(AS.icao);if(typeof ovLoad==="function")ovLoad(AS.icao);asUi()}
-function asLoad(icao){if(!vam.url||!icao||AS.data[icao]||AS.loading[icao])return;AS.loading[icao]=true;delete AS.err[icao];
-  vamGet("/api/efb/airport?icao="+encodeURIComponent(icao)).then(j=>{AS.data[icao]=j}).catch(e=>{AS.err[icao]=e.message}).finally(()=>{AS.loading[icao]=false;asUi()})}
+function asLoad(icao,n){if(!vam.url||!icao||AS.data[icao]||AS.loading[icao])return;AS.loading[icao]=true;delete AS.err[icao];
+  vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{if(j&&j.error&&!j.airport&&!j.notFound)throw new Error(j.error);AS.data[icao]=j})
+    .catch(e=>{if(!n){setTimeout(()=>{AS.loading[icao]=false;asLoad(icao,1)},1500);return"retry"}AS.err[icao]=e.message})
+    .then(r=>{if(r==="retry")return;AS.loading[icao]=false;asUi()})}
+const asErr=icao=>`<p class="as-empty">${esc(AS.err[icao])}</p><p class="as-empty" style="margin-top:-8px"><button class="btn sm" data-asretry="${esc(icao)}">Try again</button></p>`;
+document.addEventListener("click",e=>{const b=e.target.closest("[data-asretry]");if(!b)return;const i=b.dataset.asretry;delete AS.err[i];asLoad(i);asUi()});
 /* "SAN FRANCISCO/SAN FRANCISCO INTL" -> name "San Francisco Intl", city "San Francisco" */
 const asTitle=t=>String(t||"").trim().toLowerCase().replace(/(^|[\s\-\/(])([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\b(Intl|Rgnl|Muni|Fld|Arpt)\b/g,m=>m);
 let asCN=null;try{asCN=new Intl.DisplayNames(["en"],{type:"region"})}catch(e){}
@@ -2591,7 +2595,7 @@ function asRow(k,v,extra){return `<div class="as-row"><div><span>${k}</span><b>$
 function asInfo(icao){const j=AS.data[icao],a=j&&j.airport;
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load airport details.</p>`;
   if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading ${esc(icao)}…</p>`;
-  if(AS.err[icao]&&!j)return `<p class="as-empty">${esc(AS.err[icao])}</p>`;
+  if(AS.err[icao]&&!j)return asErr(icao);
   if(!a)return `<p class="as-empty">No airport details for ${esc(icao)}.</p>`;
   const rw=a.runways.filter(r=>r.lengthFt),lng=rw.reduce((m,r)=>Math.max(m,r.lengthFt||0),0),md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i);
   const nm=asNames(a),loc=nm.loc,usca=/^(US|CA)$/i.test(a.country||"");
@@ -2606,7 +2610,7 @@ function asWx(icao){const j=AS.data[icao];
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load weather.</p>`;
   const at=asAtis(icao);
   if(AS.loading[icao]&&!j)return at+`<p class="as-empty">Loading weather for ${esc(icao)}…</p>`;
-  if(!j||(!j.metar&&!j.taf))return at+`<p class="as-empty">No METAR or TAF for ${esc(icao)}.</p>`;
+  if(!j||(!j.metar&&!j.taf))return at+`<p class="as-empty">${j&&j.wxErr?esc(j.wxErr)+". Close and reopen the airport in a minute.":"No METAR or TAF for "+esc(icao)+"."}</p>`;
   const cat=j.metar?(j.metar.cat||((typeof decodeMetar==="function"&&decodeMetar(j.metar.raw))||{}).cat||""):"";
   return at+(j.metar?`<div class="as-wx"><div class="as-wxh"><span>METAR</span>${cat?`<i class="as-cat wx-${esc(cat)}">${esc(cat)}</i>`:""}</div><p class="mono">${esc(j.metar.raw)}</p></div>`:"")
     +(j.taf?`<div class="as-wx"><div class="as-wxh"><span>TAF</span></div><p class="mono">${esc(j.taf.raw).replace(/\s(?=(FM\d{6}|TEMPO|BECMG|PROB\d{2}))/g,"<br>")}</p></div>`:"")}
@@ -2746,7 +2750,7 @@ const rwAr=(d,c)=>`<svg class="rw-ar ${c}" viewBox="0 0 16 16" aria-hidden="true
 function asRwy(icao){const j=AS.data[icao],a=j&&j.airport;
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load runways.</p>`;
   if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading ${esc(icao)}…</p>`;
-  if(AS.err[icao]&&!j)return `<p class="as-empty">${esc(AS.err[icao])}</p>`;
+  if(AS.err[icao]&&!j)return asErr(icao);
   const rw=a?a.runways.filter(r=>r.id&&!/^H\d/i.test(r.id)):[];if(!rw.length)return `<p class="as-empty">No runway data for ${esc(icao)}.</p>`;
   const md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i),magE=md?(+md[1])*(md[2].toUpperCase()==="E"?1:-1):0;
   const raw=j.metar&&j.metar.raw,dm=raw&&typeof decodeMetar==="function"?decodeMetar(raw):null,w=dm&&dm.wind;

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1256">
+<meta name="efb-build" content="1113.1341">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1185,6 +1185,15 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .re-rt code{font:500 11.5px/1.45 var(--f-mono);word-break:break-word;user-select:all;-webkit-user-select:all;max-height:88px;overflow:auto}
 .re-sb{flex:1.4;display:inline-flex;align-items:center;justify-content:center;padding:6px 0;border-radius:4px;background:var(--brand);color:#fff!important;font:600 12px var(--f-ui);text-decoration:none}
 .re-hint{font-size:11.5px;color:var(--label)}
+/* PIREPs */
+.pr{cursor:pointer}
+.pr .prh{fill:var(--map-land);fill-opacity:.85;stroke:var(--map-border);stroke-width:1}
+.pr .prs{fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.prs.mod{stroke:var(--amber)}.prs.sev{stroke:var(--red)}
+.pr.old{opacity:.55}
+.pr.sel .prh{stroke:var(--accent);stroke-width:2}
+.prl{font:600 10.5px var(--f-mono);fill:var(--ink);paint-order:stroke;stroke:var(--map-land);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.prt{font-weight:600}.prt.mod{color:var(--amber)}.prt.sev{color:var(--red)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2362,6 +2371,57 @@ function wnDraw(P,z,w,h,V){const fl=wnFl();if(fl==null||z<3||z>=10||!MAP.c)retur
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlwind]");if(!t)return;const v=t.dataset.mlwind;ML.wind=v==="off"?null:v;store.set("mapL",ML);
   document.querySelectorAll("[data-mlwind]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlwind===v)));drawMap();updMapNote()});
 
+/* PIREPs / AIREPs: moderate or worse turbulence and icing reported in the last 3 hours (AWC, via the EFB server). */
+const PR={cells:{},loading:{},q:0,list:[]};
+const prMode=()=>ML.pirep==="all"||ML.pirep==="rte"?ML.pirep:null;
+function prLoad(key){if(!vam.url||PR.loading[key]||PR.q>=4)return;const c=PR.cells[key];if(c&&Date.now()-c.at<(c.fail?60000:10*60000))return;
+  PR.loading[key]=true;PR.q++;
+  vamGet("/api/efb/pireps?cell="+key,20000).then(j=>{if(j&&j.error)throw new Error(j.error);PR.cells[key]={at:Date.now(),reps:(j&&j.reps)||[]};PR.err=null})
+    .catch(e=>{PR.cells[key]={at:Date.now(),reps:(PR.cells[key]&&PR.cells[key].reps)||[],fail:true};PR.err=e.message||"Couldn’t load"})
+    .finally(()=>{PR.loading[key]=false;PR.q--;if(cur==="map")mapSched()})}
+const prT=r=>{const t=r.t;if(t==null)return null;if(typeof t==="number")return t<1e11?t*1000:t;const v=Date.parse(t);return isNaN(v)?null:v};
+const prId=r=>r.la+","+r.lo+","+r.t+","+r.ac;
+const prAge=r=>{const t=prT(r);return t?Math.max(0,Math.round((Date.now()-t)/60000)):null};
+/* distance in NM from a point to the planned route (great-circle on short legs is close enough) */
+function prRteNm(la,lo,pts){let best=1e9;const R=3440.065,rad=Math.PI/180;
+  for(let i=0;i+1<pts.length;i++){const a=pts[i],b=pts[i+1];const cl=Math.cos(((a.lat+b.lat)/2)*rad);
+    const nl=q=>{let d=q-lo;while(d>180)d-=360;while(d<-180)d+=360;return d};
+    const ax=nl(a.lon)*cl,ay=a.lat-la,bx=nl(b.lon)*cl,by=b.lat-la,dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy;
+    let t=L?-(ax*dx+ay*dy)/L:0;t=Math.max(0,Math.min(1,t));const x=ax+t*dx,y=ay+t*dy;best=Math.min(best,Math.sqrt(x*x+y*y)*60)}
+  return best}
+function prCruise(){try{const f=Math.round(N(O().g.initial_altitude)/100);return f>0?f:null}catch(e){return null}}
+function prFilter(list){if(prMode()!=="rte")return list;let pts=[];try{pts=routePts().pts||[]}catch(e){}if(pts.length<2)return list;const cf=prCruise();
+  return list.filter(r=>(cf==null||(r.fl!=null&&Math.abs(r.fl-cf)<=60))&&prRteNm(r.la,r.lo,pts)<=50)}
+/* turbulence: the chart "tent" (two for severe). icing: the cup with a stem (two stems for severe). */
+function prSym(r,X,Y){const k=[];const tb=r.tb>=2,ic=r.ic>=2,dx=tb&&ic?7:0;
+  if(tb){const c=r.tb>=3?"sev":"mod",x=X-dx;k.push(`<path class="prs ${c}" d="M${x-7} ${Y+4}L${x} ${Y-4}L${x+7} ${Y+4}${r.tb>=3?`M${x-7} ${Y+9}L${x} ${Y+1}L${x+7} ${Y+9}`:""}"/>`)}
+  if(ic){const c=r.ic>=3?"sev":"mod",x=X+dx;k.push(`<path class="prs ${c}" d="M${x-6} ${Y-5}V${Y-1}A6 6 0 0 0 ${x+6} ${Y-1}V${Y-5}${r.ic>=3?`M${x-2} ${Y-3}V${Y+8}M${x+2} ${Y-3}V${Y+8}`:`M${x} ${Y-3}V${Y+8}`}"/>`)}
+  return k.join("")}
+function prDraw(P,z,w,h,V){PR.list=[];PR.shown=0;if(!prMode()||z<3||!MAP.c)return"";
+  const keys=[];const la1=Math.max(-90,Math.floor(V.la1/10)*10),la2=Math.min(80,Math.floor(V.la2/10)*10);
+  for(let la=la1;la<=la2;la+=10)for(let lo=Math.floor(V.lo1/10)*10;lo<=V.lo2&&keys.length<36;lo+=10){const n=((lo+180)%360+360)%360-180,k=la+","+n;if(!keys.includes(k))keys.push(k)}
+  keys.forEach(prLoad);const seen={};let all=[];
+  keys.forEach(k=>{const c=PR.cells[k];if(c)c.reps.forEach(r=>{const id=prId(r);if(seen[id])return;seen[id]=1;const a=prAge(r);if(a!=null&&a>180)return;all.push(r)})});
+  all=prFilter(all).sort((a,b)=>Math.max(b.tb,b.ic)-Math.max(a.tb,a.ic)||(prT(b)||0)-(prT(a)||0));
+  const occ=[],gap=z<5?22:18;let s="";
+  all.forEach(r=>{let lo=r.lo;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(r.la,lo);if(X<-10||Y<-10||X>w+10||Y>h+10)return;
+    if(occ.some(o=>Math.abs(o[0]-X)<gap&&Math.abs(o[1]-Y)<gap))return;occ.push([X,Y]);const i=PR.list.length;PR.list.push(r);
+    const sel=MAP.sel&&MAP.sel.t==="pr"&&MAP.sel.id===prId(r),a=prAge(r);if(sel)MAP.sel.i=i;
+    s+=`<g class="pr${a!=null&&a>90?" old":""}${sel?" sel":""}" data-pr="${i}"><circle class="prh" cx="${X}" cy="${Y}" r="13"/>${prSym(r,X,Y)}${z>=5&&r.fl!=null?`<text class="prl" x="${X+(r.tb>=2&&r.ic>=2?16:11)}" y="${Y+4}">${String(r.fl).padStart(3,"0")}</text>`:""}</g>`});
+  PR.shown=PR.list.length;return `<g class="prg">${s}</g>`}
+function prStat(){const m=prMode();if(!m)return"Off";if(!vam.url)return"Set the EFB server in Settings";if(PR.err&&!Object.values(PR.cells).some(c=>!c.fail))return"PIREPs: "+PR.err;
+  if(MAP.z<3)return"Zoom in";const ld=Object.values(PR.loading).some(Boolean);
+  let t=(ld?"Loading… ":"")+PR.shown+" in view · moderate or worse, last 3 h";if(m==="rte"){let n=0;try{n=routePts().pts.length}catch(e){}t+=n<2?" · no plan, showing all":" · ±50 NM, ±6000 ft"}return t}
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="pirep"]');if(el)el.textContent=prStat();return r}}
+const PR_W=["","Light","Moderate","Severe","Extreme"];
+{const _mi=mapInfo;mapInfo=function(){const S2=MAP.sel,box=$("#mapInfo");if(box&&S2&&S2.t==="pr"&&PR.list[S2.i]){const r=PR.list[S2.i],a=prAge(r),raw=String(r.raw||"");
+    const tbT=(raw.match(/\/TB\s+([^/]+)/)||[])[1],icT=(raw.match(/\/IC\s+([^/]+)/)||[])[1];box.hidden=false;
+    box.innerHTML=`<div class="ph"><span><b>${esc(r.kind||"PIREP")}</b> ${r.tb>=2?`<span class="prt ${r.tb>=3?"sev":"mod"}">${PR_W[r.tb]} turbulence</span> `:""}${r.ic>=2?`<span class="prt ${r.ic>=3?"sev":"mod"}">${PR_W[r.ic]} icing</span>`:""}</span><button class="btn" id="mapX" aria-label="Close">✕</button></div>
+      <div class="cells">${cell("Level",r.fl!=null?"FL"+String(r.fl).padStart(3,"0"):"—")}${cell("Aircraft",esc(r.ac||"—"))}${cell("Reported",a!=null?(a<60?a+" <small>min ago</small>":Math.floor(a/60)+" <small>h</small> "+a%60+" <small>min ago</small>"):"—")}${tbT?cell("Turbulence",esc(tbT.trim())):""}${icT?cell("Icing",esc(icT.trim())):""}</div>${raw?`<div class="raw" style="max-height:150px;overflow:auto;border-bottom:0">${esc(raw)}</div>`:""}`;return}
+  return _mi.apply(this,arguments)}}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mlpr]");if(!t)return;const v=t.dataset.mlpr;ML.pirep=v==="off"?null:v;store.set("mapL",ML);
+  document.querySelectorAll("[data-mlpr]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlpr===v)));if(!ML.pirep&&MAP.sel&&MAP.sel.t==="pr"){MAP.sel=null;mapInfo()}drawMap();if(typeof mlStatus==="function")mlStatus()});
+
 /* Route edit, stage 1: change the plan's route on the map. The edited route is kept per OFP (store "rte:<id>"),
    the OFP itself is never changed. Added points are plain coordinates (or snap to an airport the map knows). */
 const RE={on:false,sel:null,dct:null,cache:null,cacheId:null,drag:null,html:""};
@@ -3247,7 +3307,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
       if(q.toc)marks+=`<circle class="toc" cx="${X}" cy="${Y}" r="3.5"/>`;else if(q.u)marks+=`<rect class="ufix" x="${X-4.5}" y="${Y-4.5}" width="9" height="9" transform="rotate(45 ${X} ${Y})"/>`;else marks+=`<path class="fix" d="M${X} ${Y-5}l4.5 8h-9z"/>`;
       boxes.push([X-6,Y-6,X+6,Y+6]);
       if(z>=6||RE.on){const wd=q.n.length*7.4+2,p=place(X,Y,wd,15,8,false);if(p)labs+=tx(p,q.toc?"tocl":"fixl",X,Y,wd,15,esc(q.n))}})}
-  s+=wnDraw(P,z,w,h,V)+marks+labs+msSvg(P,w,h)+reSvg(P,w,h);
+  s+=wnDraw(P,z,w,h,V)+prDraw(P,z,w,h,V)+marks+labs+msSvg(P,w,h)+reSvg(P,w,h);
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
@@ -3276,7 +3336,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
       const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty()}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty()}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -3324,7 +3384,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["wx","METAR
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

@@ -700,6 +700,45 @@ async function fcRoute(url, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* Vector IFR enroute data (FAA AIS open data: ATS routes, designated points, NAVAIDs) for one cell.
+   lv=L: 4-degree cells, low-altitude chart items; lv=H: 8-degree cells, high-altitude chart items. Cached 7 days at the edge. */
+const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
+async function aisQuery(svc, where, fields, env4, maxPages) {
+  const out = [];
+  for (let page = 0; page < (maxPages || 4); page++) {
+    const q = new URLSearchParams({ where, outFields: fields, geometry: env4.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326', geometryPrecision: '5', resultOffset: String(page * 2000), resultRecordCount: '2000', f: 'geojson' });
+    const r = await fetchT(AIS_FS + svc + '/FeatureServer/0/query?' + q.toString(), 15000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    if (!r.ok) throw new Error('FAA AIS ' + svc + ' ' + r.status);
+    const j = await r.json(); if (j.error) throw new Error('FAA AIS ' + svc + ': ' + (j.error.message || 'error'));
+    (j.features || []).forEach((f) => out.push(f));
+    if (!j.exceededTransferLimit && !(j.properties && j.properties.exceededTransferLimit)) break;
+  }
+  return out;
+}
+const aisV = (v) => (v == null || +v >= 99999 ? null : +v);
+async function ifrRoute(url, ctx, h) {
+  const lv = url.searchParams.get('lv') === 'H' ? 'H' : 'L', sz = lv === 'H' ? 8 : 4;
+  const m = String(url.searchParams.get('cell') || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
+  const la = +m[1], lo = +m[2]; if (la % sz || lo % sz || la < -90 || la >= 90 || lo < -180 || lo >= 180) throw new HttpError(400, 'cell must be on the ' + sz + ' degree grid');
+  const cache = caches.default, ck = new Request('https://ifr-cache.local/v1/' + lv + '/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const env4 = [lo, la, lo + sz, la + sz], fl = lv === 'H' ? '(US_HIGH=1 OR AK_HIGH=1)' : '(US_LOW=1 OR AK_LOW=1)';
+    const [rt, pt, nv] = await Promise.all([
+      aisQuery('ATS_Route', fl, 'OBJECTID,IDENT,TYPE_CODE,LEVEL_,MEA_E_VAL,MEA_W_VAL,MOCA_VAL,NMAGTRK,NREVMAGTRK,LENGTH_VAL', env4, 4),
+      aisQuery('DesignatedPoints', fl, 'OBJECTID,IDENT,TYPE_CODE,REPATC', env4, 4),
+      aisQuery('NAVAIDSystem', fl, 'OBJECTID,IDENT,NAME_TXT,CLASS_TXT,TYPE_CODE', env4, 1)]);
+    const routes = rt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}; const g = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates];
+      return [p.OBJECTID, p.IDENT || '', p.TYPE_CODE || '', aisV(p.MEA_E_VAL), aisV(p.MEA_W_VAL), aisV(p.MOCA_VAL), aisV(p.NMAGTRK), aisV(p.NREVMAGTRK), p.LENGTH_VAL != null ? Math.round(+p.LENGTH_VAL) : null, g]; });
+    const fixes = pt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', +c[0].toFixed(5), +c[1].toFixed(5), p.REPATC === 'C' ? 1 : 0]; });
+    const navs = nv.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', p.NAME_TXT || '', p.CLASS_TXT || '', +c[0].toFixed(5), +c[1].toFixed(5)]; });
+    r = new Response(JSON.stringify({ lv, cell: [la, lo], routes, fixes, navs }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -722,6 +761,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/ifr': return await ifrRoute(url, ctx, h);
         case '/api/efb/fc': return await fcRoute(url, ctx, h);
         case '/api/efb/tz': return await tzRoute(url, ctx, h);
         case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);

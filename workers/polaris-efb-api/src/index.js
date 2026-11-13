@@ -230,24 +230,34 @@ async function sigmetRoute() {
 }
 
 /* ---------- airport info, METAR and TAF (aviationweather.gov) ---------- */
-async function airportRoute(icaoIn) {
+async function airportRoute(icaoIn, ctx) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{3,4}$/.test(icao)) throw new HttpError(400, 'Enter a 4 letter ICAO code');
   const opt = { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } };
-  const get = (u) => fetch(u, opt).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const info = await cached('apt:' + icao, 12 * 3600_000, async () => {
-    const j = await get(`https://aviationweather.gov/api/data/airport?ids=${icao}&format=json`);
+  /* null = not found (empty answer), throws = service trouble (so a failure is never cached as "not found") */
+  const get = async (u, ms) => { const r = await fetchT(u, ms || 9000, opt); if (r.status === 204 || r.status === 404) return null; if (!r.ok) throw new Error('AWC ' + r.status); const t = await r.text(); if (!t.trim()) return null; return JSON.parse(t); };
+  const edge = caches.default, ek = new Request('https://apt-cache.local/v2/' + icao);
+  const infoP = cached('apt:' + icao, 12 * 3600_000, async () => {
+    const hit = await edge.match(ek); if (hit) return await hit.json();
+    let j; try { j = await get(`https://aviationweather.gov/api/data/airport?ids=${icao}&format=json`); } catch (e) { try { j = await get(`https://aviationweather.gov/api/data/airport?ids=${icao}&format=json`, 12000); } catch (e2) { throw new HttpError(504, 'The airport service is slow right now, try again'); } }
     const a = Array.isArray(j) ? j[0] : null;
-    if (!a) return null;
-    const freqs = Array.isArray(a.freqs) ? a.freqs.map((f) => ({ type: f.type || '', freq: String(f.freq || '') })) : typeof a.freqs === 'string' ? a.freqs.split(';').map((p) => { const [type, freq] = p.split(','); return { type: (type || '').trim(), freq: (freq || '').trim() }; }).filter((f) => f.freq) : [];
-    return { icao: a.icaoId || icao, iata: a.iataId || '', faa: a.faaId || '', name: a.name || '', state: a.state || '', country: a.country || '', lat: +a.lat, lon: +a.lon, elevM: a.elev != null ? +a.elev : null, magdec: a.magdec || '', owner: a.owner || '', tower: a.tower || '', freqs,
-      runways: (Array.isArray(a.runways) ? a.runways : []).map((r) => { const [l, w] = String(r.dimension || '').split('x').map(Number); return { id: r.id || '', lengthFt: isFinite(l) ? l : null, widthFt: isFinite(w) ? w : null, surface: r.surface || '', alignment: r.alignment ?? null }; }) };
+    let out = null;
+    if (a) {
+      const freqs = Array.isArray(a.freqs) ? a.freqs.map((f) => ({ type: f.type || '', freq: String(f.freq || '') })) : typeof a.freqs === 'string' ? a.freqs.split(';').map((p) => { const [type, freq] = p.split(','); return { type: (type || '').trim(), freq: (freq || '').trim() }; }).filter((f) => f.freq) : [];
+      out = { icao: a.icaoId || icao, iata: a.iataId || '', faa: a.faaId || '', name: a.name || '', state: a.state || '', country: a.country || '', lat: +a.lat, lon: +a.lon, elevM: a.elev != null ? +a.elev : null, magdec: a.magdec || '', owner: a.owner || '', tower: a.tower || '', freqs,
+        runways: (Array.isArray(a.runways) ? a.runways : []).map((r) => { const [l, w] = String(r.dimension || '').split('x').map(Number); return { id: r.id || '', lengthFt: isFinite(l) ? l : null, widthFt: isFinite(w) ? w : null, surface: r.surface || '', alignment: r.alignment ?? null }; }) };
+    }
+    const res = new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + (out ? 43200 : 3600) } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(edge.put(ek, res)); else await edge.put(ek, res);
+    return out;
   });
-  const wx = await cached('aptwx:' + icao, 5 * 60_000, async () => {
-    const [m, t] = await Promise.all([get(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`), get(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`)]);
+  const wxP = cached('aptwx:' + icao, 5 * 60_000, async () => {
+    const [m, t] = await Promise.all([get(`https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`, 8000).catch(() => undefined), get(`https://aviationweather.gov/api/data/taf?ids=${icao}&format=json`, 8000).catch(() => undefined)]);
+    if (m === undefined && t === undefined) throw new Error('weather unavailable');
     const mm = Array.isArray(m) ? m[0] : null, tt = Array.isArray(t) ? t[0] : null;
     return { metar: mm ? { raw: mm.rawOb || '', time: mm.reportTime || mm.obsTime || null, cat: mm.fltCat || mm.fltcat || '' } : null, taf: tt ? { raw: tt.rawTAF || '', time: tt.issueTime || null } : null };
   });
+  const [info, wx] = await Promise.all([infoP, wxP.catch(() => ({ metar: null, taf: null, wxErr: 'Weather service is slow right now' }))]);
   return { airport: info, notFound: !info, ...wx };
 }
 
@@ -683,7 +693,7 @@ export default {
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
-        case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'))), updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'), ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);

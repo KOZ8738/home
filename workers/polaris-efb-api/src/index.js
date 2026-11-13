@@ -647,6 +647,24 @@ async function atisRoute(icaoIn, ctx, h) {
   return json({ icao, real: re.status === 'fulfilled' ? re.value : [], realErr: re.status === 'rejected' ? String(re.reason && re.reason.message || re.reason) : null,
     vatsim: vat, vatsimErr: va.status === 'rejected' ? String(va.reason && va.reason.message || va.reason) : null }, 200, { ...h, 'Cache-Control': 'public, max-age=60' });
 }
+
+/* IANA time zone for a position (Open-Meteo timezone=auto), cached at the edge for 30 days. Used for local sun times. */
+async function tzRoute(url, ctx, h) {
+  const la = Math.round(+url.searchParams.get('lat') * 10) / 10, lo = Math.round(+url.searchParams.get('lon') * 10) / 10;
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) throw new HttpError(400, 'lat and lon are required');
+  const cache = caches.default, ck = new Request('https://tz-cache.local/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const up = await fetchT(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&timezone=auto&forecast_days=1&daily=sunrise`, 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    if (!up.ok) throw new HttpError(502, 'Time zone service ' + up.status);
+    const j = await up.json();
+    if (!j || !j.timezone) throw new HttpError(502, 'No time zone');
+    r = new Response(JSON.stringify({ tz: j.timezone }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=2592000' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -669,6 +687,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/tz': return await tzRoute(url, ctx, h);
         case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);

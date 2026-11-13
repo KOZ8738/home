@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.0030">
+<meta name="efb-build" content="1113.0034">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1443,7 +1443,12 @@ function O(){
     id:S((ofp.params||{}).request_id)||"local",
     pdf:ofp.files&&S(ofp.files.directory)&&ofp.files.pdf?S(ofp.files.directory)+S(ofp.files.pdf.link):""}
 }
-function wxFor(x){const w=x.w;const pick=(...k)=>{for(const v of k){if(S(v))return S(v)}return""};
+const BASEWX={icao:"KSFO",name:"San Francisco Intl",elev:"13",at:0,metar:"",taf:"",busy:false};
+function baseWxLoad(){if(BASEWX.busy||!vam.url||Date.now()-BASEWX.at<10*60000)return;BASEWX.busy=true;
+  vamGet("/api/efb/airport?icao="+BASEWX.icao,15000).then(j=>{BASEWX.metar=(j&&j.metar&&j.metar.raw)||"";BASEWX.taf=(j&&j.taf&&j.taf.raw)||"";BASEWX.at=Date.now();if(ofp._sample&&(cur==="wx"||!cur))render()})
+    .catch(()=>{BASEWX.at=Date.now()-8*60000}).finally(()=>{BASEWX.busy=false})}
+function wxFor(x){if(ofp._sample){baseWxLoad();return[["Polaris base","BASE",{icao_code:BASEWX.icao,name:BASEWX.name,elevation:BASEWX.elev},BASEWX.metar,BASEWX.taf]]}return wxFor0(x)}
+function wxFor0(x){const w=x.w;const pick=(...k)=>{for(const v of k){if(S(v))return S(v)}return""};
   return [["Departure","DEP",x.o,pick(w.orig_metar,x.o.metar),pick(w.orig_taf,x.o.taf)],["Destination","DEST",x.d,pick(w.dest_metar,x.d.metar),pick(w.dest_taf,x.d.taf)],["Alternate","ALTN",x.a,pick(w.altn_metar,x.a.metar),pick(w.altn_taf,x.a.taf)]].filter(a=>S(a[2].icao_code))}
 
 /* METAR */
@@ -1558,7 +1563,7 @@ function renderHome(){
   const x=O(),f=ofp.fuel||{},tm=ofp.times||{};
   const p=clProgress(clIdx);
   const std=N(tm.sched_out)?new Date(N(tm.sched_out)*1000):new Date();
-  const dest=wxFor(x).find(a=>a[1]==="DEST");const dm=dest?decodeMetar(dest[3]):null;
+  const dest=wxFor(x).find(a=>a[1]==="DEST"||a[1]==="BASE");const dm=dest?decodeMetar(dest[3]):null;
   const dot={VFR:"#6CF0A0",MVFR:"#9ADCFF",IFR:"#FF8A80",LIFR:"#F59CF5"};
   $("#page1").innerHTML=`
    <div class="widgets">
@@ -1569,7 +1574,7 @@ function renderHome(){
     <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
       <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Dispatch</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
       <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>
-    <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?"Destination":"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
+    <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?(dest[1]==="BASE"?"Polaris base · live":"Destination"):"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
       <div class="wx-cond"><b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
       <div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);return `<div class="wx-row"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div></a>
    </div>
@@ -2610,9 +2615,9 @@ function wxDetail(role,label,apt,metar,taf){const m=decodeMetar(metar);const rwy
    <section class="card">${cardH("Observation","METAR")}<div class="raw" style="border:0">${esc(metar)}</div></section></div>`:`<div class="notice"><b>No report</b><span>This plan has no METAR for ${esc(S(apt.icao_code))}.</span></div>`}
    ${tafHtml(taf)}`}
 V.wx=()=>{const apts=wxFor(O());if(wxSel!=="dec"&&!apts.some(a=>a[1]===wxSel))wxSel=(apts[0]||[])[1]||"dec";
-  const side=sideHead("Weather","Airports","Reports in your OFP")+`<nav class="snav" aria-label="Airports">${apts.map(a=>{const m=decodeMetar(a[3]);return navBtn(`data-wxsel="${a[1]}"`,wxSel===a[1],`<b style="font:500 10px var(--f-mono)">${a[1]}</b>`,esc(S(a[2].icao_code)),m?`<span class="pill ${m.cat}"><i></i>${m.cat}</span>`:"",esc(m?windTxt(m.wind)+" KT · "+(m.temp??"—")+"°C":"No report"))}).join("")}</nav>
+  const side=sideHead("Weather","Airports",ofp._sample?"Polaris base":"Reports in your OFP")+`<nav class="snav" aria-label="Airports">${apts.map(a=>{const m=decodeMetar(a[3]);return navBtn(`data-wxsel="${a[1]}"`,wxSel===a[1],`<b style="font:500 10px var(--f-mono)">${a[1]}</b>`,esc(S(a[2].icao_code)),m?`<span class="pill ${m.cat}"><i></i>${m.cat}</span>`:"",esc(m?windTxt(m.wind)+" KT · "+(m.temp??"—")+"°C":"No report"))}).join("")}</nav>
    <div class="slabel">Tools</div><nav class="snav">${navBtn('data-wxsel="dec"',wxSel==="dec",ico("code"),"METAR decoder","")}</nav>
-   <div class="sfoot side-x"><a class="btn sm" href="https://aviationweather.gov/data/metar/?ids=${encodeURIComponent(apts.map(a=>S(a[2].icao_code)).join(","))}&taf=1" target="_blank" rel="noopener">Latest on aviationweather.gov ↗</a><p class="note" style="margin-top:8px">Reports are from the OFP, as of when it was generated.</p></div>`;
+   <div class="sfoot side-x"><a class="btn sm" href="https://aviationweather.gov/data/metar/?ids=${encodeURIComponent(apts.map(a=>S(a[2].icao_code)).join(","))}&taf=1" target="_blank" rel="noopener">Latest on aviationweather.gov ↗</a><p class="note" style="margin-top:8px">${ofp._sample?"No flight loaded: live report for the Polaris base.":"Reports are from the OFP, as of when it was generated."}</p></div>`;
   let main;if(wxSel==="dec")main=`<section class="card">${cardH("Decoder","Decode any METAR")}<div class="card-b" style="display:grid;gap:14px">
      <label class="f">METAR<textarea id="mtIn" rows="3" placeholder="KSFO 091356Z 29012KT 10SM FEW008 14/11 A3008"></textarea></label>
      <div class="row" style="align-items:flex-end"><label class="f" style="width:140px">Runway<input type="text" id="mtRwy" placeholder="28R"></label><button class="btn pri" id="mtGo">Decode</button></div></div></section><div id="mtOut"></div>`;

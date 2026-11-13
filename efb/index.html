@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1724">
+<meta name="efb-build" content="1113.1727">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2367,7 +2367,7 @@ const ifrLv=()=>{const b=BASES[baseKey()];return b&&b.ifr||null};
 const IFR_SZ={L:4,H:8},IFR_MINZ={L:6,H:4.3};
 function ifrLoad(lv,key){if(!vam.url||IFR.loading[lv+key]||IFR.q>=2)return;const c=IFR.cells[lv+key];if(c&&(!c.fail||Date.now()-c.at<12000))return;
   IFR.loading[lv+key]=true;IFR.q++;
-  vamGet(`/api/efb/ifr?lv=${lv}&cell=${key}`,40000).then(j=>{if(!j||!j.routes)throw new Error((j&&j.error)||"No data");IFR.cells[lv+key]={at:Date.now(),d:j};IFR.err=null})
+  vamGet(`/api/efb/ifr?lv=${lv}&cell=${key}&v=2`,40000).then(j=>{if(!j||!j.routes)throw new Error((j&&j.error)||"No data");IFR.cells[lv+key]={at:Date.now(),d:j};IFR.err=null})
     .catch(e=>{IFR.cells[lv+key]={at:Date.now(),fail:true};IFR.err=e.message||"Couldn’t load";setTimeout(()=>{IFR.tickAt=0;try{if(cur==="map")ifrTick()}catch(er){}},13000)})
     .finally(()=>{IFR.loading[lv+key]=false;IFR.q--;IFR.ver++;if(cur==="map"){mapSched();setTimeout(()=>{try{ifrTick()}catch(e){}},420)}})}
 const ifrMea=r=>{const e=r[3],w=r[4];if(e==null&&w==null)return"";if(e!=null&&w!=null&&e!==w)return e+"/"+w;return String(e!=null?e:w)};

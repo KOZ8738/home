@@ -2877,7 +2877,7 @@ function fcwHtml(apt){const icao=S(apt.icao_code),lat=N(apt.pos_lat),lon=N(apt.p
     ${row(th("Rain"),c=>c.h.pop!=null?fcwDrop+c.h.pop+"%":"—","fc-pop")}
   </tbody></table></div>`;
   const days=`<div class="fc-days">${fc.days.map((d,i)=>{const dt=new Date(d.d+"T12:00:00Z");return `<div class="fc-dc${i===0?" today":""}"><b>${i===0?"Today":dt.toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short"})}<small>${dt.getUTCDate()}</small></b>${wIco(wmoKind(d.code,true),30)}<span>${Math.round(d.hi)}° <small>/ ${Math.round(d.lo)}°</small></span><i>${d.pop!=null?fcwDrop+d.pop+"%":""}</i></div>`}).join("")}</div>`;
-  const tzTxt=tz?esc(fc.tzAbbr||tz):"UTC";
+  let tzTxt="UTC";if(tz){try{tzTxt=new Intl.DateTimeFormat("en-US",{timeZone:tz,timeZoneName:"short"}).formatToParts(new Date()).find(x=>x.type==="timeZoneName").value}catch(e){tzTxt=fc.tzAbbr||tz}}tzTxt=esc(tzTxt);
   const src=T?(tafEnd?`Category, ceiling, visibility and wind follow the TAF until ${new Date(tafEnd).toISOString().slice(8,10)}/${new Date(tafEnd).toISOString().slice(11,13)}00Z. `:"The TAF doesn’t cover these hours. "):Tr&&!FCW.tafLoading[icao]?(Tr.fail?"Couldn’t load the TAF. ":"No TAF for this airport. "):"Loading the TAF… ";
   return `<section class="card">${cardH("Forecast","Hourly",`<span class="note">Local time (${tzTxt}) · °C</span>`)}${table}
     <p class="note fc-note">${src}Greyed hours are model data (no ceiling or category). Temperature, rain chance and icons are model data.</p></section>

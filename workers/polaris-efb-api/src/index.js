@@ -620,6 +620,9 @@ async function oaipProbe(env, h) {
     core: `https://api.core.openaip.net/api/navaids?pos=37.6,-122.4&dist=50000&limit=2&apiKey=${k}`,
   };
   await Promise.all(Object.entries(urls).map(async ([n, u]) => { try { const r = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0' } }); const b = await r.arrayBuffer(); out[n] = [r.status, r.headers.get('content-type'), b.byteLength, n === 'style' || n === 'core' ? new TextDecoder().decode(b.slice(0, 1500)) : '']; } catch (e) { out[n] = ['ERR', e.message]; } }));
+  try { const st = await (await fetch(urls.style, { headers: { 'User-Agent': 'PolarisEFB/1.0' } })).json(); const srcNames = Object.keys(st.sources || {}).filter((n) => JSON.stringify(st.sources[n]).includes('openaip'));
+    out.styleInfo = { sources: Object.fromEntries(Object.entries(st.sources || {}).map(([n, v]) => [n, { type: v.type, url: String(v.url || (v.tiles || [])[0] || '').replace(/apiKey=[^&]+/, 'apiKey=KEY') }])), sprite: st.sprite, glyphs: st.glyphs,
+      layers: (st.layers || []).filter((l) => srcNames.includes(l.source)).map((l) => ({ id: l.id, type: l.type, sl: l['source-layer'], f: JSON.stringify(l.filter || null).slice(0, 160), minz: l.minzoom, lay: JSON.stringify(l.layout || {}).slice(0, 160), pnt: JSON.stringify(l.paint || {}).slice(0, 200) })) }; } catch (e) { out.styleInfo = String(e); }
   return json(out, 200, h);
 }
 export default {

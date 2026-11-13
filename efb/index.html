@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1812">
+<meta name="efb-build" content="1113.1855">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1251,6 +1251,19 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .fc-wrap .wi-ico path[fill="#E9EEF6"],.fc-days .wi-ico path[fill="#E9EEF6"]{fill:#C9D3DE;stroke:#8C9AA8;stroke-width:.8}
 .as-wx.eaip p{font:400 13.5px/1.5 var(--f-ui);margin:0 0 10px}
 .as-wx.eaip .btn{display:inline-flex}
+/* route edit: airways */
+.re-awy{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.re-awy p{margin:0;font:500 12px/1.4 var(--f-ui);color:var(--label)}
+.re-awy-ids{display:flex;flex-wrap:wrap;gap:5px}
+.re-awy-ids button,.re-awy>button{min-height:30px;padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font:700 12.5px var(--f-mono);cursor:pointer}
+.re-awy-dir{font:600 10.5px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:2px}
+.re-awy-list{display:flex;flex-direction:column;max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+.re-awy-x{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:34px;padding:5px 10px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:13px var(--f-ui);text-align:left;cursor:pointer}
+.re-awy-x:last-child{border-bottom:0}.re-awy-x b{font:700 12.5px var(--f-mono)}.re-awy-x span{font-size:11.5px;color:var(--label)}
+.re-awyl{fill:none;stroke:var(--accent);stroke-width:5;stroke-opacity:.35;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.re-awyp{cursor:pointer}.re-awyp circle{fill:transparent}.re-awyp circle.d{fill:var(--panel);stroke:var(--accent);stroke-width:2}
+.re-awyp text{font:600 10.5px var(--f-mono);fill:var(--accent);paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.repanel{max-height:calc(100% - var(--mt) - 90px);overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2598,8 +2611,8 @@ function reSnap(x,y,g,skip){let best=null,bd=14;const names=new Set(rePts().map(
   msTargets().forEach(t=>{if(names.has(t.n)||/^[NS]\d{4}\.\d [EW]\d{5}\.\d$/.test(t.n))return;let lo=t.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const p=g.xy(t.lat,lo),d=Math.hypot(p[0]-x,p[1]-y);if(d<bd){bd=d;best=t}});return best}
 let reRaf=0;const reRedraw=()=>{if(!reRaf)reRaf=requestAnimationFrame(()=>{reRaf=0;if(cur==="map")drawMap()})};
 function reTapPoint(i){const a=reWork();
-  if(RE.dct!=null&&i!==RE.dct){const s=Math.min(RE.dct,i),t=Math.max(RE.dct,i);if(t-s>1){a.splice(s+1,t-s-1);reSave(a);toast("Direct "+a[s].n+" → "+a[s+1].n)}RE.sel=null;RE.dct=null}
-  else{RE.sel=RE.sel===i?null:i;RE.dct=null}reUi();reRedraw()}
+  if(RE.dct!=null&&i!==RE.dct){const s=Math.min(RE.dct,i),t=Math.max(RE.dct,i);if(t-s>1){a.splice(s+1,t-s-1);if(a[s+1])delete a[s+1].via;reSave(a);toast("Direct "+a[s].n+" → "+a[s+1].n)}RE.sel=null;RE.dct=null}
+  else{RE.sel=RE.sel===i?null:i;RE.dct=null}RE.awy=null;reUi();reRedraw()}
 /* pointer down on the route while editing: grab a point or pull a new one out of a leg; elsewhere the map pans as usual */
 document.addEventListener("pointerdown",e=>{if(!RE.on||cur!=="map"||e.button>0)return;const sv=$("#mapSvg");if(!sv)return;const t=e.target,wrap=sv.parentNode;
   if(!wrap||!wrap.contains(t)||(t.closest&&t.closest(".mapctl,.mapapt,.maplayers,.assheet,.repanel,.mspanel,.radarbar,.mtchip,.mapattr,.mapattr-i,.mapinfo,.ovbar,#ovPanel,button,a,input")))return;
@@ -2609,19 +2622,19 @@ document.addEventListener("pointerdown",e=>{if(!RE.on||cur!=="map"||e.button>0)r
   const mv=ev=>{const d=RE.drag;if(!d||ev.pointerId!==d.id)return;ev.preventDefault();const dist=Math.hypot(ev.clientX-d.x0,ev.clientY-d.y0);if(!d.moved&&dist<(d.touch?9:5))return;
     if(!d.canMove)return;d.moved=true;const g=reGeo();if(!g)return;const x=ev.clientX-g.r.left,y=ev.clientY-g.r.top,ll=g.ll(x,y);
     if(!d.work){d.work=reWork();if(d.hit.t==="seg"){d.idx=d.hit.i;d.work.splice(d.idx,0,{n:"",lat:ll.lat,lon:ll.lon,u:1})}else d.idx=d.hit.i;RE.sel=null;RE.dct=null}
-    const s=reSnap(x,y,g,d.work[d.idx].n),q=d.work[d.idx];if(s){q.lat=s.lat;q.lon=((s.lon+540)%360)-180;q.n=s.n;q.snap=1}else{q.lat=ll.lat;q.lon=ll.lon;q.n=reFmt(ll.lat,ll.lon);delete q.snap}
+    const s=reSnap(x,y,g,d.work[d.idx].n),q=d.work[d.idx];if(s){q.lat=s.lat;q.lon=((s.lon+540)%360)-180;q.n=s.n;q.snap=1}else{q.lat=ll.lat;q.lon=ll.lon;q.n=reFmt(ll.lat,ll.lon);delete q.snap}delete q.via;if(d.work[d.idx+1])delete d.work[d.idx+1].via;RE.awy=null;
     RE.cache=d.work;RE.cacheId=O().id;reUi();reRedraw()};
   const up=ev=>{const d=RE.drag;if(!d||ev.pointerId!==d.id)return;window.removeEventListener("pointermove",mv,true);window.removeEventListener("pointerup",up,true);window.removeEventListener("pointercancel",up,true);RE.drag=null;
     if(d.moved&&d.work){if(ev.type==="pointercancel"){RE.cacheId=null;reGet()}else{reSave(d.work);RE.sel=d.idx}reUi();reRedraw();return}
     if(d.hit.t==="pt")reTapPoint(d.hit.i);else{RE.sel=null;reUi();reRedraw()}};
   window.addEventListener("pointermove",mv,true);window.addEventListener("pointerup",up,true);window.addEventListener("pointercancel",up,true)},true);
-function reTapEmpty(){if(RE.sel!=null||RE.dct!=null){RE.sel=null;RE.dct=null;reUi();drawMap()}}
+function reTapEmpty(cx,cy){if(RE.awy&&RE.awy.id){const el=cx!=null?document.elementFromPoint(cx,cy):null,x=el&&el.closest&&el.closest("[data-awyx]");if(x)awyInsert(+x.dataset.awyx);return}if(RE.sel!=null||RE.dct!=null){RE.sel=null;RE.dct=null;reUi();drawMap()}}
 /* markers drawn on top of the route while editing: handles on each leg, rings on the chosen point */
 function reSvg(P,w,h){reUi();if(!RE.on)return"";const pts=rePts();if(pts.length<2)return"";let s="";const xy=pts.map(q=>P(q.lat,q.lon));
   for(let i=1;i<xy.length;i++){const a=xy[i-1],b=xy[i];if(Math.hypot(b[0]-a[0],b[1]-a[1])<46)continue;const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];if(m[0]<-10||m[1]<-10||m[0]>w+10||m[1]>h+10)continue;
     s+=`<g class="reh" transform="translate(${m[0]} ${m[1]})"><circle r="7"/><path d="M-3.5 0h7M0-3.5v7"/></g>`}
   if(RE.dct!=null&&xy[RE.dct])s+=`<circle class="resel dct" cx="${xy[RE.dct][0]}" cy="${xy[RE.dct][1]}" r="11"/>`;
-  if(RE.sel!=null&&xy[RE.sel])s+=`<circle class="resel" cx="${xy[RE.sel][0]}" cy="${xy[RE.sel][1]}" r="11"/>`;return s}
+  if(RE.sel!=null&&xy[RE.sel])s+=`<circle class="resel" cx="${xy[RE.sel][0]}" cy="${xy[RE.sel][1]}" r="11"/>`;return awySvg(P,w,h)+s}
 function reUi(){const wrap=document.querySelector(".mapwrap");const b=$("#reBtn");if(b){b.setAttribute("aria-pressed",String(RE.on));b.classList.toggle("mod",!!reGet())}if(!wrap)return;wrap.classList.toggle("editing",RE.on);
   let el=document.getElementById("rePanel");const inf=reInfo(),showBadge=!RE.on&&inf&&MAP.z<11&&!MS.on;
   if(!RE.on&&!showBadge){if(el)el.hidden=true;RE.html="";return}
@@ -2636,7 +2649,7 @@ function reUi(){const wrap=document.querySelector(".mapwrap");const b=$("#reBtn"
      ${q?`<div class="re-sel"><div class="re-n"><b>${q.u&&!q.snap?"Added point":esc(q.n)}</b>${q.apt?`<small>${q.apt==="dep"?"Departure":"Arrival"}</small>`:q.u&&q.snap?`<small>Added</small>`:""}</div>
        <div class="re-c">${reFmt(q.lat,q.lon)}</div>
        ${i>0?`<div class="re-leg">From ${esc(pts[i-1].n)}: ${Math.round(msDist(pts[i-1],q))} NM · ${ms3(msMag(pts[i-1],msBrg(pts[i-1],q)))}°M</div>`:""}
-       <div class="ms-btns">${!q.apt?`<button type="button" data-re="del">Delete</button>`:""}${i<pts.length-1?`<button type="button" data-re="dct">Direct to…</button>`:""}<button type="button" data-re="desel">Close</button></div></div>`:""}
+       <div class="ms-btns">${!q.apt&&i<pts.length-1&&q.n&&!/^[NS]\d{4}\.\d /.test(q.n)?`<button type="button" data-re="awy" aria-pressed="${!!(RE.awy&&RE.awy.i===i)}">Airway…</button>`:""}${!q.apt?`<button type="button" data-re="del">Delete</button>`:""}${i<pts.length-1?`<button type="button" data-re="dct">Direct to…</button>`:""}<button type="button" data-re="desel">Close</button></div>${RE.awy&&RE.awy.i===i?awyPanel():""}</div>`:""}
      ${RE.dct!=null?`<div class="ms-btns"><button type="button" data-re="nodct">Cancel direct</button></div>`:""}
      ${inf?`<div class="re-rt"><span>ATC route</span><code>${esc(reRoute())}</code></div><div class="ms-btns"><a class="re-sb" href="${esc(reSbUrl())}" target="_blank" rel="noopener">Send to SimBrief ↗</a><button type="button" data-re-copy="1">Copy</button></div>`:""}
      <div class="ms-btns"><button type="button" data-re="revert" ${inf?"":"disabled"}>Revert to OFP</button><button type="button" data-re="done" class="pri">Done</button></div>`}
@@ -2646,10 +2659,12 @@ document.addEventListener("click",e=>{if(e.target.closest("#reBtn")){reToggle();
   if(a==="open"){if(cur!=="map"){location.hash="map";setTimeout(()=>reToggle(true),300)}else reToggle(true);return}
   if(a==="done"){reToggle(false);return}
   if(a==="revert"){store.set("rte:"+O().id,null);RE.cache=null;RE.cacheId=O().id;RE.sel=null;RE.dct=null;toast("Route reverted to the OFP");if(cur==="map"){reUi();drawMap()}else if(cur==="ofp"&&V.ofp)render();return}
-  if(a==="desel"){RE.sel=null}
+  if(a==="desel"){RE.sel=null;RE.awy=null}
+  else if(a==="awy"&&RE.sel!=null){const q=rePts()[RE.sel];RE.awy=RE.awy&&RE.awy.i===RE.sel?null:{i:RE.sel,n:q.n,lat:q.lat,lon:q.lon};if(RE.awy)awyAt(q.lat,q.lon)}
+  else if(a==="awyback"&&RE.awy){RE.awy.id=null}
   else if(a==="nodct"){RE.dct=null}
   else if(a==="dct"&&RE.sel!=null){RE.dct=RE.sel;RE.sel=null}
-  else if(a==="del"&&RE.sel!=null){const w=reWork();if(w[RE.sel]&&!w[RE.sel].apt&&w.length>2){w.splice(RE.sel,1);reSave(w)}RE.sel=null}
+  else if(a==="del"&&RE.sel!=null){const w=reWork();if(w[RE.sel]&&!w[RE.sel].apt&&w.length>2){w.splice(RE.sel,1);if(w[RE.sel])delete w[RE.sel].via;reSave(w)}RE.sel=null;RE.awy=null}
   reUi();drawMap()});
 /* note on the OFP Route page while the map route differs from the plan */
 function reNote(){const inf=reInfo();if(!inf)return"";
@@ -2668,8 +2683,9 @@ function reRoute(){const x=O();const nav=x.fixes.filter(f=>!/^TO[CD]$/.test(S(f.
   const e=reGet();if(!e)return S(x.g.route);
   const pts=e.slice(1,-1);const idx=q=>q.u?-1:nav.findIndex(f=>S(f.ident)===q.n&&Math.abs(N(f.pos_lat)-q.lat)<.02);
   const segs=[];let prev=-1;/* prev = nav index of the last kept original fix, -1 at the origin */
-  pts.forEach((q,i)=>{const k=idx(q),name=q.u&&(!q.snap||/^[NS]\d{4}\.\d /.test(q.n))?reLL11(q.lat,q.lon):q.n;let via="DCT";
-    if(k>=0&&k===prev+1&&(i===0?prev===-1:true)){const v=S(nav[k].via_airway).toUpperCase();if(v&&v!=="DCT")via=v}
+  pts.forEach((q,i)=>{const k=idx(q),name=q.u&&(!q.snap||/^[NS]\d{4}\.\d /.test(q.n))?reLL11(q.lat,q.lon):q.n;let via=q.via||"DCT";
+    if(q.via){}
+    else if(k>=0&&k===prev+1&&(i===0?prev===-1:true)){const v=S(nav[k].via_airway).toUpperCase();if(v&&v!=="DCT")via=v}
     else if(k>=0&&i===0&&k===0){const v=S(nav[0].via_airway).toUpperCase();if(v)via=v}
     segs.push({via,name});prev=k>=0?k:-99});
   /* the last stretch: a STAR is written by name only after its entry fix */
@@ -2689,6 +2705,56 @@ function reSbUrl(){const x=O(),g=x.g,tm=ofp.times||{},d=N(tm.sched_out)?new Date
   if(d){set("deph",String(d.getUTCHours()));set("depm",String(d.getUTCMinutes()))}
   return "https://dispatch.simbrief.com/options/custom?"+p.toString()}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-re-copy]");if(!t)return;const r=reRoute();(navigator.clipboard?navigator.clipboard.writeText(r):Promise.reject()).then(()=>toast("Route copied")).catch(()=>toast(r))});
+/* ---- Route edit, stage 2: follow an airway (US, FAA AIS data) ----
+   Pick a fix on the route, choose an airway through it, then the exit fix: every fix in between is added and the
+   ATC route reads "A J84 B". If the exit fix is already further down the route, the points in between are replaced. */
+const AWY={at:{},id:{},busy:{}};
+const awyKey=(la,lo)=>(Math.round(la*1000)/1000)+","+(Math.round(((lo+540)%360-180)*1000)/1000);
+function awyAt(la,lo){const k=awyKey(la,lo);if(AWY.at[k]||AWY.busy["a"+k]||!vam.url)return;AWY.busy["a"+k]=1;
+  vamGet("/api/efb/awy?at="+k,30000).then(j=>{if(!j||!j.airways)throw new Error((j&&j.error)||"No data");AWY.at[k]={list:j.airways}}).catch(e=>{AWY.at[k]={err:e.message||"Couldn’t load"};setTimeout(()=>{delete AWY.at[k]},20000)})
+    .finally(()=>{delete AWY.busy["a"+k];reUi();reRedraw()})}
+function awyGet(id){if(AWY.id[id]||AWY.busy["i"+id]||!vam.url)return;AWY.busy["i"+id]=1;
+  vamGet("/api/efb/awy?id="+encodeURIComponent(id),40000).then(j=>{if(!j||!j.chains)throw new Error((j&&j.error)||"No data");AWY.id[id]={chains:j.chains}}).catch(e=>{AWY.id[id]={err:e.message||"Couldn’t load"};setTimeout(()=>{delete AWY.id[id]},20000)})
+    .finally(()=>{delete AWY.busy["i"+id];reUi();reRedraw()})}
+/* where the chosen fix sits on the airway: the chain and index nearest to it (same name preferred) */
+function awyFind(A,id){const d=AWY.id[id];if(!d||!d.chains)return null;let best=null;
+  d.chains.forEach((c,ci)=>c.pts.forEach((p,pi)=>{let dl=Math.abs(p[2]-A.lon);if(dl>180)dl=360-dl;const dd=Math.hypot(p[1]-A.lat,dl*Math.cos(A.lat*Math.PI/180))+(p[0]===A.n?0:.02);if(dd<.06&&(!best||dd<best.d))best={ci,pi,d:dd}}));
+  return best?{c:d.chains[best.ci],ai:best.pi}:null}
+const awyNm=p=>p[0]||reFmt(p[1],p[2]);
+function awyPanel(){const A=RE.awy,k=awyKey(A.lat,A.lon),at=AWY.at[k];
+  if(!A.id){if(!at)return`<div class="re-awy"><p>Finding airways through ${esc(A.n)}…</p></div>`;
+    if(at.err)return`<div class="re-awy"><p>${esc(at.err)}</p></div>`;
+    if(!at.list.length)return`<div class="re-awy"><p>No airways through ${esc(A.n)}. Airways come from FAA data, so this works for US airspace only.</p></div>`;
+    return`<div class="re-awy"><p>Airways through ${esc(A.n)}</p><div class="re-awy-ids">${at.list.map(a=>`<button type="button" data-awy="${esc(a.id)}">${esc(a.id)}</button>`).join("")}</div></div>`}
+  const d=AWY.id[A.id];if(!d)return`<div class="re-awy"><p>Loading ${esc(A.id)}…</p></div>`;if(d.err)return`<div class="re-awy"><p>${esc(d.err)}</p><button type="button" data-re="awyback">Back</button></div>`;
+  const f=awyFind(A,A.id);if(!f)return`<div class="re-awy"><p>${esc(A.n)} isn’t on ${esc(A.id)}.</p><button type="button" data-re="awyback">Back</button></div>`;
+  const pts=rePts(),onRte=p=>pts.findIndex((q,qi)=>qi>A.i&&q.n===p[0]&&Math.abs(q.lat-p[1])<.05);
+  const side=(dir)=>{const out=[];let dist=0,prev=f.c.pts[f.ai];for(let j=f.ai+dir;j>=0&&j<f.c.pts.length&&out.length<60;j+=dir){const p=f.c.pts[j];dist+=msDist({lat:prev[1],lon:prev[2]},{lat:p[1],lon:p[2]});prev=p;
+      out.push(`<button type="button" class="re-awy-x" data-awyx="${j}"><b>${esc(awyNm(p))}</b><span>${Math.round(dist)} NM${onRte(p)>=0?" · on route":""}</span></button>`)}
+    return out};
+  const fw=side(1),bw=side(-1),endN=dir=>awyNm(f.c.pts[dir>0?f.c.pts.length-1:0]);
+  /* the direction that heads for the destination comes first */
+  const dst=pts[pts.length-1],endP=dir=>{const p=f.c.pts[dir>0?f.c.pts.length-1:0];return{lat:p[1],lon:p[2]}};
+  const first=fw.length&&bw.length&&msDist(endP(-1),dst)<msDist(endP(1),dst)?-1:1;
+  const blk=dir=>{const L=dir>0?fw:bw;return L.length?`<div class="re-awy-dir">Toward ${esc(endN(dir))}</div><div class="re-awy-list">${L.join("")}</div>`:""};
+  return`<div class="re-awy"><p>${esc(A.id)} from ${esc(A.n)} · pick the exit fix, in the list or on the map</p>${blk(first)}${blk(-first)}<button type="button" data-re="awyback">Other airway</button></div>`}
+function awySvg(P,w,h){const A=RE.awy;if(!RE.on||!A||!A.id)return"";const f=awyFind(A,A.id);if(!f)return"";
+  const xy=f.c.pts.map(p=>{let lo=p[2];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(p[1],lo)});
+  let s=`<polyline class="re-awyl" points="${xy.map(q=>q.join(",")).join(" ")}"/>`;
+  xy.forEach((q,j)=>{if(q[0]<-20||q[1]<-20||q[0]>w+20||q[1]>h+20||j===f.ai)return;s+=`<g class="re-awyp" data-awyx="${j}"><circle cx="${q[0]}" cy="${q[1]}" r="9"/><circle class="d" cx="${q[0]}" cy="${q[1]}" r="3.2"/><text x="${q[0]+8}" y="${q[1]-8}">${esc(awyNm(f.c.pts[j]))}</text></g>`});
+  return s}
+function awyInsert(bi){const A=RE.awy;if(!A||!A.id)return;const f=awyFind(A,A.id);if(!f||bi===f.ai)return;const dir=bi>f.ai?1:-1;
+  const seq=[];for(let j=f.ai+dir;dir>0?j<=bi:j>=bi;j+=dir){const p=f.c.pts[j];seq.push({n:awyNm(p),lat:p[1],lon:((p[2]+540)%360)-180,u:1,snap:p[0]?1:undefined,via:A.id})}
+  if(!seq.length)return;const w=reWork(),B=seq[seq.length-1];
+  /* the furthest route point that is also on this stretch of the airway: everything up to it is replaced */
+  let k=-1,kB=false;for(let j=A.i+1;j<w.length;j++){const m=seq.findIndex(q=>q.n===w[j].n&&Math.abs(q.lat-w[j].lat)<.05);if(m>=0){k=j;kB=m===seq.length-1}}
+  if(k>0&&kB){const keep=w[k];keep.via=A.id;w.splice(A.i+1,k-A.i,...seq.slice(0,-1),keep)}
+  else if(k>0){w.splice(A.i+1,k-A.i,...seq);if(w[A.i+1+seq.length])delete w[A.i+1+seq.length].via}
+  else{if(w[A.i+1])delete w[A.i+1].via;w.splice(A.i+1,0,...seq)}
+  reSave(w);toast(A.n+" "+A.id+" "+B.n+(k>0?" · rejoins the route":""));RE.sel=null;RE.awy=null;reUi();reRedraw()}
+document.addEventListener("click",e=>{const a=e.target.closest("[data-awy]");if(a&&RE.awy){RE.awy.id=a.dataset.awy;awyGet(RE.awy.id);reUi();reRedraw();return}
+  const x=e.target.closest("[data-awyx]");if(x&&RE.awy&&RE.awy.id){awyInsert(+x.dataset.awyx)}});
+try{window.__efbAwy={RE,AWY,awyInsert,awyFind,reRoute,reWork,rePts}}catch(e){}
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
@@ -3711,7 +3777,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=(p.x+q.x)/2-r.left,m1y=(p.y+q.y)/2-r.top;
       const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty()}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{const g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});

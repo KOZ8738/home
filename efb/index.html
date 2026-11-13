@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1401">
+<meta name="efb-build" content="1113.1412">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1200,6 +1200,13 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .as-wx.at .at-note.old{color:var(--amber)}
 .as-wx.at.vat .at-code{background:var(--label)}
 .at-none{margin:4px 16px 8px;font:500 12px/1.4 var(--f-ui);color:var(--label)}
+/* Sun times */
+.as-row b small{font:500 12px var(--f-mono);color:var(--label);margin-left:6px}
+.as-more{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;padding:12px 16px;border:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:500 15px var(--f-ui);text-align:left;cursor:pointer}
+.as-more i{font-style:normal;font-size:22px;line-height:1;color:var(--label);transition:transform .2s}
+.as-more[aria-expanded="true"] i{transform:rotate(90deg)}
+.as-sunday b{font-size:14.5px!important}
+.as-sunc{display:block;margin-top:2px;font:400 12.5px var(--f-ui);color:var(--label)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2672,6 +2679,43 @@ function asAtis(icao){if(!vam.url)return"";atLoad(icao);const d=AT.data[icao];
       <p class="mono">${atText(a.text)||"No text"}</p>${m!=null?`<p class="at-note">Updated ${atAgoTxt(m)}</p>`:""}</div>`});
   else s+=`<p class="at-none">${d.vatsimErr?"VATSIM ATIS couldn’t load right now.":"No VATSIM ATIS online for "+esc(icao)+"."}</p>`;
   return s}
+
+/* Sun times for the airport sheet: civil twilight, sunrise and sunset (NOAA solar calculator equations, Meeus).
+   Local time zone comes from the EFB server (by coordinates); without it the times show in UTC only. */
+function sunPos(ms){const r=Math.PI/180,t=(ms/86400000+2440587.5-2451545)/36525;
+  const L0=((280.46646+t*(36000.76983+t*0.0003032))%360+360)%360,M=357.52911+t*(35999.05029-0.0001537*t),e=0.016708634-t*(0.000042037+0.0000001267*t);
+  const C=Math.sin(M*r)*(1.914602-t*(0.004817+0.000014*t))+Math.sin(2*M*r)*(0.019993-0.000101*t)+Math.sin(3*M*r)*0.000289;
+  const om=125.04-1934.136*t,lam=L0+C-0.00569-0.00478*Math.sin(om*r);
+  const eps=23+(26+(21.448-t*(46.815+t*(0.00059-t*0.001813)))/60)/60+0.00256*Math.cos(om*r);
+  const dec=Math.asin(Math.sin(eps*r)*Math.sin(lam*r)),y=Math.tan(eps*r/2)**2;
+  const eot=4/r*(y*Math.sin(2*L0*r)-2*e*Math.sin(M*r)+4*e*y*Math.sin(M*r)*Math.cos(2*L0*r)-0.5*y*y*Math.sin(4*L0*r)-1.25*e*e*Math.sin(2*M*r));
+  return{dec,eot}}
+/* times (ms UTC) for the given local calendar day; "up" or "down" when the sun never crosses that altitude */
+function sunTimes(lat,lon,y,m,d){const r=Math.PI/180,day=Date.UTC(y,m-1,d);
+  const ev=(h0,sign)=>{let t=day+(720-4*lon)*60000;for(let i=0;i<3;i++){const p=sunPos(t);const c=(Math.sin(h0*r)-Math.sin(lat*r)*Math.sin(p.dec))/(Math.cos(lat*r)*Math.cos(p.dec));
+      if(c>1)return"down";if(c<-1)return"up";const ha=Math.acos(c)/r;t=day+(720-4*(lon+sign*ha)-p.eot)*60000}return Math.round(t)};
+  return{dawn:ev(-6,1),rise:ev(-0.833,1),set:ev(-0.833,-1),dusk:ev(-6,-1)}}
+const SUN={tz:{},loading:{},open:false};
+function sunTzLoad(icao,lat,lon){if(!vam.url||SUN.tz[icao]!==undefined||SUN.loading[icao])return;SUN.loading[icao]=true;
+  vamGet(`/api/efb/tz?lat=${lat}&lon=${lon}`,12000).then(j=>{SUN.tz[icao]=j&&j.tz||null}).catch(()=>{SUN.tz[icao]=null}).finally(()=>{SUN.loading[icao]=false;if(AS.open&&AS.icao===icao)asUi()})}
+function sunYmd(ms,tz){try{const p=new Intl.DateTimeFormat("en-CA",{timeZone:tz||"UTC",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(ms)).split("-");return p.map(Number)}catch(e){const d=new Date(ms);return[d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()]}}
+function sunDate(y,m,d,long){return new Date(Date.UTC(y,m-1,d,12)).toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short",month:"short",day:"numeric",year:long?"numeric":undefined})}
+/* minutes are cut, not rounded, the way published tables show them */
+function sunFmt(v,tz,utcOnly){if(v==="up")return"Sun up all day";if(v==="down")return"Sun down all day";const t=Math.floor(v/60000)*60000,z=new Date(t).toISOString().slice(11,16).replace(":","")+"Z";
+  if(!tz||utcOnly)return z;let l="";try{l=new Date(t).toLocaleTimeString("en-US",{timeZone:tz,hour:"numeric",minute:"2-digit",timeZoneName:"short"})}catch(e){return z}return{l,z}}
+const sunCell=(v,tz)=>{const f=sunFmt(v,tz);return typeof f==="string"?f:`${esc(f.l)} <small>${f.z}</small>`};
+const sunShort=(v,tz)=>{const f=sunFmt(v,tz);return typeof f==="string"?f:f.l.replace(/\s\S+$/,"")};
+function asSun(icao){const a=(AS.data[icao]||{}).airport;if(!a||!isFinite(a.lat)||!isFinite(a.lon))return"";sunTzLoad(icao,a.lat,a.lon);
+  const tz=SUN.tz[icao]||null,[y,m,d]=sunYmd(Date.now(),tz),s=sunTimes(a.lat,a.lon,y,m,d);
+  let h=`<div class="as-sub">Sun</div>`+asRow("Date",sunDate(y,m,d,true)+(tz?"":` <small>UTC</small>`))
+    +asRow("Morning civil twilight",sunCell(s.dawn,tz))+asRow("Sunrise",sunCell(s.rise,tz))+asRow("Sunset",sunCell(s.set,tz))+asRow("Evening civil twilight",sunCell(s.dusk,tz));
+  h+=`<button class="as-more" data-assun aria-expanded="${SUN.open}"><span>${SUN.open?"Hide next 3 days":"Show next 3 days"}</span><i aria-hidden="true">›</i></button>`;
+  if(SUN.open)for(let k=1;k<=3;k++){const dt=new Date(Date.UTC(y,m-1,d+k)),Y=dt.getUTCFullYear(),M=dt.getUTCMonth()+1,D=dt.getUTCDate(),q=sunTimes(a.lat,a.lon,Y,M,D);
+    h+=`<div class="as-row as-sunday"><div><span>${sunDate(Y,M,D)}</span><b>${typeof q.rise==="string"?sunShort(q.rise,tz):`Sunrise ${sunShort(q.rise,tz)} · Sunset ${sunShort(q.set,tz)}`}</b><small class="as-sunc">${typeof q.dawn==="string"?"Civil twilight: "+sunShort(q.dawn,tz):`Civil twilight ${sunShort(q.dawn,tz)} – ${sunShort(q.dusk,tz)}`}</small></div></div>`}
+  if(!tz&&!SUN.loading[icao]&&SUN.tz[icao]===null)h+=`<p class="at-none">Times in UTC. The local time zone couldn’t be found.</p>`;
+  return h}
+{const _ai=asInfo;asInfo=function(icao){const s=_ai(icao);const j=AS.data[icao];return j&&j.airport?s+asSun(icao):s}}
+document.addEventListener("click",e=>{if(!e.target.closest("[data-assun]"))return;SUN.open=!SUN.open;asUi()});
 
 /* ===== shared app building blocks ===== */
 const ICO={

@@ -496,26 +496,6 @@ async function refreshMajor(env, ctx) {
   for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
 }
 
-/* openAIP raster tiles (airspaces, navaids, reporting points, airports), proxied so the key stays on the server.
-   Cached at the edge for a week: openAIP rate-limits its tile server. Key: Cloudflare secret OPENAIP_API_KEY. */
-const OAIP_LAYERS = new Set(['airspaces', 'navaids', 'reporting-points', 'airports']);
-async function oaipTile(m, req, env, ctx, h) {
-  const [, layer, z, x, y] = m; const zi = +z;
-  if (!OAIP_LAYERS.has(layer) || zi < 0 || zi > 14) return new Response(null, { status: 404, headers: h });
-  if (!env.OPENAIP_API_KEY) return json({ error: 'openAIP key is not set on the server' }, 503, h);
-  const cache = caches.default, ck = new Request('https://oaip-cache.local/' + layer + '/' + z + '/' + x + '/' + y + '.png');
-  let r = await cache.match(ck);
-  if (!r) {
-    const sub = 'abc'[(+x + +y) % 3];
-    const up = await fetch('https://' + sub + '.api.tiles.openaip.net/api/data/' + layer + '/' + z + '/' + x + '/' + y + '.png?apiKey=' + encodeURIComponent(env.OPENAIP_API_KEY), { headers: { Accept: 'image/png', 'User-Agent': 'PolarisEFB/1.0' } });
-    if (up.status === 404 || up.status === 204) { r = new Response(null, { status: 204, headers: { 'Cache-Control': 'public, max-age=604800' } }); }
-    else if (!up.ok) return json({ error: 'openAIP tiles ' + up.status }, up.status === 401 || up.status === 403 ? 503 : 502, h);
-    else r = new Response(await up.arrayBuffer(), { status: 200, headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=604800' } });
-    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
-  }
-  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
-  return new Response(r.body, { status: r.status, headers: hd });
-}
 
 /* METARs for one 10x10 degree cell (SW corner lat,lon): flight category and wind for the map dots.
    Edge cache 5 minutes so many viewers share one aviationweather.gov request per cell. */
@@ -588,26 +568,6 @@ async function windRoute(url, ctx, h) {
   return json({ lv, hour: hour + ':00Z', cells: out, error: err }, 200, h);
 }
 
-/* Surface forecast for the home weather widget (Open-Meteo, free for non-commercial use): next 7 hours + today's high/low. */
-async function forecastRoute(url, ctx, h) {
-  const la = Math.round(+url.searchParams.get('lat') * 10) / 10, lo = Math.round(+url.searchParams.get('lon') * 10) / 10;
-  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) throw new HttpError(400, 'lat and lon are required');
-  const cache = caches.default, ck = new Request('https://fc-cache.local/' + new Date().toISOString().slice(0, 13) + '/' + la + '/' + lo);
-  let r = await cache.match(ck);
-  if (!r) {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_hours=8&forecast_days=1&timezone=GMT`;
-    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 12000);
-    let up; try { up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: ac.signal }); } catch (e) { throw new HttpError(504, 'Forecast service is slow'); } finally { clearTimeout(tm); }
-    if (!up.ok) throw new HttpError(502, 'Forecast service ' + up.status);
-    const j = await up.json(), hr = j.hourly || {}, d = j.daily || {}, c = j.current || {};
-    const out = { cur: { t: c.temperature_2m, code: c.weather_code, day: c.is_day }, hi: (d.temperature_2m_max || [])[0], lo: (d.temperature_2m_min || [])[0],
-      hours: (hr.time || []).map((t, i) => ({ t: t + 'Z', temp: hr.temperature_2m[i], code: hr.weather_code[i], day: hr.is_day[i] })) };
-    r = new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=1800' } });
-    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
-  }
-  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
-  return new Response(r.body, { status: 200, headers: hd });
-}
 
 
 /* openAIP vector tiles (airspaces, navaids, reporting points, airports...), proxied so the key stays on the server; cached a week */
@@ -663,8 +623,6 @@ export default {
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
     try {
-      const om = url.pathname.match(/^\/api\/efb\/oaip\/([a-z-]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
-      if (om) return await oaipTile(om, req, env, ctx, h);
       const ov = url.pathname.match(/^\/api\/efb\/oaip\/v\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
       if (ov) return await oaipVector(ov, env, ctx, h);
       switch (url.pathname.replace(/\/+$/, '')) {
@@ -678,7 +636,6 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
-        case '/api/efb/forecast': return await forecastRoute(url, ctx, h);
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1341">
+<meta name="efb-build" content="1113.1348">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1499,10 +1499,6 @@ function metarKind(m,day){if(!m)return null;const w=m.wx.join(" ");if(/TS/.test(
   if(m.ceiling!=null)return"cloud";if(m.clouds.length)return day?"psun":"pmoon";return day?"sun":"moon"}
 /* day or night at an airport, from its longitude (good enough for an icon) */
 function wxDay(a){const lo=a?N(a[2].pos_long):null;const hl=((new Date().getUTCHours()+new Date().getUTCMinutes()/60+(lo||0)/15)%24+24)%24;return hl>=6.5&&hl<18.5}
-const FC={key:"",at:0,data:null,busy:false};
-function fcLoad(lat,lon){if(lat==null||lon==null||!vam.url)return null;const key=lat.toFixed(1)+","+lon.toFixed(1);if(FC.key===key&&Date.now()-FC.at<20*60000)return FC.data;
-  if(!FC.busy){FC.busy=true;vamGet(`/api/efb/forecast?lat=${lat}&lon=${lon}`,15000).then(j=>{FC.key=key;FC.at=Date.now();FC.data=j;if(!cur)render()}).catch(()=>{FC.key=key;FC.at=Date.now()-15*60000}).finally(()=>{FC.busy=false})}
-  return FC.key===key?FC.data:null}
 const BASEWX={icao:"KSFO",name:"San Francisco Intl",elev:"13",lat:"37.6189",lon:"-122.375",at:0,metar:"",taf:"",busy:false};
 function baseWxLoad(){if(BASEWX.busy||!vam.url||Date.now()-BASEWX.at<10*60000)return;BASEWX.busy=true;
   vamGet("/api/efb/airport?icao="+BASEWX.icao,15000).then(j=>{BASEWX.metar=(j&&j.metar&&j.metar.raw)||"";BASEWX.taf=(j&&j.taf&&j.taf.raw)||"";BASEWX.at=Date.now();if(ofp._sample&&(cur==="wx"||!cur))render()})

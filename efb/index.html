@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1433">
+<meta name="efb-build" content="1113.1516">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1221,6 +1221,34 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .rw-ar{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .at-none .hw{color:var(--green);font-weight:700}.at-none .tw{color:var(--red);font-weight:700}
 .as-tabs button{min-width:0}
+/* Weather app forecast */
+.fc-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--line)}
+.fc-t{border-collapse:separate;border-spacing:0;font:500 13px/1.25 var(--f-ui);color:var(--ink)}
+.fc-t th{position:sticky;left:0;z-index:1;background:var(--panel);text-align:left;padding:8px 10px 8px 16px;font:600 11px/1.2 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--label);white-space:nowrap;border-right:1px solid var(--line)}
+.fc-t th small{display:block;font-weight:500;letter-spacing:0;text-transform:none}
+.fc-t td{min-width:64px;padding:8px 6px;text-align:center;white-space:nowrap;vertical-align:middle}
+.fc-t td small{display:block;font:500 10.5px var(--f-mono);color:var(--label);margin-top:2px}
+.fc-t td.now{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.fc-t td.mdl{color:var(--label)}
+.fc-t td.nd{border-left:1px solid var(--line)}
+.fc-t .fc-tm td{padding-top:4px;vertical-align:bottom}
+.fc-t .fc-tm b{font:700 13px var(--f-ui)}
+.fc-day{display:block;font:700 10.5px var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:2px}
+.fc-t .fc-ic td{padding:4px 6px}
+.fc-t td b.VFR,.fc-t td b.MVFR,.fc-t td b.IFR,.fc-t td b.LIFR{font:700 12.5px var(--f-mono)}
+.fc-drop{width:10px;height:12px;fill:none;stroke:currentColor;stroke-width:1.3;vertical-align:-1px;margin-right:2px}
+.fc-pop td{color:var(--cyan)}
+.fc-note{padding:10px 16px 14px;margin:0}
+.fc-days{display:grid;grid-template-columns:repeat(7,minmax(78px,1fr));overflow-x:auto;border-top:1px solid var(--line)}
+.fc-dc{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-right:1px solid var(--line);font:500 13px var(--f-ui);color:var(--ink)}
+.fc-dc:last-child{border-right:0}
+.fc-dc.today{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.fc-dc b{font:700 13px var(--f-ui)}.fc-dc b small{font-weight:500;color:var(--label);margin-left:4px}
+.fc-dc span small{color:var(--label)}.fc-dc i{font-style:normal;font-size:12px;color:var(--cyan);min-height:14px}
+.fc-wrap .wi-ico>path[fill^="#fff"],.fc-wrap .wi-ico>path[fill^="rgba"],.fc-days .wi-ico>path[fill^="#fff"],.fc-days .wi-ico>path[fill^="rgba"]{fill:#EEF2F6;stroke:#8C9AA8;stroke-width:1}
+.fc-wrap .wi-ico g[stroke="#fff"],.fc-days .wi-ico g[stroke="#fff"]{stroke:#8C9AA8}
+.fc-wrap .wi-ico g[fill="#fff"],.fc-days .wi-ico g[fill="#fff"]{fill:#8C9AA8}
+.fc-wrap .wi-ico path[fill="#E9EEF6"],.fc-days .wi-ico path[fill="#E9EEF6"]{fill:#C9D3DE;stroke:#8C9AA8;stroke-width:.8}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2772,6 +2800,97 @@ function asRwy(icao){const j=AS.data[icao],a=j&&j.airport;
       return `<div class="rw-end"><div class="rw-eh"><b>Rwy ${esc(e.id)}</b>${mh?`<small>${String(mh).padStart(3,"0")}°</small>`:""}${isBest?'<i class="rw-best">Best wind</i>':""}</div>${comp}</div>`}).join("");
     return `<div class="rw-card"><div class="rw-l"><b class="mono">${esc(r.id.replace("/"," – "))}</b><small>${r.lengthFt?fmt(r.lengthFt)+" × "+fmt(r.widthFt)+" ft":""}</small><small>${esc(AS_SURF[r.surface]||r.surface||"")}</small></div><div class="rw-r">${ends}</div></div>`}).join("");
   return head+`<div class="rw-list">${cards}</div><p class="at-none">Headwind <span class="hw">↓</span>, tailwind <span class="tw">↑</span>, crosswind ← →. Gusts shown as a range. Runway headings magnetic.</p>`}
+
+/* ---------- Weather app: hourly and 7-day forecast ----------
+   Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the
+   icons come from the model forecast (Open-Meteo via the EFB server), which also fills wind and visibility after the TAF ends. */
+const FCW={fc:{},taf:{},loading:{},tafLoading:{},err:{}};
+function fcwLoad(icao,lat,lon){if(!vam.url||!icao)return;
+  const f=FCW.fc[icao];if(lat!=null&&lon!=null&&!FCW.loading[icao]&&(!f||Date.now()-f.at>(f.err?60000:20*60000))){FCW.loading[icao]=true;
+    vamGet(`/api/efb/fc?lat=${lat}&lon=${lon}`,25000).then(j=>{if(!j||!j.hours)throw new Error((j&&j.error)||"No forecast");FCW.fc[icao]={at:Date.now(),d:j}})
+      .catch(e=>{FCW.fc[icao]={at:Date.now(),d:(f&&f.d)||null,err:e.message||"Couldn’t load"}}).finally(()=>{FCW.loading[icao]=false;if(cur==="wx")render()})}
+  const t=FCW.taf[icao];if(!FCW.tafLoading[icao]&&(!t||Date.now()-t.at>15*60000)){FCW.tafLoading[icao]=true;
+    vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{FCW.taf[icao]={at:Date.now(),raw:j&&j.taf&&j.taf.raw||null,metar:j&&j.metar&&j.metar.raw||null};if(j&&j.airport&&typeof AS!=="undefined"&&!AS.data[icao])AS.data[icao]=j})
+      .catch(()=>{FCW.taf[icao]={at:Date.now()-14*60000,raw:null,fail:true}}).finally(()=>{FCW.tafLoading[icao]=false;if(cur==="wx")render()})}}
+/* ---- TAF decoding into hours ---- */
+function tafFields(s){const t=s.split(/\s+/),r={};
+  for(let i=0;i<t.length;i++){const w=t[i];let m;
+    if((m=w.match(/^(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)$/))){const k=m[4]==="MPS"?1.944:1;r.wind={dir:m[1]==="VRB"?null:+m[1],spd:Math.round(+m[2]*k),gust:m[3]?Math.round(+m[3]*k):null}}
+    else if(w==="CAVOK"){r.vis=10;r.clouds=[]}
+    else if((m=w.match(/^(P)?(\d+)SM$/)))r.vis=m[1]?7:+m[2];
+    else if((m=w.match(/^(\d)\/(\d)SM$/))){let v=+m[1]/+m[2];if(/^\d$/.test(t[i-1]||""))v+=+t[i-1];r.vis=v}
+    else if((m=w.match(/^(\d{4})$/))&&!/^\d{4}\/\d{4}$/.test(w))r.vis=+m[1]>=9999?7:+m[1]/1609.34;
+    else if(/^(SKC|NSC|CLR|NCD)$/.test(w))r.clouds=[];
+    else if((m=w.match(/^(FEW|SCT|BKN|OVC|VV)(\d{3})/))){(r.clouds=r.clouds||[]).push({c:m[1],h:+m[2]*100})}
+    else if(/^(-|\+|VC)?(TS|SH|FZ|MI|BC|DR|BL)?(RA|SN|DZ|GR|GS|PL|SG|IC|BR|FG|HZ|FU|SA|DU|SQ|FC|UP)+$/.test(w))(r.wx=r.wx||[]).push(w);
+    else if(w==="NSW")r.wx=[]}
+  return r}
+const tafCeil=c=>{const x=(c||[]).filter(q=>/BKN|OVC|VV/.test(q.c)).map(q=>q.h);return x.length?Math.min(...x):null};
+const tafCat=(vis,ceil)=>{const v=vis==null?10:vis,c=ceil==null?99999:ceil;return(c<500||v<1)?"LIFR":(c<1000||v<3)?"IFR":(c<=3000||v<=5)?"MVFR":"VFR"};
+const CAT_RANK={VFR:0,MVFR:1,IFR:2,LIFR:3};
+function tafParse(raw){raw=S(raw).replace(/\s+/g," ").replace(/=$/,"").trim();if(!raw)return null;
+  const now=new Date(),Y=now.getUTCFullYear(),Mo=now.getUTCMonth(),D=now.getUTCDate();
+  const iss=raw.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);let base=Date.UTC(Y,Mo,iss?+iss[1]:D);if(iss){if(+iss[1]>D+15)base=Date.UTC(Y,Mo-1,+iss[1]);else if(+iss[1]<D-15)base=Date.UTC(Y,Mo+1,+iss[1])}
+  const bd=new Date(base),bD=bd.getUTCDate(),bY=bd.getUTCFullYear(),bM=bd.getUTCMonth();
+  const at=(dd,hh,mm)=>Date.UTC(bY,bM+(dd<bD-15?1:0),dd,hh,mm||0);
+  const vp=raw.match(/\b(\d{2})(\d{2})\/(\d{2})(\d{2})\b/);if(!vp)return null;const from=at(+vp[1],+vp[2]),to=at(+vp[3],+vp[4]);
+  const parts=raw.slice(raw.indexOf(vp[0])+vp[0].length).split(/\s(?=FM\d{6}\b|BECMG\s|TEMPO\s|PROB\d{2}\s)/);
+  const groups=[{k:"BASE",s:from,e:to,f:tafFields(parts[0]||"")}];
+  parts.slice(1).forEach(p=>{let m;
+    if((m=p.match(/^FM(\d{2})(\d{2})(\d{2})/)))groups.push({k:"FM",s:at(+m[1],+m[2],+m[3]),e:to,f:tafFields(p.slice(m[0].length))});
+    else if((m=p.match(/^(BECMG|TEMPO|PROB\d{2}(?:\sTEMPO)?)\s(\d{2})(\d{2})\/(\d{2})(\d{2})/)))groups.push({k:/^BECMG/.test(m[1])?"BECMG":"TEMPO",s:at(+m[2],+m[3]),e:at(+m[4],+m[5]),f:tafFields(p.slice(m[0].length))})});
+  return{from,to,groups}}
+/* prevailing conditions at time t (ms), plus the worst TEMPO/PROB category that covers it */
+function tafAt(T,t){if(!T||t<T.from||t>=T.to)return null;let st={};
+  /* groups come in time order: FM (and the base) replace everything, BECMG changes only what it lists */
+  T.groups.forEach(g=>{if(g.s>t)return;if(g.k==="BASE"||g.k==="FM")st=Object.assign({},g.f);else if(g.k==="BECMG")Object.assign(st,g.f)});
+  const ceil=tafCeil(st.clouds),cat=tafCat(st.vis,ceil);let tempo=null;
+  T.groups.forEach(g=>{if(g.k==="TEMPO"&&g.s<=t&&t<g.e){const c=tafCat(g.f.vis!=null?g.f.vis:st.vis,g.f.clouds?tafCeil(g.f.clouds):ceil);if(CAT_RANK[c]>CAT_RANK[cat]&&(!tempo||CAT_RANK[c]>CAT_RANK[tempo]))tempo=c}});
+  return{wind:st.wind||null,vis:st.vis,ceil,cat,tempo,wx:st.wx||[]}}
+/* ---- formatting ---- */
+function fcwTime(ms,tz,o){try{return new Date(ms).toLocaleString("en-US",Object.assign({timeZone:tz||"UTC"},o))}catch(e){return new Date(ms).toLocaleString("en-US",Object.assign({timeZone:"UTC"},o))}}
+const fcwVis=v=>v==null?"—":v>=6.5?"6+ sm":(v<1?(Math.round(v*4)/4).toString().replace(/^0/,""):Math.round(v*10)/10)+" sm";
+const fcwWind=w=>!w?"—":w.spd===0?"Calm":`${w.dir==null?"VRB":String(w.dir).padStart(3,"0")+"°"}<br>${w.gust&&w.gust>w.spd?w.spd+"–"+w.gust:w.spd}`;
+const fcwDrop='<svg class="fc-drop" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 1.2C4.3 4 2.2 6.2 2.2 8.6a3.8 3.8 0 0 0 7.6 0C9.8 6.2 7.7 4 6 1.2Z"/></svg>';
+function fcwRh(t,d){if(t==null||d==null)return null;return Math.round(100*Math.exp(17.625*d/(243.04+d))/Math.exp(17.625*t/(243.04+t)))}
+function fcwDa(elevFt,t,alt){if(elevFt==null||t==null||!alt||!alt.inhg)return null;const pa=elevFt+(29.92-alt.inhg)*1000;return Math.round((pa+118.8*(t-(15-1.98*pa/1000)))/10)*10}
+function fcwHtml(apt){const icao=S(apt.icao_code),lat=N(apt.pos_lat),lon=N(apt.pos_long);fcwLoad(icao,lat,lon);
+  const F=FCW.fc[icao],fc=F&&F.d,Tr=FCW.taf[icao],T=Tr&&Tr.raw?tafParse(Tr.raw):null,tz=fc&&fc.tz;
+  if(!fc){return `<section class="card">${cardH("Forecast","Next hours and days")}<div class="card-b"><p class="note">${F&&F.err?esc(F.err):"Loading forecast…"}</p></div></section>`}
+  const hrs=fc.hours.slice(0,36),nowH=Math.floor(Date.now()/3600000)*3600000;let tafEnd=null;
+  const cols=hrs.map(h=>{const t=Date.parse(h.t),ta=tafAt(T,t+1);if(ta)tafEnd=T.to;
+    const w=ta&&ta.wind?ta.wind:{dir:h.wd!=null?Math.round(h.wd/10)*10||360:null,spd:Math.round(h.ws||0),gust:h.wg!=null&&h.wg>h.ws+5?Math.round(h.wg):null};
+    const vis=ta&&ta.vis!=null?ta.vis:h.vis!=null?h.vis/1609.34:null;
+    return{t,now:t===nowH,ta,w,vis,h}});
+  const th=(l,u)=>`<th scope="row">${l}${u?`<small>${u}</small>`:""}</th>`;
+  const dayLbl=c=>fcwTime(c.t,tz,{weekday:"short"});
+  let lastDay="";
+  const row=(lab,fn,cls)=>`<tr class="${cls||""}">${lab}${cols.map(c=>`<td class="${c.now?"now":""}${c.ta?"":" mdl"}">${fn(c)}</td>`).join("")}</tr>`;
+  const table=`<div class="fc-wrap" role="region" aria-label="Hourly forecast" tabindex="0"><table class="fc-t"><tbody>
+    <tr class="fc-tm">${th("")}${cols.map(c=>{const d=dayLbl(c),nd=d!==lastDay;lastDay=d;return `<td class="${c.now?"now":""}${nd?" nd":""}">${nd?`<span class="fc-day">${esc(d)}</span>`:""}<b>${c.now?"Now":esc(fcwTime(c.t,tz,{hour:"numeric"}).replace(" ",""))}</b><small>${new Date(c.t).toISOString().slice(11,13)}00Z</small></td>`}).join("")}</tr>
+    ${row(th(""),c=>wIco(wmoKind(c.h.code,!!c.h.day),26),"fc-ic")}
+    ${row(th("Category"),c=>c.ta?`<b class="${c.ta.cat}">${c.ta.cat}</b>${c.ta.tempo?`<small class="${c.ta.tempo}">TEMPO ${c.ta.tempo}</small>`:""}`:"—")}
+    ${row(th("Ceiling","ft"),c=>c.ta?(c.ta.ceil==null?`<span class="${c.ta.cat}">None</span>`:`<span class="${c.ta.cat}">${fmt(c.ta.ceil)}</span>`):"—")}
+    ${row(th("Visibility"),c=>`<span class="${c.ta?c.ta.cat:""}">${fcwVis(c.vis)}</span>`)}
+    ${row(th("Wind","kt"),c=>fcwWind(c.w))}
+    ${row(th("Temp"),c=>c.h.temp!=null?Math.round(c.h.temp)+"°":"—")}
+    ${row(th("Rain"),c=>c.h.pop!=null?fcwDrop+c.h.pop+"%":"—","fc-pop")}
+  </tbody></table></div>`;
+  const days=`<div class="fc-days">${fc.days.map((d,i)=>{const dt=new Date(d.d+"T12:00:00Z");return `<div class="fc-dc${i===0?" today":""}"><b>${i===0?"Today":dt.toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short"})}<small>${dt.getUTCDate()}</small></b>${wIco(wmoKind(d.code,true),30)}<span>${Math.round(d.hi)}° <small>/ ${Math.round(d.lo)}°</small></span><i>${d.pop!=null?fcwDrop+d.pop+"%":""}</i></div>`}).join("")}</div>`;
+  const tzTxt=tz?esc(fc.tzAbbr||tz):"UTC";
+  const src=T?(tafEnd?`Category, ceiling, visibility and wind follow the TAF until ${new Date(tafEnd).toISOString().slice(8,10)}/${new Date(tafEnd).toISOString().slice(11,13)}00Z. `:"The TAF doesn’t cover these hours. "):Tr&&!FCW.tafLoading[icao]?(Tr.fail?"Couldn’t load the TAF. ":"No TAF for this airport. "):"Loading the TAF… ";
+  return `<section class="card">${cardH("Forecast","Hourly",`<span class="note">Local time (${tzTxt}) · °C</span>`)}${table}
+    <p class="note fc-note">${src}Greyed hours are model data (no ceiling or category). Temperature, rain chance and icons are model data.</p></section>
+    <section class="card">${cardH("Forecast","Next 7 days")}${days}</section>`}
+/* ---- into the Weather app ---- */
+{const _wd=wxDetail;wxDetail=function(role,label,apt,metar,taf){let s=_wd(role,label,apt,metar,taf);
+  const icao=S(apt.icao_code),m=decodeMetar(metar),F=FCW.fc[icao],fc=F&&F.d;
+  const st=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
+  if(m){const rh=fcwRh(m.temp,m.dew),da=fcwDa(N(apt.elevation),m.temp,m.alt),nowH=Math.floor(Date.now()/3600000)*3600000,hh=fc&&fc.hours.find(h=>Date.parse(h.t)===nowH);
+    const add=st("Humidity",rh!=null?rh+" <small>%</small>":"—")+st("Density altitude",da!=null?fmt(da)+" <small>FT</small>":"—")+st("Rain chance",hh&&hh.pop!=null?hh.pop+" <small>% this hour</small>":"—");
+    const k=s.indexOf("</dl></section>");if(k>=0)s=s.slice(0,k)+add+s.slice(k)}
+  const fh=fcwHtml(apt),k2=s.indexOf('<div class="cols2">');
+  return k2>=0?s.slice(0,k2)+fh+s.slice(k2):s+fh}}
 
 /* ===== shared app building blocks ===== */
 const ICO={

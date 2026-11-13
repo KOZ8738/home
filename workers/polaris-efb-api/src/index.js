@@ -626,6 +626,34 @@ async function oaipVector(m, env, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
   return new Response(r.body, { status: r.status, headers: hd });
 }
+
+/* PIREPs / AIREPs for one 10x10 degree cell, last 3 h, moderate or worse turbulence / icing only. Cached 10 min. */
+const PR_LV = (v) => { const t = String(v || '').toUpperCase(); if (!t || /NEG|SMTH|NIL|NONE/.test(t) && !/LGT|MOD|SEV|EXT/.test(t)) return 0; if (/EXT/.test(t)) return 4; if (/SEV/.test(t)) return 3; if (/MOD/.test(t)) return 2; if (/LGT|LT/.test(t)) return 1; return 0; };
+function prParse(raw) { const r = ' ' + String(raw || '') + ' ', tb = (r.match(/\/TB\s+([^/]+)/) || [])[1], ic = (r.match(/\/IC\s+([^/]+)/) || [])[1], fl = (r.match(/\/FL\s*(\d{3})/) || [])[1], tp = (r.match(/\/TP\s+([A-Z0-9]{2,5})/) || [])[1];
+  return { tb: PR_LV(tb), ic: PR_LV(ic), tbTxt: tb ? tb.trim() : '', icTxt: ic ? ic.trim() : '', fl: fl ? +fl : null, tp: tp || '' }; }
+async function pirepCellRoute(cellIn, ctx, h) {
+  const m = String(cellIn || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
+  const la = +m[1], lo = +m[2]; if (la % 10 || lo % 10 || la < -90 || la > 80 || lo < -180 || lo > 170) throw new HttpError(400, 'cell must be on the 10 degree grid');
+  const cache = caches.default, ck = new Request('https://pirep-cache.local/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const up = await fetch(`https://aviationweather.gov/api/data/pirep?bbox=${la},${lo},${la + 10},${lo + 10}&age=3&format=json`, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    if (!up.ok && up.status !== 204) throw new HttpError(502, 'PIREP service ' + up.status);
+    let j = []; if (up.status !== 204) { try { j = await up.json(); } catch (e) { j = []; } }
+    const out = [];
+    (Array.isArray(j) ? j : []).forEach((x) => {
+      const raw = String(x.rawOb || x.raw_text || ''), p = prParse(raw);
+      const tb = Math.max(p.tb, PR_LV(x.tbInt1), PR_LV(x.tbInt2)), ic = Math.max(p.ic, PR_LV(x.icgInt1), PR_LV(x.icgInt2));
+      const lat = +x.lat, lon = +x.lon; if (!isFinite(lat) || !isFinite(lon) || (tb < 2 && ic < 2)) return;
+      const fl = isFinite(+x.fltLvl) && +x.fltLvl > 0 ? +x.fltLvl : p.fl;
+      out.push({ la: Math.round(lat * 100) / 100, lo: Math.round(lon * 100) / 100, fl, ac: String(x.acType || p.tp || ''), t: x.obsTime || null, tb, ic, kind: String(x.pirepType || (/^\s*[A-Z]{3,4} UUA/.test(raw) ? 'UUA' : /AIREP|ARP/.test(raw) ? 'AIREP' : 'PIREP')), raw: raw.slice(0, 300) });
+    });
+    r = new Response(JSON.stringify({ cell: [la, lo], reps: out.slice(0, 300) }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=180');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -651,6 +679,7 @@ export default {
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
         case '/api/efb/forecast': return await forecastRoute(url, ctx, h);
+        case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

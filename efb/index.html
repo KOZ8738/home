@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1412">
+<meta name="efb-build" content="1113.1418">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1207,6 +1207,20 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .as-more[aria-expanded="true"] i{transform:rotate(90deg)}
 .as-sunday b{font-size:14.5px!important}
 .as-sunc{display:block;margin-top:2px;font:400 12.5px var(--f-ui);color:var(--label)}
+/* Runways tab */
+.rw-wind{margin:12px 16px 4px;font:500 14px/1.4 var(--f-ui);color:var(--ink)}.rw-wind b{font-weight:700}.rw-wind small{color:var(--label);font-size:12px;margin-left:4px}
+.rw-list{display:flex;flex-direction:column}
+.rw-card{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.rw-l{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.rw-l b{font:700 17px var(--f-mono);color:var(--ink)}.rw-l small{font:500 12px var(--f-ui);color:var(--label)}
+.rw-r{display:flex;flex-direction:column;gap:10px;padding-left:12px;border-left:1px solid var(--line)}
+.rw-eh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.rw-eh b{font:700 15px var(--f-ui);color:var(--ink)}.rw-eh small{font:500 12px var(--f-mono);color:var(--label)}
+.rw-best{font:700 11px var(--f-ui);font-style:normal;padding:2px 7px;border-radius:4px;background:var(--accent);color:#fff}
+.rw-cs{display:flex;gap:14px;flex-wrap:wrap;margin-top:3px}
+.rw-c{display:inline-flex;align-items:center;gap:3px;font:600 13.5px var(--f-mono);color:var(--label)}
+.rw-c.hw{color:var(--green)}.rw-c.tw{color:var(--red)}
+.rw-ar{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.at-none .hw{color:var(--green);font-weight:700}.at-none .tw{color:var(--red);font-weight:700}
+.as-tabs button{min-width:0}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2619,8 +2633,8 @@ function asUi(){const el=$("#asSheet");if(!el)return;
   const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
     :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
      <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?asNames(a).name:asTitle((d&&d.airport&&d.airport.name)||""))}${a?`<small>${esc(asNames(a).loc)}</small>`:""}</p>
-     <div class="as-tabs" role="tablist">${[["info","Info"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
-  const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):asCharts(icao);
+     <div class="as-tabs" role="tablist">${[["info","Info"],["rwy","Runways"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
+  const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):AS.tab==="rwy"?asRwy(icao):asCharts(icao);
   const html=`<div class="as-head">${head}</div><div class="as-body">${body}</div>`;
   el.classList.toggle("full",AS.full);
   if(html===AS.html&&!el.hidden&&el.innerHTML)return;
@@ -2716,6 +2730,44 @@ function asSun(icao){const a=(AS.data[icao]||{}).airport;if(!a||!isFinite(a.lat)
   return h}
 {const _ai=asInfo;asInfo=function(icao){const s=_ai(icao);const j=AS.data[icao];return j&&j.airport?s+asSun(icao):s}}
 document.addEventListener("click",e=>{if(!e.target.closest("[data-assun]"))return;SUN.open=!SUN.open;asUi()});
+
+/* Runways tab in the airport sheet: head/tail and crosswind for every runway end from the current METAR wind. */
+function rwEnds(r,magE){const p=String(r.id||"").split("/").map(s=>s.trim()).filter(Boolean);if(!p.length)return[];
+  const num=s=>{const m=s.match(/^(\d{1,2})/);return m?+m[1]:null};let t1=r.alignment!=null&&r.alignment!==""&&isFinite(+r.alignment)?+r.alignment:null;
+  if(t1==null){const n=num(p[0]);if(n==null)return p.map(id=>({id,hdg:null}));t1=n*10+magE}
+  const n0=num(p[0]),t2=(t1+180)%360;/* make sure the first id goes with the first heading */
+  const ends=[{id:p[0],hdg:t1}];if(p[1])ends.push({id:p[1],hdg:t2});
+  if(n0!=null&&p[1]){const m1=((t1-magE)%360+360)%360,diff=Math.abs(((n0*10-m1)%360+540)%360-180);if(diff>90){ends[0].hdg=t2;ends[1].hdg=t1}}
+  return ends}
+function rwComp(hdg,w){const a=(w.dir-hdg)*Math.PI/180;return{h:Math.cos(a),x:Math.sin(a)}}
+const rwKt=(f,w)=>{const s=Math.round(Math.abs(f*w.spd)),g=w.gust?Math.round(Math.abs(f*w.gust)):null;return g!=null&&g!==s?s+"–"+g:String(s)};
+const RW_AR={up:'<path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/>',down:'<path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/>',left:'<path d="M13 8H3M7.5 3.5 3 8l4.5 4.5"/>',right:'<path d="M3 8h10M8.5 3.5 13 8l-4.5 4.5"/>'};
+const rwAr=(d,c)=>`<svg class="rw-ar ${c}" viewBox="0 0 16 16" aria-hidden="true">${RW_AR[d]}</svg>`;
+function asRwy(icao){const j=AS.data[icao],a=j&&j.airport;
+  if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load runways.</p>`;
+  if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading ${esc(icao)}…</p>`;
+  if(AS.err[icao]&&!j)return `<p class="as-empty">${esc(AS.err[icao])}</p>`;
+  const rw=a?a.runways.filter(r=>r.id&&!/^H\d/i.test(r.id)):[];if(!rw.length)return `<p class="as-empty">No runway data for ${esc(icao)}.</p>`;
+  const md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i),magE=md?(+md[1])*(md[2].toUpperCase()==="E"?1:-1):0;
+  const raw=j.metar&&j.metar.raw,dm=raw&&typeof decodeMetar==="function"?decodeMetar(raw):null,w=dm&&dm.wind;
+  const tm=raw&&(raw.match(/\b\d{2}(\d{4})Z\b/)||[])[1];
+  let head;
+  if(!w)head=`<p class="rw-wind">${raw?"No wind in the METAR.":"No METAR, so no wind components."}</p>`;
+  else if(w.spd===0)head=`<p class="rw-wind"><b>Calm</b>${tm?` <small>METAR ${tm}Z</small>`:""}</p>`;
+  else head=`<p class="rw-wind">Wind <b>${w.dir==null?"Variable":String(w.dir).padStart(3,"0")+"°"} ${w.spd}${w.gust?"G"+w.gust:""} kt</b>${tm?` <small>METAR ${tm}Z · true</small>`:""}</p>`;
+  const can=w&&w.dir!=null&&w.spd>0;let best=-1e9;const all=rw.map(r=>rwEnds(r,magE));
+  if(can)all.forEach(es=>es.forEach(e=>{if(e.hdg!=null){e.c=rwComp(e.hdg,w);best=Math.max(best,e.c.h)}}));
+  const cards=rw.map((r,i)=>{const es=all[i];
+    const ends=es.map(e=>{const mh=e.hdg!=null?Math.round(((e.hdg-magE)%360+360)%360)||360:null;let comp="";
+      if(can&&e.c){const h=e.c.h,x=e.c.x,hs=Math.round(Math.abs(h*w.spd)),xs=Math.round(Math.abs(x*w.spd));
+        const xs_=xs||(w.gust&&Math.round(Math.abs(x*w.gust)))?`<span class="rw-c x">${rwAr(x>0?"left":"right","g")}${rwKt(x,w)} kt</span>`:`<span class="rw-c x">${rwAr(x>0?"left":"right","g")}0 kt</span>`;
+        const hd=h>=0?`<span class="rw-c hw">${rwAr("down","hw")}${rwKt(h,w)} kt</span>`:`<span class="rw-c tw">${rwAr("up","tw")}${rwKt(h,w)} kt</span>`;
+        comp=`<div class="rw-cs">${xs_}${hs||(w.gust&&Math.round(Math.abs(h*w.gust)))?hd:`<span class="rw-c">${rwAr("down","g")}0 kt</span>`}</div>`}
+      else if(w&&w.spd>0&&w.dir==null)comp=`<div class="rw-cs"><span class="rw-c">Variable, up to ${w.gust||w.spd} kt</span></div>`;
+      const isBest=can&&e.c&&e.c.h>0&&Math.abs(e.c.h-best)<1e-6;
+      return `<div class="rw-end"><div class="rw-eh"><b>Rwy ${esc(e.id)}</b>${mh?`<small>${String(mh).padStart(3,"0")}°</small>`:""}${isBest?'<i class="rw-best">Best wind</i>':""}</div>${comp}</div>`}).join("");
+    return `<div class="rw-card"><div class="rw-l"><b class="mono">${esc(r.id.replace("/"," – "))}</b><small>${r.lengthFt?fmt(r.lengthFt)+" × "+fmt(r.widthFt)+" ft":""}</small><small>${esc(AS_SURF[r.surface]||r.surface||"")}</small></div><div class="rw-r">${ends}</div></div>`}).join("");
+  return head+`<div class="rw-list">${cards}</div><p class="at-none">Headwind <span class="hw">↓</span>, tailwind <span class="tw">↑</span>, crosswind ← →. Gusts shown as a range. Runway headings magnetic.</p>`}
 
 /* ===== shared app building blocks ===== */
 const ICO={

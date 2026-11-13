@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1727">
+<meta name="efb-build" content="1113.1756">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2419,6 +2419,26 @@ function ifrStat(){const lv=ifrLv();if(!lv){const b=BASES[baseKey()];if(b&&b.us&
   return(ld?"Loading airways… ":"")+(lv==="H"?"Jet and Q routes":"Victor and T routes")+" · FAA AIS data, US only"}
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const s=ifrStat(),el=document.querySelector('[data-mls="vec"]');if(s&&el)el.textContent=s;return r}}
 try{window.__efbIfr={IFR,ifrFC,ifrIcon,ifrLayers,ifrStat}}catch(e){}
+
+/* Map pop-ups open and close with a short animation. Every pop-up is shown and hidden through its `hidden` property,
+   so that one setter is wrapped for these elements: showing plays the opening frames, hiding plays the closing ones
+   and only then hides the element. Turned off when the device asks for reduced motion. */
+{const ANIM="#mlPanel,#mapInfo,#msPanel,#rePanel,#ovPanel,#ovBar,#radarBar,#mtChip,#mapNote";
+ const FROM={"#mlPanel":"translateY(-6px) scale(.96)","#msPanel":"translateY(-8px)","#rePanel":"translateY(-8px)","#mtChip":"translateY(-8px)","#ovPanel":"translateY(-8px)"};
+ const tf=el=>{for(const k in FROM)if(el.matches(k))return FROM[k];return"translateY(10px)"};
+ const reduce=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+ const D=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"hidden");
+ if(D&&D.set&&D.get&&Element.prototype.animate)Object.defineProperty(HTMLElement.prototype,"hidden",{configurable:true,enumerable:D.enumerable,
+  get(){return this._efbOut?true:D.get.call(this)},
+  set(v){let on=false;try{on=this.isConnected&&this.matches(ANIM)&&!reduce()}catch(e){}
+    if(!on){if(this._efbOut){try{this._efbOut.cancel()}catch(e){}this._efbOut=null}return D.set.call(this,v)}
+    const cur=D.get.call(this);
+    if(!v){if(this._efbOut){try{this._efbOut.cancel()}catch(e){}this._efbOut=null;D.set.call(this,false);return}
+      if(cur){D.set.call(this,false);if(this.matches("#mlPanel"))this.style.transformOrigin="top right";
+        this.animate([{opacity:0,transform:tf(this)},{opacity:1,transform:"none"}],{duration:210,easing:"cubic-bezier(.2,.9,.25,1)"})}return}
+    if(cur||this._efbOut)return;
+    const a=this.animate([{opacity:1,transform:"none"},{opacity:0,transform:tf(this)}],{duration:140,easing:"cubic-bezier(.4,0,1,1)",fill:"forwards"});this._efbOut=a;
+    a.onfinish=()=>{if(this._efbOut!==a)return;this._efbOut=null;D.set.call(this,true);try{a.cancel()}catch(e){}}}})}
 
 /* Measure tool: tap points on the map for great-circle distance, true/magnetic course (WMM2025) and time at plan ground speed. */
 const MS={on:false,pts:[]};

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.0050">
+<meta name="efb-build" content="1113.1240">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1180,6 +1180,11 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .uct-t tr:last-child td{border-bottom:0}
 .uct-t tr:nth-child(even) td{background:color-mix(in srgb,var(--line) 25%,transparent)}
 .uct-t td:nth-child(3),.uct-t th:nth-child(3){border-left:1px solid var(--line)}
+.re-rt{margin-top:8px;display:flex;flex-direction:column;gap:3px}
+.re-rt span{font:500 10px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
+.re-rt code{font:500 11.5px/1.45 var(--f-mono);word-break:break-word;user-select:all;-webkit-user-select:all;max-height:88px;overflow:auto}
+.re-sb{flex:1.4;display:inline-flex;align-items:center;justify-content:center;padding:6px 0;border-radius:4px;background:var(--brand);color:#fff!important;font:600 12px var(--f-ui);text-decoration:none}
+.re-hint{font-size:11.5px;color:var(--label)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2413,6 +2418,7 @@ function reUi(){const wrap=document.querySelector(".mapwrap");const b=$("#reBtn"
        ${i>0?`<div class="re-leg">From ${esc(pts[i-1].n)}: ${Math.round(msDist(pts[i-1],q))} NM · ${ms3(msMag(pts[i-1],msBrg(pts[i-1],q)))}°M</div>`:""}
        <div class="ms-btns">${!q.apt?`<button type="button" data-re="del">Delete</button>`:""}${i<pts.length-1?`<button type="button" data-re="dct">Direct to…</button>`:""}<button type="button" data-re="desel">Close</button></div></div>`:""}
      ${RE.dct!=null?`<div class="ms-btns"><button type="button" data-re="nodct">Cancel direct</button></div>`:""}
+     ${inf?`<div class="re-rt"><span>ATC route</span><code>${esc(reRoute())}</code></div><div class="ms-btns"><a class="re-sb" href="${esc(reSbUrl())}" target="_blank" rel="noopener">Send to SimBrief ↗</a><button type="button" data-re-copy="1">Copy</button></div>`:""}
      <div class="ms-btns"><button type="button" data-re="revert" ${inf?"":"disabled"}>Revert to OFP</button><button type="button" data-re="done" class="pri">Done</button></div>`}
   if(html!==RE.html){RE.html=html;el.innerHTML=html}el.classList.toggle("badge",!!showBadge)}
 function reToggle(on){if(on&&ofp._sample){toast("Load an OFP to edit its route");return}RE.on=on==null?!RE.on:on;RE.sel=null;RE.dct=null;if(RE.on&&MS.on)msToggle(false);reUi();if(cur==="map")drawMap()}
@@ -2428,8 +2434,41 @@ document.addEventListener("click",e=>{if(e.target.closest("#reBtn")){reToggle();
 /* note on the OFP Route page while the map route differs from the plan */
 function reNote(){const inf=reInfo();if(!inf)return"";
   return `<section class="card re-note"><div class="card-b"><b>Route modified on the map</b><span>${Math.round(inf.d).toLocaleString("en-US")} NM, ${reSign(inf.dd,v=>Math.round(v)+" NM")} against the OFP${inf.dt!=null?", about "+reSign(inf.dt,v=>reHM(v)):""}. The ATC route, nav log and fuel below are still the original plan.</span>
-   <div class="ms-btns"><button type="button" data-re="open">Edit on map</button><button type="button" data-re="revert">Revert to OFP</button></div></div></section>`}
-try{window.__efbDbg={routePts,rePts,reGeo,store}}catch(e){}
+   <div class="re-rt"><span>New ATC route</span><code>${esc(reRoute())}</code></div><div class="ms-btns"><a class="re-sb" href="${esc(reSbUrl())}" target="_blank" rel="noopener">Send to SimBrief ↗</a><button type="button" data-re="open">Edit on map</button><button type="button" data-re="revert">Revert to OFP</button></div><span class="re-hint">SimBrief opens with this route filled in. Generate the new OFP there, then fetch it in Dispatch.</span></div></section>`}
+try{window.__efbDbg={routePts,rePts,reGeo,store,reRoute,reSbUrl}}catch(e){}
+
+/* ---- Send to SimBrief: rebuild an ATC route string from the edited route and open SimBrief's dispatch page with it ----
+   Unchanged stretches keep the plan's airways and SID/STAR (from the nav log's "via"), changed ones go DCT,
+   added coordinate points are written ICAO style (4617N11938W). */
+const reAwy=v=>/^[A-Z]{1,2}\d{1,4}[A-Z]?$/.test(v);
+const reProc=v=>/^[A-Z]{3,6}\d[A-Z]?$/.test(v);
+function reLL11(lat,lon){const f=(v,d,p,n)=>{const a=Math.abs(v);let D=Math.floor(a),M=Math.round((a-D)*60);if(M===60){D++;M=0}return String(D).padStart(d,"0")+String(M).padStart(2,"0")+(v<0?n:p)};
+  const lo=((lon+540)%360)-180;return f(lat,2,"N","S")+f(lo,3,"E","W")}
+function reRoute(){const x=O();const nav=x.fixes.filter(f=>!/^TO[CD]$/.test(S(f.ident))&&S(f.ident)!==S(x.d.icao_code));
+  const e=reGet();if(!e)return S(x.g.route);
+  const pts=e.slice(1,-1);const idx=q=>q.u?-1:nav.findIndex(f=>S(f.ident)===q.n&&Math.abs(N(f.pos_lat)-q.lat)<.02);
+  const segs=[];let prev=-1;/* prev = nav index of the last kept original fix, -1 at the origin */
+  pts.forEach((q,i)=>{const k=idx(q),name=q.u&&!q.snap?reLL11(q.lat,q.lon):q.n;let via="DCT";
+    if(k>=0&&k===prev+1&&(i===0?prev===-1:true)){const v=S(nav[k].via_airway).toUpperCase();if(v&&v!=="DCT")via=v}
+    else if(k>=0&&i===0&&k===0){const v=S(nav[0].via_airway).toUpperCase();if(v)via=v}
+    segs.push({via,name});prev=k>=0?k:-99});
+  /* the last stretch: a STAR is written by name only after its entry fix */
+  const lastNav=nav.length?S(nav[nav.length-1].via_airway).toUpperCase():"";
+  let starTail=null;if(reProc(lastNav)&&prev===nav.length-1){let j=segs.length-1;while(j>0&&segs[j].via===lastNav)j--;if(j<segs.length-1){starTail=lastNav;segs.splice(j+1)}}
+  const out=[];segs.forEach((s,i)=>{const last=out.length?out[out.length-1]:null;
+    if(i===0&&reProc(s.via)){out.push(s.via,s.name);return}
+    if(i===0){out.push(s.name);return}
+    if(s.via!=="DCT"&&last&&out.length>=2&&out[out.length-2]===s.via){out[out.length-1]=s.name;return}
+    out.push(s.via,s.name)});
+  if(starTail)out.push(starTail);
+  return out.join(" ").replace(/^DCT /,"")}
+function reSbUrl(){const x=O(),g=x.g,tm=ofp.times||{},d=N(tm.sched_out)?new Date(N(tm.sched_out)*1000):null;const p=new URLSearchParams();
+  const set=(k,v)=>{if(v!=null&&String(v)!=="")p.set(k,v)};
+  set("airline",S(g.icao_airline));set("fltnum",S(g.flight_number));set("orig",S(x.o.icao_code));set("dest",S(x.d.icao_code));set("altn",S(x.a.icao_code));
+  set("type",S(x.ac.icaocode));set("reg",S(x.ac.reg));set("units",x.unit==="LB"?"LBS":"KGS");set("route",reRoute());
+  if(d){set("deph",String(d.getUTCHours()));set("depm",String(d.getUTCMinutes()))}
+  return "https://dispatch.simbrief.com/options/custom?"+p.toString()}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-re-copy]");if(!t)return;const r=reRoute();(navigator.clipboard?navigator.clipboard.writeText(r):Promise.reject()).then(()=>toast("Route copied")).catch(()=>toast(r))});
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the

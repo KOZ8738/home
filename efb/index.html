@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.0038">
+<meta name="efb-build" content="1113.0039">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1610,7 +1610,7 @@ function renderHome(){
       <div class="wx-cond">${(()=>{const fc=dest?fcLoad(N(dest[2].pos_lat),N(dest[2].pos_long)):null,day=fc&&fc.cur?!!fc.cur.day:(()=>{const lo=N(dest&&dest[2].pos_long)||0,hl=((new Date().getUTCHours()+lo/15)%24+24)%24;return hl>=6&&hl<18})();
         const k=metarKind(dm,day)||(fc&&fc.cur?wmoKind(fc.cur.code,day):null);window.__wxFc=fc;
         return `${k?wIco(k,30):""}<b>${esc(condText(dm))}</b>${fc&&fc.hi!=null?`<span class="wx-hl">H ${Math.round(fc.hi)}° · L ${Math.round(fc.lo)}°</span>`:`<span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span>`}`})()}</div></div>
-      ${(()=>{const fc=window.__wxFc,hrs=fc&&fc.hours?fc.hours.slice(1,7):[];const others=wxFor(x).filter(a=>a!==dest);
+      ${(()=>{const fc=window.__wxFc,hrs=fc&&fc.hours?fc.hours.slice(1,7):[];const others=wxFor(x).filter(a=>!dest||a[1]!==dest[1]);
         const flt=others.length?`<div class="wx-flt">${others.map(a=>{const m=decodeMetar(a[3]);return `<span><em>${a[1]}</em> ${esc(S(a[2].icao_code))} ${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span>`}).join("")}</div>`:"";
         if(!hrs.length)return flt+`<div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);return `<div class="wx-row"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div>`;
         return flt+`<div class="wx-hrs">${hrs.map(q=>`<div><span>${q.t.slice(11,13)}Z</span>${wIco(wmoKind(q.code,!!q.day),26)}<b>${Math.round(q.temp)}°</b></div>`).join("")}</div>`})()}</a>

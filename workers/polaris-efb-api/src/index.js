@@ -609,21 +609,22 @@ async function forecastRoute(url, ctx, h) {
   return new Response(r.body, { status: 200, headers: hd });
 }
 
-/* temporary: which openAIP tile endpoints answer (statuses only, the key is never returned) */
-async function oaipProbe(env, h) {
-  const k = encodeURIComponent(env.OPENAIP_API_KEY || ''), z = 8, x = 41, y = 98, out = {};
-  const urls = {
-    raster_a: `https://a.api.tiles.openaip.net/api/data/airspaces/${z}/${x}/${y}.png?apiKey=${k}`,
-    raster_root: `https://api.tiles.openaip.net/api/data/airspaces/${z}/${x}/${y}.png?apiKey=${k}`,
-    vector: `https://api.tiles.openaip.net/api/data/openaip/${z}/${x}/${y}.pbf?apiKey=${k}`,
-    style: `https://api.tiles.openaip.net/api/styles/openaip-default-style.json?apiKey=${k}`,
-    core: `https://api.core.openaip.net/api/navaids?pos=37.6,-122.4&dist=50000&limit=2&apiKey=${k}`,
-  };
-  await Promise.all(Object.entries(urls).map(async ([n, u]) => { try { const r = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0' } }); const b = await r.arrayBuffer(); out[n] = [r.status, r.headers.get('content-type'), b.byteLength, n === 'style' || n === 'core' ? new TextDecoder().decode(b.slice(0, 1500)) : '']; } catch (e) { out[n] = ['ERR', e.message]; } }));
-  try { const st = await (await fetch(urls.style, { headers: { 'User-Agent': 'PolarisEFB/1.0' } })).json(); const srcNames = Object.keys(st.sources || {}).filter((n) => JSON.stringify(st.sources[n]).includes('openaip'));
-    out.styleInfo = { sources: Object.fromEntries(Object.entries(st.sources || {}).map(([n, v]) => [n, { type: v.type, url: String(v.url || (v.tiles || [])[0] || '').replace(/apiKey=[^&]+/, 'apiKey=KEY') }])), sprite: st.sprite, glyphs: st.glyphs,
-      layers: (st.layers || []).filter((l) => srcNames.includes(l.source)).map((l) => ({ id: l.id, type: l.type, sl: l['source-layer'], f: JSON.stringify(l.filter || null).slice(0, 160), minz: l.minzoom, lay: JSON.stringify(l.layout || {}).slice(0, 160), pnt: JSON.stringify(l.paint || {}).slice(0, 200) })) }; } catch (e) { out.styleInfo = String(e); }
-  return json(out, 200, h);
+
+/* openAIP vector tiles (airspaces, navaids, reporting points, airports...), proxied so the key stays on the server; cached a week */
+async function oaipVector(m, env, ctx, h) {
+  const [, z, x, y] = m; if (+z < 0 || +z > 16) return new Response(null, { status: 404, headers: h });
+  if (!env.OPENAIP_API_KEY) return json({ error: 'openAIP key is not set on the server' }, 503, h);
+  const cache = caches.default, ck = new Request('https://oaip-cache.local/v/' + z + '/' + x + '/' + y + '.pbf');
+  let r = await cache.match(ck);
+  if (!r) {
+    const up = await fetch('https://api.tiles.openaip.net/api/data/openaip/' + z + '/' + x + '/' + y + '.pbf?apiKey=' + encodeURIComponent(env.OPENAIP_API_KEY), { headers: { 'User-Agent': 'PolarisEFB/1.0' } });
+    if (up.status === 404 || up.status === 204) r = new Response(null, { status: 204, headers: { 'Cache-Control': 'public, max-age=604800' } });
+    else if (!up.ok) return json({ error: 'openAIP tiles ' + up.status }, up.status === 401 || up.status === 403 ? 503 : 502, h);
+    else r = new Response(await up.arrayBuffer(), { status: 200, headers: { 'Content-Type': 'application/x-protobuf', 'Cache-Control': 'public, max-age=604800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: r.status, headers: hd });
 }
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
@@ -636,6 +637,8 @@ export default {
     try {
       const om = url.pathname.match(/^\/api\/efb\/oaip\/([a-z-]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
       if (om) return await oaipTile(om, req, env, ctx, h);
+      const ov = url.pathname.match(/^\/api\/efb\/oaip\/v\/(\d+)\/(\d+)\/(\d+)\.pbf$/);
+      if (ov) return await oaipVector(ov, env, ctx, h);
       switch (url.pathname.replace(/\/+$/, '')) {
         case '/api/efb/health': return json({ ok: true, configured, openaip: Boolean(env.OPENAIP_API_KEY), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/pilot': if (!configured) break; return json({ ...(await pilotRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
@@ -648,7 +651,6 @@ export default {
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
         case '/api/efb/forecast': return await forecastRoute(url, ctx, h);
-        case '/api/efb/oaip-probe': return await oaipProbe(env, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

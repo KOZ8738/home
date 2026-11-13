@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1756">
+<meta name="efb-build" content="1113.1812">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1249,6 +1249,8 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .fc-wrap .wi-ico g[stroke="#fff"],.fc-days .wi-ico g[stroke="#fff"]{stroke:#8C9AA8}
 .fc-wrap .wi-ico g[fill="#fff"],.fc-days .wi-ico g[fill="#fff"]{fill:#8C9AA8}
 .fc-wrap .wi-ico path[fill="#E9EEF6"],.fc-days .wi-ico path[fill="#E9EEF6"]{fill:#C9D3DE;stroke:#8C9AA8;stroke-width:.8}
+.as-wx.eaip p{font:400 13.5px/1.5 var(--f-ui);margin:0 0 10px}
+.as-wx.eaip .btn{display:inline-flex}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2892,6 +2894,43 @@ function asRwy(icao){const j=AS.data[icao],a=j&&j.airport;
       return `<div class="rw-end"><div class="rw-eh"><b>Rwy ${esc(e.id)}</b>${mh?`<small>${String(mh).padStart(3,"0")}°</small>`:""}${isBest?'<i class="rw-best">Best wind</i>':""}</div>${comp}</div>`}).join("");
     return `<div class="rw-card"><div class="rw-l"><b class="mono">${esc(r.id.replace("/"," – "))}</b><small>${r.lengthFt?fmt(r.lengthFt)+" × "+fmt(r.widthFt)+" ft":""}</small><small>${esc(AS_SURF[r.surface]||r.surface||"")}</small></div><div class="rw-r">${ends}</div></div>`}).join("");
   return head+`<div class="rw-list">${cards}</div><p class="at-none">Headwind <span class="hw">↓</span>, tailwind <span class="tw">↑</span>, crosswind ← →. Gusts shown as a range. Runway headings magnetic.</p>`}
+
+/* Official AIPs outside the US, by ICAO prefix (longest prefix wins). Airport charts are in each AIP's AD 2 part.
+   Links go to each State's own publication; "sign-up" marks the ones that ask for a free account. */
+const EAIP=[
+ ["RC","Taiwan","eAIP Taiwan (CAA)","https://ais.caa.gov.tw/eaip/"],
+ ["RJ,RO","Japan","AIS Japan (MLIT)","https://aisjapan.mlit.go.jp/",1],
+ ["RK","South Korea","eAIP Korea (MOLIT)","https://aim.koca.go.kr/"],
+ ["VH,VM","Hong Kong / Macau","eAIP Hong Kong (CAD), Macau charts included","https://www.ais.gov.hk/"],
+ ["Z","China","AIP China (CAAC ATMB)","https://www.aischina.com/",1],
+ ["WS","Singapore","eAIP Singapore (CAAS)","https://aim-sg.caas.gov.sg/aip"],
+ ["VT","Thailand","eAIP Thailand (CAAT)","https://aip.caat.or.th/"],
+ ["WM,WB","Malaysia","eAIP Malaysia (CAAM)","https://aip.caam.gov.my/"],
+ ["VA,VE,VI,VO","India","eAIP India (AAI)","https://aim-india.aai.aero.in/"],
+ ["Y","Australia","AIP and DAP charts (Airservices)","https://www.airservicesaustralia.com/aip/aip.asp"],
+ ["NZ","New Zealand","AIP New Zealand","https://www.aip.net.nz/"],
+ ["C","Canada","AIP Canada (NAV CANADA)","https://www.navcanada.ca/en/aeronautical-information/aip-canada.aspx"],
+ ["EG","United Kingdom","UK AIP (NATS)","https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/"],
+ ["LF","France","AIP France (SIA)","https://www.sia.aviation-civile.gouv.fr/"],
+ ["ED,ET","Germany","BasicAIP Germany (DFS)","https://aip.dfs.de/"],
+ ["EH","Netherlands","eAIP Netherlands (LVNL)","https://eaip.lvnl.nl/"],
+ ["LE,GC","Spain","AIP España (ENAIRE)","https://aip.enaire.es/AIP/"],
+ ["LS","Switzerland","skybriefing (Skyguide)","https://www.skybriefing.com/",1],
+ ["LO","Austria","eAIP Austria (Austro Control)","https://eaip.austrocontrol.at/"],
+ ["EK","Denmark","AIP Denmark (Naviair)","https://aim.naviair.dk/"],
+ ["ES","Sweden","AIP Sweden (LFV)","https://aro.lfv.se/"],
+ ["EF","Finland","AIP Finland (Fintraffic)","https://www.ais.fi/"],
+ ["EN","Norway","AIP Norway (Avinor)","https://ais.avinor.no/"],
+ ["SB","Brazil","AISWEB (DECEA)","https://aisweb.decea.mil.br/"]];
+function eaipFor(icao){icao=String(icao||"").toUpperCase();if(!/^[A-Z]{4}$/.test(icao))return null;if(/^(K|P[AHGFJKOMBW]|TJ|TI)/.test(icao))return null;if(/^Z[KM]/.test(icao))return null;
+  let best=null,bl=0;EAIP.forEach(e=>e[0].split(",").forEach(p=>{if(icao.startsWith(p)&&p.length>bl){best=e;bl=p.length}}));return best}
+function eaipEurope(icao){return /^[EL]/.test(String(icao||"").toUpperCase())}
+function eaipHtml(icao){const e=eaipFor(icao);
+  if(e)return `<div class="as-wx eaip"><div class="as-wxh"><span>Official charts · ${esc(e[1])}</span></div><p>${esc(e[2])}. Airport charts are in part AD 2 under ${esc(icao)}.${e[4]?" Needs a free sign-up.":""}</p><a class="btn sm" href="${e[3]}" target="_blank" rel="noopener">Open the AIP ↗</a></div>`;
+  if(eaipEurope(icao))return `<div class="as-wx eaip"><div class="as-wxh"><span>Official charts</span></div><p>Most European AIPs are on EUROCONTROL’s EAD Basic, with a free sign-up. Airport charts are in part AD 2 under ${esc(icao)}.</p><a class="btn sm" href="https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/" target="_blank" rel="noopener">Open EAD Basic ↗</a></div>`;
+  return ""}
+{const _ac=asCharts;asCharts=function(icao){const s=_ac(icao);return /No FAA charts for/.test(s)?s+eaipHtml(icao):s}}
+{const _cl=chartLinks;chartLinks=function(icao){const e=eaipFor(icao);const row=e?`<div class="setrow"><span>${esc(e[2])}<small>Official AIP · ${esc(e[1])}${e[4]?" · free sign-up":""}</small></span><a class="btn sm" href="${e[3]}" target="_blank" rel="noopener">Open ↗</a></div>`:eaipEurope(icao)?`<div class="setrow"><span>EUROCONTROL EAD Basic<small>Official European AIPs · free sign-up</small></span><a class="btn sm" href="https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/" target="_blank" rel="noopener">Open ↗</a></div>`:"";return row+_cl(icao)}}
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

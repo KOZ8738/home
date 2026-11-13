@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1713">
+<meta name="efb-build" content="1113.1724">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2378,7 +2378,7 @@ function ifrFC(lv){const F=[],seenR={},seenF={},seenN={};if(!lv)return{type:"Fea
       r[9].forEach(g=>F.push({type:"Feature",geometry:{type:"LineString",coordinates:g},properties:{t:"awy",i:id,rn:rn?1:0,sub}}))});
     d.fixes.forEach(f=>{if(seenF[f[0]])return;seenF[f[0]]=1;F.push({type:"Feature",geometry:{type:"Point",coordinates:[f[2],f[3]]},properties:{t:"fix",i:f[1],c:f[4]}})});
     d.navs.forEach(n=>{if(seenN[n[0]])return;seenN[n[0]]=1;const ndb=/NDB/i.test(n[3])&&!/VOR|TAC/i.test(n[3]);
-      F.push({type:"Feature",geometry:{type:"Point",coordinates:[n[4],n[5]]},properties:{t:"nav",i:n[1],n:n[2],k:ndb?"ndb":"vor",lbl:(n[2]||"")+"\n"+n[1]}})})});
+      F.push({type:"Feature",geometry:{type:"Point",coordinates:[n[4],n[5]]},properties:{t:"nav",i:n[1],n:n[2],k:ndb?"ndb":"vor",lbl:(n[2]||"")+"\n"+(n[6]?n[6]+" ":"")+n[1]}})})});
   return{type:"FeatureCollection",features:F}}
 /* icons drawn on a canvas, added when MapLibre asks for them */
 function ifrIcon(id){const dark=/-d$/.test(id),ink=dark?"#D7E0E8":"#24323D",blue=dark?"#8DBAFF":"#1D4E9E",bg=dark?"#05080A":"#FFFFFF",ndbc=dark?"#E0A36B":"#8A4F1D";

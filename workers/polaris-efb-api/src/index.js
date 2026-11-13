@@ -730,18 +730,22 @@ async function ifrRoute(url, ctx, h) {
   const lv = url.searchParams.get('lv') === 'H' ? 'H' : 'L', sz = lv === 'H' ? 8 : 4;
   const m = String(url.searchParams.get('cell') || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
   const la = +m[1], lo = +m[2]; if (la % sz || lo % sz || la < -90 || la >= 90 || lo < -180 || lo >= 180) throw new HttpError(400, 'cell must be on the ' + sz + ' degree grid');
-  const cache = caches.default, ck = new Request('https://ifr-cache.local/v1/' + lv + '/' + la + '/' + lo);
+  const cache = caches.default, ck = new Request('https://ifr-cache.local/v2/' + lv + '/' + la + '/' + lo);
   let r = await cache.match(ck);
   if (!r) {
     const env4 = [lo, la, lo + sz, la + sz], fl = lv === 'H' ? '(US_HIGH=1 OR AK_HIGH=1)' : '(US_LOW=1 OR AK_LOW=1)';
     /* one query at a time: the FAA service throttles parallel bursts */
     const rt = await aisQuery('ATS_Route', fl, 'OBJECTID,IDENT,TYPE_CODE,LEVEL_,MEA_E_VAL,MEA_W_VAL,MOCA_VAL,NMAGTRK,NREVMAGTRK,LENGTH_VAL', env4, 4);
     const pt = await aisQuery('DesignatedPoints', fl, 'OBJECTID,IDENT,TYPE_CODE,REPATC', env4, 4);
-    const nv = await aisQuery('NAVAIDSystem', fl, 'OBJECTID,IDENT,NAME_TXT,CLASS_TXT,TYPE_CODE', env4, 1);
+    const nv = await aisQuery('NAVAIDSystem', fl, 'OBJECTID,GLOBAL_ID,IDENT,NAME_TXT,CLASS_TXT,TYPE_CODE', env4, 1);
+    /* frequencies live on the components (VOR, DME, TACAN, NDB), joined by NAVSYS_ID; prefer the VOR or NDB one */
+    const fq = {};
+    try { (await aisQuery('NavaidComponents', fl, 'NAVSYS_ID,FREQUENCY,NAV_TYPE', env4, 2)).forEach((f) => { const p = f.properties || {}; if (!p.NAVSYS_ID || p.FREQUENCY == null) return; const rank = p.NAV_TYPE === 3 || p.NAV_TYPE === 1 ? 2 : 1; const cur = fq[p.NAVSYS_ID];
+      if (!cur || rank > cur.r) fq[p.NAVSYS_ID] = { r: rank, f: p.NAV_TYPE === 1 ? String(Math.round(+p.FREQUENCY)) : (+p.FREQUENCY).toFixed(Math.round(+p.FREQUENCY * 100) % 10 ? 2 : 1) }; }); } catch (e) {}
     const routes = rt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}; const g = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [f.geometry.coordinates];
       return [p.OBJECTID, p.IDENT || '', p.TYPE_CODE || '', aisV(p.MEA_E_VAL), aisV(p.MEA_W_VAL), aisV(p.MOCA_VAL), aisV(p.NMAGTRK), aisV(p.NREVMAGTRK), p.LENGTH_VAL != null ? Math.round(+p.LENGTH_VAL) : null, g]; });
     const fixes = pt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', +c[0].toFixed(5), +c[1].toFixed(5), p.REPATC === 'C' ? 1 : 0]; });
-    const navs = nv.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', p.NAME_TXT || '', p.CLASS_TXT || '', +c[0].toFixed(5), +c[1].toFixed(5)]; });
+    const navs = nv.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', p.NAME_TXT || '', p.CLASS_TXT || '', +c[0].toFixed(5), +c[1].toFixed(5), (fq[p.GLOBAL_ID] && fq[p.GLOBAL_ID].f) || '']; });
     r = new Response(JSON.stringify({ lv, cell: [la, lo], routes, fixes, navs }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
     if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
   }

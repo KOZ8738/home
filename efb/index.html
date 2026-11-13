@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1633">
+<meta name="efb-build" content="1113.1641">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2206,7 +2206,9 @@ function oaipAdd(st,dark){if(!oaipOn())return st;const base=vam.url.replace(/\/+
 function vecPreset(st,dark){return oaipAdd(vecPreset0(st,dark),dark)}
 function vecPreset0(st,dark){const b=BASES[baseKey()];if(!b.ras)return st;
   b.ras.forEach(r=>{st.sources[r.id]={type:"raster",tiles:[r.url],tileSize:256,minzoom:r.min,maxzoom:r.max,attribution:""}});
-  const ras=b.ras.map(r=>({id:"r-"+r.id,type:"raster",source:r.id,minzoom:Math.max(0,r.min-.5),paint:{"raster-fade-duration":0,"raster-opacity":1,...(dark&&b.us?{"raster-brightness-max":.82,"raster-contrast":.05}:{})}}));
+  /* FAA charts only exist up to a set scale; past it the picture is just stretched and goes soft, so it fades out
+     and the sharp vector map takes over (MapLibre zoom z shows 256 px tiles of level z+1) */
+  const ras=b.ras.map(r=>({id:"r-"+r.id,type:"raster",source:r.id,minzoom:Math.max(0,r.min-.5),paint:{"raster-fade-duration":0,"raster-opacity":b.us?["interpolate",["linear"],["zoom"],r.max-.7,1,r.max+.1,0]:1,...(dark&&b.us?{"raster-brightness-max":.82,"raster-contrast":.05}:{})}}));
   if(baseKey()==="sat"){const keep=st.layers.filter(l=>/^(bord|place-|water-name|apt-name)/.test(l.id));st.layers=[st.layers[0],...ras,...keep];return st}
   st.layers=st.layers.concat(ras);return st}
 function vecStyle(dark){return vecPreset(vecStyle0(dark),dark)}
@@ -2403,7 +2405,7 @@ function ifrTick(){const lv=ifrLv(),m=VEC.map;if(!lv||!m||!VEC.ready)return;
   /* nearest to the centre first */
   const c=m.getCenter();keys.sort((a,b2)=>{const d=k=>{const p=k.split(",").map(Number);return Math.hypot(p[0]+sz/2-c.lat,p[1]+sz/2-c.lng)};return d(a)-d(b2)}).forEach(k=>ifrLoad(lv,k))}
 {const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{ifrTick()}catch(e){}}}
-function ifrStat(){const lv=ifrLv();if(!lv)return null;const z=VEC.map?VEC.map.getZoom():MAP.z-1;if(!vam.url)return"Set the EFB server in Settings";
+function ifrStat(){const lv=ifrLv();if(!lv){const b=BASES[baseKey()];if(b&&b.us&&b.ras&&VEC.map){const mx=Math.max(...b.ras.map(r=>r.max)),z=VEC.map.getZoom();if(z>mx-.7)return b.name+": the FAA chart stops at this zoom, zoom out to see it"}return null}const z=VEC.map?VEC.map.getZoom():MAP.z-1;if(!vam.url)return"Set the EFB server in Settings";
   if(z<IFR_MINZ[lv])return(lv==="H"?"Jet and Q routes":"Victor and T routes")+" · zoom in to see airways";
   const ld=Object.keys(IFR.loading).some(k=>IFR.loading[k]);if(IFR.err&&!Object.keys(IFR.cells).some(k=>k[0]===lv&&IFR.cells[k].d))return"FAA data: "+IFR.err;
   return(ld?"Loading airways… ":"")+(lv==="H"?"Jet and Q routes":"Victor and T routes")+" · FAA AIS data, US only"}

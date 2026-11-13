@@ -587,6 +587,27 @@ async function windRoute(url, ctx, h) {
   cells.forEach(([la, lo]) => { const v = got[blk(la) + ',' + blk(lo)]; if (v) out[la + ',' + lo] = v.filter((q) => q.la >= la && q.la < la + 10 && q.lo >= lo && q.lo < lo + 10); });
   return json({ lv, hour: hour + ':00Z', cells: out, error: err }, 200, h);
 }
+
+/* Surface forecast for the home weather widget (Open-Meteo, free for non-commercial use): next 7 hours + today's high/low. */
+async function forecastRoute(url, ctx, h) {
+  const la = Math.round(+url.searchParams.get('lat') * 10) / 10, lo = Math.round(+url.searchParams.get('lon') * 10) / 10;
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) throw new HttpError(400, 'lat and lon are required');
+  const cache = caches.default, ck = new Request('https://fc-cache.local/' + new Date().toISOString().slice(0, 13) + '/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_hours=8&forecast_days=1&timezone=GMT`;
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 12000);
+    let up; try { up = await fetch(u, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' }, signal: ac.signal }); } catch (e) { throw new HttpError(504, 'Forecast service is slow'); } finally { clearTimeout(tm); }
+    if (!up.ok) throw new HttpError(502, 'Forecast service ' + up.status);
+    const j = await up.json(), hr = j.hourly || {}, d = j.daily || {}, c = j.current || {};
+    const out = { cur: { t: c.temperature_2m, code: c.weather_code, day: c.is_day }, hi: (d.temperature_2m_max || [])[0], lo: (d.temperature_2m_min || [])[0],
+      hours: (hr.time || []).map((t, i) => ({ t: t + 'Z', temp: hr.temperature_2m[i], code: hr.weather_code[i], day: hr.is_day[i] })) };
+    r = new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=1800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
+  return new Response(r.body, { status: 200, headers: hd });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -609,6 +630,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/forecast': return await forecastRoute(url, ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1348">
+<meta name="efb-build" content="1113.1401">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1194,6 +1194,12 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .pr.sel .prh{stroke:var(--accent);stroke-width:2}
 .prl{font:600 10.5px var(--f-mono);fill:var(--ink);paint-order:stroke;stroke:var(--map-land);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
 .prt{font-weight:600}.prt.mod{color:var(--amber)}.prt.sev{color:var(--red)}
+/* ATIS */
+.as-wx.at .at-code{font:700 12px var(--f-mono);font-style:normal;min-width:22px;text-align:center;padding:2px 7px;border-radius:4px;background:var(--accent);color:#fff;letter-spacing:0}
+.as-wx.at .at-note{margin-top:8px;font:500 12px/1.4 var(--f-ui);color:var(--label)}
+.as-wx.at .at-note.old{color:var(--amber)}
+.as-wx.at.vat .at-code{background:var(--label)}
+.at-none{margin:4px 16px 8px;font:500 12px/1.4 var(--f-ui);color:var(--label)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2574,13 +2580,14 @@ function asInfo(icao){const j=AS.data[icao],a=j&&j.airport;
     +(rw.length?asRow("Runways",rw.map(r=>`<span class="as-rw"><span class="mono">${esc(r.id)}</span>${fmt(r.lengthFt)} × ${fmt(r.widthFt)} ft · ${esc(AS_SURF[r.surface]||r.surface||"")}</span>`).join("")):"")
     +asRow("Magnetic variation",md?md[1]+"° "+md[2].toUpperCase():esc(a.magdec||"—"))
     +asRow("Type",a.owner==="P"?"Public":a.owner==="R"?"Private":a.owner==="M"?"Military":"—")+asRow("Tower",a.tower==="T"?"Yes":"No")
-    +(freq?asRow("Frequencies",freq):"")+(usca?asRow("Transition altitude","18,000 ft (5,486 m)")+asRow("Transition level","FL180"):"")}
+    +(freq?asRow("Frequencies",freq):"")+asAtis(icao)+(usca?asRow("Transition altitude","18,000 ft (5,486 m)")+asRow("Transition level","FL180"):"")}
 function asWx(icao){const j=AS.data[icao];
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load weather.</p>`;
-  if(AS.loading[icao]&&!j)return `<p class="as-empty">Loading weather for ${esc(icao)}…</p>`;
-  if(!j||(!j.metar&&!j.taf))return `<p class="as-empty">No METAR or TAF for ${esc(icao)}.</p>`;
+  const at=asAtis(icao);
+  if(AS.loading[icao]&&!j)return at+`<p class="as-empty">Loading weather for ${esc(icao)}…</p>`;
+  if(!j||(!j.metar&&!j.taf))return at+`<p class="as-empty">No METAR or TAF for ${esc(icao)}.</p>`;
   const cat=j.metar?(j.metar.cat||((typeof decodeMetar==="function"&&decodeMetar(j.metar.raw))||{}).cat||""):"";
-  return (j.metar?`<div class="as-wx"><div class="as-wxh"><span>METAR</span>${cat?`<i class="as-cat wx-${esc(cat)}">${esc(cat)}</i>`:""}</div><p class="mono">${esc(j.metar.raw)}</p></div>`:"")
+  return at+(j.metar?`<div class="as-wx"><div class="as-wxh"><span>METAR</span>${cat?`<i class="as-cat wx-${esc(cat)}">${esc(cat)}</i>`:""}</div><p class="mono">${esc(j.metar.raw)}</p></div>`:"")
     +(j.taf?`<div class="as-wx"><div class="as-wxh"><span>TAF</span></div><p class="mono">${esc(j.taf.raw).replace(/\s(?=(FM\d{6}|TEMPO|BECMG|PROB\d{2}))/g,"<br>")}</p></div>`:"")}
 function asCharts(icao){const d=CH.data[icao];
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load FAA charts.</p>`;
@@ -2643,6 +2650,28 @@ document.addEventListener("keydown",e=>{if(e.target.id!=="asIcao"||e.key!=="Ente
   document.addEventListener("pointerup",e=>{if(e.pointerType==="mouse")end(e.target)})})();
 /* typing in the airport search filters the list by code, city or name */
 document.addEventListener("input",e=>{if(e.target.id!=="asIcao")return;const q=e.target.value.trim().toUpperCase();document.querySelectorAll("#asSheet .as-apt").forEach(b=>{b.hidden=!!q&&!b.textContent.toUpperCase().includes(q)});document.querySelectorAll("#asSheet .as-sub").forEach(h=>{h.hidden=!!q})});
+
+/* ATIS in the airport sheet: real-world D-ATIS (FAA airports, via atis.info) and VATSIM ATIS when a controller has one online. */
+const AT={data:{},at:{},loading:{},err:{}};
+function atLoad(icao){if(!vam.url||!icao||AT.loading[icao])return;if(AT.at[icao]&&Date.now()-AT.at[icao]<(AT.err[icao]?60000:120000))return;AT.loading[icao]=true;
+  vamGet("/api/efb/atis?icao="+encodeURIComponent(icao),15000).then(j=>{if(j&&j.error&&!j.icao)throw new Error(j.error);AT.data[icao]=j;delete AT.err[icao]})
+    .catch(e=>{AT.err[icao]=e.message||"Couldn’t load"}).finally(()=>{AT.loading[icao]=false;AT.at[icao]=Date.now();if(AS.open&&AS.icao===icao)asUi()})}
+const atAgo=t=>{const v=Date.parse(t||"");if(isNaN(v))return null;return Math.max(0,Math.round((Date.now()-v)/60000))};
+const atAgoTxt=m=>m==null?"":m<60?m+" min ago":Math.floor(m/60)+" h "+(m%60)+" min ago";
+const atText=t=>esc(String(t||"").replace(/\s+/g," ").trim()).replace(/\.\s+(?=\S)/g,".<br>");
+const AT_TYPE={arr:"Arrival",dep:"Departure"};
+function asAtis(icao){if(!vam.url)return"";atLoad(icao);const d=AT.data[icao];
+  if(!d)return `<div class="as-wx at"><div class="as-wxh"><span>D-ATIS</span></div><p class="at-note">${AT.err[icao]?esc(AT.err[icao]):"Loading…"}</p></div>`;
+  let s="";
+  if(d.real&&d.real.length)d.real.forEach(a=>{const m=atAgo(a.upd),old=m!=null&&m>90;
+    s+=`<div class="as-wx at"><div class="as-wxh"><span>D-ATIS${AT_TYPE[a.type]?" · "+AT_TYPE[a.type]:""}</span>${a.code?`<i class="at-code">${esc(a.code)}</i>`:""}</div>
+      <p class="mono">${atText(a.text)}</p><p class="at-note${old?" old":""}">${a.time?esc(a.time)+"Z":""}${m!=null?" · "+atAgoTxt(m):""}${old?" · may be out of date":""}</p></div>`});
+  else s+=`<div class="as-wx at"><div class="as-wxh"><span>D-ATIS</span></div><p class="at-note">${d.realErr?"Couldn’t load D-ATIS right now.":"No D-ATIS for "+esc(icao)+". The FAA publishes D-ATIS for about 80 larger US airports."}</p></div>`;
+  if(d.vatsim&&d.vatsim.length)d.vatsim.forEach(a=>{const m=atAgo(a.upd);
+    s+=`<div class="as-wx at vat"><div class="as-wxh"><span>VATSIM · ${esc(a.cs)} ${esc(a.f||"")}</span>${a.code?`<i class="at-code">${esc(a.code)}</i>`:""}</div>
+      <p class="mono">${atText(a.text)||"No text"}</p>${m!=null?`<p class="at-note">Updated ${atAgoTxt(m)}</p>`:""}</div>`});
+  else s+=`<p class="at-none">${d.vatsimErr?"VATSIM ATIS couldn’t load right now.":"No VATSIM ATIS online for "+esc(icao)+"."}</p>`;
+  return s}
 
 /* ===== shared app building blocks ===== */
 const ICO={

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0434">
+<meta name="efb-build" content="1114.0438">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1303,11 +1303,12 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .pinbar[hidden],.cv-pins[hidden]{display:none}
 .assheet:not([hidden])~.pinbar{max-width:calc(100% - var(--mg,12px) - 392px - 200px)}
 .pin-ic{flex:none;display:grid;place-items:center;width:22px;color:var(--accent)}.pin-ic svg{width:14px;height:14px;fill:currentColor}
-.pin-tab{flex:none;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:var(--bg,transparent);overflow:hidden}
-.pin-tab button{border:0;background:transparent;color:var(--ink);font:500 12px var(--f-ui);padding:6px 10px;white-space:nowrap;cursor:pointer}
-.pin-tab button b{font:700 11px var(--f-mono);color:var(--accent);margin-right:2px}
+.pin-tab{flex:none;display:flex;align-items:stretch;border:1px solid color-mix(in srgb,var(--cc) 45%,var(--line));border-top:3px solid var(--cc);border-radius:6px;background:color-mix(in srgb,var(--cc) 14%,var(--panel));overflow:hidden}
+.pin-tab button{border:0;background:transparent;color:var(--ink);font:600 12px var(--f-ui);padding:5px 10px 6px;white-space:nowrap;cursor:pointer}
+.pin-tab button b{display:block;font:700 10px var(--f-mono);letter-spacing:.04em;color:var(--cc);margin-bottom:1px;text-align:left}
+.pin-tab button{text-align:left}
 .pin-tab .pin-x{padding:6px 8px 6px 2px;color:var(--label);font-size:15px;line-height:1}
-.pin-tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.pin-tab.on{border-color:var(--cc);border-top-width:3px;background:color-mix(in srgb,var(--cc) 34%,var(--panel));box-shadow:0 0 0 1px var(--cc) inset}
 @container screen (max-width:640px){.pinbar,.assheet:not([hidden])~.pinbar{left:8px;right:40px;max-width:none;bottom:calc(52px + env(safe-area-inset-bottom,0px))}}
 .cv-pins{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line)}
 .as-pin{flex:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--label);padding:0 12px;cursor:pointer}
@@ -3333,7 +3334,8 @@ async function pinOpen(p){let cyc=p.cycle,pdf=p.pdf;
     if(d&&d.cycle){cyc=d.cycle;const hit=(d.charts||[]).find(c=>c.pdf===p.pdf)||(d.charts||[]).find(c=>c.name===p.name);if(hit&&hit.pdf!==p.pdf){p.pdf=pdf=hit.pdf;pinSave()}if(p.cycle!==cyc){p.cycle=cyc;pinSave()}}}catch(e){}
   cvOpen({name:p.name,pdf,group:p.group},p.icao,cyc)}
 function pinTabs(active,close){return PINS.map((p,i)=>{const on=active&&active.icao===p.icao&&active.pdf===p.pdf;
-  return`<span class="pin-tab${on?" on":""}"><button type="button" data-pinopen="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)}</b> ${esc(pinShort(p.name))}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}).join("")}
+  const cat=(typeof asCatOf==="function"&&asCatOf(p.group))||"REF";
+  return`<span class="pin-tab c-${cat.toLowerCase()}${on?" on":""}"><button type="button" data-pinopen="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)} · ${cat}</b> ${esc(pinShort(p.name))}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}).join("")}
 function pinUi(){
   const wrap=document.querySelector(".mapwrap");
   if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}

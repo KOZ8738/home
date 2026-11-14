@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0418">
+<meta name="efb-build" content="1114.0428">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1036,13 +1036,12 @@ html.pwa-ios .maplayers{bottom:10px!important}
 .screen[data-app="map"] .radarbar.rb-c{padding:5px 12px 5px 5px!important;gap:8px}
 .rb-time{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;color:var(--label);font:500 10px var(--f-ui);text-align:left}
 .rb-time b{font:600 12px var(--f-mono);color:var(--ink);letter-spacing:.04em}
-/* map credits: inline on wide screens, behind an (i) button on phones */
-.mapattr-i{display:none}
+/* map credits sit behind an (i) button at every width */
+.mapattr-i{display:grid;place-items:center;position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:8px;z-index:3;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--label);font:italic 600 13px/1 Georgia,"Times New Roman",serif;box-shadow:0 6px 18px -10px var(--shadow);cursor:pointer}
+.mapattr-i[aria-expanded="true"]{background:var(--brand);color:#fff;border-color:transparent}
+.mapattr{display:none}
+.mapwrap.attr-open .mapattr{display:block;right:max(8px,env(safe-area-inset-right,0px));bottom:40px;max-width:calc(100% - 16px);font-size:11px;line-height:1.45;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);z-index:3}
 @container screen (max-width:640px){
-  .mapattr-i{display:grid;place-items:center;position:absolute;right:max(8px,env(safe-area-inset-right,0px));bottom:8px;z-index:3;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--label);font:italic 600 13px/1 Georgia,"Times New Roman",serif;box-shadow:0 6px 18px -10px var(--shadow);cursor:pointer}
-  .mapattr-i[aria-expanded="true"]{background:var(--brand);color:#fff;border-color:transparent}
-  .mapattr{display:none}
-  .mapwrap.attr-open .mapattr{display:block;right:max(8px,env(safe-area-inset-right,0px));bottom:40px;max-width:calc(100% - 16px);font-size:11px;line-height:1.45;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);z-index:3}
   .screen[data-app="map"] .radarbar{bottom:8px!important}
   .screen[data-app="map"] .radarbar:not([hidden])~.mapnote{bottom:60px!important}
 }

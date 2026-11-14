@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0446">
+<meta name="efb-build" content="1114.0453">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3373,6 +3373,41 @@ document.addEventListener("click",e=>{
 
 {const _oc=ovClose;ovClose=function(){const v=_oc.apply(this,arguments);pinUi();return v}}
 {const _ou=ovUi;ovUi=function(){const v=_ou.apply(this,arguments);const b=document.querySelector("#pinBar");if(b&&PINS.length)b.querySelectorAll("[data-pinmap]").forEach(x=>{const p=PINS[+x.dataset.pinmap];x.setAttribute("aria-pressed",String(!!p&&pinOnMap(p)))});return v}}
+
+/* ---------- Overlay fit with a flight ----------
+   Laying a chart on the map frames the whole chart (turned as it lies) in the free part of the screen, and the
+   map gets there in one smooth move: out a little if it is far away, across, then in. Touching the map stops it. */
+const OVF={raf:0,stop:false};
+function ovFitTarget(){if(!OV.geo)return null;const{w,h}=mapSize();if(!w||!h)return null;
+  const asp=OV.img?OV.img.width/OV.img.height:.68,Hm=OV.geo.h,Wm=Hm*asp,r=(OV.geo.rot||0)*Math.PI/180,c=Math.abs(Math.cos(r)),s=Math.abs(Math.sin(r));
+  const bw=Wm*c+Hm*s,bh=Wm*s+Hm*c;
+  /* leave room for the chart panel at the top and the pinned tabs / radar bar at the bottom */
+  const top=Math.min(110,h*.16),bot=Math.min(70,h*.1),side=Math.min(36,w*.05),aw=Math.max(80,w-2*side),ah=Math.max(80,h-top-bot);
+  const k=Math.min(aw/bw,ah/bh),z=Math.max(2,Math.min(ZMAX,Math.log2(k*40075016.7*Math.cos(OV.geo.lat*Math.PI/180)/TS)));
+  /* centre the chart in that free box, not in the full screen */
+  const dy=(top-bot)/2,Wz=TS*Math.pow(2,z),p=mpx(OV.geo.lat,OV.geo.lon,z),cy=(p[1]-dy)/Wz,lat=Math.atan(Math.sinh(Math.PI*(1-2*cy)))*180/Math.PI;
+  return{lat,lon:OV.geo.lon,z}}
+function ovFlyStop(){OVF.stop=true}
+ovFly=function(){if(!OV.geo||!MAP.c)return;const t=ovFitTarget();if(!t)return;MAP.follow=false;cancelAnimationFrame(OVF.raf);OVF.stop=false;
+  const n=(lat,lon)=>{const s=Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180);return[(lon+180)/360,.5-Math.log((1+s)/(1-s))/(4*Math.PI)]};
+  let lon1=t.lon;while(lon1-MAP.c.lon>180)lon1-=360;while(lon1-MAP.c.lon<-180)lon1+=360;
+  const a=n(MAP.c.lat,MAP.c.lon),b=n(t.lat,lon1),z0=MAP.z,z1=t.z,{w,h}=mapSize();
+  const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /* how far apart, in screens at the lower zoom: far moves rise out first so the trip reads as a flight */
+  const zl=Math.min(z0,z1),distPx=Math.hypot(b[0]-a[0],b[1]-a[1])*TS*Math.pow(2,zl),screens=distPx/Math.max(1,Math.min(w,h));
+  const lift=screens>1.2?Math.min(6,Math.log2(screens)+.6):0;
+  const dur=reduce?1:Math.round(Math.min(1700,650+Math.abs(z1-z0)*55+lift*140));
+  const t0=performance.now(),ease=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+  const to=(lat,lon,z)=>{MAP.c={lat,lon};MAP.z=z;mapSched();ovSched()};
+  const step=now=>{if(OVF.stop||cur!=="map"){OVF.raf=0;return}const u=Math.min(1,(now-t0)/dur),e=ease(u);
+    /* zoom in log space, with an arch over the middle for long trips; position follows the zoom so it glides */
+    const z=z0+(z1-z0)*e-lift*Math.sin(Math.PI*e);
+    const x=a[0]+(b[0]-a[0])*e,y=a[1]+(b[1]-a[1])*e,lat=Math.atan(Math.sinh(Math.PI*(1-2*y)))*180/Math.PI,lon=x*360-180;
+    to(lat,lon,Math.max(1,z));
+    if(u<1)OVF.raf=requestAnimationFrame(step);else{OVF.raf=0;to(t.lat,lon1,z1);if(typeof updMapNote==="function")updMapNote()}};
+  OVF.raf=requestAnimationFrame(step)};
+/* the pilot's hand wins: a touch, a drag or the wheel on the map ends the flight where it is */
+["pointerdown","wheel"].forEach(ev=>document.addEventListener(ev,e=>{if(!OVF.raf)return;const sv=document.getElementById("mapSvg");if(sv&&sv.parentNode&&sv.parentNode.contains(e.target)&&!e.target.closest("button,.panel,#ovPanel,.pinbar"))ovFlyStop()},{passive:true,capture:true}));
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

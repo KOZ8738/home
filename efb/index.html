@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0502">
+<meta name="efb-build" content="1114.0512">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3422,13 +3422,35 @@ ovFly=function(){if(!OV.geo||!MAP.c)return;const t=ovFitTarget();if(!t)return;MA
 /* ---------- Map drag inertia ----------
    Let go of a drag while the map is moving and it keeps gliding the way you flung it, slowing like a puck on
    ice (the speed halves about every quarter second). Any new touch, a wheel turn or a chart flight stops it. */
-const INR={ids:new Set(),s:[],raf:0};
+const INR={ids:new Set(),s:[],raf:0,pos:new Map(),p:[],hold:null};
 function inrStop(){if(INR.raf){cancelAnimationFrame(INR.raf);INR.raf=0}}
 function inrSample(){if(!MAP.c)return;const p=mpx(MAP.c.lat,MAP.c.lon,MAP.z),t=performance.now();INR.s.push({x:p[0],y:p[1],z:MAP.z,t});while(INR.s.length>2&&t-INR.s[0].t>120)INR.s.shift()}
 const inrOnMap=e=>{const sv=document.getElementById("mapSvg"),w=sv&&sv.parentNode;return!!(w&&w.contains(e.target))&&!(e.target.closest&&e.target.closest("button,a,input,.panel,#ovPanel,.pinbar,.radarbar,.assheet,.mapctl,.maplayers,.mapattr"))};
-document.addEventListener("pointerdown",e=>{if(cur!=="map"||!inrOnMap(e))return;inrStop();if(typeof ovFlyStop==="function"&&OVF.raf)ovFlyStop();INR.ids.add(e.pointerId);INR.s=[];inrSample()},true);
-document.addEventListener("pointermove",e=>{if(INR.ids.has(e.pointerId))inrSample()});
-const inrEnd=e=>{if(!INR.ids.has(e.pointerId))return;INR.ids.delete(e.pointerId);if(INR.ids.size){INR.s=[];return}
+document.addEventListener("pointerdown",e=>{if(cur!=="map"||!inrOnMap(e))return;inrStop();if(typeof ovFlyStop==="function"&&OVF.raf)ovFlyStop();INR.ids.add(e.pointerId);INR.pos.set(e.pointerId,{x:e.clientX,y:e.clientY});INR.s=[];INR.p=[];INR.hold=null;inrSample()},true);
+/* while two fingers are down, remember the zoom level and the point between them, for a pinch that is let go mid-move */
+function inrPinchSample(){if(INR.pos.size<2)return;const sv=document.getElementById("mapSvg");if(!sv)return;const r=sv.getBoundingClientRect(),q=[...INR.pos.values()].slice(0,2),t=performance.now();
+  INR.p.push({z:MAP.z,x:(q[0].x+q[1].x)/2-r.left,y:(q[0].y+q[1].y)/2-r.top,t});while(INR.p.length>2&&t-INR.p[0].t>120)INR.p.shift()}
+document.addEventListener("pointermove",e=>{if(!INR.ids.has(e.pointerId))return;INR.pos.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  /* a finger left on the glass after a pinch takes over once it really moves */
+  if(INR.raf&&INR.hold&&INR.hold.id===e.pointerId&&Math.hypot(e.clientX-INR.hold.x,e.clientY-INR.hold.y)>8)inrStop();
+  if(INR.ids.size>=2)inrPinchSample();else inrSample()});
+/* zoom glide: the pinch keeps opening or closing around the same spot, slowing the same way a fling does */
+function inrPinchEnd(){const s=INR.p,now=performance.now();INR.p=[];if(s.length<3||(OV.edit&&OV.img))return;const a=s[0],b=s[s.length-1];if(now-b.t>70||b.t-a.t<12)return;
+  const dt=(b.t-a.t)/1000;let vz=(b.z-a.z)/dt,vx=(b.x-a.x)/dt,vy=(b.y-a.y)/dt;if(Math.abs(vz)<.8&&Math.hypot(vx,vy)<150)return;
+  vz=Math.max(-5,Math.min(5,vz));const sp=Math.hypot(vx,vy);if(sp>3000){vx*=3000/sp;vy*=3000/sp}
+  const tau=.26;let last=performance.now(),fx=b.x,fy=b.y;
+  const step=t=>{const d=Math.min(.05,(t-last)/1000);last=t;const f=Math.exp(-d/tau),k=tau*(1-f);
+    if(cur!=="map"||!MAP.c){INR.raf=0;return}
+    /* move with the fingers' midpoint first, then zoom about where it now is */
+    const dx=vx*k,dy=vy*k;if(dx||dy){const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),n=munpx(c[0]-dx,c[1]-dy,z);MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
+    fx+=dx;fy+=dy;const z0=MAP.z;mapZoomAt(vz*k,fx,fy);vz*=f;vx*=f;vy*=f;
+    const atEdge=MAP.z===z0&&Math.abs(vz)>0;
+    if((Math.abs(vz)>.04&&!atEdge)||Math.hypot(vx,vy)>12)INR.raf=requestAnimationFrame(step);else{INR.raf=0;if(typeof updMapNote==="function")updMapNote()}};
+  INR.raf=requestAnimationFrame(step)}
+const inrEnd=e=>{if(!INR.ids.has(e.pointerId))return;const wasPinch=INR.ids.size>=2;INR.ids.delete(e.pointerId);INR.pos.delete(e.pointerId);
+  if(wasPinch){INR.s=[];if(e.type!=="pointercancel"&&INR.ids.size<2){inrPinchEnd();const left=[...INR.pos.entries()][0];INR.hold=left?{id:left[0],x:left[1].x,y:left[1].y}:null}else INR.p=[];return}
+  if(INR.ids.size){INR.s=[];return}
+  if(INR.raf)return;
   if(e.type==="pointercancel"||(OV.edit&&OV.img)||(typeof MS!=="undefined"&&MS.on&&MS.drag))return;
   inrSample();const s=INR.s,now=performance.now();if(s.length<3)return;const a=s[0],b=s[s.length-1];
   /* a pause before lifting the finger means "put it here", not a fling */

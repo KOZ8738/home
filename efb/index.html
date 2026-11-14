@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1229">
+<meta name="efb-build" content="1114.1231">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2443,6 +2443,8 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
       VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:0,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}});
+      /* "load" waits for every first tile; slow weather tiles must not make the map look broken, so the style being ready is enough */
+      VEC.map.on("style.load",()=>{if(!VEC.ready){VEC.ready=true;if(cur==="map"){drawMap();updMapNote()}}});
       VEC.map.on("idle",()=>{if(cur!=="map"||!MAP.c||MAP.z<11||!vam.url)return;try{mapAptCandidates().forEach(c=>{if(!TX.data[c.icao]&&!TX.loading[c.icao])txLoad(c.icao)})}catch(e){}});
       VEC.map.on("styledata",()=>{if(VEC.ready&&!VEC.map.getLayer("fir-lbl")&&ML.fir&&FIR.data){VEC.firOk=false;setTimeout(()=>{vecFirSync();if(cur==="map")drawMap()},0)}});
       setTimeout(()=>{if(!VEC.ready&&!VEC.err){VEC.err="The detail map is taking long to load; showing the simple map.";if(cur==="map"){drawMap();updMapNote()}}},20000);
@@ -2925,12 +2927,15 @@ function gwxSatW(lat,lon,sub){const r=Math.PI/180,ang=x=>Math.acos(Math.max(-1,M
   const share=me<=other-3?1:me>=other+3?0:(other+3-me)/6;return share*w(sub)}
 function gwxSatProto(){const lib=window.maplibregl;if(!lib||lib._efbir)return;lib._efbir=true;
   lib.addProtocol("efbir",async(params,abort)=>{const m=params.url.match(/^efbir:\/\/([dl])\/([^/]+)\/(\d+)\/(\d+)\/(\d+)$/);if(!m)throw new Error("bad tile");const[,th,lay,z,y,x]=m,SAT=GWX_SAT.find(q=>q[1]===lay)||[0,lay,0,"gibs",178,62],sub=SAT[2],Z=+z,X=+x,Y=+y;
+    /* skip tiles this satellite plays no part in (checked on a 5 x 5 grid over the tile) */
+    {const n=Math.pow(2,Z);let any=false;for(let j=0;j<=4&&!any;j++)for(let i=0;i<=4&&!any;i++){const px=(X+i/4)/n,py=(Y+j/4)/n,lon=px*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py)))*180/Math.PI;if(gwxSatW(lat,lon,sub)>0)any=true}
+      if(!any){const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return{data:u8.buffer}}}
     const slot=Math.floor(Date.now()/600000);
     const T=40075016.686/Math.pow(2,Z),x0=-20037508.343+X*T,y1=20037508.343-Y*T;
     const url=SAT[3]==="eum"?`https://view.eumetsat.int/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=${lay}&styles=&crs=EPSG:3857&bbox=${x0},${y1-T},${x0+T},${y1}&width=256&height=256&format=image/png&transparent=true&s=${slot}`
       :`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${lay}/default/default/GoogleMapsCompatible_Level6/${z}/${y}/${x}.png?s=${slot}`;
     const r=await fetch(url,{signal:abort&&abort.signal});
-    if(!r.ok)return{data:new ArrayBuffer(0)};const bm=await createImageBitmap(await r.blob());const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+    if(!r.ok){const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return{data:u8.buffer}}const bm=await createImageBitmap(await r.blob());const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
     const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z);
     /* the satellite weight, worked out on an 8-pixel grid and spread over each block */
     const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*(W/8+1)+i]=gwxSatW(lat,lon,sub)}

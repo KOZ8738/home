@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0458">
+<meta name="efb-build" content="1114.0501">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3418,6 +3418,35 @@ ovFly=function(){if(!OV.geo||!MAP.c)return;const t=ovFitTarget();if(!t)return;MA
   OVF.raf=requestAnimationFrame(step)};
 /* the pilot's hand wins: a touch, a drag or the wheel on the map ends the flight where it is */
 ["pointerdown","wheel"].forEach(ev=>document.addEventListener(ev,e=>{if(!OVF.raf)return;const sv=document.getElementById("mapSvg");if(sv&&sv.parentNode&&sv.parentNode.contains(e.target)&&!e.target.closest("button,.panel,#ovPanel,.pinbar"))ovFlyStop()},{passive:true,capture:true}));
+
+/* ---------- Map drag inertia ----------
+   Let go of a drag while the map is moving and it keeps gliding the way you flung it, slowing like a puck on
+   ice (the speed halves about every quarter second). Any new touch, a wheel turn or a chart flight stops it. */
+const INR={ids:new Set(),s:[],raf:0};
+function inrStop(){if(INR.raf){cancelAnimationFrame(INR.raf);INR.raf=0}}
+function inrSample(){if(!MAP.c)return;const p=mpx(MAP.c.lat,MAP.c.lon,MAP.z),t=performance.now();INR.s.push({x:p[0],y:p[1],z:MAP.z,t});while(INR.s.length>2&&t-INR.s[0].t>120)INR.s.shift()}
+const inrOnMap=e=>{const sv=document.getElementById("mapSvg"),w=sv&&sv.parentNode;return!!(w&&w.contains(e.target))&&!(e.target.closest&&e.target.closest("button,a,input,.panel,#ovPanel,.pinbar,.radarbar,.assheet,.mapctl,.maplayers,.mapattr"))};
+document.addEventListener("pointerdown",e=>{if(cur!=="map"||!inrOnMap(e))return;inrStop();if(typeof ovFlyStop==="function"&&OVF.raf)ovFlyStop();INR.ids.add(e.pointerId);INR.s=[];inrSample()},true);
+document.addEventListener("pointermove",e=>{if(INR.ids.has(e.pointerId))inrSample()});
+const inrEnd=e=>{if(!INR.ids.has(e.pointerId))return;INR.ids.delete(e.pointerId);if(INR.ids.size){INR.s=[];return}
+  if(e.type==="pointercancel"||(OV.edit&&OV.img)||(typeof MS!=="undefined"&&MS.on&&MS.drag))return;
+  inrSample();const s=INR.s,now=performance.now();if(s.length<3)return;const a=s[0],b=s[s.length-1];
+  /* a pause before lifting the finger means "put it here", not a fling */
+  if(now-b.t>60||b.t-a.t<12||s.some(q=>Math.abs(q.z-b.z)>1e-6))return;
+  const ln=s[s.length-2];if(now-ln.t>70)return;
+  let vx=(b.x-a.x)/(b.t-a.t)*1000,vy=(b.y-a.y)/(b.t-a.t)*1000;const sp=Math.hypot(vx,vy);if(sp<120)return;
+  const cap=4200;if(sp>cap){vx*=cap/sp;vy*=cap/sp}
+  const z=MAP.z,tau=.36;let last=performance.now(),x=b.x,y=b.y;
+  const step=t=>{const dt=Math.min(.05,(t-last)/1000);last=t;const f=Math.exp(-dt/tau);
+    /* integrate the decaying speed exactly over the frame so a slow frame doesn't jump */
+    x+=vx*tau*(1-f);y+=vy*tau*(1-f);vx*=f;vy*=f;
+    if(cur!=="map"||MAP.z!==z){INR.raf=0;return}
+    const n=munpx(x,y,z);MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]};mapSched();
+    if(Math.hypot(vx,vy)>12)INR.raf=requestAnimationFrame(step);else{INR.raf=0;if(typeof updMapNote==="function")updMapNote()}};
+  INR.raf=requestAnimationFrame(step)};
+document.addEventListener("pointerup",inrEnd);document.addEventListener("pointercancel",inrEnd);
+document.addEventListener("wheel",e=>{if(INR.raf&&inrOnMap(e))inrStop()},{passive:true,capture:true});
+{const _f=ovFly;ovFly=function(){inrStop();return _f.apply(this,arguments)}}
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0428">
+<meta name="efb-build" content="1114.0432">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1297,6 +1297,22 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .cv-rot{position:absolute;right:14px;bottom:14px;z-index:2;min-width:48px;height:48px;padding:0 10px;border-radius:24px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:700 13px var(--f-mono);box-shadow:0 8px 24px -10px rgba(0,0,0,.5);cursor:pointer}
 .cv-rot[hidden]{display:none}
 .cv-rot::before{content:"↑";display:inline-block;margin-right:4px;transform:rotate(var(--r,0deg));color:var(--accent)}
+/* pinned charts: tabs along the bottom of the map and of the chart viewer */
+.pinbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:3;display:flex;align-items:center;gap:4px;max-width:calc(100% - 360px);overflow-x:auto;scrollbar-width:none;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow)}
+.pinbar::-webkit-scrollbar,.cv-pins::-webkit-scrollbar{display:none}
+.pinbar[hidden],.cv-pins[hidden]{display:none}
+.pin-ic{flex:none;display:grid;place-items:center;width:22px;color:var(--accent)}.pin-ic svg{width:14px;height:14px;fill:currentColor}
+.pin-tab{flex:none;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:var(--bg,transparent);overflow:hidden}
+.pin-tab button{border:0;background:transparent;color:var(--ink);font:500 12px var(--f-ui);padding:6px 10px;white-space:nowrap;cursor:pointer}
+.pin-tab button b{font:700 11px var(--f-mono);color:var(--accent);margin-right:2px}
+.pin-tab .pin-x{padding:6px 8px 6px 2px;color:var(--label);font-size:15px;line-height:1}
+.pin-tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+@container screen (max-width:640px){.pinbar{left:8px;right:40px;transform:none;max-width:none;bottom:calc(52px + env(safe-area-inset-bottom,0px))}}
+.cv-pins{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.as-pin{flex:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--label);padding:0 12px;cursor:pointer}
+.as-pin svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
+.as-pin[aria-pressed="true"]{color:var(--accent)}.as-pin[aria-pressed="true"] svg{fill:currentColor}
+.cv-btns [data-cv="pin"][aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -3297,6 +3313,48 @@ window.addEventListener("resize",()=>{if(CV.open&&CV.pg)cvPage(CV.page)});
 {const _ac=asCharts;asCharts=function(icao){return _ac(icao).replace(/<button class="as-ch" data-aspdf="([^"]*)" data-asname="([^"]*)" data-asgroup="([^"]*)"([^>]*)>([\s\S]*?)<\/button>/g,(m,pdf,name,group,rest,inner)=>`<div class="as-chrow">${m}<button class="as-chv" data-asview="${pdf}" data-asname="${name}" data-asgroup="${group}" aria-label="View ${name} full screen">View</button></div>`)}}
 document.addEventListener("click",e=>{const v=e.target.closest("[data-asview]");if(!v)return;const icao=AS.icao,d=CH.data[icao];if(!d)return;cvOpen({name:v.dataset.asname,pdf:v.dataset.asview,group:v.dataset.asgroup},icao,d.cycle)});
 document.addEventListener("click",e=>{if(!e.target.closest('[data-ov="full"]')||!OV.sel)return;const s=OV.sel;cvOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle)});
+
+/* ---------- Pinned charts ----------
+   Pin a chart from the airport sheet or the chart viewer; pinned charts sit as tabs along the bottom of the map
+   and of the viewer, so the next one is a tap away. Stored on this device; a pin made in an older AIRAC cycle
+   is matched by name to the current chart list when it opens. */
+let PINS=(()=>{const v=store.get("chPins",[]);return Array.isArray(v)?v.filter(p=>p&&p.icao&&p.pdf):[]})();
+const pinKey=(icao,pdf)=>icao+"|"+pdf;
+const pinHas=(icao,pdf)=>PINS.some(p=>p.icao===icao&&p.pdf===pdf);
+const pinShort=n=>String(n||"").replace(/^(ILS OR LOC|ILS|RNAV \(GPS\)|RNAV \(RNP\)|LOC|VOR|GLS)\s+RWY\s+/i,(m,a)=>a.replace(/ \(.*\)/,"")+" ").replace(/\s+\(.*?\)\s*$/,"").replace(/AIRPORT DIAGRAM/i,"Diagram").slice(0,26);
+const PIN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg>';
+function pinSave(){store.set("chPins",PINS.map(({icao,name,pdf,group,cycle})=>({icao,name,pdf,group,cycle})))}
+function pinToggle(c){const i=PINS.findIndex(p=>p.icao===c.icao&&p.pdf===c.pdf);if(i>=0)PINS.splice(i,1);else{PINS.push({icao:c.icao,name:c.name,pdf:c.pdf,group:c.group||"",cycle:c.cycle||""});if(PINS.length>24)PINS.shift()}
+  pinSave();pinUi();
+  document.querySelectorAll("[data-pin]").forEach(b=>{const on=pinHas(b.dataset.pinicao,b.dataset.pin);b.setAttribute("aria-pressed",String(on));b.setAttribute("aria-label",(on?"Unpin ":"Pin ")+(b.dataset.pinname||"chart"))})}
+async function pinOpen(p){let cyc=p.cycle,pdf=p.pdf;
+  try{let d=CH.data[p.icao];if(!d){d=await vamGet("/api/efb/charts?icao="+encodeURIComponent(p.icao));CH.data[p.icao]=d}
+    if(d&&d.cycle){cyc=d.cycle;const hit=(d.charts||[]).find(c=>c.pdf===p.pdf)||(d.charts||[]).find(c=>c.name===p.name);if(hit&&hit.pdf!==p.pdf){p.pdf=pdf=hit.pdf;pinSave()}if(p.cycle!==cyc){p.cycle=cyc;pinSave()}}}catch(e){}
+  cvOpen({name:p.name,pdf,group:p.group},p.icao,cyc)}
+function pinTabs(active,close){return PINS.map((p,i)=>{const on=active&&active.icao===p.icao&&active.pdf===p.pdf;
+  return`<span class="pin-tab${on?" on":""}"><button type="button" data-pinopen="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)}</b> ${esc(pinShort(p.name))}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}).join("")}
+function pinUi(){
+  const wrap=document.querySelector(".mapwrap");
+  if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}
+    bar.hidden=!PINS.length;bar.innerHTML=PINS.length?`<span class="pin-ic">${PIN_SVG}</span>${pinTabs(null,false)}`:""}
+  const cv=document.getElementById("cvWrap");
+  if(cv){let bar=cv.querySelector("#cvPins");if(!bar){bar=document.createElement("div");bar.id="cvPins";bar.className="cv-pins";cv.appendChild(bar)}
+    bar.hidden=!PINS.length;bar.innerHTML=PINS.length?pinTabs(CV.sel,true):"";
+    const b=cv.querySelector('[data-cv="pin"]');if(b&&CV.sel){const on=pinHas(CV.sel.icao,CV.sel.pdf);b.setAttribute("aria-pressed",String(on));b.textContent=on?"Pinned":"Pin"}
+    const t=bar.querySelector(".pin-tab.on");if(t&&t.scrollIntoView)try{t.scrollIntoView({block:"nearest",inline:"nearest"})}catch(e){}}}
+/* a Pin button in the viewer's top bar, next to the others */
+{const _el=cvEl;cvEl=function(){const had=!!document.getElementById("cvWrap"),el=_el();if(!had){const n=el.querySelector('[data-cv="map"]');if(n)n.insertAdjacentHTML("beforebegin",'<button class="btn sm" data-cv="pin" aria-pressed="false">Pin</button>')}return el}}
+{const _u=cvUi;cvUi=function(){_u();pinUi()}}
+/* a pin toggle beside "View" on each chart row of the airport sheet */
+{const _ac=asCharts;asCharts=function(icao){return _ac(icao).replace(/<button class="as-chv" data-asview="([^"]*)" data-asname="([^"]*)" data-asgroup="([^"]*)"/g,(m,pdf,name)=>{const on=pinHas(icao,pdf);
+  return`<button class="as-pin" type="button" data-pin="${pdf}" data-pinicao="${icao}" data-pinname="${name}" aria-pressed="${on}" aria-label="${on?"Unpin":"Pin"} ${name}">${PIN_SVG}</button>`+m})}}
+{const _rd=render;render=function(){const v=_rd.apply(this,arguments);pinUi();return v}}
+document.addEventListener("click",e=>{
+  const pb=e.target.closest("[data-pin]");if(pb){e.stopPropagation();const icao=pb.dataset.pinicao,d=CH.data[icao];const c=d&&(d.charts||[]).find(x=>x.pdf===pb.dataset.pin);
+    pinToggle({icao,pdf:pb.dataset.pin,name:c?c.name:pb.dataset.pinname,group:c?(c.group||""):"",cycle:d?d.cycle:""});return}
+  if(e.target.closest('[data-cv="pin"]')&&CV.sel){pinToggle(CV.sel);return}
+  const x=e.target.closest("[data-pinx]");if(x){const p=PINS[+x.dataset.pinx];if(p)pinToggle(p);return}
+  const o=e.target.closest("[data-pinopen]");if(o){const p=PINS[+o.dataset.pinopen];if(p)pinOpen(p)}},true);
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

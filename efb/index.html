@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1434">
+<meta name="efb-build" content="1114.1437">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1397,6 +1397,7 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .od-hlchip{display:inline-block;width:12px;height:10px;background:#FFD21F;opacity:.75;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .od-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
 .od-hint{font:500 11px var(--f-ui);color:var(--label);margin-left:auto}
+.od.inking .od-ink,.od.inking .od-paper{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4785,7 +4786,8 @@ function odDrawEnd(ev){if(odTP.has(ev.pointerId)){odTP.delete(ev.pointerId);if(o
 document.addEventListener("pointerup",odDrawEnd);document.addEventListener("pointercancel",odDrawEnd);
 /* iPad: keep the Apple Pencil from scrolling the page while it writes */
 document.addEventListener("touchstart",e=>{if(OD.pen&&OD.pencil&&e.target.closest&&e.target.closest("#odInk")&&[...e.touches].some(t=>t.touchType==="stylus"))e.preventDefault()},{passive:false});
-document.addEventListener("touchmove",e=>{if(odDraw&&[...e.touches].some(t=>t.touchType==="stylus"))e.preventDefault()},{passive:false});
+/* while the pencil is writing, a resting palm or finger must not scroll the page under it */
+document.addEventListener("touchmove",e=>{if(odDraw&&OD.pencil)e.preventDefault()},{passive:false});
 /* toolbar */
 document.addEventListener("click",e=>{const pb=e.target.closest('[data-od="pen"]');
   if(pb){OD.pen=!OD.pen;const root=document.getElementById("odRoot");if(root)root.classList.toggle("inking",OD.pen);pb.setAttribute("aria-pressed",String(OD.pen));

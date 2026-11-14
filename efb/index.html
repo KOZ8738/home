@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0408">
+<meta name="efb-build" content="1114.0418">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2000,7 +2000,7 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
     const off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
     let a=G.parts[0],b=G.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
     const lenM=best*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180);if(a)ends.push({p:A,ll:A.ll,ux,uy,name:a,w:G.w,len:lenM});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:b,w:G.w,len:lenM})});
-  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),holes:(d.apronHoles||[]).map(L),bldg:d.buildings.map(b=>({l:L(b.pts),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
+  return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),holes:(d.apronHoles||[]).map(L),bldg:d.buildings.map(b=>({l:L(b.pts),h:(b.holes||[]).map(L),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
     rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,stops:lines.filter(r=>r.stopway&&r.pts.length>1).map(r=>{let a=pt(r.pts[0]),b=pt(r.pts[r.pts.length-1]);const dn=p=>ends.reduce((m,e)=>Math.min(m,Math.hypot(e.p[0]-p[0],e.p[1]-p[1])),9);if(dn(b)<dn(a)){const t=a;a=b;b=t}const L0=Math.hypot(b[0]-a[0],b[1]-a[1]);return{t:a,f:b,len:L0*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180),vx:(b[0]-a[0])/(L0||1),vy:(b[1]-a[1])/(L0||1),w:r.width||45}}),
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
     holds:d.holds.map(o=>o.pts?{l:L(o.pts)}:{p:pt(o.pt)}),stands:txStands(d,L,pt)}}
@@ -2047,7 +2047,10 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
       g.save();g.translate(x,y);g.rotate(Math.atan2(s.vx,-s.vy));g.strokeStyle=C.mark;g.globalAlpha=.7;g.lineWidth=Math.max(1.4,2.2*k);g.lineJoin="miter";g.beginPath();
       const step=Math.max(25,s.w*.7);for(let dd=step*.6;dd<s.len-4;dd+=step){const a=-dd*k;g.moveTo(-W*.44,a-W*.42);g.lineTo(0,a);g.lineTo(W*.44,a-W*.42)}g.stroke();g.globalAlpha=1;g.restore()});
     /* buildings above the pavement */
-    fillAll(m.bldg.filter(b=>b.kind!=="terminal"&&b.kind!=="cargo").map(b=>b.l),C.bldg);fillAll(m.bldg.filter(b=>b.kind==="cargo").map(b=>b.l),C.cargo||C.term);fillAll(m.bldg.filter(b=>b.kind==="terminal").map(b=>b.l),C.term);
+    /* a building with courtyards (a terminal ring around its garage) is filled on its own, even-odd, so the courtyards stay open */
+    const bcol=b=>b.kind==="terminal"?C.term:b.kind==="cargo"?(C.cargo||C.term):C.bldg;
+    fillAll(m.bldg.filter(b=>!b.h.length&&b.kind!=="terminal"&&b.kind!=="cargo").map(b=>b.l),C.bldg);fillAll(m.bldg.filter(b=>!b.h.length&&b.kind==="cargo").map(b=>b.l),C.cargo||C.term);fillAll(m.bldg.filter(b=>!b.h.length&&b.kind==="terminal").map(b=>b.l),C.term);
+    m.bldg.forEach(b=>{if(!b.h.length||!vis(b.l))return;g.fillStyle=bcol(b);g.beginPath();trace(b.l);g.closePath();b.h.forEach(q=>{trace(q);g.closePath()});g.fill("evenodd")});
     if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
     /* stands: a dot first, a small boxed label once there is room */
     const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};

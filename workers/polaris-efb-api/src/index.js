@@ -711,10 +711,10 @@ async function fcRoute(url, ctx, h) {
 /* Vector IFR enroute data (FAA AIS open data, public domain;: ATS routes, designated points, NAVAIDs) for one cell.
    lv=L: 4-degree cells, low-altitude chart items; lv=H: 8-degree cells, high-altitude chart items. Cached 7 days at the edge. */
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
-async function aisQuery(svc, where, fields, env4, maxPages) {
+async function aisQuery(svc, where, fields, env4, maxPages, extra) {
   const out = [];
   for (let page = 0; page < (maxPages || 4); page++) {
-    const q = new URLSearchParams({ where, outFields: fields, geometry: env4.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326', geometryPrecision: '5', resultOffset: String(page * 2000), resultRecordCount: '2000', f: 'geojson' });
+    const q = new URLSearchParams({ where, outFields: fields, geometry: env4.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326', geometryPrecision: '5', resultOffset: String(page * 2000), resultRecordCount: '2000', f: 'geojson', ...(extra || {}) });
     /* the FAA service rate-limits bursts: back off and try again a few times */
     let j = null;
     for (let tr = 0; tr < 4; tr++) {
@@ -754,6 +754,80 @@ async function ifrRoute(url, ctx, h) {
     const fixes = pt.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', +c[0].toFixed(5), +c[1].toFixed(5), p.REPATC === 'C' ? 1 : 0]; });
     const navs = nv.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates; return [p.OBJECTID, p.IDENT || '', p.NAME_TXT || '', p.CLASS_TXT || '', +c[0].toFixed(5), +c[1].toFixed(5), (fq[p.GLOBAL_ID] && fq[p.GLOBAL_ID].f) || '']; });
     r = new Response(JSON.stringify({ lv, cell: [la, lo], routes, fixes, navs }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
+  return new Response(r.body, { status: 200, headers: hd });
+}
+
+/* Vector VFR sectional data (FAA AIS open data, US only) for one 4-degree cell: class B/C/D/E airspace, special use
+   airspace, airports with their runways, VFR waypoints and obstacles 200 ft AGL and taller. Airspace comes generalised
+   to about 40 m, which is far finer than a sectional draws it. Cached 7 days at the edge. */
+function vfrPolys(g, q) {
+  if (!g) return [];
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+  const area = (r) => { let s = 0; for (let i = 0; i < r.length - 1; i++) s += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return s / 2; };
+  const k = Math.pow(10, q);
+  /* exterior rings counter-clockwise, holes clockwise: then the inside of the airspace is always on the left of a
+     boundary line, which the app uses to put the shaded band of class E on the inside */
+  return polys.map((rings) => rings.map((r, i) => { let rr = r.map((p) => [Math.round(p[0] * k) / k, Math.round(p[1] * k) / k]); const a = area(rr); if ((i === 0 && a < 0) || (i > 0 && a > 0)) rr = rr.reverse(); return rr; }));
+}
+/* a point well inside a polygon for its label: a coarse search for the spot farthest from every edge, refined twice */
+function vfrLabelPt(polys) {
+  if (!polys.length) return null;
+  const areaOf = (r) => { let s = 0; for (let i = 0; i < r.length - 1; i++) s += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return Math.abs(s / 2); };
+  const P = polys.slice().sort((a, b) => areaOf(b[0]) - areaOf(a[0]))[0]; if (!P || !P[0] || P[0].length < 4) return null;
+  const c = Math.cos(P[0][0][1] * Math.PI / 180);
+  const inside = (x, y) => { let n = false; for (const r of P) for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) n = !n; } return n; };
+  const dist = (x, y) => { let m = 1e9; for (const r of P) for (let i = 1; i < r.length; i++) { const a = r[i - 1], b = r[i], vx = (b[0] - a[0]) * c, vy = b[1] - a[1], L = vx * vx + vy * vy; let t = L ? (((x - a[0]) * c) * vx + (y - a[1]) * vy) / L : 0; t = t < 0 ? 0 : t > 1 ? 1 : t; const dx = (a[0] - x) * c + t * vx, dy = a[1] - y + t * vy, d = dx * dx + dy * dy; if (d < m) m = d; } return Math.sqrt(m); };
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; P[0].forEach((p) => { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; });
+  let best = null, bd = -1, sx = (x1 - x0), sy = (y1 - y0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  for (let it = 0; it < 3; it++) {
+    const n = it ? 7 : 14;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) { const x = cx - sx / 2 + sx * i / n, y = cy - sy / 2 + sy * j / n; if (!inside(x, y)) continue; const d = dist(x, y); if (d > bd) { bd = d; best = [x, y]; } }
+    if (!best) return null; cx = best[0]; cy = best[1]; sx /= 4; sy /= 4;
+  }
+  return [Math.round(best[0] * 1e4) / 1e4, Math.round(best[1] * 1e4) / 1e4];
+}
+async function vfrRoute(url, ctx, h) {
+  const sz = 4, m = String(url.searchParams.get('cell') || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
+  const la = +m[1], lo = +m[2]; if (la % sz || lo % sz || la < -90 || la >= 90 || lo < -180 || lo >= 180) throw new HttpError(400, 'cell must be on the 4 degree grid');
+  const cache = caches.default, ck = new Request('https://vfr-cache.local/v1/' + la + '/' + lo);
+  let r = await cache.match(ck);
+  if (!r) {
+    const env4 = [lo, la, lo + sz, la + sz], gen = { maxAllowableOffset: '0.0004', geometryPrecision: '4' };
+    const fv = (v) => (v == null || +v <= -9000 || +v >= 99999 ? null : +v);
+    /* one query at a time: the FAA service throttles parallel bursts */
+    const asF = await aisQuery('Class_Airspace', "CLASS IN ('B','C','D') OR LOCAL_TYPE IN ('CLASS_E2','CLASS_E3','CLASS_E4','MODE C') OR (LOCAL_TYPE IN ('CLASS_E5','CLASS_E6') AND LOWER_CODE='SFC' AND LOWER_VAL IN (700,1200))",
+      'OBJECTID,IDENT,NAME,CLASS,LOCAL_TYPE,LOWER_VAL,LOWER_CODE,UPPER_VAL,UPPER_CODE', env4, 4, gen);
+    const suF = await aisQuery('Special_Use_Airspace', '1=1', 'OBJECTID,NAME,TYPE_CODE,LOWER_VAL,LOWER_CODE,UPPER_VAL,UPPER_CODE', env4, 2, gen);
+    const apF = await aisQuery('US_Airport', "OPERSTATUS='OPERATIONAL' AND TYPE_CODE IN ('AD','SP')", 'GLOBAL_ID,IDENT,ICAO_ID,NAME,ELEVATION,TYPE_CODE,PRIVATEUSE,MIL_CODE', env4, 3, { geometryPrecision: '5' });
+    const rwF = await aisQuery('Runways', '1=1', 'AIRPORT_ID,DESIGNATOR,LENGTH,WIDTH,COMP_CODE,LIGHTACTV,LIGHTINTNS', env4, 4, { maxAllowableOffset: '0.00002', geometryPrecision: '5' });
+    let vpF = [], obF = [];
+    try { vpF = await aisQuery('DesignatedPoints', "IDENT LIKE 'VP%'", 'IDENT', env4, 1, { geometryPrecision: '5' }); } catch (e) {}
+    try { obF = await aisQuery('Digital_Obstacle_File', 'AGL>=200', 'AGL,AMSL,Lighting', env4, 4, { geometryPrecision: '4' }); } catch (e) {}
+    const lt = (p) => { const L = String(p.LOCAL_TYPE || ''); return L === 'MODE C' ? 'MC' : /^CLASS_E(\d)/.test(L) ? 'E' + L.slice(7) : String(p.CLASS || L.slice(6) || '?'); };
+    const twr = new Set();
+    const as = asF.filter((f) => f.geometry).map((f) => { const p = f.properties || {}, k = lt(p), polys = vfrPolys(f.geometry, 4); if (/^[BCD]$/.test(k) && p.IDENT) twr.add(p.IDENT);
+      return [p.OBJECTID, k, fv(p.LOWER_VAL), p.LOWER_CODE || '', fv(p.UPPER_VAL), p.UPPER_CODE || '', p.NAME || '', p.IDENT || '', /^[BCD]$/.test(k) ? vfrLabelPt(polys) : null, polys]; });
+    const sua = suF.filter((f) => f.geometry).map((f) => { const p = f.properties || {}, polys = vfrPolys(f.geometry, 4);
+      return [p.OBJECTID, p.TYPE_CODE || '', p.NAME || '', fv(p.LOWER_VAL), p.LOWER_CODE || '', fv(p.UPPER_VAL), p.UPPER_CODE || '', vfrLabelPt(polys), polys]; });
+    /* runways, grouped by airport: longest length, hard surface, lighting and the heading of the longest one */
+    const byApt = {}, rwys = [];
+    const brg = (a, b) => { const r = Math.PI / 180, y = Math.sin((b[0] - a[0]) * r) * Math.cos(b[1] * r), x = Math.cos(a[1] * r) * Math.sin(b[1] * r) - Math.sin(a[1] * r) * Math.cos(b[1] * r) * Math.cos((b[0] - a[0]) * r); return (Math.atan2(y, x) / r + 360) % 180; };
+    rwF.forEach((f) => { const p = f.properties || {}; if (!p.AIRPORT_ID || /^H/i.test(p.DESIGNATOR || '')) return; const comp = String(p.COMP_CODE || '').toUpperCase(); if (/WATER/.test(comp)) return;
+      const polys = vfrPolys(f.geometry, 5), ring = polys[0] && polys[0][0]; const len = +p.LENGTH || 0;
+      const A = byApt[p.AIRPORT_ID] || (byApt[p.AIRPORT_ID] = { len: 0, hard: 0, lit: 0, brg: null, rw: [] });
+      const hard = /ASPH|CONC|PEM|BIT|BRICK|TRTD/.test(comp) ? 1 : 0, lit = p.LIGHTINTNS && !/NONE/i.test(p.LIGHTINTNS) ? 1 : 0;
+      if (lit) A.lit = 1; if (hard && len >= 1500) A.hard = 1;
+      if (ring && len > A.len) { let a = ring[0], b = ring[1], best = -1; for (let i = 0; i < ring.length; i++) for (let j = i + 1; j < ring.length; j++) { const d = (ring[i][0] - ring[j][0]) ** 2 + (ring[i][1] - ring[j][1]) ** 2; if (d > best) { best = d; a = ring[i]; b = ring[j]; } } A.brg = Math.round(brg(a, b)); }
+      if (len > A.len) A.len = len; if (ring) A.rw.push(ring); });
+    const apts = apF.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}, c = f.geometry.coordinates, A = byApt[p.GLOBAL_ID] || { len: 0, hard: 0, lit: 0, brg: null, rw: [] };
+      const id = p.IDENT || ''; A.rw.forEach((rg) => rwys.push([id, rg]));
+      return [id, p.ICAO_ID || '', p.NAME || '', +c[0].toFixed(5), +c[1].toFixed(5), p.ELEVATION != null ? Math.round(+p.ELEVATION) : null, p.TYPE_CODE || 'AD', +p.PRIVATEUSE ? 1 : 0, /MIL/.test(p.MIL_CODE || '') ? 1 : 0, twr.has(id) ? 1 : 0, A.len, A.hard, A.lit, A.brg]; });
+    const vps = vpF.filter((f) => f.geometry && f.geometry.coordinates).map((f) => [(f.properties || {}).IDENT || '', +f.geometry.coordinates[0].toFixed(5), +f.geometry.coordinates[1].toFixed(5)]);
+    const obs = obF.filter((f) => f.geometry && f.geometry.coordinates).map((f) => { const p = f.properties || {}; return [+f.geometry.coordinates[0].toFixed(4), +f.geometry.coordinates[1].toFixed(4), Math.round(+p.AGL || 0), Math.round(+p.AMSL || 0), /^[NU]?$/.test(String(p.Lighting || '').trim()) ? 0 : 1]; });
+    r = new Response(JSON.stringify({ cell: [la, lo], as, sua, apts, rwys, vps, obs }), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=604800' } });
     if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r.clone())); else await cache.put(ck, r.clone());
   }
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
@@ -919,6 +993,7 @@ export default {
         case '/api/efb/apts': return await aptsRoute(url, env, ctx, h);
         case '/api/efb/awy': return await awyRoute(url, ctx, h);
         case '/api/efb/ifr': return await ifrRoute(url, ctx, h);
+        case '/api/efb/vfr': return await vfrRoute(url, ctx, h);
         case '/api/efb/fc': return await fcRoute(url, ctx, h);
         case '/api/efb/tz': return await tzRoute(url, ctx, h);
         case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);

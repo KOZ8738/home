@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1440">
+<meta name="efb-build" content="1114.1500">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1400,6 +1400,13 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .od.inking .od-ink,.od.inking .od-paper{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .od-seg{display:inline-flex}.od-seg .btn{border-radius:0}.od-seg .btn:first-child{border-radius:6px 0 0 6px}.od-seg .btn:last-child{border-radius:0 6px 6px 0;margin-left:-1px}
 .od-fl{font:600 11px var(--f-ui);color:var(--label);letter-spacing:.04em;text-transform:uppercase}
+/* briefing summary */
+.bs-banners{display:grid;gap:8px;margin-bottom:14px}.bs-banners:empty{display:none}
+.bs-ban{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;font:500 13.5px var(--f-ui)}
+.bs-ban.info{background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+.bs-ban.warn{background:#8A4A12;color:#fff}
+.bs-warn{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#E8730C;color:#fff;font:700 11px var(--f-ui);vertical-align:1px}
+.bs-u{font:500 11px var(--f-ui);color:var(--label);margin-left:6px}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4812,6 +4819,37 @@ document.addEventListener("click",e=>{const pb=e.target.closest('[data-od="pen"]
     if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Tap again to clear";setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Clear all"}},3000);return}
     OD.undo.push({a:"clear",list:list.slice()});odInkSave([]);odInkRedraw();odInkBarRedraw();return}
   odInkBarRedraw()});
+
+/* ===== Briefing summary in Flight Plan → Overview =====
+   The plan at a glance, laid out like the SimBrief briefing: flight info, the plan summary and the load sheet, with a
+   banner for whatever limits the payload (the estimated weight that reaches its maximum). */
+function bsSigned(v,w){if(v==null||v===""||isNaN(+v))return"—";v=Math.round(+v);return(v<0?"M":"P")+String(Math.abs(v)).padStart(w||2,"0")}
+function bsDate(sec){if(!sec)return"—";const d=new Date(sec*1000);return String(d.getUTCDate()).padStart(2,"0")+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()]+" "+String(d.getUTCFullYear()).slice(2)}
+function briefSummary(){const x=O(),g=x.g,p=ofp.params||{},tm=ofp.times||{},wt=ofp.weights||{},f=ofp.fuel||{},atc=ofp.atc||{},u=x.unit.toLowerCase();
+  const st=(k,v,warn)=>`<div><dt>${k}</dt><dd>${v}${warn?' <span class="bs-warn" title="At its limit">!</span>':""}</dd></div>`;
+  const ap=a=>esc(S(a.icao_code)||"—")+(S(a.iata_code)?" <small>/ "+esc(S(a.iata_code))+"</small>":"");
+  const kg=v=>N(v)?fmt(N(v))+" <small>"+u+"</small>":"—";
+  const gen=N(p.time_generated);let genS="";if(gen){const d=new Date(gen*1000);genS=d.getUTCDate().toString().padStart(2,"0")+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()]+" "+d.getUTCFullYear()+" at "+utcHM(gen)}
+  /* what is at its maximum: landing, takeoff or zero fuel weight */
+  const lim=[["MLW",wt.est_ldw,wt.max_ldw],["MTOW",wt.est_tow,wt.max_tow],["MZFW",wt.est_zfw,wt.max_zfw]].filter(r=>N(r[2])&&N(r[1])>=N(r[2])-1).map(r=>r[0]);
+  const bag=N(wt.bag_weight)||(N(wt.bag_count)&&N(wt.bag_weight_ea)?N(wt.bag_count)*N(wt.bag_weight_ea):0);
+  const wind=S(g.avg_wind_dir)!==""?String(Math.round(N(g.avg_wind_dir))).padStart(3,"0")+" / "+Math.round(N(g.avg_wind_spd)):"—";
+  const etops=S(g.is_etops);
+  return `<div class="bs-banners">${genS?`<div class="bs-ban info">${ICO_I}This briefing was generated on ${genS}.</div>`:""}${lim.length?`<div class="bs-ban warn">${ICO_I}Payload/cargo limited by ${lim.join(" and ")}</div>`:""}</div>
+  <section class="card">${cardH("Briefing","Flight info")}<dl class="stats">
+    ${st("Flight number",esc(x.flight))}${st("Callsign",esc(S(atc.callsign)||x.flight))}${st("Departure",ap(x.o))}${st("Arrival",ap(x.d))}${st("Alternate",ap(x.a))}${st("Aircraft",esc(S(x.ac.name)||S(x.ac.icaocode)||"—"))}
+    ${st("Departure date",bsDate(N(tm.sched_out)))}${st("Departure time",utcHM(N(tm.sched_out)))}${st("Arrival time",utcHM(N(tm.sched_in)))}${st("Air time",hhmm(N(tm.est_time_enroute)))}${st("Block time",hhmm(N(tm.sched_block)||N(tm.est_block)))}${st("Airframe",esc(S(x.ac.reg)||"—"))}</dl></section>
+  <section class="card">${cardH("Briefing","Flight plan summary")}<dl class="stats">
+    ${st("Initial altitude",N(g.initial_altitude)?fmt(N(g.initial_altitude))+" <small>ft</small>":"—")}${st("Cruise profile",esc(S(g.cruise_profile)||(S(g.costindex)?"CI "+S(g.costindex):"—")))}${st("Route distance",fmt(N(g.route_distance)||N(g.air_distance))+" <small>nm</small>")}${st("Average wind",wind)}${st("Wind component",bsSigned(g.avg_wind_comp,3))}${st("ISA deviation",bsSigned(g.avg_temp_dev))}
+    ${st("Release number",esc(S(g.release)||"—"))}${st("AIRAC cycle",esc(S(p.airac)||"—"))}${st("OFP layout",esc(S(p.ofp_layout)||"—"))}${st("Units",x.unit)}${st("Navlog",x.fixes.length?"Yes":"No")}${st("ETOPS",/^(1|true|yes)$/i.test(etops)?"Yes":"No")}</dl></section>
+  <section class="card">${cardH("Briefing",`Load sheet <small class="bs-u">all weights in ${x.unit}</small>`)}<dl class="stats">
+    ${st("Enroute burn",kg(f.enroute_burn))}${st("Passengers",fmt(N(wt.pax_count)))}${st("Empty weight",kg(wt.oew))}${st("Estimated ZFW",kg(wt.est_zfw),lim.includes("MZFW"))}${st("Estimated TOW",kg(wt.est_tow),lim.includes("MTOW"))}${st("Estimated LW",kg(wt.est_ldw),lim.includes("MLW"))}
+    ${st("Block fuel",kg(f.plan_ramp))}${st("Baggage",bag?kg(bag):"—")}${st("Payload",kg(wt.payload))}${st("Max ZFW",kg(wt.max_zfw))}${st("Max TOW",kg(wt.max_tow))}${st("Max LW",kg(wt.max_ldw))}</dl></section>`}
+const ICO_I='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5v6M12 16.2v.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+{const _s=ofpSummary;ofpSummary=function(){const h=_s();if(ofp._sample)return h;
+  /* the summary replaces the short stats card under the route */
+  const k=h.indexOf('<section class="card"><dl class="stats">'),e=k<0?-1:h.indexOf("</section>",k);
+  return k<0?h+briefSummary():h.slice(0,k)+briefSummary()+h.slice(e+10)}}
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};

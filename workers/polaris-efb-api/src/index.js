@@ -851,6 +851,40 @@ async function ovgeoRoute(req, url, env, h) {
   await kv.put(k, JSON.stringify(v));
   return json({ ok: true, geo: v }, 200, h);
 }
+
+/* Airports for the map, from OurAirports (public domain), rebuilt every 14 days and kept in KV.
+   set=a: large and medium airports with a rank (1 large, 2 medium with airline service, 3 other medium);
+   set=b: small airports that have an ICAO-style code (shown only zoomed in). */
+async function aptsBuild(kv) {
+  const r = await fetchT('https://davidmegginson.github.io/ourairports-data/airports.csv', 25000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
+  if (!r.ok) throw new HttpError(502, 'OurAirports ' + r.status);
+  const t = await r.text();
+  const lines = t.split('\n'), split = (ln) => { const out = []; let f = '', q = false; for (let i = 0; i < ln.length; i++) { const c = ln[i]; if (q) { if (c === '"') { if (ln[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; } else if (c === '"') q = true; else if (c === ',') { out.push(f); f = ''; } else if (c !== '\r') f += c; } out.push(f); return out; };
+  const head = split(lines[0]), col = (n) => head.indexOf(n);
+  const C = { ident: col('ident'), type: col('type'), name: col('name'), lat: col('latitude_deg'), lon: col('longitude_deg'), ctry: col('iso_country'), muni: col('municipality'), sched: col('scheduled_service'), icao: col('icao_code'), iata: col('iata_code'), gps: col('gps_code') };
+  const four = (x) => /^[A-Z]{4}$/.test(x || ''), A = [], B = [];
+  for (let k = 1; k < lines.length; k++) {
+    const ln = lines[k]; if (!ln || !/(large_airport|medium_airport|small_airport)/.test(ln)) continue;
+    const f = split(ln), type = f[C.type], lat = +f[C.lat], lon = +f[C.lon]; if (!isFinite(lat) || !isFinite(lon)) continue;
+    const code = (C.icao >= 0 && four(f[C.icao]) && f[C.icao]) || (four(f[C.gps]) && f[C.gps]) || (four(f[C.ident]) && f[C.ident]) || '';
+    const name = String(f[C.name] || '').replace(/\s+(International|Intl\.?)\s+Airport$/i, ' Intl').replace(/\s+Airport$/i, '').slice(0, 44), L = Math.round(lat * 1e4) / 1e4, O = Math.round(lon * 1e4) / 1e4;
+    if (type === 'large_airport') A.push([code || f[C.ident], f[C.iata] || '', name, L, O, 1, f[C.ctry] || '', String(f[C.muni] || '').slice(0, 30)]);
+    else if (type === 'medium_airport') A.push([code || f[C.ident], f[C.iata] || '', name, L, O, f[C.sched] === 'yes' ? 2 : 3, f[C.ctry] || '', String(f[C.muni] || '').slice(0, 30)]);
+    else if (type === 'small_airport' && code) B.push([code, name, L, O]);
+  }
+  A.sort((x, y) => x[5] - y[5]);
+  const v = new Date().toISOString().slice(0, 10), a = JSON.stringify({ v, a: A }), b = JSON.stringify({ v, a: B });
+  if (kv) { await kv.put('apts:v1:a', a, { expirationTtl: 30 * 86400 }); await kv.put('apts:v1:b', b, { expirationTtl: 30 * 86400 }); await kv.put('apts:v1:t', String(Date.now()), { expirationTtl: 30 * 86400 }); }
+  return { a, b };
+}
+async function aptsRoute(url, env, ctx, h) {
+  const set = url.searchParams.get('set') === 'b' ? 'b' : 'a', kv = env && env.STORE;
+  let body = kv ? await kv.get('apts:v1:' + set) : null;
+  const t = kv ? +(await kv.get('apts:v1:t')) || 0 : 0;
+  if (!body) body = (await aptsBuild(kv))[set];
+  else if (Date.now() - t > 14 * 86400000 && ctx && ctx.waitUntil) ctx.waitUntil(aptsBuild(kv).catch(() => {}));
+  return new Response(body, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
@@ -874,6 +908,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/apts': return await aptsRoute(url, env, ctx, h);
         case '/api/efb/awy': return await awyRoute(url, ctx, h);
         case '/api/efb/ifr': return await ifrRoute(url, ctx, h);
         case '/api/efb/fc': return await fcRoute(url, ctx, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0432">
+<meta name="efb-build" content="1114.0434">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1298,16 +1298,17 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .cv-rot[hidden]{display:none}
 .cv-rot::before{content:"↑";display:inline-block;margin-right:4px;transform:rotate(var(--r,0deg));color:var(--accent)}
 /* pinned charts: tabs along the bottom of the map and of the chart viewer */
-.pinbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:3;display:flex;align-items:center;gap:4px;max-width:calc(100% - 360px);overflow-x:auto;scrollbar-width:none;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow)}
+.pinbar{position:absolute;right:max(42px,calc(env(safe-area-inset-right,0px) + 34px));bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:3;display:flex;align-items:center;gap:4px;max-width:calc(100% - 230px);overflow-x:auto;scrollbar-width:none;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow)}
 .pinbar::-webkit-scrollbar,.cv-pins::-webkit-scrollbar{display:none}
 .pinbar[hidden],.cv-pins[hidden]{display:none}
+.assheet:not([hidden])~.pinbar{max-width:calc(100% - var(--mg,12px) - 392px - 200px)}
 .pin-ic{flex:none;display:grid;place-items:center;width:22px;color:var(--accent)}.pin-ic svg{width:14px;height:14px;fill:currentColor}
 .pin-tab{flex:none;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:var(--bg,transparent);overflow:hidden}
 .pin-tab button{border:0;background:transparent;color:var(--ink);font:500 12px var(--f-ui);padding:6px 10px;white-space:nowrap;cursor:pointer}
 .pin-tab button b{font:700 11px var(--f-mono);color:var(--accent);margin-right:2px}
 .pin-tab .pin-x{padding:6px 8px 6px 2px;color:var(--label);font-size:15px;line-height:1}
 .pin-tab.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
-@container screen (max-width:640px){.pinbar{left:8px;right:40px;transform:none;max-width:none;bottom:calc(52px + env(safe-area-inset-bottom,0px))}}
+@container screen (max-width:640px){.pinbar,.assheet:not([hidden])~.pinbar{left:8px;right:40px;max-width:none;bottom:calc(52px + env(safe-area-inset-bottom,0px))}}
 .cv-pins{flex:none;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line)}
 .as-pin{flex:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--label);padding:0 12px;cursor:pointer}
 .as-pin svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}

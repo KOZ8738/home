@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0313">
+<meta name="efb-build" content="1114.0319">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2204,7 +2204,7 @@ function dgRef(items,view,rwys,merc){try{
   const W=view[2]-view[0],H=view[3]-view[1];
   /* runway ends from the layout: the two farthest points of each runway, named by direction */
   const byRef={};rwys.forEach(r=>{if(r.stopway||r.area||!r.ref||!r.pts||r.pts.length<2)return;(byRef[r.ref]=byRef[r.ref]||[]).push(...r.pts)});
-  const ends=[];Object.keys(byRef).forEach(ref=>{const m=ref.toUpperCase().match(/^0?(\d{1,2})([LCR]?)\s*\/\s*0?(\d{1,2})([LCR]?)$/);if(!m)return;const P=byRef[ref];let a=P[0],b=P[1],best=-1;
+  const ends=[];Object.keys(byRef).forEach(ref=>{const m=ref.toUpperCase().match(/^0?(\d{1,2})([LCR]?)\s*[\/-]\s*0?(\d{1,2})([LCR]?)$/);if(!m)return;const P=byRef[ref];let a=P[0],b=P[1],best=-1;
     for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++){const d=(P[i][0]-P[j][0])**2+((P[i][1]-P[j][1])*1.25)**2;if(d>best){best=d;a=P[i];b=P[j]}}
     const brg=(p,q)=>{const r=Math.PI/180,y=Math.sin((q[0]-p[0])*r)*Math.cos(q[1]*r),x=Math.cos(p[1]*r)*Math.sin(q[1]*r)-Math.sin(p[1]*r)*Math.cos(q[1]*r)*Math.cos((q[0]-p[0])*r);return(Math.atan2(y,x)/r+360)%360};
     const d1=+m[1],s1=m[2],d2=+m[3],s2=m[4],ba=brg(a,b),diff=(x,y)=>Math.abs(((x-y)%360+540)%360-180);
@@ -2217,9 +2217,9 @@ function dgRef(items,view,rwys,merc){try{
   const used=new Set(),words=[];
   raw.forEach((a,ia)=>{if(used.has(ia))return;
     /* walk back to the first character of this word */
-    let start=a,si=ia,guard=0;for(;;){const prev=raw.findIndex((b,ib)=>ib!==si&&!used.has(ib)&&b.u[0]*start.u[0]+b.u[1]*start.u[1]>.98&&Math.hypot(b.o[0]+b.u[0]*b.w-start.o[0],b.o[1]+b.u[1]*b.w-start.o[1])<Math.max(1.6,start.h*.35));if(prev<0||++guard>6)break;start=raw[prev];si=prev}
+    let start=a,si=ia,guard=0;for(;;){const prev=raw.findIndex((b,ib)=>ib!==si&&!used.has(ib)&&b.u[0]*start.u[0]+b.u[1]*start.u[1]>.98&&Math.hypot(b.o[0]+b.u[0]*b.w-start.o[0],b.o[1]+b.u[1]*b.w-start.o[1])<Math.max(2.4,start.h*.6));if(prev<0||++guard>6)break;start=raw[prev];si=prev}
     const g=[start];used.add(si);let cur=start;guard=0;
-    for(;;){const nx=raw.findIndex((b,ib)=>!used.has(ib)&&b.u[0]*cur.u[0]+b.u[1]*cur.u[1]>.98&&Math.hypot(cur.o[0]+cur.u[0]*cur.w-b.o[0],cur.o[1]+cur.u[1]*cur.w-b.o[1])<Math.max(1.6,cur.h*.35));if(nx<0||++guard>6)break;used.add(nx);g.push(raw[nx]);cur=raw[nx]}
+    for(;;){const nx=raw.findIndex((b,ib)=>!used.has(ib)&&b.u[0]*cur.u[0]+b.u[1]*cur.u[1]>.98&&Math.hypot(cur.o[0]+cur.u[0]*cur.w-b.o[0],cur.o[1]+cur.u[1]*cur.w-b.o[1])<Math.max(2.4,cur.h*.6));if(nx<0||++guard>6)break;used.add(nx);g.push(raw[nx]);cur=raw[nx]}
     const s=g.map(x=>x.s).join(""),f=g[0],l=g[g.length-1],e=[l.o[0]+l.u[0]*l.w,l.o[1]+l.u[1]*l.w];
     words.push({s,c:[(f.o[0]+e[0])/2+f.v[0]*f.h*.38-view[0],(f.o[1]+e[1])/2+f.v[1]*f.h*.38-view[1]]})});
   const labs=[];words.forEach(o=>{const m=o.s.match(/^0?(\d{1,2})([LCR]?)$/);if(!m)return;const n=+m[1];if(!nums.has(n))return;let suf=m[2]||"";
@@ -2243,6 +2243,8 @@ function dgRef(items,view,rwys,merc){try{
     for(const gi of cand(labs[i]))for(const gj of cand(labs[j])){if(gi===gj)continue;const f=fit([[labs[i].p,Q[gi]],[labs[j].p,Q[gj]]]);if(!f)continue;const s=score(f,0,320);if(!s)continue;
       if(!best||s.w>best.s.w+1e-9||(Math.abs(s.w-best.s.w)<1e-9&&s.err<best.s.err))best={f,s}}}
   
+  /* a single runway gives only its two ends: accept them when they really are the two ends of one runway */
+  if(best&&best.s.ins.length===2){const[x,y]=best.s.ins;if(ends[x[1]].far===ends[y[1]].ll&&x[0].s===ends[x[1]].s&&y[0].s===ends[y[1]].s&&x[2]<1&&y[2]<1){const f=best.f,sc=Math.hypot(f.ar,f.ai),c=f.map([W/2,H/2]);return{c,h:H*sc,rot:((Math.atan2(f.ai,f.ar)*180/Math.PI)%360+360)%360,n:2,rms:0,off:0,labels:[]}}}
   if(!best||best.s.ins.length<3)return null;
   let ins=best.s.ins,f=fit(ins.map(([l,i])=>[l.p,Q[i]])),off=0,rms=1e9;
   for(let it=0;it<3;it++){
@@ -2263,6 +2265,7 @@ async function ovDiagRef(pg){try{const icao=OV.sel&&OV.sel.icao;if(!icao||rot0(p
     const ll=munpx(g.c[0]*TS,g.c[1]*TS,0),hM=g.h*40075016.7*Math.cos(ll[0]*Math.PI/180);if(!isFinite(ll[0])||!(hM>500&&hM<30000))return null;
     return{lat:ll[0],lon:((ll[1]+540)%360)-180,h:hM,rot:g.rot}}catch(e){return null}}
 const rot0=pg=>(pg.rotate||0)%360!==0;
+try{window.__efbDg=dgRef}catch(e){}
 
 /* ---------- Vector base map ----------
    MapLibre GL draws OpenFreeMap vector tiles (OpenStreetMap data) under everything else. It is not

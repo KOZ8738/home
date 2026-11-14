@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0512">
+<meta name="efb-build" content="1114.0516">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2413,7 +2413,9 @@ function vecLib(){if(VEC.lib)return VEC.lib;VEC.lib=new Promise((res,rej)=>{if(w
   sc.onload=()=>window.maplibregl?res(window.maplibregl):rej(new Error("no maplibre"));sc.onerror=()=>rej(new Error("Map library couldn’t load"));document.head.appendChild(sc)}).catch(e=>{VEC.lib=null;VEC.err="The detail map couldn’t load here; showing the simple map.";throw e});return VEC.lib}
 const vecOn=()=>ML.vec&&!VEC.err;
 const vecReady=()=>vecOn()&&VEC.ready;
-function vecSync(){const m=VEC.map;if(!m||!MAP.c||!vecOn())return;try{m.jumpTo({center:[MAP.c.lon,MAP.c.lat],zoom:Math.max(0,MAP.z-1)})}catch(e){}}
+function vecSync(){const m=VEC.map;if(!m||!MAP.c||!vecOn())return;try{m.jumpTo({center:[MAP.c.lon,MAP.c.lat],zoom:Math.max(0,MAP.z-1)});
+  /* draw the base map in this same frame, so it never trails a frame behind the layers painted over it (it showed as the layers sliding off the map during a fast drag or a glide) */
+  if(m.redraw&&m.style)m.redraw()}catch(e){}}
 /* called from drawMap: makes sure the map exists, sits in the current map view, matches the theme */
 function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;
   if(!VEC.el){VEC.el=document.createElement("div");VEC.el.className="mapvec";VEC.el.setAttribute("aria-hidden","true")}
@@ -3457,8 +3459,8 @@ const inrEnd=e=>{if(!INR.ids.has(e.pointerId))return;const wasPinch=INR.ids.size
   if(now-b.t>60||b.t-a.t<12||s.some(q=>Math.abs(q.z-b.z)>1e-6))return;
   const ln=s[s.length-2];if(now-ln.t>70)return;
   let vx=(b.x-a.x)/(b.t-a.t)*1000,vy=(b.y-a.y)/(b.t-a.t)*1000;const sp=Math.hypot(vx,vy);if(sp<120)return;
-  const cap=4200;if(sp>cap){vx*=cap/sp;vy*=cap/sp}
-  const z=MAP.z,tau=.36;let last=performance.now(),x=b.x,y=b.y;
+  const cap=2600;if(sp>cap){vx*=cap/sp;vy*=cap/sp}
+  const z=MAP.z,tau=.3;let last=performance.now(),x=b.x,y=b.y;
   const step=t=>{const dt=Math.min(.05,(t-last)/1000);last=t;const f=Math.exp(-dt/tau);
     /* integrate the decaying speed exactly over the frame so a slow frame doesn't jump */
     x+=vx*tau*(1-f);y+=vy*tau*(1-f);vx*=f;vy*=f;

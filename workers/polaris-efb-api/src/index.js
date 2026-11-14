@@ -210,10 +210,11 @@ async function radarRoute() {
 }
 
 async function sigmetRoute() {
-  return cached('sigmets', 300_000, async () => {
+  return cached('sigmets2', 300_000, async () => {
     const opt = { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } };
     const get = (u) => fetch(u, opt).then((r) => (r.ok ? r.json() : [])).catch(() => []);
-    const [intl, us] = await Promise.all([get('https://aviationweather.gov/api/data/isigmet?format=json'), get('https://aviationweather.gov/api/data/airsigmet?format=json')]);
+    const [intl, us, ga, cwa] = await Promise.all([get('https://aviationweather.gov/api/data/isigmet?format=json'), get('https://aviationweather.gov/api/data/airsigmet?format=json'),
+      get('https://aviationweather.gov/api/data/gairmet?format=json'), get('https://aviationweather.gov/api/data/cwa?format=json')]);
     const coords = (c) => (Array.isArray(c) ? c : []).map((p) => [+p.lat, +p.lon]).filter((p) => isFinite(p[0]) && isFinite(p[1]));
     const out = [];
     for (const s of Array.isArray(intl) ? intl : []) {
@@ -223,6 +224,20 @@ async function sigmetRoute() {
     for (const s of Array.isArray(us) ? us : []) {
       const c = coords(s.coords);
       if (c.length >= 3) out.push({ kind: s.airSigmetType || 'AIRMET', fir: s.icaoId || '', hazard: s.hazard || '', qualifier: s.severity != null ? String(s.severity) : '', base: s.altitudeLow1 ?? null, top: s.altitudeHi1 ?? null, from: s.validTimeFrom ?? null, to: s.validTimeTo ?? null, coords: c, raw: s.rawAirSigmet || '' });
+    }
+    /* G-AIRMETs come as snapshots every 3 hours: keep, for each product, the one valid closest to now */
+    const hft = (v) => { if (v == null || v === '') return null; if (/SFC/i.test(v)) return 0; const n = +v; return isFinite(n) ? (n < 1000 ? n * 100 : n) : null; };
+    const gaL = (Array.isArray(ga) ? ga : []).filter((g) => coords(g.coords).length >= 3 && !/LINE/i.test(g.geometryType || ''));
+    const tv = (g) => { const t = g.validTime != null ? (typeof g.validTime === 'number' ? g.validTime * 1000 : Date.parse(g.validTime)) : NaN; return isFinite(t) ? t : NaN; };
+    const bestT = {}; gaL.forEach((g) => { const t = tv(g), k = g.product || g.hazard || ''; if (!isFinite(t)) return; if (bestT[k] == null || Math.abs(t - Date.now()) < Math.abs(bestT[k] - Date.now())) bestT[k] = t; });
+    for (const g of gaL) {
+      const t = tv(g), k = g.product || g.hazard || ''; if (isFinite(t) && bestT[k] != null && t !== bestT[k]) continue;
+      const hz = String(g.hazard || '').toUpperCase();
+      out.push({ kind: 'G-AIRMET', fir: (g.product || '') + (g.tag ? ' ' + g.tag : ''), hazard: hz.replace(/_/g, ' '), qualifier: [g.severity, g.due_to || g.dueTo].filter(Boolean).join(' · '), base: hft(g.base), top: hft(g.top), from: isFinite(t) ? Math.round(t / 1000) : null, to: g.expireTime ?? null, coords: coords(g.coords), raw: '' });
+    }
+    for (const c of Array.isArray(cwa) ? cwa : []) {
+      const cc = coords(c.coords);
+      if (cc.length >= 3) out.push({ kind: 'CWA', fir: c.cwsu || c.icaoId || '', hazard: c.hazard || '', qualifier: c.qualifier || '', base: c.base ?? null, top: c.top ?? null, from: c.validTimeFrom ?? null, to: c.validTimeTo ?? null, coords: cc, raw: c.cwaText || c.rawCwa || '' });
     }
     return { sigmets: out };
   });
@@ -586,6 +601,71 @@ async function windRoute(url, ctx, h) {
 }
 
 
+
+/* Gridded weather from Open-Meteo for map layers: jet streams, sea-level pressure, ISA deviation, cloud cover,
+   visibility, vertical velocity, tropopause height. The globe is a 2.5-degree lattice, fetched and cached in 30-degree
+   blocks (144 points) per field and hour, so a map view costs at most a few upstream calls. */
+const GWX_LV = [700, 500, 400, 300, 250, 200];
+const GWX_F = {
+  mslp: () => ['pressure_msl'],
+  jet: () => ['wind_speed_250hPa', 'wind_direction_250hPa'],
+  isa: (lv) => ['temperature_' + lv + 'hPa'],
+  cloud: () => ['cloud_cover'],
+  vis: () => ['visibility'],
+  vv: (lv) => ['vertical_velocity_' + lv + 'hPa'],
+  trop: () => [400, 300, 250, 200, 150, 100].flatMap((p) => ['temperature_' + p + 'hPa', 'geopotential_height_' + p + 'hPa']),
+};
+/* standard-atmosphere temperature at a pressure level */
+const isaT = (p) => { const h = 44330.77 * (1 - Math.pow(p / 1013.25, 0.190263)); return h <= 11000 ? 15 - 0.0065 * h : -56.5; };
+function gwxValue(f, lv, hr) {
+  const g = (k) => { const v = (hr[k] || [])[0]; return v == null ? null : +v; };
+  if (f === 'mslp') { const v = g('pressure_msl'); return v == null ? null : Math.round(v * 10) / 10; }
+  if (f === 'jet') { const s = g('wind_speed_250hPa'), d = g('wind_direction_250hPa'); return s == null ? null : [Math.round(s), d == null ? null : Math.round(d)]; }
+  if (f === 'isa') { const t = g('temperature_' + lv + 'hPa'); return t == null ? null : Math.round((t - isaT(lv)) * 10) / 10; }
+  if (f === 'cloud') { const v = g('cloud_cover'); return v == null ? null : Math.round(v); }
+  if (f === 'vis') { const v = g('visibility'); return v == null ? null : Math.round(v); }
+  if (f === 'vv') { const v = g('vertical_velocity_' + lv + 'hPa'); return v == null ? null : Math.round(v * 196.85); }
+  if (f === 'trop') {
+    /* WMO-style: the lowest level from 400 hPa up where the lapse rate drops to 2 K/km or less */
+    const P = [400, 300, 250, 200, 150, 100].map((p) => ({ t: g('temperature_' + p + 'hPa'), z: g('geopotential_height_' + p + 'hPa') }));
+    for (let i = 0; i < P.length - 1; i++) { const a = P[i], b = P[i + 1]; if (a.t == null || b.t == null || a.z == null || b.z == null || b.z <= a.z) continue; const lapse = (a.t - b.t) / ((b.z - a.z) / 1000); if (lapse <= 2) return Math.round(a.z * 3.28084 / 100); }
+    return P[P.length - 1].z != null ? Math.round(P[P.length - 1].z * 3.28084 / 100) : null;
+  }
+  return null;
+}
+async function gwxRoute(url, ctx, h) {
+  const f = String(url.searchParams.get('f') || ''); if (!GWX_F[f]) throw new HttpError(400, 'f must be one of ' + Object.keys(GWX_F).join(', '));
+  const lv = +(url.searchParams.get('lv') || 250); if ((f === 'isa' || f === 'vv') && !GWX_LV.includes(lv)) throw new HttpError(400, 'lv must be one of ' + GWX_LV.join(', '));
+  const blocks = String(url.searchParams.get('blocks') || '').split(';').map((c) => c.match(/^(-?\d{1,2}),(-?\d{1,3})$/)).filter(Boolean)
+    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 30) && !(lo % 30) && la >= -90 && la <= 60 && lo >= -180 && lo <= 150).slice(0, 12);
+  if (!blocks.length) throw new HttpError(400, 'blocks=lat,lon;lat,lon (30 degree grid)');
+  const hour = new Date().toISOString().slice(0, 13), cache = caches.default, lvk = f === 'isa' || f === 'vv' ? lv : 0;
+  const key = (b) => new Request('https://gwx-cache.local/v1/' + hour + '/' + f + '/' + lvk + '/' + b[0] + '/' + b[1]);
+  const got = {}, miss = [];
+  await Promise.all(blocks.map(async (b) => { const r = await cache.match(key(b)); if (r) got[b.join(',')] = await r.json(); else miss.push(b); }));
+  let err = null;
+  if (miss.length) {
+    const pts = [];
+    miss.forEach((b) => { for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) { const a = b[0] + i * 2.5, o = b[1] + j * 2.5; pts.push({ b: b.join(','), i, j, a: Math.max(-89.5, Math.min(89.5, a)), o }); } });
+    const vars = GWX_F[f](lv).join(','), res = {};
+    for (let c = 0; c < pts.length; c += 300) {
+      const part = pts.slice(c, c + 300);
+      const u = `https://api.open-meteo.com/v1/forecast?latitude=${part.map((p) => p.a).join(',')}&longitude=${part.map((p) => p.o).join(',')}&hourly=${vars}&forecast_hours=1&timezone=GMT&wind_speed_unit=kn`;
+      let j = null;
+      for (let tries = 0; tries < 2 && !j; tries++) {
+        try { const up = await fetchT(u, 20000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+          if (up.ok) j = await up.json(); else { err = up.status === 429 ? 'Weather service is busy, try again shortly' : 'Weather service ' + up.status; if (up.status === 429 && !tries) await new Promise((r) => setTimeout(r, 1500)); }
+        } catch (e) { err = 'Weather service is slow, try again'; }
+      }
+      if (!j) break;
+      if (!Array.isArray(j)) j = [j];
+      j.forEach((x, k) => { const p = part[k]; if (!p) return; (res[p.b] = res[p.b] || Array(144).fill(null))[p.i * 12 + p.j] = gwxValue(f, lv, x.hourly || {}); });
+    }
+    miss.forEach((b) => { const k = b.join(','); if (!res[k]) return; got[k] = res[k]; const pr = cache.put(key(b), new Response(JSON.stringify(res[k]), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(pr); });
+    if (Object.keys(res).length === miss.length) err = null;
+  }
+  return json({ f, lv: lvk || null, hour: hour + ':00Z', step: 2.5, blocks: got, error: err }, 200, h);
+}
 
 /* openAIP vector tiles (airspaces, navaids, reporting points, airports...), proxied so the key stays on the server; cached a week */
 async function oaipVector(m, env, ctx, h) {
@@ -990,6 +1070,7 @@ export default {
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
+        case '/api/efb/gwx': return await gwxRoute(url, ctx, h);
         case '/api/efb/apts': return await aptsRoute(url, env, ctx, h);
         case '/api/efb/awy': return await awyRoute(url, ctx, h);
         case '/api/efb/ifr': return await ifrRoute(url, ctx, h);

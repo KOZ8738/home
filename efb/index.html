@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1113.1923">
+<meta name="efb-build" content="1114.0259">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1272,6 +1272,13 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 @keyframes ringGlow{0%{filter:drop-shadow(0 0 0 transparent)}40%{filter:drop-shadow(0 0 7px color-mix(in srgb,var(--green) 70%,transparent))}100%{filter:drop-shadow(0 0 0 transparent)}}
 @keyframes ringGreen{from{stroke:var(--brand)}to{stroke:var(--green)}}
 @media (prefers-reduced-motion:reduce){.ring.just,.ring.just .fg{animation:none}}
+.re-proc{margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+.re-prow{align-items:center}.re-prow b em{font-style:normal;font-weight:500;font-size:11px;color:var(--amber);margin-left:4px}
+.re-prow button{margin-left:8px;min-height:26px;padding:2px 8px;border:1px solid var(--line);border-radius:5px;background:var(--panel-2);color:var(--ink);font:600 11.5px var(--f-ui);cursor:pointer}
+.re-prc{display:flex;align-items:stretch;border-bottom:1px solid var(--line)}.re-prc:last-child{border-bottom:0}
+.re-prc .re-awy-x{flex:1;border-bottom:0;flex-direction:column;align-items:flex-start;gap:1px}.re-prc .re-awy-x span{font-size:11px}
+.re-prc-ch{flex:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--accent);font:600 11.5px var(--f-ui);padding:0 10px;cursor:pointer}
+.re-cur{font:600 10.5px var(--f-ui);font-style:normal;color:var(--green);margin-left:4px}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2665,6 +2672,7 @@ function reUi(){const wrap=document.querySelector(".mapwrap");const b=$("#reBtn"
     html=`<div class="ms-h"><b>Edit route</b><span>${RE.dct!=null?"Tap the point to fly direct to":"Drag the line to add a point"}</span></div>
      <div class="ms-row"><span>Route</span><b>${Math.round(d).toLocaleString("en-US")} NM${inf?` <em>${reSign(inf.dd,v=>Math.round(v))}</em>`:""}</b></div>
      ${ete!=null?`<div class="ms-row"><span>Time${gs?" at "+Math.round(gs)+" kt":""}</span><b>${reHM(inf&&inf.ete!=null?inf.ete:ete)}${inf&&inf.dt!=null?` <em>${reSign(inf.dt,v=>reHM(v))}</em>`:""}</b></div>`:""}
+     ${!q&&RE.dct==null?rpBlock():""}
      ${q?`<div class="re-sel"><div class="re-n"><b>${q.u&&!q.snap?"Added point":esc(q.n)}</b>${q.apt?`<small>${q.apt==="dep"?"Departure":"Arrival"}</small>`:q.u&&q.snap?`<small>Added</small>`:""}</div>
        <div class="re-c">${reFmt(q.lat,q.lon)}</div>
        ${i>0?`<div class="re-leg">From ${esc(pts[i-1].n)}: ${Math.round(msDist(pts[i-1],q))} NM · ${ms3(msMag(pts[i-1],msBrg(pts[i-1],q)))}°M</div>`:""}
@@ -2677,7 +2685,7 @@ function reToggle(on){if(on&&ofp._sample){toast("Load an OFP to edit its route")
 document.addEventListener("click",e=>{if(e.target.closest("#reBtn")){reToggle();return}const t=e.target.closest("[data-re]");if(!t)return;const a=t.dataset.re;
   if(a==="open"){if(cur!=="map"){location.hash="map";setTimeout(()=>reToggle(true),300)}else reToggle(true);return}
   if(a==="done"){reToggle(false);return}
-  if(a==="revert"){store.set("rte:"+O().id,null);RE.cache=null;RE.cacheId=O().id;RE.sel=null;RE.dct=null;toast("Route reverted to the OFP");if(cur==="map"){reUi();drawMap()}else if(cur==="ofp"&&V.ofp)render();return}
+  if(a==="revert"){store.set("rte:"+O().id,null);store.set("rteproc:"+O().id,null);RE.rp=null;RE.cache=null;RE.cacheId=O().id;RE.sel=null;RE.dct=null;toast("Route reverted to the OFP");if(cur==="map"){reUi();drawMap()}else if(cur==="ofp"&&V.ofp)render();return}
   if(a==="desel"){RE.sel=null;RE.awy=null}
   else if(a==="awy"&&RE.sel!=null){const q=rePts()[RE.sel];RE.awy=RE.awy&&RE.awy.i===RE.sel?null:{i:RE.sel,n:q.n,lat:q.lat,lon:q.lon};if(RE.awy)awyAt(q.lat,q.lon)}
   else if(a==="awyback"&&RE.awy){RE.awy.id=null}
@@ -2773,7 +2781,47 @@ function awyInsert(bi){const A=RE.awy;if(!A||!A.id)return;const f=awyFind(A,A.id
   reSave(w);toast(A.n+" "+A.id+" "+B.n+(k>0?" · rejoins the route":""));RE.sel=null;RE.awy=null;reUi();reRedraw()}
 document.addEventListener("click",e=>{const a=e.target.closest("[data-awy]");if(a&&RE.awy){RE.awy.id=a.dataset.awy;awyGet(RE.awy.id);reUi();reRedraw();return}
   const x=e.target.closest("[data-awyx]");if(x&&RE.awy&&RE.awy.id){awyInsert(+x.dataset.awyx)}});
-try{window.__efbAwy={RE,AWY,awyInsert,awyFind,reRoute,reWork,rePts}}catch(e){}
+/* ---- Route edit: change the SID or STAR (by name; SimBrief draws the path) ----
+   Names come from the FAA chart list (US). "SSTIK FIVE (RNAV)" -> SSTIK5. The old procedure's points leave the map
+   route, the ATC route gets the new name, and the chart can be laid over the map to see it. */
+const RP_NUM={ONE:1,TWO:2,THREE:3,FOUR:4,FIVE:5,SIX:6,SEVEN:7,EIGHT:8,NINE:9};
+function rpCode(name){const w=String(name||"").toUpperCase().replace(/\(.*?\)/g," ").trim().split(/\s+/);const k=w.findIndex(x=>RP_NUM[x]);if(k<1)return null;
+  let base=w.slice(0,k).join("").replace(/[^A-Z]/g,"");if(!base)return null;
+  /* computer codes are at most 5 letters plus the number: longer names lose their vowels first */
+  if(base.length>5)base=(base[0]+base.slice(1).replace(/[AEIOU]/g,"")).replace(/(.)\1+/g,"$1");return base.slice(0,5)+RP_NUM[w[k]]}
+function rpList(icao,kind){const d=CH.data[icao];if(!d||!d.charts)return null;const seen={},out=[];
+  d.charts.forEach(c=>{if(c.group!==(kind==="sid"?"Departures":"Arrivals"))return;const code=rpCode(c.name);if(!code||seen[code])return;seen[code]=1;out.push({code,name:c.name,c})});
+  return out.sort((a,b)=>a.code.localeCompare(b.code))}
+const rpKey=()=>"rteproc:"+O().id;
+function rpGet(){if(ofp._sample)return{};return store.get(rpKey(),null)||{}}
+function rpOrig(kind){const x=O(),f=x.fixes.filter(q=>!/^TO[CD]$/.test(S(q.ident))&&S(q.ident)!==S(x.d.icao_code)&&S(q.ident)!==S(x.o.icao_code));const v=((kind==="sid"?f[0]:f[f.length-1])||{}).via_airway;const s=S(v).toUpperCase();return reProc(s)?s:""}
+function rpCur(kind){const o=rpGet();return o[kind]!=null?o[kind]:rpOrig(kind)}
+function rpSet(kind,code){const x=O(),orig=rpOrig(kind),o=rpGet();
+  /* the old procedure's own points leave the route */
+  const old=(o[kind]!=null?null:orig);const w=reWork();
+  if(old){const names=new Set(x.fixes.filter(f=>S(f.via_airway).toUpperCase()===old).map(f=>S(f.ident)));
+    for(let j=w.length-2;j>=1;j--)if(!w[j].u&&names.has(w[j].n))w.splice(j,1)}
+  reSave(w);o[kind]=code;store.set(rpKey(),o);RE.rp=null;toast((kind==="sid"?"SID ":"STAR ")+(code||"left to SimBrief"));reUi();reRedraw()}
+function rpBlock(){if(!vam.url)return"";const x=O(),row=(kind,lab)=>{const c=rpCur(kind),o=rpGet();
+    return `<div class="ms-row re-prow"><span>${lab}</span><b>${c?esc(c):o[kind]===""?"Auto":"None"}${o[kind]!=null?" <em>changed</em>":""}</b><button type="button" data-rp="${kind}" aria-pressed="${RE.rp===kind}">Change</button></div>`};
+  let h=row("sid","SID")+row("star","STAR");
+  if(RE.rp){const kind=RE.rp,icao=S(kind==="sid"?x.o.icao_code:x.d.icao_code);chLoad(icao);const L=rpList(icao,kind);
+    h+=`<div class="re-awy"><p>${kind==="sid"?"Departures from":"Arrivals into"} ${esc(icao)}</p>`;
+    if(CH.err[icao]&&!L)h+=`<p>${esc(CH.err[icao])}</p>`;else if(!L){h+=`<p>Loading the FAA chart list…</p>`;clearTimeout(RE.rpT);RE.rpT=setTimeout(()=>{if(RE.rp&&RE.on)reUi()},600)}
+    else if(!L.length)h+=`<p>No FAA ${kind==="sid"?"SIDs":"STARs"} for ${esc(icao)}. The FAA lists US airports only.</p>`;
+    else h+=`<div class="re-awy-list">${L.map((p,j)=>`<div class="re-prc"><button type="button" class="re-awy-x" data-rpset="${esc(p.code)}"><b>${esc(p.code)}${p.code===rpCur(kind)?' <em class="re-cur">current</em>':""}</b><span>${esc(p.name)}</span></button><button type="button" class="re-prc-ch" data-rpchart="${j}" aria-label="Show the ${esc(p.name)} chart on the map">Chart</button></div>`).join("")}</div>`;
+    h+=`<div class="ms-btns"><button type="button" data-rpset="">Auto: SimBrief picks</button><button type="button" data-rp="close">Close</button></div></div>`}
+  return `<div class="re-proc">${h}</div>`}
+document.addEventListener("click",e=>{const a=e.target.closest("[data-rp]");if(a){const k=a.dataset.rp;RE.rp=k==="close"||RE.rp===k?null:k;RE.sel=null;RE.awy=null;reUi();return}
+  const s=e.target.closest("[data-rpset]");if(s&&RE.rp){rpSet(RE.rp,s.dataset.rpset);return}
+  const c=e.target.closest("[data-rpchart]");if(c&&RE.rp){const x=O(),icao=S(RE.rp==="sid"?x.o.icao_code:x.d.icao_code),L=rpList(icao,RE.rp),p=L&&L[+c.dataset.rpchart];if(p&&typeof ovOpen==="function"){const d=CH.data[icao];ovOpen({name:p.c.name,pdf:p.c.pdf,group:p.c.group},icao,d&&d.cycle)}}});
+/* the ATC route carries the chosen names */
+{const _rr=reRoute;reRoute=function(){let r=_rr.apply(this,arguments);if(ofp._sample)return r;const o=rpGet();if(o.sid==null&&o.star==null)return r;
+  const t=String(r||"").trim().split(/\s+/).filter(Boolean);
+  if(o.sid!=null){if(t.length&&reProc(t[0])&&t[0]===rpOrig("sid"))t.shift();if(o.sid)t.unshift(o.sid)}
+  if(o.star!=null){if(t.length&&reProc(t[t.length-1])&&t[t.length-1]===rpOrig("star"))t.pop();if(o.star)t.push(o.star)}
+  return t.join(" ")}}
+try{window.__efbAwy={RE,AWY,awyInsert,awyFind,reRoute:()=>reRoute(),reWork,rePts:()=>rePts(),rpGet:()=>rpGet()}}catch(e){}
 
 /* ---------- Airport sheet (Map) ----------
    One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the

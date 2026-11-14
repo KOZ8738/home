@@ -210,7 +210,7 @@ async function radarRoute() {
 }
 
 async function sigmetRoute() {
-  return cached('sigmets2', 300_000, async () => {
+  return cached('sigmets3', 300_000, async () => {
     const opt = { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } };
     const get = (u) => fetch(u, opt).then((r) => (r.ok ? r.json() : [])).catch(() => []);
     const [intl, us, ga, cwa] = await Promise.all([get('https://aviationweather.gov/api/data/isigmet?format=json'), get('https://aviationweather.gov/api/data/airsigmet?format=json'),
@@ -227,7 +227,7 @@ async function sigmetRoute() {
     }
     /* G-AIRMETs come as snapshots every 3 hours: keep, for each product, the one valid closest to now */
     const hft = (v) => { if (v == null || v === '') return null; if (/SFC/i.test(v)) return 0; const n = +v; return isFinite(n) ? (n < 1000 ? n * 100 : n) : null; };
-    const gaL = (Array.isArray(ga) ? ga : []).filter((g) => coords(g.coords).length >= 3 && !/LINE/i.test(g.geometryType || ''));
+    const gaL = (Array.isArray(ga) ? ga : []).filter((g) => coords(g.coords).length >= 3 && !/LINE/i.test(g.geometryType || '') && !/FZLVL/i.test(g.hazard || ''));
     const tv = (g) => { const t = g.validTime != null ? (typeof g.validTime === 'number' ? g.validTime * 1000 : Date.parse(g.validTime)) : NaN; return isFinite(t) ? t : NaN; };
     const bestT = {}; gaL.forEach((g) => { const t = tv(g), k = g.product || g.hazard || ''; if (!isFinite(t)) return; if (bestT[k] == null || Math.abs(t - Date.now()) < Math.abs(bestT[k] - Date.now())) bestT[k] = t; });
     for (const g of gaL) {

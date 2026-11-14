@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0348">
+<meta name="efb-build" content="1114.0350">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2559,7 +2559,8 @@ function aptsLayers(dark){const t=dark?"-d":"-l",C=dark?{txt:"#D7E3EE",sub:"#9FB
     paint:{"text-color":["case",["<=",["get","r"],2],C.txt,C.sub],"text-halo-color":C.halo,"text-halo-width":1.6,"icon-opacity":["case",["==",["get","r"],4],.85,1]}}]}
 {const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);if(!aptsOn())return st;
   st.sources.apts={type:"geojson",data:aptsFC(),buffer:16};APTS.setVer=APTS.ver;st.layers=st.layers.filter(l=>l.id!=="apt-name");
-  const L=aptsLayers(dark),i=st.layers.findIndex(l=>/^(water-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L);else st.layers.splice(i,0,...L);return st}}
+  /* on top of the other labels, so an airport wins over a town name when they collide */
+  st.layers=st.layers.concat(aptsLayers(dark));return st}}
 function aptsTick(){const m=VEC.map;if(!m||!VEC.ready||!aptsOn())return;aptsLoad("a");if(m.getZoom()>=7)aptsLoad("b");
   if(!m._aptImg){m._aptImg=true;m.on("styleimagemissing",e=>{if(/^apt-\d-[dl]$/.test(e.id)&&!m.hasImage(e.id))try{m.addImage(e.id,aptsIcon(e.id),{pixelRatio:2})}catch(er){}})}
   if(APTS.ver!==APTS.setVer){const s=m.getSource("apts");if(s){APTS.setVer=APTS.ver;try{s.setData(aptsFC())}catch(e){}}}}

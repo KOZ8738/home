@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1221">
+<meta name="efb-build" content="1114.1224">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2914,17 +2914,25 @@ function gwxLayers(dark){const C=dark?{ln:"#D9E2EA",lnM:"#FFFFFF",txt:"#E8EEF2",
 /* Clouds are real: geostationary infrared from NASA GIBS (GOES-East, GOES-West, Himawari, about 2 km, updated every
    10 minutes). The infrared picture is opaque grey, so each tile is turned into cloud only: the colder (brighter) a
    pixel, the more solid the cloud; warm ground and sea become clear. */
-const GWX_SAT=[["ge","GOES-East_ABI_Band13_Clean_Infrared"],["gw","GOES-West_ABI_Band13_Clean_Infrared"],["hi","Himawari_AHI_Band13_Clean_Infrared"]];
+const GWX_SAT=[["ge","GOES-East_ABI_Band13_Clean_Infrared",-75.2],["gw","GOES-West_ABI_Band13_Clean_Infrared",-137.2],["hi","Himawari_AHI_Band13_Clean_Infrared",140.7]];
+/* how much of a pixel each satellite should draw: near the edge of its disk the view is so slanted that the picture
+   is smeared, saw-toothed and reads cold ground as cloud, so each satellite fades out from 62 to 74 degrees from the
+   point below it, and where two overlap the one looking more straight down takes over */
+function gwxSatW(lat,lon,sub){const r=Math.PI/180,ang=x=>Math.acos(Math.max(-1,Math.min(1,Math.cos(lat*r)*Math.cos((lon-x)*r))))/r;
+  const w=x=>{const a=ang(x);return a>=74?0:a<=62?1:Math.pow((74-a)/12,1.5)};const me=ang(sub);if(me>=74)return 0;let other=1e9;GWX_SAT.forEach(q=>{if(q[2]!==sub){const o=ang(q[2]);if(o<74&&o<other)other=o}});
+  const share=me<=other-3?1:me>=other+3?0:(other+3-me)/6;return share*w(sub)}
 function gwxSatProto(){const lib=window.maplibregl;if(!lib||lib._efbir)return;lib._efbir=true;
-  lib.addProtocol("efbir",async(params,abort)=>{const m=params.url.match(/^efbir:\/\/([dl])\/([^/]+)\/(\d+)\/(\d+)\/(\d+)$/);if(!m)throw new Error("bad tile");const[,th,lay,z,y,x]=m;
+  lib.addProtocol("efbir",async(params,abort)=>{const m=params.url.match(/^efbir:\/\/([dl])\/([^/]+)\/(\d+)\/(\d+)\/(\d+)$/);if(!m)throw new Error("bad tile");const[,th,lay,z,y,x]=m,sub=(GWX_SAT.find(q=>q[1]===lay)||[0,0,0])[2],Z=+z,X=+x,Y=+y;
     const slot=Math.floor(Date.now()/600000);
     const r=await fetch(`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${lay}/default/default/GoogleMapsCompatible_Level6/${z}/${y}/${x}.png?s=${slot}`,{signal:abort&&abort.signal});
     if(!r.ok)return{data:new ArrayBuffer(0)};const bm=await createImageBitmap(await r.blob());const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
-    const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140];
-    for(let i=0;i<d.length;i+=4){const R0=d[i],G0=d[i+1],B0=d[i+2],mx=Math.max(R0,G0,B0),mn=Math.min(R0,G0,B0);
+    const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z);
+    /* the satellite weight, worked out on an 8-pixel grid and spread over each block */
+    const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*(W/8+1)+i]=gwxSatW(lat,lon,sub)}
+    for(let i=0;i<d.length;i+=4){const pix=i>>2,pxx=pix%W,pyy=(pix/W)|0,wv=wg[(pyy>>3)*(W/8+1)+(pxx>>3)];if(!wv){d[i+3]=0;continue}const R0=d[i],G0=d[i+1],B0=d[i+2],mx=Math.max(R0,G0,B0),mn=Math.min(R0,G0,B0);
       /* grey: brightness is cloud-top coldness; colour (the coldest storm tops) is solid cloud */
       let a=mx-mn>40?1:Math.max(0,Math.min(1,(R0-178)/62));if(R0<8&&G0<8&&B0<8)a=0;
-      d[i]=col[0];d[i+1]=col[1];d[i+2]=col[2];d[i+3]=Math.round(Math.pow(a,1.15)*(th==="d"?235:215))}
+      d[i]=col[0];d[i+1]=col[1];d[i+2]=col[2];d[i+3]=Math.round(Math.pow(a,1.15)*wv*(th==="d"?235:215))}
     g.putImageData(im,0,0);const blob=await new Promise(res=>c.toBlob(res,"image/png"));return{data:await blob.arrayBuffer()}})}
 /* keep the picture in step with the view: redrawn when the data, the field or the area changes */
 function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))return;

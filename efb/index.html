@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1336">
+<meta name="efb-build" content="1114.1343">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3958,14 +3958,18 @@ const ZM={t:null,x:0,y:0,raf:0,last:0};
 function mapZoomSmooth(dz,sx,sy){if(!MAP.c)return;const{w,h}=mapSize();if(sx==null){sx=w/2;sy=h/2}
   if(typeof inrStop==="function")inrStop();if(typeof OVF!=="undefined"&&OVF.raf&&typeof ovFlyStop==="function")ovFlyStop();
   ZM.t=Math.max(2,Math.min(ZMAX,(ZM.raf&&ZM.t!=null?ZM.t:MAP.z)+dz));ZM.x=sx;ZM.y=sy;MAP.follow=false;
-  if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches){mapZoomAt(ZM.t-MAP.z,sx,sy);ZM.t=null;return}
+  if(document.hidden||(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches)){mapZoomAt(ZM.t-MAP.z,sx,sy);ZM.t=null;return}
   if(!ZM.raf){ZM.last=performance.now();ZM.raf=requestAnimationFrame(zmStep)}}
 function zmStep(now){const dt=Math.min(.05,(now-ZM.last)/1000);ZM.last=now;if(ZM.t==null||cur!=="map"){ZM.raf=0;return}
-  const d=ZM.t-MAP.z,k=1-Math.exp(-dt/.07);
+  const d=ZM.t-MAP.z,k=1-Math.exp(-dt/.05);
   if(Math.abs(d)<.003){mapZoomAt(d,ZM.x,ZM.y);ZM.raf=0;ZM.t=null;if(typeof updMapNote==="function")updMapNote();return}
   mapZoomAt(d*k,ZM.x,ZM.y);ZM.raf=requestAnimationFrame(zmStep)}
 /* a touch on the map takes over from a zoom still gliding */
 document.addEventListener("pointerdown",e=>{if(!ZM.raf)return;const sv=document.getElementById("mapSvg");if(sv&&sv.parentNode&&sv.parentNode.contains(e.target)&&!e.target.closest("button")){cancelAnimationFrame(ZM.raf);ZM.raf=0;ZM.t=null}},true);
+/* airport layouts load once the view settles, without waiting for the base map to call itself idle (with weather
+   tiles still coming in, "idle" could take many seconds) */
+{let tm=0,key="";const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);if(cur!=="map"||!MAP.c||MAP.z<11||!vam.url)return;const k=MAP.c.lat.toFixed(3)+","+MAP.c.lon.toFixed(3)+","+MAP.z.toFixed(1);if(k===key)return;key=k;clearTimeout(tm);
+  tm=setTimeout(()=>{try{mapAptCandidates().forEach(c=>{if(!TX.data[c.icao]&&!TX.loading[c.icao])txLoad(c.icao)})}catch(e){}},300)}}
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the
@@ -4749,7 +4753,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
   const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{let g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");const apk=(!g||g.dataset.sig!=null)&&typeof aptPick==="function"&&aptPick(e.clientX,e.clientY);if(apk){g=null;asOpen(apk,"info")}MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
-  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect(),dz=-e.deltaY/(e.deltaMode===1?6:e.deltaMode===2?1:240);mapZoomSmooth(Math.max(-1,Math.min(1,dz)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect(),dz=-e.deltaY/(e.deltaMode===1?4:e.deltaMode===2?1:160);mapZoomSmooth(Math.max(-1.5,Math.min(1.5,dz)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   if(window.ResizeObserver)new ResizeObserver(()=>mapSched()).observe(el)}
 function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase()):null}
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}

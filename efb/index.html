@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1347">
+<meta name="efb-build" content="1114.1358">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1351,6 +1351,28 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 }
 
 #ofpClear.warn{border-color:var(--red);color:var(--red)}
+/* OFP document */
+.od{--paper:#FBFAF6;--pink:#1C2226;--pline:#E4DED0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--bg)}
+.od.night{--paper:#121517;--pink:#D9E1E4}
+.od-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.od-t{display:flex;flex-direction:column;gap:3px;min-width:0}.od-t b{font:600 15px var(--f-ui);color:var(--ink);white-space:nowrap}
+.od-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.od-find{display:flex;align-items:center;gap:4px}
+.od-find input{width:170px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:500 13px var(--f-ui)}
+.od-n{min-width:52px;text-align:center;font:600 11px var(--f-mono);color:var(--label)}
+.od-tools [data-od="night"][aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.od-scroll{overflow:auto;-webkit-overflow-scrolling:touch;padding:18px 12px 40px}
+.od-paper{width:max-content;min-width:min(100%,640px);max-width:none;margin:0 auto;padding:22px 26px;background:var(--paper);color:var(--pink);border:1px solid var(--pline);border-radius:4px;box-shadow:0 12px 30px -18px rgba(0,0,0,.45);font:400 var(--odfs) / 1.32 "IBM Plex Mono","Courier New",monospace}
+.od.night .od-paper{border-color:#2A3034}
+.od-paper *{font-family:inherit!important;font-size:inherit!important;line-height:inherit!important;color:inherit!important;background:transparent!important}
+.od-paper pre{margin:0;white-space:pre}
+.od-paper img{max-width:100%;height:auto;margin:10px 0;border-radius:3px;background:#fff!important}
+.od.night .od-paper img{filter:invert(.92) hue-rotate(180deg)}
+.od-paper a{color:var(--accent)!important}
+.od-paper mark.odm{background:#FFE07A!important;color:#111!important;border-radius:2px}
+.od-paper mark.odm.cur{background:#FF9F1A!important;outline:2px solid #FF9F1A}
+.od-none{font-family:var(--f-ui)!important;white-space:normal}
+@container screen (max-width:640px){.od-find input{width:120px}.od-scroll{padding:10px 0 30px}.od-paper{padding:14px 12px;border-radius:0}}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4584,6 +4606,53 @@ function muWidget(){const t=muCur(),on=!!muA.dataset.src&&!muA.paused;
    <span class="muw-c"><button data-mu="prev" aria-label="Previous track">${muI("prev")}</button><button class="muw-p" data-mu="play" aria-label="${on?"Pause":"Play"}">${muI(on?"pause":"play")}</button><button data-mu="next" aria-label="Next track">${muI("next")}</button></span></div>`}
 ["play","pause","emptied"].forEach(ev=>muA.addEventListener(ev,()=>{if(!cur)renderHome()}));
 
+/* ===== OFP document =====
+   The operational flight plan exactly as SimBrief prints it (the plan_html in the loaded OFP), on paper or at night,
+   with bigger or smaller type, find in page, and the PDF one tap away. The HTML is cleaned before it is shown:
+   no scripts, frames, forms or event handlers, only plain web links and images. */
+APPS.ofpdoc={name:"OFP",bg:"linear-gradient(180deg,#FBFAF6,#E7E2D6)",fg:"#1A6772",g:'<path d="M6.5 2.5h11v19h-11z" fill="#fff" stroke="#8C7B63"/><path d="M9 6.5h6M9 9.5h6M9 12.5h6M9 15.5h4" stroke="#1A6772" stroke-width="1.5"/>'};
+{const i=PAGE1.indexOf("simbrief");PAGE1.splice(i<0?PAGE1.length:i+1,0,"ofpdoc");const j=PAGE2.indexOf("simbrief");PAGE2.splice(j<0?PAGE2.length:j+1,0,"ofpdoc")}
+
+const OD={fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
+const odNight=()=>OD.night!=null?!!OD.night:isDark();
+function odClean(raw){try{const doc=new DOMParser().parseFromString(String(raw||""),"text/html");
+    doc.querySelectorAll("script,style,iframe,frame,object,embed,form,input,button,link,meta,base,svg,math,template").forEach(n=>n.remove());
+    doc.body.querySelectorAll("*").forEach(n=>{[...n.attributes].forEach(a=>{const k=a.name.toLowerCase(),v=a.value.trim();
+      if(k.startsWith("on")||k==="style"&&/expression|url\(/i.test(v)||k==="srcset")n.removeAttribute(a.name);
+      else if((k==="href"||k==="src")&&!/^https?:\/\//i.test(v))n.removeAttribute(a.name)});
+      if(n.tagName==="A"){n.setAttribute("target","_blank");n.setAttribute("rel","noopener noreferrer")}
+      if(n.tagName==="IMG"){n.setAttribute("loading","lazy");n.setAttribute("referrerpolicy","no-referrer")}});
+    return doc.body.innerHTML}catch(e){return ""}}
+function odHtml(){const id=O().id;if(OD.cacheId!==id){OD.cacheId=id;const t=ofp.text||{};OD.html=t.plan_html?odClean(S(t.plan_html)):""}return OD.html}
+const odPdf=()=>ofp.files&&S(ofp.files.directory)&&ofp.files.pdf&&S(ofp.files.pdf.link)?S(ofp.files.directory)+S(ofp.files.pdf.link):"";
+V.ofpdoc=()=>{if(ofp._sample)return `<div style="padding:24px 16px;max-width:760px;margin:0 auto">${sampleNote()}</div>`;
+  const x=O(),h=odHtml(),pdf=odPdf();
+  return `<div class="od ${odNight()?"night":""}" id="odRoot" style="--odfs:${OD.fs}px">
+    <div class="od-bar"><div class="od-t"><span class="eyebrow">OFP · ${esc(x.id)}</span><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b></div>
+      <div class="od-tools"><div class="od-find"><input type="search" id="odQ" placeholder="Find in OFP" value="${esc(OD.q)}" autocomplete="off" spellcheck="false"><span id="odN" class="od-n"></span>
+        <button class="btn sm" data-od="prev" aria-label="Previous match">‹</button><button class="btn sm" data-od="next" aria-label="Next match">›</button></div>
+        <button class="btn sm" data-od="smaller" aria-label="Smaller text">A−</button><button class="btn sm" data-od="bigger" aria-label="Bigger text">A+</button>
+        <button class="btn sm" data-od="night" aria-pressed="${odNight()}">Night</button>${pdf?`<a class="btn sm" href="${esc(pdf)}" target="_blank" rel="noopener">PDF ↗</a>`:""}</div></div>
+    <div class="od-scroll" id="odScroll"><div class="od-paper" id="odPaper">${h||`<p class="od-none">This OFP has no printed plan in it. ${pdf?"Open the PDF instead.":"Fetch it again from SimBrief in Dispatch."}</p>`}</div></div></div>`};
+/* find: mark every match in the text, step through them */
+function odFind(q,step){const paper=document.getElementById("odPaper");if(!paper)return;
+  if(q!==OD.q||step==null){OD.q=q;paper.querySelectorAll("mark.odm").forEach(m=>{m.replaceWith(document.createTextNode(m.textContent))});paper.normalize();OD.hits=0;OD.at=0;
+    if(q&&q.length>=2){const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"),w=document.createTreeWalker(paper,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+      nodes.forEach(t=>{const s=t.nodeValue;if(!re.test(s))return;re.lastIndex=0;const f=document.createDocumentFragment();let last=0,m;
+        while((m=re.exec(s))){f.appendChild(document.createTextNode(s.slice(last,m.index)));const mk=document.createElement("mark");mk.className="odm";mk.textContent=m[0];f.appendChild(mk);last=m.index+m[0].length;OD.hits++}
+        f.appendChild(document.createTextNode(s.slice(last)));t.replaceWith(f)})}}
+  const ms=[...paper.querySelectorAll("mark.odm")];if(step)OD.at=(OD.at+step+ms.length)%Math.max(1,ms.length);
+  ms.forEach((m,i)=>m.classList.toggle("cur",i===OD.at));if(ms[OD.at])ms[OD.at].scrollIntoView({block:"center",behavior:step?"smooth":"auto"});
+  const n=document.getElementById("odN");if(n)n.textContent=q&&q.length>=2?(ms.length?(OD.at+1)+" / "+ms.length:"No match"):""}
+document.addEventListener("input",e=>{if(e.target.id==="odQ")odFind(e.target.value.trim(),null)});
+document.addEventListener("keydown",e=>{if(e.target.id==="odQ"&&e.key==="Enter"){e.preventDefault();odFind(e.target.value.trim(),e.shiftKey?-1:1)}});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-od]");if(!b)return;const a=b.dataset.od,root=document.getElementById("odRoot");
+  if(a==="next"||a==="prev"){odFind(OD.q,a==="next"?1:-1);return}
+  if(a==="bigger"||a==="smaller"){OD.fs=Math.max(9,Math.min(24,OD.fs+(a==="bigger"?1:-1)));store.set("odFs",OD.fs);if(root)root.style.setProperty("--odfs",OD.fs+"px");return}
+  if(a==="night"){OD.night=!odNight();store.set("odNight",OD.night);if(root)root.classList.toggle("night",OD.night);b.setAttribute("aria-pressed",String(OD.night))}});
+/* pinch or ctrl + wheel on the page changes the type size too */
+document.addEventListener("wheel",e=>{if(!e.ctrlKey||!e.target.closest("#odScroll"))return;e.preventDefault();OD.fs=Math.max(9,Math.min(24,OD.fs+(e.deltaY<0?1:-1)));store.set("odFs",OD.fs);const r=document.getElementById("odRoot");if(r)r.style.setProperty("--odfs",OD.fs+"px")},{passive:false});
+
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};
 function txLoad(icao,force){if(!vam.url||!icao)return;if(!force&&(TX.data[icao]||TX.loading[icao]))return;if(!force&&TX.err[icao]&&Date.now()-TX.err[icao].at<60000)return;TX.loading[icao]=true;
@@ -4834,7 +4903,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 
 /* ---------- shell ---------- */
 let cur=null,openOrigin=null;
-const LAYOUT={ofp:"split",wx:"split",charts:"split",checklist:"split",logbook:"split",prefs:"split",map:"full",timer:"full"};
+const LAYOUT={ofpdoc:"full",ofp:"split",wx:"split",charts:"split",checklist:"split",logbook:"split",prefs:"split",map:"full",timer:"full"};
 const EYEBROW={
  ofp:x=>`${x.flight} · ${S(x.o.icao_code)} → ${S(x.d.icao_code)}`,
  wx:x=>`${S(x.o.icao_code)} · ${S(x.d.icao_code)}${S(x.a.icao_code)?" · "+S(x.a.icao_code):""}`,

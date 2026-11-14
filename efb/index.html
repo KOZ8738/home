@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0453">
+<meta name="efb-build" content="1114.0458">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1307,7 +1307,7 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .pin-tab button{border:0;background:transparent;color:var(--ink);font:600 12px var(--f-ui);padding:5px 10px 6px;white-space:nowrap;cursor:pointer}
 .pin-tab button b{display:block;font:700 10px var(--f-mono);letter-spacing:.04em;color:color-mix(in srgb,var(--cc) 70%,#fff);margin-bottom:1px;text-align:left}
 .pin-tab button{text-align:left}
-.pin-tab .pin-x{padding:6px 8px 6px 2px;color:var(--label);font-size:15px;line-height:1}
+.pin-tab .pin-x{padding:6px 9px 6px 3px;color:var(--ink);opacity:.75;font-size:17px;line-height:1}
 .pin-tab.on{border-color:var(--cc);border-top-width:4px;background:color-mix(in srgb,var(--cc) 62%,var(--panel));box-shadow:0 0 0 1px var(--cc) inset}
 .pin-tab.on button b{color:#fff}
 @container screen (max-width:640px){.pinbar,.assheet:not([hidden])~.pinbar{left:8px;right:40px;max-width:none;bottom:calc(52px + env(safe-area-inset-bottom,0px))}}
@@ -1319,6 +1319,11 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .pin-tab .pin-map svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
 .pin-tab .pin-map[aria-pressed="true"]{background:var(--cc);border-color:#fff}
 .pin-tab .pin-map[aria-pressed="true"] svg{fill:color-mix(in srgb,#fff 35%,transparent)}
+.pin-undo{flex:none;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;border-radius:6px;background:var(--ink);color:var(--panel);font:500 12px var(--f-ui);white-space:nowrap;animation:pinUndoIn .2s ease-out}
+.pin-undo b{font-weight:700;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.pin-undo button{border:0;border-radius:4px;background:var(--brand,#1A6772);color:#fff;font:700 12px var(--f-ui);padding:5px 10px;cursor:pointer}
+@keyframes pinUndoIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.pinbar .pin-x{padding:6px 8px 6px 4px}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -3329,6 +3334,10 @@ const pinKey=(icao,pdf)=>icao+"|"+pdf;
 const pinHas=(icao,pdf)=>PINS.some(p=>p.icao===icao&&p.pdf===pdf);
 const pinShort=n=>String(n||"").replace(/^(ILS OR LOC|ILS|RNAV \(GPS\)|RNAV \(RNP\)|LOC|VOR|GLS)\s+RWY\s+/i,(m,a)=>a.replace(/ \(.*\)/,"")+" ").replace(/\s+\(.*?\)\s*$/,"").replace(/AIRPORT DIAGRAM/i,"Diagram").slice(0,26);
 const PIN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-4-5 5-1-1 5-5-4-4 2-2 5 1 4-4z"/></svg>';
+/* one tap on × unpins; "Undo" stays for a few seconds in case it was the wrong tab */
+let PIN_UNDO=null;
+const pinUndoHtml=()=>PIN_UNDO?`<span class="pin-undo" role="status">Unpinned <b>${esc(pinShort(PIN_UNDO.p.name))}</b><button type="button" data-pinundo>Undo</button></span>`:"";
+function pinToggleSync(){document.querySelectorAll("[data-pin]").forEach(b=>{const on=pinHas(b.dataset.pinicao,b.dataset.pin);b.setAttribute("aria-pressed",String(on))})}
 function pinSave(){store.set("chPins",PINS.map(({icao,name,pdf,group,cycle})=>({icao,name,pdf,group,cycle})))}
 function pinToggle(c){const i=PINS.findIndex(p=>p.icao===c.icao&&p.pdf===c.pdf);if(i>=0)PINS.splice(i,1);else{PINS.push({icao:c.icao,name:c.name,pdf:c.pdf,group:c.group||"",cycle:c.cycle||""});if(PINS.length>24)PINS.shift()}
   pinSave();pinUi();
@@ -3350,10 +3359,10 @@ function pinTabs(active,close){return PINS.map((p,i)=>{const on=active&&active.i
 function pinUi(){
   const wrap=document.querySelector(".mapwrap");
   if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}
-    bar.hidden=!PINS.length;bar.innerHTML=PINS.length?`<span class="pin-ic">${PIN_SVG}</span>${pinTabs(null,false)}`:""}
+    bar.hidden=!PINS.length&&!PIN_UNDO;bar.innerHTML=(PINS.length?`<span class="pin-ic">${PIN_SVG}</span>${pinTabs(null,true)}`:"")+pinUndoHtml()}
   const cv=document.getElementById("cvWrap");
   if(cv){let bar=cv.querySelector("#cvPins");if(!bar){bar=document.createElement("div");bar.id="cvPins";bar.className="cv-pins";cv.appendChild(bar)}
-    bar.hidden=!PINS.length;bar.innerHTML=PINS.length?pinTabs(CV.sel,true):"";
+    bar.hidden=!PINS.length&&!PIN_UNDO;bar.innerHTML=(PINS.length?pinTabs(CV.sel,true):"")+pinUndoHtml();
     const b=cv.querySelector('[data-cv="pin"]');if(b&&CV.sel){const on=pinHas(CV.sel.icao,CV.sel.pdf);b.setAttribute("aria-pressed",String(on));b.textContent=on?"Pinned":"Pin"}
     const t=bar.querySelector(".pin-tab.on");if(t&&t.scrollIntoView)try{t.scrollIntoView({block:"nearest",inline:"nearest"})}catch(e){}}}
 /* a Pin button in the viewer's top bar, next to the others */
@@ -3367,7 +3376,8 @@ document.addEventListener("click",e=>{
   const pb=e.target.closest("[data-pin]");if(pb){e.stopPropagation();const icao=pb.dataset.pinicao,d=CH.data[icao];const c=d&&(d.charts||[]).find(x=>x.pdf===pb.dataset.pin);
     pinToggle({icao,pdf:pb.dataset.pin,name:c?c.name:pb.dataset.pinname,group:c?(c.group||""):"",cycle:d?d.cycle:""});return}
   if(e.target.closest('[data-cv="pin"]')&&CV.sel){pinToggle(CV.sel);return}
-  const x=e.target.closest("[data-pinx]");if(x){const p=PINS[+x.dataset.pinx];if(p)pinToggle(p);return}
+  const x=e.target.closest("[data-pinx]");if(x){const i=+x.dataset.pinx,p=PINS[i];if(p){clearTimeout(PIN_UNDO&&PIN_UNDO.tm);PIN_UNDO={p,i,tm:setTimeout(()=>{PIN_UNDO=null;pinUi()},5000)};pinToggle(p)}return}
+  if(e.target.closest("[data-pinundo]")&&PIN_UNDO){const u=PIN_UNDO;clearTimeout(u.tm);PIN_UNDO=null;if(!pinHas(u.p.icao,u.p.pdf)){PINS.splice(Math.min(u.i,PINS.length),0,u.p);pinSave()}pinToggleSync();pinUi();return}
   const mp=e.target.closest("[data-pinmap]");if(mp){const p=PINS[+mp.dataset.pinmap];if(p)pinMap(p);return}
   const o=e.target.closest("[data-pinopen]");if(o){const p=PINS[+o.dataset.pinopen];if(p)pinOpen(p)}},true);
 

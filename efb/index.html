@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1209">
+<meta name="efb-build" content="1114.1211">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2834,9 +2834,9 @@ const gwxLv=()=>{const f=gwxF();return f==="isa"||f==="vv"?(+ML.gwxLv||250):0};
 const gwxKey=(f,lv,b)=>f+"/"+lv+"/"+b+"/5";
 /* load the 30-degree blocks in view that are missing or older than 45 minutes, one request */
 function gwxLoad(keys){const f=gwxF();if(!f||!vam.url||GWX.busy||Date.now()<GWX.retryAt)return;const lv=gwxLv(),now=Date.now();
-  const need=keys.filter(k=>{const c=GWX.blocks[gwxKey(f,lv,k)];return!c||now-c.at>45*60000}).slice(0,12);if(!need.length)return;GWX.busy=true;
+  const need=keys.filter(k=>{const c=GWX.blocks[gwxKey(f,lv,k)];return!c||now-c.at>45*60000}).slice(0,10);if(!need.length)return;GWX.busy=true;
   vamGet(`/api/efb/gwx?f=${f}&lv=${lv||250}&blocks=${need.join(";")}`,45000).then(j=>{const got=(j&&j.blocks)||{};GWX.hour=j&&j.hour;
-      need.forEach(k=>{if(got[k])GWX.blocks[gwxKey(f,lv,k)]={at:Date.now(),v:got[k]}});GWX.err=j&&j.error||null;if(GWX.err)GWX.retryAt=Date.now()+30000})
+      need.forEach(k=>{if(got[k])GWX.blocks[gwxKey(f,lv,k)]={at:Date.now(),v:got[k]}});GWX.err=j&&j.error||null;if(GWX.err)GWX.retryAt=Date.now()+(/hour|today/.test(GWX.err)?600000:60000)})
     .catch(e=>{GWX.err=e.message||"Couldn’t load";GWX.retryAt=Date.now()+30000})
     .finally(()=>{GWX.busy=false;GWX.ver++;if(cur==="map"){mapSched();try{mlStatus()}catch(e){}}})}
 /* the lattice: value at row r (lat = -90 + 2.5 r) and column c (lon = -180 + 2.5 c) */
@@ -2910,11 +2910,11 @@ function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))retur
   if(!m._gwxImg){m._gwxImg=true;m.on("styleimagemissing",e=>{if(/^gwx-ar-[dl]$/.test(e.id)&&!m.hasImage(e.id))try{m.addImage(e.id,gwxIcon(e.id),{pixelRatio:2})}catch(er){}})}
   const f=gwxF(),vis=f?"visible":"none";["gwx-img","gwx-ct","gwx-ar","gwx-ctl","gwx-hl"].forEach(id=>{if(m.getLayer(id)&&m.getLayoutProperty(id,"visibility")!==vis)m.setLayoutProperty(id,"visibility",vis)});
   if(!f)return;const now=Date.now();if(now-(GWX.tick||0)<300)return;GWX.tick=now;let b;try{b=m.getBounds()}catch(e){return}
-  /* the area drawn: the view with half a screen around it, so a pan doesn't show the edge straight away */
-  const lv=gwxLv(),dw=(b.getEast()-b.getWest())*.5,dh=(b.getNorth()-b.getSouth())*.5;
+  /* the area drawn: the view with a quarter screen around it, so a pan doesn't show the edge straight away */
+  const lv=gwxLv(),dw=(b.getEast()-b.getWest())*.25,dh=(b.getNorth()-b.getSouth())*.25;
   const w=Math.max(-540,b.getWest()-dw),e=Math.min(540,b.getEast()+dw),s=Math.max(-84,b.getSouth()-dh),n=Math.min(84,b.getNorth()+dh);
-  const keys=[];for(let la=Math.floor(s/30)*30;la<=n;la+=30)for(let lo=Math.floor(w/30)*30;lo<=e&&keys.length<12;lo+=30){const L=((lo+180)%360+360)%360-180,k=Math.max(-90,Math.min(60,la))+","+L;if(!keys.includes(k))keys.push(k)}
-  gwxLoad(keys);
+  const keys=[];for(let la=Math.floor(s/30)*30;la<=n;la+=30)for(let lo=Math.floor(w/30)*30;lo<=e&&keys.length<10;lo+=30){const L=((lo+180)%360+360)%360-180,k=Math.max(-90,Math.min(60,la))+","+L;if(!keys.includes(k))keys.push(k)}
+  const cc=m.getCenter();keys.sort((a,b2)=>{const d=k=>{const p=k.split(",").map(Number);return Math.hypot(p[0]+15-cc.lat,((p[1]+15-cc.lng+540)%360)-180)};return d(a)-d(b2)});gwxLoad(keys);
   const z=m.getZoom(),D=GWX.drawnBox,inside=D&&D.f===f&&D.lv===lv&&D.ver===GWX.ver&&b.getWest()>=D.w&&b.getEast()<=D.e&&b.getSouth()>=D.s&&b.getNorth()<=D.n&&Math.abs(z-D.z)<1.5;if(inside)return;
   GWX.drawnBox={f,lv,ver:GWX.ver,w,e,s,n,z};
   try{const url=gwxImage(f,lv,w,s,e,n);m.getSource("gwxi").updateImage({url:url||GWX_BLANK,coordinates:[[w,n],[e,n],[e,s],[w,s]]})}catch(er){}

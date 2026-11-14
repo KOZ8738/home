@@ -637,7 +637,7 @@ async function gwxRoute(url, ctx, h) {
   const f = String(url.searchParams.get('f') || ''); if (!GWX_F[f]) throw new HttpError(400, 'f must be one of ' + Object.keys(GWX_F).join(', '));
   const lv = +(url.searchParams.get('lv') || 250); if ((f === 'isa' || f === 'vv') && !GWX_LV.includes(lv)) throw new HttpError(400, 'lv must be one of ' + GWX_LV.join(', '));
   const blocks = String(url.searchParams.get('blocks') || '').split(';').map((c) => c.match(/^(-?\d{1,2}),(-?\d{1,3})$/)).filter(Boolean)
-    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 30) && !(lo % 30) && la >= -90 && la <= 60 && lo >= -180 && lo <= 150).slice(0, 12);
+    .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 30) && !(lo % 30) && la >= -90 && la <= 60 && lo >= -180 && lo <= 150).slice(0, 10);
   if (!blocks.length) throw new HttpError(400, 'blocks=lat,lon;lat,lon (30 degree grid)');
   const hour = (() => { const d = new Date(); d.setUTCHours(Math.floor(d.getUTCHours() / 3) * 3); return d.toISOString().slice(0, 13); })(), cache = caches.default, lvk = f === 'isa' || f === 'vv' ? lv : 0;
   const key = (b) => new Request('https://gwx-cache.local/v2/' + hour + '/' + f + '/' + lvk + '/' + b[0] + '/' + b[1]);
@@ -654,7 +654,7 @@ async function gwxRoute(url, ctx, h) {
       let j = null;
       for (let tries = 0; tries < 2 && !j; tries++) {
         try { const up = await fetchT(u, 20000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
-          if (up.ok) j = await up.json(); else { err = up.status === 429 ? 'Weather service is busy, try again shortly' : 'Weather service ' + up.status; if (up.status === 429 && !tries) await new Promise((r) => setTimeout(r, 1500)); }
+          if (up.ok) j = await up.json(); else { let why = ''; try { why = String((await up.json()).reason || ''); } catch (e) {} err = up.status === 429 ? (/hour/i.test(why) ? 'Weather limit reached for this hour, try again later' : /day/i.test(why) ? 'Weather limit reached for today' : 'Weather service is busy, try again shortly') : 'Weather service ' + up.status; if (up.status === 429) break; }
         } catch (e) { err = 'Weather service is slow, try again'; }
       }
       if (!j) break;

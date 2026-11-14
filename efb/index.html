@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0516">
+<meta name="efb-build" content="1114.1117">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2338,7 +2338,8 @@ const BASES={map:{name:"Map"},sat:{name:"Satellite",ras:[{id:"sat",url:"https://
   ifrh:{name:"IFR High",us:1,ifr:"H"},ifrl:{name:"IFR Low",us:1,ifr:"L"},
   faah:{name:"FAA High chart",us:1,ras:[{id:"ifrh",url:FAA_T+"IFR_High/MapServer/tile/{z}/{y}/{x}",min:4,max:9}]},
   faal:{name:"FAA Low chart",us:1,ras:[{id:"ifrl",url:FAA_T+"IFR_AreaLow/MapServer/tile/{z}/{y}/{x}",min:7,max:12}]},
-  vfr:{name:"VFR",us:1,ras:[{id:"sec",url:FAA_T+"VFR_Sectional/MapServer/tile/{z}/{y}/{x}",min:8,max:12},{id:"tac",url:FAA_T+"VFR_Terminal/MapServer/tile/{z}/{y}/{x}",min:9,max:12}]}};
+  vfr:{name:"VFR",us:1,vfr:true,attr:'Terrain <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain Tiles</a> (Mapzen, AWS Open Data)'},
+  faav:{name:"FAA VFR chart",us:1,ras:[{id:"sec",url:FAA_T+"VFR_Sectional/MapServer/tile/{z}/{y}/{x}",min:8,max:12},{id:"tac",url:FAA_T+"VFR_Terminal/MapServer/tile/{z}/{y}/{x}",min:9,max:12}]}};
 const baseKey=()=>BASES[ML.base]?ML.base:"map";
 function vecAttr(){const b=BASES[baseKey()];return (oaipOn()?'Aero data <a href="https://www.openaip.net" target="_blank" rel="noopener">openAIP</a> (CC BY-NC) · ':"")+(b.us?'Charts <a href="https://www.faa.gov/air_traffic/flight_info/aeronav/" target="_blank" rel="noopener">FAA AIS</a> · ':"")+(b.attr?b.attr+" · ":"")+'Map <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}
 /* openAIP overlay (airspace, navaids, reporting points), raster tiles through the EFB server */
@@ -2622,6 +2623,170 @@ function aptPick(cx,cy){const m=VEC.map;if(!m||!aptsOn()||!m.getLayer("apt-pt"))
     const c=f[0].properties.c;return /^[A-Z0-9]{3,4}$/.test(c)?c:null}catch(e){return null}}
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="apts"]');
   if(el)el.textContent=!vam.url?"Set the EFB server in Settings":ML.apts===false?"":APTS.a?"Big airports first, small fields when zoomed in":APTS.busy.a?"Loading…":"";return r}}
+
+/* ---------- Vector VFR sectional (US) ----------
+   A sectional-style chart drawn by MapLibre from FAA AIS open data, so it stays sharp at any zoom: class B, C, D and E
+   airspace with floors and ceilings, special use airspace, airports in sectional symbols (blue towered, magenta not),
+   their runways, VOR compass roses, Victor airways, VFR waypoints and obstacles, over shaded terrain. */
+const VFR={cells:{},loading:{},q:0,ver:0,setVer:"",setAt:0,tickAt:0,err:null,codesKey:""};
+const vfrOn=()=>{const b=BASES[baseKey()];return!!(b&&b.vfr)};
+const VFR_SZ=4,VFR_MINZ=5.6;
+function vfrLoad(key){if(!vam.url||VFR.loading[key]||VFR.q>=2)return;const c=VFR.cells[key];if(c&&(!c.fail||Date.now()-c.at<15000))return;
+  VFR.loading[key]=true;VFR.q++;
+  vamGet(`/api/efb/vfr?cell=${key}&v=1`,70000).then(j=>{if(!j||!j.as)throw new Error((j&&j.error)||"No data");VFR.cells[key]={at:Date.now(),d:j};VFR.err=null})
+    .catch(e=>{VFR.cells[key]={at:Date.now(),fail:true};VFR.err=e.message||"Couldn’t load";setTimeout(()=>{VFR.tickAt=0;try{if(cur==="map")vfrTick()}catch(er){}},16000)})
+    .finally(()=>{VFR.loading[key]=false;VFR.q--;VFR.ver++;if(cur==="map"){mapSched();setTimeout(()=>{try{vfrTick()}catch(e){}},420)}})}
+const vfrH=v=>v==null?"":String(Math.round(v/100));
+/* polygons: airspace, special use airspace, runways */
+function vfrPolyFC(){const F=[],seen={},seenS={},seenR={};
+  Object.values(VFR.cells).forEach(c=>{if(!c||!c.d)return;const d=c.d;
+    d.as.forEach(a=>{if(seen[a[0]])return;seen[a[0]]=1;F.push({type:"Feature",geometry:{type:"MultiPolygon",coordinates:a[9]},properties:{t:"as",k:a[1],f:a[2]==null?-1:a[2]}})});
+    d.sua.forEach(s=>{if(seenS[s[0]])return;seenS[s[0]]=1;F.push({type:"Feature",geometry:{type:"MultiPolygon",coordinates:s[8]},properties:{t:"sua",k:s[1]==="MOA"?"moa":"rest"}})});
+    const twr={};d.apts.forEach(p=>{twr[p[0]]=p[9]&&!p[7]?1:0});
+    d.rwys.forEach(r=>{const k=r[0]+r[1][0].join();if(seenR[k])return;seenR[k]=1;F.push({type:"Feature",geometry:{type:"Polygon",coordinates:[r[1]]},properties:{t:"rw",b:twr[r[0]]||0}})})});
+  return{type:"FeatureCollection",features:F}}
+/* points and lines: airports, labels, waypoints, obstacles, NAVAIDs, Victor airways */
+function vfrPtFC(){const F=[],seen={},seenA={},seenS={},seenV={},seenO={};
+  Object.values(VFR.cells).forEach(c=>{if(!c||!c.d)return;const d=c.d;
+    d.as.forEach(a=>{if(!a[8]||seen[a[0]])return;seen[a[0]]=1;const k=a[1];let txt="";
+      if(k==="B"||k==="C")txt=vfrH(a[4])+"\n"+(a[2]===0||a[3]==="SFC"?"SFC":vfrH(a[2]));else if(k==="D"&&a[4]!=null)txt="["+vfrH(a[4])+"]";
+      if(txt)F.push({type:"Feature",geometry:{type:"Point",coordinates:a[8]},properties:{t:"asl",k,txt}})});
+    d.sua.forEach(s=>{if(!s[7]||seenS[s[0]])return;seenS[s[0]]=1;F.push({type:"Feature",geometry:{type:"Point",coordinates:s[7]},properties:{t:"sul",k:s[1]==="MOA"?"moa":"rest",txt:s[2]}})});
+    d.apts.forEach(p=>{if(seenA[p[0]])return;seenA[p[0]]=1;const[id,icao,name,lon,lat,elev,type,priv,mil,twr,len,hard,lit,brg]=p;
+      const kind=priv?"p":type==="SP"?"w":hard&&len>8069?"l":hard?"h":"s",col=twr&&!priv?"b":"m";
+      /* importance: towered and long runways first; small private fields last */
+      const imp=priv?5:twr?(len>=8000?1:2):len>=4000?3:4;
+      const r0=hard&&len&&len<=8069?(len*.3048/2+260)/(78271.517*Math.cos(lat*Math.PI/180)):0;
+      F.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"apt",c:icao||id,id,sym:"va-"+kind+"-"+col,rot:brg||0,col,imp,r0,
+        l1:String(name||"").toUpperCase()+" ("+(icao||id)+")",l2:[elev!=null?elev:"",lit?"L":"",len?Math.round(len/100):""].filter(v=>v!=="").join(" ")+(priv?"  (PVT)":"")}})});
+    (d.vps||[]).forEach(v=>{if(seenV[v[0]])return;seenV[v[0]]=1;F.push({type:"Feature",geometry:{type:"Point",coordinates:[v[1],v[2]]},properties:{t:"vp",i:v[0]}})});
+    (d.obs||[]).forEach(o=>{const k=o[0]+","+o[1];if(seenO[k])return;seenO[k]=1;F.push({type:"Feature",geometry:{type:"Point",coordinates:[o[0],o[1]]},properties:{t:"ob",h:o[2]>=1000?1:0,lit:o[4],a:o[2],lbl:o[3]+"\n("+o[2]+")"}})})});
+  /* NAVAIDs and Victor airways come from the IFR low-altitude data for the same cells */
+  const seenN={},seenR={};Object.keys(IFR.cells).forEach(k=>{if(k[0]!=="L")return;const c=IFR.cells[k];if(!c||!c.d)return;
+    c.d.navs.forEach(n=>{if(seenN[n[0]])return;seenN[n[0]]=1;const ndb=/NDB/i.test(n[3])&&!/VOR|TAC/i.test(n[3]);let dec=0;try{dec=wmmDecl(n[5],n[4],0)||0}catch(e){}
+      F.push({type:"Feature",geometry:{type:"Point",coordinates:[n[4],n[5]]},properties:{t:"nav",k:ndb?"ndb":"vor",i:n[1],rot:Math.round(dec*10)/10,lbl:(n[2]||"").toUpperCase()+"\n"+(n[6]?n[6]+" ":"")+n[1]}})});
+    c.d.routes.forEach(r=>{if(seenR[r[0]]||!/^V\d/.test(r[1]))return;seenR[r[0]]=1;r[9].forEach(g=>F.push({type:"Feature",geometry:{type:"LineString",coordinates:g},properties:{t:"awy",i:r[1]}}))})});
+  return{type:"FeatureCollection",features:F}}
+/* chart symbols, drawn on a canvas when MapLibre asks for them */
+function vfrIcon(id){const dark=/-d$/.test(id)||/-d-/.test(id),blue=dark?"#7FB2FF":"#1F5BB5",mag=dark?"#E77FD0":"#9C2D80",bg=dark?"#0B0D0C":"#FFFFFF";
+  const mk=(s)=>{const c=document.createElement("canvas");c.width=c.height=s;return[c,c.getContext("2d")]},out=(c,s)=>({width:s,height:s,data:new Uint8Array(c.getContext("2d").getImageData(0,0,s,s).data.buffer)});
+  if(/^va-/.test(id)){const[,kind,col]=id.split("-"),C=col==="b"?blue:mag,s=48,[c,x]=mk(s);x.lineCap="butt";
+    const bar=(L,W)=>{x.fillStyle=C;x.fillRect(24-W/2,24-L/2,W,L)};
+    if(kind==="h"){x.beginPath();x.arc(24,24,14,0,7);x.lineWidth=3.4;x.strokeStyle=C;x.stroke();bar(22,4.6)}
+    else if(kind==="l"){bar(38,6.5);x.fillStyle=bg;x.fillRect(22.6,8,2.8,32)}
+    else if(kind==="s"){x.beginPath();x.arc(24,24,11,0,7);x.fillStyle=C;x.fill()}
+    else if(kind==="p"){x.beginPath();x.arc(24,24,11,0,7);x.lineWidth=3;x.strokeStyle=C;x.stroke();x.fillStyle=C;x.font="bold 15px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("R",24,25)}
+    else if(kind==="w"){x.beginPath();x.arc(24,24,13,0,7);x.lineWidth=3;x.strokeStyle=C;x.stroke();x.lineWidth=2.6;x.beginPath();x.moveTo(24,15);x.lineTo(24,32);x.moveTo(18,19);x.lineTo(30,19);x.moveTo(16,27);x.quadraticCurveTo(24,36,32,27);x.stroke()}
+    return out(c,s)}
+  if(/^vfr-bar/.test(id)){const C=/-b-/.test(id)?blue:mag,s=40,[c,x]=mk(s);x.fillStyle=C;x.fillRect(4,19,32,2.6);return out(c,s)}
+  if(/^vfr-vp/.test(id)){const s=40,[c,x]=mk(s);x.fillStyle=mag;x.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/2,r=i%2?4.5:14;x.lineTo(20+r*Math.cos(a),20+r*Math.sin(a))}x.closePath();x.fill();x.beginPath();x.arc(20,20,3,0,7);x.fillStyle=bg;x.fill();return out(c,s)}
+  if(/^vfr-ob/.test(id)){const hi=/obh/.test(id),lit=/-lit/.test(id),s=48,[c,x]=mk(s),ink=dark?"#D9DDE0":"#1E2328",H=hi?30:22,top=40-H;x.strokeStyle=ink;x.lineWidth=hi?3.4:2.6;x.lineJoin="miter";
+    x.beginPath();x.moveTo(24-(hi?9:7),40);x.lineTo(24,top);x.lineTo(24+(hi?9:7),40);x.stroke();x.beginPath();x.arc(24,37,2.4,0,7);x.fillStyle=ink;x.fill();
+    if(lit){x.lineWidth=2;[-1,1].forEach(sg=>{x.beginPath();x.moveTo(24+sg*4,top-1);x.lineTo(24+sg*10,top-6);x.stroke()});x.beginPath();x.moveTo(24,top-3);x.lineTo(24,top-9);x.stroke()}
+    return out(c,s)}
+  if(/^vfr-rose/.test(id)){const s=256,[c,x]=mk(s),C=blue,R=118;x.strokeStyle=C;x.fillStyle=C;x.lineWidth=2;x.beginPath();x.arc(128,128,R,0,7);x.stroke();
+    for(let d=0;d<360;d+=5){const a=(d-90)*Math.PI/180,L=d%30===0?16:d%10===0?11:6;x.lineWidth=d%10===0?2:1.4;x.beginPath();x.moveTo(128+R*Math.cos(a),128+R*Math.sin(a));x.lineTo(128+(R-L)*Math.cos(a),128+(R-L)*Math.sin(a));x.stroke()}
+    x.font="bold 15px sans-serif";x.textAlign="center";x.textBaseline="middle";
+    for(let d=30;d<360;d+=30){const a=(d-90)*Math.PI/180;x.save();x.translate(128+(R-29)*Math.cos(a),128+(R-29)*Math.sin(a));x.rotate(d*Math.PI/180);x.fillText(String(d/10),0,0);x.restore()}
+    /* magnetic north arrow */
+    x.beginPath();x.moveTo(128,128-R+2);x.lineTo(121,128-R+20);x.lineTo(135,128-R+20);x.closePath();x.fill();return out(c,s)}
+  if(/^vfr-vor|^vfr-ndb/.test(id))return ifrIcon(id.replace(/^vfr-/,"ifr-"));
+  return null}
+function vfrColors(dark){return dark?{B:"#7FB2FF",M:"#E77FD0",E:"#D86AC0",E12:"#6F9FE6",txt:"#E6ECF0",halo:"#0B0D0C",awy:"#6F95BF",ob:"#D9DDE0",nav:"#7FB2FF",box:"#0B0D0C"}
+  :{B:"#1F5BB5",M:"#9C2D80",E:"#C0399A",E12:"#3E78C8",txt:"#1B2329",halo:"#FFFFFF",awy:"#7FA3C9",ob:"#1E2328",nav:"#1F5BB5",box:"#FFFFFF"}}
+function vfrLayers(dark){const C=vfrColors(dark),t=dark?"-d":"-l",F=["Noto Sans Regular"],FB=["Noto Sans Bold"],z0=VFR_MINZ;
+  const AS=(k)=>["all",["==",["get","t"],"as"],Array.isArray(k)?["in",["get","k"],["literal",k]]:["==",["get","k"],k]];
+  const W=(a,b)=>["interpolate",["linear"],["zoom"],6,a,11,b];
+  const lines=[
+   /* class E from 700 ft: a magenta band shaded on the inside; from 1200 ft: a blue one */
+   {id:"vfr-e7",type:"line",source:"vfra",minzoom:z0+.6,filter:["all",AS(["E5","E6"]),["==",["get","f"],700]],layout:{"line-join":"round"},paint:{"line-color":C.E,"line-width":W(6,12),"line-blur":W(5,10),"line-offset":W(-3,-6),"line-opacity":dark?.5:.42}},
+   {id:"vfr-e12",type:"line",source:"vfra",minzoom:z0+.6,filter:["all",AS(["E5","E6"]),["==",["get","f"],1200]],layout:{"line-join":"round"},paint:{"line-color":C.E12,"line-width":W(6,12),"line-blur":W(5,10),"line-offset":W(-3,-6),"line-opacity":dark?.4:.3}},
+   {id:"vfr-esfc",type:"line",source:"vfra",minzoom:z0+.8,filter:AS(["E2","E3","E4"]),paint:{"line-color":C.E,"line-width":W(1,1.8),"line-dasharray":[4,3]}},
+   {id:"vfr-mc",type:"line",source:"vfra",minzoom:z0,filter:AS("MC"),paint:{"line-color":C.M,"line-width":W(.8,1.3),"line-opacity":.75}},
+   /* special use airspace: border with hatching on the inside, magenta for MOAs, blue for the rest */
+   {id:"vfr-sua",type:"line",source:"vfra",minzoom:z0,filter:["==",["get","t"],"sua"],paint:{"line-color":["case",["==",["get","k"],"moa"],C.M,C.B],"line-width":W(.9,1.5)}},
+   {id:"vfr-sua-h",type:"line",source:"vfra",minzoom:z0+.8,filter:["==",["get","t"],"sua"],layout:{"line-cap":"butt"},paint:{"line-color":["case",["==",["get","k"],"moa"],C.M,C.B],"line-width":W(4,7),"line-offset":W(-2,-3.5),"line-dasharray":[.28,1.4],"line-opacity":.85}},
+   {id:"vfr-d",type:"line",source:"vfra",minzoom:z0,filter:AS("D"),paint:{"line-color":C.B,"line-width":W(1.1,2),"line-dasharray":[5,3]}},
+   {id:"vfr-c",type:"line",source:"vfra",minzoom:z0-.6,filter:AS("C"),paint:{"line-color":C.M,"line-width":W(1.6,3)}},
+   {id:"vfr-b",type:"line",source:"vfra",minzoom:z0-.6,filter:AS("B"),paint:{"line-color":C.B,"line-width":W(1.8,3.2)}},
+   /* Victor airways, thin and light as on a sectional */
+   {id:"vfr-awy",type:"line",source:"vfrp",minzoom:z0+1.2,filter:["==",["get","t"],"awy"],paint:{"line-color":C.awy,"line-width":W(.7,1.6),"line-opacity":.75}},
+   /* the real runways once zoomed in, inside the airport ring */
+   {id:"vfr-rw",type:"fill",source:"vfra",minzoom:10,filter:["==",["get","t"],"rw"],paint:{"fill-color":["case",["==",["get","b"],1],C.B,C.M],"fill-opacity":["interpolate",["linear"],["zoom"],10,0,10.6,1]}},
+   {id:"vfr-ring",type:"circle",source:"vfrp",minzoom:10,filter:["all",["==",["get","t"],"apt"],[">",["get","r0"],0]],paint:{"circle-color":"rgba(0,0,0,0)","circle-stroke-color":["case",["==",["get","col"],"b"],C.B,C.M],"circle-stroke-width":2.6,
+     "circle-radius":["interpolate",["exponential",2],["zoom"],10,["*",["get","r0"],1024],20,["*",["get","r0"],1048576]],"circle-stroke-opacity":["interpolate",["linear"],["zoom"],10,0,10.6,1]}}];
+  const syms=[
+   {id:"vfr-rose",type:"symbol",source:"vfrp",minzoom:z0+1.4,filter:["all",["==",["get","t"],"nav"],["==",["get","k"],"vor"]],layout:{"icon-image":"vfr-rose"+t,"icon-rotate":["get","rot"],"icon-rotation-alignment":"map","icon-pitch-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true,
+     "icon-size":["interpolate",["exponential",2],["zoom"],7,.42,9,1,10,1.25]},paint:{"icon-opacity":.85}},
+   {id:"vfr-ob",type:"symbol",source:"vfrp",minzoom:9,filter:["all",["==",["get","t"],"ob"],["any",["==",["get","h"],1],[">=",["zoom"],10]]],layout:{"symbol-sort-key":["-",0,["get","a"]],"icon-image":["concat","vfr-ob",["case",["==",["get","h"],1],"h",""],["case",["==",["get","lit"],1],"-lit",""],t],"icon-size":.62,"icon-anchor":"bottom","icon-padding":0,
+     "text-field":["step",["zoom"],"",10.8,["get","lbl"]],"text-font":FB,"text-size":9.5,"text-anchor":"left","text-offset":[.7,-1.1],"text-optional":true,"text-line-height":1.1},paint:{"text-color":C.ob,"text-halo-color":C.halo,"text-halo-width":1.5}},
+   {id:"vfr-vp",type:"symbol",source:"vfrp",minzoom:8.6,filter:["==",["get","t"],"vp"],layout:{"icon-image":"vfr-vp"+t,"icon-size":.6,"text-field":["get","i"],"text-font":FB,"text-size":9.5,"text-offset":[0,1],"text-anchor":"top","text-optional":true},paint:{"text-color":C.M,"text-halo-color":C.halo,"text-halo-width":1.5}},
+   {id:"vfr-nav",type:"symbol",source:"vfrp",minzoom:z0+1.2,filter:["==",["get","t"],"nav"],layout:{"icon-image":["case",["==",["get","k"],"ndb"],"vfr-ndb"+t,"vfr-vor"+t],"icon-size":["interpolate",["linear"],["zoom"],7,.7,11,1],"icon-allow-overlap":true,
+     "text-field":["step",["zoom"],["get","i"],8.2,["get","lbl"]],"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],7,9.5,11,11.5],"text-anchor":"bottom-left","text-offset":[1.3,-.6],"text-optional":true,"text-line-height":1.15,"text-justify":"left"},
+     paint:{"text-color":C.nav,"text-halo-color":C.box,"text-halo-width":2.4}},
+   {id:"vfr-sul",type:"symbol",source:"vfrp",minzoom:z0+1.6,filter:["==",["get","t"],"sul"],layout:{"text-field":["get","txt"],"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],7,9.5,11,12],"text-max-width":9,"text-optional":true,"text-padding":4},
+     paint:{"text-color":["case",["==",["get","k"],"moa"],C.M,C.B],"text-halo-color":C.halo,"text-halo-width":1.6,"text-opacity":.92}},
+   /* class B and C: ceiling over floor in hundreds of feet, split by a bar; class D: ceiling in brackets */
+   {id:"vfr-asl",type:"symbol",source:"vfrp",minzoom:z0+1.6,filter:["all",["==",["get","t"],"asl"],["any",["!=",["get","k"],"D"],[">=",["zoom"],8.6]]],layout:{"icon-image":["case",["==",["get","k"],"D"],"",["concat","vfr-bar-",["case",["==",["get","k"],"B"],"b","m"],t]],"icon-size":.55,
+     "text-field":["get","txt"],"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],7,11,11,15],"text-line-height":1.45,"text-padding":1,"icon-allow-overlap":false},
+     paint:{"text-color":["case",["==",["get","k"],"C"],C.M,C.B],"text-halo-color":C.halo,"text-halo-width":2}},
+   /* airports: the chart symbol turned to the longest runway, then name and "elevation L runway length" */
+   {id:"vfr-apt",type:"symbol",source:"vfrp",minzoom:z0-.4,filter:["all",["==",["get","t"],"apt"],["<=",["get","imp"],["step",["zoom"],2,7,3,8,4,9.4,5]]],
+     layout:{"symbol-sort-key":["get","imp"],"icon-image":["get","sym"],"icon-rotate":["get","rot"],"icon-rotation-alignment":"map","icon-size":["interpolate",["linear"],["zoom"],6,.48,9,.66,10,.72],"icon-padding":1,
+       "text-field":["step",["zoom"],["get","c"],8,["format",["get","l1"],{},"\n",{},["get","l2"],{"font-scale":.88}]],"text-font":FB,"text-size":["interpolate",["linear"],["zoom"],6,9.5,10,11.5],
+       "text-variable-anchor":["left","right","top","bottom"],"text-radial-offset":1.15,"text-justify":"auto","text-optional":true,"text-max-width":14,"text-padding":2},
+     paint:{"text-color":["case",["==",["get","col"],"b"],C.B,C.M],"text-halo-color":C.halo,"text-halo-width":1.8,"icon-opacity":["interpolate",["linear"],["zoom"],10,1,10.6,["case",[">",["get","r0"],0],0,1]]}}];
+  return{lines,syms}}
+/* the sectional look for the base map: cream land, yellow towns, blue water, plain roads, shaded relief */
+function vfrBase(st,dark){const P=dark?{land:"#0D0E0B",water:"#0C2538",wline:"#1C4A6E",urban:"#3A3212",road:"#4A4C4E",major:"#5C5E60",motor:"#6E6A64",rail:"#3E3E3E"}
+    :{land:"#EFEAD6",water:"#A8D2EA",wline:"#78B2DA",urban:"#F2D766",road:"#A6A39A",major:"#7D7A72",motor:"#5E5A55",rail:"#6E6A64"};
+  st.layers.forEach(l=>{const p=l.paint||(l.paint={});
+    if(l.id==="bg")p["background-color"]=P.land;
+    else if(l.id==="lc-green"||l.id==="park")p["fill-opacity"]=0;
+    else if(l.id==="lu-urban"){p["fill-color"]=P.urban;p["fill-opacity"]=dark?.55:.8;l.minzoom=6}
+    else if(l.id==="water")p["fill-color"]=P.water;
+    else if(l.id==="waterway")p["line-color"]=P.wline;
+    else if(/^road-.*-c$/.test(l.id))p["line-opacity"]=0;
+    else if(l.id==="road-major"){p["line-color"]=P.major;p["line-width"]=["interpolate",["exponential",1.5],["zoom"],6,.4,17,6]}
+    else if(l.id==="road-motor"){p["line-color"]=P.motor;p["line-width"]=["interpolate",["exponential",1.5],["zoom"],5,.6,17,8]}
+    else if(l.id==="road-minor"){p["line-color"]=P.road;l.minzoom=12}
+    else if(l.id==="rail"){p["line-color"]=P.rail;p["line-dasharray"]=[3,2]}});
+  st.sources.dem={type:"raster-dem",tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],tileSize:256,maxzoom:12,encoding:"terrarium",attribution:""};
+  const hill={id:"vfr-hill",type:"hillshade",source:"dem",paint:dark?{"hillshade-exaggeration":.5,"hillshade-shadow-color":"#000000","hillshade-highlight-color":"#2A2C2A","hillshade-accent-color":"#000000","hillshade-illumination-direction":315}
+    :{"hillshade-exaggeration":.42,"hillshade-shadow-color":"#6B5A3E","hillshade-highlight-color":"#FFFCF2","hillshade-accent-color":"#7E6B4E","hillshade-illumination-direction":315}};
+  const wi=st.layers.findIndex(l=>l.id==="water");st.layers.splice(wi>=0?wi:1,0,hill);return st}
+/* style hook: the VFR preset gets its base look and the chart layers; openAIP airspace steps aside for the FAA's */
+{const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);if(!vfrOn())return st;
+  st=vfrBase(st,dark);st.layers=st.layers.filter(l=>!/^oaip-/.test(l.id));
+  st.sources.vfra={type:"geojson",data:vfrPolyFC(),buffer:32,tolerance:.3};st.sources.vfrp={type:"geojson",data:vfrPtFC(),buffer:64,tolerance:.4};VFR.setVer=VFR.ver+"/"+IFR.ver;
+  const L=vfrLayers(dark),i=st.layers.findIndex(l=>/^(water-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L.lines);else st.layers.splice(i,0,...L.lines);
+  st.layers=st.layers.concat(L.syms);return st}}
+/* hide the general airport marks where the sectional symbols already stand */
+function vfrAptFilter(m){if(!m.getLayer("apt-pt"))return;const codes=[];Object.values(VFR.cells).forEach(c=>{if(c&&c.d)c.d.apts.forEach(p=>{codes.push(p[1]||p[0]);if(p[0]&&p[0].length===3)codes.push("K"+p[0]);codes.push(p[0])})});
+  const key=codes.length+":"+VFR.ver;if(key===VFR.codesKey)return;VFR.codesKey=key;try{m.setFilter("apt-pt",["all",["<=",["get","r"],APT_SHOW],["!",["in",["get","c"],["literal",codes]]]])}catch(e){}}
+function vfrTick(){const m=VEC.map;if(!vfrOn()||!m||!VEC.ready)return;
+  if(!m._vfrImg){m._vfrImg=true;m.on("styleimagemissing",e=>{if(/^(va-|vfr-)/.test(e.id)&&!m.hasImage(e.id)){const im=vfrIcon(e.id);if(im)try{m.addImage(e.id,im,{pixelRatio:2})}catch(er){}}})}
+  const now=Date.now(),ver=VFR.ver+"/"+IFR.ver;
+  if(ver!==VFR.setVer&&now-VFR.setAt>400){const a=m.getSource("vfra"),p=m.getSource("vfrp");if(a&&p){VFR.setVer=ver;VFR.setAt=now;try{a.setData(vfrPolyFC());p.setData(vfrPtFC())}catch(e){}}}
+  vfrAptFilter(m);
+  if(now-VFR.tickAt<250)return;VFR.tickAt=now;
+  const z=m.getZoom();if(z<VFR_MINZ)return;let b;try{b=m.getBounds()}catch(e){return}
+  const sz=VFR_SZ,la1=Math.max(-88,Math.floor(b.getSouth()/sz)*sz),la2=Math.min(84,Math.floor(b.getNorth()/sz)*sz),keys=[];
+  for(let la=la1;la<=la2;la+=sz)for(let lo=Math.floor(b.getWest()/sz)*sz;lo<=b.getEast()&&keys.length<20;lo+=sz){const n=((lo+180)%360+360)%360-180,k=la+","+n;if(!keys.includes(k))keys.push(k)}
+  /* only where the FAA charts: the US and its territories, roughly */
+  const us=k=>{const[la,lo]=k.split(",").map(Number);return(la>=16&&la<=72&&lo>=-180&&lo<=-64)||(la>=12&&la<=24&&lo>=140&&lo<=148)};
+  const c=m.getCenter();keys.filter(us).sort((a,b2)=>{const d=k=>{const p=k.split(",").map(Number);return Math.hypot(p[0]+sz/2-c.lat,p[1]+sz/2-c.lng)};return d(a)-d(b2)}).forEach(k=>{vfrLoad(k);if(z>=6.4)ifrLoad("L",k)})}
+{const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{vfrTick()}catch(e){}}}
+function vfrStat(){if(!vfrOn())return null;if(!vam.url)return"Set the EFB server in Settings";const z=VEC.map?VEC.map.getZoom():MAP.z-1;
+  if(z<VFR_MINZ)return"VFR sectional · zoom in to see airspace and airports";
+  const ld=Object.keys(VFR.loading).some(k=>VFR.loading[k]);if(VFR.err&&!Object.values(VFR.cells).some(c=>c&&c.d))return"FAA data: "+VFR.err;
+  return(ld?"Loading VFR chart… ":"")+"VFR sectional · FAA AIS data, US only"}
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const s=vfrStat(),el=document.querySelector('[data-mls="vec"]');if(s&&el)el.textContent=s;return r}}
+/* a tap on a sectional airport symbol opens the airport too */
+{const _ap=aptPick;aptPick=function(cx,cy){const m=VEC.map;if(m&&vfrOn()&&m.getLayer("vfr-apt"))try{const r=m.getCanvas().getBoundingClientRect(),x=cx-r.left,y=cy-r.top;
+    const f=m.queryRenderedFeatures([[x-14,y-14],[x+14,y+14]],{layers:["vfr-apt"]});if(f.length){f.sort((a,b)=>a.properties.imp-b.properties.imp);const c=f[0].properties.c;if(/^[A-Z0-9]{3,4}$/.test(c))return c}}catch(e){}
+  return _ap.apply(this,arguments)}}
+try{window.__efbVfr={VFR,vfrPolyFC,vfrPtFC,vfrIcon,vfrLayers}}catch(e){}
 
 /* Map pop-ups open and close with a short animation. Every pop-up is shown and hidden through its `hidden` property,
    so that one setter is wrapped for these elements: showing plays the opening frames, hiding plays the closing ones
@@ -4300,7 +4465,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Air
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

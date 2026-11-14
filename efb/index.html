@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1120">
+<meta name="efb-build" content="1114.1121">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2786,7 +2786,7 @@ function vfrStat(){if(!vfrOn())return null;if(!vam.url)return"Set the EFB server
 {const _ap=aptPick;aptPick=function(cx,cy){const m=VEC.map;if(m&&vfrOn()&&m.getLayer("vfr-apt"))try{const r=m.getCanvas().getBoundingClientRect(),x=cx-r.left,y=cy-r.top;
     const f=m.queryRenderedFeatures([[x-14,y-14],[x+14,y+14]],{layers:["vfr-apt"]});if(f.length){f.sort((a,b)=>a.properties.imp-b.properties.imp);const c=f[0].properties.c;if(/^[A-Z0-9]{3,4}$/.test(c))return c}}catch(e){}
   return _ap.apply(this,arguments)}}
-try{window.__efbVfr={VFR,vfrPolyFC,vfrPtFC,vfrIcon,vfrLayers}}catch(e){}
+try{window.__efbVfr={VFR,vfrPolyFC,vfrPtFC,vfrIcon,vfrLayers,get map(){return VEC.map},get apts(){return APTS}}}catch(e){}
 
 /* Map pop-ups open and close with a short animation. Every pop-up is shown and hidden through its `hidden` property,
    so that one setter is wrapped for these elements: showing plays the opening frames, hiding plays the closing ones

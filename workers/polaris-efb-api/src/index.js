@@ -479,7 +479,7 @@ function cors(req, env) {
   const origin = req.headers.get('Origin') || '';
   const allowed = String(env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean);
   const ok = allowed.includes('*') || allowed.includes(origin);
-  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Accept', Vary: 'Origin' };
+  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept', Vary: 'Origin' };
 }
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
@@ -824,11 +824,39 @@ async function awyRoute(url, ctx, h) {
   const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=86400');
   return new Response(r.body, { status: 200, headers: hd });
 }
+
+/* Shared chart alignment: when a pilot lines a chart up on the map, everyone gets it. Kept in KV per airport,
+   chart name and page. Writes come only from the EFB's own site, are range-checked and must sit near the airport. */
+async function ovgeoRoute(req, url, env, h) {
+  const kv = env && env.STORE; if (!kv) throw new HttpError(503, 'Storage is not set up');
+  const keyOf = (icao, name, page) => 'ovgeo:v1:' + icao + ':' + String(name).toUpperCase().replace(/\s+/g, ' ').trim().slice(0, 80) + ':' + page;
+  if (req.method === 'GET') {
+    const icao = String(url.searchParams.get('icao') || '').toUpperCase(), name = url.searchParams.get('name') || '', page = +url.searchParams.get('page') || 1;
+    if (!/^[A-Z0-9]{3,4}$/.test(icao) || !name) throw new HttpError(400, 'icao and name are required');
+    const v = await kv.get(keyOf(icao, name, page), 'json').catch(() => null);
+    return json({ geo: v || null }, 200, h);
+  }
+  const origin = req.headers.get('Origin') || '', allowed = String(env.ALLOWED_ORIGINS || '').split(',').map((x) => x.trim());
+  if (!allowed.includes(origin)) throw new HttpError(403, 'Not allowed');
+  let b; try { b = JSON.parse(await req.text()); } catch (e) { throw new HttpError(400, 'Bad body'); }
+  const icao = String(b.icao || '').toUpperCase(), name = String(b.name || ''), page = Math.max(1, Math.min(20, +b.page || 1)), g = b.geo || {};
+  const num = (v) => typeof v === 'number' && isFinite(v);
+  if (!/^[A-Z0-9]{3,4}$/.test(icao) || !name || name.length > 120) throw new HttpError(400, 'icao and name are required');
+  if (!num(g.lat) || !num(g.lon) || !num(g.h) || !num(g.rot) || Math.abs(g.lat) > 85 || Math.abs(g.lon) > 180 || g.h < 300 || g.h > 800000) throw new HttpError(400, 'Alignment out of range');
+  /* must be near the airport (a chart centre can sit off the field, but not far) */
+  try { const a = await airportRoute(icao); const ap = a && a.airport; if (ap && isFinite(ap.lat)) { const d = Math.hypot(g.lat - ap.lat, (g.lon - ap.lon) * Math.cos(ap.lat * Math.PI / 180)) * 60; if (d > Math.max(60, g.h / 1852 * 1.5)) throw new HttpError(400, 'Alignment is too far from the airport'); } } catch (e) { if (e instanceof HttpError) throw e; }
+  const k = keyOf(icao, name, page), old = await kv.get(k, 'json').catch(() => null);
+  if (old && Date.now() - (old.t || 0) < 5000) return json({ ok: true, geo: old }, 200, h);
+  const v = { lat: +g.lat.toFixed(7), lon: +g.lon.toFixed(7), h: Math.round(g.h * 10) / 10, rot: Math.round((((g.rot % 360) + 360) % 360) * 100) / 100, t: Date.now(), n: ((old && old.n) || 0) + 1 };
+  await kv.put(k, JSON.stringify(v));
+  return json({ ok: true, geo: v }, 200, h);
+}
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
+    if (new URL(req.url).pathname.replace(/\/+$/, '') === '/api/efb/ovgeo' && (req.method === 'GET' || req.method === 'POST')) { try { return await ovgeoRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

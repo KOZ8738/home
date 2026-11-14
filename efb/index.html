@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1422">
+<meta name="efb-build" content="1114.1434">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4737,11 +4737,24 @@ function odInkBar(){const cols=Object.keys(OD_COL).map(c=>`<button class="od-sw 
     <button class="btn sm" data-odink="hl" aria-pressed="${OD.tool==="hl"}"><i class="od-hlchip"></i>Highlight</button>
     <button class="btn sm" data-odink="erase" aria-pressed="${OD.tool==="erase"}">Eraser</button>
     <span class="od-sep"></span><button class="btn sm" data-odink="undo">Undo</button><button class="btn sm" data-odink="clear" id="odInkClear">Clear all</button>
-    <span class="od-hint">${OD.pencil?"Pencil writes · finger scrolls":"Drag to write · Pen again to scroll"}</span></div>`}
+    <span class="od-hint">${OD.pencil?"Pencil writes · finger scrolls":"One finger writes · two fingers scroll"}</span></div>`}
 function odInkRedraw(){const g=document.querySelector("#odInk g");if(g)g.innerHTML=odInk().map(odStrokeEl).join("")}
 function odInkBarRedraw(){const b=document.querySelector(".od-inkbar");if(b)b.outerHTML=odInkBar()}
 /* drawing */
 let odDraw=null;
+/* with fingers on the page: one finger writes, two fingers scroll (and pinch for type size), like a notes app */
+const odTP=new Map();let odPan=null;
+function odMid(){const v=[...odTP.values()].slice(0,2);return{x:(v[0].x+v[1].x)/2,y:(v[0].y+v[1].y)/2,d:Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y)}}
+function odPanStart(){const sc=document.getElementById("odScroll");if(!sc)return;if(odPan&&odPan.raf)cancelAnimationFrame(odPan.raf);const m=odMid();
+  odPan={sc,m,d:m.d,t:performance.now(),vx:0,vy:0,raf:0}}
+function odPanMove(){const P=odPan;if(!P||odTP.size<2)return;const m=odMid(),now=performance.now(),dt=Math.max(1,now-P.t),dx=m.x-P.m.x,dy=m.y-P.m.y;
+  P.sc.scrollLeft-=dx;P.sc.scrollTop-=dy;P.vx=.8*(dx/dt)+.2*P.vx;P.vy=.8*(dy/dt)+.2*P.vy;P.m=m;P.t=now;
+  /* pinch: one step of type size per 14% change in finger spread */
+  const k=m.d/P.d;if(k>1.14||k<.88){const top=P.sc.scrollTop/Math.max(1,P.sc.scrollHeight),f=OD.fs;odSetFs(OD.fs+(k>1?1:-1));P.d=m.d;if(OD.fs!==f)P.sc.scrollTop=top*P.sc.scrollHeight}}
+function odPanEnd(){const P=odPan;if(!P)return;if(odTP.size)return;/* wait for every finger to lift before writing again */
+  let vx=P.vx,vy=P.vy,last=performance.now();if(performance.now()-P.t>80){odPan=null;return}
+  const step=now=>{const dt=now-last;last=now;const f=Math.exp(-dt/325);P.sc.scrollLeft-=vx*dt;P.sc.scrollTop-=vy*dt;vx*=f;vy*=f;
+    if(Math.hypot(vx,vy)>.02&&odPan===P)P.raf=requestAnimationFrame(step);else if(odPan===P)odPan=null};P.raf=requestAnimationFrame(step)}
 function odPt(ev){const h=document.getElementById("odHost").getBoundingClientRect();return[+((ev.clientX-h.left)/OD.fs).toFixed(2),+((ev.clientY-h.top)/OD.fs).toFixed(2)]}
 function odErase(pt){const list=odInk(),r=.55;let hit=-1;
   for(let i=list.length-1;i>=0&&hit<0;i--){const k=list[i],rr=r+(k.h?.5:.07),p=k.p;
@@ -4751,15 +4764,21 @@ function odErase(pt){const list=odInk(),r=.55;let hit=-1;
 document.addEventListener("pointerdown",ev=>{const svg=ev.target.closest&&ev.target.closest("#odInk");if(!svg||!OD.pen)return;
   if(ev.pointerType==="pen"&&!OD.pencil){OD.pencil=true;svg.style.touchAction="auto";odInkBarRedraw()}
   if(ev.pointerType==="touch"&&OD.pencil)return;/* finger scrolls once a pencil has been used */
-  if(ev.button>0)return;ev.preventDefault();try{svg.setPointerCapture(ev.pointerId)}catch(e){}
+  if(ev.button>0)return;
+  if(ev.pointerType==="touch"){odTP.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});try{svg.setPointerCapture(ev.pointerId)}catch(e){}
+    /* a second finger: drop the stroke the first one just started and move the page with both */
+    if(odTP.size>=2){ev.preventDefault();if(odDraw){if(odDraw.el)odDraw.el.remove();if(odDraw.raf)cancelAnimationFrame(odDraw.raf);odDraw=null}odPanStart();return}
+    if(odPan)return}ev.preventDefault();try{svg.setPointerCapture(ev.pointerId)}catch(e){}
   if(OD.tool==="erase"){odDraw={id:ev.pointerId,erase:true};odErase(odPt(ev));return}
   const k={c:OD.col,h:OD.tool==="hl",p:[odPt(ev)]},g=svg.querySelector("g");g.insertAdjacentHTML("beforeend",odStrokeEl(k));odDraw={id:ev.pointerId,k,el:g.lastElementChild,raf:0}});
-document.addEventListener("pointermove",ev=>{if(!odDraw||ev.pointerId!==odDraw.id)return;ev.preventDefault();
+document.addEventListener("pointermove",ev=>{if(odTP.has(ev.pointerId)){odTP.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(odPan){ev.preventDefault();odPanMove();return}}
+  if(!odDraw||ev.pointerId!==odDraw.id)return;ev.preventDefault();
   const evs=ev.getCoalescedEvents?ev.getCoalescedEvents():[ev];
   if(odDraw.erase){(evs.length?evs:[ev]).forEach(e=>odErase(odPt(e)));return}
   const p=odDraw.k.p;(evs.length?evs:[ev]).forEach(e=>{const q=odPt(e),l=p[p.length-1];if(Math.hypot(q[0]-l[0],q[1]-l[1])>=.06)p.push(q)});
   if(!odDraw.raf)odDraw.raf=requestAnimationFrame(()=>{if(odDraw&&odDraw.el){odDraw.el.setAttribute("d",odPathD(odDraw.k.p));odDraw.raf=0}})},{passive:false});
-function odDrawEnd(ev){if(!odDraw||ev.pointerId!==odDraw.id)return;const d=odDraw;odDraw=null;if(d.raf)cancelAnimationFrame(d.raf);if(d.erase)return;
+function odDrawEnd(ev){if(odTP.has(ev.pointerId)){odTP.delete(ev.pointerId);if(odPan){if(odTP.size<2)odPanEnd();return}}
+  if(!odDraw||ev.pointerId!==odDraw.id)return;const d=odDraw;odDraw=null;if(d.raf)cancelAnimationFrame(d.raf);if(d.erase)return;
   const k=d.k;/* a highlighter stroke that is nearly level is laid flat on the line */
   if(k.h&&k.p.length>1){const a=k.p[0],b=k.p[k.p.length-1],ys=k.p.map(q=>q[1]);if(Math.abs(b[0]-a[0])>1.5&&Math.max(...ys)-Math.min(...ys)<.9){const y=+(ys.reduce((s,v)=>s+v,0)/ys.length).toFixed(2);k.p=[[a[0],y],[b[0],y]]}}
   const list=odInk();list.push(k);OD.undo.push({a:"add"});odInkSave(list);if(d.el)d.el.outerHTML=odStrokeEl(k)}

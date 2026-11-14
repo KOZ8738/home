@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1239">
+<meta name="efb-build" content="1114.1251">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2826,32 +2826,90 @@ document.addEventListener("click",e=>{
 {const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);const n=Date.now();if(ML.ifrAuto&&n-IFRA.at>400){IFRA.at=n;try{ifrAutoPick()}catch(e){}}}}
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);try{ifrAutoUi()}catch(e){}return r}}
 
+/* ---------- GFS model data straight from NOAA ----------
+   NOAA puts every GFS run on AWS open data (no key, no rate limit, readable from the browser). Each forecast file
+   has an index, so only the one field wanted is downloaded with a byte-range request (about 300 KB at 0.5 degree)
+   and decoded here: GRIB2, grid template 3.0 (regular lat/lon), packing 5.0 (simple) or 5.2 / 5.3 (complex, with
+   spatial differencing), which is what NCEP uses. */
+const GFS={run:null,runAt:0,runP:null};
+const GFS_B="https://noaa-gfs-bdp-pds.s3.amazonaws.com/",GFS_RES="0p50";
+function gribDecode(u8){const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  if(dv.getUint32(0)!==0x47524942)throw new Error("Not GRIB");
+  const sm32=o=>{const v=dv.getUint32(o);return v&0x80000000?-(v&0x7fffffff):v},sm16=o=>{const v=dv.getUint16(o);return v&0x8000?-(v&0x7fff):v};
+  let p=16,grid=null,rep=null,bm=255,dataAt=-1,dataEnd=0;
+  while(p<u8.length-4){if(dv.getUint32(p)===0x37373737)break;const len=dv.getUint32(p),num=u8[p+4];if(len<5)break;
+    if(num===3){if(dv.getUint16(p+12)!==0)throw new Error("Grid template "+dv.getUint16(p+12));
+      grid={ni:dv.getUint32(p+30),nj:dv.getUint32(p+34),la1:sm32(p+46)/1e6,lo1:sm32(p+50)/1e6,la2:sm32(p+55)/1e6,lo2:sm32(p+59)/1e6,di:dv.getUint32(p+63)/1e6,dj:dv.getUint32(p+67)/1e6,scan:u8[p+71]}}
+    else if(num===5)rep={n:dv.getUint32(p+5),t:dv.getUint16(p+9),R:dv.getFloat32(p+11),E:sm16(p+15),D:sm16(p+17),nb:u8[p+19],mm:u8[p+22],ng:dv.getUint32(p+31),rgw:u8[p+35],bgw:u8[p+36],rgl:dv.getUint32(p+37),igl:u8[p+41],lgl:dv.getUint32(p+42),bgl:u8[p+46],ord:u8[p+47],nd:u8[p+48]};
+    else if(num===6)bm=u8[p+5];
+    else if(num===7){dataAt=p+5;dataEnd=p+len}
+    p+=len}
+  if(!grid||!rep||dataAt<0)throw new Error("Incomplete GRIB message");if(bm!==255)throw new Error("Bitmaps not supported");
+  const N=rep.n,out=new Float32Array(N),bs=Math.pow(2,rep.E),ds=Math.pow(10,-rep.D);let bp=0;
+  const rd=n=>{let v=0;for(let i=0;i<n;i++){v=v*2+((u8[bp>>3]>>(7-(bp&7)))&1);bp++}return v},align=()=>{bp=Math.ceil(bp/8)*8};
+  if(rep.t===0){bp=dataAt*8;for(let i=0;i<N;i++)out[i]=(rep.R+(rep.nb?rd(rep.nb):0)*bs)*ds;return{...grid,v:out}}
+  if(rep.t!==2&&rep.t!==3)throw new Error("Packing template 5."+rep.t);
+  let h1=0,h2=0,gmin=0,q=dataAt;
+  if(rep.t===3){const rb=(k,signed)=>{let v=0;for(let i=0;i<k;i++)v=v*256+u8[q+i];if(signed&&u8[q]&0x80){v-=Math.pow(2,8*k-1);v=-v}q+=k;return v};
+    h1=rb(rep.nd);if(rep.ord===2)h2=rb(rep.nd);gmin=rb(rep.nd,true)}
+  bp=q*8;const NG=rep.ng,refs=new Float64Array(NG),wid=new Uint8Array(NG),lens=new Uint32Array(NG);
+  for(let g=0;g<NG;g++)refs[g]=rd(rep.nb);align();
+  for(let g=0;g<NG;g++)wid[g]=rep.rgw+rd(rep.bgw);align();
+  for(let g=0;g<NG;g++)lens[g]=rep.rgl+rd(rep.bgl)*rep.igl;align();lens[NG-1]=rep.lgl;
+  const X=new Float64Array(N),miss=new Uint8Array(N);let k=0;const allOnes=b=>Math.pow(2,b)-1;
+  for(let g=0;g<NG&&k<N;g++){const L=lens[g],W=wid[g],r=refs[g];
+    for(let i=0;i<L&&k<N;i++,k++){if(W===0){X[k]=r;if(rep.mm===1&&r===allOnes(rep.nb))miss[k]=1}else{const v=rd(W);if(rep.mm===1&&v===allOnes(W))miss[k]=1;else X[k]=r+v}}}
+  if(rep.t===3){/* undo the spatial differencing over the values that are present */
+    let a=-1,b=-1,idx=0;for(let i=0;i<N;i++){if(miss[i])continue;
+      if(rep.ord===1){if(idx===0)X[i]=h1;else X[i]=X[i]+gmin+X[a]}
+      else{if(idx===0)X[i]=h1;else if(idx===1)X[i]=h2;else X[i]=X[i]+gmin+2*X[a]-X[b]}
+      b=a;a=i;idx++}}
+  for(let i=0;i<N;i++)out[i]=miss[i]?NaN:(rep.R+X[i]*bs)*ds;
+  return{...grid,v:out}}
+/* value at a latitude and longitude, bilinear, from a decoded grid */
+function gribAt(G,lat,lon){const x=(((lon-G.lo1)%360)+360)%360/G.di,y=(G.scan&0x40?lat-G.la1:G.la1-lat)/G.dj;if(y<0||y>G.nj-1)return null;
+  const i=Math.floor(x),j=Math.min(G.nj-2,Math.floor(y)),fx=x-i,fy=y-j,i1=(i+1)%G.ni,v=G.v;
+  const a=v[j*G.ni+i],b=v[j*G.ni+i1],c=v[(j+1)*G.ni+i],d=v[(j+1)*G.ni+i1];if(isNaN(a)||isNaN(b)||isNaN(c)||isNaN(d))return null;
+  return(a*(1-fx)+b*fx)*(1-fy)+(c*(1-fx)+d*fx)*fy}
+/* the newest run that already has the forecast hour closest to now (files appear about 4 hours after the run) */
+const gfsPad=(n,w)=>String(n).padStart(w,"0");
+async function gfsRun(){if(GFS.run&&Date.now()-GFS.runAt<20*60000)return GFS.run;if(GFS.runP)return GFS.runP;
+  GFS.runP=(async()=>{const now=Date.now(),c0=Math.floor(now/21600000)*21600000;
+    for(let k=0;k<5;k++){const t=c0-k*21600000,d=new Date(t),ymd=d.getUTCFullYear()+gfsPad(d.getUTCMonth()+1,2)+gfsPad(d.getUTCDate(),2),hh=gfsPad(d.getUTCHours(),2);
+      const fh=Math.max(0,Math.round((now-t)/10800000)*3),base=`gfs.${ymd}/${hh}/atmos/gfs.t${hh}z.pgrb2.${GFS_RES}.f${gfsPad(fh,3)}`;
+      try{const r=await fetch(GFS_B+base+".idx");if(!r.ok)continue;const lines=(await r.text()).trim().split("\n").map(l=>l.split(":"));
+        GFS.run={base,lines,valid:new Date(t+fh*3600000).toISOString(),run:ymd+" "+hh+"Z",fh};GFS.runAt=Date.now();return GFS.run}catch(e){}}
+    throw new Error("No GFS run found")})().finally(()=>{GFS.runP=null});return GFS.runP}
+/* one field ("PRMSL:mean sea level", "UGRD:250 mb", ...) of the current run, decoded */
+async function gfsField(name){const R=await gfsRun(),L=R.lines,i=L.findIndex(l=>l[3]+":"+l[4]===name);if(i<0)throw new Error(name+" not in this run");
+  const a=+L[i][1],b=i+1<L.length?+L[i+1][1]-1:"";const r=await fetch(GFS_B+R.base,{headers:{Range:"bytes="+a+"-"+b}});if(!r.ok&&r.status!==206)throw new Error("GFS download "+r.status);
+  return{G:gribDecode(new Uint8Array(await r.arrayBuffer())),valid:R.valid,run:R.run}}
+try{window.__efbGfs={GFS,gribDecode,gribAt,gfsRun,gfsField}}catch(e){}
+
 /* ---------- Gridded weather layers ----------
    Jet streams, sea-level pressure, ISA deviation, cloud cover, visibility, vertical speed and tropopause height from
-   the GFS / ECMWF models (Open-Meteo, through the EFB server) on a 5-degree lattice. Each field is painted as a smooth
+   NOAA's GFS model at 0.5 degree, read straight from NOAA's open data (see gfs.js). Each field is painted as a smooth
    colour wash (an image laid on the map in web-mercator rows, so it lines up at every latitude) with contour lines
    and labels on top; pressure gets H and L centres and the jet gets wind arrows. */
-const GWX={blocks:{},busy:false,retryAt:0,err:null,ver:0,drawn:"",img:null,hour:null};
+const GWX={g:{},busy:{},err:null,ver:0,img:null,hour:null};
 const GWX_FIELDS=[["off","Off"],["jet","Jet streams"],["mslp","Pressure"],["isa","ISA temp"],["cloud","Clouds"],["vis","Visibility"],["vv","Vertical speed"],["trop","Tropopause"]];
 const GWX_LVS=[[700,"FL100"],[500,"FL180"],[400,"FL240"],[300,"FL300"],[250,"FL340"],[200,"FL390"]];
 const gwxF=()=>ML.gwx&&ML.gwx!=="off"?ML.gwx:null;
 const gwxLv=()=>{const f=gwxF();return f==="isa"||f==="vv"?(+ML.gwxLv||250):0};
-const gwxKey=(f,lv,b)=>f+"/"+lv+"/"+b+"/5";
-/* load the 30-degree blocks in view that are missing or older than 45 minutes, one request */
-function gwxLoad(keys){const f=gwxF();if(!f||!vam.url||GWX.busy||Date.now()<GWX.retryAt)return;const lv=gwxLv(),now=Date.now();
-  const need=keys.filter(k=>{const c=GWX.blocks[gwxKey(f,lv,k)];return!c||now-c.at>45*60000}).slice(0,10);if(!need.length)return;GWX.busy=true;
-  vamGet(`/api/efb/gwx?f=${f}&lv=${lv||250}&blocks=${need.join(";")}`,45000).then(j=>{const got=(j&&j.blocks)||{};GWX.hour=j&&j.hour;
-      need.forEach(k=>{if(got[k])GWX.blocks[gwxKey(f,lv,k)]={at:Date.now(),v:got[k]}});GWX.err=j&&j.error||null;if(GWX.err)GWX.retryAt=Date.now()+(/hour|today/.test(GWX.err)?600000:60000)})
-    .catch(e=>{GWX.err=e.message||"Couldn’t load";GWX.retryAt=Date.now()+30000})
-    .finally(()=>{GWX.busy=false;GWX.ver++;if(cur==="map"){mapSched();try{mlStatus()}catch(e){}}})}
-/* the lattice: value at row r (lat = -90 + 2.5 r) and column c (lon = -180 + 2.5 c) */
-function gwxAt(f,lv,r,c){c=((c%72)+72)%72;if(r<0||r>35)return null;const bl=Math.floor(r/6)*30-90,bo=Math.floor(c/6)*30-180,b=GWX.blocks[gwxKey(f,lv,bl+","+bo)];if(!b)return null;return b.v[(r%6)*6+(c%6)]}
-const gwxNum=(f,v)=>v==null?null:f==="jet"?v[0]:v;
-/* bilinear value at a latitude and longitude */
-function gwxSample(f,lv,lat,lon){const y=(lat+90)/5,x=(lon+180)/5,r=Math.floor(y),c=Math.floor(x),fy=y-r,fx=x-c;
-  const a=gwxNum(f,gwxAt(f,lv,r,c)),b=gwxNum(f,gwxAt(f,lv,r,c+1)),d=gwxNum(f,gwxAt(f,lv,r+1,c)),e=gwxNum(f,gwxAt(f,lv,r+1,c+1));
-  if(a==null||b==null||d==null||e==null){const q=[a,b,d,e].filter(v=>v!=null);return q.length>=2?q.reduce((s,v)=>s+v,0)/q.length:null}
-  return(a*(1-fx)+b*fx)*(1-fy)+(d*(1-fx)+e*fx)*fy}
+/* standard-atmosphere temperature at a pressure level */
+const gwxIsa=p=>{const h=44330.77*(1-Math.pow(p/1013.25,0.190263));return h<=11000?15-0.0065*h:-56.5};
+/* which GFS fields make each layer, and how the values are turned into the units shown */
+const GWX_SRC={mslp:()=>[["PRMSL:mean sea level",v=>v/100]],jet:()=>[["UGRD:250 mb",v=>v*1.94384],["VGRD:250 mb",v=>v*1.94384]],
+  isa:lv=>[["TMP:"+lv+" mb",v=>v-273.15-gwxIsa(lv)]],vis:()=>[["VIS:surface",v=>v]],vv:lv=>[["DZDT:"+lv+" mb",v=>v*196.85]],trop:()=>[["HGT:tropopause",v=>v*3.28084/100]]};
+/* fetch and decode the layer's fields once an hour */
+function gwxEnsure(f,lv){const k=f+"/"+lv,c=GWX.g[k];if(GWX.busy[k]||(c&&Date.now()-c.at<(c.fail?60000:3600000)))return;GWX.busy[k]=true;
+  Promise.all(GWX_SRC[f](lv).map(([name,cv])=>gfsField(name).then(o=>{const v=o.G.v;for(let i=0;i<v.length;i++)if(!isNaN(v[i]))v[i]=cv(v[i]);return o})))
+    .then(arr=>{GWX.g[k]={at:Date.now(),G:arr.map(o=>o.G),valid:arr[0].valid,run:arr[0].run};GWX.err=null})
+    .catch(e=>{GWX.g[k]={at:Date.now(),fail:true};GWX.err=e.message||"Couldn’t load"})
+    .finally(()=>{GWX.busy[k]=false;GWX.ver++;if(cur==="map"){mapSched();try{mlStatus()}catch(e){}}})}
+const gwxGrid=(f,lv)=>{const c=GWX.g[f+"/"+lv];return c&&c.G?c:null};
+/* value at a latitude and longitude (the jet: wind speed) */
+function gwxSample(f,lv,lat,lon){const c=gwxGrid(f,lv);if(!c)return null;if(f==="jet"){const u=gribAt(c.G[0],lat,lon),v=gribAt(c.G[1],lat,lon);return u==null||v==null?null:Math.hypot(u,v)}return gribAt(c.G[0],lat,lon)}
 /* colours for each field: [value, r, g, b, alpha] stops */
 const GWX_RAMP={
   jet:[[50,80,200,220,0],[70,80,200,220,.28],[100,120,210,90,.4],[130,240,210,60,.48],[160,245,130,40,.55],[200,220,40,60,.62]],
@@ -2867,7 +2925,7 @@ function gwxColor(f,v){const R=GWX_RAMP[f];if(!R||v==null)return null;if(v<=R[0]
 const GWX_CT={mslp:{step:4,lbl:v=>String(Math.round(v))},jet:{step:20,min:80,lbl:v=>Math.round(v)+" KT"},isa:{step:5,lbl:v=>(v>0?"ISA+":v<0?"ISA−":"ISA ")+Math.abs(Math.round(v))},
   trop:{step:20,lbl:v=>"FL"+Math.round(v)},vv:null,cloud:null,vis:null};
 /* marching squares over a finer grid sampled from the lattice; segments are joined into lines for labels */
-function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=1.25,nx=Math.ceil((e-w)/st)+1,ny=Math.ceil((n-s)/st)+1;if(nx*ny>90000)return[];
+function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=Math.max(.5,(e-w)/260),nx=Math.ceil((e-w)/st)+1,ny=Math.ceil((n-s)/st)+1;if(nx*ny>90000)return[];
   const G=new Float32Array(nx*ny);for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const v=gwxSample(f,lv,s+j*st,w+i*st);G[j*nx+i]=v==null?NaN:v}
   let lo=1e9,hi=-1e9;G.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v});if(!(hi>lo))return[];const out=[];
   for(let lvv=Math.ceil(lo/C.step)*C.step;lvv<=hi;lvv+=C.step){if(C.min!=null&&lvv<C.min)continue;const segs=[];
@@ -2884,12 +2942,14 @@ function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=1.2
       for(const dir of[1,0]){for(;;){const tip=dir?line[line.length-1]:line[0],cand=(ends.get(key(tip))||[]).find(x=>!used[x]);if(cand==null)break;used[cand]=1;const sg=segs[cand],nxt=key(sg[0])===key(tip)?sg[1]:sg[0];if(dir)line.push(nxt);else line.unshift(nxt)}}
       if(line.length>=4)out.push({type:"Feature",geometry:{type:"LineString",coordinates:line},properties:{t:"ct",v:lvv,lbl:C.lbl(lvv),major:f==="mslp"&&lvv%20===12?1:0}})}}
   return out}
-/* H and L centres for pressure; arrows for the jet */
-function gwxPoints(f,lv,w,s,e,n){const out=[],r0=Math.max(0,Math.floor((s+90)/5)),r1=Math.min(35,Math.ceil((n+90)/5)),c0=Math.floor((w+180)/5),c1=Math.ceil((e+180)/5);
-  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const v=gwxAt(f,lv,r,c);if(v==null)continue;const lat=-90+r*5,lon=-180+c*5;
-    if(f==="mslp"){let mx=true,mn=true,cnt=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const q=gwxAt(f,lv,r+dr,c+dc);if(q==null)continue;cnt++;if(q>=v)mx=false;if(q<=v)mn=false}
-      if(cnt>=8&&(mx&&v>=1016||mn&&v<=1008))out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"hl",k:mx?"H":"L",lbl:(mx?"H":"L")+"\n"+Math.round(v)}})}
-    else if(f==="jet"&&v[0]>=80&&v[1]!=null)out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"ar",rot:(v[1]+180)%360,s:v[0],odd:(r+c)%2}})}
+/* H and L centres for pressure; arrows for the jet, spaced to the view */
+function gwxPoints(f,lv,w,s,e,n){const out=[],c=gwxGrid(f,lv);if(!c)return out;const st=Math.max(.5,Math.round((e-w)/30/.5)*.5);
+  for(let la=Math.ceil(s/st)*st,j=0;la<=n;la+=st,j++)for(let lo=Math.ceil(w/st)*st,i=0;lo<=e;lo+=st,i++){
+    if(f==="mslp"){const v=gwxSample(f,lv,la,lo);if(v==null)continue;let mx=true,mn=true,cnt=0;
+      for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){if(!dr&&!dc)continue;const q=gwxSample(f,lv,la+dr*st,lo+dc*st);if(q==null)continue;cnt++;if(q>=v)mx=false;if(q<=v)mn=false}
+      if(cnt>=20&&(mx&&v>=1015||mn&&v<=1010))out.push({type:"Feature",geometry:{type:"Point",coordinates:[lo,la]},properties:{t:"hl",k:mx?"H":"L",lbl:(mx?"H":"L")+"\n"+Math.round(v)}})}
+    else if(f==="jet"){const u=gribAt(c.G[0],la,lo),v=gribAt(c.G[1],la,lo);if(u==null||v==null)continue;const sp=Math.hypot(u,v);if(sp<80)continue;
+      out.push({type:"Feature",geometry:{type:"Point",coordinates:[lo,la]},properties:{t:"ar",rot:(Math.atan2(u,v)*180/Math.PI+360)%360,s:Math.round(sp),odd:(i+j)%2}})}}
   return out}
 /* the colour wash for the view, row by row in web-mercator so it sits right at every latitude */
 function gwxImage(f,lv,w,s,e,n){if(!GWX_RAMP[f])return null;const W=320,H=320,cv=GWX.img||(GWX.img=document.createElement("canvas"));cv.width=W;cv.height=H;const g=cv.getContext("2d"),im=g.createImageData(W,H);
@@ -2955,8 +3015,7 @@ function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))retur
   /* the area drawn: the view with a quarter screen around it, so a pan doesn't show the edge straight away */
   const lv=gwxLv(),dw=(b.getEast()-b.getWest())*.25,dh=(b.getNorth()-b.getSouth())*.25;
   const w=Math.max(-540,b.getWest()-dw),e=Math.min(540,b.getEast()+dw),s=Math.max(-84,b.getSouth()-dh),n=Math.min(84,b.getNorth()+dh);
-  const keys=[];for(let la=Math.floor(s/30)*30;la<=n;la+=30)for(let lo=Math.floor(w/30)*30;lo<=e&&keys.length<10;lo+=30){const L=((lo+180)%360+360)%360-180,k=Math.max(-90,Math.min(60,la))+","+L;if(!keys.includes(k))keys.push(k)}
-  const cc=m.getCenter();keys.sort((a,b2)=>{const d=k=>{const p=k.split(",").map(Number);return Math.hypot(p[0]+15-cc.lat,((p[1]+15-cc.lng+540)%360)-180)};return d(a)-d(b2)});gwxLoad(keys);
+  gwxEnsure(f,lv);const cg=gwxGrid(f,lv);GWX.hour=cg?cg.valid:null;
   const z=m.getZoom(),D=GWX.drawnBox,inside=D&&D.f===f&&D.lv===lv&&D.ver===GWX.ver&&b.getWest()>=D.w&&b.getEast()<=D.e&&b.getSouth()>=D.s&&b.getNorth()<=D.n&&Math.abs(z-D.z)<1.5;if(inside)return;
   GWX.drawnBox={f,lv,ver:GWX.ver,w,e,s,n,z};
   try{const url=gwxImage(f,lv,w,s,e,n);m.getSource("gwxi").updateImage({url:url||GWX_BLANK,coordinates:[[w,n],[e,n],[e,s],[w,s]]})}catch(er){}
@@ -2970,14 +3029,14 @@ function gwxLegend(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   const R=GWX_RAMP[f],name=(GWX_FIELDS.find(x=>x[0]===f)||[,""])[1],lvn=gwxLv()?(GWX_LVS.find(x=>x[0]===gwxLv())||[,""])[1]:f==="jet"?"FL340":f==="vis"||f==="mslp"||f==="cloud"?"Surface":"";
   const unit={jet:"kt",isa:"°C",cloud:"%",vis:"km",vv:"fpm",trop:"FL",mslp:"hPa"}[f],fmt=v=>f==="vis"?(v/1000).toFixed(v<2000?1:0):f==="vv"&&v>0?"+"+v:String(v);
   const grad=R?`linear-gradient(90deg,${R.map(s=>`rgba(${s[1]},${s[2]},${s[3]},${Math.max(s[4],.12)})`).join(",")})`:"";
-  el.innerHTML=`<div class="gl-top"><b>${esc(name)}</b><span>${esc(lvn)}${GWX.hour?" · "+esc(GWX.hour.slice(11,16).replace(":",""))+"Z":""}</span></div>${R?`<div class="gl-bar" style="background:${grad}"></div><div class="gl-lab"><span>${fmt(R[0][0])}</span><span>${unit}</span><span>${fmt(R[R.length-1][0])}</span></div>`:`<div class="gl-lab"><span>Isobars every 4 hPa · H high · L low</span></div>`}${GWX.busy?'<div class="gl-lab"><span>Loading…</span></div>':GWX.err?`<div class="gl-lab"><span>${esc(GWX.err)}</span></div>`:""}`}
+  el.innerHTML=`<div class="gl-top"><b>${esc(name)}</b><span>${esc(lvn)}${GWX.hour?" · "+esc(GWX.hour.slice(11,16).replace(":",""))+"Z":""}</span></div>${R?`<div class="gl-bar" style="background:${grad}"></div><div class="gl-lab"><span>${fmt(R[0][0])}</span><span>${unit}</span><span>${fmt(R[R.length-1][0])}</span></div>`:`<div class="gl-lab"><span>Isobars every 4 hPa · H high · L low</span></div>`}${GWX.busy[f+"/"+gwxLv()]?'<div class="gl-lab"><span>Loading GFS…</span></div>':GWX.err&&!gwxGrid(f,gwxLv())?`<div class="gl-lab"><span>${esc(GWX.err)}</span></div>`:""}`}
 /* layer panel: field and level buttons */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlgwx],[data-mlgwxlv]");if(!t)return;
   if(t.dataset.mlgwx){ML.gwx=t.dataset.mlgwx;if(ML.gwx!=="off")ML.vec=true}else ML.gwxLv=+t.dataset.mlgwxlv;store.set("mapL",ML);
   document.querySelectorAll("[data-mlgwx]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlgwx===(ML.gwx||"off"))));
   document.querySelectorAll("[data-mlgwxlv]").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.mlgwxlv===(+ML.gwxLv||250))));
-  const lr=document.querySelector(".ml-gwxlv");if(lr)lr.hidden=!(ML.gwx==="isa"||ML.gwx==="vv");GWX.drawnBox=null;GWX.retryAt=0;gwxLegend();drawMap();updMapNote()});
-{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="gwx"]');if(el){const f=gwxF();el.textContent=f==="cloud"?"Satellite infrared · NASA GIBS, EUMETSAT":!vam.url?"Set the EFB server in Settings":!f?"GFS / ECMWF model, worldwide":GWX.busy?"Loading…":GWX.err?GWX.err:"Model forecast"+(GWX.hour?" · valid "+GWX.hour.slice(11,16).replace(":","")+"Z":"")}try{gwxLegend()}catch(e){}return r}}
+  const lr=document.querySelector(".ml-gwxlv");if(lr)lr.hidden=!(ML.gwx==="isa"||ML.gwx==="vv");GWX.drawnBox=null;gwxLegend();drawMap();updMapNote()});
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="gwx"]');if(el){const f=gwxF();const cg=f&&gwxGrid(f,gwxLv());el.textContent=f==="cloud"?"Satellite infrared · NASA GIBS, EUMETSAT":!f?"NOAA GFS 0.5°, worldwide":GWX.busy[f+"/"+gwxLv()]?"Loading GFS…":cg?"NOAA GFS 0.5° · run "+cg.run+" · valid "+cg.valid.slice(11,16).replace(":","")+"Z":GWX.err||""}try{gwxLegend()}catch(e){}return r}}
 try{window.__efbGwx={GWX,gwxContours,gwxPoints,gwxImage,gwxSample}}catch(e){}
 
 /* ---------- Weather panel ----------

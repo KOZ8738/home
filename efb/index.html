@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1343">
+<meta name="efb-build" content="1114.1347">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1350,6 +1350,7 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
   .homeind{display:flex!important}
 }
 
+#ofpClear.warn{border-color:var(--red);color:var(--red)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4341,7 +4342,7 @@ function vamBookHtml(){if(!vamOn())return "";vamLoad("bookings");const s=vamStat
 V.simbrief=()=>{const x=O(),u=store.get("sbUser","");const tm=ofp.times||{};
   return `<section class="hero">${ROSE_SVG}<span class="eyebrow">${ofp._sample?"No plan loaded":"Current OFP · "+esc(x.id)}</span>
     ${ofp._sample?`<h2>Load your <em>next flight.</em></h2><p>Fetch your SimBrief plan and every app fills in with your flight.</p>`
-    :`<div class="route"><div class="ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span></div><div class="mid">${plane}<span>${esc(x.flight)} · ${utcHM(N(tm.sched_out))}</span></div><div class="ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span></div></div><div class="row" style="margin-top:16px"><a class="btn pri" href="#ofp">Open Flight Plan</a><span class="note">${esc(S(x.ac.name))} · ${esc(S(x.ac.reg))}</span></div>`}</section>
+    :`<div class="route"><div class="ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span></div><div class="mid">${plane}<span>${esc(x.flight)} · ${utcHM(N(tm.sched_out))}</span></div><div class="ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span></div></div><div class="row" style="margin-top:16px"><a class="btn pri" href="#ofp">Open Flight Plan</a><button class="btn" id="ofpClear" type="button">Clear plan</button><span class="note">${esc(S(x.ac.name))} · ${esc(S(x.ac.reg))}</span></div>`}</section>
   ${vamBookHtml()}
   <div class="steps">
    <section class="card">${cardH("Step 1","Fetch from SimBrief",'<span class="stepn">1</span>')}<div class="card-b" style="display:grid;gap:14px">
@@ -4378,6 +4379,11 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]);
 /* Settings > About: viewport, screen and safe-area figures as this device reports them */
 function devInfo(){const f=window.__fit,sa=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches),vv=window.visualViewport;
   return `build ${EFB_BUILD||"?"} · ${innerWidth}×${innerHeight} · screen ${screen.width}×${screen.height}`+(f?` · insets ${f.et}/${f.eb}`+(f.chin?` · strip ${f.chin}`:""):"")+(vv?` · view ${Math.round(vv.height)}@${Math.round(vv.offsetTop)}`:"")+` · scroll ${Math.round(scrollY)} · ${sa?"home-screen app":"browser"}`}
+
+/* clear the loaded plan: a second tap within 3 seconds confirms, so it can't go by accident */
+document.addEventListener("click",e=>{const b=e.target.closest("#ofpClear");if(!b)return;
+  if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Tap again to clear";b.classList.add("warn");clearTimeout(b._t);b._t=setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Clear plan";b.classList.remove("warn")}},3000);return}
+  const f=O().flight;ofp=SAMPLE;CL=buildCL();store.set("ofp",null);MAP.c=null;toast("Cleared "+(f||"the flight plan"));render()});
 
 /* ===== Winter Ops: cold temperature altitude correction (ICAO Doc 8168) and de/anti-icing holdover times (FAA) ===== */
 let wiTab=store.get("wiTab","cold");

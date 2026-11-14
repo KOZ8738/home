@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1358">
+<meta name="efb-build" content="1114.1407">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1373,6 +1373,12 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .od-paper mark.odm.cur{background:#FF9F1A!important;outline:2px solid #FF9F1A}
 .od-none{font-family:var(--f-ui)!important;white-space:normal}
 @container screen (max-width:640px){.od-find input{width:120px}.od-scroll{padding:10px 0 30px}.od-paper{padding:14px 12px;border-radius:0}}
+/* runway chips under the wind rose */
+.wr-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px;max-width:260px;margin-inline:auto}
+.wr-chip{border:1px solid var(--line);background:transparent;color:var(--label);border-radius:999px;padding:4px 10px;font:500 12px var(--f-mono);cursor:pointer}
+.wr-chip b{color:var(--ink);font-weight:700}
+.wr-chip[aria-pressed="true"]{border-color:var(--bronze);background:color-mix(in srgb,var(--bronze) 16%,transparent)}
+.wr-chip[aria-pressed="true"] b{color:var(--bronze)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4084,6 +4090,44 @@ function fcwHtml(apt){const icao=S(apt.icao_code),lat=N(apt.pos_lat),lon=N(apt.p
     const k=s.indexOf("</dl></section>");if(k>=0)s=s.slice(0,k)+add+s.slice(k)}
   const fh=fcwHtml(apt),k2=s.indexOf('<div class="cols2">');
   return k2>=0?s.slice(0,k2)+fh+s.slice(k2):s+fh}}
+
+/* ===== Runways in the Weather wind rose =====
+   The airport's real runways (from the airport data, true headings) drawn in the wind rose, with a chip for each
+   runway: tap one to show it, tap it again to turn to the other end. Until you choose, the plan's runway is shown,
+   or else the end with the most headwind. The components line follows the runway shown. */
+const WR={sel:store.get("wxRwy",{})||{},poll:{}};
+function wrData(icao){const j=AS.data[icao],a=j&&j.airport;if(!a||!Array.isArray(a.runways))return null;
+  const md=String(a.magdec||"").match(/^(\d+)\s*([EW])$/i),magE=md?(+md[1])*(md[2].toUpperCase()==="E"?1:-1):0;
+  const rw=a.runways.filter(r=>r.id&&!/^H\d/i.test(r.id)&&!/WATER/i.test(r.surface||"")).map(r=>({r,es:rwEnds(r,magE).filter(e=>e.hdg!=null)})).filter(x=>x.es.length);
+  rw.sort((p,q)=>(+q.r.lengthFt||0)-(+p.r.lengthFt||0));return{rw,magE}}
+/* which runway end to show: the pilot's pick, the plan's runway, the most headwind, the longest */
+function wrPick(icao,D,m,planRwy){const all=D.rw.flatMap(x=>x.es.map(e=>({...e,len:+x.r.lengthFt||0})));if(!all.length)return null;
+  const id=WR.sel[icao]||S(planRwy).toUpperCase();let e=id&&all.find(z=>z.id.toUpperCase()===id);if(e)return e;
+  const w=m&&m.wind;if(w&&w.dir!=null&&w.spd>0)return all.slice().sort((a,b)=>rwComp(b.hdg,w).h-rwComp(a.hdg,w).h||b.len-a.len)[0];return all[0]}
+function wrSvg(m,e,other){let s=windSvg(m,"");if(!e)return s;const H=e.hdg;
+  const bars=y=>[-6,-3,0,3,6].map(dx=>`<rect x="${100+dx-1}" y="${y}" width="2" height="7" fill="#fff"/>`).join("");
+  const g=`<g transform="rotate(${H} 100 100)"><rect class="w-rwy" x="91" y="40" width="18" height="120" rx="1.5"/>${bars(43)}${bars(150)}<path d="M100 56v88" stroke="#fff" stroke-width="1.2" stroke-dasharray="6 6"/>
+    <text class="w-rwyl" x="100" y="146" text-anchor="middle">${esc(e.id)}</text>${other?`<text class="w-rwyl" x="100" y="60" text-anchor="middle" transform="rotate(180 100 56)">${esc(other.id)}</text>`:""}</g>`;
+  const k=s.indexOf('<line class="w-arrow"');return k>=0?s.slice(0,k)+g+s.slice(k):s.replace("</svg>",g+"</svg>")}
+{const _wd=wxDetail;wxDetail=function(role,label,apt,metar,taf){let s=_wd(role,label,apt,metar,taf);const icao=S(apt.icao_code);if(!icao||!vam.url)return s;
+  if(!AS.data[icao]){if(typeof asLoad==="function")asLoad(icao);
+    /* redraw once the runways are in */
+    if(!WR.poll[icao]){let n=0;WR.poll[icao]=setInterval(()=>{if(AS.data[icao]||++n>25){clearInterval(WR.poll[icao]);if(AS.data[icao]&&cur==="wx")render()}},1200)}return s}
+  const D=wrData(icao);if(!D||!D.rw.length)return s;const m=decodeMetar(metar),e=wrPick(icao,D,m,apt.plan_rwy);if(!e)return s;
+  const pair=D.rw.find(x=>x.es.some(z=>z.id===e.id)),other=pair&&pair.es.find(z=>z.id!==e.id);
+  /* the wind rose with the runway */
+  s=s.replace(/<svg class="wind"[\s\S]*?<\/svg>/,wrSvg(m,e,other)+`<div class="wr-chips" role="group" aria-label="Runway shown">${D.rw.map((x,i)=>{const on=x.es.some(z=>z.id===e.id),a=on?e:x.es[0],b=x.es.find(z=>z.id!==a.id);
+      return `<button class="wr-chip" data-wrrw="${esc(icao)}|${i}" aria-pressed="${on}"><b>${esc(a.id)}</b>${b?"/"+esc(b.id):""}</button>`}).join("")}</div>`);
+  s=s.replace(/RWY [^<]*<\/span><\/div>/,"RWY "+esc(e.id)+"</span></div>");
+  /* components for that runway end */
+  const w=m&&m.wind;let comp="—";if(w&&w.dir!=null){const c=rwComp(e.hdg,w),hs=Math.round(Math.abs(c.h*(w.gust||w.spd))),xs=Math.round(Math.abs(c.x*(w.gust||w.spd)));comp=(c.h>=0?"H"+hs:"<span class='c-amber'>T"+hs+"</span>")+" / X"+xs+(xs?(c.x>0?"R":"L"):"")}
+  else if(w&&w.spd===0)comp="Calm";
+  s=s.replace(/<div><dt>RWY [^<]*components<\/dt><dd>[\s\S]*?<\/dd><\/div>/,`<div><dt>RWY ${esc(e.id)} components</dt><dd>${comp}</dd></div>`);
+  return s}}
+document.addEventListener("click",ev=>{const b=ev.target.closest("[data-wrrw]");if(!b)return;const[icao,i]=b.dataset.wrrw.split("|"),D=wrData(icao);if(!D||!D.rw[+i])return;
+  const es=D.rw[+i].es,curId=WR.sel[icao];let next;
+  if(b.getAttribute("aria-pressed")==="true"){const shown=b.querySelector("b").textContent;next=(es.find(z=>z.id!==shown)||es[0]).id}else next=b.querySelector("b").textContent;
+  WR.sel[icao]=next;store.set("wxRwy",WR.sel);render()});
 
 /* ===== shared app building blocks ===== */
 const ICO={

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1117">
+<meta name="efb-build" content="1114.1120">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2758,7 +2758,7 @@ function vfrBase(st,dark){const P=dark?{land:"#0D0E0B",water:"#0C2538",wline:"#1
 /* style hook: the VFR preset gets its base look and the chart layers; openAIP airspace steps aside for the FAA's */
 {const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);if(!vfrOn())return st;
   st=vfrBase(st,dark);st.layers=st.layers.filter(l=>!/^oaip-/.test(l.id));
-  st.sources.vfra={type:"geojson",data:vfrPolyFC(),buffer:32,tolerance:.3};st.sources.vfrp={type:"geojson",data:vfrPtFC(),buffer:64,tolerance:.4};VFR.setVer=VFR.ver+"/"+IFR.ver;
+  st.sources.vfra={type:"geojson",data:vfrPolyFC(),buffer:32,tolerance:.3};st.sources.vfrp={type:"geojson",data:vfrPtFC(),buffer:64,tolerance:.4};VFR.setVer=VFR.ver+"/"+IFR.ver;VFR.codesKey="";
   const L=vfrLayers(dark),i=st.layers.findIndex(l=>/^(water-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L.lines);else st.layers.splice(i,0,...L.lines);
   st.layers=st.layers.concat(L.syms);return st}}
 /* hide the general airport marks where the sectional symbols already stand */

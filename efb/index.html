@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1207">
+<meta name="efb-build" content="1114.1209">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2823,7 +2823,7 @@ document.addEventListener("click",e=>{
 
 /* ---------- Gridded weather layers ----------
    Jet streams, sea-level pressure, ISA deviation, cloud cover, visibility, vertical speed and tropopause height from
-   the GFS / ECMWF models (Open-Meteo, through the EFB server) on a 2.5-degree lattice. Each field is painted as a smooth
+   the GFS / ECMWF models (Open-Meteo, through the EFB server) on a 5-degree lattice. Each field is painted as a smooth
    colour wash (an image laid on the map in web-mercator rows, so it lines up at every latitude) with contour lines
    and labels on top; pressure gets H and L centres and the jet gets wind arrows. */
 const GWX={blocks:{},busy:false,retryAt:0,err:null,ver:0,drawn:"",img:null,hour:null};
@@ -2831,7 +2831,7 @@ const GWX_FIELDS=[["off","Off"],["jet","Jet streams"],["mslp","Pressure"],["isa"
 const GWX_LVS=[[700,"FL100"],[500,"FL180"],[400,"FL240"],[300,"FL300"],[250,"FL340"],[200,"FL390"]];
 const gwxF=()=>ML.gwx&&ML.gwx!=="off"?ML.gwx:null;
 const gwxLv=()=>{const f=gwxF();return f==="isa"||f==="vv"?(+ML.gwxLv||250):0};
-const gwxKey=(f,lv,b)=>f+"/"+lv+"/"+b;
+const gwxKey=(f,lv,b)=>f+"/"+lv+"/"+b+"/5";
 /* load the 30-degree blocks in view that are missing or older than 45 minutes, one request */
 function gwxLoad(keys){const f=gwxF();if(!f||!vam.url||GWX.busy||Date.now()<GWX.retryAt)return;const lv=gwxLv(),now=Date.now();
   const need=keys.filter(k=>{const c=GWX.blocks[gwxKey(f,lv,k)];return!c||now-c.at>45*60000}).slice(0,12);if(!need.length)return;GWX.busy=true;
@@ -2840,10 +2840,10 @@ function gwxLoad(keys){const f=gwxF();if(!f||!vam.url||GWX.busy||Date.now()<GWX.
     .catch(e=>{GWX.err=e.message||"Couldn’t load";GWX.retryAt=Date.now()+30000})
     .finally(()=>{GWX.busy=false;GWX.ver++;if(cur==="map"){mapSched();try{mlStatus()}catch(e){}}})}
 /* the lattice: value at row r (lat = -90 + 2.5 r) and column c (lon = -180 + 2.5 c) */
-function gwxAt(f,lv,r,c){c=((c%144)+144)%144;if(r<0||r>71)return null;const bl=Math.floor(r/12)*30-90,bo=Math.floor(c/12)*30-180,b=GWX.blocks[gwxKey(f,lv,bl+","+bo)];if(!b)return null;return b.v[(r%12)*12+(c%12)]}
+function gwxAt(f,lv,r,c){c=((c%72)+72)%72;if(r<0||r>35)return null;const bl=Math.floor(r/6)*30-90,bo=Math.floor(c/6)*30-180,b=GWX.blocks[gwxKey(f,lv,bl+","+bo)];if(!b)return null;return b.v[(r%6)*6+(c%6)]}
 const gwxNum=(f,v)=>v==null?null:f==="jet"?v[0]:v;
 /* bilinear value at a latitude and longitude */
-function gwxSample(f,lv,lat,lon){const y=(lat+90)/2.5,x=(lon+180)/2.5,r=Math.floor(y),c=Math.floor(x),fy=y-r,fx=x-c;
+function gwxSample(f,lv,lat,lon){const y=(lat+90)/5,x=(lon+180)/5,r=Math.floor(y),c=Math.floor(x),fy=y-r,fx=x-c;
   const a=gwxNum(f,gwxAt(f,lv,r,c)),b=gwxNum(f,gwxAt(f,lv,r,c+1)),d=gwxNum(f,gwxAt(f,lv,r+1,c)),e=gwxNum(f,gwxAt(f,lv,r+1,c+1));
   if(a==null||b==null||d==null||e==null){const q=[a,b,d,e].filter(v=>v!=null);return q.length>=2?q.reduce((s,v)=>s+v,0)/q.length:null}
   return(a*(1-fx)+b*fx)*(1-fy)+(d*(1-fx)+e*fx)*fy}
@@ -2862,7 +2862,7 @@ function gwxColor(f,v){const R=GWX_RAMP[f];if(!R||v==null)return null;if(v<=R[0]
 const GWX_CT={mslp:{step:4,lbl:v=>String(Math.round(v))},jet:{step:20,min:80,lbl:v=>Math.round(v)+" KT"},isa:{step:5,lbl:v=>(v>0?"ISA+":v<0?"ISA−":"ISA ")+Math.abs(Math.round(v))},
   trop:{step:20,lbl:v=>"FL"+Math.round(v)},vv:null,cloud:null,vis:null};
 /* marching squares over a finer grid sampled from the lattice; segments are joined into lines for labels */
-function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=.8333,nx=Math.ceil((e-w)/st)+1,ny=Math.ceil((n-s)/st)+1;if(nx*ny>90000)return[];
+function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=1.25,nx=Math.ceil((e-w)/st)+1,ny=Math.ceil((n-s)/st)+1;if(nx*ny>90000)return[];
   const G=new Float32Array(nx*ny);for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const v=gwxSample(f,lv,s+j*st,w+i*st);G[j*nx+i]=v==null?NaN:v}
   let lo=1e9,hi=-1e9;G.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v});if(!(hi>lo))return[];const out=[];
   for(let lvv=Math.ceil(lo/C.step)*C.step;lvv<=hi;lvv+=C.step){if(C.min!=null&&lvv<C.min)continue;const segs=[];
@@ -2880,10 +2880,10 @@ function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=.83
       if(line.length>=4)out.push({type:"Feature",geometry:{type:"LineString",coordinates:line},properties:{t:"ct",v:lvv,lbl:C.lbl(lvv),major:f==="mslp"&&lvv%20===12?1:0}})}}
   return out}
 /* H and L centres for pressure; arrows for the jet */
-function gwxPoints(f,lv,w,s,e,n){const out=[],r0=Math.max(0,Math.floor((s+90)/2.5)),r1=Math.min(71,Math.ceil((n+90)/2.5)),c0=Math.floor((w+180)/2.5),c1=Math.ceil((e+180)/2.5);
-  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const v=gwxAt(f,lv,r,c);if(v==null)continue;const lat=-90+r*2.5,lon=-180+c*2.5;
-    if(f==="mslp"){let mx=true,mn=true,cnt=0;for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){if(!dr&&!dc)continue;const q=gwxAt(f,lv,r+dr,c+dc);if(q==null)continue;cnt++;if(q>=v)mx=false;if(q<=v)mn=false}
-      if(cnt>=16&&(mx&&v>=1016||mn&&v<=1008))out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"hl",k:mx?"H":"L",lbl:(mx?"H":"L")+"\n"+Math.round(v)}})}
+function gwxPoints(f,lv,w,s,e,n){const out=[],r0=Math.max(0,Math.floor((s+90)/5)),r1=Math.min(35,Math.ceil((n+90)/5)),c0=Math.floor((w+180)/5),c1=Math.ceil((e+180)/5);
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const v=gwxAt(f,lv,r,c);if(v==null)continue;const lat=-90+r*5,lon=-180+c*5;
+    if(f==="mslp"){let mx=true,mn=true,cnt=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const q=gwxAt(f,lv,r+dr,c+dc);if(q==null)continue;cnt++;if(q>=v)mx=false;if(q<=v)mn=false}
+      if(cnt>=8&&(mx&&v>=1016||mn&&v<=1008))out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"hl",k:mx?"H":"L",lbl:(mx?"H":"L")+"\n"+Math.round(v)}})}
     else if(f==="jet"&&v[0]>=80&&v[1]!=null)out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"ar",rot:(v[1]+180)%360,s:v[0],odd:(r+c)%2}})}
   return out}
 /* the colour wash for the view, row by row in web-mercator so it sits right at every latitude */
@@ -2899,7 +2899,7 @@ function gwxIcon(id){const dark=/-d$/.test(id),s=48,c=document.createElement("ca
 function gwxLayers(dark){const C=dark?{ln:"#D9E2EA",lnM:"#FFFFFF",txt:"#E8EEF2",halo:"#05080A",H:"#7FB2FF",L:"#FF7A7A"}:{ln:"#3C4A57",lnM:"#1A2530",txt:"#1A2530",halo:"#FFFFFF",H:"#1F5BB5",L:"#C62828"},F=["Noto Sans Bold"],vis=gwxF()?"visible":"none",t=dark?"-d":"-l";
   return[{id:"gwx-img",type:"raster",source:"gwxi",layout:{visibility:vis},paint:{"raster-fade-duration":0,"raster-resampling":"linear","raster-opacity":dark?.9:1}},
    {id:"gwx-ct",type:"line",source:"gwxl",filter:["==",["get","t"],"ct"],layout:{visibility:vis,"line-join":"round","line-cap":"round"},paint:{"line-color":["case",["==",["get","major"],1],C.lnM,C.ln],"line-width":["case",["==",["get","major"],1],1.6,1],"line-opacity":.8}},
-   {id:"gwx-ar",type:"symbol",source:"gwxl",filter:["all",["==",["get","t"],"ar"],["any",[">=",["zoom"],4],["==",["get","odd"],0]]],layout:{visibility:vis,"icon-image":"gwx-ar"+t,"icon-rotate":["get","rot"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-size":["interpolate",["linear"],["get","s"],80,.35,180,.62]},paint:{"icon-opacity":.85}},
+   {id:"gwx-ar",type:"symbol",source:"gwxl",filter:["all",["==",["get","t"],"ar"],["any",[">=",["zoom"],3],["==",["get","odd"],0]]],layout:{visibility:vis,"icon-image":"gwx-ar"+t,"icon-rotate":["get","rot"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-size":["interpolate",["linear"],["get","s"],80,.35,180,.62]},paint:{"icon-opacity":.85}},
    {id:"gwx-ctl",type:"symbol",source:"gwxl",filter:["==",["get","t"],"ct"],layout:{visibility:vis,"symbol-placement":"line","symbol-spacing":320,"text-field":["get","lbl"],"text-font":F,"text-size":10.5,"text-keep-upright":true,"text-max-angle":35,"text-padding":4},paint:{"text-color":C.txt,"text-halo-color":C.halo,"text-halo-width":2}},
    {id:"gwx-hl",type:"symbol",source:"gwxl",filter:["==",["get","t"],"hl"],layout:{visibility:vis,"text-field":["get","lbl"],"text-font":F,"text-size":["interpolate",["linear"],["zoom"],1,13,6,17],"text-line-height":1,"text-allow-overlap":false},paint:{"text-color":["case",["==",["get","k"],"H"],C.H,C.L],"text-halo-color":C.halo,"text-halo-width":2.2}}]}
 {const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);

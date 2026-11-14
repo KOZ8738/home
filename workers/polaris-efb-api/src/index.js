@@ -603,8 +603,8 @@ async function windRoute(url, ctx, h) {
 
 
 /* Gridded weather from Open-Meteo for map layers: jet streams, sea-level pressure, ISA deviation, cloud cover,
-   visibility, vertical velocity, tropopause height. The globe is a 2.5-degree lattice, fetched and cached in 30-degree
-   blocks (144 points) per field and hour, so a map view costs at most a few upstream calls. */
+   visibility, vertical velocity, tropopause height. The globe is a 5-degree lattice, fetched and cached in 30-degree
+   blocks (36 points) per field for 3 hours (Open-Meteo counts every point as a call), so a map view costs at most a few upstream calls. */
 const GWX_LV = [700, 500, 400, 300, 250, 200];
 const GWX_F = {
   mslp: () => ['pressure_msl'],
@@ -639,17 +639,17 @@ async function gwxRoute(url, ctx, h) {
   const blocks = String(url.searchParams.get('blocks') || '').split(';').map((c) => c.match(/^(-?\d{1,2}),(-?\d{1,3})$/)).filter(Boolean)
     .map((m) => [+m[1], +m[2]]).filter(([la, lo]) => !(la % 30) && !(lo % 30) && la >= -90 && la <= 60 && lo >= -180 && lo <= 150).slice(0, 12);
   if (!blocks.length) throw new HttpError(400, 'blocks=lat,lon;lat,lon (30 degree grid)');
-  const hour = new Date().toISOString().slice(0, 13), cache = caches.default, lvk = f === 'isa' || f === 'vv' ? lv : 0;
-  const key = (b) => new Request('https://gwx-cache.local/v1/' + hour + '/' + f + '/' + lvk + '/' + b[0] + '/' + b[1]);
+  const hour = (() => { const d = new Date(); d.setUTCHours(Math.floor(d.getUTCHours() / 3) * 3); return d.toISOString().slice(0, 13); })(), cache = caches.default, lvk = f === 'isa' || f === 'vv' ? lv : 0;
+  const key = (b) => new Request('https://gwx-cache.local/v2/' + hour + '/' + f + '/' + lvk + '/' + b[0] + '/' + b[1]);
   const got = {}, miss = [];
   await Promise.all(blocks.map(async (b) => { const r = await cache.match(key(b)); if (r) got[b.join(',')] = await r.json(); else miss.push(b); }));
   let err = null;
   if (miss.length) {
     const pts = [];
-    miss.forEach((b) => { for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) { const a = b[0] + i * 2.5, o = b[1] + j * 2.5; pts.push({ b: b.join(','), i, j, a: Math.max(-89.5, Math.min(89.5, a)), o }); } });
+    miss.forEach((b) => { for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) { const a = b[0] + i * 5, o = b[1] + j * 5; pts.push({ b: b.join(','), i, j, a: Math.max(-89.5, Math.min(89.5, a)), o }); } });
     const vars = GWX_F[f](lv).join(','), res = {};
-    for (let c = 0; c < pts.length; c += 300) {
-      const part = pts.slice(c, c + 300);
+    for (let c = 0; c < pts.length; c += 220) {
+      const part = pts.slice(c, c + 220);
       const u = `https://api.open-meteo.com/v1/forecast?latitude=${part.map((p) => p.a).join(',')}&longitude=${part.map((p) => p.o).join(',')}&hourly=${vars}&forecast_hours=1&timezone=GMT&wind_speed_unit=kn`;
       let j = null;
       for (let tries = 0; tries < 2 && !j; tries++) {
@@ -659,12 +659,12 @@ async function gwxRoute(url, ctx, h) {
       }
       if (!j) break;
       if (!Array.isArray(j)) j = [j];
-      j.forEach((x, k) => { const p = part[k]; if (!p) return; (res[p.b] = res[p.b] || Array(144).fill(null))[p.i * 12 + p.j] = gwxValue(f, lv, x.hourly || {}); });
+      j.forEach((x, k) => { const p = part[k]; if (!p) return; (res[p.b] = res[p.b] || Array(36).fill(null))[p.i * 6 + p.j] = gwxValue(f, lv, x.hourly || {}); });
     }
-    miss.forEach((b) => { const k = b.join(','); if (!res[k]) return; got[k] = res[k]; const pr = cache.put(key(b), new Response(JSON.stringify(res[k]), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(pr); });
+    miss.forEach((b) => { const k = b.join(','); if (!res[k]) return; got[k] = res[k]; const pr = cache.put(key(b), new Response(JSON.stringify(res[k]), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=10800' } })); if (ctx && ctx.waitUntil) ctx.waitUntil(pr); });
     if (Object.keys(res).length === miss.length) err = null;
   }
-  return json({ f, lv: lvk || null, hour: hour + ':00Z', step: 2.5, blocks: got, error: err }, 200, h);
+  return json({ f, lv: lvk || null, hour: hour + ':00Z', step: 5, blocks: got, error: err }, 200, h);
 }
 
 /* openAIP vector tiles (airspaces, navaids, reporting points, airports...), proxied so the key stays on the server; cached a week */

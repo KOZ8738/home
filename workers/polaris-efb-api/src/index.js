@@ -602,6 +602,28 @@ async function windRoute(url, ctx, h) {
 
 
 
+/* Geostationary infrared cloud tiles, proxied and cached at the edge for 10 minutes so every pilot shares one fetch:
+   GOES-East, GOES-West and Himawari from NASA GIBS, Meteosat 0 deg and Indian Ocean from EUMETSAT (its map server is
+   slow, so the shared cache matters most there). The app turns the grey picture into cloud-only on the device. */
+const SAT_SRC = { ge: ['gibs', 'GOES-East_ABI_Band13_Clean_Infrared'], gw: ['gibs', 'GOES-West_ABI_Band13_Clean_Infrared'], hi: ['gibs', 'Himawari_AHI_Band13_Clean_Infrared'], mf: ['eum', 'msg_fes:ir108'], mi: ['eum', 'msg_iodc:ir108'] };
+async function satRoute(url, ctx, h) {
+  const id = url.searchParams.get('l'), z = +url.searchParams.get('z'), x = +url.searchParams.get('x'), y = +url.searchParams.get('y'), S = SAT_SRC[id];
+  if (!S || !Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y) || z < 0 || z > (S[0] === 'eum' ? 7 : 6) || x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) throw new HttpError(400, 'l, z, x, y');
+  const slot = Math.floor(Date.now() / 600000), cache = caches.default, ck = new Request(`https://sat-cache.local/v1/${slot}/${id}/${z}/${x}/${y}.png`);
+  let r = await cache.match(ck);
+  if (!r) {
+    const T = 40075016.686 / 2 ** z, x0 = -20037508.343 + x * T, y1 = 20037508.343 - y * T;
+    const up = S[0] === 'eum' ? `https://view.eumetsat.int/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=${S[1]}&styles=&crs=EPSG:3857&bbox=${x0},${y1 - T},${x0 + T},${y1}&width=256&height=256&format=image/png&transparent=true`
+      : `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${S[1]}/default/default/GoogleMapsCompatible_Level6/${z}/${y}/${x}.png`;
+    let res = null; try { res = await fetchT(up, 25000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } }); } catch (e) {}
+    if (!res || !res.ok || !/image/.test(res.headers.get('content-type') || '')) return new Response(null, { status: 204, headers: { ...h, 'Cache-Control': 'no-store' } });
+    r = new Response(await res.arrayBuffer(), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=600' } });
+    const p = cache.put(ck, r.clone()); if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+  }
+  const hd = new Headers(r.headers); for (const [k, v] of Object.entries(h)) hd.set(k, v); hd.set('Cache-Control', 'public, max-age=600');
+  return new Response(r.body, { status: 200, headers: hd });
+}
+
 /* Gridded weather from Open-Meteo for map layers: jet streams, sea-level pressure, ISA deviation, cloud cover,
    visibility, vertical velocity, tropopause height. The globe is a 5-degree lattice, fetched and cached in 30-degree
    blocks (36 points) per field for 3 hours (Open-Meteo counts every point as a call), so a map view costs at most a few upstream calls. */
@@ -1071,6 +1093,7 @@ export default {
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);
         case '/api/efb/winds': return await windRoute(url, ctx, h);
         case '/api/efb/gwx': return await gwxRoute(url, ctx, h);
+        case '/api/efb/sat': return await satRoute(url, ctx, h);
         case '/api/efb/apts': return await aptsRoute(url, env, ctx, h);
         case '/api/efb/awy': return await awyRoute(url, ctx, h);
         case '/api/efb/ifr': return await ifrRoute(url, ctx, h);

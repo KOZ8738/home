@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1437">
+<meta name="efb-build" content="1114.1440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1398,6 +1398,8 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .od-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
 .od-hint{font:500 11px var(--f-ui);color:var(--label);margin-left:auto}
 .od.inking .od-ink,.od.inking .od-paper{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.od-seg{display:inline-flex}.od-seg .btn{border-radius:0}.od-seg .btn:first-child{border-radius:6px 0 0 6px}.od-seg .btn:last-child{border-radius:0 6px 6px 0;margin-left:-1px}
+.od-fl{font:600 11px var(--f-ui);color:var(--label);letter-spacing:.04em;text-transform:uppercase}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4678,7 +4680,7 @@ function muWidget(){const t=muCur(),on=!!muA.dataset.src&&!muA.paused;
 APPS.ofpdoc={name:"OFP",bg:"linear-gradient(180deg,#FBFAF6,#E7E2D6)",fg:"#1A6772",g:'<path d="M6.5 2.5h11v19h-11z" fill="#fff" stroke="#8C7B63"/><path d="M9 6.5h6M9 9.5h6M9 12.5h6M9 15.5h4" stroke="#1A6772" stroke-width="1.5"/>'};
 {const i=PAGE1.indexOf("simbrief");PAGE1.splice(i<0?PAGE1.length:i+1,0,"ofpdoc");const j=PAGE2.indexOf("simbrief");PAGE2.splice(j<0?PAGE2.length:j+1,0,"ofpdoc")}
 
-const OD={pen:false,tool:"pen",col:store.get("odInkCol","red")||"red",undo:[],pencil:false,fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
+const OD={pen:false,tool:"pen",col:store.get("odInkCol","red")||"red",undo:[],pencil:!!store.get("odPencil",false),finger:store.get("odFinger",null)||(store.get("odPencil",false)?"scroll":"write"),fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
 const odNight=()=>OD.night!=null?!!OD.night:isDark();
 function odClean(raw){try{const doc=new DOMParser().parseFromString(String(raw||""),"text/html");
     doc.querySelectorAll("script,style,iframe,frame,object,embed,form,input,button,link,meta,base,svg,math,template").forEach(n=>n.remove());
@@ -4732,13 +4734,15 @@ function odPathD(p){if(!p.length)return"";if(p.length===1)return`M${p[0][0]} ${p
   for(let i=1;i<p.length-1;i++){const mx=((p[i][0]+p[i+1][0])/2).toFixed(2),my=((p[i][1]+p[i+1][1])/2).toFixed(2);d+=`Q${p[i][0]} ${p[i][1]} ${mx} ${my}`}
   const L=p[p.length-1];return d+`L${L[0]} ${L[1]}`}
 function odStrokeEl(k){const hl=k.h;return `<path d="${odPathD(k.p)}" stroke="${hl?OD_HL:(OD_COL[k.c]||OD_COL.red)}" stroke-width="${hl?1.05:.13}" ${hl?'opacity=".38" stroke-linecap="butt"':'stroke-linecap="round"'} stroke-linejoin="round" fill="none"/>`}
-function odInkSvg(){return `<svg class="od-ink" id="odInk" aria-hidden="true"${OD.pencil?' style="touch-action:auto"':""}><g>${odInk().map(odStrokeEl).join("")}</g></svg>`}
+function odInkSvg(){return `<svg class="od-ink" id="odInk" aria-hidden="true"${OD.finger==="scroll"?' style="touch-action:auto"':""}><g>${odInk().map(odStrokeEl).join("")}</g></svg>`}
 function odInkBar(){const cols=Object.keys(OD_COL).map(c=>`<button class="od-sw ${c}" data-odink="col:${c}" aria-label="${c==="ink"?"Black":c[0].toUpperCase()+c.slice(1)}" aria-pressed="${OD.tool==="pen"&&OD.col===c}"><i style="background:${c==="ink"?"var(--pink)":OD_COL[c]}"></i></button>`).join("");
   return `<div class="od-inkbar" role="toolbar" aria-label="Pen">${cols}
     <button class="btn sm" data-odink="hl" aria-pressed="${OD.tool==="hl"}"><i class="od-hlchip"></i>Highlight</button>
     <button class="btn sm" data-odink="erase" aria-pressed="${OD.tool==="erase"}">Eraser</button>
     <span class="od-sep"></span><button class="btn sm" data-odink="undo">Undo</button><button class="btn sm" data-odink="clear" id="odInkClear">Clear all</button>
-    <span class="od-hint">${OD.pencil?"Pencil writes · finger scrolls":"One finger writes · two fingers scroll"}</span></div>`}
+    <span class="od-sep"></span><span class="od-fl">Finger</span><div class="od-seg" role="group" aria-label="What one finger does"><button class="btn sm" data-odink="f:write" aria-pressed="${OD.finger==="write"}">Writes</button><button class="btn sm" data-odink="f:scroll" aria-pressed="${OD.finger==="scroll"}">Scrolls</button></div>
+    <span class="od-hint">${OD.finger==="scroll"?(OD.pencil?"Pencil writes · finger scrolls":"Finger scrolls · use a Pencil or mouse to write"):"One finger writes · two fingers scroll"}</span></div>`}
+function odSetFinger(f){OD.finger=f;store.set("odFinger",f);const svg=document.getElementById("odInk");if(svg)svg.style.touchAction=f==="scroll"?"auto":"";odInkBarRedraw()}
 function odInkRedraw(){const g=document.querySelector("#odInk g");if(g)g.innerHTML=odInk().map(odStrokeEl).join("")}
 function odInkBarRedraw(){const b=document.querySelector(".od-inkbar");if(b)b.outerHTML=odInkBar()}
 /* drawing */
@@ -4763,8 +4767,9 @@ function odErase(pt){const list=odInk(),r=.55;let hit=-1;
       if(Math.hypot(a[0]+t*dx-pt[0],a[1]+t*dy-pt[1])<rr){hit=i;break}}}
   if(hit<0)return;const k=list.splice(hit,1)[0];OD.undo.push({a:"del",k,i:hit});odInkSave(list);odInkRedraw()}
 document.addEventListener("pointerdown",ev=>{const svg=ev.target.closest&&ev.target.closest("#odInk");if(!svg||!OD.pen)return;
-  if(ev.pointerType==="pen"&&!OD.pencil){OD.pencil=true;svg.style.touchAction="auto";odInkBarRedraw()}
-  if(ev.pointerType==="touch"&&OD.pencil)return;/* finger scrolls once a pencil has been used */
+  /* the first time a Pencil writes, a finger goes back to scrolling (the pilot can change it back) */
+  if(ev.pointerType==="pen"&&!OD.pencil){OD.pencil=true;store.set("odPencil",true);if(!store.get("odFinger",null))odSetFinger("scroll")}
+  if(ev.pointerType==="touch"&&OD.finger==="scroll")return;
   if(ev.button>0)return;
   if(ev.pointerType==="touch"){odTP.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});try{svg.setPointerCapture(ev.pointerId)}catch(e){}
     /* a second finger: drop the stroke the first one just started and move the page with both */
@@ -4785,14 +4790,20 @@ function odDrawEnd(ev){if(odTP.has(ev.pointerId)){odTP.delete(ev.pointerId);if(o
   const list=odInk();list.push(k);OD.undo.push({a:"add"});odInkSave(list);if(d.el)d.el.outerHTML=odStrokeEl(k)}
 document.addEventListener("pointerup",odDrawEnd);document.addEventListener("pointercancel",odDrawEnd);
 /* iPad: keep the Apple Pencil from scrolling the page while it writes */
-document.addEventListener("touchstart",e=>{if(OD.pen&&OD.pencil&&e.target.closest&&e.target.closest("#odInk")&&[...e.touches].some(t=>t.touchType==="stylus"))e.preventDefault()},{passive:false});
-/* while the pencil is writing, a resting palm or finger must not scroll the page under it */
-document.addEventListener("touchmove",e=>{if(odDraw&&OD.pencil)e.preventDefault()},{passive:false});
+/* iOS starts its own scroll from a touch even under touch-action:none inside a scrolling box, and then cancels the
+   pointer (the stroke stops after a few points). Cancelling the touch events themselves is what holds the page still:
+   always for the Pencil, for fingers when a finger writes (two fingers are scrolled here, by hand), and for every touch
+   while a stroke is being drawn (a resting palm). */
+const odOnInk=e=>OD.pen&&e.target&&e.target.closest&&e.target.closest("#odInk");
+const odHold=e=>[...e.changedTouches,...e.touches].some(t=>t.touchType==="stylus")||OD.finger==="write"||!!odDraw||!!(odPan&&odTP.size);
+document.addEventListener("touchstart",e=>{if(odOnInk(e)&&odHold(e))e.preventDefault()},{passive:false});
+document.addEventListener("touchmove",e=>{if((odOnInk(e)&&odHold(e))||(OD.pen&&odDraw))e.preventDefault()},{passive:false});
 /* toolbar */
 document.addEventListener("click",e=>{const pb=e.target.closest('[data-od="pen"]');
   if(pb){OD.pen=!OD.pen;const root=document.getElementById("odRoot");if(root)root.classList.toggle("inking",OD.pen);pb.setAttribute("aria-pressed",String(OD.pen));
-    const svg=document.getElementById("odInk");if(svg)svg.style.touchAction=OD.pencil?"auto":"";return}
+    const svg=document.getElementById("odInk");if(svg)svg.style.touchAction=OD.finger==="scroll"?"auto":"";return}
   const b=e.target.closest("[data-odink]");if(!b)return;const a=b.dataset.odink;
+  if(a.startsWith("f:")){odSetFinger(a.slice(2));return}
   if(a.startsWith("col:")){OD.tool="pen";OD.col=a.slice(4);store.set("odInkCol",OD.col)}
   else if(a==="hl"||a==="erase")OD.tool=OD.tool===a?"pen":a;
   else if(a==="undo"){const u=OD.undo.pop(),list=odInk();if(!u)return;

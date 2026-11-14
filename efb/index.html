@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0440">
+<meta name="efb-build" content="1114.0446">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1315,6 +1315,10 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .as-pin{flex:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line);background:transparent;color:var(--label);padding:0 12px;cursor:pointer}
 .as-pin svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
 .as-pin[aria-pressed="true"]{color:var(--accent)}.as-pin[aria-pressed="true"] svg{fill:currentColor}
+.pin-tab .pin-map{display:grid;place-items:center;margin:4px 4px 4px 0;padding:0 7px;border-radius:6px;background:color-mix(in srgb,var(--cc) 22%,rgba(0,0,0,.25));border:1px solid color-mix(in srgb,var(--cc) 55%,transparent)}
+.pin-tab .pin-map svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.pin-tab .pin-map[aria-pressed="true"]{background:var(--cc);border-color:#fff}
+.pin-tab .pin-map[aria-pressed="true"] svg{fill:color-mix(in srgb,#fff 35%,transparent)}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -3329,13 +3333,20 @@ function pinSave(){store.set("chPins",PINS.map(({icao,name,pdf,group,cycle})=>({
 function pinToggle(c){const i=PINS.findIndex(p=>p.icao===c.icao&&p.pdf===c.pdf);if(i>=0)PINS.splice(i,1);else{PINS.push({icao:c.icao,name:c.name,pdf:c.pdf,group:c.group||"",cycle:c.cycle||""});if(PINS.length>24)PINS.shift()}
   pinSave();pinUi();
   document.querySelectorAll("[data-pin]").forEach(b=>{const on=pinHas(b.dataset.pinicao,b.dataset.pin);b.setAttribute("aria-pressed",String(on));b.setAttribute("aria-label",(on?"Unpin ":"Pin ")+(b.dataset.pinname||"chart"))})}
-async function pinOpen(p){let cyc=p.cycle,pdf=p.pdf;
+async function pinResolve(p){let cyc=p.cycle,pdf=p.pdf;
   try{let d=CH.data[p.icao];if(!d){d=await vamGet("/api/efb/charts?icao="+encodeURIComponent(p.icao));CH.data[p.icao]=d}
     if(d&&d.cycle){cyc=d.cycle;const hit=(d.charts||[]).find(c=>c.pdf===p.pdf)||(d.charts||[]).find(c=>c.name===p.name);if(hit&&hit.pdf!==p.pdf){p.pdf=pdf=hit.pdf;pinSave()}if(p.cycle!==cyc){p.cycle=cyc;pinSave()}}}catch(e){}
-  cvOpen({name:p.name,pdf,group:p.group},p.icao,cyc)}
+  return{cyc,pdf}}
+async function pinOpen(p){const{cyc,pdf}=await pinResolve(p);cvOpen({name:p.name,pdf,group:p.group},p.icao,cyc)}
+/* quick overlay: lay the pinned chart on the map; tap again to take it off */
+const pinOnMap=p=>!!(OV.sel&&OV.sel.icao===p.icao&&OV.sel.pdf===p.pdf);
+async function pinMap(p){if(pinOnMap(p)&&!CV.open){ovClose();pinUi();return}
+  const{cyc,pdf}=await pinResolve(p);if(CV.open)cvClose();const go=()=>{ovOpen({name:p.name,pdf,group:p.group},p.icao,cyc);setTimeout(pinUi,50)};
+  if(cur!=="map"){location.hash="map";setTimeout(go,400)}else go()}
+const PIN_MAP_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5M3 16.5l9 4.5 9-4.5"/></svg>';
 function pinTabs(active,close){return PINS.map((p,i)=>{const on=active&&active.icao===p.icao&&active.pdf===p.pdf;
   const cat=(typeof asCatOf==="function"&&asCatOf(p.group))||"REF";
-  return`<span class="pin-tab c-${cat.toLowerCase()}${on?" on":""}"><button type="button" data-pinopen="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)} · ${cat}</b> ${esc(pinShort(p.name))}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}).join("")}
+  return`<span class="pin-tab c-${cat.toLowerCase()}${on?" on":""}"><button type="button" data-pinopen="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)} · ${cat}</b> ${esc(pinShort(p.name))}</button><button type="button" class="pin-map" data-pinmap="${i}" aria-pressed="${pinOnMap(p)}" aria-label="${pinOnMap(p)?"Remove":"Lay"} ${esc(p.name)} ${pinOnMap(p)?"from":"on"} the map">${PIN_MAP_SVG}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}).join("")}
 function pinUi(){
   const wrap=document.querySelector(".mapwrap");
   if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}
@@ -3357,7 +3368,11 @@ document.addEventListener("click",e=>{
     pinToggle({icao,pdf:pb.dataset.pin,name:c?c.name:pb.dataset.pinname,group:c?(c.group||""):"",cycle:d?d.cycle:""});return}
   if(e.target.closest('[data-cv="pin"]')&&CV.sel){pinToggle(CV.sel);return}
   const x=e.target.closest("[data-pinx]");if(x){const p=PINS[+x.dataset.pinx];if(p)pinToggle(p);return}
+  const mp=e.target.closest("[data-pinmap]");if(mp){const p=PINS[+mp.dataset.pinmap];if(p)pinMap(p);return}
   const o=e.target.closest("[data-pinopen]");if(o){const p=PINS[+o.dataset.pinopen];if(p)pinOpen(p)}},true);
+
+{const _oc=ovClose;ovClose=function(){const v=_oc.apply(this,arguments);pinUi();return v}}
+{const _ou=ovUi;ovUi=function(){const v=_ou.apply(this,arguments);const b=document.querySelector("#pinBar");if(b&&PINS.length)b.querySelectorAll("[data-pinmap]").forEach(x=>{const p=PINS[+x.dataset.pinmap];x.setAttribute("aria-pressed",String(!!p&&pinOnMap(p)))});return v}}
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0501">
+<meta name="efb-build" content="1114.0502">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3447,6 +3447,7 @@ const inrEnd=e=>{if(!INR.ids.has(e.pointerId))return;INR.ids.delete(e.pointerId)
 document.addEventListener("pointerup",inrEnd);document.addEventListener("pointercancel",inrEnd);
 document.addEventListener("wheel",e=>{if(INR.raf&&inrOnMap(e))inrStop()},{passive:true,capture:true});
 {const _f=ovFly;ovFly=function(){inrStop();return _f.apply(this,arguments)}}
+window.__efbInr={get c(){return MAP.c},get z(){return MAP.z},get gliding(){return !!INR.raf}};
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

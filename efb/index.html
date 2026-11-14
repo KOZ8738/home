@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1410">
+<meta name="efb-build" content="1114.1422">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1379,6 +1379,24 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .wr-chip b{color:var(--ink);font-weight:700}
 .wr-chip[aria-pressed="true"]{border-color:var(--bronze);background:color-mix(in srgb,var(--bronze) 16%,transparent)}
 .wr-chip[aria-pressed="true"] b{color:var(--bronze)}
+
+/* OFP pen */
+.od-host{position:relative}
+.od-ink{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:2}
+.od-ink g{transform:scale(var(--odfsn))}
+.od-ink path{pointer-events:none}
+.od.inking .od-ink{pointer-events:auto;touch-action:none;cursor:crosshair}
+.od.inking .od-ink[style*="auto"]{touch-action:auto}
+.od-inkbar{display:none;flex-basis:100%;align-items:center;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed var(--line)}
+.od.inking .od-inkbar{display:flex}
+.od-tools [data-od="pen"][aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.od-sw{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;padding:0;cursor:pointer}
+.od-sw i{width:16px;height:16px;border-radius:50%;display:block}
+.od-sw[aria-pressed="true"]{border:2px solid var(--brand);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 25%,transparent)}
+.od-inkbar .btn[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.od-hlchip{display:inline-block;width:12px;height:10px;background:#FFD21F;opacity:.75;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.od-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
+.od-hint{font:500 11px var(--f-ui);color:var(--label);margin-left:auto}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -4659,7 +4677,7 @@ function muWidget(){const t=muCur(),on=!!muA.dataset.src&&!muA.paused;
 APPS.ofpdoc={name:"OFP",bg:"linear-gradient(180deg,#FBFAF6,#E7E2D6)",fg:"#1A6772",g:'<path d="M6.5 2.5h11v19h-11z" fill="#fff" stroke="#8C7B63"/><path d="M9 6.5h6M9 9.5h6M9 12.5h6M9 15.5h4" stroke="#1A6772" stroke-width="1.5"/>'};
 {const i=PAGE1.indexOf("simbrief");PAGE1.splice(i<0?PAGE1.length:i+1,0,"ofpdoc");const j=PAGE2.indexOf("simbrief");PAGE2.splice(j<0?PAGE2.length:j+1,0,"ofpdoc")}
 
-const OD={fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
+const OD={pen:false,tool:"pen",col:store.get("odInkCol","red")||"red",undo:[],pencil:false,fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
 const odNight=()=>OD.night!=null?!!OD.night:isDark();
 function odClean(raw){try{const doc=new DOMParser().parseFromString(String(raw||""),"text/html");
     doc.querySelectorAll("script,style,iframe,frame,object,embed,form,input,button,link,meta,base,svg,math,template").forEach(n=>n.remove());
@@ -4669,17 +4687,17 @@ function odClean(raw){try{const doc=new DOMParser().parseFromString(String(raw||
       if(n.tagName==="A"){n.setAttribute("target","_blank");n.setAttribute("rel","noopener noreferrer")}
       if(n.tagName==="IMG"){n.setAttribute("loading","lazy");n.setAttribute("referrerpolicy","no-referrer")}});
     return doc.body.innerHTML}catch(e){return ""}}
-function odHtml(){const id=O().id;if(OD.cacheId!==id){OD.cacheId=id;const t=ofp.text||{};OD.html=t.plan_html?odClean(S(t.plan_html)):""}return OD.html}
+function odHtml(){const id=O().id;if(OD.cacheId!==id){OD.cacheId=id;OD.undo=[];const t=ofp.text||{};OD.html=t.plan_html?odClean(S(t.plan_html)):""}return OD.html}
 const odPdf=()=>ofp.files&&S(ofp.files.directory)&&ofp.files.pdf&&S(ofp.files.pdf.link)?S(ofp.files.directory)+S(ofp.files.pdf.link):"";
 V.ofpdoc=()=>{if(ofp._sample)return `<div style="padding:24px 16px;max-width:760px;margin:0 auto">${sampleNote()}</div>`;
   const x=O(),h=odHtml(),pdf=odPdf();
-  return `<div class="od ${odNight()?"night":""}" id="odRoot" style="--odfs:${OD.fs}px">
+  return `<div class="od ${odNight()?"night":""} ${OD.pen?"inking":""}" id="odRoot" style="--odfs:${OD.fs}px;--odfsn:${OD.fs}">
     <div class="od-bar"><div class="od-t"><span class="eyebrow">OFP · ${esc(x.id)}</span><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b></div>
       <div class="od-tools"><div class="od-find"><input type="search" id="odQ" placeholder="Find in OFP" value="${esc(OD.q)}" autocomplete="off" spellcheck="false"><span id="odN" class="od-n"></span>
         <button class="btn sm" data-od="prev" aria-label="Previous match">‹</button><button class="btn sm" data-od="next" aria-label="Next match">›</button></div>
         <button class="btn sm" data-od="smaller" aria-label="Smaller text">A−</button><button class="btn sm" data-od="bigger" aria-label="Bigger text">A+</button>
-        <button class="btn sm" data-od="night" aria-pressed="${odNight()}">Night</button>${pdf?`<a class="btn sm" href="${esc(pdf)}" target="_blank" rel="noopener">PDF ↗</a>`:""}</div></div>
-    <div class="od-scroll" id="odScroll"><div class="od-paper" id="odPaper">${h||`<p class="od-none">This OFP has no printed plan in it. ${pdf?"Open the PDF instead.":"Fetch it again from SimBrief in Dispatch."}</p>`}</div></div></div>`};
+        <button class="btn sm" data-od="night" aria-pressed="${odNight()}">Night</button><button class="btn sm od-penb" data-od="pen" aria-pressed="${OD.pen}">${OD_PEN_ICON}Pen</button>${pdf?`<a class="btn sm" href="${esc(pdf)}" target="_blank" rel="noopener">PDF ↗</a>`:""}</div>${odInkBar()}</div>
+    <div class="od-scroll" id="odScroll"><div class="od-paper"><div class="od-host" id="odHost"><div id="odPaper">${h||`<p class="od-none">This OFP has no printed plan in it. ${pdf?"Open the PDF instead.":"Fetch it again from SimBrief in Dispatch."}</p>`}</div>${h?odInkSvg():""}</div></div></div></div>`};
 /* find: mark every match in the text, step through them */
 function odFind(q,step){const paper=document.getElementById("odPaper");if(!paper)return;
   if(q!==OD.q||step==null){OD.q=q;paper.querySelectorAll("mark.odm").forEach(m=>{m.replaceWith(document.createTextNode(m.textContent))});paper.normalize();OD.hits=0;OD.at=0;
@@ -4694,10 +4712,74 @@ document.addEventListener("input",e=>{if(e.target.id==="odQ")odFind(e.target.val
 document.addEventListener("keydown",e=>{if(e.target.id==="odQ"&&e.key==="Enter"){e.preventDefault();odFind(e.target.value.trim(),e.shiftKey?-1:1)}});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-od]");if(!b)return;const a=b.dataset.od,root=document.getElementById("odRoot");
   if(a==="next"||a==="prev"){odFind(OD.q,a==="next"?1:-1);return}
-  if(a==="bigger"||a==="smaller"){OD.fs=Math.max(9,Math.min(24,OD.fs+(a==="bigger"?1:-1)));store.set("odFs",OD.fs);if(root)root.style.setProperty("--odfs",OD.fs+"px");return}
+  if(a==="bigger"||a==="smaller"){odSetFs(OD.fs+(a==="bigger"?1:-1));return}
   if(a==="night"){OD.night=!odNight();store.set("odNight",OD.night);if(root)root.classList.toggle("night",OD.night);b.setAttribute("aria-pressed",String(OD.night))}});
 /* pinch or ctrl + wheel on the page changes the type size too */
-document.addEventListener("wheel",e=>{if(!e.ctrlKey||!e.target.closest("#odScroll"))return;e.preventDefault();OD.fs=Math.max(9,Math.min(24,OD.fs+(e.deltaY<0?1:-1)));store.set("odFs",OD.fs);const r=document.getElementById("odRoot");if(r)r.style.setProperty("--odfs",OD.fs+"px")},{passive:false});
+document.addEventListener("wheel",e=>{if(!e.ctrlKey||!e.target.closest("#odScroll"))return;e.preventDefault();odSetFs(OD.fs+(e.deltaY<0?1:-1))},{passive:false});
+function odSetFs(n){OD.fs=Math.max(9,Math.min(24,n));store.set("odFs",OD.fs);const r=document.getElementById("odRoot");if(r){r.style.setProperty("--odfs",OD.fs+"px");r.style.setProperty("--odfsn",OD.fs)}}
+
+/* ===== Pen: write on the OFP =====
+   Ink is kept per OFP (the last 12) in this browser. Points are stored in units of the type size, so the marks stay on
+   their line when the text is made bigger or smaller. With an Apple Pencil, the pencil writes and a finger scrolls. */
+const OD_PEN_ICON='<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="margin-right:4px;vertical-align:-2px"><path d="M4 20l1-4L16 5l3 3L8 19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+const OD_COL={red:"#E0342B",blue:"#1E6FD9",green:"#1E9A52",ink:"currentColor"},OD_HL="#FFD21F";
+const odInkAll=()=>store.get("odInk",{})||{};
+function odInk(){const id=O().id,a=odInkAll()[id];return a&&Array.isArray(a.s)?a.s:[]}
+function odInkSave(list){const all=odInkAll(),id=O().id;if(list.length)all[id]={t:Date.now(),s:list};else delete all[id];
+  const ids=Object.keys(all).sort((a,b)=>all[b].t-all[a].t);ids.slice(12).forEach(k=>delete all[k]);store.set("odInk",all)}
+function odPathD(p){if(!p.length)return"";if(p.length===1)return`M${p[0][0]} ${p[0][1]}l.001 0`;let d=`M${p[0][0]} ${p[0][1]}`;
+  for(let i=1;i<p.length-1;i++){const mx=((p[i][0]+p[i+1][0])/2).toFixed(2),my=((p[i][1]+p[i+1][1])/2).toFixed(2);d+=`Q${p[i][0]} ${p[i][1]} ${mx} ${my}`}
+  const L=p[p.length-1];return d+`L${L[0]} ${L[1]}`}
+function odStrokeEl(k){const hl=k.h;return `<path d="${odPathD(k.p)}" stroke="${hl?OD_HL:(OD_COL[k.c]||OD_COL.red)}" stroke-width="${hl?1.05:.13}" ${hl?'opacity=".38" stroke-linecap="butt"':'stroke-linecap="round"'} stroke-linejoin="round" fill="none"/>`}
+function odInkSvg(){return `<svg class="od-ink" id="odInk" aria-hidden="true"${OD.pencil?' style="touch-action:auto"':""}><g>${odInk().map(odStrokeEl).join("")}</g></svg>`}
+function odInkBar(){const cols=Object.keys(OD_COL).map(c=>`<button class="od-sw ${c}" data-odink="col:${c}" aria-label="${c==="ink"?"Black":c[0].toUpperCase()+c.slice(1)}" aria-pressed="${OD.tool==="pen"&&OD.col===c}"><i style="background:${c==="ink"?"var(--pink)":OD_COL[c]}"></i></button>`).join("");
+  return `<div class="od-inkbar" role="toolbar" aria-label="Pen">${cols}
+    <button class="btn sm" data-odink="hl" aria-pressed="${OD.tool==="hl"}"><i class="od-hlchip"></i>Highlight</button>
+    <button class="btn sm" data-odink="erase" aria-pressed="${OD.tool==="erase"}">Eraser</button>
+    <span class="od-sep"></span><button class="btn sm" data-odink="undo">Undo</button><button class="btn sm" data-odink="clear" id="odInkClear">Clear all</button>
+    <span class="od-hint">${OD.pencil?"Pencil writes · finger scrolls":"Drag to write · Pen again to scroll"}</span></div>`}
+function odInkRedraw(){const g=document.querySelector("#odInk g");if(g)g.innerHTML=odInk().map(odStrokeEl).join("")}
+function odInkBarRedraw(){const b=document.querySelector(".od-inkbar");if(b)b.outerHTML=odInkBar()}
+/* drawing */
+let odDraw=null;
+function odPt(ev){const h=document.getElementById("odHost").getBoundingClientRect();return[+((ev.clientX-h.left)/OD.fs).toFixed(2),+((ev.clientY-h.top)/OD.fs).toFixed(2)]}
+function odErase(pt){const list=odInk(),r=.55;let hit=-1;
+  for(let i=list.length-1;i>=0&&hit<0;i--){const k=list[i],rr=r+(k.h?.5:.07),p=k.p;
+    for(let j=0;j<p.length;j++){const a=p[j],b=p[j+1]||a,dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,((pt[0]-a[0])*dx+(pt[1]-a[1])*dy)/L)):0;
+      if(Math.hypot(a[0]+t*dx-pt[0],a[1]+t*dy-pt[1])<rr){hit=i;break}}}
+  if(hit<0)return;const k=list.splice(hit,1)[0];OD.undo.push({a:"del",k,i:hit});odInkSave(list);odInkRedraw()}
+document.addEventListener("pointerdown",ev=>{const svg=ev.target.closest&&ev.target.closest("#odInk");if(!svg||!OD.pen)return;
+  if(ev.pointerType==="pen"&&!OD.pencil){OD.pencil=true;svg.style.touchAction="auto";odInkBarRedraw()}
+  if(ev.pointerType==="touch"&&OD.pencil)return;/* finger scrolls once a pencil has been used */
+  if(ev.button>0)return;ev.preventDefault();try{svg.setPointerCapture(ev.pointerId)}catch(e){}
+  if(OD.tool==="erase"){odDraw={id:ev.pointerId,erase:true};odErase(odPt(ev));return}
+  const k={c:OD.col,h:OD.tool==="hl",p:[odPt(ev)]},g=svg.querySelector("g");g.insertAdjacentHTML("beforeend",odStrokeEl(k));odDraw={id:ev.pointerId,k,el:g.lastElementChild,raf:0}});
+document.addEventListener("pointermove",ev=>{if(!odDraw||ev.pointerId!==odDraw.id)return;ev.preventDefault();
+  const evs=ev.getCoalescedEvents?ev.getCoalescedEvents():[ev];
+  if(odDraw.erase){(evs.length?evs:[ev]).forEach(e=>odErase(odPt(e)));return}
+  const p=odDraw.k.p;(evs.length?evs:[ev]).forEach(e=>{const q=odPt(e),l=p[p.length-1];if(Math.hypot(q[0]-l[0],q[1]-l[1])>=.06)p.push(q)});
+  if(!odDraw.raf)odDraw.raf=requestAnimationFrame(()=>{if(odDraw&&odDraw.el){odDraw.el.setAttribute("d",odPathD(odDraw.k.p));odDraw.raf=0}})},{passive:false});
+function odDrawEnd(ev){if(!odDraw||ev.pointerId!==odDraw.id)return;const d=odDraw;odDraw=null;if(d.raf)cancelAnimationFrame(d.raf);if(d.erase)return;
+  const k=d.k;/* a highlighter stroke that is nearly level is laid flat on the line */
+  if(k.h&&k.p.length>1){const a=k.p[0],b=k.p[k.p.length-1],ys=k.p.map(q=>q[1]);if(Math.abs(b[0]-a[0])>1.5&&Math.max(...ys)-Math.min(...ys)<.9){const y=+(ys.reduce((s,v)=>s+v,0)/ys.length).toFixed(2);k.p=[[a[0],y],[b[0],y]]}}
+  const list=odInk();list.push(k);OD.undo.push({a:"add"});odInkSave(list);if(d.el)d.el.outerHTML=odStrokeEl(k)}
+document.addEventListener("pointerup",odDrawEnd);document.addEventListener("pointercancel",odDrawEnd);
+/* iPad: keep the Apple Pencil from scrolling the page while it writes */
+document.addEventListener("touchstart",e=>{if(OD.pen&&OD.pencil&&e.target.closest&&e.target.closest("#odInk")&&[...e.touches].some(t=>t.touchType==="stylus"))e.preventDefault()},{passive:false});
+document.addEventListener("touchmove",e=>{if(odDraw&&[...e.touches].some(t=>t.touchType==="stylus"))e.preventDefault()},{passive:false});
+/* toolbar */
+document.addEventListener("click",e=>{const pb=e.target.closest('[data-od="pen"]');
+  if(pb){OD.pen=!OD.pen;const root=document.getElementById("odRoot");if(root)root.classList.toggle("inking",OD.pen);pb.setAttribute("aria-pressed",String(OD.pen));
+    const svg=document.getElementById("odInk");if(svg)svg.style.touchAction=OD.pencil?"auto":"";return}
+  const b=e.target.closest("[data-odink]");if(!b)return;const a=b.dataset.odink;
+  if(a.startsWith("col:")){OD.tool="pen";OD.col=a.slice(4);store.set("odInkCol",OD.col)}
+  else if(a==="hl"||a==="erase")OD.tool=OD.tool===a?"pen":a;
+  else if(a==="undo"){const u=OD.undo.pop(),list=odInk();if(!u)return;
+    if(u.a==="add")list.pop();else if(u.a==="del")list.splice(Math.min(u.i,list.length),0,u.k);else if(u.a==="clear")list.push(...u.list);odInkSave(list);odInkRedraw();return}
+  else if(a==="clear"){const list=odInk();if(!list.length)return;
+    if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Tap again to clear";setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="Clear all"}},3000);return}
+    OD.undo.push({a:"clear",list:list.slice()});odInkSave([]);odInkRedraw();odInkBarRedraw();return}
+  odInkBarRedraw()});
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};

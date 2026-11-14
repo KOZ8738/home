@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1158">
+<meta name="efb-build" content="1114.1207">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1327,6 +1327,17 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .ml-auto{margin:0 0 6px;border-top:1px solid var(--line)!important}
 .ml-base button.ml-isauto{position:relative}
 .ml-base button.ml-isauto::after{content:"AUTO";position:absolute;top:-6px;right:-4px;padding:1px 5px;border-radius:4px;background:var(--ink);color:var(--panel);font:700 8.5px/1.4 var(--f-mono);letter-spacing:.06em}
+.sig.airmet{stroke-dasharray:6 4;fill-opacity:.05}
+.ml-base[hidden]{display:none}
+.ml-gwxlv{margin-top:-4px}
+/* weather layer legend */
+.gwxleg{position:absolute;left:var(--mg,12px);bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:3;width:210px;padding:7px 10px 8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow);font:500 11px var(--f-ui);color:var(--label)}
+.gwxleg[hidden]{display:none}
+.gwxleg .gl-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px}.gwxleg .gl-top b{color:var(--ink);font-weight:700}
+.gwxleg .gl-bar{height:8px;border-radius:4px;border:1px solid var(--line)}
+.gwxleg .gl-lab{display:flex;justify-content:space-between;margin-top:3px;font:600 10px var(--f-mono)}
+.assheet:not([hidden])~.gwxleg{left:calc(var(--mg,12px) + 392px)}
+@container screen (max-width:640px){.gwxleg{left:8px;bottom:calc(52px + env(safe-area-inset-bottom,0px));width:190px}}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2809,6 +2820,122 @@ document.addEventListener("click",e=>{
   const b=e.target.closest("[data-mlbase]");if(b&&ML.ifrAuto&&(b.dataset.mlbase==="ifrh"||b.dataset.mlbase==="ifrl")){ML.ifrAuto=false;store.set("mapL",ML);setTimeout(ifrAutoUi,0)}else if(b)setTimeout(ifrAutoUi,0)},true);
 {const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);const n=Date.now();if(ML.ifrAuto&&n-IFRA.at>400){IFRA.at=n;try{ifrAutoPick()}catch(e){}}}}
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);try{ifrAutoUi()}catch(e){}return r}}
+
+/* ---------- Gridded weather layers ----------
+   Jet streams, sea-level pressure, ISA deviation, cloud cover, visibility, vertical speed and tropopause height from
+   the GFS / ECMWF models (Open-Meteo, through the EFB server) on a 2.5-degree lattice. Each field is painted as a smooth
+   colour wash (an image laid on the map in web-mercator rows, so it lines up at every latitude) with contour lines
+   and labels on top; pressure gets H and L centres and the jet gets wind arrows. */
+const GWX={blocks:{},busy:false,retryAt:0,err:null,ver:0,drawn:"",img:null,hour:null};
+const GWX_FIELDS=[["off","Off"],["jet","Jet streams"],["mslp","Pressure"],["isa","ISA temp"],["cloud","Clouds"],["vis","Visibility"],["vv","Vertical speed"],["trop","Tropopause"]];
+const GWX_LVS=[[700,"FL100"],[500,"FL180"],[400,"FL240"],[300,"FL300"],[250,"FL340"],[200,"FL390"]];
+const gwxF=()=>ML.gwx&&ML.gwx!=="off"?ML.gwx:null;
+const gwxLv=()=>{const f=gwxF();return f==="isa"||f==="vv"?(+ML.gwxLv||250):0};
+const gwxKey=(f,lv,b)=>f+"/"+lv+"/"+b;
+/* load the 30-degree blocks in view that are missing or older than 45 minutes, one request */
+function gwxLoad(keys){const f=gwxF();if(!f||!vam.url||GWX.busy||Date.now()<GWX.retryAt)return;const lv=gwxLv(),now=Date.now();
+  const need=keys.filter(k=>{const c=GWX.blocks[gwxKey(f,lv,k)];return!c||now-c.at>45*60000}).slice(0,12);if(!need.length)return;GWX.busy=true;
+  vamGet(`/api/efb/gwx?f=${f}&lv=${lv||250}&blocks=${need.join(";")}`,45000).then(j=>{const got=(j&&j.blocks)||{};GWX.hour=j&&j.hour;
+      need.forEach(k=>{if(got[k])GWX.blocks[gwxKey(f,lv,k)]={at:Date.now(),v:got[k]}});GWX.err=j&&j.error||null;if(GWX.err)GWX.retryAt=Date.now()+30000})
+    .catch(e=>{GWX.err=e.message||"Couldn’t load";GWX.retryAt=Date.now()+30000})
+    .finally(()=>{GWX.busy=false;GWX.ver++;if(cur==="map"){mapSched();try{mlStatus()}catch(e){}}})}
+/* the lattice: value at row r (lat = -90 + 2.5 r) and column c (lon = -180 + 2.5 c) */
+function gwxAt(f,lv,r,c){c=((c%144)+144)%144;if(r<0||r>71)return null;const bl=Math.floor(r/12)*30-90,bo=Math.floor(c/12)*30-180,b=GWX.blocks[gwxKey(f,lv,bl+","+bo)];if(!b)return null;return b.v[(r%12)*12+(c%12)]}
+const gwxNum=(f,v)=>v==null?null:f==="jet"?v[0]:v;
+/* bilinear value at a latitude and longitude */
+function gwxSample(f,lv,lat,lon){const y=(lat+90)/2.5,x=(lon+180)/2.5,r=Math.floor(y),c=Math.floor(x),fy=y-r,fx=x-c;
+  const a=gwxNum(f,gwxAt(f,lv,r,c)),b=gwxNum(f,gwxAt(f,lv,r,c+1)),d=gwxNum(f,gwxAt(f,lv,r+1,c)),e=gwxNum(f,gwxAt(f,lv,r+1,c+1));
+  if(a==null||b==null||d==null||e==null){const q=[a,b,d,e].filter(v=>v!=null);return q.length>=2?q.reduce((s,v)=>s+v,0)/q.length:null}
+  return(a*(1-fx)+b*fx)*(1-fy)+(d*(1-fx)+e*fx)*fy}
+/* colours for each field: [value, r, g, b, alpha] stops */
+const GWX_RAMP={
+  jet:[[50,80,200,220,0],[70,80,200,220,.28],[100,120,210,90,.4],[130,240,210,60,.48],[160,245,130,40,.55],[200,220,40,60,.62]],
+  isa:[[-15,40,90,220,.5],[-8,90,150,235,.38],[-2,170,200,240,.12],[0,255,255,255,0],[2,245,190,150,.12],[8,240,120,70,.38],[15,210,40,40,.5]],
+  cloud:[[5,255,255,255,0],[30,235,238,242,.18],[60,220,224,230,.38],[90,200,205,214,.58],[100,190,196,206,.64]],
+  vis:[[1000,200,30,180,.55],[1600,220,40,40,.5],[5000,240,140,40,.42],[8000,240,210,60,.25],[10000,240,210,60,0]],
+  vv:[[-300,40,110,230,.5],[-100,90,150,235,.3],[-20,150,190,240,0],[20,240,150,120,0],[100,240,110,70,.32],[300,215,40,40,.52]],
+  trop:[[250,150,80,200,.4],[320,80,120,220,.35],[380,60,170,200,.3],[440,90,190,110,.3],[500,200,190,60,.35],[560,230,120,50,.4]],
+  mslp:null};
+function gwxColor(f,v){const R=GWX_RAMP[f];if(!R||v==null)return null;if(v<=R[0][0])return R[0].slice(1);if(v>=R[R.length-1][0])return R[R.length-1].slice(1);
+  for(let i=1;i<R.length;i++)if(v<=R[i][0]){const a=R[i-1],b=R[i],t=(v-a[0])/(b[0]-a[0]);return[0,1,2,3].map(k=>a[k+1]+(b[k+1]-a[k+1])*t)}return null}
+/* contour settings: interval, label maker, which values */
+const GWX_CT={mslp:{step:4,lbl:v=>String(Math.round(v))},jet:{step:20,min:80,lbl:v=>Math.round(v)+" KT"},isa:{step:5,lbl:v=>(v>0?"ISA+":v<0?"ISA−":"ISA ")+Math.abs(Math.round(v))},
+  trop:{step:20,lbl:v=>"FL"+Math.round(v)},vv:null,cloud:null,vis:null};
+/* marching squares over a finer grid sampled from the lattice; segments are joined into lines for labels */
+function gwxContours(f,lv,w,s,e,n){const C=GWX_CT[f];if(!C)return[];const st=.8333,nx=Math.ceil((e-w)/st)+1,ny=Math.ceil((n-s)/st)+1;if(nx*ny>90000)return[];
+  const G=new Float32Array(nx*ny);for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const v=gwxSample(f,lv,s+j*st,w+i*st);G[j*nx+i]=v==null?NaN:v}
+  let lo=1e9,hi=-1e9;G.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v});if(!(hi>lo))return[];const out=[];
+  for(let lvv=Math.ceil(lo/C.step)*C.step;lvv<=hi;lvv+=C.step){if(C.min!=null&&lvv<C.min)continue;const segs=[];
+    for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){const a=G[j*nx+i],b=G[j*nx+i+1],c=G[(j+1)*nx+i+1],d=G[(j+1)*nx+i];if(isNaN(a)||isNaN(b)||isNaN(c)||isNaN(d))continue;
+      const k=(a>=lvv?1:0)|(b>=lvv?2:0)|(c>=lvv?4:0)|(d>=lvv?8:0);if(!k||k===15)continue;
+      const x0=w+i*st,y0=s+j*st,P=(p,q,vp,vq)=>{const t=(lvv-vp)/(vq-vp);return[p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t]};
+      const A=[x0,y0],B=[x0+st,y0],Cc=[x0+st,y0+st],D=[x0,y0+st],eAB=()=>P(A,B,a,b),eBC=()=>P(B,Cc,b,c),eCD=()=>P(Cc,D,c,d),eDA=()=>P(D,A,d,a);
+      const T={1:[[eDA,eAB]],2:[[eAB,eBC]],3:[[eDA,eBC]],4:[[eBC,eCD]],5:[[eDA,eCD],[eAB,eBC]],6:[[eAB,eCD]],7:[[eDA,eCD]],8:[[eCD,eDA]],9:[[eCD,eAB]],10:[[eAB,eDA],[eBC,eCD]],11:[[eCD,eBC]],12:[[eBC,eDA]],13:[[eBC,eAB]],14:[[eAB,eDA]]}[k];
+      T.forEach(([p,q])=>segs.push([p(),q()]))}
+    /* join segments end to end */
+    const key=p=>p[0].toFixed(4)+","+p[1].toFixed(4),ends=new Map();segs.forEach((sg,i)=>{[0,1].forEach(z=>{const kk=key(sg[z]);(ends.get(kk)||ends.set(kk,[]).get(kk)).push(i)})});
+    const used=new Uint8Array(segs.length);
+    for(let i=0;i<segs.length;i++){if(used[i])continue;used[i]=1;let line=[segs[i][0],segs[i][1]];
+      for(const dir of[1,0]){for(;;){const tip=dir?line[line.length-1]:line[0],cand=(ends.get(key(tip))||[]).find(x=>!used[x]);if(cand==null)break;used[cand]=1;const sg=segs[cand],nxt=key(sg[0])===key(tip)?sg[1]:sg[0];if(dir)line.push(nxt);else line.unshift(nxt)}}
+      if(line.length>=4)out.push({type:"Feature",geometry:{type:"LineString",coordinates:line},properties:{t:"ct",v:lvv,lbl:C.lbl(lvv),major:f==="mslp"&&lvv%20===12?1:0}})}}
+  return out}
+/* H and L centres for pressure; arrows for the jet */
+function gwxPoints(f,lv,w,s,e,n){const out=[],r0=Math.max(0,Math.floor((s+90)/2.5)),r1=Math.min(71,Math.ceil((n+90)/2.5)),c0=Math.floor((w+180)/2.5),c1=Math.ceil((e+180)/2.5);
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const v=gwxAt(f,lv,r,c);if(v==null)continue;const lat=-90+r*2.5,lon=-180+c*2.5;
+    if(f==="mslp"){let mx=true,mn=true,cnt=0;for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++){if(!dr&&!dc)continue;const q=gwxAt(f,lv,r+dr,c+dc);if(q==null)continue;cnt++;if(q>=v)mx=false;if(q<=v)mn=false}
+      if(cnt>=16&&(mx&&v>=1016||mn&&v<=1008))out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"hl",k:mx?"H":"L",lbl:(mx?"H":"L")+"\n"+Math.round(v)}})}
+    else if(f==="jet"&&v[0]>=80&&v[1]!=null)out.push({type:"Feature",geometry:{type:"Point",coordinates:[lon,lat]},properties:{t:"ar",rot:(v[1]+180)%360,s:v[0],odd:(r+c)%2}})}
+  return out}
+/* the colour wash for the view, row by row in web-mercator so it sits right at every latitude */
+function gwxImage(f,lv,w,s,e,n){if(!GWX_RAMP[f])return null;const W=320,H=320,cv=GWX.img||(GWX.img=document.createElement("canvas"));cv.width=W;cv.height=H;const g=cv.getContext("2d"),im=g.createImageData(W,H);
+  const my=la=>Math.log(Math.tan(Math.PI/4+la*Math.PI/360)),ny=my(n),sy=my(s);let any=false;
+  for(let y=0;y<H;y++){const m=ny+(sy-ny)*(y+.5)/H,lat=(2*Math.atan(Math.exp(m))-Math.PI/2)*180/Math.PI;
+    for(let x=0;x<W;x++){const lon=w+(e-w)*(x+.5)/W,v=gwxSample(f,lv,lat,lon),col=gwxColor(f,v),o=(y*W+x)*4;if(!col)continue;im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=Math.round(col[3]*255);if(col[3]>0)any=true}}
+  g.putImageData(im,0,0);return any?cv.toDataURL("image/png"):null}
+const GWX_BLANK="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+function gwxIcon(id){const dark=/-d$/.test(id),s=48,c=document.createElement("canvas");c.width=c.height=s;const x=c.getContext("2d");x.fillStyle=dark?"#E8EEF2":"#1E2A36";x.strokeStyle=dark?"#05080A":"#FFFFFF";x.lineWidth=3;x.lineJoin="round";
+  x.beginPath();x.moveTo(24,4);x.lineTo(36,22);x.lineTo(28,22);x.lineTo(28,44);x.lineTo(20,44);x.lineTo(20,22);x.lineTo(12,22);x.closePath();x.stroke();x.fill();
+  return{width:s,height:s,data:new Uint8Array(x.getImageData(0,0,s,s).data.buffer)}}
+function gwxLayers(dark){const C=dark?{ln:"#D9E2EA",lnM:"#FFFFFF",txt:"#E8EEF2",halo:"#05080A",H:"#7FB2FF",L:"#FF7A7A"}:{ln:"#3C4A57",lnM:"#1A2530",txt:"#1A2530",halo:"#FFFFFF",H:"#1F5BB5",L:"#C62828"},F=["Noto Sans Bold"],vis=gwxF()?"visible":"none",t=dark?"-d":"-l";
+  return[{id:"gwx-img",type:"raster",source:"gwxi",layout:{visibility:vis},paint:{"raster-fade-duration":0,"raster-resampling":"linear","raster-opacity":dark?.9:1}},
+   {id:"gwx-ct",type:"line",source:"gwxl",filter:["==",["get","t"],"ct"],layout:{visibility:vis,"line-join":"round","line-cap":"round"},paint:{"line-color":["case",["==",["get","major"],1],C.lnM,C.ln],"line-width":["case",["==",["get","major"],1],1.6,1],"line-opacity":.8}},
+   {id:"gwx-ar",type:"symbol",source:"gwxl",filter:["all",["==",["get","t"],"ar"],["any",[">=",["zoom"],4],["==",["get","odd"],0]]],layout:{visibility:vis,"icon-image":"gwx-ar"+t,"icon-rotate":["get","rot"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-size":["interpolate",["linear"],["get","s"],80,.35,180,.62]},paint:{"icon-opacity":.85}},
+   {id:"gwx-ctl",type:"symbol",source:"gwxl",filter:["==",["get","t"],"ct"],layout:{visibility:vis,"symbol-placement":"line","symbol-spacing":320,"text-field":["get","lbl"],"text-font":F,"text-size":10.5,"text-keep-upright":true,"text-max-angle":35,"text-padding":4},paint:{"text-color":C.txt,"text-halo-color":C.halo,"text-halo-width":2}},
+   {id:"gwx-hl",type:"symbol",source:"gwxl",filter:["==",["get","t"],"hl"],layout:{visibility:vis,"text-field":["get","lbl"],"text-font":F,"text-size":["interpolate",["linear"],["zoom"],1,13,6,17],"text-line-height":1,"text-allow-overlap":false},paint:{"text-color":["case",["==",["get","k"],"H"],C.H,C.L],"text-halo-color":C.halo,"text-halo-width":2.2}}]}
+{const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);
+  st.sources.gwxi={type:"image",url:GWX_BLANK,coordinates:[[-1,1],[1,1],[1,-1],[-1,-1]]};st.sources.gwxl={type:"geojson",data:{type:"FeatureCollection",features:[]},buffer:32,tolerance:.5};GWX.drawnBox=null;
+  const L=gwxLayers(dark),i=st.layers.findIndex(l=>/^(water-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L);else st.layers.splice(i,0,...L);return st}}
+/* keep the picture in step with the view: redrawn when the data, the field or the area changes */
+function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))return;
+  if(!m._gwxImg){m._gwxImg=true;m.on("styleimagemissing",e=>{if(/^gwx-ar-[dl]$/.test(e.id)&&!m.hasImage(e.id))try{m.addImage(e.id,gwxIcon(e.id),{pixelRatio:2})}catch(er){}})}
+  const f=gwxF(),vis=f?"visible":"none";["gwx-img","gwx-ct","gwx-ar","gwx-ctl","gwx-hl"].forEach(id=>{if(m.getLayer(id)&&m.getLayoutProperty(id,"visibility")!==vis)m.setLayoutProperty(id,"visibility",vis)});
+  if(!f)return;const now=Date.now();if(now-(GWX.tick||0)<300)return;GWX.tick=now;let b;try{b=m.getBounds()}catch(e){return}
+  /* the area drawn: the view with half a screen around it, so a pan doesn't show the edge straight away */
+  const lv=gwxLv(),dw=(b.getEast()-b.getWest())*.5,dh=(b.getNorth()-b.getSouth())*.5;
+  const w=Math.max(-540,b.getWest()-dw),e=Math.min(540,b.getEast()+dw),s=Math.max(-84,b.getSouth()-dh),n=Math.min(84,b.getNorth()+dh);
+  const keys=[];for(let la=Math.floor(s/30)*30;la<=n;la+=30)for(let lo=Math.floor(w/30)*30;lo<=e&&keys.length<12;lo+=30){const L=((lo+180)%360+360)%360-180,k=Math.max(-90,Math.min(60,la))+","+L;if(!keys.includes(k))keys.push(k)}
+  gwxLoad(keys);
+  const z=m.getZoom(),D=GWX.drawnBox,inside=D&&D.f===f&&D.lv===lv&&D.ver===GWX.ver&&b.getWest()>=D.w&&b.getEast()<=D.e&&b.getSouth()>=D.s&&b.getNorth()<=D.n&&Math.abs(z-D.z)<1.5;if(inside)return;
+  GWX.drawnBox={f,lv,ver:GWX.ver,w,e,s,n,z};
+  try{const url=gwxImage(f,lv,w,s,e,n);m.getSource("gwxi").updateImage({url:url||GWX_BLANK,coordinates:[[w,n],[e,n],[e,s],[w,s]]})}catch(er){}
+  try{m.getSource("gwxl").setData({type:"FeatureCollection",features:gwxContours(f,lv,w,s,e,n).concat(gwxPoints(f,lv,w,s,e,n))})}catch(er){}
+  gwxLegend()}
+{const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{gwxTick()}catch(e){}}}
+/* a small legend over the map */
+function gwxLegend(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;let el=wrap.querySelector("#gwxLeg");const f=gwxF();
+  if(!f){if(el)el.hidden=true;return}if(!el){el=document.createElement("div");el.id="gwxLeg";el.className="gwxleg";wrap.appendChild(el)}el.hidden=false;
+  const R=GWX_RAMP[f],name=(GWX_FIELDS.find(x=>x[0]===f)||[,""])[1],lvn=gwxLv()?(GWX_LVS.find(x=>x[0]===gwxLv())||[,""])[1]:f==="jet"?"FL340":f==="vis"||f==="mslp"||f==="cloud"?"Surface":"";
+  const unit={jet:"kt",isa:"°C",cloud:"%",vis:"km",vv:"fpm",trop:"FL",mslp:"hPa"}[f],fmt=v=>f==="vis"?(v/1000).toFixed(v<2000?1:0):f==="vv"&&v>0?"+"+v:String(v);
+  const grad=R?`linear-gradient(90deg,${R.map(s=>`rgba(${s[1]},${s[2]},${s[3]},${Math.max(s[4],.12)})`).join(",")})`:"";
+  el.innerHTML=`<div class="gl-top"><b>${esc(name)}</b><span>${esc(lvn)}${GWX.hour?" · "+esc(GWX.hour.slice(11,16).replace(":",""))+"Z":""}</span></div>${R?`<div class="gl-bar" style="background:${grad}"></div><div class="gl-lab"><span>${fmt(R[0][0])}</span><span>${unit}</span><span>${fmt(R[R.length-1][0])}</span></div>`:`<div class="gl-lab"><span>Isobars every 4 hPa · H high · L low</span></div>`}${GWX.busy?'<div class="gl-lab"><span>Loading…</span></div>':GWX.err?`<div class="gl-lab"><span>${esc(GWX.err)}</span></div>`:""}`}
+/* layer panel: field and level buttons */
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mlgwx],[data-mlgwxlv]");if(!t)return;
+  if(t.dataset.mlgwx){ML.gwx=t.dataset.mlgwx;if(ML.gwx!=="off")ML.vec=true}else ML.gwxLv=+t.dataset.mlgwxlv;store.set("mapL",ML);
+  document.querySelectorAll("[data-mlgwx]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.mlgwx===(ML.gwx||"off"))));
+  document.querySelectorAll("[data-mlgwxlv]").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.mlgwxlv===(+ML.gwxLv||250))));
+  const lr=document.querySelector(".ml-gwxlv");if(lr)lr.hidden=!(ML.gwx==="isa"||ML.gwx==="vv");GWX.drawnBox=null;GWX.retryAt=0;gwxLegend();drawMap();updMapNote()});
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="gwx"]');if(el){const f=gwxF();el.textContent=!vam.url?"Set the EFB server in Settings":!f?"GFS / ECMWF model, worldwide":GWX.busy?"Loading…":GWX.err?GWX.err:"Model forecast"+(GWX.hour?" · valid "+GWX.hour.slice(11,16).replace(":","")+"Z":"")}try{gwxLegend()}catch(e){}return r}}
+try{window.__efbGwx={GWX,gwxContours,gwxPoints,gwxImage,gwxSample}}catch(e){}
 
 /* Map pop-ups open and close with a short animation. Every pop-up is shown and hidden through its `hidden` property,
    so that one setter is wrapped for these elements: showing plays the opening frames, hiding plays the closing ones
@@ -4378,7 +4505,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
   if(ML.sig&&SIG.list)SIG.list.forEach((g,i)=>{let pl=null;const uw=g.coords.map(q=>{let lo=+q[1];if(pl!=null){while(lo-pl>180)lo-=360;while(lo-pl<-180)lo+=360}pl=lo;return[+q[0],lo]});const mlo=uw.reduce((a,q)=>a+q[1],0)/(uw.length||1);let sh=0;while(mlo+sh-MAP.c.lon>180)sh-=360;while(mlo+sh-MAP.c.lon<-180)sh+=360;const pts=uw.map(q=>P(q[0],q[1]+sh));
     const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]);if(Math.max(...xs)<0||Math.min(...xs)>w||Math.max(...ys)<0||Math.min(...ys)>h)return;
     const cx=xs.reduce((a,b)=>a+b,0)/xs.length,cy=ys.reduce((a,b)=>a+b,0)/ys.length;const sel=MAP.sel&&MAP.sel.t==="sig"&&MAP.sel.i===i;
-    s+=`<polygon class="sig h-${HZ(g.hazard)}${sel?" sel":""}" data-sig="${i}"${!sel&&z<3.5?' style="stroke-width:1;fill-opacity:.06"':""} points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});
+    s+=`<polygon class="sig h-${HZ(g.hazard)}${/AIRMET|CWA/.test(g.kind)?" airmet":""}${sel?" sel":""}" data-sig="${i}"${!sel&&z<3.5?' style="stroke-width:1;fill-opacity:.06"':""} points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});
   let aptLabels="";
   if(ML.apt&&z>=11){const occ=new Set(),fits=(x,y,wd)=>{const cells=[];for(let gx=Math.floor((x-wd/2)/24);gx<=Math.floor((x+wd/2)/24);gx++)for(let gy=Math.floor((y-9)/18);gy<=Math.floor((y+9)/18);gy++)cells.push(gx+":"+gy);if(cells.some(q=>occ.has(q)))return false;cells.forEach(q=>occ.add(q));return true};
     const k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180));
@@ -4482,12 +4609,12 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;const m=[];
     if(ML.radar&&RADAR.path&&!RADAR.err)at.push('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'+(RADAR.time?" "+tz2(RADAR.time):""));
     if(ML.sig&&SIG.list)at.push('SIGMET <a href="https://aviationweather.gov/" target="_blank" rel="noopener">AWC</a>');
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
-V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET"],["traffic","Traffic"],["vec","Detail map"]];
+V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><button class="ml-row ml-auto" data-mlauto aria-pressed="${!!ML.ifrAuto}"><span>Automatic IFR High/Low<small class="ml-s" data-mls="ifrauto"></small></span><i></i></button><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><button class="ml-row ml-auto" data-mlauto aria-pressed="${!!ML.ifrAuto}"><span>Automatic IFR High/Low<small class="ml-s" data-mls="ifrauto"></small></span><i></i></button><span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Weather <small class="ml-s" data-mls="gwx"></small></span><div class="ml-base ml-gwx" role="group" aria-label="Weather layer">${GWX_FIELDS.map(b=>`<button data-mlgwx="${b[0]}" aria-pressed="${(ML.gwx||"off")===b[0]}">${b[1]}</button>`).join("")}</div><div class="ml-base ml-gwxlv" role="group" aria-label="Level"${ML.gwx==="isa"||ML.gwx==="vv"?"":" hidden"}>${GWX_LVS.map(b=>`<button data-mlgwxlv="${b[0]}" aria-pressed="${(+ML.gwxLv||250)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Map layers</span>${L.filter(l=>l[0]!=="apt").map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

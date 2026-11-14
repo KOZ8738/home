@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1407">
+<meta name="efb-build" content="1114.1410">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4104,7 +4104,10 @@ function wrData(icao){const j=AS.data[icao],a=j&&j.airport;if(!a||!Array.isArray
 function wrPick(icao,D,m,planRwy){const all=D.rw.flatMap(x=>x.es.map(e=>({...e,len:+x.r.lengthFt||0})));if(!all.length)return null;
   const id=WR.sel[icao]||S(planRwy).toUpperCase();let e=id&&all.find(z=>z.id.toUpperCase()===id);if(e)return e;
   const w=m&&m.wind;if(w&&w.dir!=null&&w.spd>0)return all.slice().sort((a,b)=>rwComp(b.hdg,w).h-rwComp(a.hdg,w).h||b.len-a.len)[0];return all[0]}
-function wrSvg(m,e,other){let s=windSvg(m,"");if(!e)return s;const H=e.hdg;
+function wrSvg(m,e,other){let s=windSvg(m,"");
+  /* calm: no arrow (there is no direction to point at) */
+  if(m&&m.wind&&m.wind.spd===0&&!m.wind.gust)s=s.replace(/<line class="w-arrow"[^>]*\/><path class="w-arrow"[^>]*\/>/,"");
+  if(!e)return s;const H=e.hdg;
   const bars=y=>[-6,-3,0,3,6].map(dx=>`<rect x="${100+dx-1}" y="${y}" width="2" height="7" fill="#fff"/>`).join("");
   const g=`<g transform="rotate(${H} 100 100)"><rect class="w-rwy" x="91" y="40" width="18" height="120" rx="1.5"/>${bars(43)}${bars(150)}<path d="M100 56v88" stroke="#fff" stroke-width="1.2" stroke-dasharray="6 6"/>
     <text class="w-rwyl" x="100" y="146" text-anchor="middle">${esc(e.id)}</text>${other?`<text class="w-rwyl" x="100" y="60" text-anchor="middle" transform="rotate(180 100 56)">${esc(other.id)}</text>`:""}</g>`;
@@ -4120,8 +4123,7 @@ function wrSvg(m,e,other){let s=windSvg(m,"");if(!e)return s;const H=e.hdg;
       return `<button class="wr-chip" data-wrrw="${esc(icao)}|${i}" aria-pressed="${on}"><b>${esc(a.id)}</b>${b?"/"+esc(b.id):""}</button>`}).join("")}</div>`);
   s=s.replace(/RWY [^<]*<\/span><\/div>/,"RWY "+esc(e.id)+"</span></div>");
   /* components for that runway end */
-  const w=m&&m.wind;let comp="—";if(w&&w.dir!=null){const c=rwComp(e.hdg,w),hs=Math.round(Math.abs(c.h*(w.gust||w.spd))),xs=Math.round(Math.abs(c.x*(w.gust||w.spd)));comp=(c.h>=0?"H"+hs:"<span class='c-amber'>T"+hs+"</span>")+" / X"+xs+(xs?(c.x>0?"R":"L"):"")}
-  else if(w&&w.spd===0)comp="Calm";
+  const w=m&&m.wind;let comp="—";if(w&&w.spd===0&&!w.gust)comp="Calm";else if(w&&w.dir!=null){const c=rwComp(e.hdg,w),hs=Math.round(Math.abs(c.h*(w.gust||w.spd))),xs=Math.round(Math.abs(c.x*(w.gust||w.spd)));comp=(c.h>=0?"H"+hs:"<span class='c-amber'>T"+hs+"</span>")+" / X"+xs+(xs?(c.x>0?"R":"L"):"")}
   s=s.replace(/<div><dt>RWY [^<]*components<\/dt><dd>[\s\S]*?<\/dd><\/div>/,`<div><dt>RWY ${esc(e.id)} components</dt><dd>${comp}</dd></div>`);
   return s}}
 document.addEventListener("click",ev=>{const b=ev.target.closest("[data-wrrw]");if(!b)return;const[icao,i]=b.dataset.wrrw.split("|"),D=wrData(icao);if(!D||!D.rw[+i])return;

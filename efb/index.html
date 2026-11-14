@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.1327">
+<meta name="efb-build" content="1114.1336">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3007,7 +3007,9 @@ function gwxSatProto(){const lib=window.maplibregl;if(!lib||lib._efbir)return;li
     /* through the EFB server's shared 10-minute cache when there is one; straight from the source otherwise */
     let r=null;if(vam.url)try{r=await fetch(vam.url.replace(/\/+$/,"")+`/api/efb/sat?l=${SAT[0]}&z=${Z}&x=${X}&y=${Y}&s=${slot}`,{signal:abort&&abort.signal});if(r.status===204||!r.ok)r=null}catch(e){if(abort&&abort.signal&&abort.signal.aborted)throw e;r=null}
     if(!r)r=await fetch(url,{signal:abort&&abort.signal});
-    if(!r.ok){const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return{data:u8.buffer}}const bm=await createImageBitmap(await r.blob());const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+    if(!r.ok){const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return{data:u8.buffer}}const bm=await createImageBitmap(await r.blob());
+    if(gwwGet())try{const o=await gwwCall({t:"sat",bm,th,sub,thr:SAT[4],rng:SAT[5],Z,X,Y},[bm]);return{data:o.buf}}catch(e){if(abort&&abort.signal&&abort.signal.aborted)throw e;return{data:(()=>{const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return u8.buffer})()}}
+    const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
     const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z);
     /* the satellite weight, worked out on an 8-pixel grid and spread over each block */
     const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*(W/8+1)+i]=gwxSatW(lat,lon,sub)}
@@ -3028,8 +3030,11 @@ function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))retur
   gwxEnsure(f,lv);const cg=gwxGrid(f,lv);GWX.hour=cg?cg.valid:null;
   const z=m.getZoom(),D=GWX.drawnBox,inside=D&&D.f===f&&D.lv===lv&&D.ver===GWX.ver&&b.getWest()>=D.w&&b.getEast()<=D.e&&b.getSouth()>=D.s&&b.getNorth()<=D.n&&Math.abs(z-D.z)<1.5;if(inside)return;
   GWX.drawnBox={f,lv,ver:GWX.ver,w,e,s,n,z};
-  try{const url=gwxImage(f,lv,w,s,e,n);m.getSource("gwxi").updateImage({url:url||GWX_BLANK,coordinates:[[w,n],[e,n],[e,s],[w,s]]})}catch(er){}
-  try{m.getSource("gwxl").setData({type:"FeatureCollection",features:gwxContours(f,lv,w,s,e,n).concat(gwxPoints(f,lv,w,s,e,n))})}catch(er){}
+  const apply=(url,features)=>{try{m.getSource("gwxi").updateImage({url:url||GWX_BLANK,coordinates:[[w,n],[e,n],[e,s],[w,s]]})}catch(er){}try{m.getSource("gwxl").setData({type:"FeatureCollection",features})}catch(er){}};
+  const my=GWX.drawSeq=(GWX.drawSeq||0)+1;
+  if(gwwGet())gwwDraw(f,lv,w,s,e,n).then(o=>{if(my!==GWX.drawSeq){if(o.url)URL.revokeObjectURL(o.url);return}const old=GWX.lastUrl;GWX.lastUrl=o.url;apply(o.url,o.features);if(old)setTimeout(()=>URL.revokeObjectURL(old),2000)})
+    .catch(()=>{if(my===GWX.drawSeq)apply(gwxImage(f,lv,w,s,e,n),gwxContours(f,lv,w,s,e,n).concat(gwxPoints(f,lv,w,s,e,n)))});
+  else apply(gwxImage(f,lv,w,s,e,n),gwxContours(f,lv,w,s,e,n).concat(gwxPoints(f,lv,w,s,e,n)));
   gwxLegend()}
 {const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{gwxTick()}catch(e){}}}
 /* a small legend over the map */
@@ -3048,6 +3053,41 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-mlgwx],[da
   const lr=document.querySelector(".ml-gwxlv");if(lr)lr.hidden=!(ML.gwx==="isa"||ML.gwx==="vv");GWX.drawnBox=null;gwxLegend();drawMap();updMapNote()});
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="gwx"]');if(el){const f=gwxF();const cg=f&&gwxGrid(f,gwxLv());el.textContent=f==="cloud"?"Satellite infrared · NASA GIBS, EUMETSAT":!f?"NOAA GFS 0.5°, worldwide":GWX.busy[f+"/"+gwxLv()]?"Loading GFS…":cg?"NOAA GFS 0.5° · run "+cg.run+" · valid "+cg.valid.slice(11,16).replace(":","")+"Z":GWX.err||""}try{gwxLegend()}catch(e){}return r}}
 try{window.__efbGwx={GWX,gwxContours,gwxPoints,gwxImage,gwxSample}}catch(e){}
+
+/* ---------- Weather work off the main thread ----------
+   Turning satellite pictures into cloud and painting the model colour wash and contours are pixel-by-pixel jobs; done
+   on the page they stall a zoom or a pan. They run in a background worker instead, built from the very same functions,
+   so the map keeps moving while they work. Where a browser has no workers or OffscreenCanvas they run here as before. */
+const GWW={w:null,seq:0,cb:{},sent:{}};
+function gwwSrc(){const ct="{"+Object.entries(GWX_CT).map(([k,v])=>k+":"+(v?`{step:${v.step},min:${v.min==null?"null":v.min},lbl:${v.lbl.toString()}}`:"null")).join(",")+"}";
+  return["const GWX_SAT="+JSON.stringify(GWX_SAT)+";",gwxSatW.toString(),"const GWX_RAMP="+JSON.stringify(GWX_RAMP)+";",gwxColor.toString(),"const GWX_CT="+ct+";",gribAt.toString(),
+    "const GR={};function gwxGrid(f,lv){return GR[f+'/'+lv]||null}",gwxSample.toString(),gwxContours.toString(),gwxPoints.toString(),
+    `function wImage(f,lv,w,s,e,n){if(!GWX_RAMP[f])return null;const W=320,H=320,cv=new OffscreenCanvas(W,H),g=cv.getContext("2d"),im=g.createImageData(W,H);
+      const my=la=>Math.log(Math.tan(Math.PI/4+la*Math.PI/360)),ny=my(n),sy=my(s);let any=false;
+      for(let y=0;y<H;y++){const m=ny+(sy-ny)*(y+.5)/H,lat=(2*Math.atan(Math.exp(m))-Math.PI/2)*180/Math.PI;
+        for(let x=0;x<W;x++){const lon=w+(e-w)*(x+.5)/W,v=gwxSample(f,lv,lat,lon),col=gwxColor(f,v),o=(y*W+x)*4;if(!col)continue;im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=Math.round(col[3]*255);if(col[3]>0)any=true}}
+      g.putImageData(im,0,0);return any?cv:null}`,
+    `function wSat(q){const{bm,th,sub,thr,rng,Z,X,Y}=q,c=new OffscreenCanvas(bm.width,bm.height),g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+      const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z),G=W/8+1;
+      const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*G+i]=gwxSatW(lat,lon,sub)}
+      for(let i=0;i<d.length;i+=4){const pix=i>>2,pxx=pix%W,pyy=(pix/W)|0,gx=pxx/8,gy=pyy/8,ix=gx|0,iy=gy|0,fx=gx-ix,fy=gy-iy,wv=(wg[iy*G+ix]*(1-fx)+wg[iy*G+ix+1]*fx)*(1-fy)+(wg[(iy+1)*G+ix]*(1-fx)+wg[(iy+1)*G+ix+1]*fx)*fy;if(!wv){d[i+3]=0;continue}
+        const R0=d[i],G0=d[i+1],B0=d[i+2],mx=Math.max(R0,G0,B0),mn=Math.min(R0,G0,B0);let a=mx-mn>40?1:Math.max(0,Math.min(1,(R0-thr)/rng));if(R0<8&&G0<8&&B0<8)a=0;
+        d[i]=col[0];d[i+1]=col[1];d[i+2]=col[2];d[i+3]=Math.round(Math.pow(a,1.15)*wv*(th==="d"?235:215))}
+      g.putImageData(im,0,0);return c}`,
+    `onmessage=async e=>{const q=e.data;try{
+      if(q.t==="grid"){GR[q.key]={G:q.G};return}
+      if(q.t==="draw"){const cv=wImage(q.f,q.lv,q.w,q.s,q.e,q.n),blob=cv?await cv.convertToBlob({type:"image/png"}):null;postMessage({id:q.id,blob,features:gwxContours(q.f,q.lv,q.w,q.s,q.e,q.n).concat(gwxPoints(q.f,q.lv,q.w,q.s,q.e,q.n))});return}
+      if(q.t==="sat"){const c=wSat(q),b=await c.convertToBlob({type:"image/png"}),buf=await b.arrayBuffer();postMessage({id:q.id,buf},[buf]);return}
+    }catch(err){postMessage({id:q.id,err:String(err&&err.message||err)})}}`].join("\n")}
+function gwwGet(){if(GWW.w!==null)return GWW.w||null;try{if(typeof OffscreenCanvas==="undefined"||!window.Worker||typeof createImageBitmap!=="function")throw 0;
+    const w=new Worker(URL.createObjectURL(new Blob([gwwSrc()],{type:"text/javascript"})));w.onmessage=e=>{const cb=GWW.cb[e.data.id];if(cb){delete GWW.cb[e.data.id];cb(e.data)}};w.onerror=()=>{GWW.w=false;Object.values(GWW.cb).forEach(cb=>cb({err:"worker failed"}));GWW.cb={}};GWW.w=w}catch(e){GWW.w=false}return GWW.w||null}
+function gwwCall(msg,transfer){return new Promise((res,rej)=>{const w=gwwGet();if(!w)return rej(new Error("no worker"));const id=++GWW.seq;msg.id=id;
+  const tm=setTimeout(()=>{if(GWW.cb[id]){delete GWW.cb[id];rej(new Error("worker timeout"))}},15000);GWW.cb[id]=d=>{clearTimeout(tm);d.err?rej(new Error(d.err)):res(d)};try{w.postMessage(msg,transfer||[])}catch(e){clearTimeout(tm);delete GWW.cb[id];rej(e)}})}
+/* the model wash and contours for an area, in the worker; resolves to {url, features} */
+function gwwDraw(f,lv,w,s,e,n){const cg=gwxGrid(f,lv);if(!cg)return Promise.resolve({url:null,features:[]});const key=f+"/"+lv,wk=gwwGet();if(!wk)return Promise.reject(new Error("no worker"));
+  if(GWW.sent[key]!==cg.at){GWW.sent[key]=cg.at;wk.postMessage({t:"grid",key,G:cg.G})}
+  return gwwCall({t:"draw",key,f,lv,w,s,e,n}).then(o=>({url:o.blob?URL.createObjectURL(o.blob):null,features:o.features}))}
+try{if(window.__efbGwx)Object.assign(window.__efbGwx,{gwwDraw,gwwCall,gwwGet})}catch(e){}
 
 /* ---------- Weather panel ----------
    Its own button under the layers button: radar, METAR, SIGMET/AIRMET/CWA, PIREPs, winds aloft and the model layers.
@@ -3911,6 +3951,22 @@ document.addEventListener("wheel",e=>{if(INR.raf&&inrOnMap(e))inrStop()},{passiv
 {const _f=ovFly;ovFly=function(){inrStop();return _f.apply(this,arguments)}}
 window.__efbInr={get c(){return MAP.c},get z(){return MAP.z},get gliding(){return !!INR.raf}};
 
+/* ---------- Smooth zoom ----------
+   The wheel and the + / − buttons set a target zoom; the map glides to it (about a fifth of a second), keeping the
+   point under the cursor still. Wheel clicks that come quickly add up, so a fast spin is one long smooth zoom. */
+const ZM={t:null,x:0,y:0,raf:0,last:0};
+function mapZoomSmooth(dz,sx,sy){if(!MAP.c)return;const{w,h}=mapSize();if(sx==null){sx=w/2;sy=h/2}
+  if(typeof inrStop==="function")inrStop();if(typeof OVF!=="undefined"&&OVF.raf&&typeof ovFlyStop==="function")ovFlyStop();
+  ZM.t=Math.max(2,Math.min(ZMAX,(ZM.raf&&ZM.t!=null?ZM.t:MAP.z)+dz));ZM.x=sx;ZM.y=sy;MAP.follow=false;
+  if(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches){mapZoomAt(ZM.t-MAP.z,sx,sy);ZM.t=null;return}
+  if(!ZM.raf){ZM.last=performance.now();ZM.raf=requestAnimationFrame(zmStep)}}
+function zmStep(now){const dt=Math.min(.05,(now-ZM.last)/1000);ZM.last=now;if(ZM.t==null||cur!=="map"){ZM.raf=0;return}
+  const d=ZM.t-MAP.z,k=1-Math.exp(-dt/.07);
+  if(Math.abs(d)<.003){mapZoomAt(d,ZM.x,ZM.y);ZM.raf=0;ZM.t=null;if(typeof updMapNote==="function")updMapNote();return}
+  mapZoomAt(d*k,ZM.x,ZM.y);ZM.raf=requestAnimationFrame(zmStep)}
+/* a touch on the map takes over from a zoom still gliding */
+document.addEventListener("pointerdown",e=>{if(!ZM.raf)return;const sv=document.getElementById("mapSvg");if(sv&&sv.parentNode&&sv.parentNode.contains(e.target)&&!e.target.closest("button")){cancelAnimationFrame(ZM.raf);ZM.raf=0;ZM.t=null}},true);
+
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the
    icons come from the model forecast (Open-Meteo via the EFB server), which also fills wind and visibility after the TAF ends. */
@@ -4693,7 +4749,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
   const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{let g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");const apk=(!g||g.dataset.sig!=null)&&typeof aptPick==="function"&&aptPick(e.clientX,e.clientY);if(apk){g=null;asOpen(apk,"info")}MAP.sel=g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig}):null;mapInfo();drawMap()}}st=null}else st=snap()};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
-  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect();mapZoomAt(Math.max(-.5,Math.min(.5,-e.deltaY/200)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect(),dz=-e.deltaY/(e.deltaMode===1?6:e.deltaMode===2?1:240);mapZoomSmooth(Math.max(-1,Math.min(1,dz)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
   if(window.ResizeObserver)new ResizeObserver(()=>mapSched()).observe(el)}
 function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase()):null}
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}
@@ -5141,7 +5197,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="chPrev"||t.id==="chNext"){CH.page=Math.max(1,Math.min(CH.pages,CH.page+(t.id==="chNext"?1:-1)));render();return}
   if(t.id==="chInv"){CH.invert=!CH.invert;store.set("chInvert",CH.invert);render();return}
   if(t.id==="chBack"){CH.sel=null;CH.doc=null;render();return}
-  if(t.id==="mapIn"||t.id==="mapOut"){mapZoomAt(t.id==="mapIn"?1:-1);return}
+  if(t.id==="mapIn"||t.id==="mapOut"){mapZoomSmooth(t.id==="mapIn"?1:-1);return}
   if(t.id==="mapFit"){MAP.c=null;MAP.follow=false;mapFit();drawMap();const b=$("#mapMe");if(b)b.setAttribute("aria-pressed","false");return}
   if(t.id==="mapMe"){const me=mapMine();if(!me)return;MAP.follow=!MAP.follow;t.setAttribute("aria-pressed",String(MAP.follow));if(MAP.follow){MAP.z=Math.max(MAP.z,me.groundspeed<60?15:9);mapFollow()}drawMap();updMapNote();return}
   if(t.dataset.goapt){mapGoApt(t.dataset.goapt);asOpen(t.dataset.goapt,null);return}

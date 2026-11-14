@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1114.0352">
+<meta name="efb-build" content="1114.0402">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1279,6 +1279,22 @@ svg .mtd{stroke:var(--map-land)!important;stroke-width:1.3}
 .re-prc .re-awy-x{flex:1;border-bottom:0;flex-direction:column;align-items:flex-start;gap:1px}.re-prc .re-awy-x span{font-size:11px}
 .re-prc-ch{flex:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--accent);font:600 11.5px var(--f-ui);padding:0 10px;cursor:pointer}
 .re-cur{font:600 10.5px var(--f-ui);font-style:normal;color:var(--green);margin-left:4px}
+/* chart viewer */
+.cvwrap{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg,#0b0f12);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.cvwrap[hidden]{display:none}
+.cv-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.cv-t{display:flex;flex-direction:column;min-width:0}.cv-t b{font:600 15px var(--f-ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.cv-pg{font:600 12px var(--f-mono);color:var(--label);min-width:34px;text-align:center}
+.cv-btns [hidden]{display:none}
+.cv-stage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none;background:#5d666e;cursor:grab}
+.cv-stage canvas{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#cvBase{box-shadow:0 10px 40px -10px rgba(0,0,0,.6)}
+.cvwrap.inv .cv-stage canvas{filter:invert(1) hue-rotate(180deg)}.cvwrap.inv .cv-stage{background:#1a1f24}
+.cv-msg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);margin:0;padding:10px 16px;border-radius:6px;background:var(--panel);color:var(--ink);font:500 14px var(--f-ui)}
+.cv-msg[hidden]{display:none}
+.as-chrow{display:flex;align-items:stretch;border-bottom:1px solid var(--line)}.as-chrow .as-ch{flex:1;border-bottom:0}
+.as-chv{flex:none;border:0;border-left:1px solid var(--line);background:transparent;color:var(--accent);font:600 12.5px var(--f-ui);padding:0 14px;cursor:pointer}
+.ov-topb{display:flex;gap:6px;flex:none}
 
 /* Map app */
 :root{--map-sea:#CFE6EE;--map-bg:#CFE6EE;--map-land:#FBFCFB;--map-border:#B9C6C4;--map-grat:rgba(26,103,114,.12);--map-fir:#3DAA78;--map-firl:#2E9A68}
@@ -2177,7 +2193,7 @@ function ovUi(){if(typeof asUi==="function")asUi();const pn=$("#ovPanel"),bar=$(
   /* control bar */
   if(!OV.sel){bar.hidden=true;bar.innerHTML="";bar.dataset.sig="";return}
   const sig=[OV.sel.pdf,OV.sel.name,OV.page,OV.pages,OV.loading,OV.err||"",OV.edit,OV.blend,!!OV.img,OV.src,OV.cropOn,!!OV.crop].join("|");if(!bar.hidden&&bar.dataset.sig===sig)return;bar.dataset.sig=sig;bar.hidden=false;
-  const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b>${OV.img?`<small class="ov-src">${OV.src==="shared"?"Lined up by a Polaris pilot":OV.src==="auto"?(OV.autoKind==="rwy"?"Lined up with the runways":"Positioned from the chart’s own coordinates"):OV.src==="saved"?(OV.autoKind==="pdf"?"Your saved alignment":OV.shared?"Your alignment · shared with Polaris pilots":"Your saved alignment"):"Not georeferenced. Use Adjust to line it up"}</small>`:""}</div><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div>`;
+  const head=`<div class="ov-top"><div><span class="eyebrow">${esc(OV.sel.icao)} · ${esc(OV.sel.group||"Chart")}</span><b>${esc(OV.sel.name)}</b>${OV.img?`<small class="ov-src">${OV.src==="shared"?"Lined up by a Polaris pilot":OV.src==="auto"?(OV.autoKind==="rwy"?"Lined up with the runways":"Positioned from the chart’s own coordinates"):OV.src==="saved"?(OV.autoKind==="pdf"?"Your saved alignment":OV.shared?"Your alignment · shared with Polaris pilots":"Your saved alignment"):"Not georeferenced. Use Adjust to line it up"}</small>`:""}</div><div class="ov-topb"><button class="btn sm" data-ov="full" aria-label="Open the chart full screen">Full chart</button><button class="btn sm" data-ov="close" aria-label="Remove chart overlay">Remove</button></div></div>`;
   if(OV.loading)bar.innerHTML=head+`<p class="note">Opening chart…</p>`;
   else if(OV.err)bar.innerHTML=head+`<p class="note">${esc(OV.err)}</p>`;
   else if(OV.edit)bar.innerHTML=head+`<p class="note">Drag the chart to move it, pinch to resize and turn it. The map stays still.</p><div class="ov-row"><button class="btn sm" data-ov="rot">Rotate 90°</button><button class="btn sm" data-ov="reset">Reset</button><button class="btn sm primary" data-ov="edit" aria-pressed="true">Done</button></div>`;
@@ -3187,6 +3203,73 @@ function eaipHtml(icao){const e=eaipFor(icao);
   return ""}
 {const _ac=asCharts;asCharts=function(icao){const s=_ac(icao);return /No FAA charts for/.test(s)?s+eaipHtml(icao):s}}
 {const _cl=chartLinks;chartLinks=function(icao){const e=eaipFor(icao);const row=e?`<div class="setrow"><span>${esc(e[2])}<small>Official AIP · ${esc(e[1])}${e[4]?" · free sign-up":""}</small></span><a class="btn sm" href="${e[3]}" target="_blank" rel="noopener">Open ↗</a></div>`:eaipEurope(icao)?`<div class="setrow"><span>EUROCONTROL EAD Basic<small>Official European AIPs · free sign-up</small></span><a class="btn sm" href="https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/" target="_blank" rel="noopener">Open ↗</a></div>`:"";return row+_cl(icao)}}
+
+/* ---------- Chart viewer ----------
+   A chart on its own, full screen, instead of laid over the map. The page is drawn by pdf.js straight at the
+   screen's resolution for the part in view, so it stays sharp however far you zoom: while a pinch or drag is
+   going, the last picture is moved as an image; when the hand stops, the visible part is drawn again. */
+const CV={open:false,sel:null,doc:null,page:1,pages:1,s:1,tx:0,ty:0,fit:1,busy:false,task:null,tm:0,err:null,inv:store.get("cvInv",null),loading:false};
+const cvDark=()=>CV.inv!=null?CV.inv:isDark();
+function cvEl(){let el=document.getElementById("cvWrap");if(el)return el;el=document.createElement("div");el.id="cvWrap";el.className="cvwrap";el.hidden=true;
+  el.innerHTML=`<div class="cv-top"><div class="cv-t"><span class="eyebrow" id="cvSub"></span><b id="cvName"></b></div>
+    <div class="cv-btns"><button class="btn sm" data-cv="prev" aria-label="Previous page">‹</button><span id="cvPg" class="cv-pg"></span><button class="btn sm" data-cv="next" aria-label="Next page">›</button>
+    <button class="btn sm" data-cv="out" aria-label="Zoom out">−</button><button class="btn sm" data-cv="in" aria-label="Zoom in">+</button><button class="btn sm" data-cv="fit">Fit</button>
+    <button class="btn sm" data-cv="inv" aria-pressed="false">Night</button><button class="btn sm" data-cv="map">On map</button><button class="btn sm" data-cv="close" aria-label="Close chart">Close</button></div></div>
+    <div class="cv-stage" id="cvStage"><canvas id="cvBase"></canvas><canvas id="cvSharp"></canvas><p class="cv-msg" id="cvMsg"></p></div>`;
+  document.body.appendChild(el);cvGestures(el.querySelector("#cvStage"));return el}
+function cvUi(){const el=cvEl();el.hidden=!CV.open;document.body.classList.toggle("cv-on",CV.open);if(!CV.open)return;
+  el.querySelector("#cvName").textContent=CV.sel?CV.sel.name:"";el.querySelector("#cvSub").textContent=CV.sel?CV.sel.icao+" · "+(CV.sel.group||"Chart"):"";
+  el.querySelector("#cvPg").textContent=CV.pages>1?CV.page+" / "+CV.pages:"";el.querySelectorAll('[data-cv="prev"],[data-cv="next"]').forEach(b=>b.hidden=CV.pages<2);
+  el.querySelector('[data-cv="inv"]').setAttribute("aria-pressed",String(cvDark()));el.classList.toggle("inv",cvDark());
+  const m=el.querySelector("#cvMsg");m.textContent=CV.loading?"Opening chart…":CV.err||"";m.hidden=!CV.loading&&!CV.err}
+async function cvOpen(c,icao,cycle){CV.open=true;CV.sel={name:c.name,pdf:c.pdf,group:c.group,icao,cycle};CV.doc=null;CV.page=1;CV.pages=1;CV.err=null;CV.loading=true;cvUi();
+  const mine=CV.sel;try{const lib=await loadPdfJs();const r=await fetch(vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf));if(!r.ok)throw new Error("Chart server answered HTTP "+r.status);
+    const buf=await r.arrayBuffer();if(CV.sel!==mine)return;const doc=await lib.getDocument({data:buf,isEvalSupported:false}).promise;if(CV.sel!==mine)return;CV.doc=doc;CV.pages=doc.numPages;CV.loading=false;cvUi();await cvPage(1)}
+  catch(e){if(CV.sel!==mine)return;CV.loading=false;CV.err=e.message||"Chart couldn’t load";cvUi()}}
+function cvClose(){CV.open=false;CV.doc=null;CV.sel=null;if(CV.task)try{CV.task.cancel()}catch(e){}cvUi()}
+/* page at "fit": the whole page in the stage, centred */
+async function cvPage(n){if(!CV.doc)return;CV.page=n;CV.sharpAt=null;const shc=document.getElementById("cvSharp");if(shc)shc.style.opacity=0;CV.pg=await CV.doc.getPage(n);const st=document.getElementById("cvStage"),W=st.clientWidth,H=st.clientHeight,v=CV.pg.getViewport({scale:1});
+  CV.fit=Math.min(W/v.width,H/v.height)*.98;CV.s=CV.fit;CV.tx=(W-v.width*CV.s)/2;CV.ty=(H-v.height*CV.s)/2;
+  /* a whole-page picture to move around while gestures run (and to show while the sharp one draws) */
+  const dpr=Math.min(3,window.devicePixelRatio||1),bs=Math.min(2.5,4096/Math.max(v.width,v.height)),b=document.getElementById("cvBase");
+  const vp=CV.pg.getViewport({scale:bs});b.width=Math.floor(vp.width);b.height=Math.floor(vp.height);const g=b.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,b.width,b.height);
+  await CV.pg.render({canvasContext:g,viewport:vp}).promise;CV.bs=bs;cvUi();cvPlace();cvSharp()}
+function cvPlace(){const b=document.getElementById("cvBase"),sh=document.getElementById("cvSharp");if(!b||!CV.bs)return;const k=CV.s/CV.bs;
+  b.style.transform=`translate(${CV.tx}px,${CV.ty}px) scale(${k})`;
+  if(CV.sharpAt){const q=CV.sharpAt,kk=CV.s/q.s;sh.style.transform=`translate(${CV.tx-q.tx*kk}px,${CV.ty-q.ty*kk}px) scale(${kk})`}}
+/* draw exactly what is on screen, at the screen's own pixel density */
+function cvSharp(){clearTimeout(CV.tm);CV.tm=setTimeout(async()=>{if(!CV.pg)return;const st=document.getElementById("cvStage"),sh=document.getElementById("cvSharp"),W=st.clientWidth,H=st.clientHeight,dpr=Math.min(3,window.devicePixelRatio||1);
+    if(CV.task)try{CV.task.cancel()}catch(e){}
+    const off=document.createElement("canvas");off.width=Math.round(W*dpr);off.height=Math.round(H*dpr);const g=off.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,off.width,off.height);
+    const at={s:CV.s,tx:CV.tx,ty:CV.ty},vp=CV.pg.getViewport({scale:CV.s*dpr,offsetX:CV.tx*dpr,offsetY:CV.ty*dpr});
+    const task=CV.pg.render({canvasContext:g,viewport:vp});CV.task=task;try{await task.promise}catch(e){return}if(CV.task!==task)return;
+    sh.width=off.width;sh.height=off.height;sh.style.width=W+"px";sh.style.height=H+"px";sh.getContext("2d").drawImage(off,0,0);CV.sharpAt=at;sh.style.opacity=1;cvPlace()},140)}
+function cvZoom(f,cx,cy){const st=document.getElementById("cvStage");if(cx==null){cx=st.clientWidth/2;cy=st.clientHeight/2}const ns=Math.max(CV.fit*.6,Math.min(CV.fit*40,CV.s*f)),k=ns/CV.s;
+  CV.tx=cx-(cx-CV.tx)*k;CV.ty=cy-(cy-CV.ty)*k;CV.s=ns;cvPlace();cvSharp()}
+function cvGestures(st){const pts=new Map();let g0=null,lastTap=0;
+  const snap=()=>{const a=[...pts.values()];if(a.length===1)return{x:a[0].x,y:a[0].y,tx:CV.tx,ty:CV.ty,s:CV.s};const cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2;return{cx,cy,d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),tx:CV.tx,ty:CV.ty,s:CV.s}};
+  const loc=e=>{const r=st.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+  st.addEventListener("pointerdown",e=>{st.setPointerCapture(e.pointerId);pts.set(e.pointerId,loc(e));g0=snap();g0.moved=false;
+    if(pts.size===1){const now=Date.now();if(now-lastTap<300){const p=loc(e);cvZoom(2.2,p.x,p.y);lastTap=0}else lastTap=now}});
+  st.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,loc(e));const a=[...pts.values()];if(!g0)return;
+    if(a.length===1&&g0.x!=null){const dx=a[0].x-g0.x,dy=a[0].y-g0.y;if(Math.hypot(dx,dy)>3)g0.moved=true;CV.tx=g0.tx+dx;CV.ty=g0.ty+dy}
+    else if(a.length>=2&&g0.d){const cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),ns=Math.max(CV.fit*.6,Math.min(CV.fit*40,g0.s*d/g0.d)),k=ns/g0.s;
+      CV.s=ns;CV.tx=cx-(g0.cx-g0.tx)*k;CV.ty=cy-(g0.cy-g0.ty)*k;g0.moved=true}
+    cvPlace();cvSharp()});
+  const end=e=>{if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);g0=pts.size?snap():null};
+  st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end);
+  st.addEventListener("wheel",e=>{e.preventDefault();const r=st.getBoundingClientRect();cvZoom(Math.exp(-e.deltaY*(e.ctrlKey?.012:.0022)),e.clientX-r.left,e.clientY-r.top)},{passive:false})}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-cv]");if(!b)return;const a=b.dataset.cv;
+  if(a==="close")cvClose();else if(a==="in")cvZoom(1.6);else if(a==="out")cvZoom(1/1.6);else if(a==="fit"&&CV.pg)cvPage(CV.page);
+  else if(a==="prev"&&CV.page>1)cvPage(CV.page-1);else if(a==="next"&&CV.page<CV.pages)cvPage(CV.page+1);
+  else if(a==="inv"){CV.inv=!cvDark();store.set("cvInv",CV.inv);cvUi()}
+  else if(a==="map"&&CV.sel){const s=CV.sel;cvClose();if(cur!=="map"){location.hash="map";setTimeout(()=>ovOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle),400)}else ovOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle)}});
+document.addEventListener("keydown",e=>{if(!CV.open)return;if(e.key==="Escape")cvClose();else if(e.key==="+"||e.key==="=")cvZoom(1.4);else if(e.key==="-")cvZoom(1/1.4)});
+window.addEventListener("resize",()=>{if(CV.open&&CV.pg)cvPage(CV.page)});
+/* entry points: a "View" button by each chart in the airport sheet, and "Full chart" on the map overlay */
+{const _ac=asCharts;asCharts=function(icao){return _ac(icao).replace(/<button class="as-ch" data-aspdf="([^"]*)" data-asname="([^"]*)" data-asgroup="([^"]*)"([^>]*)>([\s\S]*?)<\/button>/g,(m,pdf,name,group,rest,inner)=>`<div class="as-chrow">${m}<button class="as-chv" data-asview="${pdf}" data-asname="${name}" data-asgroup="${group}" aria-label="View ${name} full screen">View</button></div>`)}}
+document.addEventListener("click",e=>{const v=e.target.closest("[data-asview]");if(!v)return;const icao=AS.icao,d=CH.data[icao];if(!d)return;cvOpen({name:v.dataset.asname,pdf:v.dataset.asview,group:v.dataset.asgroup},icao,d.cycle)});
+document.addEventListener("click",e=>{if(!e.target.closest('[data-ov="full"]')||!OV.sel)return;const s=OV.sel;cvOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle)});
 
 /* ---------- Weather app: hourly and 7-day forecast ----------
    Category, ceiling, visibility and wind come from the live TAF while it is valid; temperature, rain chance and the

@@ -214,7 +214,7 @@ function render(): void {
   const eta = f.dArr != null && r.gs > 80 ? new Date(Date.now() + (f.dArr / r.gs) * 3600e3) : null;
   det.innerHTML = `
     <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small></div>
-      <div class="lv-dbtn"><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
+      <div class="lv-dbtn"><button class="msg" data-lv="msg"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Write a Polaris Mail message to this pilot"'}><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>Message</button><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
     <div class="lv-od">
       <div><b>${esc(aptCode(r.dep))}</b><small>${esc(f.dep?.city || (r.dep ? '' : 'No flight plan'))}</small></div>
       <div class="lv-bar"><span style="width:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"></span><i style="left:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"><svg viewBox="-10 -10 20 20"><path d="M0,-10 L1.5,-6.5 L1.5,-2.2 L9,2.2 L9,4 L1.5,2 L1.2,6.6 L4,8.6 L4,10 L0,9 L-4,10 L-4,8.6 L-1.2,6.6 L-1.5,2 L-9,4 L-9,2.2 L-1.5,-2.2 L-1.5,-6.5Z"/></svg></i></div>
@@ -238,6 +238,7 @@ function render(): void {
 /* ---------- tabs ---------- */
 function currentTab(): 'mail' | 'live' { return location.hash === '#live' ? 'live' : 'mail'; }
 function showTab(): void {
+  if (document.querySelector('.deny')) return;
   const t = currentTab();
   document.querySelectorAll<HTMLElement>('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === t)));
   const mail = $('#app'), live = $('#live');
@@ -273,6 +274,11 @@ document.addEventListener('click', (e) => {
   else if (k === 'all') { S.follow = false; pick(null); }
   else if (k === 'close') { S.follow = false; pick(null); }
   else if (k === 'follow') { S.follow = !S.follow; const f = sel(); if (S.follow && f) S.globe?.frameFlight(f); render(); }
+  else if (k === 'msg') {
+    const f = sel();
+    const compose = (window as unknown as { pmCompose?: (t: { cs: string; cid: string; name: string }) => void }).pmCompose;
+    if (f && !f.raw.sample && compose) compose({ cs: f.raw.cs, cid: f.raw.cid ? String(f.raw.cid) : '', name: f.raw.name || '' });
+  }
   else if (k === 'sample') { S.sample = true; S.flights = build(samples(), Date.now()); pick('PAW806'); }
   else if (k === 'nosample') { S.sample = false; S.sel = null; S.flights = []; S.globe?.overview(); void poll(true); }
 });
@@ -284,4 +290,5 @@ setInterval(() => { if (currentTab() === 'live' && !document.hidden) { const s =
 // count on the Live tab even while Mail is open (once a minute)
 setInterval(() => { if (currentTab() === 'mail' && !document.hidden) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
 
-showTab();
+// the admin is locked (not signed in through Access): leave the page as the server sent it
+if (!document.querySelector('.deny')) showTab();

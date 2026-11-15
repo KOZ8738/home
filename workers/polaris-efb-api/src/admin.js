@@ -38,7 +38,9 @@ button.warn{color:var(--red);border-color:var(--red-l)}button:disabled{opacity:.
 .mail:first-of-type{border-top:0}.mail b{font-weight:600}.mail .meta{color:var(--label);font-size:12.5px}
 .mail .btns{grid-row:1/3;grid-column:2;display:flex;gap:6px;align-items:start}.mail .btns button{padding:4px 10px;font-size:12.5px}
 .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.05em;padding:1px 7px;border-radius:9px;margin-left:6px;vertical-align:1px}
-.tag.s{background:var(--ok-bg);color:var(--green)}.tag.q{background:var(--q-bg);color:var(--q)}
+.tag.s{background:var(--ok-bg);color:var(--green)}.tag.d{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.to-one{margin-top:4px;padding:2px 14px 12px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;background:var(--soft)}.to-one input{text-transform:uppercase}
+.lv-dbtn button.msg{background:var(--teal);border-color:var(--teal);color:#fff;display:inline-flex;align-items:center;gap:6px}.lv-dbtn button.msg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}.lv-dbtn button.msg:disabled{opacity:.45}.tag.q{background:var(--q-bg);color:var(--q)}
 .msg{margin-top:12px;padding:10px 12px;border-radius:4px;font-size:14px}.msg.ok{background:var(--ok-bg);color:var(--green)}.msg.err{background:var(--err-bg);color:var(--red)}
 .deny{max-width:640px;margin:60px auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:24px;font-size:15px}
 .empty{color:var(--label);font-size:14px}
@@ -114,7 +116,9 @@ main#live[hidden]{display:none!important}
 <section>
  <h2 id="formTitle">New message</h2>
  <label for="to">To</label>
- <div class="radio" id="to"><label><input type="radio" name="to" checked> All pilots</label><label class="off" title="Comes with pilot sign-in"><input type="radio" name="to" disabled> Specific pilots <span class="hint" style="margin:0">(after pilot sign-in)</span></label></div>
+ <div class="radio" id="to"><label><input type="radio" name="to" value="all" checked> All pilots</label><label><input type="radio" name="to" value="one"> One pilot</label></div>
+ <div id="toOne" class="to-one" hidden><div class="row"><div><label for="toCs">Callsign</label><input type="text" id="toCs" maxlength="10" placeholder="PAW806" autocomplete="off" spellcheck="false"></div><div><label for="toCid">VATSIM CID</label><input type="text" id="toCid" maxlength="9" inputmode="numeric" placeholder="1234567" autocomplete="off"></div></div><input type="hidden" id="toName">
+ <p class="hint" id="toHint">Shown only on the EFB whose flight plan has this callsign (for 24 hours after it goes out) or whose VATSIM CID in Settings matches. Pick a flight on the Live tab to fill this in.</p></div>
  <div class="row"><div><label for="from">From</label><input type="text" id="from" list="froms" maxlength="60" value="Crew Management"><datalist id="froms"><option>Crew Management</option><option>Flight Operations</option><option>Training</option><option>Polaris News</option><option>Fleet</option></datalist></div>
  <div><label for="when">Send</label><select id="when"><option value="now">Now</option><option value="later">At a set time</option></select></div></div>
  <div id="atRow" hidden><label for="at">Send at (your local time)</label><input type="datetime-local" id="at"></div>
@@ -125,7 +129,7 @@ main#live[hidden]{display:none!important}
  <input type="file" id="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp,text/plain"><ul class="atts" id="atts"></ul>
  <div class="actions"><button class="primary" id="send">Send to all pilots</button><button id="cancel" hidden>Cancel editing</button></div>
  <div id="msg"></div>
- <p class="hint">Until pilot sign-in comes, the Mail app is open to anyone who opens the EFB: don't put anything private in a message.</p>
+ <p class="hint">Until pilot sign-in comes, the Mail app is open to anyone who opens the EFB, and a message to one pilot can be read by anyone who asks with that callsign or CID: don't put anything private in a message.</p>
 </section>
 <section><h2>Sent and scheduled</h2><div id="list"><span class="empty">Loading…</span></div></section>
 </main>
@@ -151,23 +155,32 @@ const fmt=ms=>new Date(ms).toLocaleString(undefined,{dateStyle:"medium",timeStyl
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 function attsUi(){const old=S.edit?(S.mails.find(m=>m.id===S.edit)||{}).att||[]:[];
  $("#atts").innerHTML=old.filter(a=>S.keep.includes(a.n)).map(a=>'<li>📎 '+esc(a.name)+' <span class="hint" style="margin:0">'+kb(a.size)+'</span><button data-rmk="'+a.n+'">Remove</button></li>').join("")+S.add.map((f,i)=>'<li>📎 '+esc(f.name)+' <span class="hint" style="margin:0">'+kb(f.size)+' · new</span><button data-rma="'+i+'">Remove</button></li>').join("")}
-function preview(){const b=$("#body").value;$("#preview").innerHTML=b.trim()?"<h4 style='margin-top:0'>"+esc($("#subject").value||"(no subject)")+"</h4><div class='hint' style='margin:-2px 0 10px'>From "+esc($("#from").value||"…")+" · To all Polaris pilots</div>"+md(b):'<span class="empty">The message as pilots will see it.</span>'}
-function listUi(){const now=Date.now();$("#list").innerHTML=S.mails.length?S.mails.map(m=>{const q=m.sendAt>now;return '<div class="mail"><div><b>'+esc(m.subject)+'</b><span class="tag '+(q?"q":"s")+'">'+(q?"SCHEDULED":"SENT")+'</span></div><div class="meta">'+esc(m.from)+" · "+(q?"goes out ":"")+fmt(m.sendAt)+(m.att.length?" · 📎 "+m.att.length:"")+(m.by?" · by "+esc(m.by):"")+(m.edited?" · edited":"")+'</div><div class="btns"><button data-edit="'+m.id+'">Edit</button><button class="warn" data-del="'+m.id+'">Delete</button></div></div>'}).join(""):'<span class="empty">No mail yet.</span>'}
+/* recipient: all pilots, or one pilot by callsign and/or VATSIM CID */
+const toMode=()=>(document.querySelector("input[name=to]:checked")||{}).value||"all";
+function toGet(){if(toMode()!=="one")return null;return {cs:$("#toCs").value.toUpperCase().replace(/[^A-Z0-9]/g,""),cid:$("#toCid").value.replace(/[^0-9]/g,""),name:$("#toName").value}}
+const toLabel=t=>t?(t.cs||"")+(t.cs&&t.cid?" · ":"")+(t.cid?"CID "+t.cid:""):"all pilots";
+function toUi(){const one=toMode()==="one",t=toGet();$("#toOne").hidden=!one;if(!S.edit)$("#send").textContent=one?"Send to "+(t&&(t.cs||t.cid)?(t.cs||"CID "+t.cid):"this pilot"):"Send to all pilots";preview()}
+function toSet(t){document.querySelector("input[name=to][value="+(t?"one":"all")+"]").checked=true;$("#toCs").value=(t&&t.cs)||"";$("#toCid").value=(t&&t.cid)||"";$("#toName").value=(t&&t.name)||"";toUi()}
+/* the Live tab's "Message" button */
+window.pmCompose=function(t){if(S.edit)reset();toSet(t);if($("#from").value==="Crew Management")$("#from").value="Flight Operations";say("");location.hash="#mail";setTimeout(()=>{scrollTo({top:0});$("#subject").focus()},60)};
+function preview(){const b=$("#body").value,t=toGet();$("#preview").innerHTML=b.trim()?"<h4 style='margin-top:0'>"+esc($("#subject").value||"(no subject)")+"</h4><div class='hint' style='margin:-2px 0 10px'>From "+esc($("#from").value||"…")+" · "+(t?"To "+esc(toLabel(t))+(t.name?" ("+esc(t.name)+")":""):"To all Polaris pilots")+"</div>"+md(b):'<span class="empty">The message as pilots will see it.</span>'}
+function listUi(){const now=Date.now();$("#list").innerHTML=S.mails.length?S.mails.map(m=>{const q=m.sendAt>now;return '<div class="mail"><div><b>'+esc(m.subject)+'</b><span class="tag '+(q?"q":"s")+'">'+(q?"SCHEDULED":"SENT")+'</span>'+(m.to?'<span class="tag d" title="'+esc(m.to.name||"")+'">TO '+esc(m.to.cs||("CID "+m.to.cid))+'</span>':'')+'</div><div class="meta">'+esc(m.from)+" · "+(q?"goes out ":"")+fmt(m.sendAt)+(m.att.length?" · 📎 "+m.att.length:"")+(m.by?" · by "+esc(m.by):"")+(m.edited?" · edited":"")+'</div><div class="btns"><button data-edit="'+m.id+'">Edit</button><button class="warn" data-del="'+m.id+'">Delete</button></div></div>'}).join(""):'<span class="empty">No mail yet.</span>'}
 async function load(){try{const j=await api("/admin/api/mail");S.mails=j.mails;listUi()}catch(e){$("#list").innerHTML='<div class="msg err">'+esc(e.message)+"</div>"}}
-function reset(){S.edit=null;S.keep=[];S.add=[];$("#formTitle").textContent="New message";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value="Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();preview()}
+function reset(){S.edit=null;S.keep=[];S.add=[];$("#formTitle").textContent="New message";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value="Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();toSet(null)}
 const localInput=ms=>{const d=new Date(ms-new Date(ms).getTimezoneOffset()*60000);return d.toISOString().slice(0,16)};
 document.addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;
  if(t.dataset.rmk!=null){S.keep=S.keep.filter(n=>n!==+t.dataset.rmk);attsUi()}
  else if(t.dataset.rma!=null){S.add.splice(+t.dataset.rma,1);attsUi()}
- else if(t.dataset.edit){const m=S.mails.find(x=>x.id===t.dataset.edit);if(!m)return;S.edit=m.id;S.keep=m.att.map(a=>a.n);S.add=[];$("#from").value=m.from;$("#subject").value=m.subject;$("#body").value=m.body;
+ else if(t.dataset.edit){const m=S.mails.find(x=>x.id===t.dataset.edit);if(!m)return;S.edit=m.id;S.keep=m.att.map(a=>a.n);S.add=[];toSet(m.to||null);$("#from").value=m.from;$("#subject").value=m.subject;$("#body").value=m.body;
   const q=m.sendAt>Date.now();$("#when").value=q?"later":"now";$("#atRow").hidden=!q;if(q)$("#at").value=localInput(m.sendAt);$("#formTitle").textContent="Edit message";$("#send").textContent=q?"Save changes":"Save changes (already sent)";$("#cancel").hidden=false;attsUi();preview();say("");scrollTo({top:0,behavior:"smooth"})}
  else if(t.dataset.del){const m=S.mails.find(x=>x.id===t.dataset.del);if(!m||!confirm('Delete "'+m.subject+'"? Pilots will no longer see it.'))return;try{await api("/admin/api/mail?id="+encodeURIComponent(m.id),{method:"DELETE"});if(S.edit===m.id)reset();say("Deleted.",true);load()}catch(er){say(er.message)}}
  else if(t.id==="cancel"){reset();say("")}
- else if(t.id==="send"){const body={id:S.edit||undefined,from:$("#from").value,subject:$("#subject").value,body:$("#body").value,keepAtt:S.keep,newAtt:S.add.map(f=>({name:f.name,type:f.type,data:f.data}))};
+ else if(t.id==="send"){const to=toGet();if(to&&!to.cs&&!to.cid){say("Add the pilot's callsign or VATSIM CID.");return}const body={id:S.edit||undefined,to,from:$("#from").value,subject:$("#subject").value,body:$("#body").value,keepAtt:S.keep,newAtt:S.add.map(f=>({name:f.name,type:f.type,data:f.data}))};
   if($("#when").value==="later"){if(!$("#at").value){say("Pick when it goes out.");return}body.sendAt=new Date($("#at").value).toISOString()}
-  t.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const was=S.edit,later=body.sendAt&&Date.parse(body.sendAt)>Date.now();reset();say(was?"Saved.":later?"Scheduled.":"Sent to all pilots.",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}});
+  t.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const was=S.edit,later=body.sendAt&&Date.parse(body.sendAt)>Date.now();reset();say(was?"Saved.":later?"Scheduled.":"Sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}});
 $("#when").addEventListener("change",()=>{$("#atRow").hidden=$("#when").value!=="later"});
 ["subject","body","from"].forEach(i=>$("#"+i).addEventListener("input",preview));
+document.querySelectorAll("input[name=to]").forEach(x=>x.addEventListener("change",toUi));["toCs","toCid"].forEach(i=>$("#"+i).addEventListener("input",()=>{$("#toName").value="";toUi()}));
 $("#file").addEventListener("change",async e=>{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
  const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f)});S.add.push({name:f.name,type:f.type||"application/octet-stream",size:f.size,data})}e.target.value="";attsUi()});
 if(!document.querySelector(".deny")){api("/admin/api/me").then(j=>{$("#who").textContent="Signed in as "+j.email}).catch(()=>{});load();preview()}else $("#app").hidden=true;

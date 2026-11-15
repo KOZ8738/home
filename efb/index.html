@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0818">
+<meta name="efb-build" content="1115.0937">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5408,7 +5408,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 
 /* ---------- Mail ----------
    Notices from Polaris staff (Crew Management, Flight Operations, Training …), written on the EFB server's admin page
-   and read here like an iPad mailbox. For now every message goes to all pilots; which ones were read or moved to Trash
+   and read here like an iPad mailbox. A message goes to all pilots, or to one pilot: the EFB asks with its flight plan
+   callsign and the VATSIM CID from Settings (and the ids of direct messages it already has); which ones were read or moved to Trash
    is kept on this device. Checked when the EFB opens, every 5 minutes, and when Mail is opened; the home-screen icon
    shows the unread count. */
 const MAIL={list:null,at:0,err:null,loading:false,sel:null,box:"inbox"};
@@ -5419,16 +5420,24 @@ APPS.mail={name:"Mail",bg:"linear-gradient(170deg,#3FA3B1,#1A6772)",fg:"#fff",g:
 const mailSet=k=>new Set(store.get(k,[]));
 const mailSave=(k,set)=>store.set(k,[...set]);
 const mailUnread=()=>{if(!MAIL.list)return 0;const rd=mailSet("mailRead"),tr=mailSet("mailTrash");return MAIL.list.filter(m=>!rd.has(m.id)&&!tr.has(m.id)).length};
+/* who this EFB is, for messages sent to one pilot: the flight plan callsign and the VATSIM CID set in Settings */
+function mailMe(){const cid=String(store.get("vatsimCid","")||"").replace(/\D/g,"");let cs="";
+  try{if(typeof ofp!=="undefined"&&ofp&&!ofp._sample)cs=String((ofp.atc&&ofp.atc.callsign)||O().flight||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}catch(e){}
+  return{cid,cs}}
+function mailQuery(){const me=mailMe(),q=[];if(me.cs)q.push("cs="+encodeURIComponent(me.cs));if(me.cid)q.push("cid="+me.cid);
+  const ids=store.get("mailMine",[]);if(Array.isArray(ids)&&ids.length)q.push("ids="+ids.slice(-50).map(encodeURIComponent).join(","));return q.length?"?"+q.join("&"):""}
 function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-MAIL.at<120000)return;MAIL.loading=true;
   const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000);
-  fetch(vam.url.replace(/\/+$/,"")+"/api/efb/mail",{cache:"no-cache",signal:ac.signal}).then(r=>{if(!r.ok)throw new Error("The EFB server answered HTTP "+r.status);return r.json()})
+  fetch(vam.url.replace(/\/+$/,"")+"/api/efb/mail"+mailQuery(),{cache:"no-cache",signal:ac.signal}).then(r=>{if(!r.ok)throw new Error("The EFB server answered HTTP "+r.status);return r.json()})
     .then(j=>{MAIL.list=Array.isArray(j.mails)?j.mails:[];MAIL.err=null;
       /* forget read/trash marks of messages that no longer exist */
-      const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)});
+      const ids=new Set(MAIL.list.map(m=>m.id));store.set("mailMine",MAIL.list.filter(m=>m.to).map(m=>m.id).slice(0,50));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)});
       if(MAIL.sel&&!ids.has(MAIL.sel))MAIL.sel=null;mailNotify()})
     .catch(e=>{MAIL.err=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB server":(e&&e.message)||"Couldn’t load mail"})
     .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail")render();else renderHome()})}
 setTimeout(()=>mailLoad(true),1500);setInterval(()=>mailLoad(),60000);
+/* a new VATSIM CID in Settings may bring messages sent to this pilot */
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="stCid")setTimeout(()=>mailLoad(true),300)});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){mailLoad();setTimeout(mailNotify,600)}});
 {const _b=badge;badge=function(id){if(id==="mail"){const n=mailUnread();return n?`<span class="badge" aria-label="${n} unread">${n>99?"99+":n}</span>`:""}return _b(id)}}
 /* the same light markup the admin page previews: **bold**, *italic*, "- " lists, "## " headings, [links](https://…) */
@@ -5459,7 +5468,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
   const nav=`<aside class="pm-nav"><div class="pm-nh"><span class="eyebrow">Polaris Airways</span><h2>Mail</h2></div>
     <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
     <div class="pm-nf">${mlIco("mail")}<span>To all Polaris pilots${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
-  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
+  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}${m.to?'<i class="pm-to">To you</i>':""}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
   const col=`<section class="pm-col" aria-label="${isTr?"Trash":"Inbox"}"><header class="pm-ch"><div><h3>${isTr?"Trash":"Inbox"}</h3><p>${status}</p></div>
       <button class="pm-ib" data-mailref title="Check for new mail" aria-label="Check for new mail"${MAIL.loading?' disabled':''}>${mlIco("refresh")}</button></header>
     <div class="pm-seg" role="group" aria-label="Mailbox">${boxBtn("inbox","inbox","Inbox",unread,"")}${boxBtn("trash","trash","Trash",0,"")}</div>
@@ -5470,7 +5479,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
         <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
         <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
       <article class="pm-mail"><div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div>
-      <div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>Polaris Airways · To all Polaris pilots</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailFull(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
+      <div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>Polaris Airways · ${sel.to?"To you"+(sel.to.cs?" · "+esc(sel.to.cs):""):"To all Polaris pilots"}</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailFull(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
       <div class="pm-body">${mailMd(sel.body)}</div>
       ${sel.att&&sel.att.length?`<div class="pm-att"><h4>${sel.att.length} attachment${sel.att.length>1?"s":""}</h4><div>${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}<small>${esc(mailKB(a.size))}</small></span></a>`).join("")}</div></div>`:""}</article>`}
   else rdr=`<div class="pm-empty">${mlIco("mail")}<p>No message selected</p><small>${L.length?inbox.length+" in Inbox"+(unread?" · "+unread+" unread":""):"Your Polaris mailbox"}</small></div>`;
@@ -5584,11 +5593,12 @@ function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
   const nt=typeof notiGet==="function"?notiGet():{mail:true};if(!nt.mail)return;if(typeof dndActive==="function"&&dndActive()){dndHold(nw);return}if(nt.sound)try{stChime()}catch(e){}
   if(window.__islOn&&window.__islOn()&&window.islAlert){
     const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
-    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.body).slice(0,90),ms:7000,tap:open});
+    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.body).slice(0,90),ms:7000,tap:open});
     const pill=document.querySelector("#isl .isl");if(pill){pill.classList.remove("pm-n");void pill.offsetWidth;pill.classList.add("pm-n");clearTimeout(mailNotify._t);mailNotify._t=setTimeout(()=>pill.classList.remove("pm-n"),7200)}
     try{navigator.vibrate&&navigator.vibrate([30,60,30])}catch(e){}
   }else toast((more?nw.length+" new messages · ":"New mail · ")+m.subject)}
 document.head.insertAdjacentHTML("beforeend",`<style>
+.pm-to{font:600 10px/1 var(--f-os,system-ui);font-style:normal;letter-spacing:.03em;color:#fff;background:#1A6772;border-radius:7px;padding:3px 6px;margin-left:7px;vertical-align:1px;white-space:nowrap}
 .pm-ic{position:relative;display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:${APPS.mail.bg};flex:none;animation:pmPop .7s cubic-bezier(.3,1.7,.5,1) both,pmWig .55s .75s ease-in-out 2}
 .isx-ic .pm-ic{width:44px;height:44px;border-radius:11px}
 .isx-ic:has(.pm-ic){overflow:visible}

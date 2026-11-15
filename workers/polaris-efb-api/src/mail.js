@@ -1,9 +1,13 @@
 /* ---------- Polaris Mail ----------
    Notices from Polaris staff to the pilots' EFB Mail app. Staff write them on /admin, which Cloudflare Access protects
    (email one-time PIN); every admin request is checked again here against Access's signed token, so the admin stays
-   shut if Access is missing or set up wrongly. For now every mail goes to all pilots (no pilot sign-in yet).
+   shut if Access is missing or set up wrongly. A mail goes to all pilots, or to one pilot (to: { cs, cid, name }, picked
+   on the Live tab): the EFB asks with its flight plan callsign and VATSIM CID and gets the ones meant for it. A callsign
+   matches for 24 hours after the mail goes out (callsigns are reused by the next pilot on that flight), a CID always;
+   the EFB also sends the ids it already has, so a pilot keeps a message after the 24 hours. This is not private: there
+   is no pilot sign-in yet.
 
-   KV (STORE):  mail:v1:index          -> [{ id, t, sendAt, from, subject, body, att:[{ name, type, size }], by, edited }]
+   KV (STORE):  mail:v1:index          -> [{ id, t, sendAt, from, subject, body, att:[{ name, type, size }], to, by, edited }]
                 mail:v1:att:<id>:<n>   -> attachment bytes
    Vars:        ACCESS_TEAM_DOMAIN (e.g. polaris.cloudflareaccess.com), ACCESS_AUD (the Access application's AUD tag),
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
@@ -54,13 +58,18 @@ export async function accessUser(req, env) {
 let memIdx = null; // { at, list } short cache for the public list
 async function readIndex(kv) { const v = await kv.get('mail:v1:index', 'json').catch(() => null); return Array.isArray(v) ? v : []; }
 async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
-const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), edited: m.edited || 0 });
+const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? { cs: m.to.cs || '', cid: m.to.cid || '' } : null, edited: m.edited || 0 });
+const CS_WINDOW = 24 * 3600_000;
 
 /* GET /api/efb/mail: what the pilots' Mail app shows (sent, not scheduled for later) */
 export async function mailPublic(req, env, h) {
   const kv = env && env.STORE; if (!kv) throw new MailError(503, 'Storage is not set up');
   if (!memIdx || Date.now() - memIdx.at > 20000) memIdx = { at: Date.now(), list: await readIndex(kv) };
-  const now = Date.now(), list = memIdx.list.filter((m) => (m.sendAt || m.t) <= now).slice(0, 100).map(pub);
+  /* who is asking: the EFB's flight plan callsign, its VATSIM CID, and the direct messages it already holds */
+  const q = new URL(req.url).searchParams, cs = String(q.get('cs') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  const cid = String(q.get('cid') || '').replace(/\D/g, '').slice(0, 9), have = new Set(String(q.get('ids') || '').split(',').slice(0, 60));
+  const mine = (m) => !m.to || have.has(m.id) || (cid && m.to.cid === cid) || (cs && m.to.cs === cs && Date.now() - (m.sendAt || m.t) < CS_WINDOW);
+  const now = Date.now(), list = memIdx.list.filter((m) => (m.sendAt || m.t) <= now && mine(m)).slice(0, 100).map(pub);
   let hsh = 2166136261; const raw = JSON.stringify(list); for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
   const tag = '"m-' + hsh.toString(36) + '"';
   if ((req.headers.get('If-None-Match') || '') === tag) return new Response(null, { status: 304, headers: { ...h, ETag: tag, 'Cache-Control': 'no-cache' } });
@@ -97,7 +106,7 @@ export async function mailAdmin(req, url, env, opts) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });
-    if (path === '/admin/api/mail' && req.method === 'GET') return jsonRes({ mails: (await readIndex(kv)).map((m) => ({ ...pub(m), sendAt: m.sendAt || m.t, created: m.t, by: m.by || '' })), now: Date.now() });
+    if (path === '/admin/api/mail' && req.method === 'GET') return jsonRes({ mails: (await readIndex(kv)).map((m) => ({ ...pub(m), to: m.to || null, sendAt: m.sendAt || m.t, created: m.t, by: m.by || '' })), now: Date.now() });
     if (path === '/admin/api/mail' && req.method === 'POST') {
       /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
@@ -106,6 +115,13 @@ export async function mailAdmin(req, url, env, opts) {
       if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
       const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
       if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
+      /* one pilot: callsign and/or VATSIM CID (the name is only for staff) */
+      let to = null;
+      if (b.to) {
+        const tcs = String(b.to.cs || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
+        if (!tcs && !tcid) throw new MailError(400, "Add the pilot's callsign or VATSIM CID");
+        to = { cs: tcs, cid: tcid, name: clean(b.to.name, 60).trim() };
+      }
       let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
       if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent
       const id = old ? old.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -124,7 +140,7 @@ export async function mailAdmin(req, url, env, opts) {
       }
       for (let i = 0; i < files.length; i++) if (files[i].bytes) await kv.put('mail:v1:att:' + id + ':' + i, files[i].bytes);
       for (let i = files.length; i < ((old && old.att) || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
-      const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: files.filter((f) => f.bytes).map((f) => f.meta), by: old ? old.by : who };
+      const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: files.filter((f) => f.bytes).map((f) => f.meta), to, by: old ? old.by : who };
       if (old) { m.edited = Date.now(); m.editedBy = who; }
       await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
       return jsonRes({ ok: true, mail: pub(m) });

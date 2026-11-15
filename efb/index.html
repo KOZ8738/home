@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0631">
+<meta name="efb-build" content="1115.0647">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5547,6 +5547,237 @@ html.a11y-rm *,html.a11y-rm *::before,html.a11y-rm *::after{animation-duration:.
 .st-range input{flex:1;accent-color:var(--brand);height:28px}
 .st-range output{min-width:38px;text-align:right;color:var(--label);font:500 14px var(--f-ui)}
 .st-warn{background:color-mix(in srgb,#FF9F0A 14%,var(--panel))}
+</style>`);
+
+/* ===== Loadsheet, second edition: planned (OFP) against actual for every load, last-minute-change (LMC) limits, an
+   airline-style loadsheet document with edition numbers, a load-and-trim chart drawn like a real one (index scale with
+   slanted %MAC lines, separate ZFW and take-off limits), an aircraft-shaped seat map, and tank capacities with fuel SG. */
+
+/* airframe extras: overall length, wing / tailplane outline (x in metres from the nose: root LE, root TE, tip LE, tip
+   chord), engine x, ZFW limits, index constants (reference at 25 % MAC), crew, LMC limit */
+/* ACDB is declared further down the page, so the extras are added on first use */
+function ldX(){if(ACDB.A21N.len)return;Object.assign(ACDB.A21N,{len:44.5,wing:[16.9,23.6,26.0,1.6],stab:[38.6,42.4,41.6,1.5],eng:[13.6,18.4],
+  envZ:[[16,47000],[18,60000],[21,75600],[38,75600],[39,60000],[39,47000]],ixC:1000,ixK:50,crew:"2/5",lmc:500,sg:0.785});
+Object.assign(ACDB.A359,{len:66.8,wing:[25.2,36.6,45.0,2.4],stab:[57.4,63.2,62.6,1.8],eng:[20.6,27.4],
+  envZ:[[17,130000],[19,180000],[22,195700],[39,195700],[41,180000],[41,130000]],ixC:4000,ixK:100,crew:"2/10",lmc:1500,sg:0.785});}
+const ldCap=ac=>(ldX(),0)+ac.tanks.wing*2+ac.tanks.ctr;
+const ldTrip=()=>toKg(N((ofp.fuel||{}).enroute_burn)||0);
+function inEnvP(env,cg,w){const half=env.length/2,fwd=env.slice(0,half),aft=env.slice(half).reverse();
+  const lim=(arr,w)=>{for(let i=0;i<arr.length-1;i++){const [c1,w1]=arr[i],[c2,w2]=arr[i+1];if(w>=Math.min(w1,w2)&&w<=Math.max(w1,w2))return c1+(c2-c1)*(w-w1)/((w2-w1)||1)}return null};
+  const f=lim(fwd,w),a=lim(aft,w);return f!=null&&a!=null&&cg>=f&&cg<=a}
+
+/* the loads the OFP planned, worked out the same way the Loadsheet first fills itself */
+function ldPlanned(){ldX();const x=O(),ac=AC(),wt=ofp.weights||{};const pax=Math.round(N(wt.pax_count)||0);const seats=seatLayout(ac);const capJ=seats.filter(q=>q.c==="J").length,capY=seats.length-capJ;
+  const J=Math.min(capJ,Math.round(pax*capJ/seats.length)),Y=Math.min(capY,pax-J);const pw=N(wt.pax_weight)||(x.unit==="LB"?220:100);
+  const cargo=Math.max(0,N(wt.cargo)!=null?N(wt.cargo):(N(wt.payload)||0)-pax*pw);const ch=ac.holds,capT=ch[0][2]+ch[1][2];
+  return{ac:acType(),J,Y,pw,fwd:Math.round(cargo*ch[0][2]/capT),aft:Math.round(cargo*ch[1][2]/capT),bulk:0,fuel:N((ofp.fuel||{}).plan_takeoff)||0}}
+
+/* the balance model, now also for a given set of loads; landing fuel is take-off fuel less the trip, so more fuel
+   on board also shows in the landing weight */
+{const _lc=ldCalc;ldCalc=function(st){ldX();let L;if(st){const keep=ldState;ldState=()=>Object.assign({},keep(),st);try{L=_lc()}finally{ldState=keep}}else L=_lc();
+  const ac=L.ac,trip=ldTrip(),lf=Math.max(0,L.tof-trip),fArm={w:ac.tanks.xw/ac.mac*100+31,c:ac.tanks.xc/ac.mac*100+31};const sp=fuelSplit(lf,ac),m=(sp.l+sp.r)*fArm.w+sp.c*fArm.c;
+  L.lw=L.zfw+lf;L.lcg=(L.zfw*L.zcg+m)/L.lw;L.trip=trip;L.lf=lf;
+  const allowed=[[ac.mzfw+L.tof,"Z"],[ac.mtow,"T"],[ac.mlw+trip,"L"]].sort((a,b)=>a[0]-b[0])[0];L.under=allowed[0]-L.tow;L.limit=allowed[1];
+  L.zOk=inEnvP(ac.envZ,L.zcg,L.zfw)&&L.zfw<=ac.mzfw;L.tOk=inEnvP(ac.env,L.tcg,L.tow)&&L.tow<=ac.mtow;L.lOk=inEnvP(ac.env,L.lcg,L.lw)&&L.lw<=ac.mlw;
+  L.paxKg=L.pax*toKg(L.s.pw);L.dow=L.zfw-L.paxKg-L.cargo;return L}}
+
+/* what changed against a reference (the OFP, or the loadsheet last issued), and whether it is within LMC limits */
+function ldDiff(L,ref,refL){const ac=L.ac,s=L.s,lim=ac.lmc;const d={J:s.J-ref.J,Y:s.Y-ref.Y,pw:toKg(s.pw)-toKg(ref.pw),fwd:toKg(s.fwd||0)-toKg(ref.fwd||0),aft:toKg(s.aft||0)-toKg(ref.aft||0),bulk:toKg(s.bulk||0)-toKg(ref.bulk||0),fuel:toKg(s.fuel)-toKg(ref.fuel)};
+  d.zfw=L.zfw-refL.zfw;d.tow=L.tow-refL.tow;d.any=Object.keys(d).some(k=>Math.abs(d[k])>0.5);d.ok=Math.abs(d.zfw)<=lim&&Math.abs(d.tow)<=lim&&L.zOk&&L.tOk&&L.lOk&&L.under>=0;return d}
+const sgn=(v,unit)=>{const r=Math.round(fromKg(v));return(r>0?"+":r<0?"−":"±")+fmt(Math.abs(r))+(unit?" "+unit:"")};
+const sgnN=v=>(v>0?"+":v<0?"−":"±")+Math.abs(v);
+
+/* ---------- the loadsheet document ---------- */
+const LS_W=40,lsPad=(a,b,w=LS_W)=>{a=String(a);b=String(b);return a+" ".repeat(Math.max(1,w-a.length-b.length))+b};
+function lsText(L,iss,lmcRows){const x=O(),ac=L.ac,u=x.unit==="LB"?"LB":"KG",n=v=>fmt(Math.round(fromKg(v)));const t=new Date(iss.t),z=pad(t.getUTCHours())+pad(t.getUTCMinutes())+"Z";
+  const mon=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][t.getUTCMonth()],s=L.s;
+  const lines=[lsPad("LOADSHEET FINAL "+z,"EDNO "+String(iss.ed).padStart(2,"0")),"",
+    lsPad(`${x.flight}/${pad(t.getUTCDate())}${mon}${String(t.getUTCFullYear()).slice(2)}`,`${S(x.o.icao_code)} ${S(x.d.icao_code)}`),
+    lsPad(`${ac.name.toUpperCase()} ${S(x.ac.reg)||"-"}`,`CREW ${ac.crew}`),lsPad("ALL WEIGHTS IN "+u,""),"",
+    lsPad("LOAD IN COMPARTMENTS",n(L.cargo)),`  FWD/${n(toKg(s.fwd||0))} AFT/${n(toKg(s.aft||0))} BULK/${n(toKg(s.bulk||0))}`,
+    lsPad("PASSENGER/CABIN BAG",n(L.paxKg)),`  ${s.J}/${s.Y}  TTL ${L.pax}  @${(+(+s.pw).toFixed(1))}`,
+    lsPad("TOTAL TRAFFIC LOAD",n(L.cargo+L.paxKg)),lsPad("DRY OPERATING WEIGHT",n(L.dow)),"",
+    lsPad("ZERO FUEL WEIGHT ACTUAL",n(L.zfw)),lsPad("  MAX "+n(ac.mzfw),L.limit==="Z"?"L":"",LS_W),
+    lsPad("TAKE OFF FUEL",n(L.tof)),"",lsPad("TAKE OFF WEIGHT ACTUAL",n(L.tow)),lsPad("  MAX "+n(ac.mtow),L.limit==="T"?"L":"",LS_W),
+    lsPad("TRIP FUEL",n(L.trip)),"",lsPad("LANDING WEIGHT ACTUAL",n(L.lw)),lsPad("  MAX "+n(ac.mlw),L.limit==="L"?"L":"",LS_W),"",
+    lsPad("UNDERLOAD BEFORE LMC",n(Math.max(0,L.under))),L.under<0?"  *** OVERLOAD "+n(-L.under)+" ***":"","",
+    "BALANCE AND SEATING CONDITIONS",lsPad("MACZFW "+L.zcg.toFixed(1),"MACTOW "+L.tcg.toFixed(1)),lsPad("MACLAW "+L.lcg.toFixed(1),"STAB TO "+thsTxt(L.tcg)),
+    lsPad("SEATING CONDITION","J"+s.J+" Y"+s.Y),""];
+  if(lmcRows&&lmcRows.length){lines.push("LMC","DEST  SPEC          CL/CPT  + -  WEIGHT");lmcRows.forEach(r=>lines.push(r));lines.push("");}
+  lines.push(lsPad("PREPARED BY",(vam.user||"POLARIS EFB").toUpperCase()),"SIMULATOR USE ONLY","END");
+  return lines.filter((l,i,a)=>!(l===""&&a[i-1]==="")).join("\n")}
+/* LMC lines for changes since the issued loadsheet, inside the limit */
+function lsLmc(L,d){const x=O(),dst=S(x.d.icao_code),n=v=>fmt(Math.abs(Math.round(fromKg(v))));const rows=[];const pk=toKg(L.s.pw);
+  const row=(spec,cl,v)=>rows.push(`${dst.padEnd(6)}${spec.padEnd(14)}${cl.padEnd(8)}${v>=0?"+":"-"}    ${n(v)}`);
+  if(d.J)row("PAX","J",d.J*pk);if(d.Y)row("PAX","Y",d.Y*pk);if(Math.abs(d.fwd)>.5)row("CARGO","FWD",d.fwd);if(Math.abs(d.aft)>.5)row("CARGO","AFT",d.aft);if(Math.abs(d.bulk)>.5)row("CARGO","BULK",d.bulk);if(Math.abs(d.fuel)>.5)row("FUEL","",d.fuel);
+  if(rows.length){rows.push(lsPad("LMC TOTAL "+(d.tow>=0?"+":"-"),n(d.tow)));rows.push(lsPad("MACZFW "+L.zcg.toFixed(1),"MACTOW "+L.tcg.toFixed(1)))}return rows}
+
+function lsModal(text,title){let m=$("#lsModal");if(!m){m=document.createElement("div");m.id="lsModal";m.className="ls-modal";screenEl.appendChild(m)}
+  m.innerHTML=`<div class="ls-sheet" role="dialog" aria-label="${esc(title)}"><div class="ls-mh"><b>${esc(title)}</b><span><button class="btn sm" data-lscopy>Copy</button><button class="btn sm" data-lsclose>Close</button></span></div><pre class="ls-pre">${esc(text)}</pre></div>`;m.hidden=false;m._text=text}
+document.addEventListener("click",e=>{const m=$("#lsModal");if(!m||m.hidden)return;if(e.target.closest("[data-lsclose]")||e.target===m){m.hidden=true;return}
+  if(e.target.closest("[data-lscopy]")){(navigator.clipboard?navigator.clipboard.writeText(m._text):Promise.reject()).then(()=>toast("Loadsheet copied"),()=>toast("Copy isn’t allowed here; select the text instead"))}});
+
+/* ---------- load-and-trim chart: weight against index, with slanted %MAC lines ---------- */
+envSvg=function(L){ldX();const ac=L.ac,W=440,H=360,l=44,r=16,t=26,b=34;const ix=(c,w)=>w*(ac.mac*(c-25)/100)/ac.ixC+ac.ixK;
+  const ixs=ac.env.concat(ac.envZ).map(p=>ix(p[0],p[1])),i0=Math.floor((Math.min(...ixs)-14)/10)*10,i1=Math.ceil((Math.max(...ixs)+14)/10)*10;
+  const X=i=>l+(i-i0)/(i1-i0)*(W-l-r),Y=w=>t+(1-(w-ac.wmin)/(ac.wmax-ac.wmin))*(H-t-b),P=(c,w)=>X(ix(c,w)).toFixed(1)+","+Y(w).toFixed(1);
+  const step=(ac.wmax-ac.wmin)>100000?20000:5000,uw=O().unit==="LB"?"LB":"KG";let g="",top="";
+  for(let w=Math.ceil(ac.wmin/step)*step;w<=ac.wmax;w+=step)g+=`<line class="ev-h" x1="${l}" x2="${W-r}" y1="${Y(w)}" y2="${Y(w)}"/><text class="env-ax" x="${l-5}" y="${Y(w)+3.5}" text-anchor="end">${Math.round(fromKg(w)/1000)}</text>`;
+  for(let i=Math.ceil(i0/20)*20;i<=i1;i+=20)g+=`<text class="env-ax" x="${X(i)}" y="${H-b+14}" text-anchor="middle">${i}</text>`;
+  const pxPer=(X(ix(ac.cmin+1,ac.wmax))-X(ix(ac.cmin,ac.wmax))),every=pxPer>=17?1:pxPer>=9?2:5;
+  for(let c=Math.ceil(ac.cmin);c<=ac.cmax;c++){const maj=c%5===0;g+=`<line class="ev-mac${maj?" maj":""}" x1="${X(ix(c,ac.wmin))}" y1="${Y(ac.wmin)}" x2="${X(ix(c,ac.wmax))}" y2="${Y(ac.wmax)}"/>`;
+    const xt=X(ix(c,ac.wmax));if(c%every===0&&xt>=l+20&&xt<=W-r-4)top+=`<text class="ev-macl" x="${xt}" y="${t-6}" text-anchor="middle">${c}</text>`}
+  /* envelope edges are straight in CG–weight terms, so they are sampled onto the index scale */
+  const path=env=>{const pts=[];for(let k=0;k<env.length;k++){const a=env[k],z=env[(k+1)%env.length];for(let s=0;s<12;s++){const f=s/12;pts.push(P(a[0]+(z[0]-a[0])*f,a[1]+(z[1]-a[1])*f))}}return pts.join(" ")};
+  const labY=[];const lim=(w,lab)=>{let ty=Y(w)-4;if(labY.some(v=>Math.abs(v-ty)<11))ty=Y(w)+11;labY.push(ty);return `<line class="env-lim" x1="${l}" x2="${W-r}" y1="${Y(w)}" y2="${Y(w)}"/><text class="env-lab" x="${l+6}" y="${ty}">${lab} = ${fmt(Math.round(fromKg(w)))} ${uw}</text>`};
+  const mk=(c,w,lab,cls,ok,dy)=>{const x=X(ix(Math.max(ac.cmin,Math.min(ac.cmax,c)),Math.max(ac.wmin,Math.min(ac.wmax,w)))),y=Y(Math.max(ac.wmin,Math.min(ac.wmax,w)));
+    return `<g class="ev-pt ${cls}${ok?"":" bad"}"><circle cx="${x}" cy="${y}" r="7.5"/><path d="M${x-7.5} ${y}H${x+7.5}M${x} ${y-7.5}V${y+7.5}"/><text x="${x+11}" y="${y+(dy||4)}">${lab}</text></g>`};
+  const tag=(a,z,txt,off)=>{const x1=X(ix(a[0],a[1])),y1=Y(a[1]),x2=X(ix(z[0],z[1])),y2=Y(z[1]);const ang=Math.atan2(y2-y1,x2-x1)*180/Math.PI,mx=(x1+x2)/2+off,my=(y1+y2)/2;return `<text class="ev-tag" x="${mx.toFixed(1)}" y="${my.toFixed(1)}" text-anchor="middle" transform="rotate(${ang.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)})">${txt}</text>`};
+  return `<svg class="env" viewBox="0 0 ${W} ${H}" role="img" aria-label="Load and trim chart"><defs><clipPath id="evClip"><rect x="${l}" y="${t}" width="${W-l-r}" height="${H-t-b}"/></clipPath></defs>
+   <rect class="ev-frame" x="${l}" y="${t}" width="${W-l-r}" height="${H-t-b}"/><g clip-path="url(#evClip)">${g.replace(/<text class="env-ax"[^>]*>[^<]*<\/text>/g,"")}
+   <polygon class="ev-to" points="${path(ac.env)}"/><polygon class="ev-zf" points="${path(ac.envZ)}"/>
+   ${lim(ac.mtow,"MTOW")}${lim(ac.mlw,"MLW")}${lim(ac.mzfw,"MZFW")}
+   ${tag(ac.env[0],ac.env[1],"TAKE-OFF LIMITS",-9)}${tag(ac.envZ[0],ac.envZ[1],"ZFW LIMITS",11)}
+   <text class="ev-op" x="${X(ix(28,ac.wmin+(ac.mzfw-ac.wmin)*.3))}" y="${Y(ac.wmin+(ac.mzfw-ac.wmin)*.3)}" text-anchor="middle">OPERATIONAL LIMITS</text>
+   <polyline class="env-path" points="${P(L.zcg,L.zfw)} ${P(L.lcg,L.lw)} ${P(L.tcg,L.tow)}"/>
+   ${mk(L.lcg,L.lw,"LW","lw",L.lOk)}${mk(L.zcg,L.zfw,"ZFW","zf",L.zOk,14)}${mk(L.tcg,L.tow,"TOW","to",L.tOk,-6)}</g>
+   ${(g.match(/<text class="env-ax"[^>]*>[^<]*<\/text>/g)||[]).join("")}
+   ${top}<text class="ev-macl" x="${l-4}" y="${t-6}" text-anchor="end">%MAC</text>
+   <text class="env-ax" x="${(l+W-r)/2}" y="${H-4}" text-anchor="middle">INDEX</text><text class="env-ax" x="11" y="${(t+H-b)/2}" transform="rotate(-90 11 ${(t+H-b)/2})" text-anchor="middle">WEIGHT  ${O().unit==="LB"?"1000 LB":"T"}</text></svg>`};
+
+/* ---------- seat map in the shape of the aircraft, seen from above ---------- */
+seatSvg=function(L){ldX();const ac=L.ac,big=ac===ACDB.A359,W=660,len=ac.len,sx=W/len,fh=big?118:92,wl=big?70:56,H=fh+wl*2+8,cy=H/2,top=cy-fh/2,bot=cy+fh/2;
+  const maxN=Math.max(...[ac.J,ac.Y].map(d=>d.ab.reduce((a,b)=>a+b,0)+d.ab.length-1)),sh=fh*0.86/(maxN+1.2);
+  const X=m=>(m*sx).toFixed(1),nose=ac.cabin[0]*0.72*sx,tailS=(ac.cabin[1]+1.2)*sx,end=W-2;
+  const [wr0,wr1,wt0,wtc]=ac.wing,[sr0,sr1,st0,stc]=ac.stab,[e0,e1]=ac.eng;
+  const wingP=(sgn,root0,root1,tip0,tipc,span)=>{const y0=sgn<0?top+2:bot-2,y1=y0+sgn*span;return `${X(root0)},${y0} ${X(tip0)},${y1} ${X(tip0+tipc)},${y1} ${X(root1)},${y0}`};
+  let s=`<g class="ac-wing"><polygon points="${wingP(-1,wr0,wr1,wt0,wtc,wl)}"/><polygon points="${wingP(1,wr0,wr1,wt0,wtc,wl)}"/>
+    <polygon points="${wingP(-1,sr0,sr1,st0,stc,wl*.48)}"/><polygon points="${wingP(1,sr0,sr1,st0,stc,wl*.48)}"/></g>
+    <g class="ac-eng"><rect x="${X(e0)}" y="${(top-wl*.42-7).toFixed(1)}" width="${((e1-e0)*sx).toFixed(1)}" height="14" rx="6"/><rect x="${X(e0)}" y="${(bot+wl*.42-7).toFixed(1)}" width="${((e1-e0)*sx).toFixed(1)}" height="14" rx="6"/></g>
+    <path class="fus" d="M${nose} ${top}H${tailS}C${tailS+(end-tailS)*.55} ${top} ${end-6} ${cy-fh*.16} ${end} ${cy-2}V${cy+2}C${end-6} ${cy+fh*.16} ${tailS+(end-tailS)*.55} ${bot} ${tailS} ${bot}H${nose}C${nose*0.32} ${bot} 2 ${cy+fh*0.2} 2 ${cy}C2 ${cy-fh*0.2} ${nose*0.32} ${top} ${nose} ${top}Z"/>
+    <path class="ckpt" d="M${(nose*0.42).toFixed(1)} ${cy-fh*0.22}L${(nose*0.78).toFixed(1)} ${cy-fh*0.3}V${cy+fh*0.3}L${(nose*0.42).toFixed(1)} ${cy+fh*0.22}"/>
+    <path class="ac-fin" d="M${X(sr0-1.2)} ${cy}H${X(len-.6)}"/>`;
+  L.seats.forEach((q,i)=>{const def=q.c==="J"?ac.J:ac.Y,tot=q.n+def.ab.length-1,slot=q.col+q.g,y=cy-(tot*sh)/2+slot*sh;const w=(q.c==="J"?ac.J.pitch:1)*((ac.cabin[1]-ac.cabin[0])/(ac.J.rows*ac.J.pitch+ac.Y.rows))*sx*0.72;
+    s+=`<rect class="seat ${q.c}${L.fill.has(i)?" on":""}" x="${(q.x*sx-w/2).toFixed(1)}" y="${(y+sh*0.08).toFixed(1)}" width="${w.toFixed(1)}" height="${(sh*0.84).toFixed(1)}" rx="1.5"/>`});
+  return `<svg class="seats acmap" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cabin seat map, ${L.pax} passengers boarded">${s}</svg>`};
+
+/* ---------- the Loadsheet app ---------- */
+function ldRef(s){/* reference for changes: the issued loadsheet if there is one, otherwise the OFP */return s.iss?{ref:s.iss.snap,lab:"EDNO "+String(s.iss.ed).padStart(2,"0"),issued:true}:{ref:ldPlanned(),lab:"OFP",issued:false}}
+function ldLmcHtml(L){const s=L.s,{ref,lab,issued}=ldRef(s),RL=ldCalc(ref),d=ldDiff(L,ref,RL),u=O().unit==="LB"?"lb":"kg",lim=fmt(Math.round(fromKg(L.ac.lmc)));
+  const parts=[Math.abs(d.zfw)>.5?"ZFW "+sgn(d.zfw,u):"",Math.abs(d.tow)>.5?"TOW "+sgn(d.tow,u):""].filter(Boolean).join(" · ");
+  if(!L.zOk||!L.tOk||!L.lOk||L.under<0)return `<div class="ld-lmc bad"><b>Outside limits</b><span>${L.under<0?"Overload of "+fmt(Math.round(fromKg(-L.under)))+" "+u+" ("+{Z:"zero fuel",T:"take-off",L:"landing"}[L.limit]+" weight limit). ":""}${!L.zOk||!L.tOk||!L.lOk?"A centre of gravity is outside its envelope. ":""}Change the load before issuing a loadsheet.</span></div>`;
+  if(!d.any)return `<div class="ld-lmc ok"><b>${issued?"Matches loadsheet "+lab:"As planned in the OFP"}</b><span>${issued?"No changes since it was issued.":"The loads are the ones SimBrief planned."}</span></div>`;
+  if(d.ok)return `<div class="ld-lmc ok"><b>${parts} against ${lab}</b><span>Within last-minute-change limits (±${lim} ${u}).${issued?" The changes go on the loadsheet as LMC.":" The OFP performance figures still hold."}</span></div>`;
+  return `<div class="ld-lmc warn"><b>${parts} against ${lab}</b><span>More than the last-minute-change limit (±${lim} ${u}). ${issued?"Issue a new loadsheet, and ":""}<a href="#perf">recalculate take-off performance</a>.</span></div>`}
+function ldDocHtml(L){const s=L.s;if(!s.iss)return `<p class="ld-dn">No loadsheet issued for this flight yet.</p><div class="row"><button class="btn pri" data-lsact="issue"${!L.zOk||!L.tOk||!L.lOk||L.under<0?" disabled":""}>Issue loadsheet</button></div>`;
+  const {ref}=ldRef(s),d=ldDiff(L,ref,ldCalc(ref)),t=new Date(s.iss.t),z=pad(t.getUTCHours())+pad(t.getUTCMinutes())+"Z";
+  const stale=d.any&&!d.ok,lmc=d.any&&d.ok;
+  return `<p class="ld-dn"><b>EDNO ${String(s.iss.ed).padStart(2,"0")}</b> · issued ${z}${lmc?" · with LMC":""}${stale?' · <span class="c-amber">out of date</span>':""}</p>
+   <div class="row"><button class="btn${stale?" pri":""}" data-lsact="issue"${!L.zOk||!L.tOk||!L.lOk||L.under<0?" disabled":""}>${stale?"Issue new loadsheet":"Reissue"}</button><button class="btn${stale?"":" pri"}" data-lsact="view">View</button><button class="btn" data-lsact="copy">Copy</button><button class="btn" data-lsact="log">Save to logbook</button></div>`}
+function ldCurText(L){const s=L.s;if(!s.iss)return "";const {ref}=ldRef(s),d=ldDiff(L,ref,ldCalc(ref));
+  /* within LMC: the issued figures stand and the changes are listed; beyond it the text is the issued edition as it was */
+  if(d.any&&d.ok)return lsText(ldCalc(ref),s.iss,lsLmc(L,d));return s.iss.text}
+const ldRow=(k,label,plan,act,diff,extra)=>`<div class="pa-r" data-k="${k}"><span class="pa-l">${label}</span><span class="pa-p">${plan}</span><span class="pa-a">${act}</span><span class="pa-d" id="ldd-${k}">${diff||""}</span>${extra||""}</div>`;
+function ldDiffChip(v,isN){if(Math.abs(v)<.5)return "";return `<i class="${v>0?"up":"dn"}">${isN?sgnN(Math.round(v)):sgn(v)}</i>`}
+/* the first Loadsheet view is set further down the page; this one stays in its place */
+const ldView2=()=>{const L=ldCalc(),x=O(),u=x.unit,ac=L.ac,s=L.s;const capJ=L.seats.filter(q=>q.c==="J").length,capY=L.seats.length-capJ;const pl=ldPlanned(),uu=u==="LB"?"lb":"kg";
+  const pd=k=>ldDiffChip(k==="pw"?toKg(s.pw)-toKg(pl.pw):k==="J"||k==="Y"?s[k]-pl[k]:toKg(s[k]||0)-toKg(pl[k]||0),k==="J"||k==="Y",uu);
+  const num=(k,v,max,stepv)=>`<input type="number" min="0"${max!=null?` max="${max}"`:""}${stepv?` step="${stepv}"`:""} data-ld="${k}" value="${v}" aria-label="${k}">`;
+  const cap=ldCap(ac),sg=+s.sg||ac.sg,fuelOver=toKg(s.fuel)>cap;
+  return `<section class="panel"><div class="ph"><span>Passengers · capacity ${L.seats.length} (${capJ} J / ${capY} Y)</span><span id="ldPax">${ldPaxTxt(L)}</span></div>
+    <div class="pb seatbox" id="ldSeats">${seatSvg(L)}</div>
+    <div class="pa"><div class="pa-r pa-h"><span></span><span>Planned</span><span>Actual</span><span></span></div>
+     ${ldRow("J","Business",fmt(pl.J),num("J",s.J,capJ),pd("J"))}${ldRow("Y","Economy",fmt(pl.Y),num("Y",s.Y,capY),pd("Y"))}
+     ${ldRow("pw","Weight each "+uu,(+(+pl.pw).toFixed(1)),num("pw",+(+s.pw).toFixed(1),null,"0.1"),pd("pw"))}
+     <div class="pa-btns"><button class="btn sm" data-ldact="board">Board as planned</button><button class="btn sm" data-ldact="empty">Deboard</button></div></div></section>
+  <div class="pf-grid">
+   <section class="panel"><div class="ph"><span>Load and trim</span><span>${esc(ac.name)} · ${esc(S(x.ac.reg))}</span></div><div class="pb envbox" id="ldEnv">${envSvg(L)}</div>
+    <div class="cells" id="ldCells">${ldCells(L)}</div><div class="pb" id="ldLmc">${ldLmcHtml(L)}</div><div class="pb note">Figures update live. Simplified balance model for simulator use only.</div></section>
+   <div class="pf-r">
+    <section class="panel"><div class="ph"><span>Cargo · capacity ${fmt(Math.round(fromKg(ac.holds.reduce((a,h)=>a+h[2],0))))} ${uu}</span><span>${u}</span></div>
+     <div class="pa"><div class="pa-r pa-h pa-hold"><span></span><span>Planned</span><span>Loaded</span><span></span></div>
+     ${ac.holds.map((h,i)=>{const k=["fwd","aft","bulk"][i],v=toKg(s[k]||0);return ldRow(k,`${h[0]} <small>/ ${fmt(Math.round(fromKg(h[2])))}</small>`,fmt(pl[k]||0),num(k,s[k]||0),pd(k),`<span class="hbar pa-bar"><i style="width:${Math.min(100,v/h[2]*100).toFixed(1)}%" class="${v>h[2]?"over":""}"></i></span>`)}).join("")}</div></section>
+    <section class="panel"><div class="ph"><span>Fuel · usable ${fmt(Math.round(fromKg(cap)))} ${uu}</span><span>SG ${sg.toFixed(3)}</span></div>
+     <div class="pa"><div class="pa-r pa-h"><span></span><span>Planned</span><span>In tanks</span><span></span></div>
+      ${ldRow("fuel","Take-off fuel",fmt(pl.fuel),num("fuel",s.fuel),pd("fuel"))}
+      ${ldRow("sg","Specific gravity",ac.sg.toFixed(3),num("sg",sg.toFixed(3),null,"0.001"),"")}
+      <p class="pa-note" id="ldFuelNote">${ldFuelNote(L)}</p></div>
+     <div class="pb" id="ldFuel">${fuelSvg(L)}</div></section>
+    <section class="panel"><div class="ph"><span>Loadsheet</span><span>${esc(x.flight)}</span></div><div class="pb" id="ldDoc">${ldDocHtml(L)}</div></section>
+    <div class="row"><button class="btn" data-ldact="reset">Reset to OFP</button><a class="btn pri" href="#perf">Performance ▶</a></div>
+   </div></div>`};
+Object.defineProperty(V,"load",{get(){return ldView2},set(v){},configurable:true,enumerable:true});
+function ldFuelNote(L){const ac=L.ac,s=L.s,sg=+s.sg||ac.sg,kg=L.tof,cap=ldCap(ac);const lt=kg/sg;
+  return `${fmt(Math.round(lt))} L · ${fmt(Math.round(lt/3.78541))} US gal · ${Math.round(kg/cap*100)}% of usable${kg>cap?' · <span class="c-red">more than the tanks hold</span>':""}`}
+ldCells=function(L){const ac=L.ac;const c=(k,v,lim)=>cell(k,fmt(fromKg(v)),lim!=null&&v>lim?"c-red":"");const cg=(k,v,ok)=>cell(k,v.toFixed(1),ok?"c-green":"c-red");
+  return c("ZFW",L.zfw,ac.mzfw)+cg("MACZFW %",L.zcg,L.zOk)+c("TOW",L.tow,ac.mtow)+cg("MACTOW %",L.tcg,L.tOk)+c("LW",L.lw,ac.mlw)+cg("MACLAW %",L.lcg,L.lOk)+cell("THS",thsTxt(L.tcg))+cell("Payload",fmt(fromKg(L.cargo+L.paxKg)))+cell("Underload",L.under<0?"−"+fmt(fromKg(-L.under)):fmt(fromKg(L.under)),L.under<0?"c-red":"")+cell("Limited by",{Z:"MZFW",T:"MTOW",L:"MLW"}[L.limit])};
+ldPaxTxt=function(L){return `<b>${L.pax}</b> boarded · planned ${fmt(N((ofp.weights||{}).pax_count))}`};
+ldRefresh=function(){const L=ldCalc(),pl=ldPlanned(),s=L.s,uu=O().unit==="LB"?"lb":"kg";
+  const set=(id,h)=>{const e=$("#"+id);if(e)e.innerHTML=h};set("ldEnv",envSvg(L));set("ldCells",ldCells(L));set("ldSeats",seatSvg(L));set("ldFuel",fuelSvg(L));set("ldPax",ldPaxTxt(L));set("ldLmc",ldLmcHtml(L));set("ldDoc",ldDocHtml(L));set("ldFuelNote",ldFuelNote(L));
+  ["J","Y"].forEach(k=>set("ldd-"+k,ldDiffChip(s[k]-pl[k],true)));set("ldd-pw",ldDiffChip(toKg(s.pw)-toKg(pl.pw),false,uu));
+  ["fwd","aft","bulk","fuel"].forEach(k=>set("ldd-"+k,ldDiffChip(toKg(s[k]||0)-toKg(pl[k]||0),false,uu)));
+  document.querySelectorAll('.pa-r[data-k] .pa-bar i').forEach(b=>{const k=b.closest(".pa-r").dataset.k,i=["fwd","aft","bulk"].indexOf(k),c=L.ac.holds[i][2],v=toKg(s[k]||0);b.style.width=Math.min(100,v/c*100).toFixed(1)+"%";b.className=v>c?"over":""})};
+
+/* issue, view, copy, and keep the loadsheet with the logbook entry for this flight */
+function lsPendKey(f,d,a){return [f,d,a].map(v=>String(v||"").toUpperCase()).join("|")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-lsact]");if(!b||cur!=="load")return;const x=O(),key="ld:"+x.id,s=ldState(),a=b.dataset.lsact;
+  if(a==="issue"){const L=ldCalc();const iss={ed:(s.ed||0)+1,t:Date.now(),snap:{J:s.J,Y:s.Y,pw:s.pw,fwd:s.fwd||0,aft:s.aft||0,bulk:s.bulk||0,fuel:s.fuel}};iss.text=lsText(L,iss,[]);s.ed=iss.ed;s.iss=iss;store.set(key,s);render();lsModal(iss.text,"Loadsheet EDNO "+String(iss.ed).padStart(2,"0"));return}
+  const L=ldCalc(),txt=ldCurText(L);if(!txt)return;
+  if(a==="view")lsModal(txt,"Loadsheet EDNO "+String(s.iss.ed).padStart(2,"0"));
+  else if(a==="copy")(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Loadsheet copied"),()=>{lsModal(txt,"Loadsheet");toast("Select the text to copy it")});
+  else if(a==="log"){const log=store.get("log",[]),f=x.flight,d=S(x.o.icao_code),r=S(x.d.icao_code);const e2=log.slice().reverse().find(q=>lsPendKey(q.flight,q.dep,q.arr)===lsPendKey(f,d,r));
+    if(e2){e2.ls=txt;store.set("log",log);toast("Loadsheet added to your logbook entry")}
+    else{const p=store.get("lsPend",{});p[lsPendKey(f,d,r)]={text:txt,t:Date.now()};Object.keys(p).forEach(k=>{if(Date.now()-p[k].t>4*86400000)delete p[k]});store.set("lsPend",p);toast("Kept: it joins the logbook entry when you log this flight")}}});
+/* a new logbook entry picks up a loadsheet kept for the same flight */
+{const _set=store.set.bind(store);store.set=function(k,v){if(k==="log"&&Array.isArray(v)){const p=store.get("lsPend",{});let used=false;
+  v.forEach(q=>{if(q.ls)return;const kk=lsPendKey(q.flight,q.dep,q.arr);if(p[kk]){q.ls=p[kk].text;delete p[kk];used=true}});if(used)_set("lsPend",p)}return _set(k,v)}}
+/* the logbook shows a Loadsheet button on entries that have one */
+{const _lb=V.logbook;V.logbook=function(){let h=_lb.apply(this,arguments);const log=store.get("log",[]);
+  log.forEach(q=>{if(!q.ls)return;h=h.replace(`<button class="btn sm" data-del="${q.id}"`,`<button class="btn sm" data-lsview="${q.id}">Loadsheet</button><button class="btn sm" data-del="${q.id}"`)});return h}}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-lsview]");if(!b)return;const q=store.get("log",[]).find(z=>String(z.id)===b.dataset.lsview);if(q&&q.ls)lsModal(q.ls,"Loadsheet · "+(q.flight||""))});
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.pa{padding:6px 16px 14px;display:flex;flex-direction:column}
+.pa-r{display:grid;grid-template-columns:minmax(70px,1.2fr) minmax(44px,.7fr) minmax(84px,150px) minmax(58px,auto);gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);position:relative}
+.pa-r:last-of-type{border-bottom:0}
+.pa-h{font:500 10px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--label);padding:4px 0 6px}
+.pa-l{font:500 13.5px var(--f-ui);color:var(--ink);min-width:0}.pa-l small{color:var(--label);font:500 11px var(--f-mono);white-space:nowrap}
+.pa-p{font:500 14px var(--f-mono);color:var(--label)}
+.pa-a input{width:100%;box-sizing:border-box;padding-left:8px;padding-right:4px;font-size:14px}
+.pa-d{text-align:right;white-space:nowrap}.pa-d i{font:600 11.5px var(--f-mono);font-style:normal;padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan)}
+.pa-d i.dn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
+.pa-bar{position:absolute;left:0;right:0;bottom:-1px;height:3px!important;border:0!important;border-radius:0!important;background:transparent!important}
+.pa-btns{display:flex;gap:8px;justify-content:flex-end;padding-top:10px}
+.pa-note{margin:8px 0 0;color:var(--label);font:500 12px var(--f-mono)}
+.ld-lmc{display:flex;flex-direction:column;gap:3px;padding:10px 14px;border-radius:8px;border-left:3px solid var(--green);background:color-mix(in srgb,var(--green) 9%,transparent);font-size:13px}
+.ld-lmc b{font:600 13.5px var(--f-ui)}.ld-lmc span{color:var(--label)}.ld-lmc a{color:var(--accent)}
+.ld-lmc.warn{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 11%,transparent)}.ld-lmc.warn b{color:var(--amber)}
+.ld-lmc.bad{border-color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent)}.ld-lmc.bad b{color:var(--red)}
+.ld-dn{margin:0 0 10px;color:var(--label);font-size:13px}.ld-dn b{color:var(--ink);font-family:var(--f-mono)}
+#ldDoc .row{flex-wrap:wrap}
+svg.env{max-height:400px}
+.ev-frame{fill:none;stroke:var(--ink);stroke-opacity:.55;stroke-width:1.2}
+.ev-h{stroke:var(--line);stroke-width:.6}
+.ev-mac{stroke:var(--ink);stroke-opacity:.16;stroke-width:.7}.ev-mac.maj{stroke-opacity:.34}
+.ev-macl{fill:var(--label);font:600 9.5px var(--f-mono)}
+.ev-to{fill:none;stroke:var(--ink);stroke-width:1.5;stroke-dasharray:6 4;stroke-opacity:.8}
+.ev-zf{fill:color-mix(in srgb,var(--green) 9%,transparent);stroke:var(--green);stroke-width:1.6}
+.ev-tag{fill:var(--label);font:600 8.5px var(--f-ui);letter-spacing:.12em}
+.ev-op{fill:var(--label);font:600 10px var(--f-ui);letter-spacing:.14em;opacity:.75}
+.ev-pt circle{stroke:#fff;stroke-width:1.4}.ev-pt path{stroke:#fff;stroke-width:1.4}.ev-pt text{font:700 10.5px var(--f-mono);fill:var(--ink)}
+.ev-pt.zf circle{fill:var(--cyan)}.ev-pt.to circle{fill:var(--amber)}.ev-pt.lw circle{fill:var(--green)}
+.ev-pt.bad circle{fill:var(--red)}
+svg.seats.acmap{max-height:210px}
+.ac-wing polygon{fill:color-mix(in srgb,var(--panel-2) 70%,var(--line));stroke:var(--label);stroke-width:1}
+.ac-eng rect{fill:var(--panel-2);stroke:var(--label);stroke-width:1}
+.ac-fin{stroke:var(--label);stroke-width:2.2;stroke-linecap:round}
+.ls-modal{position:absolute;inset:0;z-index:60;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:20px}
+.ls-modal[hidden]{display:none}
+.ls-sheet{width:min(520px,100%);max-height:90%;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.ls-mh{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}.ls-mh span{display:flex;gap:8px}
+.ls-pre{margin:0;padding:18px 20px;overflow:auto;font:500 12.5px/1.5 var(--f-mono);color:var(--ink);background:color-mix(in srgb,var(--panel-2) 60%,var(--panel));white-space:pre;user-select:text;-webkit-user-select:text}
+.pf-r .pa-r{grid-template-columns:minmax(58px,1fr) minmax(58px,auto) minmax(78px,110px) minmax(48px,auto);gap:8px}.pa-h span{white-space:nowrap}.pf-r .pa-h{letter-spacing:.08em;font-size:9.5px}
+@container screen (max-width:640px){.pa-r,.pf-r .pa-r{grid-template-columns:minmax(0,1.2fr) minmax(40px,.7fr) minmax(74px,1fr) 56px;gap:6px}.ls-pre{font-size:11px;padding:14px}}
 </style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */

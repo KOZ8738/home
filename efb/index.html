@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0745">
+<meta name="efb-build" content="1115.0809">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6013,6 +6013,17 @@ svg.seats.acmap{max-height:210px}
 .pf-r .pa-r{grid-template-columns:minmax(56px,1fr) minmax(52px,auto) minmax(84px,110px) minmax(44px,auto);gap:8px}.pa-h span{white-space:nowrap}.pf-r .pa-h{letter-spacing:.08em;font-size:9.5px}
 @container screen (max-width:640px){.pa-r,.pf-r .pa-r{grid-template-columns:minmax(0,1.2fr) minmax(40px,.7fr) minmax(74px,1fr) 56px;gap:6px}.ls-pre{font-size:11px;padding:14px}}
 </style>`);
+
+/* ===== Home screen: the apps in the order a flight uses them =====
+   Dock: Flight Plan → Weather → Charts (briefing) → Checklist (cockpit) → Map (in flight) → Logbook (after landing).
+   Home page: Mail (company notices at sign-on) → Dispatch (fetch the plan) → OFP → Loadsheet → Performance →
+   Winter Ops, then the tools: Convert, Clock, Music, Settings. A phone shows the dock's first four; its second page
+   carries the rest of the flight in the same order, its third page the tools. */
+{const set=(arr,ids)=>{arr.splice(0,arr.length,...ids.filter(id=>APPS[id]))};
+  set(DOCK,["ofp","wx","charts","checklist","map","logbook"]);
+  set(PAGE1,["mail","simbrief","ofpdoc","load","perf","winter","convert","timer","music","prefs"]);
+  set(PAGE2,["mail","simbrief","ofpdoc","load","perf","winter","map","logbook"]);
+  set(PAGE3,["convert","timer","music","prefs"])}
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};const TXB=[];

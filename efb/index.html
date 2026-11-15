@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0809">
+<meta name="efb-build" content="1115.0818">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6024,6 +6024,36 @@ svg.seats.acmap{max-height:210px}
   set(PAGE1,["mail","simbrief","ofpdoc","load","perf","winter","convert","timer","music","prefs"]);
   set(PAGE2,["mail","simbrief","ofpdoc","load","perf","winter","map","logbook"]);
   set(PAGE3,["convert","timer","music","prefs"])}
+
+/* Live Clock app icon (iOS-style): local time, sweeping second hand */
+{const CK_N=[12,1,2,3,4,5,6,7,8,9,10,11].map((n,i)=>{const a=i*Math.PI/6,r=7.55;
+    return `<text x="${(12+r*Math.sin(a)).toFixed(2)}" y="${(12-r*Math.cos(a)).toFixed(2)}">${n}</text>`}).join("");
+  const CK_T=Array.from({length:60},(_,i)=>{const a=i*Math.PI/30,o=9.75,l=i%5?.45:.9;
+    return `M${(12+o*Math.sin(a)).toFixed(2)} ${(12-o*Math.cos(a)).toFixed(2)}L${(12+(o-l)*Math.sin(a)).toFixed(2)} ${(12-(o-l)*Math.cos(a)).toFixed(2)}`}).join("");
+  function ckSvg(){const d=new Date(),s=d.getSeconds()+d.getMilliseconds()/1000,m=d.getMinutes()+s/60,h=(d.getHours()%12)+m/60;
+    const dl=(sec)=>`animation-delay:-${sec.toFixed(3)}s`;
+    return `<g class="ck-i"><circle cx="12" cy="12" r="10.4" fill="#fff" stroke="none"/>`+
+      `<path d="${CK_T}" stroke="#8a8a8e" stroke-width=".22" stroke-linecap="butt"/>`+
+      `<g class="ck-n" fill="#111" stroke="none">${CK_N}</g>`+
+      `<g class="ck-h ck-hh" style="${dl(h*3600)}"><path d="M12 13.1V7.2" stroke="#111" stroke-width="1.15"/></g>`+
+      `<g class="ck-h ck-mm" style="${dl(m*60)}"><path d="M12 13.4V3.9" stroke="#111" stroke-width=".85"/></g>`+
+      `<circle cx="12" cy="12" r=".95" fill="#111" stroke="none"/>`+
+      `<g class="ck-h ck-ss" style="${dl(s)}"><path d="M12 14.6V3" stroke="#FF9500" stroke-width=".32"/><circle cx="12" cy="12" r=".62" fill="#FF9500" stroke="none"/></g>`+
+      `<circle cx="12" cy="12" r=".24" fill="#fff" stroke="none"/></g>`}
+  try{Object.defineProperty(APPS.timer,"g",{get:ckSvg,configurable:true})}catch(e){}
+  const st=document.createElement("style");
+  st.textContent=`.icon svg:has(.ck-i){width:90%;height:90%}
+.ck-n text{font:600 2.35px/1 -apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;text-anchor:middle;dominant-baseline:central}
+.ck-h{transform-box:view-box;transform-origin:12px 12px;animation:ckSpin linear infinite}
+.ck-ss{animation-duration:60s}.ck-mm{animation-duration:3600s}.ck-hh{animation-duration:43200s}
+@keyframes ckSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+html.a11y-rm .ck-ss{animation-timing-function:steps(60,end)}
+@media (prefers-reduced-motion:reduce){.ck-ss{animation-timing-function:steps(60,end)}}`;
+  document.head.appendChild(st);
+  /* resync after the tab was hidden or the device slept */
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)return;
+    document.querySelectorAll(".icon svg .ck-i").forEach(g=>{const w=document.createElement("div");w.innerHTML=`<svg>${ckSvg()}</svg>`;g.replaceWith(w.firstChild.firstChild)})});
+}
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};const TXB=[];

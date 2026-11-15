@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.1439">
+<meta name="efb-build" content="1115.2228">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4593,8 +4593,8 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
     main+=UPD_LOG.map(([d,items])=>grp(d===UPD_LOG[0][0]?"What’s new · "+d:d,items.map(x=>r(esc(x),"","")))).join("");
     main+=grp("",[`<button class="st-r st-pick" data-psec="about"><span class="st-l">About</span>${val("Version 2.0")}${stI("chev")}</button>`])}
   else if(psec==="notif"){const ntOk="Notification" in window,den=ntOk&&Notification.permission==="denied";
-    main+=grp("Do Not Disturb",[r("Do Not Disturb","Holds mail and update alerts until you turn it off",sw("data-dnd",store.get("dnd",false)===true,"Do Not Disturb")),
-        r("During flight","Holds them while your flight is airborne, then tells you after landing. Checklist alerts still come through.",sw("data-dnd-flight",store.get("dndFlight",true)!==false,"Do Not Disturb during flight"))],
+    main+=grp("Do Not Disturb",[r("Do Not Disturb","Holds mail, message and update alerts, push notifications included, until you turn it off",sw("data-dnd",store.get("dnd",false)===true,"Do Not Disturb")),
+        r("During flight","Holds them while your flight is airborne, push notifications included, then tells you after landing. Checklist alerts and flight briefings still come through.",sw("data-dnd-flight",store.get("dndFlight",true)!==false,"Do Not Disturb during flight"))],
         dndActive()?(store.get("dnd",false)===true?"Do Not Disturb is on.":"Your flight is airborne: alerts are being held.")+(DND.held.length?` ${DND.held.length} held so far.`:""):"Your flight is found through your vAMSYS live flight, or your VATSIM CID in VATSIM.")
       +(typeof pushSettingsHtml==="function"?pushSettingsHtml({grp,r,sw,act}):"")
       +grp("Alert style",[r("Dynamic Island","Alerts open in the Dynamic Island. When it’s off, a short banner shows at the bottom instead.",sw("data-island",isl,"Dynamic Island"))])
@@ -5758,7 +5758,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 15, 2026",["Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -6219,7 +6219,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test)|crew|crew\/(checkin|checkout)|pirep)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout)|pirep)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -6530,7 +6530,11 @@ async function pushSubscribe(){const reg=await pushReg();if(!reg)throw new Error
   const {key}=await vamGet("/api/efb/push/key");const want=pushU8(key);let sub=await reg.pushManager.getSubscription();
   if(sub){const have=sub.options&&sub.options.applicationServerKey?new Uint8Array(sub.options.applicationServerKey):null;if(have&&(have.length!==want.length||have.some((b,i)=>b!==want[i]))){await sub.unsubscribe().catch(()=>{});sub=null}}
   if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:want});
-  await pmPost("/api/efb/push/sub",{sub:sub.toJSON(),cats:pushCats()});return sub}
+  await pmPost("/api/efb/push/sub",{sub:sub.toJSON(),cats:pushCats(),...pushDndState()});return sub}
+/* Do Not Disturb goes to the server too, so pushes wait while it is on (Settings › Notifications) */
+const pushDndState=()=>({dnd:store.get("dnd",false)===true,dndFlight:store.get("dndFlight",true)!==false});
+async function pushDndSync(){if(!pushOn()||!pushCan()||!authOn())return;try{const reg=await navigator.serviceWorker.getRegistration("./"),sub=reg&&await reg.pushManager.getSubscription();if(sub)await pmPost("/api/efb/push/dnd",{endpoint:sub.endpoint,...pushDndState()})}catch(e){}}
+document.addEventListener("click",e=>{if(e.target.closest("[data-dnd],[data-dnd-flight]"))setTimeout(pushDndSync,50)});
 async function pushEnable(){PUSH.err="";
   if(!pushCan()){PUSH.err=pushWhy();render();return}
   if(!authOn()){PUSH.err="Sign in with vAMSYS first.";render();return}

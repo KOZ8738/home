@@ -10,7 +10,13 @@
    Push messages are encrypted for each device (RFC 8291, aes128gcm) and signed with VAPID (RFC 8292); the push
    services (Apple, Google, Mozilla) see only ciphertext.
 
-   kinds of notification ("cats"): mail (notices, messages, staff replies), brief (check-in and briefings) */
+   kinds of notification ("cats"): mail (notices, messages, staff replies), brief (check-in and briefings)
+
+   Do Not Disturb follows the EFB on each device: the EFB sends its two switches (on now; on while flying) with the
+   subscription and whenever they change. While Do Not Disturb is on, mail pushes for that device are held; "while
+   flying" is decided here, from the vAMSYS flight map (the pilot's flight is airborne) or VATSIM (the pilot's CID
+   above 2,500 ft and faster than 120 kt), as the EFB does. When it ends, the device gets one notification:
+   "N messages arrived during your flight". Flight briefings are not held, like checklist alerts in the EFB. */
 
 const DAY = 86_400_000, MIN = 60_000;
 const BATCH = 35;                 // pushes per alarm run (each is one outgoing request)
@@ -88,6 +94,9 @@ export class Crew {
     x('CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, at INTEGER NOT NULL, kind TEXT NOT NULL, u TEXT NOT NULL DEFAULT \'\', data TEXT NOT NULL DEFAULT \'{}\')');
     x('CREATE TABLE IF NOT EXISTS outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, ep TEXT NOT NULL, payload TEXT NOT NULL, ttl INTEGER NOT NULL, tries INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)');
     x("CREATE TABLE IF NOT EXISTS trk (bid TEXT PRIMARY KEY, u TEXT NOT NULL, dep TEXT NOT NULL DEFAULT '', arr TEXT NOT NULL DEFAULT '', t0 INTEGER NOT NULL, t1 INTEGER NOT NULL, seen INTEGER NOT NULL DEFAULT 0, pts TEXT NOT NULL DEFAULT '[]')");
+    for (const c of ['dnd INTEGER NOT NULL DEFAULT 0', 'dndf INTEGER NOT NULL DEFAULT 1']) { try { x('ALTER TABLE subs ADD COLUMN ' + c); } catch (e) {} }
+    x('CREATE TABLE IF NOT EXISTS held (id INTEGER PRIMARY KEY AUTOINCREMENT, ep TEXT NOT NULL, payload TEXT NOT NULL, at INTEGER NOT NULL)');
+    x('CREATE INDEX IF NOT EXISTS held_ep ON held (ep)');
     x('CREATE INDEX IF NOT EXISTS subs_u ON subs (u)'); x('CREATE INDEX IF NOT EXISTS jobs_at ON jobs (at)'); x('CREATE INDEX IF NOT EXISTS trk_u ON trk (u)');
   }
   rows(q, ...b) { return this.sql.exec(q, ...b).toArray(); }
@@ -99,7 +108,8 @@ export class Crew {
   async call(a) {
     switch (a.op) {
       case 'key': return { key: (await this.vapid()).pub };
-      case 'sub': return this.sub(a);
+      case 'sub': { const r = this.sub(a); await this.wake(); return r; }
+      case 'dnd': return this.setDnd(a);
       case 'unsub': this.sql.exec('DELETE FROM subs WHERE ep = ?', String(a.endpoint || '')); return { ok: true };
       case 'unsubAll': this.sql.exec('DELETE FROM subs WHERE u = ?', String(a.u || '')); return { ok: true };
       case 'subGet': { const s = this.one('SELECT u, cats, ok FROM subs WHERE ep = ?', String(a.endpoint || '')); return { sub: s && s.u === a.u ? { cats: s.cats.split(',').filter(Boolean), ok: s.ok } : null }; }
@@ -127,12 +137,47 @@ export class Crew {
     if (!/^https:\/\/[^\s]+$/.test(ep) || ep.length > 1000) throw new CrewError(400, 'Not a push subscription');
     if (!k.p256dh || !k.auth) throw new CrewError(400, 'The subscription has no keys');
     const cats = (Array.isArray(a.cats) ? a.cats : ['mail', 'brief']).filter((c) => c === 'mail' || c === 'brief').join(',');
-    this.sql.exec('INSERT OR REPLACE INTO subs (ep, u, cid, p256dh, auth, cats, at, ok, fails) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT ok FROM subs WHERE ep = ?), 0), 0)',
-      ep, String(a.u), String(a.cid || ''), String(k.p256dh), String(k.auth), cats, Date.now(), ep);
+    const old = this.one('SELECT dnd, dndf FROM subs WHERE ep = ?', ep) || { dnd: 0, dndf: 1 };
+    const dnd = a.dnd != null ? (a.dnd ? 1 : 0) : old.dnd, dndf = a.dndFlight != null ? (a.dndFlight ? 1 : 0) : old.dndf;
+    this.sql.exec('INSERT OR REPLACE INTO subs (ep, u, cid, p256dh, auth, cats, at, ok, fails, dnd, dndf) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT ok FROM subs WHERE ep = ?), 0), 0, ?, ?)',
+      ep, String(a.u), String(a.cid || ''), String(k.p256dh), String(k.auth), cats, Date.now(), ep, dnd, dndf);
     /* at most 6 devices per pilot: the oldest go */
     const L = this.rows('SELECT ep FROM subs WHERE u = ? ORDER BY at DESC', String(a.u));
     for (const x of L.slice(6)) this.sql.exec('DELETE FROM subs WHERE ep = ?', x.ep);
-    return { ok: true, cats: cats.split(',').filter(Boolean) };
+    return { ok: true, cats: cats.split(',').filter(Boolean), dnd: !!dnd, dndFlight: !!dndf };
+  }
+  async setDnd(a) {
+    const r = this.one('SELECT u FROM subs WHERE ep = ?', String(a.endpoint || ''));
+    if (!r || r.u !== String(a.u)) throw new CrewError(404, 'This device is not registered for push');
+    this.sql.exec('UPDATE subs SET dnd = ?, dndf = ? WHERE ep = ?', a.dnd ? 1 : 0, a.dndFlight === false ? 0 : 1, String(a.endpoint));
+    await this.wake();
+    return { ok: true };
+  }
+  /* is this pilot flying right now? (vAMSYS flight map, else VATSIM by CID; each read at most once a minute) */
+  async flying(u, cid) {
+    const now = Date.now();
+    if (!this.fm || now - this.fm.at > 60_000) { let d = null; try { d = (await opsGet(this.env, '/flight-map')).data || []; } catch (e) {} this.fm = { at: now, d: d || (this.fm && this.fm.d) || [] }; }
+    const f = this.fm.d.find((x) => x.pilot && String(x.pilot.username || '').toUpperCase() === u);
+    if (f) { const pr = f.progress || {}; if (/climb|cruise|descent|final|takeoff|airborne|en.?route/i.test(String(pr.currentPhase || pr.phase || ''))) return true; if (+pr.altitude > 2500 && +pr.groundSpeed > 120) return true; }
+    if (!cid) return false;
+    if (!this.vs || now - this.vs.at > 60_000) { let p = null; try { const r = await fetch('https://data.vatsim.net/v3/vatsim-data.json'); if (r.ok) p = ((await r.json()).pilots || []).map((x) => [String(x.cid), x.altitude, x.groundspeed]); } catch (e) {} this.vs = { at: now, p: p || (this.vs && this.vs.p) || [] }; }
+    const v = this.vs.p.find((x) => x[0] === String(cid));
+    return !!(v && v[1] > 2500 && v[2] > 120);
+  }
+  async dndNow(sub) { return !!sub.dnd || (!!sub.dndf && (await this.flying(sub.u, sub.cid))); }
+  /* held mail pushes: one summary per device once its Do Not Disturb has ended */
+  async releaseHeld() {
+    const eps = this.rows('SELECT ep, COUNT(*) AS n, MIN(at) AS t0 FROM held GROUP BY ep');
+    for (const h of eps) {
+      const sub = this.one('SELECT * FROM subs WHERE ep = ?', h.ep);
+      if (!sub) { this.sql.exec('DELETE FROM held WHERE ep = ?', h.ep); continue; }
+      if (await this.dndNow(sub) && Date.now() - h.t0 < DAY) continue;
+      const L = this.rows('SELECT payload FROM held WHERE ep = ? ORDER BY id', h.ep).map((r) => { try { return JSON.parse(r.payload); } catch (e) { return {}; } });
+      this.sql.exec('DELETE FROM held WHERE ep = ?', h.ep);
+      const first = L[0] || {}, n = L.length;
+      const body = JSON.stringify({ title: n > 1 ? n + ' messages arrived while Do Not Disturb was on' : 'A message arrived while Do Not Disturb was on', body: (first.title || '') + (n > 1 ? ' and ' + (n - 1) + ' more' : first.body ? ' — ' + first.body : ''), url: '#mail', tag: 'held', cat: 'mail' });
+      this.sql.exec('INSERT INTO outbox (ep, payload, ttl, tries, at) VALUES (?, ?, ?, 0, ?)', h.ep, body.slice(0, 2000), 6 * 3600, Date.now());
+    }
   }
   /* queue one payload for every matching device; returns how many */
   enqueue(to, c, payload) {
@@ -150,6 +195,7 @@ export class Crew {
     let next = at || Infinity;
     if (ob && ob.n) next = Math.min(next, Date.now() + 50);
     if (nj && nj.at != null) next = Math.min(next, Math.max(Date.now() + 50, nj.at));
+    const hd = this.one('SELECT COUNT(*) AS n FROM held'); if (hd && hd.n) next = Math.min(next, Date.now() + 2 * MIN);
     if (next === Infinity) return;
     const cur = await this.ctx.storage.getAlarm();
     if (cur == null || cur > next || cur < Date.now() - 5000) await this.ctx.storage.setAlarm(next);
@@ -198,6 +244,7 @@ export class Crew {
       this.sql.exec('DELETE FROM jobs WHERE id = ?', j.id);
       try { await this.runJob(j, JSON.parse(j.data || '{}')); } catch (e) { console.warn('[crew job]', j.kind, e && e.message); }
     }
+    try { await this.releaseHeld(); } catch (e) { console.warn('[crew held]', e && e.message); }
     await this.sendBatch();
     await this.wake();
   }
@@ -233,8 +280,16 @@ export class Crew {
     again();
   }
   async sendBatch() {
-    const L = this.rows('SELECT o.*, s.p256dh, s.auth FROM outbox o LEFT JOIN subs s ON s.ep = o.ep ORDER BY o.id LIMIT ?', BATCH);
+    let L = this.rows('SELECT o.*, s.p256dh, s.auth, s.u, s.cid, s.dnd, s.dndf FROM outbox o LEFT JOIN subs s ON s.ep = o.ep ORDER BY o.id LIMIT ?', BATCH);
     if (!L.length) return;
+    /* Do Not Disturb: mail waits (briefings and the held-mail summary itself go out) */
+    const keep = [];
+    for (const o of L) {
+      let cat = ''; try { const p = JSON.parse(o.payload); cat = p.cat === 'mail' && p.tag !== 'held' ? 'mail' : ''; } catch (e) {}
+      if (cat === 'mail' && o.p256dh && (await this.dndNow(o))) { this.sql.exec('INSERT INTO held (ep, payload, at) VALUES (?, ?, ?)', o.ep, o.payload, Date.now()); this.sql.exec('DELETE FROM outbox WHERE id = ?', o.id); }
+      else keep.push(o);
+    }
+    L = keep; if (!L.length) return;
     const keys = await this.vapid();
     await Promise.all(L.map(async (o) => {
       if (!o.p256dh || Date.now() - o.at > o.ttl * 1000) { this.sql.exec('DELETE FROM outbox WHERE id = ?', o.id); return; }
@@ -282,7 +337,8 @@ export async function crewPublic(req, url, env, h, me, deps) {
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new CrewError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new CrewError(400, 'Bad body'); }
     switch (path) {
-      case '/api/efb/push/sub': return res(await crew(env, { op: 'sub', u: me.u, cid: me.c ? String(me.c) : '', sub: b.sub, cats: b.cats }));
+      case '/api/efb/push/sub': return res(await crew(env, { op: 'sub', u: me.u, cid: me.c ? String(me.c) : '', sub: b.sub, cats: b.cats, dnd: b.dnd, dndFlight: b.dndFlight }));
+      case '/api/efb/push/dnd': return res(await crew(env, { op: 'dnd', u: me.u, endpoint: b.endpoint, dnd: !!b.dnd, dndFlight: b.dndFlight !== false }));
       case '/api/efb/push/unsub': return res(await crew(env, { op: 'unsub', endpoint: b.endpoint }));
       case '/api/efb/push/state': return res(await crew(env, { op: 'subGet', u: me.u, endpoint: b.endpoint }));
       case '/api/efb/push/test': return res(await crew(env, { op: 'notify', to: { u: me.u }, cat: b.cat === 'brief' ? 'brief' : 'mail', payload: { title: 'Polaris EFB', body: 'Push notifications are working on this device.', url: '#prefs', tag: 'test' } }));

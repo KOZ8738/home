@@ -1242,7 +1242,7 @@ export default {
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }
     /* Web Push and check-in (see crew.js) */
-    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test)|crew(\/(checkin|checkout))?)\/?$/.test(new URL(req.url).pathname)) {
+    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout))?)\/?$/.test(new URL(req.url).pathname)) {
       const me = await sessionOf(req, env, req.method === 'POST');
       return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u) });
     }

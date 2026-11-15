@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1325">
+<meta name="efb-build" content="1115.1335">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -835,6 +835,16 @@ html.pwa-chin .home .dockwrap{padding-bottom:4px}
 }
 /* inside the home-screen app the page already ends above the home indicator */
 html.pwa-ios .maplayers{bottom:10px!important}
+/* Map app: the chart runs to the bottom edge under the home indicator (like iPadOS Maps) instead
+   of stopping above a solid strip. The indicator floats over the map and the bottom controls are
+   lifted by --mb so they stay clear of it. */
+.screen[data-app="map"] .appwin>main{grid-row:3/5}
+.screen[data-app="map"] .appwin>.homeind{position:absolute;left:0;right:0;bottom:0;height:20px;background:transparent;z-index:6}
+html.pwa-ios .screen[data-app="map"] .appwin{padding-bottom:0;background:var(--bg)}
+html.pwa-ios .screen[data-app="map"] .appwin>.homeind{box-sizing:border-box;height:calc(20px + var(--sab,0px));padding-bottom:var(--sab,0px)}
+.screen[data-app="map"] .mapwrap{--mb:20px}
+html.pwa-ios .screen[data-app="map"] .mapwrap{--mb:calc(20px + var(--sab,0px))}
+.screen[data-app="map"] .mapwrap>:is(.assheet,.radarbar,.mapnote,.mapinfo,.mapattr-i,.mapattr,.pinbar,.gwxleg,.maplayers,.ovpanel,.ovbar){margin-bottom:var(--mb)}
 
 /* ---------- detail pass ---------- */
 /* small buttons and the Performance toggles: readable and easy to hit (the compact Performance style used to leak out to every app) */

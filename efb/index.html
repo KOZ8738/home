@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0532">
+<meta name="efb-build" content="1115.0557">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4511,26 +4511,117 @@ V.simbrief=()=>{const x=O(),u=store.get("sbUser","");const tm=ofp.times||{};
 
 /* ===== Settings ===== */
 let psec=store.get("psec","display");
-V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]);
-  const row=(key,label,sub,btn,disabled)=>`<div class="setrow"><span>${label}<small>${sub}</small></span>${pendingReset===key?`<span class="confirm">Confirm? <button class="btn sm warn" data-reset-yes="${key}">${btn}</button><button class="btn sm" data-reset-no>Cancel</button></span>`:`<button class="btn sm" data-reset="${key}"${disabled?" disabled":""}>${btn}</button>`}</div>`;
-  const secs=[["display","c1","sun","Display",""],["vam","c3","link","vAMSYS",vamOn()?"On":"Off"],["data","c4","db","Data",""],["about","c5","info","About",""]];
-  const side=sideHead(AL().efb,"Settings")+`<nav class="snav">${secs.map(s=>navBtn(`data-psec="${s[0]}"`,psec===s[0],`<span class="si ${s[1]}" style="width:100%;height:100%;border-radius:7px;display:grid;place-items:center">${ico(s[2])}</span>`,s[3],s[4])).join("")}</nav>`;
-  let main="";
-  if(psec==="vam")main=`<span class="sgl">vAMSYS connection</span><div class="sgroup"><div class="card-b" style="display:grid;gap:14px">
-   <div class="fields"><label class="f">EFB server URL<input type="text" inputmode="url" id="vamUrl" placeholder="https://polaris-efb-api.example.workers.dev" value="${esc(vam.url)}"></label><label class="f">vAMSYS username<input type="text" id="vamUser" placeholder="PAW0001" value="${esc(vam.user)}"></label></div>
-   <div class="row"><button class="btn pri" id="vamSave">Save and test</button>${vam.user?'<button class="btn" id="vamOff">Disconnect</button>':""}<span class="note" id="vamMsg">${esc(vamTest)}</span></div></div></div>
-   <span class="sgl">Live checklist push</span><div class="sgroup"><div class="setrow"><span>Push checklists by flight phase<small>Uses your live vAMSYS flight: boarding, taxi, climb, descent, final, taxi in, arrival</small></span><div class="seg" role="group" aria-label="Checklist push"><button data-clauto="0" aria-pressed="${!CLP.on}">Off</button><button data-clauto="1" aria-pressed="${CLP.on}">On</button></div></div>
-   <div class="setrow"><span>Notify when the EFB is in the background<small>${"Notification" in window?(Notification.permission==="denied"?"Blocked in this browser's site settings":"Shows a system notification when a checklist is due"):"Not supported by this browser"}</small></span><div class="seg" role="group" aria-label="Background notifications"><button data-clnotify="0" aria-pressed="${!CLP.notify}">Off</button><button data-clnotify="1" aria-pressed="${CLP.notify}">On</button></div></div></div>
-   <p class="sgf">The server is the Polaris EFB Worker. It holds the vAMSYS API key, so the key never reaches this page. It also serves FAA charts, airport layouts and SIGMETs.</p>`;
-  else if(psec==="data")main=`<span class="sgl">Stored on this device</span><div class="sgroup">${row("plan",ofp._sample?"No OFP loaded":"OFP "+esc(O().flight),"The loaded SimBrief plan","Remove OFP",ofp._sample)}${row("cl","Checklist progress","Ticked items for this flight","Reset",false)}${row("log",log.length+" logbook entr"+(log.length===1?"y":"ies"),"Flights saved on this device","Clear logbook",!log.length)}</div>`;
-  else if(psec==="about")main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">${AL().name}</span><h2>Electronic <em>flight bag</em></h2><p>Version 2.0 · Base KSFO · A321neo and A350-900. For flight simulation only. Not for real-world navigation.</p></section>
-   <span class="sgl">Data sources</span><div class="sgroup">${[["SimBrief","Flight plans (OFP JSON)"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedures charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"]].map(r=>`<div class="setrow"><span>${r[0]}<small>${r[1]}</small></span></div>`).join("")}</div>
-   <span class="sgl">This device</span><div class="sgroup"><div class="setrow"><span>Display<small class="mono">${esc(devInfo())}</small></span></div></div>`;
-  else main=`<span class="sgl">Appearance</span><div class="sgroup"><div class="setrow"><span>Theme<small>Auto follows the system setting</small></span><div class="seg" role="group" aria-label="Appearance">${[["auto","Auto"],["day","Day"],["night","Night"]].map(o=>`<button data-theme-set="${o[0]}" aria-pressed="${t===o[0]}">${o[1]}</button>`).join("")}</div></div>
-   <div class="setrow"><span>Airline<small>Colours, wallpaper and name of the virtual airline</small></span><div class="seg" role="group" aria-label="Airline">${[["paw","Polaris"],["eim","海岸航空"]].map(o=>`<button data-airline-set="${o[0]}" aria-pressed="${store.get("airline","paw")===o[0]}">${o[1]}</button>`).join("")}</div></div>
-   <div class="setrow"><span>Dynamic Island<small>Live flight, music, timers and checklist alerts at the top of the screen</small></span><div class="seg" role="group" aria-label="Dynamic Island"><button data-island="0" aria-pressed="${store.get("island",true)===false}">Off</button><button data-island="1" aria-pressed="${store.get("island",true)!==false}">On</button></div></div>
-   <div class="setrow"><span>Keep screen on<small>Stops the screen from sleeping during a flight</small></span><div class="seg" role="group" aria-label="Keep screen on"><button data-wake="0" aria-pressed="${!wl}">Off</button><button data-wake="1" aria-pressed="${!!wl}">On</button></div></div></div>`;
-  return split(side,main,"",tabbar(secs.map(s=>[`data-psec="${s[0]}"`,psec===s[0],ico(s[2]),s[3]])))};
+/* Settings, laid out like iPadOS Settings: a sidebar with search, the pilot's account and the sections, and on the right
+   a header card for the section and inset grouped lists. Booleans are switches; one-of choices are rows with a check. */
+const ST_I={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
+  link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+  check:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
+  db:'<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',bolt:'<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>',
+  island:'<rect x="4" y="9" width="16" height="6" rx="3"/>',moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',tick:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',chev:'<path d="M9 5l7 7-7 7"/>',plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>'};
+const stI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ST_I[k]}</svg>`;
+const stIc=(k,bg,fill)=>`<span class="st-ic" style="background:${bg}">${fill?`<svg viewBox="0 0 24 24" aria-hidden="true" class="fill">${ST_I[k]}</svg>`:stI(k)}</span>`;
+const ST_SECS=[["display","sun","#0A84FF","Display & Appearance","Theme, airline look, and what stays on screen during a flight.","theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep"],
+  ["vam","link","#30B455","vAMSYS","Connect the EFB to your vAMSYS account for bookings, live flights and PIREPs. The vAMSYS key stays on the Polaris server and never reaches this device.","vamsys account server username pilot connect bookings"],
+  ["cl","check","#FF9F0A","Checklists","The EFB can open the right checklist as your live vAMSYS flight moves from boarding to arrival.","checklist push phase notification live"],
+  ["data","db","#8E8E93","Storage","What the EFB keeps on this device. Nothing here is uploaded.","storage data reset clear logbook ofp plan checklist progress"],
+  ["about","info","#5E5CE6","About","Polaris Airways electronic flight bag, for flight simulation only. Not for real-world navigation.","about version sources device build"]];
+V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store.get("island",true)!==false,air=store.get("airline","paw");
+  if(!ST_SECS.some(s=>s[0]===psec))psec="display";
+  const sw=(attr,on,label)=>`<button class="st-sw" role="switch" aria-checked="${!!on}" aria-label="${label}" ${attr}="${on?0:1}"><i></i></button>`;
+  const grp=(h,rows,foot)=>`${h?`<h4 class="st-gh">${h}</h4>`:""}<div class="st-g">${rows.join("")}</div>${foot?`<p class="st-gf">${foot}</p>`:""}`;
+  const r=(label,sub,right)=>`<div class="st-r"><span class="st-l">${label}${sub?`<small>${sub}</small>`:""}</span>${right||""}</div>`;
+  const pick=(attr,val,on,label,sub)=>`<button class="st-r st-pick" ${attr}="${val}" aria-pressed="${!!on}"><span class="st-l">${label}${sub?`<small>${sub}</small>`:""}</span>${on?stI("tick"):""}</button>`;
+  const reset=(key,label,sub,btn,disabled)=>r(label,sub,pendingReset===key?`<span class="st-cf"><button class="st-tb red" data-reset-yes="${key}">${btn}</button><button class="st-tb" data-reset-no>Cancel</button></span>`:`<button class="st-tb${disabled?"":" red"}" data-reset="${key}"${disabled?" disabled":""}>${btn}</button>`);
+  /* sidebar */
+  let pn=null;if(vamOn()){try{vamLoad("pilot");const d=vamState("pilot").data;pn=d&&d.pilot}catch(e){}}
+  const who=vamOn()?(pn&&pn.name)||vam.user:"Not signed in",ini=!vamOn()?"?":pn&&pn.name?pn.name.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase():vam.user.slice(0,2).toUpperCase();
+  const sub=vamOn()?["vAMSYS account",vam.user!==who?vam.user:"",pn&&pn.rank].filter(Boolean).join(", "):"Connect your vAMSYS account";
+  const nav=(k,ic,bg,label,val,kw,short)=>`<button class="st-n" data-psec="${k}" aria-pressed="${!short&&psec===k}" data-kw="${esc((label+" "+(kw||"")).toLowerCase())}">${stIc(ic,bg,ic==="bolt"||ic==="moon"||ic==="plane")}<span>${label}</span>${val?`<em>${val}</em>`:""}</button>`;
+  const side=`<div class="st-side"><label class="st-search">${stI("search")}<input type="search" id="stSearch" placeholder="Search" autocomplete="off" aria-label="Search settings"></label>
+    <button class="st-me" data-psec="vam" data-kw="account profile vamsys pilot ${esc(who.toLowerCase())}"><span class="st-av">${esc(ini||"?")}</span><span><b>${esc(who)}</b><small>${esc(sub)}</small></span></button>
+    <div class="st-ng">
+      <div class="st-n st-nr" data-kw="keep screen on awake sleep wake">${stIc("bolt","#FF9F0A",1)}<span>Keep screen on</span>${sw("data-wake",!!wl,"Keep screen on")}</div>
+      <div class="st-n st-nr" data-kw="dynamic island live activity">${stIc("island","#1C1C1E",1)}<span>Dynamic Island</span>${sw("data-island",isl,"Dynamic Island")}</div>
+      ${nav("display","moon","#5E5CE6","Appearance",{auto:"Auto",day:"Day",night:"Night"}[t]||"Auto","theme dark light night day",1)}
+    </div>
+    <div class="st-ng">${ST_SECS.map(s=>nav(s[0],s[1],s[2],s[3],s[0]==="vam"?(vamOn()?"On":"Off"):s[0]==="cl"?(CLP.on?"On":"Off"):"",s[5])).join("")}</div>
+    <p class="st-none" hidden>No settings match.</p></div>`;
+  /* section */
+  const S=ST_SECS.find(s=>s[0]===psec);
+  const alN=typeof AL==="function"?AL().name:"Polaris Airways";
+  let main=`<section class="st-hero">${stIc(S[1],S[2])}<h2>${S[3]}</h2><p>${psec==="about"?esc(alN)+" electronic flight bag, for flight simulation only. Not for real-world navigation.":S[4]}</p></section>`;
+  if(psec==="vam")main+=grp("Account",[
+      `<label class="st-r st-in"><span class="st-l">EFB server</span><input type="text" inputmode="url" id="vamUrl" placeholder="https://polaris-efb-api.example.workers.dev" value="${esc(vam.url)}" autocomplete="off" spellcheck="false"></label>`,
+      `<label class="st-r st-in"><span class="st-l">vAMSYS username</span><input type="text" id="vamUser" placeholder="PAW0001" value="${esc(vam.user)}" autocomplete="off" spellcheck="false" autocapitalize="characters"></label>`],
+      `<span id="vamMsg">${esc(vamTest)||"The server is the Polaris EFB Worker. It also serves FAA charts, airport layouts and SIGMETs."}</span>`)
+    +grp("",[`<button class="st-r st-act" id="vamSave">Save and test</button>`].concat(vam.user?[`<button class="st-r st-act red" id="vamOff">Disconnect</button>`]:[]),"");
+  else if(psec==="cl"){const nt="Notification" in window,den=nt&&Notification.permission==="denied";
+    main+=grp("Live checklist push",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
+      r("Notify in the background",!nt?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))],
+      vamOn()?"Uses your live vAMSYS flight.":"Needs a vAMSYS connection. Set it up in vAMSYS.")}
+  else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks also stay on this device.");
+  else if(psec==="about")main+=grp(esc(alN)+" EFB",[r("Version","",`<span class="st-v">2.0</span>`),r("Build","",`<span class="st-v mono">${esc(EFB_BUILD||"—")}</span>`),r("Base","",`<span class="st-v">KSFO · San Francisco</span>`),r("Fleet","",`<span class="st-v">A321neo · A350-900</span>`)])
+      +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",`<span class="st-v">${x[1]}</span>`)))
+      +grp("This device",[r("Display",`<span class="mono">${esc(devInfo())}</span>`,"")]);
+  else main+=grp("Appearance",[pick("data-theme-set","auto",t==="auto","Automatic","Follows the system setting"),pick("data-theme-set","day",t==="day","Day",""),pick("data-theme-set","night",t==="night","Night","")])
+      +grp("Airline",[pick("data-airline-set","paw",air==="paw","Polaris Airways",""),pick("data-airline-set","eim","eim"===air,"海岸航空","")],"Colours, wallpaper and name across the EFB.")
+      +grp("Screen",[r("Dynamic Island","Live flight, music, timers and checklist alerts at the top of the screen",sw("data-island",isl,"Dynamic Island")),r("Keep screen on","Stops the screen from sleeping during a flight",sw("data-wake",!!wl,"Keep screen on"))]);
+  return split(side,main,"st",tabbar(ST_SECS.map(s=>[`data-psec="${s[0]}"`,psec===s[0],stI(s[1]),s[0]==="display"?"Display":s[3]])))};
+/* search: filter the sidebar as you type, without redrawing it */
+document.addEventListener("input",e=>{if(e.target.id!=="stSearch")return;const q=e.target.value.trim().toLowerCase(),side=e.target.closest(".st-side");if(!side)return;let n=0;
+  side.querySelectorAll("[data-kw]").forEach(el=>{const ok=!q||el.dataset.kw.includes(q);el.hidden=!ok;if(ok)n++});
+  side.querySelectorAll(".st-ng").forEach(g=>{g.hidden=![...g.children].some(c=>!c.hidden)});side.querySelector(".st-none").hidden=n>0});
+document.addEventListener("keydown",e=>{if(e.target.id!=="stSearch"||e.key!=="Enter")return;const f=[...e.target.closest(".st-side").querySelectorAll("[data-psec]")].find(b=>!b.hidden);if(f)f.click()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.split.st{grid-template-columns:min(340px,34cqw) minmax(0,1fr)}
+.split.st .side{background:var(--panel);padding:14px 0 24px}
+.split.st .detail>.dwrap{max-width:760px;gap:0}
+.st-side{display:flex;flex-direction:column;gap:18px;padding:0 14px}
+.st-side svg,.st-hero svg,.st-g svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.st-side svg.fill,.st-hero svg.fill{fill:currentColor;stroke:none}
+.st-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-radius:12px;background:var(--panel-2);color:var(--label)}
+.st-search svg{width:17px;height:17px;flex:none}.st-search input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:400 16px var(--f-ui);outline:none;padding:0}
+.st-search input::-webkit-search-cancel-button{filter:grayscale(1)}
+.st-me{display:flex;align-items:center;gap:14px;padding:6px 4px;border:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer;border-radius:12px}
+.st-me:hover{background:var(--panel-2)}
+.st-av{width:56px;height:56px;border-radius:50%;flex:none;display:grid;place-items:center;background:linear-gradient(160deg,#8E8E93,#5B5B60);color:#fff;font:600 21px var(--f-ui);letter-spacing:.02em}
+.st-me b{display:block;font:600 18px/1.25 var(--f-ui)}.st-me small{display:block;margin-top:2px;font-size:13px;color:var(--label);line-height:1.3}
+.st-ng{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:var(--bg)}
+.st-n{display:flex;align-items:center;gap:13px;width:100%;min-height:50px;padding:7px 14px 7px 12px;border:0;background:transparent;color:var(--ink);font:400 16px var(--f-ui);text-align:left;cursor:pointer;position:relative;box-sizing:border-box}
+.st-n+.st-n::after{content:"";position:absolute;left:56px;right:0;top:0;height:1px;background:var(--line)}
+.st-n>span:not(.st-ic){flex:1;min-width:0}.st-n em{font-style:normal;color:var(--label);font-size:15px}
+button.st-n:hover{background:var(--panel-2)}
+button.st-n[aria-pressed="true"]{background:var(--brand);color:#fff}button.st-n[aria-pressed="true"] em{color:rgba(255,255,255,.75)}
+button.st-n[aria-pressed="true"]+.st-n::after,.st-n+button.st-n[aria-pressed="true"]::after{display:none}
+.st-nr{cursor:default}
+.st-ic{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff}.st-ic svg{width:18px;height:18px}
+.st-none{margin:0;padding:0 6px;color:var(--label);font-size:14px}
+.st-sw{position:relative;width:51px;height:31px;flex:none;border:0;border-radius:16px;padding:0;background:color-mix(in srgb,var(--ink) 22%,transparent);cursor:pointer;transition:background .25s}
+.st-sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25),0 0 0 .5px rgba(0,0,0,.06);transition:transform .28s cubic-bezier(.3,1.4,.5,1)}
+.st-sw[aria-checked="true"]{background:#34C759}.st-sw[aria-checked="true"] i{transform:translateX(20px)}
+.st-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.st-hero{background:var(--panel);border-radius:18px;padding:24px 28px 26px;margin-bottom:26px}
+.st-hero .st-ic{width:58px;height:58px;border-radius:14px}.st-hero .st-ic svg{width:32px;height:32px}
+.st-hero h2{margin:16px 0 8px;font:600 26px/1.2 var(--f-ui);color:var(--ink)}.st-hero p{margin:0;color:var(--label);font-size:15.5px;line-height:1.5}
+.st-gh{margin:0 0 8px 20px;font:600 12.5px var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--label)}
+.st-g{background:var(--panel);border-radius:14px;overflow:hidden;margin-bottom:8px}
+.st-gf{margin:0 20px 26px;color:var(--label);font-size:13px;line-height:1.45}
+.st-g+.st-gh,.st-g+.st-g{margin-top:26px}
+.st-r{display:flex;align-items:center;gap:14px;width:100%;min-height:54px;padding:10px 18px 10px 20px;box-sizing:border-box;border:0;background:transparent;color:var(--ink);font:400 16.5px var(--f-ui);text-align:left;position:relative}
+.st-r+.st-r::before{content:"";position:absolute;left:20px;right:0;top:0;height:1px;background:var(--line)}
+.st-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.st-l small{font-size:13px;color:var(--label);line-height:1.35}
+.st-l small.mono,.st-l .mono{font-family:var(--f-mono);font-size:11.5px;word-break:break-all}
+.st-v{color:var(--label);font-size:15.5px;text-align:right}
+.st-pick{cursor:pointer}.st-pick:hover{background:var(--panel-2)}.st-pick svg{width:20px;height:20px;color:var(--accent);stroke-width:2.4;flex:none}
+.st-g .st-in input{flex:1.4;min-width:0;border:0;border-radius:0;box-shadow:none;background:transparent;color:var(--label);font:400 16px var(--f-ui);text-align:right;outline:none;padding:4px 0;height:auto}
+.st-g .st-in input:focus{color:var(--ink);box-shadow:none}
+.st-act{justify-content:flex-start;color:var(--accent);font-weight:500;cursor:pointer}.st-act:hover{background:var(--panel-2)}.st-act.red,.st-tb.red{color:#FF453A}
+.st-tb{border:0;background:transparent;color:var(--accent);font:500 15.5px var(--f-ui);cursor:pointer;padding:6px 4px}.st-tb:disabled{color:var(--label);opacity:.5;cursor:default}
+.st-cf{display:flex;gap:12px}
+@container screen (max-width:760px){.split.st{grid-template-columns:minmax(0,1fr)}.split.st .side{display:none}.st-hero{padding:20px 20px 22px}.st-r{padding-left:16px}.st-r+.st-r::before{left:16px}}
+</style>`);
 
 /* Settings > About: viewport, screen and safe-area figures as this device reports them */
 function devInfo(){const f=window.__fit,sa=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches),vv=window.visualViewport;
@@ -5061,12 +5152,14 @@ const mlAv=f=>{const n=String(f||"P");let h=0;for(const c of n)h=(h*31+c.charCod
 V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
   const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)),trash=L.filter(m=>tr.has(m.id)),isTr=MAIL.box==="trash",list=isTr?trash:inbox;
   const unread=inbox.filter(m=>!rd.has(m.id)).length,sel=MAIL.sel?L.find(m=>m.id===MAIL.sel):null;
+  /* one-shot transition for a row that was just read (or marked unread), and a bump on the count when it changes */
+  const an=MAIL.anim&&Date.now()-MAIL.anim.t<1500?MAIL.anim:null;MAIL.anim=null;const bump=MAIL.lastUn!=null&&MAIL.lastUn!==unread?(unread<MAIL.lastUn?" pm-dn":" pm-up"):"";MAIL.lastUn=unread;
   const status=!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):!MAIL.list?"Checking…":isTr?(trash.length?trash.length+" message"+(trash.length>1?"s":""):"Empty"):unread?unread+" unread":"All caught up";
-  const boxBtn=(k,ic,label,n,cls)=>`<button class="${cls}" data-mailbox="${k}" aria-pressed="${(MAIL.box||"inbox")===k}">${mlIco(ic)}<span>${label}</span>${n?`<b>${n}</b>`:""}</button>`;
+  const boxBtn=(k,ic,label,n,cls)=>`<button class="${cls}" data-mailbox="${k}" aria-pressed="${(MAIL.box||"inbox")===k}">${mlIco(ic)}<span>${label}</span>${n?`<b class="${k==="inbox"?bump:""}">${n}</b>`:""}</button>`;
   const nav=`<aside class="pm-nav"><div class="pm-nh"><span class="eyebrow">Polaris Airways</span><h2>Mail</h2></div>
     <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
     <div class="pm-nf">${mlIco("mail")}<span>To all Polaris pilots${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
-  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
+  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
   const col=`<section class="pm-col" aria-label="${isTr?"Trash":"Inbox"}"><header class="pm-ch"><div><h3>${isTr?"Trash":"Inbox"}</h3><p>${status}</p></div>
       <button class="pm-ib" data-mailref title="Check for new mail" aria-label="Check for new mail"${MAIL.loading?' disabled':''}>${mlIco("refresh")}</button></header>
     <div class="pm-seg" role="group" aria-label="Mailbox">${boxBtn("inbox","inbox","Inbox",unread,"")}${boxBtn("trash","trash","Trash",0,"")}</div>
@@ -5083,14 +5176,14 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
   else rdr=`<div class="pm-empty">${mlIco("mail")}<p>No message selected</p><small>${L.length?inbox.length+" in Inbox"+(unread?" · "+unread+" unread":""):"Your Polaris mailbox"}</small></div>`;
   return `<div class="pm3${sel?" has-sel":""}">${nav}${col}<div class="pm-read">${rdr}</div></div>`};
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mailid],[data-mailbox],[data-mailact],[data-mailback],[data-mailref]");if(!t||cur!=="mail")return;
-  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd)}render();const d=$("#view .pm-read");if(d)d.scrollTop=0}
+  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");MAIL.fresh=null;if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd);MAIL.fresh=MAIL.sel;MAIL.anim={id:MAIL.sel,k:"jr",t:Date.now()}}render();const d=$("#view .pm-read");if(d)d.scrollTop=0}
   else if(t.dataset.mailbox){MAIL.box=t.dataset.mailbox;MAIL.sel=null;render()}
-  else if(t.dataset.mailback!=null){MAIL.sel=null;render()}
+  else if(t.dataset.mailback!=null){/* on a phone the list was hidden while reading: play the "read" transition on the way back */if(MAIL.fresh&&MAIL.fresh===MAIL.sel)MAIL.anim={id:MAIL.sel,k:"jr",t:Date.now()};MAIL.fresh=null;MAIL.sel=null;render()}
   else if(t.dataset.mailref!=null){mailLoad(true);render()}
   else if(t.dataset.mailact&&MAIL.sel){const a=t.dataset.mailact,tr=mailSet("mailTrash"),rd=mailSet("mailRead");
     if(a==="trash"){tr.add(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Trash")}
     else if(a==="restore"){tr.delete(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Inbox")}
-    else if(a==="unread"){rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null;toast("Marked as unread")}
+    else if(a==="unread"){MAIL.anim={id:MAIL.sel,k:"ju",t:Date.now()};MAIL.fresh=null;rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null;toast("Marked as unread")}
     render()}});
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* Mail: mailboxes | message list | reading pane. Three columns on a wide screen, two on a smaller iPad, one on a phone. */
@@ -5145,6 +5238,27 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .pm-att a:hover{border-color:var(--accent)}.pm-att svg{width:17px;height:17px;color:var(--accent);flex:none}.pm-att span{display:flex;flex-direction:column;min-width:0}.pm-att small{color:var(--label);font-size:11.5px}
 .pm-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:50vh;color:var(--label)}
 .pm-empty svg{width:52px;height:52px;stroke-width:1.2;opacity:.45}.pm-empty p{margin:6px 0 0;font:500 16px var(--f-ui);color:var(--ink);opacity:.75}.pm-empty small{font-size:12.5px}
+/* read / unread transitions */
+.pm-row.pm-jr::before,.pm-row.pm-ju::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);transform-origin:50% 50%}
+.pm-row.pm-jr::before{animation:pmBarOut .6s cubic-bezier(.5,0,.75,0) forwards}
+.pm-row.pm-ju::before{animation:pmBarIn .5s cubic-bezier(.2,.9,.3,1.3) both}
+.pm-row.pm-jr .pm-top b{animation:pmW7 .7s ease-out both;animation-direction:reverse}
+.pm-row.pm-jr .pm-sub{animation:pmW6 .7s ease-out both;animation-direction:reverse}
+.pm-row.pm-jr .pm-top time{animation:pmTc .7s ease-out both}
+.pm-row.pm-jr{animation:pmFlash .9s ease-out}
+.pm-row.pm-ju .pm-top b{animation:pmW7 .45s ease-out both}.pm-row.pm-ju .pm-sub{animation:pmW6 .45s ease-out both}
+.pm-row.pm-ju .pm-top time{animation:pmTc .45s ease-out both;animation-direction:reverse}
+@keyframes pmBarOut{0%{transform:scaleY(1);opacity:1}100%{transform:scaleY(0);opacity:0}}
+@keyframes pmBarIn{0%{transform:scaleY(0);opacity:0}100%{transform:scaleY(1);opacity:1}}
+@keyframes pmW7{0%{font-weight:500}100%{font-weight:700}}
+@keyframes pmW6{0%{font-weight:500}100%{font-weight:600}}
+@keyframes pmTc{0%{color:var(--accent)}100%{color:var(--label)}}
+@keyframes pmFlash{0%{background:color-mix(in srgb,var(--brand) 22%,transparent)}100%{background:transparent}}
+.pm-row[aria-pressed="true"].pm-jr{animation:none}
+.pm-nb b.pm-dn,.pm-seg b.pm-dn{animation:pmDn .45s cubic-bezier(.2,.9,.3,1.4)}.pm-nb b.pm-up,.pm-seg b.pm-up{animation:pmUp .45s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes pmDn{0%{transform:translateY(-6px) scale(1.25);opacity:.3}100%{transform:none;opacity:1}}
+@keyframes pmUp{0%{transform:translateY(6px) scale(1.25);opacity:.3}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pm-row,.pm-row::before,.pm-row *,.pm-nb b,.pm-seg b{animation:none!important}}
 /* smaller iPad: mailboxes become a switch above the list */
 @container screen (max-width:1000px){.pm3{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}.pm-nav{display:none}.pm-seg{display:flex}
   .pm-from{flex-wrap:wrap}.pm-from time{order:3;width:100%;max-width:none;text-align:left;padding-left:54px;margin-top:-4px}}

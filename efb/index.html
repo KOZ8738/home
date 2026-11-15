@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0239">
+<meta name="efb-build" content="1115.0427">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4992,6 +4992,92 @@ document.addEventListener("click",e=>{if(!e.target.closest('[data-ml="vatsim"]')
   if(el){el.textContent=!vsOn()?"Every pilot on the network":VS.err?VS.err+(VS.list?" · showing the last update":", trying again soon"):VS.list?VS.list.length.toLocaleString("en-US")+" pilots online"+(VS.upd?" · "+VS.upd.slice(11,16).replace(":","")+"Z":""):"Loading…";el.classList.toggle("err",!!(vsOn()&&VS.err))}
   const b=$("#mlBtn");if(b&&bad)b.classList.add("warn");return r}}
 {const _un=updMapNote;updMapNote=function(){const r=_un.apply(this,arguments);const a=$("#mapAttr");if(a&&vsOn()&&VS.list&&!/vatsim\.net/.test(a.innerHTML))a.innerHTML+=' · Traffic <a href="https://vatsim.net" target="_blank" rel="noopener">VATSIM</a>';return r}}
+
+/* ---------- Mail ----------
+   Notices from Polaris staff (Crew Management, Flight Operations, Training …), written on the EFB server's admin page
+   and read here like an iPad mailbox. For now every message goes to all pilots; which ones were read or moved to Trash
+   is kept on this device. Checked when the EFB opens, every 5 minutes, and when Mail is opened; the home-screen icon
+   shows the unread count. */
+const MAIL={list:null,at:0,err:null,loading:false,sel:null,box:"inbox"};
+APPS.mail={name:"Mail",bg:"linear-gradient(170deg,#3FA3B1,#1A6772)",fg:"#fff",g:'<rect x="3" y="5.5" width="18" height="13" rx="2.2" fill="#fff" stroke="none"/><path d="M3.9 7l8.1 6.3L20.1 7" stroke="#1A6772" stroke-width="1.7" fill="none"/>'};
+/* LAYOUT is declared further down the script, so Mail sets its split layout when it opens */
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="mail")screenEl.dataset.layout="split";return r}}
+{const i=PAGE1.indexOf("timer");PAGE1.splice(i<0?PAGE1.length:i,0,"mail");PAGE3.unshift("mail")}
+const mailSet=k=>new Set(store.get(k,[]));
+const mailSave=(k,set)=>store.set(k,[...set]);
+const mailUnread=()=>{if(!MAIL.list)return 0;const rd=mailSet("mailRead"),tr=mailSet("mailTrash");return MAIL.list.filter(m=>!rd.has(m.id)&&!tr.has(m.id)).length};
+function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-MAIL.at<300000)return;MAIL.loading=true;
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000);
+  fetch(vam.url.replace(/\/+$/,"")+"/api/efb/mail",{cache:"no-cache",signal:ac.signal}).then(r=>{if(!r.ok)throw new Error("The EFB server answered HTTP "+r.status);return r.json()})
+    .then(j=>{MAIL.list=Array.isArray(j.mails)?j.mails:[];MAIL.err=null;
+      /* forget read/trash marks of messages that no longer exist */
+      const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)});
+      if(MAIL.sel&&!ids.has(MAIL.sel))MAIL.sel=null})
+    .catch(e=>{MAIL.err=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB server":(e&&e.message)||"Couldn’t load mail"})
+    .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail")render();else renderHome()})}
+setTimeout(()=>mailLoad(true),1500);setInterval(()=>mailLoad(),60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)mailLoad()});
+{const _b=badge;badge=function(id){if(id==="mail"){const n=mailUnread();return n?`<span class="badge" aria-label="${n} unread">${n>99?"99+":n}</span>`:""}return _b(id)}}
+/* the same light markup the admin page previews: **bold**, *italic*, "- " lists, "## " headings, [links](https://…) */
+function mailMd(t){const L=esc(t).split("\n"),out=[];let ul=false,para=[];
+  const inl=s=>s.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*(?!\s)(.+?)\*/g,"$1<i>$2</i>").replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const flush=()=>{if(para.length){out.push("<p>"+para.map(inl).join("<br>")+"</p>");para=[]}};
+  for(const l of L){if(/^\s*[-•]\s+/.test(l)){flush();if(!ul){out.push("<ul>");ul=true}out.push("<li>"+inl(l.replace(/^\s*[-•]\s+/,""))+"</li>");continue}if(ul){out.push("</ul>");ul=false}
+    if(/^##\s+/.test(l)){flush();out.push("<h4>"+inl(l.replace(/^##\s+/,""))+"</h4>")}else if(!l.trim())flush();else para.push(l)}
+  flush();if(ul)out.push("</ul>");return out.join("")}
+const mailPlain=t=>String(t||"").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1").replace(/[*#•]|^\s*-\s+/gm,"").replace(/\s+/g," ").trim();
+const mailWhen=ms=>{const d=new Date(ms),n=new Date();return d.toDateString()===n.toDateString()?d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}):Date.now()-ms<6*86400000?d.toLocaleDateString("en-US",{weekday:"short"}):d.toLocaleDateString("en-US",{month:"short",day:"numeric"})};
+const mailFull=ms=>{const d=new Date(ms);return d.toLocaleString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})+" · "+d.toISOString().slice(11,16)+"Z"};
+const mailKB=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+const ML_I={inbox:'<path d="M3 13l2.5-8h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',trash:'<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',clip:'<path d="M15.5 7.5l-6.8 6.8a2 2 0 0 0 2.8 2.8l7-7a3.6 3.6 0 0 0-5.1-5.1l-7.2 7.2a5.2 5.2 0 0 0 7.4 7.4l6.3-6.3"/>'};
+const mlIco=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ML_I[k]}</svg>`;
+V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
+  const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)),trash=L.filter(m=>tr.has(m.id)),list=MAIL.box==="trash"?trash:inbox;
+  const unread=inbox.filter(m=>!rd.has(m.id)).length,sel=MAIL.sel?L.find(m=>m.id===MAIL.sel):null;
+  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><span>${m.att&&m.att.length?mlIco("clip"):""}${esc(mailWhen(m.t))}</span></span><span class="pm-sub">${esc(m.subject)}</span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,110))}</span></button>`}).join("");
+  const side=sideHead("Polaris Mail",MAIL.box==="trash"?"Trash":"Inbox",!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):MAIL.list?(unread?unread+" unread":"All caught up"):"Checking…")
+    +`<nav class="snav">${navBtn('data-mailbox="inbox"',MAIL.box!=="trash",mlIco("inbox"),"Inbox",unread?String(unread):"")}${navBtn('data-mailbox="trash"',MAIL.box==="trash",mlIco("trash"),"Trash",trash.length?String(trash.length):"")}</nav>`
+    +`<div class="pm-list">${rows||`<p class="pm-none">${MAIL.box==="trash"?"Trash is empty.":MAIL.list?"No messages yet. Notices from Polaris staff arrive here.":MAIL.err?esc(MAIL.err):"Checking for mail…"}</p>`}</div>`;
+  let main;
+  if(sel){const f=vam.url?vam.url.replace(/\/+$/,""):"",inTr=tr.has(sel.id);
+    main=`<button class="btn sm pm-back" data-mailback>‹ ${MAIL.box==="trash"?"Trash":"Inbox"}</button><article class="card pm-mail"><div class="card-b">
+      <div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div>
+      <div class="pm-meta"><div><b>${esc(sel.from)}</b> <span>· Polaris Airways</span></div><div>To: All Polaris pilots</div><div>${esc(mailFull(sel.t))}${sel.edited?" · updated "+esc(mailWhen(sel.edited)):""}</div></div>
+      <div class="pm-body">${mailMd(sel.body)}</div>
+      ${sel.att&&sel.att.length?`<div class="pm-att">${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}</span><small>${esc(mailKB(a.size))}</small></a>`).join("")}</div>`:""}
+      <div class="pm-act"><button class="btn sm" data-mailact="${inTr?"restore":"trash"}">${inTr?"Move to Inbox":"Move to Trash"}</button><button class="btn sm" data-mailact="unread">Mark as unread</button></div></div></article>`}
+  else main=`<div class="pm-empty">${mlIco("inbox")}<p>${L.length?"Select a message to read it.":"Your Polaris mailbox"}</p></div>`;
+  return split(side,main,"mailwrap"+(sel?" has-sel":""))};
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mailid],[data-mailbox],[data-mailact],[data-mailback]");if(!t||cur!=="mail")return;
+  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd)}render();const d=$("#view .detail");if(d)d.scrollTop=0}
+  else if(t.dataset.mailbox){MAIL.box=t.dataset.mailbox;MAIL.sel=null;render()}
+  else if(t.dataset.mailback!=null){MAIL.sel=null;render()}
+  else if(t.dataset.mailact&&MAIL.sel){const a=t.dataset.mailact,tr=mailSet("mailTrash"),rd=mailSet("mailRead");
+    if(a==="trash"){tr.add(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Trash")}
+    else if(a==="restore"){tr.delete(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Inbox")}
+    else if(a==="unread"){rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null}
+    render()}});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.mailwrap .side{gap:0}.pm-list{border-top:1px solid var(--line);margin-top:8px}
+.pm-row{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;width:100%;text-align:left;padding:12px 18px 12px 26px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;position:relative;font:inherit}
+.pm-row:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}.pm-row[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.pm-row.unread::before{content:"";position:absolute;left:10px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.pm-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pm-top b{font:600 14.5px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-row:not(.unread) .pm-top b{font-weight:500}
+.pm-top span{color:var(--label);font-size:12px;white-space:nowrap;display:inline-flex;gap:4px;align-items:center}.pm-top svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8}
+.pm-row>span{display:block;min-width:0}.pm-row>.pm-top{display:flex}
+.pm-sub{font:500 13.5px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-pre{color:var(--label);font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pm-none{color:var(--label);font-size:13.5px;padding:16px 18px}
+.snav .si svg{fill:none;stroke:currentColor;stroke-width:1.7}
+.pm-mail .card-b{padding:26px clamp(18px,3cqw,36px) 22px}.pm-h{font:400 clamp(22px,2.4cqw,28px)/1.2 var(--f-disp);color:var(--accent-h);margin:0 0 12px}
+.pm-meta{color:var(--label);font-size:13px;line-height:1.6;padding-bottom:14px;border-bottom:1px solid var(--line)}.pm-meta b{color:var(--ink);font-weight:600}
+.pm-body{font-size:15px;line-height:1.6;padding-top:16px}.pm-body p{margin:0 0 12px}.pm-body h4{font:600 12px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:18px 0 6px}.pm-body ul{margin:0 0 12px;padding-left:20px}.pm-body a{color:var(--accent)}
+.pm-att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.pm-att a{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink);text-decoration:none;font-size:13.5px}
+.pm-att svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}.pm-att small{color:var(--label)}
+.pm-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+.pm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:50vh;color:var(--label)}.pm-empty svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:1.3;opacity:.6}
+.mailwrap .pm-back{display:none;align-self:flex-start}
+@container screen (max-width:760px){.mailwrap.has-sel .side{display:none}.mailwrap:not(.has-sel) .detail{display:none}.mailwrap .pm-back{display:inline-flex}}
+</style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};

@@ -26,6 +26,13 @@ crons = ["*/20 * * * *"]
 VAMSYS_SCOPE = "ops:read"
 # 只有這些網站的網頁可以讀這個 Worker
 ALLOWED_ORIGINS = "https://koz8738.com,https://www.koz8738.com"
+# Polaris Mail admin (https://efb-api.koz8738.com/admin), protected by Cloudflare Access.
+# Fill these two from Zero Trust → Access → Applications → (the admin application). They are not secret.
+#   ACCESS_TEAM_DOMAIN: your team domain, e.g. "polaris.cloudflareaccess.com"
+#   ACCESS_AUD: the application's "Application Audience (AUD) Tag"
+# While either is empty the admin stays locked.
+ACCESS_TEAM_DOMAIN = "frosty-boat-dd9f.cloudflareaccess.com"
+ACCESS_AUD = "613d19b5e1e81f090b711342d78daaca962586787804d832cfedd597a1228e4b"
 
 # vAMSYS 金鑰不要寫在這裡（這個檔案會上 GitHub）。
 # 在 Cloudflare 後台 → 這個 Worker → Settings → Variables and Secrets 新增，類型選 Secret：

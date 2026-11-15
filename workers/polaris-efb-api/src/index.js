@@ -18,10 +18,12 @@
  *   GET /api/efb/radar                  -> RainViewer radar frame list (tiles are loaded straight from RainViewer)
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
+ *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *
  * Secrets (wrangler secret put ...): VAMSYS_CLIENT_ID, VAMSYS_CLIENT_SECRET
  * Vars (wrangler.toml): VAMSYS_SCOPE (default "ops:read"), ALLOWED_ORIGINS (comma list, or "*")
  */
+import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1128,6 +1130,8 @@ export default {
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
     if (new URL(req.url).pathname.replace(/\/+$/, '') === '/api/efb/ovgeo' && (req.method === 'GET' || req.method === 'POST')) { try { return await ovgeoRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
+    /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
+    { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1158,6 +1162,8 @@ export default {
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
+        case '/api/efb/mail': return await mailPublic(req, env, h);
+        case '/api/efb/mail-att': return await mailAttachment(url, env, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/live': if (!configured) break; return json({ ...(await liveRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fleet': if (!configured) break; return json({ fleet: await fleets(env), updatedAt: new Date().toISOString() }, 200, h);

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.2247">
+<meta name="efb-build" content="1115.2302">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -7518,12 +7518,29 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
     if(!on){r.classList.remove("pwa-chin");["--sat","--sab"].forEach(v=>r.style.removeProperty(v));return}
     const cs=getComputedStyle(pr),et=parseFloat(cs.paddingTop)||0,eb=parseFloat(cs.paddingBottom)||0;
     const land=innerWidth>innerHeight,full=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
-    /* strip below the page: only when the status bar is translucent (top inset reported) and the
-       viewport is short by about that much */
-    const gap=full-innerHeight,chin=et>0&&gap>4&&gap<=et+2?gap:0;
+    /* strip below the page: the viewport is short of the screen by about a status bar. Seen with the
+       translucent status bar (then about the top inset) and on iPadOS with the black one (no inset reported,
+       still a strip). A bigger gap is the keyboard or Split View, not a strip. */
+    const gap=full-innerHeight,chin=gap>4&&gap<=Math.max(et+2,60)?gap:0;
     r.classList.toggle("pwa-chin",chin>0);
     r.style.setProperty("--sat",et+"px");r.style.setProperty("--sab",Math.max(0,eb-chin)+"px");
-    window.__fit={w:innerWidth,h:innerHeight,sw:screen.width,sh:screen.height,et,eb,chin}}
+    window.__fit={w:innerWidth,h:innerHeight,sw:screen.width,sh:screen.height,et,eb,chin};paint()}
+  /* the strip shows only the page background: give it the colours along the bottom edge of whatever is on screen,
+     sampled at five points from left to right (a gradient when they differ). Screens with their own rule
+     (lock screen, Settings) keep it; the map uses its water colour, since tiles are pictures. */
+  const solid=c=>c&&c!=="transparent"&&!/rgba\([^)]*,\s*0\)$/.test(c);
+  function colourAt(x){const y=innerHeight-1;let e=document.elementFromPoint(x,y);
+    if(e&&e.closest&&e.closest(".homeind")&&document.querySelector('.screen.in-app[data-app="map"]')){const w=getComputedStyle(document.documentElement).getPropertyValue("--map-water").trim()||getComputedStyle(document.documentElement).getPropertyValue("--map-sea").trim();if(w)return w}
+    if(e&&e.closest&&e.closest(".mapwrap")&&!e.closest(".pinbar,.mapinfo,.mapnote,.assheet,.radarbar,.gwxleg,.mapattr,.mapattr-i")){const w=getComputedStyle(document.documentElement).getPropertyValue("--map-water").trim();if(w)return w}
+    for(;e&&e!==document.documentElement;e=e.parentElement){const c=getComputedStyle(e).backgroundColor;if(solid(c))return c}
+    return getComputedStyle(document.body).backgroundColor}
+  let last="";
+  function paint(){const r=document.documentElement;
+    /* off, or on the home screen (its wallpaper has its own colour for the strip) */
+    if(!r.classList.contains("pwa-chin")||!document.querySelector(".screen.in-app")){if(last){r.style.removeProperty("background");last=""}return}
+    const cs=[.04,.27,.5,.73,.96].map(f=>colourAt(f*innerWidth)),bg=cs.every(c=>c===cs[0])?cs[0]:"linear-gradient(90deg,"+cs.join(",")+")";
+    if(bg!==last){r.style.background=bg;last=bg}}
+  setInterval(()=>{if(!document.hidden)paint()},800);addEventListener("hashchange",()=>setTimeout(paint,120));
   fit();addEventListener("resize",fit);addEventListener("pageshow",fit);addEventListener("orientationchange",()=>setTimeout(fit,250));
   if(window.visualViewport)visualViewport.addEventListener("resize",fit);
   /* after the keyboard closes iOS can leave the page panned; put it back */

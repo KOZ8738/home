@@ -43,3 +43,9 @@ Cloudflare 後台 → `polaris-efb-api` → Settings → Variables and Secrets �
 
 1. 把 `wrangler.toml` 的網域和 `ALLOWED_ORIGINS` 改成官網的。
 2. EFB 的 `index.html` 裡搜尋 `koz8738`，把預設伺服器改成新網址（或在 Settings 手動填）。
+
+## 自動部署
+
+推到 GitHub `main` 時，如果 `workers/polaris-efb-api` 有變動，Cloudflare 會自動部署這個 Worker
+（Cloudflare 後台 → Workers & Pages → polaris-efb-api → Settings → Build，已連結 `KOZ8738/home`，
+根目錄 `workers/polaris-efb-api`，部署指令 `npx wrangler deploy`）。不需要再手動執行 `wrangler deploy`。

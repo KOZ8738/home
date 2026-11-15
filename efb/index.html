@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0714">
+<meta name="efb-build" content="1115.0745">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5128,7 +5128,8 @@ function vsParse(j){const nx=lo=>(lo+180)/360,ny=la=>{const s=Math.sin(Math.max(
     return j.p.filter(r=>v(r,"c")&&isFinite(v(r,"la"))&&isFinite(v(r,"lo"))).map(r=>{const has=v(r,"dep")||v(r,"arr")||v(r,"ac")||v(r,"alt");
       return mk(v(r,"c"),v(r,"cid"),v(r,"n"),v(r,"la"),v(r,"lo"),v(r,"a"),v(r,"g"),v(r,"h"),v(r,"sq"),(+v(r,"t")||0)*1000,has?{ac:v(r,"ac")||"",dep:v(r,"dep")||"",arr:v(r,"arr")||"",alt:v(r,"alt")||"",rules:v(r,"rules")||""}:null,null)})}
   return(j.pilots||[]).filter(p=>isFinite(p.latitude)&&isFinite(p.longitude)&&p.callsign).map(p=>{const f=p.flight_plan||null,t=Date.parse(p.logon_time||"");
-    return mk(p.callsign,p.cid,p.name,p.latitude,p.longitude,p.altitude,p.groundspeed,p.heading,p.transponder,isFinite(t)?t:0,f?{ac:f.aircraft_short||"",dep:f.departure||"",arr:f.arrival||"",alt:f.altitude||"",rules:f.flight_rules||""}:null,f?f.route||"":"")})}
+    const o=mk(p.callsign,p.cid,p.name,p.latitude,p.longitude,p.altitude,p.groundspeed,p.heading,p.transponder,isFinite(t)?t:0,f?{ac:f.aircraft_short||"",dep:f.departure||"",arr:f.arrival||"",alt:f.altitude||"",rules:f.flight_rules||""}:null,f?f.route||"":"");
+    o.det=f?{rm:f.remarks||"",altn:f.alternate||"",tas:f.cruise_tas||"",dt:f.deptime||"",ete:f.enroute_time||"",fob:f.fuel_time||"",faa:f.aircraft_faa||"",acl:f.aircraft||"",pr:p.pilot_rating,sv:p.server||"",qnh:p.qnh_mb||null}:{pr:p.pilot_rating,sv:p.server||"",qnh:p.qnh_mb||null};return o})}
 /* "no-cache" asks whether the data changed: an unchanged update costs a few bytes. The EFB server is tried first; if it
    has no VATSIM endpoint (404) or can't be reached, the network feed is read directly for the rest of the session. */
 function vsGet(u,signal){return fetch(u,{cache:"no-cache",signal}).then(r=>{if(!r.ok){const e=new Error("HTTP "+r.status);e.status=r.status;throw e}return r.json()})}
@@ -5137,9 +5138,9 @@ function vsLoad(){if(VS.loading)return;VS.loading=true;const ctrl=new AbortContr
   (srv?vsGet(srv,ctrl.signal).then(j=>{if(!j||!Array.isArray(j.p))throw new Error("Not a VATSIM list");return j}).catch(e=>{if(e&&e.name==="AbortError")throw e;VS.direct=true;return vsGet(VS_URL,ctrl.signal)}):vsGet(VS_URL,ctrl.signal))
     .then(j=>{const upd=j.upd||(j.general&&j.general.update_timestamp)||null,now=Date.now(),t1=Date.parse(upd)||now;
       if(VS.list&&upd===VS.upd){VS.same=(VS.same||0)+1;VS.err=null;VS.fails=0;VS.next=now+(VS.same>=4?15000:4000);return}
-      const old=new Map();if(VS.list){const d0=vsDt(now);VS.list.forEach(p=>{const o=vsOff(p,now);old.set(p.c,[p.x+p.vx*d0+o[0],p.y+p.vy*d0+o[1]])})}
+      const old=new Map();if(VS.list){const d0=vsDt(now);VS.list.forEach(p=>{const o=vsOff(p,now);old.set(p.c,[p.x+p.vx*d0+o[0],p.y+p.vy*d0+o[1],p.a,VS.t0,p.vs])})}
       VS.list=vsParse(j);VS.t0=t1;VS.routes={};VS.upd=upd;VS.err=null;VS.fails=0;VS.same=0;
-      const d1=vsDt(now);VS.list.forEach(p=>{const q=old.get(p.c);if(!q)return;const ox=q[0]-(p.x+p.vx*d1),oy=q[1]-(p.y+p.vy*d1);if(Math.abs(ox)<4e-4&&Math.abs(oy)<4e-4){p.ox=ox;p.oy=oy;p.ot=now}});
+      const d1=vsDt(now);VS.list.forEach(p=>{const q=old.get(p.c);if(!q)return;const sec=(t1-q[3])/1000;if(sec>=5&&sec<=150){const v=(p.a-q[2])/sec*60;p.vs=q[4]!=null&&Math.abs(v-q[4])<3000?Math.round((v*2+q[4])/3):Math.round(v)}const ox=q[0]-(p.x+p.vx*d1),oy=q[1]-(p.y+p.vy*d1);if(Math.abs(ox)<4e-4&&Math.abs(oy)<4e-4){p.ox=ox;p.oy=oy;p.ot=now}});
       /* the network renews its feed about every 15 s: ask again just after the next renewal */
       VS.next=Math.max(now+4000,Math.min(now+20000,t1+17000))})
     .catch(e=>{VS.fails++;VS.err=e&&e.name==="AbortError"?"VATSIM didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach VATSIM":e&&e.status?"VATSIM answered HTTP "+e.status:(e&&e.message)||"Couldn’t load"})
@@ -5206,6 +5207,204 @@ document.addEventListener("click",e=>{if(!e.target.closest('[data-ml="vatsim"]')
   if(el){el.textContent=!vsOn()?"Every pilot on the network":VS.err?VS.err+(VS.list?" · showing the last update":", trying again soon"):VS.list?VS.list.length.toLocaleString("en-US")+" pilots online"+(VS.upd?" · "+VS.upd.slice(11,16).replace(":","")+"Z":""):"Loading…";el.classList.toggle("err",!!(vsOn()&&VS.err))}
   const b=$("#mlBtn");if(b&&bad)b.classList.add("warn");return r}}
 {const _un=updMapNote;updMapNote=function(){const r=_un.apply(this,arguments);const a=$("#mapAttr");if(a&&vsOn()&&VS.list&&!/vatsim\.net/.test(a.innerHTML))a.innerHTML+=' · Traffic <a href="https://vatsim.net" target="_blank" rel="noopener">VATSIM</a>';return r}}
+
+/* ===== VATSIM: the full card for a picked aircraft =====
+   Pilot (name, rating, CID, flying hours), the flight's progress from departure to destination with its phase and
+   times, live data (ground speed, altitude, heading, vertical speed, squawk, QNH), the flight plan (airports,
+   aircraft, cruise speed and level, registration and operator from the remarks, alternate), step climbs read from the
+   route, the route and remarks with Copy, and actions: Track (the map follows it), Focus, Path (flown and remaining
+   track drawn on the map) and the pilot's VATSIM profile. */
+const VSI={det:{},track:null,path:null};
+const VS_RATING={0:"P0",1:"PPL",3:"IR",7:"CMEL",15:"ATPL",31:"FI",63:"FE"};
+/* details the server's list leaves out, asked for when an aircraft is picked (kept 5 minutes) */
+function vsDetail(p){const d=VSI.det[p.c];if(p.det&&VS.direct)return{route:p.route||"",det:p.det,hours:d?d.hours:null};
+  if(d&&Date.now()-d.at<300000)return d;if(!vam.url||VSI.det[p.c+"?"])return d||null;VSI.det[p.c+"?"]=1;
+  vamGet("/api/efb/vatsim?cs="+encodeURIComponent(p.c),10000).then(j=>{VSI.det[p.c]={at:Date.now(),route:(j&&j.route)||"",det:(j&&j.det)||null,hours:j?j.hours:null};VS.routes[p.c]=(j&&j.route)||""})
+    .catch(()=>{VSI.det[p.c]={at:Date.now(),route:"",det:null,hours:null}}).finally(()=>{delete VSI.det[p.c+"?"];if(MAP.sel&&MAP.sel.t==="vs"&&MAP.sel.id===p.c)mapInfo()});return d||null}
+/* airports by ICAO, from the map's airport list */
+let vsAptMap=null,vsAptVer=-1;
+function vsApt(ic){ic=String(ic||"").toUpperCase();if(!ic)return null;if(!APTS.a&&!APTS.busy.a)try{aptsLoad("a")}catch(e){}
+  if(vsAptVer!==APTS.ver){vsAptMap=new Map();(APTS.b||[]).forEach(r=>vsAptMap.set(r[0],{n:r[1],la:r[2],lo:r[3]}));(APTS.a||[]).forEach(r=>vsAptMap.set(r[0],{n:r[2],la:r[3],lo:r[4]}));vsAptVer=APTS.ver}
+  return vsAptMap.get(ic)||null}
+const vsNm=(a,b,c,d)=>{const r=Math.PI/180,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 3440.065*2*Math.asin(Math.min(1,Math.sqrt(x)))};
+/* where it is now, on the same prediction the map draws */
+function vsPos(p){const now=Date.now(),dt=vsDt(now),o=vsOff(p,now);const x=p.x+p.vx*dt+o[0],y=p.y+p.vy*dt+o[1];let lo=x*360-180;while(lo>180)lo-=360;while(lo<-180)lo+=360;
+  return{la:Math.atan(Math.sinh(Math.PI*(1-2*y)))*180/Math.PI,lo,x,y}}
+function vsPhase(p,dep,arr,pos){const dA=arr?vsNm(pos.la,pos.lo,arr.la,arr.lo):null,dD=dep?vsNm(pos.la,pos.lo,dep.la,dep.lo):null,vs=p.vs||0;
+  if(p.g<5)return dA!=null&&dA<6?"Arrived":dD!=null&&dD<6?"At the gate":"On the ground";if(p.g<45)return dA!=null&&dA<8?"Taxiing in":"Taxiing";
+  if(vs>400)return "Climbing";if(vs<-400)return dA!=null&&dA<45&&p.a<11000?"Approach":"Descending";return p.a>10000?"Cruising":"Level flight"}
+const vsZ=s=>{s=String(s||"").replace(/\D/g,"");return s.length>=3?s.padStart(4,"0").slice(0,2)+":"+s.padStart(4,"0").slice(2,4)+"z":"—"};
+const vsHM=m=>pad(Math.floor(m/60))+":"+pad(Math.floor(m%60));
+const vsLv=fa=>{fa=String(fa||"").trim();const n=+fa;return !fa?"—":/^FL/i.test(fa)?esc(fa.toUpperCase()):isFinite(n)&&n>0?(n<1000?"FL"+String(Math.round(n)).padStart(3,"0"):fmt(n)+" ft"):esc(fa.toUpperCase())};
+function vsSteps(route){const out=[];String(route||"").split(/\s+/).forEach(t=>{const m=t.match(/^([A-Z0-9]{2,5})\/([NKM]\d{3,4})([FSAM]\d{3,4})$/);if(m)out.push({fix:m[1],sp:m[2],lv:m[3][0]==="F"?"FL"+m[3].slice(1):m[3]})});return out}
+const VSI_I={user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',org:'<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>',pl:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>',
+  track:'<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',focus:'<path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/><circle cx="12" cy="12" r="2.5"/>',
+  path:'<circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 17c5-1 3-9 10-10"/>',link:'<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/>',copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'};
+const vsiI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${VSI_I[k]}</svg>`;
+function vsCard(p){const f=p.fp||{},D=vsDetail(p),dt=(D&&D.det)||p.det||{},route=(D&&D.route)||p.route||VS.routes[p.c]||"",rm=String(dt.rm||"");
+  const dep=vsApt(f.dep),arr=vsApt(f.arr),pos=vsPos(p),ph=vsPhase(p,dep,arr,pos);
+  let pct=null,rem=null;if(dep&&arr){const a=vsNm(dep.la,dep.lo,pos.la,pos.lo);rem=vsNm(pos.la,pos.lo,arr.la,arr.lo);pct=Math.max(0,Math.min(100,a/(a+rem)*100))}
+  if(/Arrived|Taxiing in/.test(ph))pct=100;if(/At the gate|^Taxiing$/.test(ph)&&pct!=null&&pct<5)pct=0;
+  let eta="—";if(rem!=null&&p.g>60)eta=(()=>{const e=new Date(Date.now()+rem/p.g*3600000);return pad(e.getUTCHours())+":"+pad(e.getUTCMinutes())+"z"})();
+  else if(dt.dt&&dt.ete){const a=String(dt.dt).padStart(4,"0"),b=String(dt.ete).padStart(4,"0"),m=(+a.slice(0,2)*60+ +a.slice(2)+ +b.slice(0,2)*60+ +b.slice(2))%1440;eta=vsHM(m)+"z"}
+  const online=p.t?vsHM(Math.max(0,(Date.now()-p.t)/60000)):"—",rt=dt.pr!=null&&VS_RATING[dt.pr]?VS_RATING[dt.pr]:"";
+  const reg=(rm.match(/\bREG\/([A-Z0-9-]{3,8})/)||[])[1]||"",opr=(rm.match(/\bOPR\/([A-Z0-9]{2,12})/)||[])[1]||"",vs=p.vs,trk=VSI.track===p.c,pth=VSI.path===p.c;
+  const steps=vsSteps(route),c2=(k,v)=>`<div><span>${k}</span><b>${v}</b></div>`;
+  return `<div class="vsi-h"><b>${esc(p.c)}</b>${p.pol?'<span class="vsi-pol">POLARIS</span>':""}<span class="vsi-sp"></span><button class="vsi-ib${trk?" on":""}" data-vsi="track" aria-pressed="${trk}" title="Track">${vsiI("track")}</button><button class="btn" id="mapX" aria-label="Close">✕</button></div>
+   <div class="vsi-sec vsi-row">${vsiI("user")}<div><b>${esc(p.n||"Unknown pilot")}</b>${rt?` <em>${rt}</em>`:""} <span class="mono">${esc(String(p.cid||""))}</span><small>${D&&D.hours!=null?"Flight hours "+`<i>${fmt(D.hours)}</i>`:VS.direct?"":D?"":"Loading…"}${dt.sv?(D&&D.hours!=null?" · ":"")+"Server "+esc(dt.sv):""}</small></div></div>
+   ${opr||reg?`<div class="vsi-sec vsi-row">${vsiI("org")}<div><b>${esc(opr||"—")}</b><small>${reg?"Registration "+esc(reg):"Operator from the remarks"}</small></div></div>`:""}
+   <div class="vsi-sec vsi-prog"><div class="vsi-ph">${esc(ph)}</div><div class="vsi-trk"><b>${esc(f.dep||"—")}</b><span class="vsi-bar"><i style="width:${pct==null?0:pct.toFixed(1)}%"></i>${pct==null?"":`<span class="vsi-pl" style="left:${pct.toFixed(1)}%">${vsiI("pl")}</span>`}</span><b>${esc(f.arr||"—")}</b></div>
+    <div class="vsi-tm"><span>${vsZ(dt.dt)}</span><span>Online <i>${online}</i></span><span>${eta}</span></div>${rem!=null&&p.g>60?`<div class="vsi-rem">${fmt(Math.round(rem))} nm to go</div>`:""}</div>
+   <div class="vsi-sec vsi-grid">${c2("GS",fmt(p.g)+" kt")}${c2("Altitude",p.a>0?fmt(p.a)+" ft":"—")}${c2("Heading",String(Math.round(p.h)%360).padStart(3,"0")+"°")}${c2("VS",vs==null?"—":(Math.abs(vs)<100?"0":(vs>0?"↑":"↓")+fmt(Math.abs(Math.round(vs/50)*50))))}${c2("Squawk",esc(p.sq||"—"))}${c2("QNH",dt.qnh?Math.round(dt.qnh)+" hPa":"—")}</div>
+   <div class="vsi-sec"><h4>Flight plan</h4>${f.dep||f.arr?`<div class="vsi-apt">${vsiI("pl")}<div><b>${esc(f.dep||"—")}</b><small>${esc(dep?dep.n:"")}</small></div></div><div class="vsi-apt">${vsiI("pl")}<div><b>${esc(f.arr||"—")}</b><small>${esc(arr?arr.n:"")}</small></div></div>`:'<p class="vsi-none">No flight plan filed.</p>'}
+    ${f.dep||f.arr?`<div class="vsi-grid">${c2("Aircraft",esc(dt.faa||f.ac||"—"))}${c2("Cruise TAS",dt.tas?esc(dt.tas)+" kt":"—")}${c2("Cruise level",vsLv(f.alt))}${c2("Registration",esc(reg||"—"))}${c2("Alternate",esc(dt.altn||"—"))}${c2("Rules",f.rules==="V"?"VFR":f.rules?"IFR":"—")}</div>`:""}</div>
+   ${steps.length?`<div class="vsi-sec"><h4>Step climbs</h4><div class="vsi-steps">${steps.map(s=>`<div><span>${esc(s.lv)}</span><b>${esc(s.fix)}</b></div>`).join("")}</div></div>`:""}
+   ${route?`<div class="vsi-sec"><h4>Route <button class="vsi-cp" data-vsicopy="route" title="Copy route">${vsiI("copy")}</button></h4><pre class="vsi-pre">${esc(route)}</pre></div>`:D||VS.direct?"":`<div class="vsi-sec"><p class="vsi-none">Loading the route…</p></div>`}
+   ${rm?`<div class="vsi-sec"><h4>Remarks <button class="vsi-cp" data-vsicopy="rm" title="Copy remarks">${vsiI("copy")}</button></h4><pre class="vsi-pre">${esc(rm)}</pre></div>`:""}
+   <div class="vsi-act"><button data-vsi="track" aria-pressed="${trk}" class="${trk?"on":""}">${vsiI("track")}<span>Track</span></button><button data-vsi="focus">${vsiI("focus")}<span>Focus</span></button><button data-vsi="path" aria-pressed="${pth}" class="${pth?"on":""}"${dep&&arr?"":" disabled"}>${vsiI("path")}<span>Path</span></button>${p.cid?`<a href="https://stats.vatsim.net/stats/${encodeURIComponent(p.cid)}" target="_blank" rel="noopener">${vsiI("link")}<span>Profile</span></a>`:""}</div>`}
+{const _mi=mapInfo;mapInfo=function(){const S2=MAP.sel,box=$("#mapInfo");if(box)box.classList.toggle("vsx",!!(S2&&S2.t==="vs"));
+  if(S2&&S2.t==="vs"&&box){const p=vsFind(S2.id);if(p){box.hidden=false;const sc=box.scrollTop;box.innerHTML=vsCard(p);box.scrollTop=sc;return}}
+  if(!(S2&&S2.t==="vs")){VSI.track=null;VSI.path=null}return _mi.apply(this,arguments)}}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-vsi],[data-vsicopy]");if(!b||!(MAP.sel&&MAP.sel.t==="vs"))return;const p=vsFind(MAP.sel.id);if(!p)return;
+  if(b.dataset.vsicopy){const D=vsDetail(p)||{},t=b.dataset.vsicopy==="route"?(D.route||p.route||""):String(((D.det||p.det)||{}).rm||"");(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast("Copied"),()=>toast("Copy isn’t allowed here"));return}
+  const a=b.dataset.vsi,pos=vsPos(p);
+  if(a==="track"){VSI.track=VSI.track===p.c?null:p.c;if(VSI.track){if(typeof mapFollowSet==="function")mapFollowSet(false);MAP.c={lat:pos.la,lon:pos.lo};drawMap();toast("Tracking "+p.c)}}
+  else if(a==="focus"){VSI.track=null;MAP.c={lat:pos.la,lon:pos.lo};MAP.z=Math.max(MAP.z,9);if(typeof mapFollowSet==="function")mapFollowSet(false);drawMap()}
+  else if(a==="path"){VSI.path=VSI.path===p.c?null:p.c;try{mapCanvas()}catch(er){}}
+  mapInfo()});
+/* tracking: the map stays centred on the aircraft; dragging the map stops it */
+/* the airport list arrives after the card was drawn: draw it again with names and progress */
+let vsiAptVer=-1;setInterval(()=>{if(cur==="map"&&MAP.sel&&MAP.sel.t==="vs"&&APTS.ver!==vsiAptVer){vsiAptVer=APTS.ver;mapInfo()}},1000);
+setInterval(()=>{if(!VSI.track||cur!=="map"||document.hidden)return;const p=vsFind(VSI.track);if(!p){VSI.track=null;return}const q=vsPos(p);MAP.c={lat:q.la,lon:q.lo};try{mapFast()}catch(e){}},300);
+document.addEventListener("pointermove",e=>{if(!VSI.track||!e.buttons)return;if(e.target.closest(".mapinfo,.maptools,.mlpanel,button"))return;if(e.target.closest(".mapwrap")){VSI.track=null;if(MAP.sel&&MAP.sel.t==="vs")mapInfo()}},true);
+/* the path: flown part solid, remaining part dashed, along the great circle */
+function vsGc(a,b,n){const r=Math.PI/180,f1=a.la*r,l1=a.lo*r,f2=b.la*r,l2=b.lo*r;const d=2*Math.asin(Math.sqrt(Math.sin((f2-f1)/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin((l2-l1)/2)**2));if(!d)return[a,b];const out=[];
+  for(let i=0;i<=n;i++){const t=i/n,A=Math.sin((1-t)*d)/Math.sin(d),B=Math.sin(t*d)/Math.sin(d),x=A*Math.cos(f1)*Math.cos(l1)+B*Math.cos(f2)*Math.cos(l2),y=A*Math.cos(f1)*Math.sin(l1)+B*Math.cos(f2)*Math.sin(l2),z=A*Math.sin(f1)+B*Math.sin(f2);out.push({la:Math.atan2(z,Math.hypot(x,y))/r,lo:Math.atan2(y,x)/r})}return out}
+{const _vd=vsDraw;vsDraw=function(){_vd.apply(this,arguments);if(!VSI.path||!vsOn())return;const p=vsFind(VSI.path);if(!p||!p.fp){return}const dep=vsApt(p.fp.dep),arr=vsApt(p.fp.arr);if(!dep||!arr)return;
+  const cv=$("#mapCv");if(!cv||!MAP.c)return;const {w,h}=mapSize(),g=cv.getContext("2d"),dpr=Math.min(2,window.devicePixelRatio||1),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2,Wd=TS*Math.pow(2,z),C=vsColors();
+  const pos=vsPos(p),P=q=>{const m=mpx(q.la,q.lo,z);let x=m[0]-ox;x-=Math.round((m[0]-c[0])/Wd)*Wd;return[x,m[1]-oy]};
+  const line=(pts,dash)=>{g.setLineDash(dash);g.beginPath();let px=null;pts.forEach((q,i)=>{const s=P(q);if(i&&px!=null&&Math.abs(s[0]-px)>Wd/2)g.moveTo(s[0],s[1]);else i?g.lineTo(s[0],s[1]):g.moveTo(s[0],s[1]);px=s[0]});g.stroke()};
+  g.save();g.setTransform(dpr,0,0,dpr,0,0);g.lineCap="round";g.strokeStyle=p.pol?C.pol:C.ac;g.lineWidth=2.2;g.globalAlpha=.9;line(vsGc(dep,pos,48),[]);g.globalAlpha=.75;g.lineWidth=1.8;line(vsGc(pos,arr,48),[7,6]);
+  g.setLineDash([]);g.globalAlpha=1;[dep,arr].forEach(q=>{const s=P(q);g.fillStyle=C.halo;g.beginPath();g.arc(s[0],s[1],5,0,6.2832);g.fill();g.lineWidth=2;g.stroke()});g.restore()}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.mapinfo.vsx{top:64px;right:78px;width:min(380px,calc(100% - 100px));bottom:28px!important;max-height:none;overflow-y:auto;padding:0;display:flex;flex-direction:column;overscroll-behavior:contain}
+.vsx svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vsi-h{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.vsi-h>b{font:700 19px var(--f-mono);color:var(--accent);letter-spacing:.02em}.vsi-sp{flex:1}
+.vsi-pol{font:700 10.5px var(--f-ui);letter-spacing:.08em;color:var(--amber)}
+.vsi-ib{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--label);display:grid;place-items:center;cursor:pointer}.vsi-ib svg{width:19px;height:19px}.vsi-ib.on{color:var(--accent);background:color-mix(in srgb,var(--brand) 16%,transparent)}
+.vsi-sec{padding:12px 16px;border-bottom:1px solid var(--line)}
+.vsi-sec h4{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:600 14px var(--f-ui);color:var(--ink)}
+.vsi-row{display:flex;gap:12px;align-items:flex-start}.vsi-row>svg{width:20px;height:20px;color:var(--accent);flex:none;margin-top:2px}
+.vsi-row b{font:600 14.5px var(--f-ui)}.vsi-row em{font:700 11px var(--f-mono);font-style:normal;color:var(--accent);margin-left:4px}.vsi-row .mono{font:500 12.5px var(--f-mono);color:var(--label);margin-left:4px}
+.vsi-row small{display:block;margin-top:4px;color:var(--label);font-size:12.5px}.vsi-row small i{font-style:normal;font-family:var(--f-mono);color:var(--ink);background:var(--panel-2);padding:1px 6px;border-radius:5px}
+.vsi-prog{text-align:center}.vsi-ph{font:600 12.5px var(--f-ui);color:var(--accent);margin-bottom:8px}
+.vsi-trk{display:flex;align-items:center;gap:10px}.vsi-trk>b{font:700 16px var(--f-mono)}
+.vsi-bar{position:relative;flex:1;height:2px;background:var(--line);border-radius:2px}.vsi-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:2px}
+.vsi-pl{position:absolute;top:50%;transform:translate(-50%,-50%) rotate(90deg);color:var(--ink)}.vsi-pl svg{width:18px;height:18px;fill:currentColor;stroke:none}
+.vsi-tm{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font:500 12px var(--f-mono);color:var(--label)}.vsi-tm>span:first-child,.vsi-tm>span:last-child{background:var(--panel-2);padding:2px 7px;border-radius:5px;color:var(--ink)}.vsi-tm i{font-style:normal;color:var(--ink);background:var(--panel-2);padding:2px 7px;border-radius:5px;margin-left:4px}
+.vsi-rem{margin-top:6px;font:500 11.5px var(--f-mono);color:var(--label)}
+.vsi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px}.vsi-sec .vsi-grid{margin-top:2px}
+.vsi-grid span,.vsi-steps span{display:block;font-size:11.5px;color:var(--label);margin-bottom:3px}.vsi-grid b{font:600 14px var(--f-mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.vsi-apt{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}.vsi-apt svg{width:18px;height:18px;color:var(--label);flex:none;margin-top:2px}.vsi-apt+.vsi-apt svg{transform:rotate(180deg)}
+.vsi-apt b{font:700 14px var(--f-mono)}.vsi-apt small{display:block;font-size:12.5px;color:var(--label)}
+.vsi-steps{display:flex;flex-wrap:wrap;gap:10px 22px}.vsi-steps b{font:700 13.5px var(--f-mono)}
+.vsi-cp{margin-left:auto;width:28px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--label);display:grid;place-items:center;cursor:pointer}.vsi-cp svg{width:16px;height:16px}.vsi-cp:hover{color:var(--accent);background:var(--panel-2)}
+.vsi-pre{margin:0;padding:10px 12px;border-radius:8px;background:var(--panel-2);font:500 11.5px/1.5 var(--f-mono);color:var(--ink);white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:auto;user-select:text;-webkit-user-select:text}
+.vsi-none{margin:0;color:var(--label);font-size:13px}
+.vsi-act{position:sticky;bottom:0;margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line)}
+.vsi-act>*{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border:0;background:transparent;color:var(--ink);font:500 12.5px var(--f-ui);text-decoration:none;cursor:pointer}
+.vsi-act>* svg{width:20px;height:20px}.vsi-act>*+*{box-shadow:inset 1px 0 0 var(--line)}.vsi-act .on{color:var(--accent)}.vsi-act button:disabled{opacity:.4;cursor:default}
+@container screen (max-width:640px){.mapinfo.vsx{top:auto;right:8px;width:auto;max-height:62%!important}}
+</style>`);
+
+/* ===== Map: the Flight panel =====
+   One place for the flight's airports, like the flight panel of a charts app: origin, destination and alternate with
+   their flight category (from the METAR), the planned runway with head/tail- and crosswind and the ATIS letter, the
+   SID and STAR with their transitions, how many arrival and approach charts there are (FAA airports), and buttons to
+   centre the map on an airport, open its sheet (info, runways, charts), change the SID or STAR, edit the route or
+   open the OFP. Opened from the plane button in the map's tool column. */
+const FP={open:false};
+const FP_I={plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>',
+  map:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+  swap:'<path d="M4 8h14l-3-3M20 16H6l3 3"/>',more:'<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
+  route:'<circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 17c5-1 3-9 10-10"/>',doc:'<path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>'};
+const fpI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${FP_I[k]}</svg>`;
+/* the button, put in the map's tool column whenever the map is drawn */
+{let _vm;const wrap=f=>function(){const h=f.apply(this,arguments);const AB='<button class="btn ic" id="as'+'Btn"';return h.replace(AB,`<button class="btn ic" id="fpBtn" aria-pressed="${FP.open}" aria-label="Flight">${fpI("plane")}</button>`+AB)+`<aside class="fppanel" id="fpPanel"${FP.open?"":" hidden"}></aside>`};
+  if(V.map)_vm=wrap(V.map);Object.defineProperty(V,"map",{get(){return _vm},set(f){_vm=wrap(f)},configurable:true,enumerable:true})}
+const FP_CAT={VFR:"#30D158",MVFR:"#0A84FF",IFR:"#FF453A",LIFR:"#BF5AF2"};
+/* the procedure's end point: last fix of the SID, first fix of the STAR */
+function fpTrans(kind,code){if(!code)return"";const f=O().fixes.filter(q=>S(q.via_airway).toUpperCase()===code);if(!f.length)return"";return S((kind==="sid"?f[f.length-1]:f[0]).ident)}
+function fpAirport(role,a,metar,opts){const ic=S(a.icao_code);if(!ic)return"";const m=decodeMetar(metar),iata=S(a.iata_code),cat=m&&m.cat;
+  return `<div class="fp-apt"><div class="fp-aptt"><b>${esc(ic)}${iata?" / "+esc(iata):""}</b>${cat?`<span class="fp-cat"><i style="background:${FP_CAT[cat]}"></i>${cat}</span>`:'<span class="fp-cat none">No METAR</span>'}
+    <small>${esc(S(a.name))}</small><small class="fp-sub">${S(a.elevation)?"Elevation "+fmt(N(a.elevation))+" ft":""}${m&&m.wind?(S(a.elevation)?" · ":"")+"Wind "+(m.wind.dir==null?"VRB":String(m.wind.dir).padStart(3,"0"))+"°/"+m.wind.spd+(m.wind.gust?"G"+m.wind.gust:"")+" kt":""}</small></div>
+    <div class="fp-btns">${opts.rwy?`<button data-fp="rwy" data-icao="${esc(ic)}" title="Runways">${fpI("swap")}</button>`:""}<button data-fp="map" data-icao="${esc(ic)}" title="Show on the map">${fpI("map")}</button><button data-fp="info" data-icao="${esc(ic)}" title="Airport information">${fpI("info")}</button></div></div>`}
+function fpRunway(ic,rwy,metar){if(!rwy)return"";const m=decodeMetar(metar),hd=rwyHdg(rwy);let wind="";
+  if(m&&m.wind&&hd!=null){if(m.wind.dir==null)wind=`<span class="fp-w">VRB ${m.wind.spd} kt</span>`;else{const c=components(m.wind.dir,m.wind.gust||m.wind.spd,hd),c0=components(m.wind.dir,m.wind.spd,hd);
+    wind=`<span class="fp-w${c0.hw<0?" tail":""}"><i>${c0.hw<0?"↑ tail":"↓ head"}</i>${Math.abs(c0.hw)} kt</span><span class="fp-w${Math.abs(c.xw)>20?" warn":""}"><i>${c0.xw>=0?"← cross":"→ cross"}</i>${Math.abs(c0.xw)}${m.wind.gust?"–"+Math.abs(c.xw):""} kt</span>`}}
+  let at="";try{atLoad(ic);const d=AT.data[ic];const codes=[];if(d){(d.real||[]).forEach(a=>{if(a.code)codes.push(a.code)});(d.vatsim||[]).forEach(a=>{if(a.code)codes.push(a.code)})}
+    at=codes.length?`<span class="fp-atis"><i>ATIS</i>${[...new Set(codes)].map(c=>`<b>${esc(c)}</b>`).join("")}</span>`:""}catch(e){}
+  return `<div class="fp-row fp-rwy"><div><span class="fp-k">Runway</span><b class="fp-big">${esc(rwy)}</b></div><div class="fp-wx">${wind}${at}</div><div class="fp-btns"><button data-fp="rwy" data-icao="${esc(ic)}" title="Runways">${fpI("swap")}</button><button data-fp="wx" data-icao="${esc(ic)}" title="Weather and ATIS">${fpI("more")}</button></div></div>`}
+function fpProc(kind,ic){let code="";try{code=rpCur(kind)}catch(e){}const tr=fpTrans(kind,code);
+  return `<div class="fp-row fp-proc ${kind}"><div><span class="fp-k">${kind==="sid"?"Departure":"Arrival"}</span><b>${esc(code||"—")}</b></div><div><span class="fp-k">Transition</span><b>${esc(tr||"—")}</b></div><div class="fp-btns"><button data-fp="${kind}" title="Change the ${kind==="sid"?"SID":"STAR"}">${fpI("swap")}</button></div></div>`}
+function fpCharts(ic){try{chLoad(ic)}catch(e){}const d=CH.data[ic];if(!d||!d.charts)return CH.err&&CH.err[ic]?"":`<p class="fp-note">${vam.url?"Looking for charts…":""}</p>`;
+  const n=g=>d.charts.filter(c=>c.group===g).length,na=n("Arrivals"),np=n("Approaches");if(!na&&!np)return "";
+  return `${na?`<div class="fp-row fp-cnt"><span class="fp-n g">${na}</span><span>Arrivals available</span><button class="fp-sel" data-fp="cat" data-cat="STAR" data-icao="${esc(ic)}">Select</button></div>`:""}${np?`<div class="fp-row fp-cnt"><span class="fp-n o">${np}</span><span>Approaches available</span><button class="fp-sel" data-fp="cat" data-cat="APP" data-icao="${esc(ic)}">Select</button></div>`:""}`}
+function fpHtml(){const x=O();if(ofp._sample)return `<div class="fp-h"><b>Flight</b><button data-fp="close" aria-label="Close">${fpI("x")}</button></div><p class="fp-empty">Load a SimBrief plan in Dispatch to see your flight here.</p>`;
+  const W={};wxFor(x).forEach(r=>{W[r[1]]=r[3]});const oi=S(x.o.icao_code),di=S(x.d.icao_code);
+  return `<div class="fp-h"><b>${esc(x.flight)}</b><span>${esc(oi)} → ${esc(di)}</span><button data-fp="close" aria-label="Close">${fpI("x")}</button></div>
+   <div class="fp-body"><button class="fp-ofp" data-fp="ofp">${fpI("doc")}View flight plan</button>
+   <h4>Origin</h4>${fpAirport("o",x.o,W.DEP,{})}${fpRunway(oi,S(x.o.plan_rwy),W.DEP)}${fpProc("sid",oi)}
+   <h4>Destination</h4>${fpAirport("d",x.d,W.DEST,{})}${fpRunway(di,S(x.d.plan_rwy),W.DEST)}${fpProc("star",di)}${fpCharts(di)}
+   ${S(x.a.icao_code)?`<h4>Destination alternate</h4>${fpAirport("a",x.a,W.ALTN,{})}`:""}
+   <div class="fp-foot"><button data-fp="route">${fpI("route")}Edit route</button><button data-fp="ofp">${fpI("doc")}Flight plan</button></div></div>`}
+function fpUi(){const el=$("#fpPanel"),b=$("#fpBtn");if(b)b.setAttribute("aria-pressed",String(FP.open));if(!el)return;el.hidden=!FP.open;if(FP.open){const sc=el.querySelector(".fp-body");const t=sc?sc.scrollTop:0;el.innerHTML=fpHtml();const n=el.querySelector(".fp-body");if(n)n.scrollTop=t}}
+function fpSet(on){FP.open=on;if(on&&typeof AS!=="undefined"&&AS.open){AS.open=false;try{asUi()}catch(e){}}fpUi()}
+document.addEventListener("click",e=>{if(e.target.closest("#fpBtn")){fpSet(!FP.open);return}
+  const b=e.target.closest("[data-fp]");if(!b)return;const a=b.dataset.fp,ic=b.dataset.icao;
+  if(a==="close")fpSet(false);
+  else if(a==="map"){mapGoApt(ic)}
+  else if(a==="info"||a==="rwy"||a==="wx"||a==="cat"){if(a==="cat"){AS.cat=b.dataset.cat;store.set("asCat",AS.cat)}FP.open=false;fpUi();asOpen(ic,{info:"info",rwy:"rwy",wx:"wx",cat:"charts"}[a])}
+  else if(a==="sid"||a==="star"){FP.open=false;fpUi();if(!RE.on)reToggle(true);RE.rp=a;reUi()}
+  else if(a==="route"){FP.open=false;fpUi();reToggle(true)}
+  else if(a==="ofp")goApp("ofp")});
+/* weather, ATIS and chart lists arrive after the panel is drawn: refresh it while it is open */
+setInterval(()=>{if(FP.open&&cur==="map"&&!document.hidden)fpUi()},4000);
+{const _au=asUi;asUi=function(){const r=_au.apply(this,arguments);if(AS.open&&FP.open){FP.open=false;fpUi()}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.fppanel{position:absolute;z-index:6;left:var(--mg);top:calc(var(--mt) + 56px);bottom:26px;width:360px;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -18px var(--shadow);font-family:var(--f-ui);overflow:hidden}
+.fppanel[hidden]{display:none}
+.fppanel svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#fpBtn[aria-pressed="true"]{color:var(--accent)}#fpBtn svg{fill:currentColor;stroke:none}
+.fp-h{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 16px;border-bottom:1px solid var(--line)}.fp-h b{font:700 17px var(--f-mono);color:var(--accent)}.fp-h span{flex:1;color:var(--label);font:500 13px var(--f-mono)}
+.fp-h button{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:var(--label);display:grid;place-items:center;cursor:pointer}.fp-h button svg{width:18px;height:18px}
+.fp-body{flex:1;overflow-y:auto;padding:12px 12px 16px}
+.fp-body h4{margin:16px 4px 8px;font:600 13px var(--f-ui);color:var(--label);letter-spacing:.02em}
+.fp-ofp{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font:600 14px var(--f-ui);cursor:pointer}.fp-ofp svg{width:17px;height:17px}
+.fp-apt,.fp-row{display:flex;align-items:center;gap:10px;padding:12px;background:var(--panel-2);border-radius:10px;margin-bottom:6px;position:relative}
+.fp-aptt{flex:1;min-width:0}.fp-aptt b{display:block;font:700 19px var(--f-mono);color:var(--ink)}
+.fp-cat{display:inline-flex;align-items:center;gap:6px;margin:3px 0 2px;font:700 11.5px var(--f-mono);color:var(--ink)}.fp-cat i{width:9px;height:9px;border-radius:50%}.fp-cat.none{color:var(--label);font-weight:500}
+.fp-aptt small{display:block;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fp-aptt small.fp-sub{color:var(--label);font-size:12px;margin-top:2px}
+.fp-btns{display:flex;gap:6px;flex:none}.fp-btns button{width:38px;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);display:grid;place-items:center;cursor:pointer}.fp-btns button:hover{border-color:var(--accent);color:var(--accent)}.fp-btns svg{width:19px;height:19px}
+.fp-row>div:first-child{min-width:62px}
+.fp-k{display:block;font-size:11.5px;color:var(--accent);margin-bottom:2px}.fp-row b{font:700 15px var(--f-mono)}.fp-big{font-size:22px!important}
+.fp-rwy::before,.fp-proc::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--cyan)}.fp-proc.sid::before,.fp-proc.star::before{background:var(--magenta)}
+.fp-wx{flex:1;display:flex;flex-wrap:wrap;gap:5px}
+.fp-w{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:6px;background:color-mix(in srgb,var(--green) 20%,transparent);color:var(--ink);font:700 11.5px var(--f-mono)}.fp-w i{font-style:normal;font-weight:500;color:var(--label)}
+.fp-w.tail{background:color-mix(in srgb,var(--amber) 22%,transparent)}.fp-w.warn{background:color-mix(in srgb,var(--red) 22%,transparent)}
+.fp-atis{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:6px;background:var(--panel);font:700 11.5px var(--f-mono)}.fp-atis i{font-style:normal;color:var(--label);font-weight:500}.fp-atis b{font-size:12px;padding:0 4px;border-radius:4px;background:var(--ink);color:var(--panel)}
+.fp-proc>div:nth-child(2){flex:1}
+.fp-cnt{gap:12px}.fp-cnt>span:nth-child(2){flex:1;font:500 14px var(--f-ui)}
+.fp-n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--f-mono);background:var(--panel)}.fp-n.g{color:var(--green)}.fp-n.o{color:var(--amber)}
+.fp-cnt>span.fp-n+span{color:var(--ink)}
+.fp-sel{padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:600 13px var(--f-ui);cursor:pointer}
+.fp-note{margin:4px 4px 0;color:var(--label);font-size:12.5px}.fp-empty{padding:20px 16px;color:var(--label);font-size:14px}
+.fp-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.fp-foot button{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);font:600 13.5px var(--f-ui);cursor:pointer}.fp-foot svg{width:17px;height:17px}
+@container screen (max-width:640px){.fppanel{left:0;right:0;width:auto;top:auto;bottom:0;height:62%;border-radius:14px 14px 0 0;border-bottom:0}}
+</style>`);
 
 /* ---------- Mail ----------
    Notices from Polaris staff (Crew Management, Flight Operations, Training …), written on the EFB server's admin page
@@ -6044,7 +6243,7 @@ V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Air
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="wxBtn" aria-label="Weather" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.5v1.3M3.9 6.2l.9.9M2.5 10.3h1.3M12.1 6.2l-.9.9"/><path d="M5.3 12.6A3.6 3.6 0 1 1 11.4 9"/><path d="M8.5 20h9a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.3A2.9 2.9 0 0 0 8.5 20Z"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
-   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><button class="ml-row ml-auto" data-mlauto aria-pressed="${!!ML.ifrAuto}"><span>Automatic IFR High/Low<small class="ml-s" data-mls="ifrauto"></small></span><i></i></button><span class="ml-h">Map layers</span>${L.filter(l=>!["apt","wx","radar","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div><div class="maplayers wxpanel" id="wxPanel" role="group" aria-label="Weather" hidden><span class="ml-h">Weather</span>${L.filter(l=>["radar","wx","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}<span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Model weather <small class="ml-s" data-mls="gwx"></small></span><div class="ml-base ml-gwx" role="group" aria-label="Weather layer">${GWX_FIELDS.map(b=>`<button data-mlgwx="${b[0]}" aria-pressed="${(ML.gwx||"off")===b[0]}">${b[1]}</button>`).join("")}</div><div class="ml-base ml-gwxlv" role="group" aria-label="Level"${ML.gwx==="isa"||ML.gwx==="vv"?"":" hidden"}>${GWX_LVS.map(b=>`<button data-mlgwxlv="${b[0]}" aria-pressed="${(+ML.gwxLv||250)===b[0]}">${b[1]}</button>`).join("")}</div>
+   <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><button class="ml-row ml-auto" data-mlauto aria-pressed="${!!ML.ifrAuto}"><span>Automatic IFR High/Low<small class="ml-s" data-mls="ifrauto"></small></span><i></i></button><span class="ml-h">Map layers</span>${L.filter(l=>!["apt","wx","radar","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div><div class="maplayers wxpanel" id="wxPanel" role="group" aria-label="Weather" hidden><span class="ml-h">Weather</span>${L.filter(l=>["radar","wx","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}<span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Model weather <small class="ml-s" data-mls="gwx"></small></span><div class="ml-base ml-gwx" role="group" aria-label="Weather layer">${GWX_FIELDS.map(b=>`<button data-mlgwx="${b[0]}" aria-pressed="${(ML.gwx||"off")===b[0]}">${b[1]}</button>`).join("")}</div><div class="ml-base ml-gwxlv" role="group" aria-label="Level"${ML.gwx==="isa"||ML.gwx==="vv"?"":" hidden"}>${GWX_LVS.map(b=>`<button data-mlgwxlv="${b[0]}" aria-pressed="${(+ML.gwxLv||250)===b[0]}">${b[1]}</button>`).join("")}</div></div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
 
 /* ---------- vAMSYS connection (through the Polaris EFB Worker, which keeps the API key) ---------- */

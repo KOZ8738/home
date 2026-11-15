@@ -752,25 +752,42 @@ async function vatsimFeed(ctx) {
   if (hit) { const d = await hit.json(), t = Date.parse(d.upd) || 0; if (Date.now() < t + 16000) { vsMem = { exp: t + 16000, d }; return d; } }
   const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
   if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
-  const j = await up.json(), r4 = (v) => Math.round(+v * 1e4) / 1e4, rows = [], routes = {};
+  const j = await up.json(), r4 = (v) => Math.round(+v * 1e4) / 1e4, rows = [], routes = {}, det = {};
   for (const p of j.pilots || []) {
     if (!p.callsign || !isFinite(p.latitude) || !isFinite(p.longitude)) continue;
     const f = p.flight_plan || {}, cs = String(p.callsign).toUpperCase(), t = Date.parse(p.logon_time || '');
     rows.push([cs, p.cid || 0, String(p.name || '').slice(0, 60), r4(p.latitude), r4(p.longitude), Math.round(+p.altitude || 0), Math.round(+p.groundspeed || 0), Math.round(+p.heading || 0), p.transponder || '', isFinite(t) ? Math.round(t / 1000) : 0,
       f.aircraft_short || '', f.departure || '', f.arrival || '', f.altitude || '', f.flight_rules || '']);
     if (f.route) routes[cs] = String(f.route).slice(0, 2000);
+    /* the rest of the flight plan and pilot details, for the one aircraft the EFB opens */
+    det[cs] = { rm: String(f.remarks || '').slice(0, 1200), altn: f.alternate || '', tas: f.cruise_tas || '', dt: f.deptime || '', ete: f.enroute_time || '', fob: f.fuel_time || '', faa: f.aircraft_faa || '', acl: f.aircraft || '', rev: f.revision_id || 0, pr: p.pilot_rating ?? null, mr: p.military_rating ?? null, sv: p.server || '', qnh: p.qnh_mb || null, ass: f.assigned_transponder || '' };
   }
-  const d = { upd: (j.general && j.general.update_timestamp) || new Date().toISOString(), rows, routes };
+  const d = { upd: (j.general && j.general.update_timestamp) || new Date().toISOString(), rows, routes, det };
   const exp = vsExp(d), ttl = Math.max(1, Math.round((exp - Date.now()) / 1000));
   const res = new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + ttl } });
   if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
   vsMem = { exp, d };
   return d;
 }
+/* a pilot's VATSIM flying hours (the network's member statistics), kept for 6 hours */
+async function vatsimHours(cid, ctx) {
+  const cache = caches.default, ck = new Request('https://vatsim-stats-cache.local/v1/' + cid);
+  try {
+    const hit = await cache.match(ck); if (hit) return (await hit.json()).h;
+    const r = await fetchT('https://api.vatsim.net/v2/members/' + cid + '/stats', 6000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } });
+    if (!r.ok) return null; const j = await r.json(), hrs = j && isFinite(+j.pilot) ? Math.round(+j.pilot) : null;
+    const res = new Response(JSON.stringify({ h: hrs }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=21600' } });
+    if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
+    return hrs;
+  } catch (e) { return null; }
+}
 const VS_FIELDS = ['c', 'cid', 'n', 'la', 'lo', 'a', 'g', 'h', 'sq', 't', 'ac', 'dep', 'arr', 'alt', 'rules'];
 async function vatsimRoute(req, url, ctx, h) {
   const d = await vatsimFeed(ctx), cs = String(url.searchParams.get('cs') || '').toUpperCase();
-  if (cs) return json({ cs, route: d.routes[cs] || '', upd: d.upd }, 200, h);
+  if (cs) {
+    const row = d.rows.find((r) => r[0] === cs), cid = row ? row[1] : 0;
+    return json({ cs, route: d.routes[cs] || '', det: (d.det && d.det[cs]) || null, hours: cid ? await vatsimHours(cid, ctx) : null, upd: d.upd }, 200, h);
+  }
   const etag = '"vs-' + d.upd + '"';
   if ((req.headers.get('If-None-Match') || '') === etag) return new Response(null, { status: 304, headers: { ...h, ETag: etag, 'Cache-Control': 'no-cache' } });
   return new Response(JSON.stringify({ upd: d.upd, f: VS_FIELDS, p: d.rows }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag } });

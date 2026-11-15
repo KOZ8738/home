@@ -738,15 +738,18 @@ async function pirepCellRoute(cellIn, ctx, h) {
   return new Response(r.body, { status: 200, headers: hd });
 }
 
-/* VATSIM traffic for the EFB map. The network feed (~2 MB, renewed every 15 s) is read at most once per 15 s per
-   location and cut down to what the map shows: rows of values instead of objects, no routes or remarks (one
-   pilot's route comes with ?cs=). The answer carries an ETag, so an EFB that already has this update gets a 304. */
-let vsMem = null; // { at, d } in this isolate
+/* VATSIM traffic for the EFB map. The network feed (~2 MB, renewed about every 15 s) is cut down to what the map
+   shows: rows of values instead of objects, no routes or remarks (one pilot's route comes with ?cs=). The copy is
+   kept until just after the feed's next renewal (its own time stamp + 16 s), not for a fixed 15 s from when it was
+   fetched, so it is never a whole cycle behind; if the network is late, it is asked again after 5 s. The answer
+   carries an ETag, so an EFB that already has this update gets a 304. */
+let vsMem = null; // { exp, d } in this isolate
+const vsExp = (d) => { const now = Date.now(), t = (Date.parse(d.upd) || now) + 16000; return t > now ? Math.min(t, now + 20000) : now + 5000; };
 async function vatsimFeed(ctx) {
-  if (vsMem && Date.now() - vsMem.at < 15000) return vsMem.d;
+  if (vsMem && Date.now() < vsMem.exp) return vsMem.d;
   const cache = caches.default, ck = new Request('https://vatsim-feed-cache.local/v1');
   const hit = await cache.match(ck);
-  if (hit) { const d = await hit.json(); vsMem = { at: Date.now(), d }; return d; }
+  if (hit) { const d = await hit.json(), t = Date.parse(d.upd) || 0; if (Date.now() < t + 16000) { vsMem = { exp: t + 16000, d }; return d; } }
   const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
   if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
   const j = await up.json(), r4 = (v) => Math.round(+v * 1e4) / 1e4, rows = [], routes = {};
@@ -758,9 +761,10 @@ async function vatsimFeed(ctx) {
     if (f.route) routes[cs] = String(f.route).slice(0, 2000);
   }
   const d = { upd: (j.general && j.general.update_timestamp) || new Date().toISOString(), rows, routes };
-  const res = new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=15' } });
+  const exp = vsExp(d), ttl = Math.max(1, Math.round((exp - Date.now()) / 1000));
+  const res = new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + ttl } });
   if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
-  vsMem = { at: Date.now(), d };
+  vsMem = { exp, d };
   return d;
 }
 const VS_FIELDS = ['c', 'cid', 'n', 'la', 'lo', 'a', 'g', 'h', 'sq', 't', 'ac', 'dep', 'arr', 'alt', 'rules'];

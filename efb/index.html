@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0653">
+<meta name="efb-build" content="1115.0714">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5122,7 +5122,8 @@ const vsOn=()=>!!ML.vatsim;
 /* the feed, slimmed to what the map uses; positions are projected once to normalised web-mercator (0..1).
    Two shapes: the network's own (pilots as objects) and the EFB server's (field names once, then rows of values). */
 function vsParse(j){const nx=lo=>(lo+180)/360,ny=la=>{const s=Math.sin(Math.max(-85,Math.min(85,la))*Math.PI/180);return .5-Math.log((1+s)/(1-s))/(4*Math.PI)};
-  const mk=(c,cid,n,la,lo,a,g,h,sq,t,fp,route)=>{c=String(c).toUpperCase();return{c,cid,n:n||"",la:+la,lo:+lo,x:nx(+lo),y:ny(+la),a:+a||0,g:+g||0,h:+h||0,sq:sq||"",t:t||0,fp,route,pol:c.startsWith(VS_AIRLINE)}};
+  const mk=(c,cid,n,la,lo,a,g,h,sq,t,fp,route)=>{c=String(c).toUpperCase();const gs=+g||0,hd=(+h||0)*Math.PI/180,k=gs>=40?gs/(3600*60*360*Math.max(.05,Math.cos(+la*Math.PI/180))):0;
+    return{c,cid,n:n||"",la:+la,lo:+lo,x:nx(+lo),y:ny(+la),vx:k*Math.sin(hd),vy:-k*Math.cos(hd),a:+a||0,g:gs,h:+h||0,sq:sq||"",t:t||0,fp,route,pol:c.startsWith(VS_AIRLINE)}};
   if(Array.isArray(j.p)&&Array.isArray(j.f)){const I={};j.f.forEach((k,i)=>{I[k]=i});const v=(r,k)=>I[k]==null?undefined:r[I[k]];
     return j.p.filter(r=>v(r,"c")&&isFinite(v(r,"la"))&&isFinite(v(r,"lo"))).map(r=>{const has=v(r,"dep")||v(r,"arr")||v(r,"ac")||v(r,"alt");
       return mk(v(r,"c"),v(r,"cid"),v(r,"n"),v(r,"la"),v(r,"lo"),v(r,"a"),v(r,"g"),v(r,"h"),v(r,"sq"),(+v(r,"t")||0)*1000,has?{ac:v(r,"ac")||"",dep:v(r,"dep")||"",arr:v(r,"arr")||"",alt:v(r,"alt")||"",rules:v(r,"rules")||""}:null,null)})}
@@ -5134,11 +5135,24 @@ function vsGet(u,signal){return fetch(u,{cache:"no-cache",signal}).then(r=>{if(!
 function vsLoad(){if(VS.loading)return;VS.loading=true;const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),25000);
   const srv=vam.url&&!VS.direct?vam.url.replace(/\/+$/,"")+"/api/efb/vatsim":null;
   (srv?vsGet(srv,ctrl.signal).then(j=>{if(!j||!Array.isArray(j.p))throw new Error("Not a VATSIM list");return j}).catch(e=>{if(e&&e.name==="AbortError")throw e;VS.direct=true;return vsGet(VS_URL,ctrl.signal)}):vsGet(VS_URL,ctrl.signal))
-    .then(j=>{VS.list=vsParse(j);VS.routes={};VS.upd=j.upd||(j.general&&j.general.update_timestamp)||null;VS.err=null;VS.fails=0})
+    .then(j=>{const upd=j.upd||(j.general&&j.general.update_timestamp)||null,now=Date.now(),t1=Date.parse(upd)||now;
+      if(VS.list&&upd===VS.upd){VS.same=(VS.same||0)+1;VS.err=null;VS.fails=0;VS.next=now+(VS.same>=4?15000:4000);return}
+      const old=new Map();if(VS.list){const d0=vsDt(now);VS.list.forEach(p=>{const o=vsOff(p,now);old.set(p.c,[p.x+p.vx*d0+o[0],p.y+p.vy*d0+o[1]])})}
+      VS.list=vsParse(j);VS.t0=t1;VS.routes={};VS.upd=upd;VS.err=null;VS.fails=0;VS.same=0;
+      const d1=vsDt(now);VS.list.forEach(p=>{const q=old.get(p.c);if(!q)return;const ox=q[0]-(p.x+p.vx*d1),oy=q[1]-(p.y+p.vy*d1);if(Math.abs(ox)<4e-4&&Math.abs(oy)<4e-4){p.ox=ox;p.oy=oy;p.ot=now}});
+      /* the network renews its feed about every 15 s: ask again just after the next renewal */
+      VS.next=Math.max(now+4000,Math.min(now+20000,t1+17000))})
     .catch(e=>{VS.fails++;VS.err=e&&e.name==="AbortError"?"VATSIM didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach VATSIM":e&&e.status?"VATSIM answered HTTP "+e.status:(e&&e.message)||"Couldn’t load"})
     .finally(()=>{clearTimeout(tm);VS.loading=false;VS.at=Date.now();if(cur==="map"){try{mapCanvas()}catch(e){}if(MAP.sel&&MAP.sel.t==="vs")mapInfo();try{updMapNote()}catch(e){}}})}
 /* called every second while the map is open (mapLoadAll): a fresh feed every 20 s, after a failure every 30 s up to 2 min */
-function vsTick(){if(!vsOn()||document.hidden||VS.loading)return;const wait=VS.err?Math.min(120000,30000*Math.pow(2,Math.max(0,VS.fails-1))):VS_EVERY;if(Date.now()-VS.at>=wait)vsLoad()}
+function vsTick(){if(!vsOn()||document.hidden||VS.loading)return;if(VS.err){if(Date.now()-VS.at>=Math.min(120000,30000*Math.pow(2,Math.max(0,VS.fails-1))))vsLoad();return}if(Date.now()>=(VS.next||VS.at+VS_EVERY))vsLoad()}
+/* seconds since the feed's own time stamp (the positions' age), and the eased correction after an update */
+const vsDt=now=>Math.max(0,Math.min(90,(now-(VS.t0||now))/1000));
+function vsOff(p,now){if(!p.ot)return[0,0];const f=1-(now-p.ot)/1600;if(f<=0){p.ot=0;return[0,0]}const e=f*f*(3-2*f);return[p.ox*e,p.oy*e]}
+/* between updates the aircraft keep moving on their last ground speed and heading; the map canvas is redrawn as often
+   as the zoom makes the movement visible (every 4 s zoomed out, 5 times a second close in) */
+let vsAnimAt=0;setInterval(()=>{if(cur!=="map"||document.hidden||!vsOn()||!VS.list||!MAP.c)return;const z=MAP.z,ms=z<5?4000:z<7?2000:z<9?1000:z<11?400:200;
+  if(Date.now()-vsAnimAt<ms)return;vsAnimAt=Date.now();try{mapCanvas()}catch(e){}},100);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&cur==="map")vsTick()});
 /* colours from the theme, read once per theme */
 let vsPal=null,vsPalKey="";
@@ -5149,9 +5163,9 @@ const vsAlt=a=>a>=18000?"FL"+String(Math.round(a/100)).padStart(3,"0"):Math.roun
 function vsDraw(){VS.scr=[];if(!vsOn()||!VS.list||!MAP.c)return;const cv=$("#mapCv");if(!cv)return;const {w,h}=mapSize();if(!w||!h)return;
   const g=cv.getContext("2d"),dpr=Math.min(2,window.devicePixelRatio||1),z=MAP.z,Wd=TS*Math.pow(2,z),c=mpx(MAP.c.lat,MAP.c.lon,z),ox=c[0]-w/2,oy=c[1]-h/2,C=vsColors();
   const skip=new Set(ML.traffic&&MAP.live?MAP.live.map(f=>String(f.callsign||"").toUpperCase()):[]);
-  const sel=MAP.sel&&MAP.sel.t==="vs"?MAP.sel.id:null,ground=z>=9,s0=z<3.5?.5:z<5?.6:z<7?.72:.85,pad=14;let selXY=null;
+  const sel=MAP.sel&&MAP.sel.t==="vs"?MAP.sel.id:null,ground=z>=9,s0=z<3.5?.5:z<5?.6:z<7?.72:.85,pad=14,now=Date.now(),dt=vsDt(now);let selXY=null;vsAnimAt=now;
   const draw=[];for(const p of VS.list){if(skip.has(p.c))continue;if(!ground&&p.g<50&&p.c!==sel)continue;
-    const wrap=Math.round(c[0]/Wd-p.x),x=(p.x+wrap)*Wd-ox,y=p.y*Wd-oy;if(x<-pad||y<-pad||x>w+pad||y>h+pad)continue;draw.push([p,x,y])}
+    const of=vsOff(p,now),px=p.x+p.vx*dt+of[0],py=p.y+p.vy*dt+of[1];const wrap=Math.round(c[0]/Wd-px),x=(px+wrap)*Wd-ox,y=py*Wd-oy;if(x<-pad||y<-pad||x>w+pad||y>h+pad)continue;draw.push([p,x,y])}
   /* Polaris and the picked aircraft last, so they are never covered by the others */
   draw.sort((a,b)=>(a[0].pol-b[0].pol)||((a[0].c===sel)-(b[0].c===sel)));
   g.save();g.lineJoin="round";

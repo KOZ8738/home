@@ -9,6 +9,9 @@ type Raw = {
   cs: string; cid: number; name: string; lat: number; lon: number; alt: number; gs: number; hdg: number; sq: string; logon: number;
   ac: string; dep: string; arr: string; cruise: number | null; fl: string; rules: string; altn: string; tas: string; dt: string; ete: string; route: string;
   vs?: number; sample?: boolean;
+  /** vAMSYS (ACARS) flights: phase as vAMSYS reports it, pilot ID and rank, registration, network, track */
+  src?: 'vAMSYS' | 'VATSIM'; vphase?: string; pilot?: string; rank?: string; reg?: string; acName?: string; net?: string;
+  departed?: string; eta?: string; remain?: number | null; trail?: [number, number][];
 };
 type Phase = 'gate' | 'taxiout' | 'takeoff' | 'cruise' | 'descent' | 'taxiin' | 'arrived';
 /** wingspan (m) by ICAO type, for drawing aircraft to scale when zoomed in */
@@ -63,7 +66,9 @@ const S = {
   timer: 0,
   globe: null as Globe | null,
   follow: false,
+  src: { vamsys: false, vatsim: true } as { vamsys: boolean; vatsim: boolean },
 };
+const srcText = () => [S.src.vamsys ? 'vAMSYS ACARS' : '', S.src.vatsim ? 'VATSIM PAW callsigns' : ''].filter(Boolean).join(' + ') || 'No source';
 try { S.trails = JSON.parse(sessionStorage.getItem('pmTrails') || '{}'); } catch { /* none */ }
 
 /* ---------- phase ---------- */
@@ -89,6 +94,21 @@ function phaseOf(r: Raw, vs: number | null, dDep: number | null, dArr: number | 
   return 'cruise';
 }
 
+/* the phase vAMSYS (the pilot's ACARS) reports, on our seven steps; null when the word is not one we know */
+function mapPhase(v: string, nearArr: boolean): Phase | null {
+  const p = v.toLowerCase();
+  if (!p) return null;
+  if (/arriv|on ?block|deboard|shut ?down|complete|finish|parked at|in ?gate/.test(p)) return 'arrived';
+  if (/taxi ?in|landed|landing roll|rollout|vacat/.test(p)) return 'taxiin';
+  if (/push|taxi ?out/.test(p)) return 'taxiout';
+  if (/^taxi/.test(p)) return nearArr ? 'taxiin' : 'taxiout';
+  if (/board|pre.?flight|preparing|gate|parked|scheduled|initial|ready|loading|not started|paused/.test(p)) return nearArr ? 'arrived' : 'gate';
+  if (/take ?off|climb|depart|rotate|airborne/.test(p)) return 'takeoff';
+  if (/cruise|en ?route|level/.test(p)) return 'cruise';
+  if (/descen|approach|final|landing|go.?around|hold/.test(p)) return 'descent';
+  return null;
+}
+
 function build(list: Raw[], updMs: number): Flight[] {
   const out: Flight[] = [];
   const keep = new Set<string>();
@@ -105,10 +125,12 @@ function build(list: Raw[], updMs: number): Flight[] {
     }
     const here: [number, number] = [r.lat, r.lon];
     const dDep = dep ? nm(here, [dep.lat, dep.lon]) : null, dArr = arr ? nm(here, [arr.lat, arr.lon]) : null;
-    const phase = phaseOf(r, vs, dDep, dArr, S.last[r.cs]);
+    const nearArr = dArr != null && (dDep == null || dArr < dDep);
+    const phase = (r.vphase && mapPhase(r.vphase, nearArr)) || phaseOf(r, vs, dDep, dArr, S.last[r.cs]);
     S.last[r.cs] = phase;
     const pct = dDep != null && dArr != null ? Math.max(0, Math.min(1, dDep / Math.max(1, dDep + dArr))) : null;
-    out.push({ callsign: r.cs, lat: r.lat, lon: r.lon, heading: r.hdg, span: SPAN[r.ac] || 36, ground: r.gs < 45 && r.alt < 15000, trail: r.sample ? sampleTrail(r, dep) : (S.trails[r.cs] || []), dep, arr, raw: r, phase, vs, dDep, dArr, pct });
+    const dArr2 = r.remain != null && isFinite(r.remain) ? r.remain : dArr;
+    out.push({ callsign: r.cs, lat: r.lat, lon: r.lon, heading: r.hdg, span: SPAN[r.ac] || 36, ground: r.gs < 45 && r.alt < 15000, trail: r.sample ? sampleTrail(r, dep) : r.trail && r.trail.length > 1 ? r.trail : (S.trails[r.cs] || []), dep, arr, raw: r, phase, vs, dDep, dArr: dArr2, pct });
   }
   if (!list.some((r) => r.sample)) {
     for (const k of Object.keys(S.trails)) if (!keep.has(k)) delete S.trails[k];
@@ -157,7 +179,7 @@ async function poll(force = false): Promise<void> {
     const j = await r.json().catch(() => null);
     if (!r.ok || !j) throw new Error((j && j.error) || 'HTTP ' + r.status);
     S.apts = Object.fromEntries(Object.entries(j.apts || {}).map(([k, v]) => { const a = v as [number, number, string, string]; return [k, { icao: k, lat: a[0], lon: a[1], iata: a[2], city: a[3] }]; }));
-    S.upd = j.upd || ''; S.fetched = Date.now(); S.error = ''; S.loaded = true;
+    S.upd = j.upd || ''; S.fetched = Date.now(); S.error = ''; S.loaded = true; S.src = j.sources || { vatsim: true, vamsys: false };
     S.globe?.setAirports(Object.values(S.apts));
     const raw: Raw[] = j.flights || [];
     if (raw.length) S.sample = false;
@@ -195,12 +217,12 @@ function render(): void {
     ? `<span class="lv-err">${esc(S.error)}</span>`
     : S.sample
       ? `<span class="lv-tag">SAMPLE</span> Made-up flights to preview the page · <button class="lv-link" data-lv="nosample">Back to live</button>`
-      : `<span class="lv-dot"></span>VATSIM · PAW callsigns${age != null ? ` · network data ${age} s old` : ''}`;
+      : `<span class="lv-dot"></span>${srcText()}${age != null ? ` · data ${age} s old` : ''}`;
 
   // list
   const list = $('#lvList')!;
   if (!S.loaded) list.innerHTML = '<div class="lv-empty">Loading…</div>';
-  else if (!n) list.innerHTML = `<div class="lv-empty"><b>No Polaris flights on VATSIM right now.</b><span>Flights show here as soon as a pilot connects with a PAW callsign, for example PAW806.</span><button data-lv="sample">Preview with sample flights</button></div>`;
+  else if (!n) list.innerHTML = `<div class="lv-empty"><b>No Polaris flights on VATSIM right now.</b><span>A flight shows here as soon as a pilot starts it in vAMSYS, or connects to VATSIM with a PAW callsign (for example PAW806).</span><button data-lv="sample">Preview with sample flights</button></div>`;
   else list.innerHTML = S.flights.map((f) => {
     const r = f.raw;
     return `<button class="lv-f${f.callsign === S.sel ? ' on' : ''}" data-cs="${esc(f.callsign)}">
@@ -215,9 +237,10 @@ function render(): void {
   if (!f) { det.innerHTML = ''; return; }
   const r = f.raw, idx = STEPS.findIndex(([k]) => k === f.phase);
   const vsTxt = f.vs == null ? '—' : (f.vs > 0 ? '+' : '') + f.vs.toLocaleString('en-US') + ' fpm';
-  const eta = f.dArr != null && r.gs > 80 ? new Date(Date.now() + (f.dArr / r.gs) * 3600e3) : null;
+  const etaV = r.eta ? new Date(r.eta) : null;
+  const eta = etaV && isFinite(etaV.getTime()) ? etaV : f.dArr != null && r.gs > 80 ? new Date(Date.now() + (f.dArr / r.gs) * 3600e3) : null;
   det.innerHTML = `
-    <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small></div>
+    <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${r.pilot ? esc(r.pilot) + (r.rank ? ' · ' + esc(r.rank) : '') + (r.name ? ' · ' + esc(r.name) : '') : esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small><span class="lv-srcb ${r.src === 'vAMSYS' ? 'va' : 'vs'}">${r.sample ? 'Sample' : r.src === 'vAMSYS' ? 'vAMSYS ACARS' + (r.net ? ' · ' + esc(r.net) : '') : 'VATSIM only'}</span></div>
       <div class="lv-dbtn"><button class="msg" data-lv="msg"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Write a Polaris Mail message to this pilot"'}><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>Message</button><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
     <div class="lv-od">
       <div><b>${esc(aptCode(r.dep))}</b><small>${esc(f.dep?.city || (r.dep ? '' : 'No flight plan'))}</small></div>
@@ -225,6 +248,7 @@ function render(): void {
       <div class="r"><b>${esc(aptCode(r.arr))}</b><small>${esc(f.arr?.city || '')}</small></div>
     </div>
     <div class="lv-dist">${f.dDep != null ? Math.round(f.dDep).toLocaleString('en-US') + ' nm flown' : ''}${f.dArr != null ? ' · ' + Math.round(f.dArr).toLocaleString('en-US') + ' nm to go' : ''}${eta ? ' · ETA ' + eta.toISOString().slice(11, 16) + 'Z' : ''}</div>
+    ${r.vphase ? `<div class="lv-acars">ACARS phase: <b>${esc(r.vphase)}</b></div>` : ''}
     <ol class="lv-steps">${STEPS.map(([k, l], i) => `<li class="${i < idx ? 'done' : i === idx ? 'now' : ''}"><span></span><b>${l}</b></li>`).join('')}</ol>
     <dl class="lv-kv">
       <div><dt>Altitude</dt><dd>${r.gs < 45 ? 'On ground' : ft(r.alt)}</dd></div>
@@ -232,9 +256,9 @@ function render(): void {
       <div><dt>Ground speed</dt><dd>${r.gs} kt</dd></div>
       <div><dt>Heading</dt><dd>${String(Math.round(r.hdg)).padStart(3, '0')}°</dd></div>
       <div><dt>Planned</dt><dd>${esc(r.fl || '—')}${r.tas ? ' · ' + esc(r.tas) + ' kt' : ''}</dd></div>
-      <div><dt>Aircraft</dt><dd>${esc(r.ac || '—')}</dd></div>
+      <div><dt>Aircraft</dt><dd>${esc(r.ac || '—')}${r.reg ? ' · ' + esc(r.reg) : ''}</dd></div>
       <div><dt>Squawk</dt><dd>${esc(r.sq || '—')}</dd></div>
-      <div><dt>Online</dt><dd>${r.logon ? dur(Date.now() - r.logon) : '—'}</dd></div>
+      <div><dt>${r.departed ? 'Departed' : 'Online'}</dt><dd>${r.departed && isFinite(Date.parse(r.departed)) ? new Date(r.departed).toISOString().slice(11, 16) + 'Z · ' + dur(Date.now() - Date.parse(r.departed)) + ' ago' : r.logon ? dur(Date.now() - r.logon) : '—'}</dd></div>
     </dl>
     ${r.route ? `<details class="lv-route"><summary>Route${r.altn ? ' · alternate ' + esc(r.altn) : ''}</summary><p>${esc(r.route)}</p></details>` : ''}`;
 }
@@ -297,7 +321,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.sel &&
 window.addEventListener('hashchange', showTab);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && currentTab() === 'live') void poll(true); });
 // keep the "x s old" line and the live badge fresh between polls
-setInterval(() => { if (currentTab() === 'live' && !document.hidden) { const s = $('#lvSrc'); if (s && S.upd && !S.error && !S.sample) { const age = Math.max(0, Math.round((Date.now() - Date.parse(S.upd)) / 1000)); s.innerHTML = `<span class="lv-dot"></span>VATSIM · PAW callsigns · network data ${age} s old`; } } }, 1000);
+setInterval(() => { if (currentTab() === 'live' && !document.hidden) { const s = $('#lvSrc'); if (s && S.upd && !S.error && !S.sample) { const age = Math.max(0, Math.round((Date.now() - Date.parse(S.upd)) / 1000)); s.innerHTML = `<span class="lv-dot"></span>${srcText()} · data ${age} s old`; } } }, 1000);
 // count on the Live tab even while Mail is open (once a minute)
 setInterval(() => { if (currentTab() === 'mail' && !document.hidden) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
 

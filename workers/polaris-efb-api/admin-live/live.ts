@@ -2,7 +2,7 @@
  * Live tab of the Polaris Mail admin: the website's globe plus every Polaris (PAW) flight on VATSIM and its phase.
  * Built with esbuild into ../src/live-bundle.js (npm run build), served on /admin/live.js.
  */
-import { Globe, type LiveFlight } from './globe';
+import { Globe, type LiveFlight, type Layout } from './globe';
 
 type Apt = { lat: number; lon: number; icao: string; iata: string; city: string };
 type Raw = {
@@ -11,6 +11,8 @@ type Raw = {
   vs?: number; sample?: boolean;
 };
 type Phase = 'gate' | 'taxiout' | 'takeoff' | 'cruise' | 'descent' | 'taxiin' | 'arrived';
+/** wingspan (m) by ICAO type, for drawing aircraft to scale when zoomed in */
+const SPAN: Record<string, number> = { A359: 64.8, A35K: 64.8, A388: 79.8, A339: 64, A333: 60.3, A332: 60.3, B77W: 64.8, B77L: 64.8, B772: 60.9, B789: 60.1, B788: 60.1, B78X: 60.1, B744: 64.4, B748: 68.4, A21N: 35.8, A321: 35.8, A20N: 35.8, A320: 35.8, A319: 35.8, A19N: 35.8, B738: 35.8, B38M: 35.9, B739: 35.8, B39M: 35.9, E75L: 26, CRJ9: 24.9 };
 type Flight = Omit<LiveFlight, 'dep' | 'arr'> & { dep: Apt | null; arr: Apt | null; raw: Raw; phase: Phase; vs: number | null; dDep: number | null; dArr: number | null; pct: number | null };
 
 const STEPS: [Phase, string][] = [
@@ -106,7 +108,7 @@ function build(list: Raw[], updMs: number): Flight[] {
     const phase = phaseOf(r, vs, dDep, dArr, S.last[r.cs]);
     S.last[r.cs] = phase;
     const pct = dDep != null && dArr != null ? Math.max(0, Math.min(1, dDep / Math.max(1, dDep + dArr))) : null;
-    out.push({ callsign: r.cs, lat: r.lat, lon: r.lon, heading: r.hdg, trail: r.sample ? sampleTrail(r, dep) : (S.trails[r.cs] || []), dep, arr, raw: r, phase, vs, dDep, dArr, pct });
+    out.push({ callsign: r.cs, lat: r.lat, lon: r.lon, heading: r.hdg, span: SPAN[r.ac] || 36, ground: r.gs < 45 && r.alt < 15000, trail: r.sample ? sampleTrail(r, dep) : (S.trails[r.cs] || []), dep, arr, raw: r, phase, vs, dDep, dArr, pct });
   }
   if (!list.some((r) => r.sample)) {
     for (const k of Object.keys(S.trails)) if (!keep.has(k)) delete S.trails[k];
@@ -125,22 +127,23 @@ function sampleTrail(r: Raw, dep: Apt | null): [number, number][] {
 }
 function samples(): Raw[] {
   const A = S.apts;
-  const mk = (cs: string, dep: string, arr: string, ac: string, k: number, alt: number, gs: number, vs: number, cruise: number, name: string): Raw | null => {
+  const mk = (cs: string, dep: string, arr: string, ac: string, k: number, alt: number, gs: number, vs: number, cruise: number, name: string, at?: [number, number, number]): Raw | null => {
     if (!A[dep] || !A[arr]) return null;
     const a: [number, number] = [A[dep]!.lat, A[dep]!.lon], b: [number, number] = [A[arr]!.lat, A[arr]!.lon];
     const p = along(a, b, k), q = along(a, b, Math.min(1, k + 0.01));
-    const off = gs < 45 ? 0.004 * (cs.charCodeAt(5) % 5) : 0; // spread aircraft on the same apron a little
-    return { cs, cid: 0, name, lat: p[0] + off, lon: p[1] + off, alt, gs, hdg: k >= 1 ? 280 : Math.round(bearing(p, q)), sq: '2000', logon: Date.now() - (2 + k * 9) * 3600e3,
+    // aircraft on the ground at KSFO sit on a real stand or taxiway ([lat, lon, heading]); elsewhere along the route
+    const [lat, lon, hdg] = at || [p[0], p[1], k >= 1 ? 280 : Math.round(bearing(p, q))];
+    return { cs, cid: 0, name, lat, lon, alt, gs, hdg, sq: '2000', logon: Date.now() - (2 + k * 9) * 3600e3,
       ac, dep, arr, cruise, fl: 'FL' + cruise / 100, rules: 'I', altn: '', tas: String(gs > 200 ? 480 : ''), dt: '', ete: '', route: 'Sample flight: made up for the preview', vs, sample: true };
   };
   const ok = (x: Raw | null): x is Raw => !!x;
   return [
-    mk('PAW102', 'KSFO', 'KLAX', 'A21N', 0, 13, 0, 0, 33000, 'Sample Pilot'),
-    mk('PAW810', 'KSFO', 'RCTP', 'A359', 0.0004, 13, 17, 0, 39000, 'Sample Pilot'),
+    mk('PAW102', 'KSFO', 'KLAX', 'A21N', 0, 13, 0, 0, 33000, 'Sample Pilot', [37.612402, -122.387937, 300]),
+    mk('PAW810', 'KSFO', 'RCTP', 'A359', 0, 13, 17, 0, 39000, 'Sample Pilot', [37.613530, -122.381705, 28]),
     mk('PAW130', 'KSFO', 'KJFK', 'A21N', 0.012, 7400, 245, 2600, 35000, 'Sample Pilot'),
     mk('PAW806', 'KSFO', 'RJTT', 'A359', 0.46, 37000, 488, 0, 37000, 'Sample Pilot'),
     mk('PAW902', 'EGLL', 'KSFO', 'A359', 0.955, 18600, 360, -1900, 39000, 'Sample Pilot'),
-    mk('PAW119', 'KSEA', 'KSFO', 'A21N', 1, 13, 16, 0, 34000, 'Sample Pilot'),
+    mk('PAW119', 'KSEA', 'KSFO', 'A21N', 1, 13, 16, 0, 34000, 'Sample Pilot', [37.619010, -122.379330, 220]),
     mk('PAW127', 'KSFO', 'KBOS', 'A21N', 1, 20, 0, 0, 36000, 'Sample Pilot'),
   ].filter(ok);
 }
@@ -155,6 +158,7 @@ async function poll(force = false): Promise<void> {
     if (!r.ok || !j) throw new Error((j && j.error) || 'HTTP ' + r.status);
     S.apts = Object.fromEntries(Object.entries(j.apts || {}).map(([k, v]) => { const a = v as [number, number, string, string]; return [k, { icao: k, lat: a[0], lon: a[1], iata: a[2], city: a[3] }]; }));
     S.upd = j.upd || ''; S.fetched = Date.now(); S.error = ''; S.loaded = true;
+    S.globe?.setAirports(Object.values(S.apts));
     const raw: Raw[] = j.flights || [];
     if (raw.length) S.sample = false;
     S.flights = build(raw.length || !S.sample ? raw : samples(), Date.parse(S.upd) || Date.now());
@@ -248,12 +252,19 @@ function showTab(): void {
   if (t === 'live') {
     if (!S.globe) {
       const c = $<HTMLCanvasElement>('#lvGlobe')!, ac = new AbortController();
-      S.globe = new Globe(c, { signal: ac.signal, onPick: (cs) => pick(cs), onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
+      S.globe = new Globe(c, { signal: ac.signal, onPick: (cs) => pick(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
       S.globe.pose([-150, 28], 1);
     }
     render();
     void poll(true);
   } else clearTimeout(S.timer);
+}
+/* airport diagrams for close zoom: the EFB server's OpenStreetMap layouts (same origin), kept for this page */
+async function loadLayout(icao: string): Promise<Layout | null> {
+  const r = await fetch('/api/efb/airport-layout?icao=' + encodeURIComponent(icao), { cache: 'default' });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j && !j.notFound ? (j as Layout) : null;
 }
 function pick(cs: string | null): void {
   S.sel = cs;

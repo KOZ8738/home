@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0647">
+<meta name="efb-build" content="1115.0653">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5556,10 +5556,31 @@ html.a11y-rm *,html.a11y-rm *::before,html.a11y-rm *::after{animation-duration:.
 /* airframe extras: overall length, wing / tailplane outline (x in metres from the nose: root LE, root TE, tip LE, tip
    chord), engine x, ZFW limits, index constants (reference at 25 % MAC), crew, LMC limit */
 /* ACDB is declared further down the page, so the extras are added on first use */
-function ldX(){if(ACDB.A21N.len)return;Object.assign(ACDB.A21N,{len:44.5,wing:[16.9,23.6,26.0,1.6],stab:[38.6,42.4,41.6,1.5],eng:[13.6,18.4],
+function ldX(){if(!ACDB.A21N.len){Object.assign(ACDB.A21N,{len:44.5,wing:[16.9,23.6,26.0,1.6],stab:[38.6,42.4,41.6,1.5],eng:[13.6,18.4],
   envZ:[[16,47000],[18,60000],[21,75600],[38,75600],[39,60000],[39,47000]],ixC:1000,ixK:50,crew:"2/5",lmc:500,sg:0.785});
 Object.assign(ACDB.A359,{len:66.8,wing:[25.2,36.6,45.0,2.4],stab:[57.4,63.2,62.6,1.8],eng:[20.6,27.4],
-  envZ:[[17,130000],[19,180000],[22,195700],[39,195700],[41,180000],[41,130000]],ixC:4000,ixK:100,crew:"2/10",lmc:1500,sg:0.785});}
+  envZ:[[17,130000],[19,180000],[22,195700],[39,195700],[41,180000],[41,130000]],ixC:4000,ixK:100,crew:"2/10",lmc:1500,sg:0.785});
+/* A320-214 (CFM), as in the Fenix A320: all-economy 180 seats, Fenix's hold and tank capacities; limits follow the OFP */
+ACDB.A320={name:"A320",mtow:73500,mlw:64500,mzfw:61000,oew:42600,dowCg:27,mac:4.19,cabin:[6.4,31.0],
+  J:{rows:0,ab:[2,2],pitch:1},Y:{rows:30,ab:[3,3]},holds:[["FWD",-6.0,3074],["AFT",5.2,4256],["BULK",8.4,1497]],
+  tanks:{wing:6126,ctr:6476,xw:-0.25,xc:-1.0},env:[[16,40000],[18,53000],[24,73500],[36,73500],[40,60000],[40,40000]],
+  wmin:35000,wmax:80000,cmin:10,cmax:45,ld:{LOW:1750,MED:1350,MAX:1100},ldRef:60000,vref:131,
+  toBase:1800,toRef:73500,v2:143,flexMax:68,flaps:["1+F","2","3"],ldFlaps:["3","FULL"],ths:[[17,2.4],[40,-1.6]],
+  len:37.57,wing:[13.8,20.2,22.4,1.5],stab:[32.0,35.4,35.0,1.4],eng:[11.0,15.4],
+  envZ:[[17,40000],[19,53000],[22,61000],[37,61000],[39,53000],[39,40000]],ixC:1000,ixK:50,crew:"2/4",lmc:500,sg:0.785};
+  Object.values(ACDB).forEach(a=>{a._b={mtow:a.mtow,mlw:a.mlw,mzfw:a.mzfw}})}
+  ldLim()}
+/* the structural limits of this airframe come from the OFP when SimBrief gives them; the envelopes move with them */
+let ldLimKey="";
+function ldLim(){const a=ACDB[acType()];if(!a||!a._b)return;const w=ofp.weights||{},k=acType()+"|"+(w.max_tow||"")+"|"+(w.max_ldw||"")+"|"+(w.max_zfw||"")+"|"+(ofp.params||{}).units;if(k===ldLimKey)return;ldLimKey=k;
+  const pick=(v,d)=>{const n=toKg(N(v));return n&&n>d*0.6&&n<d*1.4?Math.round(n):d};
+  const mt=pick(w.max_tow,a._b.mtow),ml=pick(w.max_ldw,a._b.mlw),mz=pick(w.max_zfw,a._b.mzfw);
+  a.env.forEach(p=>{if(p._top==null&&p[1]===a._b.mtow)p._top=a._b.mtow});a.envZ.forEach(p=>{if(p._top==null&&p[1]===a._b.mzfw)p._top=a._b.mzfw});
+  a.env.forEach(p=>{if(p._top!=null)p[1]=mt});a.envZ.forEach(p=>{if(p._top!=null)p[1]=mz});
+  a.mtow=mt;a.mlw=ml;a.mzfw=mz;a.wmax=Math.max(a.wmax,Math.ceil(mt*1.03/5000)*5000)}
+/* type from the OFP: A35x -> A350-900; A319 / A320 (ceo and neo) -> A320; anything else -> A321neo */
+acType=function(){const c=S(O().ac.icaocode).toUpperCase();if(/^A35/.test(c))return"A359";if(/^A3(19|20)|^A(19|20)N/.test(c))return"A320";return"A21N"};
+AC=function(){ldX();return ACDB[acType()]};
 const ldCap=ac=>(ldX(),0)+ac.tanks.wing*2+ac.tanks.ctr;
 const ldTrip=()=>toKg(N((ofp.fuel||{}).enroute_burn)||0);
 function inEnvP(env,cg,w){const half=env.length/2,fwd=env.slice(0,half),aft=env.slice(half).reverse();
@@ -5579,7 +5600,7 @@ function ldPlanned(){ldX();const x=O(),ac=AC(),wt=ofp.weights||{};const pax=Math
   L.lw=L.zfw+lf;L.lcg=(L.zfw*L.zcg+m)/L.lw;L.trip=trip;L.lf=lf;
   const allowed=[[ac.mzfw+L.tof,"Z"],[ac.mtow,"T"],[ac.mlw+trip,"L"]].sort((a,b)=>a[0]-b[0])[0];L.under=allowed[0]-L.tow;L.limit=allowed[1];
   L.zOk=inEnvP(ac.envZ,L.zcg,L.zfw)&&L.zfw<=ac.mzfw;L.tOk=inEnvP(ac.env,L.tcg,L.tow)&&L.tow<=ac.mtow;L.lOk=inEnvP(ac.env,L.lcg,L.lw)&&L.lw<=ac.mlw;
-  L.paxKg=L.pax*toKg(L.s.pw);L.dow=L.zfw-L.paxKg-L.cargo;return L}}
+  L.cgBad=(L.zfw<=ac.mzfw&&!inEnvP(ac.envZ,L.zcg,L.zfw))||(L.tow<=ac.mtow&&!inEnvP(ac.env,L.tcg,L.tow))||(L.lw<=ac.mlw&&!inEnvP(ac.env,L.lcg,L.lw));L.paxKg=L.pax*toKg(L.s.pw);L.dow=L.zfw-L.paxKg-L.cargo;return L}}
 
 /* what changed against a reference (the OFP, or the loadsheet last issued), and whether it is within LMC limits */
 function ldDiff(L,ref,refL){const ac=L.ac,s=L.s,lim=ac.lmc;const d={J:s.J-ref.J,Y:s.Y-ref.Y,pw:toKg(s.pw)-toKg(ref.pw),fwd:toKg(s.fwd||0)-toKg(ref.fwd||0),aft:toKg(s.aft||0)-toKg(ref.aft||0),bulk:toKg(s.bulk||0)-toKg(ref.bulk||0),fuel:toKg(s.fuel)-toKg(ref.fuel)};
@@ -5665,7 +5686,7 @@ seatSvg=function(L){ldX();const ac=L.ac,big=ac===ACDB.A359,W=660,len=ac.len,sx=W
 function ldRef(s){/* reference for changes: the issued loadsheet if there is one, otherwise the OFP */return s.iss?{ref:s.iss.snap,lab:"EDNO "+String(s.iss.ed).padStart(2,"0"),issued:true}:{ref:ldPlanned(),lab:"OFP",issued:false}}
 function ldLmcHtml(L){const s=L.s,{ref,lab,issued}=ldRef(s),RL=ldCalc(ref),d=ldDiff(L,ref,RL),u=O().unit==="LB"?"lb":"kg",lim=fmt(Math.round(fromKg(L.ac.lmc)));
   const parts=[Math.abs(d.zfw)>.5?"ZFW "+sgn(d.zfw,u):"",Math.abs(d.tow)>.5?"TOW "+sgn(d.tow,u):""].filter(Boolean).join(" · ");
-  if(!L.zOk||!L.tOk||!L.lOk||L.under<0)return `<div class="ld-lmc bad"><b>Outside limits</b><span>${L.under<0?"Overload of "+fmt(Math.round(fromKg(-L.under)))+" "+u+" ("+{Z:"zero fuel",T:"take-off",L:"landing"}[L.limit]+" weight limit). ":""}${!L.zOk||!L.tOk||!L.lOk?"A centre of gravity is outside its envelope. ":""}Change the load before issuing a loadsheet.</span></div>`;
+  if(!L.zOk||!L.tOk||!L.lOk||L.under<0)return `<div class="ld-lmc bad"><b>Outside limits</b><span>${L.under<0?"Overload of "+fmt(Math.round(fromKg(-L.under)))+" "+u+" ("+{Z:"zero fuel",T:"take-off",L:"landing"}[L.limit]+" weight limit). ":""}${L.cgBad?"A centre of gravity is outside its envelope. ":""}Change the load before issuing a loadsheet.</span></div>`;
   if(!d.any)return `<div class="ld-lmc ok"><b>${issued?"Matches loadsheet "+lab:"As planned in the OFP"}</b><span>${issued?"No changes since it was issued.":"The loads are the ones SimBrief planned."}</span></div>`;
   if(d.ok)return `<div class="ld-lmc ok"><b>${parts} against ${lab}</b><span>Within last-minute-change limits (±${lim} ${u}).${issued?" The changes go on the loadsheet as LMC.":" The OFP performance figures still hold."}</span></div>`;
   return `<div class="ld-lmc warn"><b>${parts} against ${lab}</b><span>More than the last-minute-change limit (±${lim} ${u}). ${issued?"Issue a new loadsheet, and ":""}<a href="#perf">recalculate take-off performance</a>.</span></div>`}
@@ -5684,10 +5705,10 @@ const ldView2=()=>{const L=ldCalc(),x=O(),u=x.unit,ac=L.ac,s=L.s;const capJ=L.se
   const pd=k=>ldDiffChip(k==="pw"?toKg(s.pw)-toKg(pl.pw):k==="J"||k==="Y"?s[k]-pl[k]:toKg(s[k]||0)-toKg(pl[k]||0),k==="J"||k==="Y",uu);
   const num=(k,v,max,stepv)=>`<input type="number" min="0"${max!=null?` max="${max}"`:""}${stepv?` step="${stepv}"`:""} data-ld="${k}" value="${v}" aria-label="${k}">`;
   const cap=ldCap(ac),sg=+s.sg||ac.sg,fuelOver=toKg(s.fuel)>cap;
-  return `<section class="panel"><div class="ph"><span>Passengers · capacity ${L.seats.length} (${capJ} J / ${capY} Y)</span><span id="ldPax">${ldPaxTxt(L)}</span></div>
+  return `<section class="panel"><div class="ph"><span>Passengers · capacity ${L.seats.length} ${capJ?`(${capJ} J / ${capY} Y)`:"economy"}</span><span id="ldPax">${ldPaxTxt(L)}</span></div>
     <div class="pb seatbox" id="ldSeats">${seatSvg(L)}</div>
     <div class="pa"><div class="pa-r pa-h"><span></span><span>Planned</span><span>Actual</span><span></span></div>
-     ${ldRow("J","Business",fmt(pl.J),num("J",s.J,capJ),pd("J"))}${ldRow("Y","Economy",fmt(pl.Y),num("Y",s.Y,capY),pd("Y"))}
+     ${capJ?ldRow("J","Business",fmt(pl.J),num("J",s.J,capJ),pd("J")):""}${ldRow("Y","Economy",fmt(pl.Y),num("Y",s.Y,capY),pd("Y"))}
      ${ldRow("pw","Weight each "+uu,(+(+pl.pw).toFixed(1)),num("pw",+(+s.pw).toFixed(1),null,"0.1"),pd("pw"))}
      <div class="pa-btns"><button class="btn sm" data-ldact="board">Board as planned</button><button class="btn sm" data-ldact="empty">Deboard</button></div></div></section>
   <div class="pf-grid">
@@ -5743,7 +5764,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .pa-h{font:500 10px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--label);padding:4px 0 6px}
 .pa-l{font:500 13.5px var(--f-ui);color:var(--ink);min-width:0}.pa-l small{color:var(--label);font:500 11px var(--f-mono);white-space:nowrap}
 .pa-p{font:500 14px var(--f-mono);color:var(--label)}
-.pa-a input{width:100%;box-sizing:border-box;padding-left:8px;padding-right:4px;font-size:14px}
+.pa-a input{width:100%;box-sizing:border-box;padding-left:8px;padding-right:4px;font-size:14px;-moz-appearance:textfield;appearance:textfield}.pa-a input::-webkit-inner-spin-button,.pa-a input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .pa-d{text-align:right;white-space:nowrap}.pa-d i{font:600 11.5px var(--f-mono);font-style:normal;padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan)}
 .pa-d i.dn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
 .pa-bar{position:absolute;left:0;right:0;bottom:-1px;height:3px!important;border:0!important;border-radius:0!important;background:transparent!important}
@@ -5776,7 +5797,7 @@ svg.seats.acmap{max-height:210px}
 .ls-sheet{width:min(520px,100%);max-height:90%;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.45)}
 .ls-mh{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}.ls-mh span{display:flex;gap:8px}
 .ls-pre{margin:0;padding:18px 20px;overflow:auto;font:500 12.5px/1.5 var(--f-mono);color:var(--ink);background:color-mix(in srgb,var(--panel-2) 60%,var(--panel));white-space:pre;user-select:text;-webkit-user-select:text}
-.pf-r .pa-r{grid-template-columns:minmax(58px,1fr) minmax(58px,auto) minmax(78px,110px) minmax(48px,auto);gap:8px}.pa-h span{white-space:nowrap}.pf-r .pa-h{letter-spacing:.08em;font-size:9.5px}
+.pf-r .pa-r{grid-template-columns:minmax(56px,1fr) minmax(52px,auto) minmax(84px,110px) minmax(44px,auto);gap:8px}.pa-h span{white-space:nowrap}.pf-r .pa-h{letter-spacing:.08em;font-size:9.5px}
 @container screen (max-width:640px){.pa-r,.pf-r .pa-r{grid-template-columns:minmax(0,1.2fr) minmax(40px,.7fr) minmax(74px,1fr) 56px;gap:6px}.ls-pre{font-size:11px;padding:14px}}
 </style>`);
 

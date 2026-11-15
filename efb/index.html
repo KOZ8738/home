@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.2325">
+<meta name="efb-build" content="1115.2339">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6639,6 +6639,23 @@ function rsWx(icao){if(!icao||!vam.url)return;const w=RS.wx[icao];if(w&&(w.loadi
     RS.wx[icao]={at:Date.now(),metar:a.status==="fulfilled"?a.value&&a.value.metar:w&&w.metar,taf:a.status==="fulfilled"?a.value&&a.value.taf:w&&w.taf,err:a.status==="rejected"?a.reason.message:null};
     if(t.status==="fulfilled")RS.atis[icao]={vatsim:t.value.vatsim||[],real:(t.value.real||[]).filter(x=>x&&x.datis)}})
     .finally(()=>{if(cur==="roster")render()})}
+/* datalink offered by VATSIM controllers (DCL/PDC, CPDLC through Hoppie), from their public info lines */
+const DL={list:null,at:0,loading:false,err:null};
+function dlLoad(){if(!vam.url||DL.loading||Date.now()-DL.at<60000)return;DL.loading=true;
+  vamGet("/api/efb/datalink",15000).then(j=>{DL.list=j.stations||[];DL.err=null}).catch(e=>{DL.err=e.message}).finally(()=>{DL.loading=false;DL.at=Date.now();if(cur==="roster")render()})}
+/* stations of one airport: callsign prefix is the ICAO code, or (US, Pacific, Canada) the three letters after K/P/C */
+function dlAt(icao){icao=String(icao||"").toUpperCase();const pre=new Set([icao]);if(/^[KPC][A-Z0-9]{3}$/.test(icao))pre.add(icao.slice(1));
+  return (DL.list||[]).filter(x=>pre.has(x.cs.split("_")[0])||x.code===icao)}
+function dlRow(x){return `<div class="dl-r"><div class="dl-k">${x.kind.map(k=>`<span class="pill ${k==="CPDLC"?"c-blue":"c-green"}">${k==="DCL"?"DCL / PDC":k}</span>`).join("")}</div>
+  <div class="dl-m"><b>${esc(x.cs)}</b>${x.f&&x.f!=="199.998"?`<span>${esc(x.f)}</span>`:""}${x.code?`<span class="dl-c">Logon <b>${esc(x.code)}</b></span>`:`<span class="dl-c">No logon code given</span>`}<p>${esc(x.text)}</p></div></div>`}
+function dlHtml(ci){dlLoad();if(!DL.list)return `<div class="card-b"><p class="note">${DL.err?esc(DL.err):"Looking for datalink stations on VATSIM…"}</p></div>`;
+  const dep=dlAt(ci.from),arr=dlAt(ci.to),seen=new Set([...dep,...arr].map(x=>x.cs));
+  const enr=DL.list.filter(x=>!seen.has(x.cs)&&x.kind.includes("CPDLC")&&/^(CTR|FSS)$/.test(x.fac));
+  const grp=(t,L,none)=>`<div class="dl-g"><div class="dl-gh">${t}</div>${L.length?L.map(dlRow).join(""):`<p class="note">${none}</p>`}</div>`;
+  return grp("Departure · "+esc(ci.from),dep,"No datalink offered at "+esc(ci.from)+" right now. Request your clearance by voice.")
+    +grp("Arrival · "+esc(ci.to),arr,"No datalink offered at "+esc(ci.to)+" right now.")
+    +grp("CPDLC centres online",enr,"No centre is offering CPDLC right now.")
+    +`<p class="note dl-n">From the controllers’ own information on VATSIM. Datalink on VATSIM runs through Hoppie’s ACARS network: use your aircraft’s datalink (or a Hoppie client) with your own Hoppie logon code.</p>`}
 const RS_CAT={VFR:"c-green",MVFR:"c-blue",IFR:"c-red",LIFR:"c-red"};
 function rsWxHtml(icao,label){const w=RS.wx[icao]||{},a=RS.atis[icao]||{};rsWx(icao);
   const atis=(a.vatsim||[]).map(x=>`<div class="rs-atis"><b>VATSIM ${esc(x.cs)}${x.code?" · "+esc(x.code):""}</b><span>${esc(x.f||"")}</span><p>${esc(x.text||"")}</p></div>`).join("")+(a.real||[]).slice(0,1).map(x=>`<div class="rs-atis"><b>Real-world ATIS${x.code?" · "+esc(x.code):""}</b><p>${esc(x.datis)}</p></div>`).join("");
@@ -6660,6 +6677,7 @@ function rsBriefHtml(ci){const now=Date.now(),x=O(),match=!ofp._sample&&S(x.o.ic
      <ol class="rs-tl">${tl}</ol>${push}</section>
    <section class="card">${cardH("Flight plan","SimBrief")}<div class="card-b" style="display:grid;gap:12px">${sbCard}
      <div class="row">${sb?`<button class="btn${match?"":" pri"}" data-rssb>Fetch latest from SimBrief</button>`:`<a class="btn" href="#simbrief">Set up SimBrief</a>`}<a class="btn${match?"":" pri"}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>${match?`<a class="btn" href="#ofp">Open Flight Plan</a>`:""}</div></div></section>
+   <section class="card">${cardH("Datalink","DCL / PDC and CPDLC on VATSIM")}${dlHtml(ci)}</section>
    <section class="card">${cardH("Weather","Departure and arrival",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(ci.from,"Departure")}${rsWxHtml(ci.to,"Arrival")}</div></section>`}
 V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now();
   if(!authOn())return `<section class="hero">${ROSE_SVG}<span class="eyebrow">Roster</span><h2>Sign in to see <em>your roster</em></h2><p>Your bookings come from vAMSYS.</p></section>`;
@@ -6701,7 +6719,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-rssel],[da
   else if(d.rsci)rsCheckin(d.rsci);
   else if(d.rsco!=null){if(!confirm("Cancel the check-in? The briefing notifications for this flight stop."))return;pmPost("/api/efb/crew/checkout",{}).then(()=>{RS.ci=null;store.set("checkin",null);toast("Check-in cancelled");render()}).catch(er=>toast(er.message))}
   else if(d.rssb!=null)sbFetchQuiet(true).then(()=>{if(cur==="roster")render()});
-  else if(d.rsref!=null){rsLoad(true);RS.wx={};render()}});
+  else if(d.rsref!=null){rsLoad(true);RS.wx={};DL.at=0;render()}});
 document.head.insertAdjacentHTML("beforeend",`<style>
 .rs-sf{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px}
 .rs-tl{list-style:none;margin:0;padding:16px 20px 10px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
@@ -6721,12 +6739,19 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .rs-wx2{display:grid;grid-template-columns:1fr 1fr;gap:0}.rs-wx{padding:14px 20px 18px;min-width:0}.rs-wx+.rs-wx{border-left:1px solid var(--line)}
 .rs-wxh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}.rs-wxh b{font:400 22px var(--f-disp)}
 .rs-wxh .c-blue{color:#3F7FA0!important}
+.dl-g{padding:12px 20px 4px;border-top:1px solid var(--line)}.dl-g:first-child{border-top:0}
+.dl-gh{font:600 11px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--label);margin-bottom:8px}
+.dl-r{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;padding:8px 0 12px}.dl-k{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.dl-m b{font:600 14px var(--f-mono);color:var(--ink)}.dl-m span{margin-left:10px;font:500 12.5px var(--f-mono);color:var(--label)}.dl-m .dl-c b{color:var(--accent);font-size:14px}
+.dl-m p{margin:4px 0 0;font-size:12.5px;line-height:1.45;color:var(--label);word-break:break-word}
+.dl-g .note{margin:0 0 10px}.dl-n{padding:6px 20px 14px;margin:0;font-size:12px}
+.dl-k .c-blue{color:#3F7FA0!important}
 .cal-ex.ci{color:#2C7A4B;border-color:color-mix(in srgb,#2C7A4B 55%,transparent)}
 .rs-raw{font:500 13px/1.55 var(--f-mono);margin:0;word-break:break-word;color:var(--ink)}
 .rs-taf summary{cursor:pointer;color:var(--accent);font:600 12px var(--f-ui);letter-spacing:.08em;margin-top:10px}.rs-taf p{margin-top:6px}
 .rs-atis{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.rs-atis b{font:600 12px var(--f-ui);color:var(--accent);margin-right:8px}.rs-atis span{font:500 12px var(--f-mono);color:var(--label)}.rs-atis p{margin:4px 0 0;font:500 12.5px/1.5 var(--f-mono);color:var(--ink)}
 .notice.ok{border-color:color-mix(in srgb,#2C7A4B 45%,var(--line));background:color-mix(in srgb,#2C7A4B 10%,transparent)}
-@container screen (max-width:760px){.rs-tl{grid-template-columns:1fr;justify-items:start}.rs-tl li{flex-direction:row;text-align:left}.rs-tl li::before{display:none}
+@container screen (max-width:760px){.dl-r{grid-template-columns:1fr;gap:6px}.dl-k{flex-direction:row}.rs-tl{grid-template-columns:1fr;justify-items:start}.rs-tl li{flex-direction:row;text-align:left}.rs-tl li::before{display:none}
   .rs-leg{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t b" "r r" "m m"}.rs-turn{padding-left:20px}.rs-wx2{grid-template-columns:1fr}.rs-wx+.rs-wx{border-left:0;border-top:1px solid var(--line)}}
 </style>`);
 

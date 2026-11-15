@@ -22,6 +22,7 @@
  *   GET/POST /api/efb/pm, /api/efb/pm/online, /api/efb/pm/state -> pilots' messages to a department or an online flight (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout) -> Web Push and check-in (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
+ *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
@@ -875,6 +876,42 @@ async function vatsimAtisAll(ctx) {
   if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
   return out;
 }
+/* ---- datalink (DCL/PDC and CPDLC) offered by VATSIM controllers ----
+   VATSIM has no datalink of its own: controllers who offer it use Hoppie's ACARS network and say so in their
+   controller info or ATIS ("DCL AVBL LOGON EDDF", "CPDLC LOGON EDYY"). Those lines are public; this reads them from
+   the VATSIM feed (no Hoppie account involved) and returns each station that mentions datalink, what it offers and
+   the logon code when one is given. */
+const DL_STOP = new Set(['WITH', 'CODE', 'ONLY', 'FROM', 'THIS', 'OVER', 'VOICE', 'WHEN', 'HTTP', 'HTTPS', 'AVBL', 'AVAIL', 'USING', 'VIA', 'PLEASE', 'PLZ', 'THEN', 'INFO', 'FREQ', 'CTOT', 'TSAT', 'TOBT', 'CPDLC', 'HOPPIE', 'ACARS', 'LOGON', 'REQUEST', 'STATION', 'UNIT', 'FULL', 'OPEN', 'ALSO', 'INOP', 'TEXT', 'SEND', 'DATA', 'LINK', 'NONE', 'NOT', 'VATSIM', 'IVAO', 'EXPECT', 'ALL', 'FOR', 'AND', 'THE', 'DEP', 'ARR', 'GND', 'TWR', 'APP', 'CTR', 'DEL']);
+export function datalinkOf(text) {
+  const t = ' ' + String(text || '').toUpperCase().replace(/[^A-Z0-9:=\/\-\s.,()]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const kind = [];
+  if (/\b(DCL|PDC)\b|DATA ?LINK CLEARANCE|PRE ?-?DEP(ARTURE)? CLEARANCE|DEPARTURE CLEARANCE VIA|CLEARANCE VIA (HOPPIE|DATALINK|ACARS)/.test(t)) kind.push('DCL');
+  if (/\bCPDLC\b/.test(t)) kind.push('CPDLC');
+  if (!kind.length) return null;
+  let code = '';
+  const pats = [/\b(?:LOGON|LOG ON|LOGIN)\s*(?:CODE|TO|STATION|UNIT|WITH|AT)?\s*(?:IS|TO)?\s*[:=\-]?\s*([A-Z]{4})\b/g, /\b(?:STATION|UNIT)\s*(?:CODE|ID)?\s*(?:IS)?\s*[:=\-]?\s*([A-Z]{4})\b/g, /\b(?:DCL|PDC|CPDLC)\b[^.]{0,24}?\bUSE\s+([A-Z]{4})\b/g, /\b(?:DCL|PDC|CPDLC)\s*(?:AVBL|AVAILABLE|AVAIL)?\s*(?:VIA HOPPIE)?\s*[:=\-]\s*([A-Z]{4})\b/g, /\b([A-Z]{4})\s*(?:FOR\s*)?(?:DCL|PDC)\b/g];
+  for (const re of pats) { let m; while ((m = re.exec(t))) { if (!DL_STOP.has(m[1])) { code = m[1]; break; } } if (code) break; }
+  return { kind, code };
+}
+async function datalinkRoute(ctx) {
+  const cache = caches.default, ck = new Request('https://vatsim-datalink-cache.local/v1');
+  const hit = await cache.match(ck); if (hit) return await hit.json();
+  const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
+  if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
+  const j = await up.json(), out = [];
+  const add = (c, isAtis) => {
+    const text = Array.isArray(c.text_atis) ? c.text_atis.join(' ') : String(c.text_atis || '');
+    const d = datalinkOf(text); if (!d) return;
+    const cs = String(c.callsign || '').toUpperCase(), fac = cs.split('_').pop();
+    out.push({ cs, f: c.frequency || '', fac: isAtis ? 'ATIS' : fac, kind: d.kind, code: d.code, text: text.replace(/\s+/g, ' ').slice(0, 400) });
+  };
+  for (const c of j.controllers || []) add(c, false);
+  for (const a of j.atis || []) add(a, true);
+  const res = { at: (j.general && j.general.update_timestamp) || null, stations: out };
+  const r = new Response(JSON.stringify(res), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r)); else await cache.put(ck, r);
+  return res;
+}
 async function datisReal(icao, ctx) {
   const cache = caches.default, ck = new Request('https://datis-cache.local/' + icao);
   let r = await cache.match(ck); if (r) return await r.json();
@@ -1290,6 +1327,7 @@ export default {
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/pirep': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your PIREPs' }, 401, h); return json({ ...(await pirepRoute(env, me, url.searchParams.get('id'))), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/datalink': return json({ ...(await datalinkRoute(ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/live': if (!configured) break; return json({ ...(await liveRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fleet': if (!configured) break; return json({ fleet: await fleets(env), updatedAt: new Date().toISOString() }, 200, h);
         default: return json({ error: 'Not found' }, 404, h);

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0557">
+<meta name="efb-build" content="1115.0631">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4510,65 +4510,144 @@ V.simbrief=()=>{const x=O(),u=store.get("sbUser","");const tm=ofp.times||{};
   </div>`};
 
 /* ===== Settings ===== */
-let psec=store.get("psec","display");
+let psec=store.get("psec","general"),stOpen=false;
 /* Settings, laid out like iPadOS Settings: a sidebar with search, the pilot's account and the sections, and on the right
-   a header card for the section and inset grouped lists. Booleans are switches; one-of choices are rows with a check. */
+   a header card for the section and inset grouped lists. Booleans are switches; one-of choices are rows with a check.
+   On a phone the sidebar is the first screen, and a section opens over it with a back button. */
 const ST_I={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
   link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
   check:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
   db:'<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',bolt:'<path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/>',
-  island:'<rect x="4" y="9" width="16" height="6" rx="3"/>',moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
-  search:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',tick:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',chev:'<path d="M9 5l7 7-7 7"/>',plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>'};
+  gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8l1.5 2.3 2.7-.6.6 2.7 2.3 1.5-1.2 2.5 1.2 2.5-2.3 1.5-.6 2.7-2.7-.6L12 21.2l-1.5-2.3-2.7.6-.6-2.7-2.3-1.5L6.1 12 4.9 9.5l2.3-1.5.6-2.7 2.7.6z"/>',
+  bell:'<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
+  wifi:'<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19.2" r="1.2" fill="currentColor" stroke="none"/>',
+  radar:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6.4-6.4"/><circle cx="16" cy="9" r="1.3" fill="currentColor" stroke="none"/>',
+  island:'<rect x="4" y="9" width="16" height="6" rx="3"/>',plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>',
+  access:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r="1.4" fill="currentColor" stroke="none"/><path d="M7.5 10.2l4.5 1 4.5-1M12 11.2v3.3l-2.4 4M12 14.5l2.4 4"/>',
+  navmap:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',sunsm:'<circle cx="12" cy="12" r="3.2"/><path d="M12 5v1.6M12 17.4V19M5 12h1.6M17.4 12H19M7 7l1.1 1.1M15.9 15.9L17 17M7 17l1.1-1.1M15.9 8.1L17 7"/>',moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',tick:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',chev:'<path d="M9 5l7 7-7 7"/>',back:'<path d="M15 5l-7 7 7 7"/>'};
 const stI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ST_I[k]}</svg>`;
 const stIc=(k,bg,fill)=>`<span class="st-ic" style="background:${bg}">${fill?`<svg viewBox="0 0 24 24" aria-hidden="true" class="fill">${ST_I[k]}</svg>`:stI(k)}</span>`;
-const ST_SECS=[["display","sun","#0A84FF","Display & Appearance","Theme, airline look, and what stays on screen during a flight.","theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep"],
-  ["vam","link","#30B455","vAMSYS","Connect the EFB to your vAMSYS account for bookings, live flights and PIREPs. The vAMSYS key stays on the Polaris server and never reaches this device.","vamsys account server username pilot connect bookings"],
+/* key, icon, colour, title, header text, search words */
+const ST_SECS=[["general","gear","#8E8E93","General","Software updates and what’s new in the Polaris EFB.","general software update version new changelog"],
+  ["notif","bell","#FF3B30","Notifications","Choose which alerts the EFB shows, and how.","notifications alerts mail sound banner dynamic island update"],
+  ["nav","navmap","#30B455","Navigation","The map’s base map and layers, and how it opens.","navigation map base layers ifr vfr satellite airports fir airspace radar traffic follow"],
+  ["a11y","access","#0A84FF","Accessibility","Make the EFB easier to read and calmer to use.","accessibility text size larger bold contrast motion animation"],
+  ["display","sun","#0A84FF","Display & Brightness","Theme, dimming for night flights, airline look, and what stays on screen.","display brightness dim night light red warm theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep appearance"],
+  ["ops","clock","#FF9F0A","Flight Operations","Your SimBrief account, plan fetching and the aircraft used for checklists.","flight operations simbrief username fetch plan ofp aircraft checklist a320 a350 base"],
   ["cl","check","#FF9F0A","Checklists","The EFB can open the right checklist as your live vAMSYS flight moves from boarding to arrival.","checklist push phase notification live"],
-  ["data","db","#8E8E93","Storage","What the EFB keeps on this device. Nothing here is uploaded.","storage data reset clear logbook ofp plan checklist progress"],
-  ["about","info","#5E5CE6","About","Polaris Airways electronic flight bag, for flight simulation only. Not for real-world navigation.","about version sources device build"]];
-V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store.get("island",true)!==false,air=store.get("airline","paw");
-  if(!ST_SECS.some(s=>s[0]===psec))psec="display";
+  ["conn","wifi","#0A84FF","Connection","Whether the EFB can reach the internet and each service it uses.","connection network internet wifi server online offline status latency"],
+  ["vatsim","radar","#1E9E8F","VATSIM","See whether you are connected to the VATSIM network, and where.","vatsim cid network online callsign sim connection"],
+  ["vam","link","#30B455","vAMSYS","Connect the EFB to your vAMSYS account for bookings, live flights and PIREPs. The vAMSYS key stays on the Polaris server and never reaches this device.","vamsys account server username pilot connect bookings"],
+  ["data","db","#636366","Storage","What the EFB keeps on this device. Nothing here is uploaded.","storage data reset clear logbook ofp plan checklist progress"],
+  ["about","info","#5E5CE6","About","","about version sources device build"]];
+V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store.get("island",true)!==false,air=store.get("airline","paw"),nt=notiGet();
+  if(!ST_SECS.some(s=>s[0]===psec))psec="general";
+  setTimeout(()=>connTest(),0);if(store.get("vatsimCid","")||psec==="vatsim"||psec==="conn")vsWant();
   const sw=(attr,on,label)=>`<button class="st-sw" role="switch" aria-checked="${!!on}" aria-label="${label}" ${attr}="${on?0:1}"><i></i></button>`;
   const grp=(h,rows,foot)=>`${h?`<h4 class="st-gh">${h}</h4>`:""}<div class="st-g">${rows.join("")}</div>${foot?`<p class="st-gf">${foot}</p>`:""}`;
   const r=(label,sub,right)=>`<div class="st-r"><span class="st-l">${label}${sub?`<small>${sub}</small>`:""}</span>${right||""}</div>`;
-  const pick=(attr,val,on,label,sub)=>`<button class="st-r st-pick" ${attr}="${val}" aria-pressed="${!!on}"><span class="st-l">${label}${sub?`<small>${sub}</small>`:""}</span>${on?stI("tick"):""}</button>`;
+  const val=v=>`<span class="st-v">${v}</span>`,dot=(c,txt)=>`<span class="st-v st-dot ${c}">${txt}</span>`;
+  const pick=(attr,v,on,label,sub)=>`<button class="st-r st-pick" ${attr}="${v}" aria-pressed="${!!on}"><span class="st-l">${label}${sub?`<small>${sub}</small>`:""}</span>${on?stI("tick"):""}</button>`;
+  const act=(attr,label,red,dis)=>`<button class="st-r st-act${red?" red":""}" ${attr}${dis?" disabled":""}>${label}</button>`;
   const reset=(key,label,sub,btn,disabled)=>r(label,sub,pendingReset===key?`<span class="st-cf"><button class="st-tb red" data-reset-yes="${key}">${btn}</button><button class="st-tb" data-reset-no>Cancel</button></span>`:`<button class="st-tb${disabled?"":" red"}" data-reset="${key}"${disabled?" disabled":""}>${btn}</button>`);
   /* sidebar */
   let pn=null;if(vamOn()){try{vamLoad("pilot");const d=vamState("pilot").data;pn=d&&d.pilot}catch(e){}}
   const who=vamOn()?(pn&&pn.name)||vam.user:"Not signed in",ini=!vamOn()?"?":pn&&pn.name?pn.name.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase():vam.user.slice(0,2).toUpperCase();
   const sub=vamOn()?["vAMSYS account",vam.user!==who?vam.user:"",pn&&pn.rank].filter(Boolean).join(", "):"Connect your vAMSYS account";
-  const nav=(k,ic,bg,label,val,kw,short)=>`<button class="st-n" data-psec="${k}" aria-pressed="${!short&&psec===k}" data-kw="${esc((label+" "+(kw||"")).toLowerCase())}">${stIc(ic,bg,ic==="bolt"||ic==="moon"||ic==="plane")}<span>${label}</span>${val?`<em>${val}</em>`:""}</button>`;
+  const me=vsMe(),cid=String(store.get("vatsimCid","")),cs=connSummary();
+  const S0=k=>ST_SECS.find(s=>s[0]===k);
+  const nav=(k,valTxt,badgeN)=>{const s=S0(k);return `<button class="st-n" data-psec="${k}" aria-pressed="${psec===k}" data-kw="${esc((s[3]+" "+s[5]).toLowerCase())}">${stIc(s[1],s[2])}<span>${s[3]}</span>${badgeN?`<b class="st-bd">${badgeN}</b>`:valTxt?`<em>${valTxt}</em>`:""}${stI("chev")}</button>`};
   const side=`<div class="st-side"><label class="st-search">${stI("search")}<input type="search" id="stSearch" placeholder="Search" autocomplete="off" aria-label="Search settings"></label>
-    <button class="st-me" data-psec="vam" data-kw="account profile vamsys pilot ${esc(who.toLowerCase())}"><span class="st-av">${esc(ini||"?")}</span><span><b>${esc(who)}</b><small>${esc(sub)}</small></span></button>
+    <button class="st-me" data-psec="vam" data-kw="account profile vamsys pilot ${esc(who.toLowerCase())}"><span class="st-av">${esc(ini||"?")}</span><span><b>${esc(who)}</b><small>${esc(sub)}</small></span>${stI("chev")}</button>
     <div class="st-ng">
-      <div class="st-n st-nr" data-kw="keep screen on awake sleep wake">${stIc("bolt","#FF9F0A",1)}<span>Keep screen on</span>${sw("data-wake",!!wl,"Keep screen on")}</div>
-      <div class="st-n st-nr" data-kw="dynamic island live activity">${stIc("island","#1C1C1E",1)}<span>Dynamic Island</span>${sw("data-island",isl,"Dynamic Island")}</div>
-      ${nav("display","moon","#5E5CE6","Appearance",{auto:"Auto",day:"Day",night:"Night"}[t]||"Auto","theme dark light night day",1)}
+      <div class="st-n st-nr" data-kw="airplane mode flight offline background">${stIc("plane","#FF9F0A",1)}<span>Airplane Mode</span>${sw("data-apm",apmOn(),"Airplane Mode")}</div>
+      ${nav("conn",apmOn()?"Off":cs[0])}${nav("vatsim",me?esc(me.c):cid?"Offline":"Not set")}
     </div>
-    <div class="st-ng">${ST_SECS.map(s=>nav(s[0],s[1],s[2],s[3],s[0]==="vam"?(vamOn()?"On":"Off"):s[0]==="cl"?(CLP.on?"On":"Off"):"",s[5])).join("")}</div>
+    <div class="st-ng">${nav("general","",UPD.build?1:0)}${nav("notif",dndActive()?"Do Not Disturb":"")}${nav("nav")}${nav("a11y")}${nav("display",{auto:"Auto",day:"Day",night:"Night"}[t]||"")}</div>
+    <div class="st-ng">${nav("ops")}${nav("cl",CLP.on?"On":"Off")}${nav("vam",vamOn()?"On":"Off")}</div>
+    <div class="st-ng">${nav("data")}${nav("about")}</div>
     <p class="st-none" hidden>No settings match.</p></div>`;
   /* section */
-  const S=ST_SECS.find(s=>s[0]===psec);
-  const alN=typeof AL==="function"?AL().name:"Polaris Airways";
-  let main=`<section class="st-hero">${stIc(S[1],S[2])}<h2>${S[3]}</h2><p>${psec==="about"?esc(alN)+" electronic flight bag, for flight simulation only. Not for real-world navigation.":S[4]}</p></section>`;
-  if(psec==="vam")main+=grp("Account",[
+  const S=S0(psec),alN=typeof AL==="function"?AL().name:"Polaris Airways";
+  let main=`<button class="st-back" data-stback>${stI("back")}<span>Settings</span></button><section class="st-hero">${stIc(S[1],S[2])}<h2>${S[3]}</h2><p>${psec==="about"?esc(alN)+" electronic flight bag, for flight simulation only. Not for real-world navigation.":S[4]}</p></section>`;
+  if(psec==="general"){
+    main+=UPD.build?grp("Software update",[r(`Polaris EFB build ${esc(UPD.build)}`,"A new version is ready. Updating reloads the EFB; your flight plan, settings and mail stay on this device.",`<b class="st-bd">1</b>`),act("data-upd-go","Update now")])
+      :grp("Software update",[r(UPD.busy?"Checking for updates…":"Polaris EFB is up to date",`Build ${esc(EFB_BUILD||"—")}${UPD.at?" · checked "+ago(UPD.at):""}${UPD.err?" · "+esc(UPD.err):""}`,UPD.busy?`<span class="st-spin"></span>`:""),act("data-upd-check","Check for updates",false,UPD.busy)],"The EFB checks on its own every 10 minutes and when you come back to it.");
+    main+=UPD_LOG.map(([d,items])=>grp(d===UPD_LOG[0][0]?"What’s new · "+d:d,items.map(x=>r(esc(x),"","")))).join("");
+    main+=grp("",[`<button class="st-r st-pick" data-psec="about"><span class="st-l">About</span>${val("Version 2.0")}${stI("chev")}</button>`])}
+  else if(psec==="notif"){const ntOk="Notification" in window,den=ntOk&&Notification.permission==="denied";
+    main+=grp("Do Not Disturb",[r("Do Not Disturb","Holds mail and update alerts until you turn it off",sw("data-dnd",store.get("dnd",false)===true,"Do Not Disturb")),
+        r("During flight","Holds them while your flight is airborne, then tells you after landing. Checklist alerts still come through.",sw("data-dnd-flight",store.get("dndFlight",true)!==false,"Do Not Disturb during flight"))],
+        dndActive()?(store.get("dnd",false)===true?"Do Not Disturb is on.":"Your flight is airborne: alerts are being held.")+(DND.held.length?` ${DND.held.length} held so far.`:""):"Your flight is found through your vAMSYS live flight, or your VATSIM CID in VATSIM.")
+      +grp("Alert style",[r("Dynamic Island","Alerts open in the Dynamic Island. When it’s off, a short banner shows at the bottom instead.",sw("data-island",isl,"Dynamic Island"))])
+      +grp("Mail",[r("New mail alerts","When a notice from Polaris staff arrives",sw("data-noti-mail",nt.mail,"New mail alerts")),r("Sound","A soft chime with each new mail alert",sw("data-noti-sound",nt.sound,"Sound")),act("data-noti-test","Play the sound")],"The badge on the Mail icon always shows unread mail.")
+      +grp("Checklists",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
+        r("Notify in the background",!ntOk?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))])
+      +grp("Software update",[r("Update alerts","Tells you when a new version of the EFB is ready",sw("data-noti-upd",nt.upd,"Update alerts"))])}
+  else if(psec==="conn"){const s=CONN.srv,host=vam.url?vam.url.replace(/^https?:\/\//,"").replace(/\/.*$/,""):"";
+    const srvV=CONN.busy&&!s?`<span class="st-spin"></span>`:!s?dot("n","Not checked"):s.ok?dot("g",`Connected · ${s.ms} ms`):dot("r",esc(s.err||"Not reachable"));
+    const vamV=!vamOn()?dot("n","Not connected"):s&&s.ok&&s.configured===false?dot("a","Not set up on the server"):(()=>{const st=vamState("pilot");return st.err?dot("r",esc(st.err)):st.data?dot("g","Connected as "+esc(vam.user)):dot("n","Checking…")})();
+    const vsV=VS.list?dot("g",`${VS.list.length.toLocaleString("en-US")} pilots · ${ago(VS.at)}`):VS.err?dot("r",esc(VS.err)):dot("n",VS.loading?"Loading…":"Not loaded yet");
+    const rdV=RADAR.err?dot("r","Couldn’t load"):RADAR.at?dot("g","Updated "+ago(RADAR.at)):dot("n","Loads with the map");
+    const mlV=MAIL.err?dot("r",esc(MAIL.err)):MAIL.at?dot("g","Checked "+ago(MAIL.at)):dot("n","Not checked yet");
+    main+=(apmOn()?`<div class="st-g st-warn">${r("Airplane Mode is on","Mail, VATSIM traffic, update checks and these tests are paused. Anything you open by hand still loads.",sw("data-apm",true,"Airplane Mode"))}</div>`:"")
+      +grp("This device",[r("Internet","",navigator.onLine?dot("g","Online"):dot("r","Offline"))])
+      +grp("Polaris services",[r("EFB server",esc(host||"No address set"),srvV),r("vAMSYS","Bookings, live flights, PIREPs",vamV),r("Mail","Notices from Polaris staff",mlV)])
+      +grp("Data",[r("VATSIM",VS.list?(VS.direct?"Straight from the VATSIM network":"Through the Polaris server"):"Live network traffic",vsV),r("Weather radar","RainViewer",rdV),r("Map","OpenFreeMap",typeof VEC!=="undefined"&&VEC.err?dot("r","Simple map in use"):dot("g","Ready"))])
+      +grp("",[act("data-conn-test",CONN.busy?"Testing…":"Test again",false,CONN.busy)],"Response time is how long the Polaris server took to answer, from this device.")}
+  else if(psec==="vatsim"){const at=me&&me.t?new Date(me.t):null,fp=me&&me.fp;
+    main+=grp("Your VATSIM account",[`<label class="st-r st-in"><span class="st-l">VATSIM CID</span><input type="text" inputmode="numeric" id="stCid" placeholder="${cid?"":"e.g. 1234567"}" value="${esc(cid)}" autocomplete="off" spellcheck="false"></label>`],
+      cid?"Your CID stays on this device.":"Without a CID, the EFB looks for your flight plan’s callsign on the network.");
+    if(!VS.list)main+=grp("Status",[r(VS.err?esc(VS.err):"Checking the network…","",VS.err?dot("r","Offline"):`<span class="st-spin"></span>`)]);
+    else if(me)main+=grp("Status",[r("VATSIM","",dot("g","Online")),r("Callsign","",val(esc(me.c))),r("Pilot","",val(esc(me.n||"—"))),
+        r("Aircraft","",val(esc(fp&&fp.ac||"—"))),r("Route","",val(fp&&(fp.dep||fp.arr)?esc((fp.dep||"?")+" → "+(fp.arr||"?")):"No flight plan")),
+        r("Altitude","",val(esc(vsAlt(me.a)))),r("Ground speed","",val(Math.round(me.g)+" kt")),r("Squawk","",val(esc(me.sq||"—"))),
+        r("Online since","",val(at?`${pad(at.getUTCHours())}${pad(at.getUTCMinutes())}Z · ${hhmm(Math.max(0,(Date.now()-me.t)/1000))}`:"—"))],`Network data ${ago(VS.at)}. It refreshes every 20 seconds while this page is open.`)
+      +grp("",[act("data-vsme","Show on the map")]);
+    else main+=grp("Status",[r("VATSIM",cid?`CID ${esc(cid)} isn’t connected right now`:"Your flight plan’s callsign isn’t on the network",dot("n","Offline"))],`Checked ${ago(VS.at)} · ${VS.list.length.toLocaleString("en-US")} pilots online.`)}
+  else if(psec==="vam")main+=grp("Account",[
       `<label class="st-r st-in"><span class="st-l">EFB server</span><input type="text" inputmode="url" id="vamUrl" placeholder="https://polaris-efb-api.example.workers.dev" value="${esc(vam.url)}" autocomplete="off" spellcheck="false"></label>`,
       `<label class="st-r st-in"><span class="st-l">vAMSYS username</span><input type="text" id="vamUser" placeholder="PAW0001" value="${esc(vam.user)}" autocomplete="off" spellcheck="false" autocapitalize="characters"></label>`],
       `<span id="vamMsg">${esc(vamTest)||"The server is the Polaris EFB Worker. It also serves FAA charts, airport layouts and SIGMETs."}</span>`)
     +grp("",[`<button class="st-r st-act" id="vamSave">Save and test</button>`].concat(vam.user?[`<button class="st-r st-act red" id="vamOff">Disconnect</button>`]:[]),"");
-  else if(psec==="cl"){const nt="Notification" in window,den=nt&&Notification.permission==="denied";
+  else if(psec==="cl"){const ntOk="Notification" in window,den=ntOk&&Notification.permission==="denied";
     main+=grp("Live checklist push",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
-      r("Notify in the background",!nt?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))],
+      r("Notify in the background",!ntOk?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))],
       vamOn()?"Uses your live vAMSYS flight.":"Needs a vAMSYS connection. Set it up in vAMSYS.")}
-  else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks also stay on this device.");
-  else if(psec==="about")main+=grp(esc(alN)+" EFB",[r("Version","",`<span class="st-v">2.0</span>`),r("Build","",`<span class="st-v mono">${esc(EFB_BUILD||"—")}</span>`),r("Base","",`<span class="st-v">KSFO · San Francisco</span>`),r("Fleet","",`<span class="st-v">A321neo · A350-900</span>`)])
-      +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",`<span class="st-v">${x[1]}</span>`)))
+  else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks, and your VATSIM CID, also stay on this device.");
+  else if(psec==="about")main+=grp(esc(alN)+" EFB",[r("Version","",val("2.0")),r("Build","",`<span class="st-v mono">${esc(EFB_BUILD||"—")}</span>`),r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo · A350-900"))])
+      +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",val(x[1]))))
       +grp("This device",[r("Display",`<span class="mono">${esc(devInfo())}</span>`,"")]);
-  else main+=grp("Appearance",[pick("data-theme-set","auto",t==="auto","Automatic","Follows the system setting"),pick("data-theme-set","day",t==="day","Day",""),pick("data-theme-set","night",t==="night","Night","")])
+  else if(psec==="nav"){const BL=[["map","Map","OpenFreeMap, worldwide"],["sat","Satellite","Sentinel-2, worldwide"],["ifrh","IFR High","United States"],["ifrl","IFR Low","United States"],["vfr","VFR","United States"],["faah","FAA High chart","United States"],["faal","FAA Low chart","United States"],["faav","FAA VFR chart","United States"]];
+    const LY=[["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
+    const lsw=(k,label)=>r(label,"",`<button class="st-sw" role="switch" aria-checked="${ML[k]!==false}" aria-label="${label}" data-nvl="${k}" data-v="${ML[k]!==false?0:1}"><i></i></button>`);
+    main+=grp("Base map",BL.map(b=>pick("data-nvbase",b[0],(ML.base||"map")===b[0],b[1],b[2])))
+      +grp("",[r("Automatic IFR High / Low","Above FL180 High, below Low, from your live flight or the zoom",`<button class="st-sw" role="switch" aria-checked="${!!ML.ifrAuto}" aria-label="Automatic IFR High / Low" data-nvl="ifrAuto" data-v="${ML.ifrAuto?0:1}"><i></i></button>`)])
+      +grp("Layers",LY.map(l=>lsw(l[0],l[1])),"The same switches as the Layers button on the map.")
+      +grp("When the map opens",[r("Follow my aircraft","Centres on your live vAMSYS flight and keeps it in view",sw("data-nvfollow",store.get("mapFollowOpen",false)===true,"Follow my aircraft"))])}
+  else if(psec==="a11y"){const ts=store.get("textSize","m");
+    main+=grp("Text size",[pick("data-textsize","m",ts==="m","Default",""),pick("data-textsize","l",ts==="l","Large","112%"),pick("data-textsize","xl",ts==="xl","Extra large","125%")],"Larger text applies to the reading apps: Flight Plan, Weather, Checklist, Performance, Loadsheet, Logbook, Dispatch, Mail and Settings. The map and charts stay at 1:1 so touch and drawing stay exact.")
+      +grp("Vision",[r("Bold text","",sw("data-boldtext",store.get("boldText",false)===true,"Bold text")),r("Increase contrast","Darker secondary text and lines",sw("data-hicontrast",store.get("hiContrast",false)===true,"Increase contrast"))])
+      +grp("Motion",[r("Reduce motion","Turns off animations and transitions in the EFB",sw("data-lessmotion",store.get("lessMotion",false)===true,"Reduce motion"))],"If your device is already set to reduce motion, the EFB follows it.")}
+  else if(psec==="ops"){const ct=clType(),sel=store.get("clTypeSel","auto"),u=store.get("sbUser","");
+    main+=grp("SimBrief",[`<label class="st-r st-in"><span class="st-l">Username or pilot ID</span><input type="text" id="stSb" placeholder="polaris214" value="${esc(u)}" autocomplete="off" spellcheck="false"></label>`,
+        r("Fetch the latest plan when the EFB opens","Loads it quietly if it’s newer than the one you have",sw("data-sbauto",store.get("sbAuto",false)===true,"Fetch the latest plan when the EFB opens")),act("data-sbnow","Fetch latest plan now",false,!u)],
+        ofp._sample?"No plan loaded yet.":`Loaded: ${esc(O().flight)} ${esc(S(O().o.icao_code))}–${esc(S(O().d.icao_code))}. Dispatch also takes a pasted or uploaded plan.`)
+      +grp("Checklist aircraft",[pick("data-cltype","auto",sel==="auto","Automatic",ct.known?`Now ${esc(ct.name)}, from ${esc(ct.src)}`:"From your vAMSYS flight, booking or flight plan"),pick("data-cltype","A320",sel==="A320","A320 family","A321neo"),pick("data-cltype","A350",sel==="A350","A350","A350-900")])
+      +grp("Polaris",[r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo domestic · A350-900 international"))])}
+  else main+=grp("Brightness",[`<div class="st-r"><span class="st-l">Dim<small>Darker than the iPad’s own lowest brightness</small></span><span class="st-range">${stI("sunsm")}<input type="range" id="stDimR" min="0" max="70" step="1" value="${dimLv()}" aria-label="Dim"><output id="stDimV">${dimLv()}%</output></span></div>`],"")
+      +grp("Night light",[pick("data-nightlt","off",nightLt()==="off","Off",""),pick("data-nightlt","warm",nightLt()==="warm","Warm","Less blue light"),pick("data-nightlt","red",nightLt()==="red","Red","Keeps your night vision, like cockpit floodlights")])
+      +grp("Appearance",[pick("data-theme-set","auto",t==="auto","Automatic","Follows the system setting"),pick("data-theme-set","day",t==="day","Day",""),pick("data-theme-set","night",t==="night","Night","")])
       +grp("Airline",[pick("data-airline-set","paw",air==="paw","Polaris Airways",""),pick("data-airline-set","eim","eim"===air,"海岸航空","")],"Colours, wallpaper and name across the EFB.")
       +grp("Screen",[r("Dynamic Island","Live flight, music, timers and checklist alerts at the top of the screen",sw("data-island",isl,"Dynamic Island")),r("Keep screen on","Stops the screen from sleeping during a flight",sw("data-wake",!!wl,"Keep screen on"))]);
-  return split(side,main,"st",tabbar(ST_SECS.map(s=>[`data-psec="${s[0]}"`,psec===s[0],stI(s[1]),s[0]==="display"?"Display":s[3]])))};
+  return split(side,main,"st"+(stOpen?" st-open":""))};
+/* phone: opening a section slides it over the list; Back returns to the list */
+document.addEventListener("click",e=>{if(e.target.closest(".split.st [data-psec]"))stOpen=true;const b=e.target.closest("[data-stback]");if(b){stOpen=false;render()}
+  if(e.target.closest("[data-upd-go]"))updApply();if(e.target.closest("[data-upd-check]"))updCheck(true);if(e.target.closest("[data-conn-test]")){connTest(true);mailLoad(true);vsLoad()}},true);
+window.addEventListener("hashchange",()=>{if(location.hash!=="#prefs")stOpen=false});
 /* search: filter the sidebar as you type, without redrawing it */
 document.addEventListener("input",e=>{if(e.target.id!=="stSearch")return;const q=e.target.value.trim().toLowerCase(),side=e.target.closest(".st-side");if(!side)return;let n=0;
   side.querySelectorAll("[data-kw]").forEach(el=>{const ok=!q||el.dataset.kw.includes(q);el.hidden=!ok;if(ok)n++});
@@ -4598,6 +4677,14 @@ button.st-n[aria-pressed="true"]+.st-n::after,.st-n+button.st-n[aria-pressed="tr
 .st-nr{cursor:default}
 .st-ic{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff}.st-ic svg{width:18px;height:18px}
 .st-none{margin:0;padding:0 6px;color:var(--label);font-size:14px}
+.st-n>svg:last-child,.st-me>svg:last-child{width:15px;height:15px;color:var(--label);opacity:.6;flex:none;display:none}
+.st-bd{min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:11px;background:#FF3B30;color:#fff;display:inline-grid;place-items:center;font:600 13px var(--f-ui)}
+.st-dot{display:inline-flex;align-items:center;gap:8px}.st-dot::before{content:"";width:8px;height:8px;border-radius:50%;background:#8E8E93;flex:none}
+.st-dot.g::before{background:#34C759}.st-dot.a::before{background:#FF9F0A}.st-dot.r::before{background:#FF453A}.st-dot.r{color:#FF453A}
+.st-spin{width:18px;height:18px;border-radius:50%;border:2.2px solid color-mix(in srgb,var(--ink) 18%,transparent);border-top-color:var(--accent);animation:stSpin .8s linear infinite;flex:none}@keyframes stSpin{to{transform:rotate(360deg)}}
+.st-act:disabled{color:var(--label);cursor:default}
+.st-pick>.st-v{margin-left:auto}.st-pick>svg:last-child{width:16px;height:16px;color:var(--label);stroke-width:2}
+.st-back{display:none;align-items:center;gap:4px;border:0;background:transparent;color:var(--accent);font:500 16px var(--f-ui);padding:2px 0 14px;cursor:pointer}.st-back svg{width:20px;height:20px}
 .st-sw{position:relative;width:51px;height:31px;flex:none;border:0;border-radius:16px;padding:0;background:color-mix(in srgb,var(--ink) 22%,transparent);cursor:pointer;transition:background .25s}
 .st-sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25),0 0 0 .5px rgba(0,0,0,.06);transition:transform .28s cubic-bezier(.3,1.4,.5,1)}
 .st-sw[aria-checked="true"]{background:#34C759}.st-sw[aria-checked="true"] i{transform:translateX(20px)}
@@ -4620,7 +4707,7 @@ button.st-n[aria-pressed="true"]+.st-n::after,.st-n+button.st-n[aria-pressed="tr
 .st-act{justify-content:flex-start;color:var(--accent);font-weight:500;cursor:pointer}.st-act:hover{background:var(--panel-2)}.st-act.red,.st-tb.red{color:#FF453A}
 .st-tb{border:0;background:transparent;color:var(--accent);font:500 15.5px var(--f-ui);cursor:pointer;padding:6px 4px}.st-tb:disabled{color:var(--label);opacity:.5;cursor:default}
 .st-cf{display:flex;gap:12px}
-@container screen (max-width:760px){.split.st{grid-template-columns:minmax(0,1fr)}.split.st .side{display:none}.st-hero{padding:20px 20px 22px}.st-r{padding-left:16px}.st-r+.st-r::before{left:16px}}
+@container screen (max-width:760px){.split.st{grid-template-columns:minmax(0,1fr)}.split.st .side{border-bottom:0;padding:12px 0 28px}.split.st.st-open .side,.split.st:not(.st-open) .detail{display:none}.st-back{display:inline-flex}.st-n>svg:last-child,.st-me>svg:last-child{display:block}button.st-n[aria-pressed="true"]{background:transparent;color:var(--ink)}button.st-n[aria-pressed="true"] em{color:var(--label)}.st-hero{padding:20px 20px 22px}.st-r{padding-left:16px}.st-r+.st-r::before{left:16px}}
 </style>`);
 
 /* Settings > About: viewport, screen and safe-area figures as this device reports them */
@@ -5281,6 +5368,7 @@ function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
   if(cur==="mail"&&!MAIL.sel)return;/* already looking at the inbox */
   const m=nw[0],more=nw.length-1;
   const open=()=>{MAIL.box="inbox";MAIL.sel=more?null:m.id;if(!more){const r=mailSet("mailRead");r.add(m.id);mailSave("mailRead",r)}goApp("mail");if(cur==="mail")render()};
+  const nt=typeof notiGet==="function"?notiGet():{mail:true};if(!nt.mail)return;if(typeof dndActive==="function"&&dndActive()){dndHold(nw);return}if(nt.sound)try{stChime()}catch(e){}
   if(window.__islOn&&window.__islOn()&&window.islAlert){
     const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
     islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.body).slice(0,90),ms:7000,tap:open});
@@ -5306,6 +5394,159 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @keyframes pmRing{0%{box-shadow:0 0 0 0 rgba(63,163,177,.75),0 8px 22px -10px rgba(0,0,0,.6)}100%{box-shadow:0 0 0 14px rgba(63,163,177,0),0 8px 22px -10px rgba(0,0,0,.6)}}
 @keyframes pmIn{0%{transform:translateX(14px);opacity:0}100%{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.pm-ic,.pm-il,.pm-if,.pm-ibd,.isl.pm-n,.isl.pm-n .isx-t>*{animation:none!important}}
+</style>`);
+
+/* ===== Settings extras: software update, notification choices, connection status, the pilot's VATSIM status ===== */
+
+/* --- Software update. The page's own build stamp (<meta name="efb-build">) is compared with the one on the site: only
+   the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
+   and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
+const UPD={build:null,at:0,busy:false,err:null,alerted:null};
+const UPD_LOG=[["Nov 15, 2026",["Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+  ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
+const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
+async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
+  try{const r=await fetch(location.pathname+"?u="+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+    let txt="";const rd=r.body&&r.body.getReader?r.body.getReader():null;
+    if(rd){const dec=new TextDecoder();while(txt.length<65536){const {value,done}=await rd.read();if(done)break;txt+=dec.decode(value,{stream:true});if(/name="efb-build"[^>]*>/.test(txt))break}try{rd.cancel()}catch(e){}}else txt=await r.text();
+    const m=txt.match(/<meta name="efb-build" content="([^"]+)"/);UPD.err=null;UPD.build=m&&updNewer(m[1],EFB_BUILD)?m[1]:null}
+  catch(e){UPD.err=/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB site":(e&&e.message)||"Couldn’t check"}
+  finally{UPD.busy=false;UPD.at=Date.now();renderHome();if(cur==="prefs")render();
+    if(UPD.build&&UPD.alerted!==UPD.build&&notiGet().upd&&!(typeof dndActive==="function"&&dndActive())&&window.__islOn&&window.__islOn()&&window.islAlert&&cur!=="prefs"){UPD.alerted=UPD.build;
+      islAlert({app:"Software Update",short:"Update ready",icon:`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${APPS.prefs.bg};color:${APPS.prefs.fg}"><svg viewBox="0 0 24 24">${APPS.prefs.g}</svg></span>`,title:"A new Polaris EFB is ready",sub:"Tap to update now · build "+UPD.build,ms:8000,tap:updApply})}}}
+function updApply(){if(!UPD.build)return;try{sessionStorage.setItem("pefb:updFrom",EFB_BUILD)}catch(e){}location.replace(location.pathname+"?v="+encodeURIComponent(UPD.build)+location.hash)}
+setTimeout(()=>updCheck(),20000);setInterval(()=>{if(!document.hidden)updCheck()},60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-UPD.at>300000)updCheck(true)});
+{const _b=badge;badge=function(id){if(id==="prefs"&&UPD.build)return `<span class="badge" aria-label="Update available">1</span>`;return _b(id)}}
+/* after an update, say so once */
+setTimeout(()=>{let f=null;try{f=sessionStorage.getItem("pefb:updFrom");sessionStorage.removeItem("pefb:updFrom")}catch(e){}if(f&&f!==EFB_BUILD)toast("Updated to build "+EFB_BUILD)},1500);
+
+/* --- Notification choices, one place for all of them */
+const notiGet=()=>Object.assign({mail:true,sound:false,upd:true},store.get("noti",{}));
+const notiSet=(k,v)=>{const n=notiGet();n[k]=v;store.set("noti",n)};
+let stAC=null;
+/* a soft two-note chime, made on the spot (no sound file) */
+function stChime(){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;stAC=stAC||new AC();const c=stAC,t=c.currentTime;if(c.state==="suspended")c.resume();
+  [[880,0],[1318.5,.14]].forEach(([f,d])=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.18,t+d+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d+.55);o.connect(g).connect(c.destination);o.start(t+d);o.stop(t+d+.6)})}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-noti-mail],[data-noti-sound],[data-noti-upd],[data-noti-test]");if(!b)return;
+  if(b.dataset.notiTest!=null){stChime();return}
+  const k=b.dataset.notiMail!=null?"mail":b.dataset.notiSound!=null?"sound":"upd";const v=(b.dataset.notiMail||b.dataset.notiSound||b.dataset.notiUpd)==="1";notiSet(k,v);if(k==="sound"&&v)stChime();render()});
+
+/* --- Connection: the internet, the Polaris EFB server (health, with its response time), vAMSYS, VATSIM, radar and mail */
+const CONN={srv:null,busy:false,at:0};
+async function connTest(force){if(CONN.busy||(!force&&Date.now()-CONN.at<60000))return;CONN.busy=true;if(cur==="prefs")render();
+  if(!vam.url)CONN.srv={ok:false,err:"No server address set"};
+  else{const t0=performance.now(),ac=new AbortController(),tm=setTimeout(()=>ac.abort(),12000);
+    try{const r=await fetch(vam.url.replace(/\/+$/,"")+"/api/efb/health",{cache:"no-store",signal:ac.signal});const j=await r.json().catch(()=>({}));
+      CONN.srv={ok:r.ok&&j.ok!==false,ms:Math.round(performance.now()-t0),configured:j.configured,openaip:j.openaip,err:r.ok?null:"HTTP "+r.status}}
+    catch(e){CONN.srv={ok:false,err:e&&e.name==="AbortError"?"No answer in 12 s":"Can’t reach the server"}}finally{clearTimeout(tm)}}
+  CONN.busy=false;CONN.at=Date.now();if(cur==="prefs")render()}
+window.addEventListener("online",()=>{connTest(true)});window.addEventListener("offline",()=>{if(cur==="prefs")render()});
+const ago=ms=>{const s=Math.max(0,Math.round((Date.now()-ms)/1000));return s<60?s+" s ago":s<3600?Math.round(s/60)+" min ago":Math.round(s/3600)+" h ago"};
+function connSummary(){if(!navigator.onLine)return["Offline","r"];if(CONN.srv&&!CONN.srv.ok)return["Server down","r"];if(CONN.srv&&CONN.srv.ok)return["Connected","g"];return["Online","g"]}
+
+/* --- The pilot on VATSIM: found in the same network list the map uses, by CID, or by the flight plan's callsign */
+function vsMe(){if(!VS.list)return null;const cid=String(store.get("vatsimCid","")).trim();
+  if(cid)return VS.list.find(p=>String(p.cid)===cid)||null;
+  let cs="";try{cs=ofp._sample?"":String((O().g&&O().g.callsign)||O().flight||"").toUpperCase().replace(/\s+/g,"")}catch(e){}
+  return cs?VS.list.find(p=>p.c===cs)||null:null}
+function vsWant(){if(!VS.loading&&!document.hidden&&Date.now()-VS.at>(VS.err?60000:20000))vsLoad()}
+let vsSeen=0;setInterval(()=>{if(cur!=="prefs"||document.hidden)return;if(psec==="vatsim"||psec==="conn")vsWant();
+  if(VS.at!==vsSeen){vsSeen=VS.at;const a=document.activeElement;if(!(a&&a.id==="stCid"))render()}},2000);
+document.addEventListener("change",e=>{if(e.target.id!=="stCid")return;const v=e.target.value.replace(/\D/g,"");store.set("vatsimCid",v);if(v&&!VS.list)vsWant();render()});
+document.addEventListener("keydown",e=>{if(e.target.id==="stCid"&&e.key==="Enter")e.target.blur()});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-vsme]");if(!b)return;const me=vsMe();if(!me)return;
+  ML.vatsim=true;try{store.set("mapL",ML)}catch(x){}MAP.c={lat:me.la,lon:me.lo};MAP.z=Math.max(MAP.z||0,8.5);if(typeof mapFollowSet==="function")mapFollowSet(false);MAP.sel={t:"vs",id:me.c};goApp("map")});
+
+/* ===== Device settings: Airplane Mode, Do Not Disturb (by hand, or while airborne), screen dimming and night light,
+   accessibility, SimBrief auto-fetch, and map defaults. Settings > their sections draw the controls (views.js). ===== */
+
+/* --- Airplane Mode: background network jobs pause (mail, VATSIM, update checks, connection tests); everything the
+   pilot asks for by hand still works, and so do the flight plan, charts, weather and the live flight. */
+const apmOn=()=>store.get("apm",false)===true;
+{const _m=mailLoad;mailLoad=function(force){if(apmOn()&&!force)return;return _m.apply(this,arguments)}}
+{const _t=vsTick;vsTick=function(){if(apmOn())return;return _t.apply(this,arguments)}}
+{const _w=vsWant;vsWant=function(){if(apmOn())return;return _w.apply(this,arguments)}}
+{const _u=updCheck;updCheck=function(force){if(apmOn()&&!force)return;return _u.apply(this,arguments)}}
+{const _c=connTest;connTest=function(force){if(apmOn()&&!force)return;return _c.apply(this,arguments)}}
+function apmSet(on){store.set("apm",!!on);sbIcons();toast(on?"Airplane Mode on · background updates paused":"Airplane Mode off");if(!on){mailLoad(true);updCheck(true);connTest(true)}render()}
+
+/* --- Do Not Disturb: by hand, or automatically while the pilot's own flight is airborne (vAMSYS live flight, or the
+   pilot found on VATSIM). Mail and update alerts are held and summed up after landing; checklist alerts still come. */
+const DND={held:[],was:false};
+function inFlight(){try{const f=CLP.flight;if(f&&CLP.match!==false){const ph=String(CLP.why||f.phase||"");if(/climb|cruise|descent|final|takeoff|airborne|en.?route/i.test(ph))return true;if(+f.altitude>2500&&+f.groundspeed>120)return true}}catch(e){}
+  try{const me=vsMe();if(me&&me.g>120&&me.a>2500)return true}catch(e){}return false}
+const dndActive=()=>store.get("dnd",false)===true||(store.get("dndFlight",true)!==false&&inFlight());
+function dndHold(list){list.forEach(m=>{if(!DND.held.some(h=>h.id===m.id))DND.held.push({id:m.id,subject:m.subject})});sbIcons()}
+setInterval(()=>{const a=dndActive();if(a!==DND.was){DND.was=a;sbIcons();if(cur==="prefs")render()}
+  if(!a&&DND.held.length){const n=DND.held.length,s=DND.held[0].subject;DND.held=[];
+    if(window.__islOn&&window.__islOn()&&window.islAlert)islAlert({app:"Mail",short:n+" while flying",icon:`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${APPS.mail.bg};color:#fff"><svg viewBox="0 0 24 24">${APPS.mail.g}</svg></span>`,
+      title:n>1?n+" messages arrived during your flight":"A message arrived during your flight",sub:s,ms:7000,tap:()=>goApp("mail")});else toast((n>1?n+" messages":"A message")+" arrived during your flight")}
+  /* with a CID and in-flight Do Not Disturb, look for the pilot on VATSIM once a minute */
+  if(store.get("dndFlight",true)!==false&&store.get("vatsimCid","")&&!apmOn()&&!document.hidden&&!VS.loading&&Date.now()-VS.at>60000)vsLoad()},15000);
+document.addEventListener("click",e=>{const b=e.target.closest("[data-apm],[data-dnd],[data-dnd-flight]");if(!b)return;
+  if(b.dataset.apm!=null){apmSet(b.dataset.apm==="1");return}
+  if(b.dataset.dnd!=null)store.set("dnd",b.dataset.dnd==="1");else store.set("dndFlight",b.dataset.dndFlight==="1");DND.was=dndActive();sbIcons();render()});
+
+/* status bar: an aeroplane instead of the Wi-Fi mark in Airplane Mode, and a moon while Do Not Disturb holds alerts */
+const SB_PL='<svg viewBox="0 0 24 24" class="sbx"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>',
+  SB_MO='<svg viewBox="0 0 24 24" class="sbx"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+function sbIcons(){const r=document.querySelector(".statusbar>span:last-child");if(!r)return;let x=r.querySelector(".sbx-w");if(!x){x=document.createElement("span");x.className="sbx-w";r.insertBefore(x,r.firstChild)}
+  const wifi=x.nextElementSibling;x.innerHTML=(dndActive()?SB_MO:"")+(apmOn()?SB_PL:"");if(wifi&&wifi.tagName==="svg")wifi.style.display=apmOn()?"none":""}
+setTimeout(sbIcons,0);
+
+/* --- Brightness: a dimming layer below the iPad's own lowest brightness, and a warm or red night light */
+const dimLv=()=>Math.max(0,Math.min(70,+store.get("dim",0)||0)),nightLt=()=>store.get("nightLt","off");
+function dimApply(){let t=$("#stTint"),d=$("#stDim");if(!d){t=document.createElement("div");t.id="stTint";d=document.createElement("div");d.id="stDim";[t,d].forEach(el=>{el.setAttribute("aria-hidden","true");screenEl.appendChild(el)})}
+  const n=nightLt();t.style.display=n==="off"?"none":"";t.style.background=n==="red"?"rgb(255,52,26)":"rgb(255,196,138)";d.style.background=`rgba(0,0,0,${dimLv()/100})`;d.style.display=dimLv()?"":"none"}
+setTimeout(dimApply,0);
+document.addEventListener("input",e=>{if(e.target.id!=="stDimR")return;store.set("dim",+e.target.value);dimApply();const o=$("#stDimV");if(o)o.textContent=e.target.value+"%"});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-nightlt]");if(!b)return;store.set("nightLt",b.dataset.nightlt);dimApply();render()});
+
+/* --- Accessibility: larger text (zooms the reading apps only; the map, charts and the pen-on-OFP keep 1:1 so touch and
+   drawing stay exact), bold text, more contrast, less motion */
+const A11Y_APPS=["ofp","wx","checklist","winter","convert","perf","load","logbook","simbrief","prefs","mail","_navlog","_oooi"];
+function a11yApply(){const h=document.documentElement,ts=store.get("textSize","m");h.dataset.ts=ts;h.classList.toggle("a11y-bold",store.get("boldText",false)===true);
+  h.classList.toggle("a11y-hc",store.get("hiContrast",false)===true);h.classList.toggle("a11y-rm",store.get("lessMotion",false)===true);
+  screenEl.dataset.zoomok=A11Y_APPS.includes(cur)?"1":"0"}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);screenEl.dataset.zoomok=A11Y_APPS.includes(id)?"1":"0";return r}}
+setTimeout(a11yApply,0);window.addEventListener("hashchange",()=>setTimeout(a11yApply,0));
+document.addEventListener("click",e=>{const b=e.target.closest("[data-textsize],[data-boldtext],[data-hicontrast],[data-lessmotion]");if(!b)return;
+  if(b.dataset.textsize)store.set("textSize",b.dataset.textsize);if(b.dataset.boldtext)store.set("boldText",b.dataset.boldtext==="1");
+  if(b.dataset.hicontrast)store.set("hiContrast",b.dataset.hicontrast==="1");if(b.dataset.lessmotion)store.set("lessMotion",b.dataset.lessmotion==="1");a11yApply();render()});
+
+/* --- Flight Operations: SimBrief account in one place, and an optional fetch of the newest plan when the EFB opens */
+async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim();if(!u){if(manual)toast("Enter your SimBrief username first");return}
+  if(manual)toast("Fetching your latest SimBrief plan…");
+  try{const j=await fetch(sbHref(u)).then(r=>r.json());if(!j||!j.origin||!j.destination||(j.fetch&&S(j.fetch.status)&&S(j.fetch.status)!=="Success")){if(manual)toast("SimBrief didn’t return a plan for that account");return}
+    const id=j.params&&(j.params.request_id||j.params.time_generated),curId=!ofp._sample&&ofp.params&&(ofp.params.request_id||ofp.params.time_generated);
+    if(id&&curId&&String(id)===String(curId)){if(manual)toast("You already have your latest plan");return}
+    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;render();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
+  catch(e){if(manual)toast("SimBrief can’t be reached from here. Use Dispatch to paste the plan.")}}
+setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
+document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-sbauto],[data-sbnow]");if(!b)return;if(b.dataset.sbnow!=null){sbFetchQuiet(true);return}store.set("sbAuto",b.dataset.sbauto==="1");render()});
+
+/* --- Navigation: the map's base map, layers and opening behaviour, set from Settings */
+document.addEventListener("click",e=>{const b=e.target.closest("[data-nvbase],[data-nvl],[data-nvfollow]");if(!b)return;
+  if(b.dataset.nvbase)ML.base=b.dataset.nvbase;
+  else if(b.dataset.nvl){const k=b.dataset.nvl;ML[k]=b.dataset.v==="1"}
+  else store.set("mapFollowOpen",b.dataset.nvfollow==="1");
+  store.set("mapL",ML);render()});
+window.addEventListener("hashchange",()=>{if(location.hash==="#map"&&store.get("mapFollowOpen",false)===true)setTimeout(()=>{try{const me=mapMine();if(me&&me.lat!=null){MAP.c={lat:me.lat,lon:me.lon};mapFollowSet(true);if(cur==="map")drawMap()}}catch(err){}},600)});
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+#stDim,#stTint{position:absolute;inset:0;pointer-events:none;z-index:2147483000}
+#stTint{mix-blend-mode:multiply;z-index:2147482999}
+.statusbar .sbx-w{display:flex;gap:6px;align-items:center}.statusbar svg.sbx{height:12px;width:12px;fill:#fff}
+html[data-ts="l"] .screen[data-zoomok="1"] #view{zoom:1.12}html[data-ts="xl"] .screen[data-zoomok="1"] #view{zoom:1.25}
+html.a11y-bold .screen #view,html.a11y-bold .screen .home{-webkit-text-stroke:.28px currentColor}
+html.a11y-hc .screen{--label:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:color-mix(in srgb,var(--ink) 34%,var(--bg))}
+html.a11y-rm *,html.a11y-rm *::before,html.a11y-rm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+.st-range{display:flex;align-items:center;gap:12px;flex:1.3}.st-range svg{width:17px;height:17px;color:var(--label);flex:none}.st-range svg.big{width:23px;height:23px}
+.st-range input{flex:1;accent-color:var(--brand);height:28px}
+.st-range output{min-width:38px;text-align:right;color:var(--label);font:500 14px var(--f-ui)}
+.st-warn{background:color-mix(in srgb,#FF9F0A 14%,var(--panel))}
 </style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */

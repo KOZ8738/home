@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.1428">
+<meta name="efb-build" content="1115.1439">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3653,7 +3653,7 @@ function asCharts(icao){const d=CH.data[icao];
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load FAA charts.</p>`;
   if(CH.loading[icao]&&!d)return `<p class="as-empty">Loading charts for ${esc(icao)}…</p>`;
   if(CH.err[icao]&&!d)return `<p class="as-empty">${esc(CH.err[icao])}</p>`;
-  if(!d||d.notFound||!d.charts.length)return `<p class="as-empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</p>`;
+  if(!d||d.notFound||!Array.isArray(d.charts)||!d.charts.length)return `<p class="as-empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</p>`;
   const cnt={};d.charts.forEach(c=>{const k=asCatOf(c.group);cnt[k]=(cnt[k]||0)+1});
   const list=d.charts.filter(c=>asCatOf(c.group)===AS.cat);
   return `<div class="as-cats" role="group" aria-label="Chart type">${AS_CATS.map(c=>`<button class="as-c c-${c[0].toLowerCase()}" data-ascat="${c[0]}" aria-pressed="${AS.cat===c[0]}"${cnt[c[0]]?"":" disabled"}>${c[0]}</button>`).join("")}</div>
@@ -4399,7 +4399,7 @@ V.charts=()=>{const apts=chApts();if(!CH.icao)CH.icao=(apts[0]||[])[1]||"KSFO";c
   chLoad(icao);
   let list="";if(CH.loading[icao]&&!d)list=`<div class="empty">Loading FAA charts for ${esc(icao)}…</div>`;
   else if(CH.err[icao]&&!d)list=`<div class="empty">${esc(CH.err[icao])}</div>${chartLinks(icao)}`;
-  else if(d&&(d.notFound||!d.charts.length))list=`<div class="empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</div>${chartLinks(icao)}`;
+  else if(d&&(d.notFound||!Array.isArray(d.charts)||!d.charts.length))list=`<div class="empty">No FAA charts for ${esc(icao)}. The FAA publishes charts for US airports only.</div>${chartLinks(icao)}`;
   else if(d){const q=CH.q.trim().toUpperCase();const groups={};d.charts.filter(c=>!q||c.name.toUpperCase().includes(q)).forEach(c=>{(groups[c.group]=groups[c.group]||[]).push(c)});
     list=CH_ORDER.filter(g=>groups[g]).map(g=>`<div class="nn-cat">${g} <span>${groups[g].length}</span></div>${groups[g].map(c=>`<button class="chitem" data-chpdf="${esc(c.pdf)}" data-chname="${esc(c.name)}" aria-pressed="${!!(CH.sel&&CH.sel.pdf===c.pdf&&CH.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<span class="pill c-amber">Changed</span>':""}</button>`).join("")}`).join("")||`<div class="empty">No charts match.</div>`}
   const sel=CH.sel;const pdfU=sel?"https://aeronav.faa.gov/d-tpp/"+sel.cycle+"/"+sel.pdf:"";
@@ -6591,6 +6591,9 @@ function rsLoad(force){if(!vam.url||!authOn()||RS.loading)return;if(!force&&Date
     if(c.status==="fulfilled"){RS.ci=c.value&&c.value.checkin||null;store.set("checkin",RS.ci)}})
     .finally(()=>{RS.loading=false;RS.at=Date.now();if(cur==="roster")render();else renderHome()})}
 setTimeout(()=>rsLoad(true),2500);
+/* home screen: a badge while a booked flight is open for check-in */
+{const _b=badge;badge=function(id){if(id==="roster"){const ci=RS.ci,now=Date.now(),n=(RS.list||[]).filter(l=>{const std=rsT(l.departureTime);return std&&std>now&&now>=std-12*3600e3&&!(ci&&String(ci.bookingId)===String(l.id))}).length;
+  return n?`<span class="badge" aria-label="${n} flight${n>1?"s":""} open for check-in">${n}</span>`:""}return _b.apply(this,arguments)}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)rsLoad()});
 function rsDuties(L){const legs=L.map(b=>({...b,std:rsT(b.departureTime),sta:rsT(b.arrivalTime)})).sort((a,b)=>(a.std||9e15)-(b.std||9e15)),out=[];
   for(const l of legs){const d=out[out.length-1],p=d&&d.legs[d.legs.length-1],pe=p&&(p.sta||p.std);
@@ -6643,11 +6646,11 @@ V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now()
     +(ci&&!ciDuty?`<nav class="snav">${navBtn('data-rssel="ci"',RS.sel==="ci",ico("clock"),"Checked in",`<span class="pill c-green">${esc(ci.callsign||ci.flight)}</span>`,esc(ci.from)+" → "+esc(ci.to))}</nav>`:"")
     +`<nav class="snav">${D.map(z=>{const f=z.legs[0],isCi=ci&&z.legs.some(l=>String(l.id)===String(ci.bookingId));
       return navBtn(`data-rssel="${esc(z.id)}"`,RS.sel===z.id,null,rsDay(z.report||f.std),isCi?`<span class="pill c-green">Checked in</span>`:z.report?"Report "+rsZ(z.report):"",esc(z.legs.map(l=>l.flight||l.callsign).join(" · "))+" · "+esc([f.from,...z.legs.map(l=>l.to)].join("–")))}).join("")}</nav>`
-    +`<div class="rs-sf"><button class="btn sm" data-rsref${RS.loading?" disabled":""}>Refresh</button><a class="btn sm" href="https://vamsys.io/phoenix" target="_blank" rel="noopener">Book in vAMSYS ↗</a></div>`;
+    +`<div class="rs-sf"><button class="btn sm" data-rsref${RS.loading?" disabled":""}>Refresh</button><a class="btn sm" href="https://vamsys.io/" target="_blank" rel="noopener">Book in vAMSYS ↗</a></div>`;
   let main="";
   if(RS.sel==="ci"&&ci)main=rsBriefHtml(ci);
   else if(!RS.list)main=`<section class="card"><div class="empty">${RS.err?esc(RS.err):"Loading your bookings…"}</div></section>`;
-  else if(!d)main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">Roster</span><h2>No flights <em>booked</em></h2><p>Book a flight in vAMSYS and it shows up here as a duty day, with check-in and the briefing.</p><div class="row" style="margin-top:16px"><a class="btn pri" href="https://vamsys.io/phoenix" target="_blank" rel="noopener">Open vAMSYS ↗</a></div></section>`;
+  else if(!d)main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">Roster</span><h2>No flights <em>booked</em></h2><p>Book a flight in vAMSYS and it shows up here as a duty day, with check-in and the briefing.</p><div class="row" style="margin-top:16px"><a class="btn pri" href="https://vamsys.io/" target="_blank" rel="noopener">Open vAMSYS ↗</a></div></section>`;
   else{const f=d.legs[0],z=d.legs[d.legs.length-1];
     main=`<section class="card feat">${cardH("Duty · "+rsDay(d.report||f.std),esc([f.from,...d.legs.map(l=>l.to)].join(" – ")),RS.err?'<span class="pill c-amber">Offline</span>':"")}
       <dl class="stats big"><div><dt>Report</dt><dd>${rsZ(d.report)}</dd></div><div><dt>Off-block</dt><dd>${rsZ(f.std)}</dd></div><div><dt>On-block</dt><dd>${rsZ(z.sta)}</dd></div><div><dt>Duty ends</dt><dd>${rsZ(d.end)}</dd></div></dl>
@@ -7079,8 +7082,8 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
   if(r.right<s.left||r.left>s.right||!r.width)return null;return{x:r.left-s.left+r.width/2,y:r.top-s.top+r.height/2}}
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
-  const h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
-  const next=APPS[h]?h:null;const prev=cur;
+  let h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="_navlog"||h==="_oooi")h=h.slice(1);if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
+  const next=APPS[h]&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
   if(next){

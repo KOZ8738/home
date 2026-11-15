@@ -8,6 +8,7 @@
    Vars:        ACCESS_TEAM_DOMAIN (e.g. polaris.cloudflareaccess.com), ACCESS_AUD (the Access application's AUD tag),
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
+import { LIVE_JS } from './live-bundle.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -78,7 +79,7 @@ export async function mailAttachment(url, env, h) {
 
 /* ---- /admin ---- */
 const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').slice(0, n);
-export async function mailAdmin(req, url, env) {
+export async function mailAdmin(req, url, env, opts) {
   const path = url.pathname.replace(/\/+$/, '');
   let who;
   try { who = await accessUser(req, env); }
@@ -87,6 +88,12 @@ export async function mailAdmin(req, url, env) {
     return jsonRes({ error: e.message }, e.status || 401);
   }
   if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' } });
+  /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
+  if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
+  if (path === '/admin/api/live') {
+    try { return jsonRes(opts && opts.live ? await opts.live() : { flights: [], apts: {} }); }
+    catch (e) { return jsonRes({ error: 'Live flights are not available right now: ' + e.message }, 502); }
+  }
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0502">
+<meta name="efb-build" content="1115.0532">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2181,7 +2181,7 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     m.bldg.forEach(b=>{if(!b.h.length||!vis(b.l))return;g.fillStyle=bcol(b);g.beginPath();trace(b.l);g.closePath();b.h.forEach(q=>{trace(q);g.closePath()});g.fill("evenodd")});
     if(z>=13.5){g.strokeStyle="#E0262E";g.fillStyle="#E0262E";g.lineWidth=Math.max(1.5,Math.min(3,.9*k));g.beginPath();m.holds.forEach(o=>{if(o.l){if(vis(o.l))trace(o.l)}else if(z>=15){const x=X(o.p[0]),y=Y(o.p[1]);if(x>-pad&&y>-pad&&x<w+pad&&y<h+pad)g.fillRect(x-2.5,y-2.5,5,5)}});g.stroke()}
     /* stands: a dot first, a small boxed label once there is room */
-    const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};
+    const occ=[],free=(x0,y0,x1,y1)=>{for(const o of occ)if(x0<o[2]&&x1>o[0]&&y0<o[3]&&y1>o[1])return false;occ.push([x0,y0,x1,y1]);return true};txSeed(occ,w,h);
     if(z>=14.5){/* lead-in lines */g.strokeStyle=C.cl;g.lineWidth=Math.max(.8,Math.min(1.4,.35*k));g.setLineDash([]);g.lineCap="round";g.beginPath();m.stands.forEach(o=>{if(o.l&&vis(o.l))trace(o.l)});g.stroke()}
     if(z>=15){const fs=z>=17?11:z>=16?10:9;g.font=`700 ${fs}px ${C.mono}`;g.textAlign="center";g.textBaseline="middle";g.lineWidth=1;
       /* label at the stop point; if that spot is taken, slide it back along the lead-in line */
@@ -2194,12 +2194,17 @@ function mapCanvas(){const cv=$("#mapCv"),el=$("#mapSvg");if(!cv||!el)return;con
     /* building names */
     if(z>=14){g.font="600 11px "+C.mono;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;
       m.bldg.forEach(b=>{if(!b.name||!vis(b.l)||(z<14.5&&b.kind!=="terminal"&&b.kind!=="cargo"))return;const bx=(X(b.l.x1)-X(b.l.x0)),by=(Y(b.l.y1)-Y(b.l.y0));if(Math.max(bx,by)<(b.kind==="terminal"||b.kind==="cargo"?22:30))return;const x=(X(b.l.x0)+X(b.l.x1))/2,y=(Y(b.l.y0)+Y(b.l.y1))/2;if(x<0||y<0||x>w||y>h)return;
-        const words=b.name.split(/\s+/),rows=[];let cur="";words.forEach(t=>{if((cur+" "+t).trim().length>18&&cur){rows.push(cur);cur=t}else cur=(cur+" "+t).trim()});if(cur)rows.push(cur);if(rows.length>3)return;
-        const tw=Math.max(...rows.map(r=>r.length))*6.7,th=rows.length*13;if(!free(x-tw/2,y-th/2,x+tw/2,y+th/2))return;
-        rows.forEach((r,i)=>{const yy=y-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)})})}
+        /* the taxiway letters and runway numbers are already in occ (txSeed), so a name never covers them. Try the full name, then
+           shorter ones, each at the middle of the building and a little above or below it; if none fits, leave it out until zoomed in. */
+        const by0=Math.min(Y(b.l.y0),Y(b.l.y1)),by1=Math.max(Y(b.l.y0),Y(b.l.y1));
+        for(const nm of txNames(b.name)){const rows=txWrap(nm);if(rows.length>3)continue;
+          const tw=Math.max(...rows.map(r=>g.measureText(r).width))+2,th=rows.length*13;let done=false;
+          for(const f of [0,-.8,.8,-1.6,1.6]){const yc=y+f*th;if(f&&(yc<by0||yc>by1))continue;if(!free(x-tw/2,yc-th/2,x+tw/2,yc+th/2))continue;
+            rows.forEach((r,i)=>{const yy=yc-th/2+6.5+i*13;g.strokeText(r,x,yy);g.fillText(r,x,yy)});done=true;break}
+          if(done)break}})}
     /* apron and area names */
     if(z>=14.5){g.font="italic 500 11px "+C.ui;g.textAlign="center";g.textBaseline="middle";g.lineJoin="round";g.lineWidth=3;g.strokeStyle=C.halo;g.fillStyle=C.txt;g.globalAlpha=.85;
-      m.places.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<0||y<0||x>w||y>h)return;const tw=o.name.length*6.2;if(!free(x-tw/2,y-8,x+tw/2,y+8))return;g.strokeText(o.name,x,y);g.fillText(o.name,x,y)});g.globalAlpha=1}
+      m.places.forEach(o=>{const x=X(o.p[0]),y=Y(o.p[1]);if(x<0||y<0||x>w||y>h)return;const tw=g.measureText(o.name).width+2;if(!free(x-tw/2,y-8,x+tw/2,y+8))return;g.strokeText(o.name,x,y);g.fillText(o.name,x,y)});g.globalAlpha=1}
   });ovDraw(g,w,h)}
 
 /* Stroke-only outlines (FIR boundaries, borders): emit just the parts near the screen. Zoomed in on an
@@ -2225,6 +2230,23 @@ function geoFill(items,P,V,k0,w,h){const m=Math.max(w,h)*.6,x0=-m,y0=-m,x1=w+m,y
     if(!all){pts=cut(pts,p=>p[0]>=x0,ix(x0));if(pts.length>2)pts=cut(pts,p=>p[0]<=x1,ix(x1));if(pts.length>2)pts=cut(pts,p=>p[1]>=y0,iy(y0));if(pts.length>2)pts=cut(pts,p=>p[1]<=y1,iy(y1))}
     if(pts.length<3)continue;let s="",lx=null,ly=null;for(const p of pts){const x=Math.round(p[0]),y=Math.round(p[1]);if(x===lx&&y===ly)continue;s+=(s?"L":"M")+x+" "+y;lx=x;ly=y}d+=s+"Z"}}
   return d}
+
+/* ===== Airport-diagram labels: one shared "taken" list for the SVG and the canvas ===== */
+/* The runway numbers and taxiway letters are SVG, drawn by drawMap; the stand numbers, building and apron names are canvas,
+   drawn every frame. drawMap records its label boxes in TXB (in the frame it drew); txSeed moves them to this frame's view
+   (the SVG may have been panned or zoomed by a CSS transform since) and puts them in the canvas's taken list first. */
+function txSeed(occ,w,h){const f=TXB.f;if(!TXB.length||!f||!MAP.c)return;
+  const k=Math.pow(2,MAP.z-f.z),c1=mpx(MAP.c.lat,MAP.c.lon,f.z),world=TS*Math.pow(2,f.z);let dx=c1[0]-f.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-f.cy;
+  const X=x=>(x-dx-w/2)*k+w/2,Y=y=>(y-dy-h/2)*k+h/2;
+  for(const b of TXB)occ.push([X(b[0])-2,Y(b[1])-2,X(b[2])+2,Y(b[3])+2])}
+const TX_AB=[[/\bInternational\b/g,"Intl"],[/\bTerminal\b/g,"Term"],[/\bBuilding\b/g,"Bldg"],[/\bCent(?:er|re)\b/g,"Ctr"],[/\bMaintenance\b/g,"Maint"],[/\bDomestic\b/g,"Dom"],[/\bConcourse\b/g,"Conc"],[/\bNorth\b/g,"N"],[/\bSouth\b/g,"S"],[/\bEast\b/g,"E"],[/\bWest\b/g,"W"]];
+/* the name, an abbreviated one, then its last words ("International Boarding Area G" → "Intl Boarding Area G" → "Boarding Area G" → "Area G") */
+function txNames(n){const out=[n];let a=n;TX_AB.forEach(([re,t])=>{a=a.replace(re,t)});if(a!==n)out.push(a);
+  const w=a.split(/\s+/);for(let i=1;i<w.length;i++){if(/^(of|the|and|&|-)$/i.test(w[i]))continue;const t=w.slice(i).join(" ");if(t.length>=3)out.push(t)}
+  return [...new Set(out)]}
+/* rows of about 18 Latin characters; Chinese and Japanese characters count double */
+function txWrap(n){const L=t=>[...t].reduce((a,c)=>a+(c.charCodeAt(0)>0x2e80?2:1),0);const rows=[];let cur="";
+  n.split(/\s+/).forEach(t=>{const nx=(cur+" "+t).trim();if(L(nx)>18&&cur){rows.push(cur);cur=t}else cur=nx});if(cur)rows.push(cur);return rows}
 
 /* ---------- Chart overlay on the map ----------
    A chart (FAA d-TPP PDF page) is rendered once to a bitmap and painted on the map canvas, above the airport
@@ -5029,54 +5051,109 @@ const mailPlain=t=>String(t||"").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1").replace(
 const mailWhen=ms=>{const d=new Date(ms),n=new Date();return d.toDateString()===n.toDateString()?d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}):Date.now()-ms<6*86400000?d.toLocaleDateString("en-US",{weekday:"short"}):d.toLocaleDateString("en-US",{month:"short",day:"numeric"})};
 const mailFull=ms=>{const d=new Date(ms);return d.toLocaleString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})+" · "+d.toISOString().slice(11,16)+"Z"};
 const mailKB=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
-const ML_I={inbox:'<path d="M3 13l2.5-8h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',trash:'<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',clip:'<path d="M15.5 7.5l-6.8 6.8a2 2 0 0 0 2.8 2.8l7-7a3.6 3.6 0 0 0-5.1-5.1l-7.2 7.2a5.2 5.2 0 0 0 7.4 7.4l6.3-6.3"/>'};
+const ML_I={inbox:'<path d="M3 13l2.5-8h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',trash:'<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',clip:'<path d="M15.5 7.5l-6.8 6.8a2 2 0 0 0 2.8 2.8l7-7a3.6 3.6 0 0 0-5.1-5.1l-7.2 7.2a5.2 5.2 0 0 0 7.4 7.4l6.3-6.3"/>',
+  unread:'<rect x="3" y="6" width="15" height="12" rx="2"/><path d="M3.8 7.2l7 5.3 7-5.3"/><circle cx="19.5" cy="5.5" r="2.6" fill="currentColor" stroke="none"/>',restore:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',mail:'<rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3.9 7l8.1 6.3L20.1 7"/>'};
 const mlIco=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ML_I[k]}</svg>`;
+/* a steady colour per sender, from the Polaris palette */
+const ML_C=["#1A6772","#A78970","#3F7FA0","#6B7F3A","#8C5A7A","#B5703A"];
+const mlAv=f=>{const n=String(f||"P");let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))>>>0;const ini=n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();return `<span class="pm-av" style="background:${ML_C[h%ML_C.length]}" aria-hidden="true">${esc(ini||"P")}</span>`};
 V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
-  const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)),trash=L.filter(m=>tr.has(m.id)),list=MAIL.box==="trash"?trash:inbox;
+  const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)),trash=L.filter(m=>tr.has(m.id)),isTr=MAIL.box==="trash",list=isTr?trash:inbox;
   const unread=inbox.filter(m=>!rd.has(m.id)).length,sel=MAIL.sel?L.find(m=>m.id===MAIL.sel):null;
-  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><span>${m.att&&m.att.length?mlIco("clip"):""}${esc(mailWhen(m.t))}</span></span><span class="pm-sub">${esc(m.subject)}</span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,110))}</span></button>`}).join("");
-  const side=sideHead("Polaris Mail",MAIL.box==="trash"?"Trash":"Inbox",!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):MAIL.list?(unread?unread+" unread":"All caught up"):"Checking…")
-    +`<nav class="snav">${navBtn('data-mailbox="inbox"',MAIL.box!=="trash",mlIco("inbox"),"Inbox",unread?String(unread):"")}${navBtn('data-mailbox="trash"',MAIL.box==="trash",mlIco("trash"),"Trash",trash.length?String(trash.length):"")}</nav>`
-    +`<div class="pm-list">${rows||`<p class="pm-none">${MAIL.box==="trash"?"Trash is empty.":MAIL.list?"No messages yet. Notices from Polaris staff arrive here.":MAIL.err?esc(MAIL.err):"Checking for mail…"}</p>`}</div>`;
-  let main;
+  const status=!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):!MAIL.list?"Checking…":isTr?(trash.length?trash.length+" message"+(trash.length>1?"s":""):"Empty"):unread?unread+" unread":"All caught up";
+  const boxBtn=(k,ic,label,n,cls)=>`<button class="${cls}" data-mailbox="${k}" aria-pressed="${(MAIL.box||"inbox")===k}">${mlIco(ic)}<span>${label}</span>${n?`<b>${n}</b>`:""}</button>`;
+  const nav=`<aside class="pm-nav"><div class="pm-nh"><span class="eyebrow">Polaris Airways</span><h2>Mail</h2></div>
+    <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
+    <div class="pm-nf">${mlIco("mail")}<span>To all Polaris pilots${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
+  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
+  const col=`<section class="pm-col" aria-label="${isTr?"Trash":"Inbox"}"><header class="pm-ch"><div><h3>${isTr?"Trash":"Inbox"}</h3><p>${status}</p></div>
+      <button class="pm-ib" data-mailref title="Check for new mail" aria-label="Check for new mail"${MAIL.loading?' disabled':''}>${mlIco("refresh")}</button></header>
+    <div class="pm-seg" role="group" aria-label="Mailbox">${boxBtn("inbox","inbox","Inbox",unread,"")}${boxBtn("trash","trash","Trash",0,"")}</div>
+    <div class="pm-list">${rows||`<div class="pm-none">${mlIco(isTr?"trash":"inbox")}<p>${isTr?"Trash is empty.":MAIL.list?"No messages yet.<br>Notices from Polaris staff arrive here.":MAIL.err?esc(MAIL.err):"Checking for mail…"}</p></div>`}</div></section>`;
+  let rdr;
   if(sel){const f=vam.url?vam.url.replace(/\/+$/,""):"",inTr=tr.has(sel.id);
-    main=`<button class="btn sm pm-back" data-mailback>‹ ${MAIL.box==="trash"?"Trash":"Inbox"}</button><article class="card pm-mail"><div class="card-b">
-      <div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div>
-      <div class="pm-meta"><div><b>${esc(sel.from)}</b> <span>· Polaris Airways</span></div><div>To: All Polaris pilots</div><div>${esc(mailFull(sel.t))}${sel.edited?" · updated "+esc(mailWhen(sel.edited)):""}</div></div>
+    rdr=`<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${isTr?"Trash":"Inbox"}">${mlIco("back")}<span>${isTr?"Trash":"Inbox"}</span></button><span class="pm-sp"></span>
+        <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
+        <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
+      <article class="pm-mail"><div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div>
+      <div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>Polaris Airways · To all Polaris pilots</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailFull(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
       <div class="pm-body">${mailMd(sel.body)}</div>
-      ${sel.att&&sel.att.length?`<div class="pm-att">${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}</span><small>${esc(mailKB(a.size))}</small></a>`).join("")}</div>`:""}
-      <div class="pm-act"><button class="btn sm" data-mailact="${inTr?"restore":"trash"}">${inTr?"Move to Inbox":"Move to Trash"}</button><button class="btn sm" data-mailact="unread">Mark as unread</button></div></div></article>`}
-  else main=`<div class="pm-empty">${mlIco("inbox")}<p>${L.length?"Select a message to read it.":"Your Polaris mailbox"}</p></div>`;
-  return split(side,main,"mailwrap"+(sel?" has-sel":""))};
-document.addEventListener("click",e=>{const t=e.target.closest("[data-mailid],[data-mailbox],[data-mailact],[data-mailback]");if(!t||cur!=="mail")return;
-  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd)}render();const d=$("#view .detail");if(d)d.scrollTop=0}
+      ${sel.att&&sel.att.length?`<div class="pm-att"><h4>${sel.att.length} attachment${sel.att.length>1?"s":""}</h4><div>${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}<small>${esc(mailKB(a.size))}</small></span></a>`).join("")}</div></div>`:""}</article>`}
+  else rdr=`<div class="pm-empty">${mlIco("mail")}<p>No message selected</p><small>${L.length?inbox.length+" in Inbox"+(unread?" · "+unread+" unread":""):"Your Polaris mailbox"}</small></div>`;
+  return `<div class="pm3${sel?" has-sel":""}">${nav}${col}<div class="pm-read">${rdr}</div></div>`};
+document.addEventListener("click",e=>{const t=e.target.closest("[data-mailid],[data-mailbox],[data-mailact],[data-mailback],[data-mailref]");if(!t||cur!=="mail")return;
+  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd)}render();const d=$("#view .pm-read");if(d)d.scrollTop=0}
   else if(t.dataset.mailbox){MAIL.box=t.dataset.mailbox;MAIL.sel=null;render()}
   else if(t.dataset.mailback!=null){MAIL.sel=null;render()}
+  else if(t.dataset.mailref!=null){mailLoad(true);render()}
   else if(t.dataset.mailact&&MAIL.sel){const a=t.dataset.mailact,tr=mailSet("mailTrash"),rd=mailSet("mailRead");
     if(a==="trash"){tr.add(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Trash")}
     else if(a==="restore"){tr.delete(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Inbox")}
-    else if(a==="unread"){rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null}
+    else if(a==="unread"){rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null;toast("Marked as unread")}
     render()}});
 document.head.insertAdjacentHTML("beforeend",`<style>
-.mailwrap .side{gap:0}.pm-list{border-top:1px solid var(--line);margin-top:8px}
-.pm-row{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;width:100%;text-align:left;padding:12px 18px 12px 26px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;position:relative;font:inherit}
-.pm-row:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}.pm-row[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.pm-row.unread::before{content:"";position:absolute;left:10px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
-.pm-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.pm-top b{font:600 14.5px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-row:not(.unread) .pm-top b{font-weight:500}
-.pm-top span{color:var(--label);font-size:12px;white-space:nowrap;display:inline-flex;gap:4px;align-items:center}.pm-top svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8}
-.pm-row>span{display:block;min-width:0}.pm-row>.pm-top{display:flex}
-.pm-sub{font:500 13.5px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-pre{color:var(--label);font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.pm-none{color:var(--label);font-size:13.5px;padding:16px 18px}
-.snav .si svg{fill:none;stroke:currentColor;stroke-width:1.7}
-.pm-mail .card-b{padding:26px clamp(18px,3cqw,36px) 22px}.pm-h{font:400 clamp(22px,2.4cqw,28px)/1.2 var(--f-disp);color:var(--accent-h);margin:0 0 12px}
-.pm-meta{color:var(--label);font-size:13px;line-height:1.6;padding-bottom:14px;border-bottom:1px solid var(--line)}.pm-meta b{color:var(--ink);font-weight:600}
-.pm-body{font-size:15px;line-height:1.6;padding-top:16px}.pm-body p{margin:0 0 12px}.pm-body h4{font:600 12px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:18px 0 6px}.pm-body ul{margin:0 0 12px;padding-left:20px}.pm-body a{color:var(--accent)}
-.pm-att{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.pm-att a{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:6px;color:var(--ink);text-decoration:none;font-size:13.5px}
-.pm-att svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}.pm-att small{color:var(--label)}
-.pm-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
-.pm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:50vh;color:var(--label)}.pm-empty svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:1.3;opacity:.6}
-.mailwrap .pm-back{display:none;align-self:flex-start}
-@container screen (max-width:760px){.mailwrap.has-sel .side{display:none}.mailwrap:not(.has-sel) .detail{display:none}.mailwrap .pm-back{display:inline-flex}}
+/* Mail: mailboxes | message list | reading pane. Three columns on a wide screen, two on a smaller iPad, one on a phone. */
+.pm3{display:grid;grid-template-columns:212px minmax(300px,360px) minmax(0,1fr);height:100%;min-height:0;background:var(--bg)}
+.pm3 svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pm-nav{display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);min-height:0;overflow-y:auto}
+.pm-nh{padding:20px 18px 14px}.pm-nh h2{font:400 30px/1.05 var(--f-disp);color:var(--accent-h);margin:6px 0 0}
+.pm-nav nav{display:flex;flex-direction:column;gap:2px;padding:0 10px}
+.pm-nb{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:var(--ink);font:500 14.5px var(--f-ui);cursor:pointer;text-align:left}
+.pm-nb svg{width:19px;height:19px;color:var(--accent)}.pm-nb span{flex:1}
+.pm-nb:hover{background:var(--panel-2)}
+.pm-nb[aria-pressed="true"]{background:var(--brand);color:#fff}.pm-nb[aria-pressed="true"] svg{color:#fff}
+.pm-nb b,.pm-seg b{min-width:22px;height:22px;padding:0 7px;box-sizing:border-box;border-radius:11px;display:inline-grid;place-items:center;font:600 12px var(--f-ui);background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--accent)}
+.pm-nb[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:#fff}
+.pm-nf{margin-top:auto;display:flex;gap:10px;align-items:center;padding:14px 18px;border-top:1px solid var(--line);color:var(--label);font-size:12px;line-height:1.35}
+.pm-nf svg{width:16px;height:16px;flex:none}.pm-nf small{display:block;font:500 11.5px var(--f-mono);color:var(--ink)}
+.pm-col{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--panel)}
+.pm-ch{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:18px 16px 12px 20px;border-bottom:1px solid var(--line)}
+.pm-ch h3{margin:0;font:600 19px/1.2 var(--f-ui);color:var(--ink)}.pm-ch p{margin:3px 0 0;font-size:12.5px;color:var(--label)}
+.pm-ib{display:inline-flex;align-items:center;gap:6px;height:34px;min-width:34px;padding:0 8px;justify-content:center;border:0;border-radius:8px;background:transparent;color:var(--accent);cursor:pointer;font:500 14px var(--f-ui)}
+.pm-ib:hover{background:var(--panel-2)}.pm-ib:disabled{opacity:.4;cursor:default}.pm-ib svg{width:19px;height:19px}
+.pm-ib[data-mailref]:disabled svg{animation:pmSpin 1s linear infinite}@keyframes pmSpin{to{transform:rotate(360deg)}}
+.pm-seg{display:none;gap:4px;margin:10px 16px 2px;padding:3px;border-radius:9px;background:var(--panel-2)}
+.pm-seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:7px 10px;border:0;border-radius:7px;background:transparent;color:var(--label);font:500 13.5px var(--f-ui);cursor:pointer}
+.pm-seg button svg{width:16px;height:16px}.pm-seg [aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.pm-list{flex:1;overflow-y:auto;min-height:0}
+.pm-row{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;padding:13px 18px 14px 20px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;position:relative;font:inherit}
+.pm-row:hover{background:color-mix(in srgb,var(--brand) 5%,transparent)}
+.pm-row[aria-pressed="true"]{background:color-mix(in srgb,var(--brand) 13%,transparent)}
+.pm-row.unread::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand)}
+.pm-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.pm-top b{font:500 15px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-row.unread .pm-top b{font-weight:700}
+.pm-top time{color:var(--label);font-size:12px;white-space:nowrap}.pm-row.unread .pm-top time{color:var(--accent);font-weight:600}
+.pm-sub{display:flex;align-items:center;gap:6px;font:500 14px var(--f-ui);min-width:0}.pm-sub span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-row.unread .pm-sub{font-weight:600}
+.pm-sub svg{width:14px;height:14px;flex:none;color:var(--label)}
+.pm-pre{color:var(--label);font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pm-none{display:flex;flex-direction:column;align-items:center;gap:10px;padding:48px 24px;text-align:center;color:var(--label);font-size:13.5px;line-height:1.5}.pm-none svg{width:34px;height:34px;opacity:.55}.pm-none p{margin:0}
+.pm-read{overflow-y:auto;min-height:0;display:flex;flex-direction:column}
+.pm-tb{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:4px;padding:10px 14px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.pm-sp{flex:1}.pm-back{display:none}
+.pm-mail{width:100%;max-width:760px;margin:0 auto;padding:26px clamp(20px,4cqw,44px) 48px;box-sizing:border-box}
+.pm-h{font:400 clamp(24px,2.6cqw,32px)/1.18 var(--f-disp);color:var(--accent-h);margin:0 0 20px}
+.pm-from{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.pm-av{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font:600 15px var(--f-ui);letter-spacing:.02em}
+.pm-from>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.pm-from b{font:600 15px var(--f-ui)}.pm-from div span{font-size:12.5px;color:var(--label)}
+.pm-from time{font-size:12px;color:var(--label);text-align:right;max-width:46%}.pm-from time small{display:block;margin-top:2px}
+.pm-body{font-size:15.5px;line-height:1.65;padding-top:20px}.pm-body p{margin:0 0 14px}.pm-body h4{font:600 12px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:22px 0 8px}
+.pm-body ul{margin:0 0 14px;padding-left:22px}.pm-body li{margin:3px 0}.pm-body a{color:var(--accent)}
+.pm-att{margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}.pm-att h4{margin:0 0 10px;font:600 11px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--label)}
+.pm-att>div{display:flex;flex-wrap:wrap;gap:8px}
+.pm-att a{display:inline-flex;gap:10px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);text-decoration:none;font-size:13.5px;max-width:100%}
+.pm-att a:hover{border-color:var(--accent)}.pm-att svg{width:17px;height:17px;color:var(--accent);flex:none}.pm-att span{display:flex;flex-direction:column;min-width:0}.pm-att small{color:var(--label);font-size:11.5px}
+.pm-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:50vh;color:var(--label)}
+.pm-empty svg{width:52px;height:52px;stroke-width:1.2;opacity:.45}.pm-empty p{margin:6px 0 0;font:500 16px var(--f-ui);color:var(--ink);opacity:.75}.pm-empty small{font-size:12.5px}
+/* smaller iPad: mailboxes become a switch above the list */
+@container screen (max-width:1000px){.pm3{grid-template-columns:minmax(280px,340px) minmax(0,1fr)}.pm-nav{display:none}.pm-seg{display:flex}
+  .pm-from{flex-wrap:wrap}.pm-from time{order:3;width:100%;max-width:none;text-align:left;padding-left:54px;margin-top:-4px}}
+/* phone: the list, or the open message */
+@container screen (max-width:760px){
+  .pm3{grid-template-columns:minmax(0,1fr);height:auto;min-height:100%}
+  .pm-col{border-right:0}.pm-list{overflow:visible}.pm-read{overflow:visible}
+  .pm3.has-sel .pm-col,.pm3:not(.has-sel) .pm-read{display:none}.pm-back{display:inline-flex}
+  .pm-mail{padding-top:20px}}
 </style>`);
 
 /* ===== New-mail alert in the Dynamic Island ===== */
@@ -5118,7 +5195,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 </style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
-const TX={data:{},loading:{},err:{},fly:null};
+const TX={data:{},loading:{},err:{},fly:null};const TXB=[];
 function txLoad(icao,force){if(!vam.url||!icao)return;if(!force&&(TX.data[icao]||TX.loading[icao]))return;if(!force&&TX.err[icao]&&Date.now()-TX.err[icao].at<60000)return;TX.loading[icao]=true;
   vamGet("/api/efb/airport-layout?icao="+encodeURIComponent(icao),35000).then(j=>{TX.data[icao]=j;delete TX.err[icao];if(TX.fly===icao){TX.fly=null;if(j.airport&&j.airport.lat!=null){MAP.c={lat:j.airport.lat,lon:j.airport.lon};MAP.z=14.2}else toast("No layout for "+icao)}})
     .catch(e=>{TX.err[icao]={msg:e.message,at:Date.now()};clearTimeout(TX.rt);TX.rt=setTimeout(()=>{if(cur==="map")drawMap()},61000);if(TX.fly===icao){TX.fly=null;toast(icao+": "+e.message)}}).finally(()=>{TX.loading[icao]=false;if(cur==="map"){mapSched();updMapNote()}})}
@@ -5126,10 +5203,10 @@ const rwNum=r=>{const m=String(r).match(/^(\d{1,2})/);return m?+m[1]:null};
 /** SVG for one airport layout. P(lat,lon)->[x,y]; k = pixels per metre at this zoom. */
 function aptLayerSvg(d,P,k,z,w,h,fits){const Q=q=>{let lo=q[0];while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(q[1],lo)};const pl=pts=>pts.map(q=>Q(q).join(",")).join(" ");let s="";
   let lab="";
-  txPrep(d).ends.forEach(e=>{if(e.w*k>=14||!e.ll)return;const [x,y]=Q(e.ll),t=e.name;if(x<-30||y<-30||x>w+30||y>h+30)return;const wd=t.length*8+10;fits(x,y,wd);lab+=`<g class="tx-rlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t)}</text></g>`});
+  txPrep(d).ends.forEach(e=>{if(e.w*k>=14||!e.ll)return;const [x,y]=Q(e.ll),t=e.name;if(x<-30||y<-30||x>w+30||y>h+30)return;const wd=t.length*8+10;fits(x,y,wd);TXB.push([x-wd/2,y-9,x+wd/2,y+9]);lab+=`<g class="tx-rlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t)}</text></g>`});
   if(z>=13.5)d.taxiways.filter(t=>t.ref).sort((a,b)=>b.pts.length-a.pts.length).forEach(t=>{const pts=t.pts.map(Q);let best=null,bl=0,tot=0;for(let i=1;i<pts.length;i++){const L=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);tot+=L;if(L>bl){bl=L;best=[(pts[i][0]+pts[i-1][0])/2,(pts[i][1]+pts[i-1][1])/2]}}
     if(!best||tot<40)return;const [x,y]=best;if(x<0||y<0||x>w||y>h)return;const wd=String(t.ref).length*7.5+10;if(!fits(x,y,wd))return;
-    lab+=`<g class="tx-tlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t.ref)}</text></g>`});
+    TXB.push([x-wd/2,y-9,x+wd/2,y+9]);lab+=`<g class="tx-tlab"><rect x="${(x-wd/2).toFixed(1)}" y="${(y-9).toFixed(1)}" width="${wd}" height="18" rx="2"/><text x="${x}" y="${y+4.5}" text-anchor="middle">${esc(t.ref)}</text></g>`});
   return{base:s,labels:lab}}
 
 V.timer=()=>{let body="";
@@ -5229,7 +5306,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
     const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]);if(Math.max(...xs)<0||Math.min(...xs)>w||Math.max(...ys)<0||Math.min(...ys)>h)return;
     const cx=xs.reduce((a,b)=>a+b,0)/xs.length,cy=ys.reduce((a,b)=>a+b,0)/ys.length;const sel=MAP.sel&&MAP.sel.t==="sig"&&MAP.sel.i===i;
     s+=`<polygon class="sig h-${HZ(g.hazard)}${/AIRMET|CWA/.test(g.kind)?" airmet":""}${sel?" sel":""}" data-sig="${i}"${!sel&&z<3.5?' style="stroke-width:1;fill-opacity:.06"':""} points="${pts.map(q=>q.join(",")).join(" ")}"/>${z>=4?`<text class="sigl h-${HZ(g.hazard)}" x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle">${esc(String(g.hazard||g.kind).toUpperCase())}</text>`:""}`});
-  let aptLabels="";
+  let aptLabels="";TXB.length=0;TXB.f={z,cx:c[0],cy:c[1]};
   if(ML.apt&&z>=11){const occ=new Set(),fits=(x,y,wd)=>{const cells=[];for(let gx=Math.floor((x-wd/2)/24);gx<=Math.floor((x+wd/2)/24);gx++)for(let gy=Math.floor((y-9)/18);gy<=Math.floor((y+9)/18);gy++)cells.push(gx+":"+gy);if(cells.some(q=>occ.has(q)))return false;cells.forEach(q=>occ.add(q));return true};
     const k=Math.pow(2,z)*TS/(40075016.7*Math.cos(MAP.c.lat*Math.PI/180));
     mapAptCandidates().forEach(a=>{const d=TX.data[a.icao];if(!d){if(a.lat!=null){let lo=a.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const q=P(a.lat,lo);if(q[0]>-w&&q[0]<2*w&&q[1]>-h&&q[1]<2*h)txLoad(a.icao)}return}
@@ -5298,9 +5375,18 @@ function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.t
 /* one switch for "follow my aircraft", so the ME button always shows the real state */
 function mapFollowSet(on){MAP.follow=!!on;const b=$("#mapMe");if(b)b.setAttribute("aria-pressed",String(MAP.follow))}
 function mapFollow(){const me=mapMine();if(MAP.follow&&me){MAP.c={lat:me.lat,lon:me.lon}}}
+/* Airports in the loaded base-map tiles. This used to be read from the tiles on every frame (70+ times a second while
+   panning); now it is read again only after new tiles arrive (at most 5 times a second), and every 5 s as a safety net. */
+const ATL={m:null,list:[],dirty:true,at:0};
+function aptTileList(){const m=VEC.map;if(!m)return[];
+  if(ATL.m!==m){ATL.m=m;ATL.dirty=true;ATL.list=[];try{m.on("sourcedata",e=>{if(e&&e.sourceId==="o"&&ATL.m===m)ATL.dirty=true})}catch(e){}}
+  const now=performance.now();if(!((ATL.dirty&&now-ATL.at>200)||now-ATL.at>5000))return ATL.list;
+  ATL.dirty=false;ATL.at=now;const L=[],seen={};
+  try{m.querySourceFeatures("o",{sourceLayer:"aerodrome_label"}).forEach(f=>{const p=f.properties||{},ic=String(p.icao||"").toUpperCase();if(!/^[A-Z]{4}$/.test(ic)||seen[ic])return;const g=f.geometry&&f.geometry.coordinates;if(!g||!isFinite(g[0]))return;seen[ic]=1;L.push({icao:ic,lat:g[1],lon:g[0]})})}catch(e){ATL.dirty=true}
+  ATL.list=L;return L}
 function mapAptCandidates(){const x=O(),out=[];const add=(a)=>{const ic=S(a.icao_code);if(ic&&!out.some(o=>o.icao===ic))out.push({icao:ic,lat:N(a.pos_lat),lon:N(a.pos_long)})};add(x.o);add(x.d);add(x.a);
   Object.keys(TX.data).forEach(ic=>{const d=TX.data[ic];if(!out.some(o=>o.icao===ic)&&d.airport)out.push({icao:ic,lat:d.airport.lat,lon:d.airport.lon})});
-  try{if(MAP.z>=11&&MAP.c&&typeof VEC!=="undefined"&&VEC.map&&VEC.ready){const seen={};VEC.map.querySourceFeatures("o",{sourceLayer:"aerodrome_label"}).forEach(f=>{const p=f.properties||{},ic=String(p.icao||"").toUpperCase();if(!/^[A-Z]{4}$/.test(ic)||seen[ic]||out.some(o=>o.icao===ic))return;const g=f.geometry&&f.geometry.coordinates;if(!g||!isFinite(g[0]))return;seen[ic]={icao:ic,lat:g[1],lon:g[0],d:Math.hypot(g[1]-MAP.c.lat,(g[0]-MAP.c.lon)*Math.cos(MAP.c.lat*Math.PI/180))}});Object.values(seen).filter(a=>a.d<Math.max(.15,40/Math.pow(2,MAP.z-4))).sort((a,b)=>a.d-b.d).slice(0,3).forEach(a=>out.push({icao:a.icao,lat:a.lat,lon:a.lon}))}}catch(e){}
+  try{if(MAP.z>=11&&MAP.c&&typeof VEC!=="undefined"&&VEC.map&&VEC.ready){const seen={};aptTileList().forEach(a=>{const ic=a.icao;if(seen[ic]||out.some(o=>o.icao===ic))return;const g=[a.lon,a.lat];seen[ic]={icao:ic,lat:g[1],lon:g[0],d:Math.hypot(g[1]-MAP.c.lat,(g[0]-MAP.c.lon)*Math.cos(MAP.c.lat*Math.PI/180))}});Object.values(seen).filter(a=>a.d<Math.max(.15,40/Math.pow(2,MAP.z-4))).sort((a,b)=>a.d-b.d).slice(0,3).forEach(a=>out.push({icao:a.icao,lat:a.lat,lon:a.lon}))}}catch(e){}
   const me=mapMine();return out}
 function mapGoApt(icao){const d=TX.data[icao];mapFollowSet(false);if(d&&d.airport&&d.airport.lat!=null){MAP.c={lat:d.airport.lat,lon:d.airport.lon};MAP.z=14.2;mapSched();updMapNote();return}
   const c=mapAptCandidates().find(a=>a.icao===icao&&a.lat!=null);if(c){MAP.c={lat:c.lat,lon:c.lon};MAP.z=14.2;mapSched()}

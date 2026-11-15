@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1311">
+<meta name="efb-build" content="1115.1320">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6235,7 +6235,10 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-auth
 document.head.insertAdjacentHTML("beforeend",`<style>
 html.au-open body{overflow:hidden}
 #auth{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;color:#fff;font-family:var(--f-os);transition:opacity .35s ease,transform .35s ease}
-#auth{overflow:hidden;place-items:stretch}
+#auth{overflow:hidden;place-items:stretch;bottom:auto;height:100vh;height:100lvh;min-height:-webkit-fill-available}
+/* opened from the home screen, iOS draws its own status bar on top: no second one, and room for it */
+html.au-sa .au-sb{display:none}html.au-sa .au-utc{top:calc(env(safe-area-inset-top,0px) + 14px)}
+.au-utc{top:calc(env(safe-area-inset-top,0px) + 40px)}.au-home{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}.au-tap{bottom:calc(env(safe-area-inset-bottom,0px) + 40px)}
 .au-bg{position:absolute;inset:0;background:radial-gradient(90% 70% at 12% 0%,#1F5F6E 0%,transparent 60%),radial-gradient(80% 70% at 100% 100%,#174E5A 0%,transparent 55%),linear-gradient(160deg,#0D2F3A 0%,#0A1E29 55%,#08161E 100%)}
 .au-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 40% at 50% 45%,rgba(124,194,201,.10),transparent 70%)}
 .au-cover{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .45s ease;outline:none;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -6243,7 +6246,7 @@ html.au-open body{overflow:hidden}
 .au-sb{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 18px;font:600 13px var(--f-os)}
 .au-sb .au-sbt{font-weight:700;margin-right:12px}.au-sbd{font-weight:600}.au-sbr{display:flex;align-items:center;gap:8px}.au-sbr svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}.au-sbr svg circle{fill:#fff;stroke:none}
 .au-bat{display:flex;align-items:center;gap:5px;font-weight:600}.au-bat i{width:24px;height:11px;border:1.5px solid rgba(255,255,255,.8);border-radius:3.5px;padding:1px;box-sizing:border-box;position:relative}.au-bat i::after{content:"";position:absolute;right:-4px;top:3px;width:2px;height:4px;background:rgba(255,255,255,.8);border-radius:0 1px 1px 0}.au-bat b{display:block;height:100%;background:#fff;border-radius:1.5px}
-.au-utc{position:absolute;top:40px;left:18px;display:flex;align-items:baseline;gap:8px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.au-utc{position:absolute;left:18px;display:flex;align-items:baseline;gap:8px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .au-utc small{font:700 11px var(--f-os);letter-spacing:.06em;color:rgba(255,255,255,.7)}.au-utc b{font:700 15px var(--f-os);font-variant-numeric:tabular-nums}
 .au-mid{margin-top:clamp(70px,10vh,110px);display:flex;flex-direction:column;align-items:center}
 .au-lk{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.8;margin-bottom:14px;opacity:.9}
@@ -6253,8 +6256,8 @@ html.au-open body{overflow:hidden}
 .au-brand{flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(16px,3vw,34px);margin-bottom:8vh}
 .au-brand svg{width:clamp(64px,10vw,104px);height:clamp(64px,10vw,104px);fill:#fff;stroke:none}.au-brand svg circle{fill:none;stroke:#fff;stroke-width:2.6}
 .au-brand span{font:400 clamp(54px,9.5vw,112px)/1 var(--f-disp,"Marcellus",Georgia,serif);letter-spacing:.07em;color:#fff}
-.au-tap{position:absolute;bottom:42px;font:500 15px var(--f-os);color:rgba(255,255,255,.72);animation:auPulse 2.6s ease-in-out infinite}@keyframes auPulse{50%{opacity:.45}}
-.au-home{position:absolute;bottom:10px;width:136px;height:5px;border-radius:3px;background:rgba(255,255,255,.85)}
+.au-tap{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);font:500 15px var(--f-os);color:rgba(255,255,255,.72);animation:auPulse 2.6s ease-in-out infinite}@keyframes auPulse{50%{opacity:.45}}
+.au-home{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);width:136px;height:5px;border-radius:3px;background:rgba(255,255,255,.85)}
 .au-panel{position:absolute;inset:0;display:grid;place-items:center;opacity:0;transform:translateY(8%);pointer-events:none;transition:opacity .45s ease .05s,transform .55s cubic-bezier(.2,.8,.2,1);
   background:rgba(4,14,18,.35);-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px)}
 .au-panel.on{opacity:1;transform:none;pointer-events:auto}
@@ -6288,6 +6291,7 @@ html.au-open body{overflow:hidden}
 @media (prefers-reduced-motion:reduce){.au-in,.au-bad,.au-tap{animation:none}#auth,.au-cover,.au-panel{transition:none}}
 </style>`);
 
+if(navigator.standalone===true||matchMedia("(display-mode: standalone)").matches)document.documentElement.classList.add("au-sa");
 /* start: sign in, or unlock (not right after coming back from vAMSYS). vam and the rest of the EFB are declared further
    down the script, so this runs as soon as the whole script has run, before the first paint. */
 queueMicrotask(()=>{authApply();

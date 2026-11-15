@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.2233">
+<meta name="efb-build" content="1115.2247">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6506,6 +6506,10 @@ button.st-n[aria-pressed="true"]{background:var(--ios-tint);color:#fff;border-ra
 #auth .au-link{font:400 15px var(--f-os);color:#0A84FF;text-decoration:none}
 #auth .au-msg{background:rgba(118,118,128,.24);border-radius:12px;font:400 15px/1.35 var(--f-os)}
 #auth .au-go[data-auth="cancel"]{background:rgba(118,118,128,.24);color:#0A84FF}
+/* Settings fills the whole screen in the iOS background: status bar, the strip under the Dynamic Island, the home
+   indicator, and on iPad the strip iOS leaves below the page (it shows the page background) */
+.screen[data-app="prefs"] .appwin,.screen[data-app="prefs"] .appwin>.nav,.screen[data-app="prefs"] .sbspace,.screen[data-app="prefs"] .homeind{background:var(--ios-bg)!important}
+body:has(.screen.in-app[data-app="prefs"]),body:has(.screen.in-app[data-app="prefs"])::before,html:has(.screen.in-app[data-app="prefs"]){background:var(--ios-bg)!important}
 </style>`);
 
 /* ===== Push notifications (Web Push) =====

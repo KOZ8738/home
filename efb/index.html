@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1335">
+<meta name="efb-build" content="1115.1339">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -835,6 +835,9 @@ html.pwa-chin .home .dockwrap{padding-bottom:4px}
 }
 /* inside the home-screen app the page already ends above the home indicator */
 html.pwa-ios .maplayers{bottom:10px!important}
+/* iPadOS home-screen app: below the page iOS can leave a strip (about one status bar tall) that only
+   ever shows the page background, so give it the colour of what sits at the bottom edge. */
+html.pwa-ios body:has(.screen.in-app[data-app="map"]){background:var(--map-water,var(--map-sea))}
 /* Map app: the chart runs to the bottom edge under the home indicator (like iPadOS Maps) instead
    of stopping above a solid strip. The indicator floats over the map and the bottom controls are
    lifted by --mb so they stay clear of it. */
@@ -2516,7 +2519,7 @@ function vecPreset0(st,dark){const b=BASES[baseKey()];if(!b.ras)return st;
   st.layers=st.layers.concat(ras);return st}
 function vecStyle(dark){return vecPreset(vecStyle0(dark),dark)}
 function vecStyle0(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E3260",green:"#0A100E",urban:"#0D1012",ice:"#11161A",road:"#2A2F33",major:"#3A4046",motor:"#4A5158",casing:"#070909",bord:"#4B5866",bord2:"#2F3A44",rail:"#22272B",city:"#B9C3C8",town:"#8C979D",vill:"#6A757B",halo:"#000000",wtxt:"#5B86B8",apt:"#1C2124",rwy:"#2E3337",aptl:"#7FA7B5"}
-    :{land:"#F3F4F1",water:"#C9E2EC",wline:"#B5D5E2",green:"#E2EBDD",urban:"#EBECE8",ice:"#F8FAFB",road:"#FFFFFF",major:"#FFFFFF",motor:"#FBE9C8",casing:"#D5D9D9",bord:"#9AA6AA",bord2:"#C2CACB",rail:"#D3D6D6",city:"#2F3A3D",town:"#4E5A5D",vill:"#6E797C",halo:"#FFFFFF",wtxt:"#4E7C96",apt:"#E2E4E3",rwy:"#C5C9CA",aptl:"#3D6A78"};
+    :{land:"#F3F4F1",water:"#C9E2EC",wline:"#B5D5E2",green:"#E2EBDD",urban:"#EBECE8",ice:"#F8FAFB",road:"#FFFFFF",major:"#FFFFFF",motor:"#FBE9C8",casing:"#D5D9D9",bord:"#9AA6AA",bord2:"#C2CACB",rail:"#D3D6D6",city:"#2F3A3D",town:"#4E5A5D",vill:"#6E797C",halo:"#FFFFFF",wtxt:"#4E7C96",apt:"#E2E4E3",rwy:"#C5C9CA",aptl:"#3D6A78"};try{document.documentElement.style.setProperty("--map-water",C.water)}catch(e){}
   const F=["Noto Sans Regular"],FB=["Noto Sans Bold"],name=["coalesce",["get","name:en"],["get","name:latin"],["get","name"]];
   const W=(z0,w0,z1,w1)=>["interpolate",["exponential",1.5],["zoom"],z0,w0,z1,w1];
   return{version:8,glyphs:OFM+"/fonts/{fontstack}/{range}.pbf",sources:{o:{type:"vector",url:OFM+"/planet"}},layers:[
@@ -6249,7 +6252,7 @@ html.au-open body{overflow:hidden}
 #auth{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;color:#fff;font-family:var(--f-os);transition:opacity .35s ease,transform .35s ease}
 #auth{overflow:hidden;place-items:stretch;bottom:auto;height:100vh;height:100lvh;min-height:-webkit-fill-available}
 /* opened from the home screen, iOS draws its own status bar on top: no second one, and room for it */
-html.au-sa .au-sb{display:none}html.au-sa .au-utc{top:calc(env(safe-area-inset-top,0px) + 14px)}
+html.au-sa .au-sb{display:none}html.au-sa .au-home{display:none}html.au-open,html.au-open body{background:linear-gradient(90deg,#0A1C26 0%,#091A23 45%,#0A1D26 60%,#0D2933 70%,#10343F 80%,#13404B 90%,#154954 100%)!important}html.au-sa .au-utc{top:calc(env(safe-area-inset-top,0px) + 14px)}
 .au-utc{top:calc(env(safe-area-inset-top,0px) + 40px)}.au-home{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}.au-tap{bottom:calc(env(safe-area-inset-bottom,0px) + 40px)}
 .au-bg{position:absolute;inset:0;background:radial-gradient(90% 70% at 12% 0%,#1F5F6E 0%,transparent 60%),radial-gradient(80% 70% at 100% 100%,#174E5A 0%,transparent 55%),linear-gradient(160deg,#0D2F3A 0%,#0A1E29 55%,#08161E 100%)}
 .au-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(60% 40% at 50% 45%,rgba(124,194,201,.10),transparent 70%)}

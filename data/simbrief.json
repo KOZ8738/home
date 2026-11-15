@@ -56,6 +56,25 @@
     110.46,
     "Meilan"
    ]
+  },
+  {
+   "gen": 1794724207,
+   "callsign": "OVO759",
+   "from": "ZGHA",
+   "to": "RCTP",
+   "type": "A320",
+   "reg": "B-26AH",
+   "out": 1794726300,
+   "fromPos": [
+    28.19,
+    113.218333,
+    "Huanghua"
+   ],
+   "toPos": [
+    25.080278,
+    121.232222,
+    "Taiwan Taoyuan Intl"
+   ]
   }
  ]
 }

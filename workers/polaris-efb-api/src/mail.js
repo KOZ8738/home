@@ -13,6 +13,7 @@
 import { ADMIN_HTML } from './admin.js';
 import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
+import { crew, mailTo, mailPayload } from './crew.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -115,6 +116,8 @@ export async function mailAdmin(req, url, env, opts) {
     try { return jsonRes(opts && opts.live ? await opts.live() : { flights: [], apts: {} }); }
     catch (e) { return jsonRes({ error: 'Live flights are not available right now: ' + e.message }, 502); }
   }
+  /* staff diagnostics: what vAMSYS returns for a PIREP's position reports */
+  if (path === '/admin/api/pirep-probe' && opts && opts.probe) { try { return jsonRes(await opts.probe(url.searchParams.get('id'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
@@ -158,6 +161,12 @@ export async function mailAdmin(req, url, env, opts) {
       const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: files.filter((f) => f.bytes).map((f) => f.meta), to, by: old ? old.by : who };
       if (old) { m.edited = Date.now(); m.editedBy = who; }
       await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
+      /* push: a new notice going out now, or a notice that still waits for its time (the object checks it again then) */
+      try {
+        const waiting = sendAt > Date.now() + 1000;
+        if (waiting) await crew(env, { op: 'schedule', id: 'mail:' + id, at: sendAt, kind: 'mail', data: { id } });
+        else if (!old || (old.sendAt || old.t) > Date.now()) { await crew(env, { op: 'unjob', id: 'mail:' + id }); await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: mailPayload(m) }); }
+      } catch (e) { console.warn('[mail push]', e && e.message); }
       return jsonRes({ ok: true, mail: pub(m) });
     }
     if (path === '/admin/api/mail' && req.method === 'DELETE') {

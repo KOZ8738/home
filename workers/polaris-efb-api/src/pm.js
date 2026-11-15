@@ -14,6 +14,8 @@
      st   (id, who) -> rd, del   who = pilot ID, or 'staff' for the shared staff state
    The EFB and the admin talk to the Worker; the Worker talks to the object with small JSON calls (fetch). */
 
+import { crew } from './crew.js';
+
 export const PM_DEPTS = ['Crew Management', 'Flight Operations', 'Training', 'Fleet'];
 export const PM_LIMIT = 20;
 const DAY = 86_400_000, SUBJ_MAX = 120, BODY_MAX = 4000;
@@ -110,7 +112,9 @@ export class Mailbox {
     this.sql.exec('INSERT OR REPLACE INTO st (id, who, rd, del) VALUES (?, ?, 1, 0)', m.id, u);
     if (m.kind === 'staff') this.sql.exec("DELETE FROM st WHERE who = 'staff' AND id = ?", m.th);   // a new message re-opens the conversation for staff
     const s2 = this.sent24(u, now);
-    return { ok: true, msg: pilotView({ ...m, rd: 1 }, u), sent24: s2.n, limit: PM_LIMIT, nextAt: s2.next };
+    /* for the Worker: who gets a push (never sent on to the EFB) */
+    const notify = m.kind === 'pilot' ? { to: { u: m.tu, cid: m.tcid }, title: (m.fu + (m.fname ? ' · ' + m.fname : '')), body: m.subj + ' — ' + m.body.replace(/\s+/g, ' ').slice(0, 160) } : null;
+    return { ok: true, msg: pilotView({ ...m, rd: 1 }, u), sent24: s2.n, limit: PM_LIMIT, nextAt: s2.next, notify };
   }
 
   state(who, ids, set) {
@@ -153,7 +157,7 @@ export class Mailbox {
     this.sql.exec("INSERT INTO msg (id, t, th, kind, fu, fname, fcs, dept, by, tu, tcid, tcs, tname, subj, body) VALUES (?, ?, ?, 'reply', '', '', '', ?, ?, ?, '', ?, ?, ?, ?)",
       m.id, m.t, m.th, m.dept, m.by, m.tu, m.tcs, m.tname, m.subj, m.body);
     this.sql.exec("INSERT OR REPLACE INTO st (id, who, rd, del) VALUES (?, 'staff', 1, 0)", m.th);
-    return { ok: true };
+    return { ok: true, notify: { to: { u: m.tu }, title: m.dept, body: m.subj + ' — ' + m.body.replace(/\s+/g, ' ').slice(0, 160) } };
   }
   staffState(th, set) {
     th = String(th || ''); if (!this.one("SELECT id FROM msg WHERE th = ? AND kind IN ('staff', 'reply') LIMIT 1", th)) throw new PmError(404, 'That conversation no longer exists');
@@ -173,6 +177,7 @@ function pilotView(m, u) {
 const J = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json' } });
 
 /* ---------- Worker side ---------- */
+async function pmPush(env, n, tag) { if (!n || !n.to || (!n.to.u && !n.to.cid)) return; try { await crew(env, { op: 'notify', to: n.to, cat: 'mail', payload: { title: n.title, body: n.body, url: '#mail', tag } }); } catch (e) { console.warn('[pm push]', e && e.message); } }
 async function box(env, a) {
   if (!env || !env.PM) throw new PmError(503, 'Messages are not set up on the server yet');
   const stub = env.PM.get(env.PM.idFromName('polaris'));
@@ -224,7 +229,9 @@ export async function pmPublic(req, url, env, h, me, deps) {
           a.to = { flight: f };
         } else throw new PmError(400, 'Pick who the message is for');
       }
-      return res(await box(env, a));
+      const r = await box(env, a), n = r.notify; delete r.notify;
+      await pmPush(env, n, 'pm-' + (r.msg && r.msg.th));
+      return res(r);
     }
     throw new PmError(404, 'Not found');
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
@@ -238,7 +245,7 @@ export async function pmAdmin(req, path, env, who) {
     if (req.method !== 'POST') throw new PmError(405, 'Method not allowed');
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new PmError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new PmError(400, 'Bad body'); }
-    if (path === '/admin/api/inbox/reply') return res(await box(env, { op: 'staffReply', th: b.th, dept: b.dept, body: b.body, by: who }));
+    if (path === '/admin/api/inbox/reply') { const r = await box(env, { op: 'staffReply', th: b.th, dept: b.dept, body: b.body, by: who }), n = r.notify; delete r.notify; await pmPush(env, n, 'pm-' + b.th); return res(r); }
     if (path === '/admin/api/inbox/state') return res(await box(env, { op: 'staffState', th: b.th, set: { read: b.read, done: b.done } }));
     throw new PmError(404, 'Not found');
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }

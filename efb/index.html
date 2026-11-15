@@ -7,7 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1404">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="efb-build" content="1115.1428">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4595,6 +4596,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
     main+=grp("Do Not Disturb",[r("Do Not Disturb","Holds mail and update alerts until you turn it off",sw("data-dnd",store.get("dnd",false)===true,"Do Not Disturb")),
         r("During flight","Holds them while your flight is airborne, then tells you after landing. Checklist alerts still come through.",sw("data-dnd-flight",store.get("dndFlight",true)!==false,"Do Not Disturb during flight"))],
         dndActive()?(store.get("dnd",false)===true?"Do Not Disturb is on.":"Your flight is airborne: alerts are being held.")+(DND.held.length?` ${DND.held.length} held so far.`:""):"Your flight is found through your vAMSYS live flight, or your VATSIM CID in VATSIM.")
+      +(typeof pushSettingsHtml==="function"?pushSettingsHtml({grp,r,sw,act}):"")
       +grp("Alert style",[r("Dynamic Island","Alerts open in the Dynamic Island. When it’s off, a short banner shows at the bottom instead.",sw("data-island",isl,"Dynamic Island"))])
       +grp("Mail",[r("New mail alerts","When a notice from Polaris staff arrives",sw("data-noti-mail",nt.mail,"New mail alerts")),r("Sound","A soft chime with each new mail alert",sw("data-noti-sound",nt.sound,"Sound")),act("data-noti-test","Play the sound")],"The badge on the Mail icon always shows unread mail.")
       +grp("Checklists",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
@@ -6217,7 +6219,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test)|crew|crew\/(checkin|checkout)|pirep)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -6504,6 +6506,278 @@ button.st-n[aria-pressed="true"]{background:var(--ios-tint);color:#fff;border-ra
 #auth .au-link{font:400 15px var(--f-os);color:#0A84FF;text-decoration:none}
 #auth .au-msg{background:rgba(118,118,128,.24);border-radius:12px;font:400 15px/1.35 var(--f-os)}
 #auth .au-go[data-auth="cancel"]{background:rgba(118,118,128,.24);color:#0A84FF}
+</style>`);
+
+/* ===== Push notifications (Web Push) =====
+   With push on, the EFB server can reach this device while the EFB is closed: new mail and messages, staff replies,
+   and the briefings of a checked-in flight (see the Worker's crew.js). The service worker (sw.js, next to the EFB)
+   only shows those notifications; it caches nothing. On iPad and iPhone this works in the EFB added to the Home
+   Screen (iPadOS/iOS 16.4 or later); in Safari's tabs there is no push.
+   Settings › Notifications turns it on (the permission prompt must come straight from that tap) and picks the kinds.
+   On each launch the subscription is sent to the server again, so a renewed or lost one heals by itself. */
+const PUSH={busy:false,err:"",state:null};
+const pushCats=()=>store.get("pushCats",["mail","brief"]);
+const pushOn=()=>store.get("push",false)===true;
+const pushApple=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Mac/.test(navigator.platform||"")&&navigator.maxTouchPoints>1);
+const pushHome=()=>navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
+const pushCan=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window&&location.protocol==="https:";
+const pushU8=s=>{s=String(s||"").replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+let pushRegP=null;
+function pushReg(){if(!pushCan())return Promise.resolve(null);if(!pushRegP)pushRegP=navigator.serviceWorker.register("sw.js",{scope:"./"}).then(r=>navigator.serviceWorker.ready.then(()=>r)).catch(e=>{pushRegP=null;throw e});return pushRegP}
+function pushWhy(){if(pushCan())return "";if(pushApple&&!pushHome())return "On iPad and iPhone, push works in the EFB on your Home Screen: in Safari tap Share › Add to Home Screen, open the EFB from there and turn this on.";
+  if(!("serviceWorker" in navigator)||!("PushManager" in window))return "This browser can’t receive push notifications.";return "Push needs the EFB over https."}
+async function pushSubscribe(){const reg=await pushReg();if(!reg)throw new Error(pushWhy()||"Push isn’t available here.");
+  const {key}=await vamGet("/api/efb/push/key");const want=pushU8(key);let sub=await reg.pushManager.getSubscription();
+  if(sub){const have=sub.options&&sub.options.applicationServerKey?new Uint8Array(sub.options.applicationServerKey):null;if(have&&(have.length!==want.length||have.some((b,i)=>b!==want[i]))){await sub.unsubscribe().catch(()=>{});sub=null}}
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:want});
+  await pmPost("/api/efb/push/sub",{sub:sub.toJSON(),cats:pushCats()});return sub}
+async function pushEnable(){PUSH.err="";
+  if(!pushCan()){PUSH.err=pushWhy();render();return}
+  if(!authOn()){PUSH.err="Sign in with vAMSYS first.";render();return}
+  /* straight from the tap: Safari only asks inside a user gesture */
+  let perm=Notification.permission;if(perm!=="granted"){try{perm=await Notification.requestPermission()}catch(e){perm="denied"}}
+  if(perm!=="granted"){PUSH.err=perm==="denied"?"Notifications are blocked for the EFB. Allow them in the system Settings › Notifications › Polaris EFB, then try again.":"Notifications weren’t allowed.";render();return}
+  PUSH.busy=true;render();
+  try{await pushSubscribe();store.set("push",true);PUSH.state="on";toast("Push notifications are on")}
+  catch(e){PUSH.err=/fetch|network|load/i.test(e.message)?"Can’t reach the EFB server. Try again when you’re online.":e.message}
+  finally{PUSH.busy=false;render()}}
+async function pushDisable(quiet){store.set("push",false);PUSH.state="off";
+  try{const reg=pushCan()?await navigator.serviceWorker.getRegistration("./"):null,sub=reg&&await reg.pushManager.getSubscription();
+    if(sub){const ep=sub.endpoint;await sub.unsubscribe().catch(()=>{});await pmPost("/api/efb/push/unsub",{endpoint:ep}).catch(()=>{})}}catch(e){}
+  if(!quiet){toast("Push notifications are off");render()}}
+/* on launch: renew the subscription on the server (and with the current choice of kinds) */
+function pushSync(){if(!pushOn()||!pushCan()||!authOn()||Notification.permission!=="granted")return;pushSubscribe().then(()=>{PUSH.state="on"}).catch(e=>{PUSH.state="err";PUSH.err=e.message})}
+queueMicrotask(()=>setTimeout(pushSync,2500));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&pushOn()&&Date.now()-(pushSync._t||0)>6*3600e3){pushSync._t=Date.now();pushSync()}});
+/* the service worker tells an open EFB about a push (refresh) or a tapped notification (go there) */
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{const d=e.data||{};
+  if(d.type==="efb-push"){if(d.cat==="mail"){try{mailLoad(true)}catch(x){}}else if(d.cat==="brief"&&typeof rsLoad==="function")rsLoad(true)}
+  else if(d.type==="efb-open"&&d.url){const id=String(d.url).replace(/^#/,"");if(APPS[id])location.hash=d.url}});
+/* sign out: this device stops getting the pilot's notifications */
+{const _so=authSignOut;authSignOut=function(){if(pushOn())pushDisable(true);return _so.apply(this,arguments)}}
+/* Settings › Notifications */
+function pushSettingsHtml(H){const {grp,r,sw,act}=H,on=pushOn(),cats=pushCats(),why=pushWhy();
+  const perm="Notification" in window?Notification.permission:"default";
+  const status=PUSH.busy?"Turning on…":on&&perm==="granted"?(PUSH.state==="err"?"On · couldn’t reach the server last time":"On for this device"):on&&perm!=="granted"?"Blocked in the system settings":"Off";
+  const rows=[r("Push notifications",why&&!on?why:"Mail, messages and flight briefings while the EFB is closed",PUSH.busy?`<span class="st-spin"></span>`:sw("data-push",on,"Push notifications"))];
+  if(on){rows.push(r("Mail and messages","Notices from Polaris staff, messages from pilots and staff replies",sw("data-pushcat-mail",cats.includes("mail"),"Mail and messages")));
+    rows.push(r("Flight briefings","Check-in, departure and arrival weather of the flight you checked in for",sw("data-pushcat-brief",cats.includes("brief"),"Flight briefings")));
+    rows.push(act("data-push-test","Send a test notification"))}
+  return grp("Push notifications",rows,(PUSH.err?`<b style="color:var(--ios-red,#FF3B30)">${esc(PUSH.err)}</b> `:"")+status+". Each device is set up on its own.")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-push],[data-pushcat-mail],[data-pushcat-brief],[data-push-test]");if(!b||cur!=="prefs")return;
+  if(b.dataset.push!=null){b.dataset.push==="1"?pushEnable():pushDisable();return}
+  if(b.dataset.pushTest!=null){pmPost("/api/efb/push/test",{}).then(j=>toast(j.devices?"Test sent · arrives in a few seconds":"This device isn’t registered yet")).catch(er=>toast(er.message));return}
+  const k=b.dataset.pushcatMail!=null?"mail":"brief",v=(b.dataset.pushcatMail||b.dataset.pushcatBrief)==="1",c=new Set(pushCats());v?c.add(k):c.delete(k);store.set("pushCats",[...c]);render();pushSync()});
+
+/* ===== Roster: vAMSYS bookings as duty days, check-in, and the checked-in flight's briefing =====
+   Bookings come from vAMSYS (the signed-in pilot's own, /api/efb/bookings). Legs less than 10 hours apart make one
+   duty: report 60 minutes before the first departure, duty ends 30 minutes after the last arrival.
+   Checking in (from 12 hours before departure) tells the EFB server which flight this is: it sends the check-in and,
+   45 minutes before departure and 40 minutes before arrival, the weather at that end as push notifications, and it
+   records the flight's track from the vAMSYS flight map for the logbook. In the EFB the checked-in flight gets a
+   briefing: timeline, SimBrief plan check, and METAR, TAF and ATIS at both ends. */
+const RS={list:null,at:0,err:null,loading:false,ci:store.get("checkin",null),sel:null,busy:"",wx:{},atis:{}};
+APPS.roster={name:"Roster",bg:"linear-gradient(165deg,#4F8FB0,#1F4E6B)",fg:"#fff",g:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.6" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M3.5 9.6h17M8 3.2v3.6M16 3.2v3.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M7.5 13.4h4M7.5 16.6h7" stroke="#fff" stroke-width="1.7" stroke-linecap="round" fill="none"/><circle cx="17" cy="14.6" r="1.5" fill="#fff" stroke="none"/>'};
+{const put=(arr,before)=>{if(arr.includes("roster"))return;const i=arr.indexOf(before);arr.splice(i<0?0:i,0,"roster")};put(PAGE1,"mail");put(PAGE2,"mail")}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="roster")screenEl.dataset.layout="split";return r}}
+queueMicrotask(()=>{EYEBROW.roster=()=>vam.user?"vAMSYS · "+vam.user:"vAMSYS bookings"});
+const rsZ=t=>t?new Date(t).toISOString().slice(11,16).replace(":","")+"Z":"—";
+const rsDay=t=>t?new Date(t).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}):"Unscheduled";
+const rsDur=ms=>ms==null?"—":Math.floor(ms/3600e3)+":"+String(Math.round(ms%3600e3/60e3)).padStart(2,"0");
+const rsT=v=>Date.parse(v||"")||0;
+function rsLoad(force){if(!vam.url||!authOn()||RS.loading)return;if(!force&&Date.now()-RS.at<60000)return;RS.loading=true;
+  Promise.allSettled([vamGet("/api/efb/bookings",15000),vamGet("/api/efb/crew",15000)]).then(([b,c])=>{
+    if(b.status==="fulfilled"){RS.list=(b.value&&b.value.bookings)||[];RS.err=null}else RS.err=b.reason&&b.reason.message||"Couldn’t load your bookings";
+    if(c.status==="fulfilled"){RS.ci=c.value&&c.value.checkin||null;store.set("checkin",RS.ci)}})
+    .finally(()=>{RS.loading=false;RS.at=Date.now();if(cur==="roster")render();else renderHome()})}
+setTimeout(()=>rsLoad(true),2500);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)rsLoad()});
+function rsDuties(L){const legs=L.map(b=>({...b,std:rsT(b.departureTime),sta:rsT(b.arrivalTime)})).sort((a,b)=>(a.std||9e15)-(b.std||9e15)),out=[];
+  for(const l of legs){const d=out[out.length-1],p=d&&d.legs[d.legs.length-1],pe=p&&(p.sta||p.std);
+    if(d&&l.std&&pe&&l.std-pe<10*3600e3&&l.std>=pe)d.legs.push(l);else out.push({legs:[l]})}
+  for(const d of out){const f=d.legs[0],z=d.legs[d.legs.length-1];d.id=String(f.id);d.report=f.std?f.std-3600e3:null;d.end=z.sta?z.sta+1800e3:null;
+    d.block=d.legs.every(l=>l.std&&l.sta)?d.legs.reduce((s,l)=>s+(l.sta-l.std),0):null;d.duty=d.report&&d.end?d.end-d.report:null}
+  return out}
+const rsOpen=l=>!l.std||Date.now()>=l.std-12*3600e3;
+/* SimBrief: open a new plan already filled in from the booking */
+function rsSbUrl(b){const p=new URLSearchParams(),m=String(b.flight||b.callsign||"").toUpperCase().match(/^([A-Z]{2,3})\s*(\d{1,4}[A-Z]?)$/);
+  if(m){p.set("airline",m[1]);p.set("fltnum",m[2])}p.set("orig",b.from||"");p.set("dest",b.to||"");if(b.type)p.set("type",b.type);if(b.registration)p.set("reg",b.registration);
+  if(b.callsign)p.set("callsign",b.callsign);if(b.altitude)p.set("fl",String(Math.round(b.altitude/100)*100));if(b.costIndex!=null)p.set("civalue",b.costIndex);if(b.route)p.set("route",b.route);
+  if(b.std){const d=new Date(b.std);p.set("date",String(d.getUTCDate()).padStart(2,"0")+["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]+String(d.getUTCFullYear()).slice(2));p.set("deph",String(d.getUTCHours()));p.set("depm",String(d.getUTCMinutes()))}
+  return "https://www.simbrief.com/system/dispatch.php?"+p}
+function rsWx(icao){if(!icao||!vam.url)return;const w=RS.wx[icao];if(w&&(w.loading||Date.now()-w.at<600000))return;
+  RS.wx[icao]={...(w||{}),loading:true,at:Date.now()};RS.atis[icao]=RS.atis[icao]||{};
+  Promise.allSettled([vamGet("/api/efb/airport?icao="+icao,20000),vamGet("/api/efb/atis?icao="+icao,15000)]).then(([a,t])=>{
+    RS.wx[icao]={at:Date.now(),metar:a.status==="fulfilled"?a.value&&a.value.metar:w&&w.metar,taf:a.status==="fulfilled"?a.value&&a.value.taf:w&&w.taf,err:a.status==="rejected"?a.reason.message:null};
+    if(t.status==="fulfilled")RS.atis[icao]={vatsim:t.value.vatsim||[],real:(t.value.real||[]).filter(x=>x&&x.datis)}})
+    .finally(()=>{if(cur==="roster")render()})}
+const RS_CAT={VFR:"c-green",MVFR:"c-blue",IFR:"c-red",LIFR:"c-red"};
+function rsWxHtml(icao,label){const w=RS.wx[icao]||{},a=RS.atis[icao]||{};rsWx(icao);
+  const atis=(a.vatsim||[]).map(x=>`<div class="rs-atis"><b>VATSIM ${esc(x.cs)}${x.code?" · "+esc(x.code):""}</b><span>${esc(x.f||"")}</span><p>${esc(x.text||"")}</p></div>`).join("")+(a.real||[]).slice(0,1).map(x=>`<div class="rs-atis"><b>Real-world ATIS${x.code?" · "+esc(x.code):""}</b><p>${esc(x.datis)}</p></div>`).join("");
+  return `<div class="rs-wx"><div class="rs-wxh"><span class="eyebrow">${label}</span><b>${esc(icao)}</b>${w.metar&&w.metar.cat?`<span class="pill ${RS_CAT[w.metar.cat]||""}">${esc(w.metar.cat)}</span>`:""}</div>
+    ${w.metar?`<p class="rs-raw">${esc(w.metar.raw)}</p>`:`<p class="note">${w.loading||!w.at?"Loading weather…":esc(w.err||"No current METAR.")}</p>`}
+    ${w.taf&&w.taf.raw?`<details class="rs-taf"><summary>TAF</summary><p class="rs-raw">${esc(w.taf.raw)}</p></details>`:""}${atis}</div>`}
+function rsBriefHtml(ci){const now=Date.now(),x=O(),match=!ofp._sample&&S(x.o.icao_code)===ci.from&&S(x.d.icao_code)===ci.to,sb=String(store.get("sbUser","")).trim();
+  const j=(ci.jobs||[]),dep=j.find(z=>z.at&&ci.std&&Math.abs(z.at-(ci.std-45*60e3))<120e3),arr=j.find(z=>z.at&&ci.sta&&Math.abs(z.at-(ci.sta-40*60e3))<120e3);
+  const step=(t,label,sub,done)=>`<li class="${done?"done":t&&t<=now+60e3?"now":""}"><span></span><div><b>${label}</b><small>${t?rsZ(t):"—"}${sub?" · "+sub:""}</small></div></li>`;
+  const tl=[step(ci.at,"Checked in",ci.at?rsDay(ci.at):"",true),
+    step(ci.std?ci.std-45*60e3:0,"Departure briefing","weather at "+esc(ci.from)+(dep?" · push scheduled":""),ci.std&&now>=ci.std-45*60e3),
+    step(ci.std,"Off-block",esc(ci.from),ci.std&&now>=ci.std),
+    step(ci.sta?ci.sta-40*60e3:0,"Arrival briefing","weather at "+esc(ci.to)+(arr?" · push scheduled":""),ci.sta&&now>=ci.sta-40*60e3),
+    step(ci.sta,"On-block",esc(ci.to),ci.sta&&now>=ci.sta)].join("");
+  const sbCard=match?`<div class="notice ok"><b>SimBrief plan matches</b><span>${esc(x.flight)} ${esc(ci.from)}–${esc(ci.to)} is loaded in Flight Plan.</span></div>`
+    :`<div class="notice"><b>${ofp._sample?"No SimBrief plan loaded":"Your SimBrief plan is for "+esc(S(x.o.icao_code))+"–"+esc(S(x.d.icao_code))}</b><span>Plan ${esc(ci.from)}–${esc(ci.to)} in SimBrief, then fetch it here.</span></div>`;
+  const push=!(typeof pushOn==="function"&&pushOn())?`<p class="note">Turn on push notifications in Settings › Notifications to get these briefings while the EFB is closed.</p>`:"";
+  return `<section class="card feat">${cardH("Checked in","Briefing · "+esc(ci.callsign||ci.flight),`<button class="btn sm" data-rsco style="color:#fff;border-color:rgba(255,255,255,.4)">Cancel check-in</button>`)}
+     <ol class="rs-tl">${tl}</ol>${push}</section>
+   <section class="card">${cardH("Flight plan","SimBrief")}<div class="card-b" style="display:grid;gap:12px">${sbCard}
+     <div class="row">${sb?`<button class="btn${match?"":" pri"}" data-rssb>Fetch latest from SimBrief</button>`:`<a class="btn" href="#simbrief">Set up SimBrief</a>`}<a class="btn${match?"":" pri"}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>${match?`<a class="btn" href="#ofp">Open Flight Plan</a>`:""}</div></div></section>
+   <section class="card">${cardH("Weather","Departure and arrival",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(ci.from,"Departure")}${rsWxHtml(ci.to,"Arrival")}</div></section>`}
+V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now();
+  if(!authOn())return `<section class="hero">${ROSE_SVG}<span class="eyebrow">Roster</span><h2>Sign in to see <em>your roster</em></h2><p>Your bookings come from vAMSYS.</p></section>`;
+  const ciDuty=ci&&D.find(d=>d.legs.some(l=>String(l.id)===String(ci.bookingId)));
+  if(!RS.sel||!D.some(d=>d.id===RS.sel))RS.sel=ciDuty?ciDuty.id:((D.find(d=>(d.end||d.report||9e15)>now)||D[0]||{}).id||null);
+  const d=D.find(z=>z.id===RS.sel);
+  const legsN=L.length,next=D.find(z=>z.report&&z.report>now);
+  const side=sideHead("vAMSYS · "+esc(vam.user||""),"Roster",RS.loading&&!RS.list?"Loading…":legsN?legsN+" booking"+(legsN>1?"s":"")+(next?" · next report "+rsZ(next.report):""):"No bookings")
+    +(ci&&!ciDuty?`<nav class="snav">${navBtn('data-rssel="ci"',RS.sel==="ci",ico("clock"),"Checked in",`<span class="pill c-green">${esc(ci.callsign||ci.flight)}</span>`,esc(ci.from)+" → "+esc(ci.to))}</nav>`:"")
+    +`<nav class="snav">${D.map(z=>{const f=z.legs[0],isCi=ci&&z.legs.some(l=>String(l.id)===String(ci.bookingId));
+      return navBtn(`data-rssel="${esc(z.id)}"`,RS.sel===z.id,null,rsDay(z.report||f.std),isCi?`<span class="pill c-green">Checked in</span>`:z.report?"Report "+rsZ(z.report):"",esc(z.legs.map(l=>l.flight||l.callsign).join(" · "))+" · "+esc([f.from,...z.legs.map(l=>l.to)].join("–")))}).join("")}</nav>`
+    +`<div class="rs-sf"><button class="btn sm" data-rsref${RS.loading?" disabled":""}>Refresh</button><a class="btn sm" href="https://vamsys.io/phoenix" target="_blank" rel="noopener">Book in vAMSYS ↗</a></div>`;
+  let main="";
+  if(RS.sel==="ci"&&ci)main=rsBriefHtml(ci);
+  else if(!RS.list)main=`<section class="card"><div class="empty">${RS.err?esc(RS.err):"Loading your bookings…"}</div></section>`;
+  else if(!d)main=`<section class="hero">${ROSE_SVG}<span class="eyebrow">Roster</span><h2>No flights <em>booked</em></h2><p>Book a flight in vAMSYS and it shows up here as a duty day, with check-in and the briefing.</p><div class="row" style="margin-top:16px"><a class="btn pri" href="https://vamsys.io/phoenix" target="_blank" rel="noopener">Open vAMSYS ↗</a></div></section>`;
+  else{const f=d.legs[0],z=d.legs[d.legs.length-1];
+    main=`<section class="card feat">${cardH("Duty · "+rsDay(d.report||f.std),esc([f.from,...d.legs.map(l=>l.to)].join(" – ")),RS.err?'<span class="pill c-amber">Offline</span>':"")}
+      <dl class="stats big"><div><dt>Report</dt><dd>${rsZ(d.report)}</dd></div><div><dt>Off-block</dt><dd>${rsZ(f.std)}</dd></div><div><dt>On-block</dt><dd>${rsZ(z.sta)}</dd></div><div><dt>Duty ends</dt><dd>${rsZ(d.end)}</dd></div></dl>
+      <dl class="stats"><div><dt>Block</dt><dd>${rsDur(d.block)}</dd></div><div><dt>Duty</dt><dd>${rsDur(d.duty)}</dd></div><div><dt>Legs</dt><dd>${d.legs.length}</dd></div></dl></section>
+     <section class="card">${cardH("Legs","Your flights this duty")}${d.legs.map((l,i)=>{const isCi=ci&&String(ci.bookingId)===String(l.id),open=rsOpen(l),nx=d.legs[i+1];
+       const btn=isCi?`<span class="pill c-green">Checked in</span>`:open?`<button class="btn sm pri" data-rsci="${esc(String(l.id))}"${RS.busy?" disabled":""}>${RS.busy===String(l.id)?"Checking in…":"Check in"}</button>`:`<span class="note">Check-in ${rsZ(l.std-12*3600e3)}</span>`;
+       return `<div class="rs-leg"><div class="rs-lt"><b>${esc(l.flight||l.callsign)}</b><span>${esc(l.callsign&&l.callsign!==l.flight?l.callsign:"")}</span></div>
+         <div class="rs-lr"><div class="rs-ap"><b>${esc(l.from)}</b><small>${rsZ(l.std)}</small></div>${plane}<div class="rs-ap"><b>${esc(l.to)}</b><small>${rsZ(l.sta)}</small></div></div>
+         <div class="rs-lm"><small>${esc(l.type)} ${esc(l.registration)}${l.altitude?" · FL"+Math.round(l.altitude/100):""}${l.costIndex!=null?" · CI "+esc(String(l.costIndex)):""}${l.network?" · "+esc(String(l.network)):""}${l.std&&l.sta?" · block "+rsDur(l.sta-l.std):""}</small></div>
+         <div class="rs-lb">${btn}</div></div>${nx&&nx.std&&l.sta?`<div class="rs-turn">Turnaround ${rsDur(nx.std-l.sta)} at ${esc(l.to)}</div>`:""}`}).join("")}</section>
+     ${ci&&d.legs.some(l=>String(l.id)===String(ci.bookingId))?rsBriefHtml(ci):""}`}
+  return split(side,main)};
+async function rsCheckin(id){if(RS.busy)return;RS.busy=id;render();
+  try{const j=await pmPost("/api/efb/crew/checkin",{bookingId:id});RS.ci=j.checkin;store.set("checkin",RS.ci);
+    const fl=RS.ci.callsign||RS.ci.flight;if(window.islAlert&&window.__islOn&&window.__islOn())islAlert({app:"Roster",short:"Checked in",icon:`<span class="rs-ic" style="background:${APPS.roster.bg}"><svg viewBox="0 0 24 24">${APPS.roster.g}</svg></span>`,title:"Checked in · "+fl,sub:RS.ci.from+" → "+RS.ci.to+(RS.ci.std?" · STD "+rsZ(RS.ci.std):""),ms:5000});else toast("Checked in · "+fl);
+    /* the plan for this flight: fetch it if SimBrief has a newer one */
+    const x=O();if(store.get("sbUser","")&&(ofp._sample||S(x.o.icao_code)!==RS.ci.from||S(x.d.icao_code)!==RS.ci.to))sbFetchQuiet(false);
+    rsLoad(true)}
+  catch(e){toast(/fetch|network/i.test(e.message)?"Can’t reach the EFB server":e.message)}
+  finally{RS.busy="";render()}}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-rssel],[data-rsci],[data-rsco],[data-rssb],[data-rsref]");if(!t||cur!=="roster")return;const d=t.dataset;
+  if(d.rssel){RS.sel=d.rssel;render();const v=$("#view .detail");if(v)v.scrollTop=0}
+  else if(d.rsci)rsCheckin(d.rsci);
+  else if(d.rsco!=null){if(!confirm("Cancel the check-in? The briefing notifications for this flight stop."))return;pmPost("/api/efb/crew/checkout",{}).then(()=>{RS.ci=null;store.set("checkin",null);toast("Check-in cancelled");render()}).catch(er=>toast(er.message))}
+  else if(d.rssb!=null)sbFetchQuiet(true).then(()=>{if(cur==="roster")render()});
+  else if(d.rsref!=null){rsLoad(true);RS.wx={};render()}});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.rs-sf{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px}
+.rs-tl{list-style:none;margin:0;padding:16px 20px 10px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.rs-tl li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;font-size:12px}
+.rs-tl li::before{content:"";position:absolute;top:6px;left:-50%;right:50%;height:2px;background:var(--line)}.rs-tl li:first-child::before{display:none}
+.rs-tl li span{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--panel);position:relative;z-index:1}
+.rs-tl li.done span{background:var(--brand);border-color:var(--brand)}.rs-tl li.done::before,.rs-tl li.now::before{background:var(--brand)}.rs-tl li.now span{border-color:var(--brand);box-shadow:0 0 0 5px color-mix(in srgb,var(--brand) 22%,transparent)}
+.rs-tl b{display:block;font:600 12.5px var(--f-ui);color:var(--ink)}.rs-tl small{display:block;color:var(--label);font:500 11.5px var(--f-mono);margin-top:2px}
+.rs-tl+.note{padding:0 20px 14px;margin:0}
+.rs-ic{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;flex:none}.isx-ic .rs-ic{width:44px;height:44px;border-radius:11px}.rs-ic svg{width:72%;height:72%}
+.rs-leg{display:grid;grid-template-columns:110px minmax(0,1fr) auto;grid-template-areas:"t r b" "t m b";gap:4px 16px;align-items:center;padding:14px 20px;border-top:1px solid var(--line)}
+.rs-lt{grid-area:t}.rs-lt b{display:block;font:600 16px var(--f-mono)}.rs-lt span{font:500 12px var(--f-mono);color:var(--label)}
+.rs-lr{grid-area:r;display:flex;align-items:center;gap:12px}.rs-lr svg{width:18px;height:18px;color:var(--label);flex:none}
+.rs-ap b{display:block;font:400 22px/1.1 var(--f-disp);color:var(--ink)}.rs-ap small{font:500 12px var(--f-mono);color:var(--label)}
+.rs-lm{grid-area:m;color:var(--label)}.rs-lb{grid-area:b}
+.rs-turn{padding:6px 20px 6px 146px;font-size:12px;color:var(--label);border-top:1px dashed var(--line)}
+.rs-wx2{display:grid;grid-template-columns:1fr 1fr;gap:0}.rs-wx{padding:14px 20px 18px;min-width:0}.rs-wx+.rs-wx{border-left:1px solid var(--line)}
+.rs-wxh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}.rs-wxh b{font:400 22px var(--f-disp)}
+.rs-wxh .c-blue{color:#3F7FA0!important}
+.rs-raw{font:500 13px/1.55 var(--f-mono);margin:0;word-break:break-word;color:var(--ink)}
+.rs-taf summary{cursor:pointer;color:var(--accent);font:600 12px var(--f-ui);letter-spacing:.08em;margin-top:10px}.rs-taf p{margin-top:6px}
+.rs-atis{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.rs-atis b{font:600 12px var(--f-ui);color:var(--accent);margin-right:8px}.rs-atis span{font:500 12px var(--f-mono);color:var(--label)}.rs-atis p{margin:4px 0 0;font:500 12.5px/1.5 var(--f-mono);color:var(--ink)}
+.notice.ok{border-color:color-mix(in srgb,#2C7A4B 45%,var(--line));background:color-mix(in srgb,#2C7A4B 10%,transparent)}
+@container screen (max-width:760px){.rs-tl{grid-template-columns:1fr;justify-items:start}.rs-tl li{flex-direction:row;text-align:left}.rs-tl li::before{display:none}
+  .rs-leg{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t b" "r r" "m m"}.rs-turn{padding-left:20px}.rs-wx2{grid-template-columns:1fr}.rs-wx+.rs-wx{border-left:0;border-top:1px solid var(--line)}}
+</style>`);
+
+/* ===== Logbook: one PIREP with its flown track and altitude profile =====
+   Tap a vAMSYS PIREP in Logbook › vAMSYS PIREPs. The EFB server returns the PIREP and its track: vAMSYS position
+   reports, or, if vAMSYS has none, the track it recorded from the flight map while the flight was checked in on the
+   Roster. The track is drawn on the same vector map as the Map app (light or dark), with the take-off and landing
+   ends; the profile shows altitude (and ground speed when known) over the distance flown. */
+const LT={sel:null,data:{},err:{},loading:{},map:null,mapFor:null};
+{const _v=vamLogHtml;vamLogHtml=function(){if(LT.sel&&vamOn())return ltHtml(LT.sel);
+  const h=_v.apply(this,arguments),pr=((vamState("pilot").data||{}).pireps)||[];let i=0;
+  return h.replace(/<div class="lgrow">/g,m=>{const r=pr[i++];return r&&r.id!=null?`<div class="lgrow lt-go" role="button" tabindex="0" data-pirep="${esc(String(r.id))}" aria-label="Show the flight ${esc(r.flight||"")}">`:m})}}
+function ltLoad(id){if(LT.loading[id]||LT.data[id])return;LT.loading[id]=true;LT.err[id]=null;
+  vamGet("/api/efb/pirep?id="+encodeURIComponent(id),25000).then(j=>{LT.data[id]=j}).catch(e=>{LT.err[id]=e.message}).finally(()=>{LT.loading[id]=false;if(cur==="logbook")render()})}
+const ltNm=(a,b)=>{const R=3440.065,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r,x=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(x)))};
+/* longitudes made continuous, so a flight across 180° draws as one line */
+function ltUnwrap(pts){let off=0,prev=null;return pts.map(p=>{let lon=p[1]+off;if(prev!=null){while(lon-prev>180){off-=360;lon-=360}while(lon-prev<-180){off+=360;lon+=360}}prev=lon;return [p[0],lon]})}
+function ltProfile(pts){const n=pts.length;if(n<2)return "";let d=0;const D=[0];for(let i=1;i<n;i++){d+=ltNm(pts[i-1],pts[i]);D.push(d)}
+  const W=900,H=220,pl=46,pr=46,pt=14,pb=26,maxA=Math.max(1000,...pts.map(p=>p[2]||0)),hasG=pts.filter(p=>p[3]).length>n/3,maxG=hasG?Math.max(100,...pts.map(p=>p[3]||0)):1;
+  const X=v=>pl+(W-pl-pr)*(d?v/d:0),Y=v=>pt+(H-pt-pb)*(1-v/(Math.ceil(maxA/5000)*5000));
+  const top=Math.ceil(maxA/5000)*5000,grid=[];for(let a=0;a<=top;a+=top>20000?10000:5000)grid.push(`<line x1="${pl}" x2="${W-pr}" y1="${Y(a).toFixed(1)}" y2="${Y(a).toFixed(1)}"/><text x="${pl-6}" y="${(Y(a)+4).toFixed(1)}" text-anchor="end">${a>=10000?"FL"+a/100:a}</text>`);
+  const ticks=[];const step=d>2000?500:d>600?200:d>200?50:d>60?20:5;for(let v=0;v<=d;v+=step)if(X(v)<=W-pr-26)ticks.push(`<text x="${X(v).toFixed(1)}" y="${H-8}" text-anchor="middle">${Math.round(v)}</text>`);
+  const line=pts.map((p,i)=>`${i?"L":"M"}${X(D[i]).toFixed(1)},${Y(p[2]||0).toFixed(1)}`).join("");
+  const gs=hasG?pts.map((p,i)=>`${i?"L":"M"}${X(D[i]).toFixed(1)},${(pt+(H-pt-pb)*(1-(p[3]||0)/(maxG*1.1))).toFixed(1)}`).join(""):"";
+  const iMax=pts.reduce((b,p,i)=>(p[2]||0)>(pts[b][2]||0)?i:b,0);
+  return `<svg class="lt-prof" viewBox="0 0 ${W} ${H}" role="img" aria-label="Altitude profile"><g class="lt-g">${grid.join("")}${ticks.join("")}<text x="${W-pr+6}" y="${H-8}">NM</text></g>
+    <path class="lt-area" d="${line}L${X(d).toFixed(1)},${Y(0)}L${X(0)},${Y(0)}Z"/><path class="lt-alt" d="${line}"/>${gs?`<path class="lt-gs" d="${gs}"/>`:""}
+    <circle class="lt-dot" cx="${X(D[iMax]).toFixed(1)}" cy="${Y(pts[iMax][2]||0).toFixed(1)}" r="4"/><text class="lt-lbl" x="${X(D[iMax]).toFixed(1)}" y="${(Y(pts[iMax][2]||0)-9).toFixed(1)}" text-anchor="middle">${pts[iMax][2]>=10000?"FL"+Math.round(pts[iMax][2]/100):pts[iMax][2]+" ft"}</text></svg>
+    <div class="lt-leg"><span><i class="a"></i>Altitude</span>${gs?`<span><i class="g"></i>Ground speed (max ${Math.round(maxG)} kt)</span>`:""}<span>${Math.round(d)} NM flown</span></div>`}
+function ltHtml(id){const j=LT.data[id],err=LT.err[id];ltLoad(id);
+  const back=`<div class="lt-top"><button class="btn sm" data-ltback>‹ PIREPs</button></div>`;
+  if(!j)return back+`<section class="card"><div class="empty">${err?esc(err):"Loading the flight…"}</div></section>`;
+  const p=j.pirep||{},t=j.track,lr=p.landingRate!=null?Math.abs(p.landingRate):null,c=lr==null?"":lr<=200?"c-green":lr<=400?"c-amber":"c-red";
+  const pts=t&&t.pts||[],srcTxt=!t?"":t.src==="EFB"?"Track recorded by the Polaris EFB server from the vAMSYS flight map while you were checked in.":"Track from your vAMSYS position reports.";
+  return back+`<section class="card feat">${cardH(esc(String(p.date||"").slice(0,10))+(p.status?" · "+esc(p.status):""),esc(p.flight)+" · "+esc(p.from)+" → "+esc(p.to))}
+     <dl class="stats big"><div><dt>Block</dt><dd>${p.blockMinutes!=null?hm(p.blockMinutes):"—"}</dd></div><div><dt>Air</dt><dd>${p.flightMinutes!=null?hm(p.flightMinutes):"—"}</dd></div><div><dt>Landing</dt><dd class="${c}">${lr!=null?"−"+lr:"—"}</dd></div><div><dt>G</dt><dd>${p.landingG!=null?(+p.landingG).toFixed(2):"—"}</dd></div></dl>
+     <dl class="stats"><div><dt>Aircraft</dt><dd>${esc(p.type||"—")} ${esc(p.registration||"")}</dd></div><div><dt>Distance</dt><dd>${p.distanceNm!=null?fmt(Math.round(p.distanceNm))+" NM":"—"}</dd></div><div><dt>Fuel</dt><dd>${p.fuelUsed!=null?fmt(Math.round(p.fuelUsed)):"—"}</dd></div><div><dt>Points</dt><dd>${p.points!=null?fmt(p.points):"—"}</dd></div></dl></section>
+   ${pts.length>1?`<section class="card">${cardH("Flown track",esc(p.from)+" → "+esc(p.to))}<div class="lt-map" id="ltMap" data-for="${esc(String(id))}"></div><p class="lt-src">${srcTxt}</p></section>
+   <section class="card">${cardH("Profile","Altitude over distance")}<div class="card-b">${ltProfile(pts)}</div></section>`
+   :`<section class="card">${cardH("Flown track","Not available")}<div class="empty">vAMSYS has no position reports for this flight.<br>Check in on the Roster before your next flight, and the EFB records the track while you fly.</div></section>`}
+   ${p.route?`<section class="card">${cardH("Route","Filed")}<div class="card-b"><p class="rs-raw">${esc(p.route)}</p></div></section>`:""}`}
+/* the map: a small MapLibre map with the vector style of the Map app */
+function ltMapMount(){const el=document.getElementById("ltMap");if(!el){if(LT.map){try{LT.map.remove()}catch(e){}LT.map=null;LT.mapFor=null}return}
+  const id=el.dataset.for,j=LT.data[id],pts=j&&j.track&&j.track.pts||[];if(pts.length<2)return;
+  if(LT.map&&LT.mapFor===id&&LT.map.getContainer&&LT.map.getContainer()===el)return;
+  if(LT.map){try{LT.map.remove()}catch(e){}LT.map=null}
+  const ll=ltUnwrap(pts).map(p=>[p[1],p[0]]);let w=180,e=-180,s=90,n=-90;for(const [x,y] of ll){w=Math.min(w,x);e=Math.max(e,x);s=Math.min(s,y);n=Math.max(n,y)}
+  const fallback=()=>{if(!el.isConnected)return;const pad=.08*Math.max(e-w,n-s,1),W2=el.clientWidth||600,H2=el.clientHeight||320,sx=W2/((e-w)+2*pad),sy=H2/((n-s)+2*pad),k=Math.min(sx,sy);
+    const P=([x,y])=>[(W2-(e-w)*k)/2+(x-w)*k,(H2-(n-s)*k)/2+(n-y)*k];const d=ll.map((q,i)=>(i?"L":"M")+P(q).map(v=>v.toFixed(1)).join(",")).join("");const a=P(ll[0]),b=P(ll[ll.length-1]);
+    el.innerHTML=`<svg viewBox="0 0 ${W2} ${H2}" class="lt-fb"><path d="${d}"/><circle cx="${a[0]}" cy="${a[1]}" r="5" class="s"/><circle cx="${b[0]}" cy="${b[1]}" r="5" class="e"/></svg>`};
+  if(typeof vecLib!=="function"||typeof vecStyle0!=="function"){fallback();return}
+  vecLib().then(lib=>{if(!el.isConnected)return;
+    const m=new lib.Map({container:el,style:vecStyle0(isDark()),bounds:[[w,s],[e,n]],fitBoundsOptions:{padding:40},attributionControl:false,dragRotate:false,pitchWithRotate:false});
+    LT.map=m;LT.mapFor=id;if(m.touchZoomRotate)m.touchZoomRotate.disableRotation();
+    m.on("load",()=>{m.addSource("lt",{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",coordinates:ll}}});
+      m.addSource("ltEnds",{type:"geojson",data:{type:"FeatureCollection",features:[{type:"Feature",properties:{k:"s"},geometry:{type:"Point",coordinates:ll[0]}},{type:"Feature",properties:{k:"e"},geometry:{type:"Point",coordinates:ll[ll.length-1]}}]}});
+      m.addLayer({id:"lt-halo",type:"line",source:"lt",paint:{"line-color":isDark()?"#000":"#fff","line-width":6,"line-opacity":.6},layout:{"line-cap":"round","line-join":"round"}});
+      m.addLayer({id:"lt-line",type:"line",source:"lt",paint:{"line-color":"#E2A04A","line-width":3},layout:{"line-cap":"round","line-join":"round"}});
+      m.addLayer({id:"lt-ends",type:"circle",source:"ltEnds",paint:{"circle-radius":6,"circle-color":["match",["get","k"],"s","#3FB27F","#E25A4A"],"circle-stroke-width":2,"circle-stroke-color":"#fff"}})});
+    m.on("error",()=>{});
+  }).catch(fallback)}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="logbook"&&LT.sel)requestAnimationFrame(ltMapMount);else if(LT.map){try{LT.map.remove()}catch(e){}LT.map=null;LT.mapFor=null}return v}}
+document.addEventListener("click",e=>{if(cur!=="logbook")return;const t=e.target.closest("[data-pirep],[data-ltback]");if(!t)return;
+  if(t.dataset.ltback!=null){LT.sel=null;render();return}
+  LT.sel=t.dataset.pirep;render();const d=$("#view .detail");if(d)d.scrollTop=0});
+document.addEventListener("keydown",e=>{if(cur!=="logbook"||(e.key!=="Enter"&&e.key!==" "))return;const t=e.target.closest&&e.target.closest("[data-pirep]");if(!t)return;e.preventDefault();t.click()});
+/* leaving the vAMSYS tab closes the flight */
+document.addEventListener("click",e=>{if(cur==="logbook"&&e.target.closest("[data-lgtab]"))LT.sel=null},true);
+document.head.insertAdjacentHTML("beforeend",`<style>
+.lgrow.lt-go{cursor:pointer}.lgrow.lt-go:hover{background:color-mix(in srgb,var(--brand) 6%,transparent)}
+.lt-top{margin-bottom:12px}
+.lt-map{height:clamp(260px,46cqh,440px);background:var(--map-sea,#CFE6EE);position:relative;overflow:hidden}
+.lt-src{margin:0;padding:10px 20px 14px;color:var(--label);font-size:12.5px}
+.lt-fb{width:100%;height:100%;display:block}.lt-fb path{fill:none;stroke:#E2A04A;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.lt-fb .s{fill:#3FB27F;stroke:#fff;stroke-width:2}.lt-fb .e{fill:#E25A4A;stroke:#fff;stroke-width:2}
+.lt-prof{width:100%;height:auto;display:block}
+.lt-g line{stroke:var(--line);stroke-width:1}.lt-g text{fill:var(--label);font:500 11px var(--f-mono)}
+.lt-area{fill:color-mix(in srgb,var(--brand) 16%,transparent);stroke:none}.lt-alt{fill:none;stroke:var(--brand);stroke-width:2.2;vector-effect:non-scaling-stroke}
+.lt-gs{fill:none;stroke:#E2A04A;stroke-width:1.6;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.lt-dot{fill:var(--brand);stroke:#fff;stroke-width:2}.lt-lbl{fill:var(--ink);font:600 11.5px var(--f-mono)}
+.lt-leg{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--label)}.lt-leg i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}.lt-leg i.a{background:var(--brand)}.lt-leg i.g{background:#E2A04A}
 </style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */

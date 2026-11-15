@@ -30,7 +30,7 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <p class="lede">The Polaris EFB is the electronic flight bag for pilots of Polaris Airways, a virtual airline for flight simulation. Pilots sign in with their vAMSYS account. This page explains what the EFB receives when you sign in, what it keeps, and what you can do about it.</p>
 </div>
 <nav class="toc" aria-label="On this page"><b>On this page</b>
- <a href="#signin">Signing in with vAMSYS</a><a href="#keep">What we keep</a><a href="#use">How we use it</a><a href="#mail">Polaris Mail</a><a href="#device">Stored on your device</a><a href="#live">Live flight data</a><a href="#third">Third-party services</a><a href="#retention">How long we keep it</a><a href="#choices">Your choices</a><a href="#changes">Changes</a><a href="#contact">Contact</a>
+ <a href="#signin">Signing in with vAMSYS</a><a href="#keep">What we keep</a><a href="#use">How we use it</a><a href="#mail">Polaris Mail</a><a href="#push">Push notifications</a><a href="#checkin">Check-in and flown tracks</a><a href="#device">Stored on your device</a><a href="#live">Live flight data</a><a href="#third">Third-party services</a><a href="#retention">How long we keep it</a><a href="#choices">Your choices</a><a href="#changes">Changes</a><a href="#contact">Contact</a>
 </nav>
 <article>
 <section id="signin"><h2>Signing in with vAMSYS</h2>
@@ -71,10 +71,19 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  </ul>
  <p>Messages you send or receive are stored on the EFB server (a Cloudflare Durable Object) so they reach the other side and appear on all your devices, together with whether you have read them. You can send at most 20 messages in any 24 hours. A VATSIM CID is used only to deliver a message to a flight that is seen on VATSIM and is never shown to other pilots.</p>
 </section>
+<section id="push"><h2>Push notifications</h2>
+ <p>If you turn on push notifications in the EFB (Settings › Notifications), your device gives the EFB server a push address and two encryption keys. The server keeps them, with your pilot ID and the kinds of notification you chose, so it can notify you about new mail and messages and about the briefings of a flight you checked in for, while the EFB is closed.</p>
+ <p>Notifications are delivered through your device maker's push service (Apple, Google or Mozilla). The content is encrypted for your device: the push service cannot read it. Turning push off, signing out of the EFB, or removing the EFB from your device ends it; addresses that stop working are deleted automatically.</p>
+</section>
+<section id="checkin"><h2>Check-in and flown tracks</h2>
+ <p>When you check in for one of your vAMSYS bookings on the Roster, the EFB server keeps that booking (flight, airports, times, aircraft) until you check in for another flight or cancel. It uses it to send your check-in and the departure and arrival weather as notifications.</p>
+ <p>While a checked-in flight is on the vAMSYS flight map, the server also records its track (positions, altitudes and speeds from vAMSYS) so your logbook can show the flight even when vAMSYS has no position reports for it. Tracks shown in your logbook are kept for 30 days and are only shown to you.</p>
+</section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
  <div class="wrap-t"><table><thead><tr><th>Item</th><th>Why</th><th>Kept until</th></tr></thead><tbody>
   <tr><td>Sign-in token</td><td>Keeps you signed in</td><td>30 days, or until you sign out</td></tr>
+  <tr><td>Push choice and the current check-in</td><td>Notifications and the Roster briefing on this device</td><td>You turn push off, cancel the check-in or clear site data</td></tr>
   <tr><td>Lock screen passcode</td><td>Unlocks the EFB on this device</td><td>You change it, sign out or clear site data</td></tr>
   <tr><td>Your flight plan (SimBrief OFP) and logbook entries</td><td>Shown in the flight plan, loadsheet and logbook apps</td><td>You replace or delete them</td></tr>
   <tr><td>Settings, checklist progress, map layers, read and Trash marks</td><td>Keeps the EFB the way you set it</td><td>You clear site data</td></tr>

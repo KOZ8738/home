@@ -1,0 +1,12 @@
+{
+  "name": "Polaris EFB",
+  "short_name": "Polaris EFB",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B0B0C",
+  "theme_color": "#1A6772",
+  "icons": [{ "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }]
+}

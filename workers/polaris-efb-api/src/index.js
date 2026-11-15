@@ -20,6 +20,8 @@
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET/POST /api/efb/pm, /api/efb/pm/online, /api/efb/pm/state -> pilots' messages to a department or an online flight (see pm.js)
+ *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout) -> Web Push and check-in (see crew.js)
+ *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
@@ -35,6 +37,8 @@ import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './a
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
+import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
+export { Crew } from './crew.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -175,6 +179,60 @@ async function bookingsRoute(env, username) {
       };
     }),
   };
+}
+
+/* ---- one PIREP with its flown track (the signed-in pilot's own only) ----
+   vAMSYS keeps position reports for each PIREP; the Operations API path for them is tried in a few spellings and the
+   one that answers is remembered. If none has points, the track the EFB server recorded from the flight map while
+   the flight was checked in is used (crew.js). A filed PIREP does not change, so a found track is kept for 30 days. */
+const POSREP_PATHS = ['/pireps/{id}/position-reports', '/pireps/{id}/posreps', '/pireps/{id}/positions', '/pireps/{id}/position_reports'];
+let posrepPath = null;
+async function pirepPosreps(env, id) {
+  const tryPath = async (p) => {
+    const out = []; let cursor = null;
+    for (let i = 0; i < 12; i++) {
+      const j = await vget(env, p.replace('{id}', id), { 'page[size]': 500, 'page[cursor]': cursor });
+      const arr = Array.isArray(j) ? j : Array.isArray(j.data) ? j.data : Array.isArray(j.data && j.data.posreps) ? j.data.posreps : Array.isArray(j.posreps) ? j.posreps : [];
+      out.push(...arr);
+      cursor = j && j.meta && j.meta.next_cursor; if (!cursor) break;
+    }
+    return out.map(posrep).filter(Boolean);
+  };
+  for (const p of posrepPath ? [posrepPath] : POSREP_PATHS) {
+    try { const pts = await tryPath(p); posrepPath = p; return pts; } catch (e) { if (!/HTTP 404|HTTP 405/.test(e.message) && posrepPath) throw e; }
+  }
+  return [];
+}
+async function pirepRoute(env, me, idRaw) {
+  const id = String(idRaw || '').replace(/\D/g, ''); if (!id) throw new HttpError(400, 'Which PIREP?');
+  const p = await findPilot(env, me.u);
+  const [ap, ac, list] = await Promise.all([airports(env).catch(() => new Map()), aircraftIndex(env).catch(() => new Map()),
+    cached('pireps100:' + p.id, TTL.pireps, () => vget(env, '/pireps', { 'filter[pilot_id]': p.id, sort: '-id', 'page[size]': 100 })).then((j) => j.data || [])]);
+  const r = list.find((x) => String(x.id) === id);
+  if (!r) throw new HttpError(404, 'That PIREP is not one of your recent flights');
+  const a = ac.get(r.aircraft_id) || {}, from = ap.get(r.departure_airport_id)?.icao || '', to = ap.get(r.arrival_airport_id)?.icao || '';
+  const pirep = { id: r.id, flight: r.flight_number || r.callsign || '', callsign: r.callsign || '', from, to, date: r.on_blocks_time || r.landing_time || r.created_at || null,
+    registration: a.registration || '', type: a.fleet || '', blockMinutes: r.block_length != null ? Math.round(r.block_length / 60) : null, flightMinutes: r.flight_length != null ? Math.round(r.flight_length / 60) : null,
+    landingRate: r.landing_rate ?? null, landingG: r.landing_g ?? null, fuelUsed: r.fuel_used ?? null, distanceNm: r.flight_distance ?? null, points: r.points ?? null, status: r.status || '', network: r.network || null,
+    route: r.route || r.user_route || null, departedAt: r.departure_time || r.off_blocks_time || r.takeoff_time || null, landedAt: r.landing_time || null };
+  let track = env.STORE ? await env.STORE.get('trk:v1:' + id, 'json').catch(() => null) : null;
+  if (!track) {
+    let pts = [];
+    try { pts = await pirepPosreps(env, id); } catch (e) { console.warn('[pirep posreps]', e.message); }
+    if (pts.length > 1) { if (pts.every((x) => x[4])) pts.sort((x, y) => x[4] - y[4]); track = { pts: dsTrack(pts, 1500), src: 'vAMSYS' }; }
+    else { try { track = (await crewCall(env, { op: 'trkFind', bid: r.booking_id || '', u: me.u, dep: from, arr: to, t: Date.parse(pirep.date || '') || Date.now() })).track; } catch (e) { track = null; } }
+    if (track && env.STORE) await env.STORE.put('trk:v1:' + id, JSON.stringify(track), { expirationTtl: 30 * 86400 }).catch(() => {});
+  }
+  return { pirep, track: track || null };
+}
+/* for staff: what vAMSYS answers for a PIREP's position reports (to see which path and field names it uses) */
+async function pirepProbe(env, id) {
+  id = String(id || '').replace(/\D/g, ''); const out = { id, paths: {} };
+  for (const p of POSREP_PATHS) {
+    try { const j = await vget(env, p.replace('{id}', id), { 'page[size]': 3 }); const arr = Array.isArray(j) ? j : j.data; out.paths[p] = { ok: true, keys: Object.keys(j || {}), first: Array.isArray(arr) ? arr[0] : arr, parsed: Array.isArray(arr) ? arr.map(posrep) : null }; }
+    catch (e) { out.paths[p] = { ok: false, error: e.message }; }
+  }
+  return out;
 }
 
 async function liveRoute(env) {
@@ -1183,6 +1241,11 @@ export default {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }
+    /* Web Push and check-in (see crew.js) */
+    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test)|crew(\/(checkin|checkout))?)\/?$/.test(new URL(req.url).pathname)) {
+      const me = await sessionOf(req, env, req.method === 'POST');
+      return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u) });
+    }
     /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
     { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {
       /* the vAMSYS roster with who has signed in to the EFB */
@@ -1191,7 +1254,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, signOut: (u) => signOutPilot(env, u) }); }
+    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id) }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1226,6 +1289,7 @@ export default {
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
+        case '/api/efb/pirep': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your PIREPs' }, 401, h); return json({ ...(await pirepRoute(env, me, url.searchParams.get('id'))), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/live': if (!configured) break; return json({ ...(await liveRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fleet': if (!configured) break; return json({ fleet: await fleets(env), updatedAt: new Date().toISOString() }, 200, h);
         default: return json({ error: 'Not found' }, 404, h);

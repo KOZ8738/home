@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.0427">
+<meta name="efb-build" content="1115.0502">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5006,17 +5006,17 @@ APPS.mail={name:"Mail",bg:"linear-gradient(170deg,#3FA3B1,#1A6772)",fg:"#fff",g:
 const mailSet=k=>new Set(store.get(k,[]));
 const mailSave=(k,set)=>store.set(k,[...set]);
 const mailUnread=()=>{if(!MAIL.list)return 0;const rd=mailSet("mailRead"),tr=mailSet("mailTrash");return MAIL.list.filter(m=>!rd.has(m.id)&&!tr.has(m.id)).length};
-function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-MAIL.at<300000)return;MAIL.loading=true;
+function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-MAIL.at<120000)return;MAIL.loading=true;
   const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000);
   fetch(vam.url.replace(/\/+$/,"")+"/api/efb/mail",{cache:"no-cache",signal:ac.signal}).then(r=>{if(!r.ok)throw new Error("The EFB server answered HTTP "+r.status);return r.json()})
     .then(j=>{MAIL.list=Array.isArray(j.mails)?j.mails:[];MAIL.err=null;
       /* forget read/trash marks of messages that no longer exist */
       const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)});
-      if(MAIL.sel&&!ids.has(MAIL.sel))MAIL.sel=null})
+      if(MAIL.sel&&!ids.has(MAIL.sel))MAIL.sel=null;mailNotify()})
     .catch(e=>{MAIL.err=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB server":(e&&e.message)||"Couldn’t load mail"})
     .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail")render();else renderHome()})}
 setTimeout(()=>mailLoad(true),1500);setInterval(()=>mailLoad(),60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)mailLoad()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){mailLoad();setTimeout(mailNotify,600)}});
 {const _b=badge;badge=function(id){if(id==="mail"){const n=mailUnread();return n?`<span class="badge" aria-label="${n} unread">${n>99?"99+":n}</span>`:""}return _b(id)}}
 /* the same light markup the admin page previews: **bold**, *italic*, "- " lists, "## " headings, [links](https://…) */
 function mailMd(t){const L=esc(t).split("\n"),out=[];let ul=false,para=[];
@@ -5077,6 +5077,44 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .pm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:50vh;color:var(--label)}.pm-empty svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:1.3;opacity:.6}
 .mailwrap .pm-back{display:none;align-self:flex-start}
 @container screen (max-width:760px){.mailwrap.has-sel .side{display:none}.mailwrap:not(.has-sel) .detail{display:none}.mailwrap .pm-back{display:inline-flex}}
+</style>`);
+
+/* ===== New-mail alert in the Dynamic Island ===== */
+/* "mailSeen" holds the ids already announced. The first run only records them, so old notices don't pop up;
+   while the EFB is in the background nothing is marked, and the alert plays when the pilot comes back. */
+function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
+  const seen=store.get("mailSeen",null);store.set("mailSeen",L.map(m=>m.id));if(!Array.isArray(seen))return;
+  const s=new Set(seen),rd=mailSet("mailRead"),tr=mailSet("mailTrash");
+  const nw=L.filter(m=>!s.has(m.id)&&!rd.has(m.id)&&!tr.has(m.id)).sort((a,b)=>b.t-a.t);
+  if(!nw.length)return;renderHome();
+  if(cur==="mail"&&!MAIL.sel)return;/* already looking at the inbox */
+  const m=nw[0],more=nw.length-1;
+  const open=()=>{MAIL.box="inbox";MAIL.sel=more?null:m.id;if(!more){const r=mailSet("mailRead");r.add(m.id);mailSave("mailRead",r)}goApp("mail");if(cur==="mail")render()};
+  if(window.__islOn&&window.__islOn()&&window.islAlert){
+    const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
+    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.body).slice(0,90),ms:7000,tap:open});
+    const pill=document.querySelector("#isl .isl");if(pill){pill.classList.remove("pm-n");void pill.offsetWidth;pill.classList.add("pm-n");clearTimeout(mailNotify._t);mailNotify._t=setTimeout(()=>pill.classList.remove("pm-n"),7200)}
+    try{navigator.vibrate&&navigator.vibrate([30,60,30])}catch(e){}
+  }else toast((more?nw.length+" new messages · ":"New mail · ")+m.subject)}
+document.head.insertAdjacentHTML("beforeend",`<style>
+.pm-ic{position:relative;display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:${APPS.mail.bg};flex:none;animation:pmPop .7s cubic-bezier(.3,1.7,.5,1) both,pmWig .55s .75s ease-in-out 2}
+.isx-ic .pm-ic{width:44px;height:44px;border-radius:11px}
+.isx-ic:has(.pm-ic){overflow:visible}
+.pm-ic svg,.isx-ic .pm-ic svg{width:70%!important;height:70%!important;fill:none;stroke:none;overflow:visible}
+.pm-ib{fill:#fff}.pm-il{fill:#DDF3F5;animation:pmLet 1.1s .45s cubic-bezier(.3,1.4,.5,1) both}
+.pm-if{fill:none;stroke:#1A6772;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transform-origin:12px 7px;animation:pmFlap .5s .3s ease-out both}
+.pm-ibd{position:absolute;top:-5px;right:-6px;min-width:15px;height:15px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:#FF3B30;color:#fff;font:700 9.5px/15px var(--f-os);font-style:normal;text-align:center;box-shadow:0 0 0 2px #000;animation:pmPop .5s .55s cubic-bezier(.3,1.9,.5,1) both}
+.isx-ic .pm-ibd{top:-6px;right:-7px;min-width:19px;height:19px;font-size:11px;line-height:19px}
+.isl.pm-n{animation:pmRing 1.6s .2s ease-out 2}
+.isl.pm-n .isx-t>*{animation:pmIn .45s cubic-bezier(.2,.9,.3,1) both}
+.isl.pm-n .isx-t>:nth-child(2){animation-delay:.08s}.isl.pm-n .isx-t>:nth-child(3){animation-delay:.16s}
+@keyframes pmPop{0%{transform:scale(.2);opacity:0}100%{transform:none;opacity:1}}
+@keyframes pmWig{0%,100%{rotate:0deg}25%{rotate:-11deg}75%{rotate:11deg}}
+@keyframes pmFlap{0%{transform:scaleY(-1)}100%{transform:none}}
+@keyframes pmLet{0%{transform:translateY(6px);opacity:0}45%{transform:translateY(-3.5px);opacity:1}100%{transform:none;opacity:1}}
+@keyframes pmRing{0%{box-shadow:0 0 0 0 rgba(63,163,177,.75),0 8px 22px -10px rgba(0,0,0,.6)}100%{box-shadow:0 0 0 14px rgba(63,163,177,0),0 8px 22px -10px rgba(0,0,0,.6)}}
+@keyframes pmIn{0%{transform:translateX(14px);opacity:0}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pm-ic,.pm-il,.pm-if,.pm-ibd,.isl.pm-n,.isl.pm-n .isx-t>*{animation:none!important}}
 </style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */

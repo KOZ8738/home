@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1150">
+<meta name="efb-build" content="1115.1306">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6142,13 +6142,18 @@ function authShow(){let el=document.getElementById("auth");
   if(!need){if(el){el.classList.add("au-out");setTimeout(()=>{el.remove();document.documentElement.classList.remove("au-open")},380)}return}
   if(!el){el=document.createElement("div");el.id="auth";document.body.appendChild(el)}
   el.classList.remove("au-out");el.className=authOn()?"is-lock":"is-sign";el.innerHTML=authHtml();document.documentElement.classList.add("au-open")}
+/* typing the passcode only touches the dots (redrawing the whole screen replayed its entrance animation on every key) */
+function lockDots(){const d=document.querySelector("#auth .au-dots");if(!d){authShow();return}const n=lockLen();
+  d.innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<AUTH.entry.length?"on":""}"></i>`).join("");
+  d.setAttribute("aria-label",AUTH.entry.length+" of "+n+" digits");
+  d.classList.remove("au-bad");if(AUTH.bad){void d.offsetWidth;d.classList.add("au-bad")}}
 function lockNow(){if(!lockActive())return;AUTH.locked=true;AUTH.entry="";AUTH.bad=false;authShow()}
 async function lockKey(k){if(!AUTH.locked||AUTH.busy)return;const n=lockLen();
   if(k==="del")AUTH.entry=AUTH.entry.slice(0,-1);else if(/^\d$/.test(k)&&AUTH.entry.length<n)AUTH.entry+=k;
-  AUTH.bad=false;authShow();
+  AUTH.bad=false;lockDots();
   if(AUTH.entry.length===n){AUTH.busy=true;const ok=await lockCheck(AUTH.entry);AUTH.busy=false;
     if(ok){AUTH.locked=false;AUTH.entry="";authShow();authVerify()}
-    else{AUTH.bad=true;AUTH.entry="";authShow();try{navigator.vibrate&&navigator.vibrate([40,40,40])}catch(e){}setTimeout(()=>{AUTH.bad=false;if(AUTH.locked)authShow()},500)}}}
+    else{AUTH.bad=true;AUTH.entry="";lockDots();try{navigator.vibrate&&navigator.vibrate([40,40,40])}catch(e){}setTimeout(()=>{AUTH.bad=false;if(AUTH.locked)lockDots()},500)}}}
 
 /* still signed in? (staff can sign a pilot out; offline is fine) */
 function authVerify(){const srv=authSrv();if(!authOn()||!srv||!navigator.onLine)return;

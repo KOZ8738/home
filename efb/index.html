@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1115.2228">
+<meta name="efb-build" content="1115.2233">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -1873,9 +1873,9 @@ function renderHome(){
     <a class="w w-s" href="#checklist"><div class="rem-top"><span class="rem-ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="rem-n">${p.total-p.done}</span></div>
       <div class="rem-t">${esc(CL[clIdx][0])}</div>
       <ul class="rem-l">${p.pending.length?p.pending.slice(0,3).map(it=>`<li><i></i>${esc(it[0])}</li>`).join(""):`<li style="color:var(--wg-sub)">All items checked</li>`}</ul></a>
-    <a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
+    ${(typeof rsCalHtml==="function"&&rsCalHtml())||`<a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
       <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Dispatch</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
-      <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>
+      <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>`}
     <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?(dest[1]==="BASE"?AL().base+" · live":"Destination"):"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
       <div class="wx-cond">${wIco(metarKind(dm,wxDay(dest))||"cloud",30)}<b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
       <div class="wx-rows">${wxFor(x).map(a=>{const m=decodeMetar(a[3]);const k=metarKind(m,wxDay(a));return `<div class="wx-row ic"><span class="r">${a[1]}</span><b>${esc(S(a[2].icao_code))}</b><span class="c">${m?`<i style="background:${dot[m.cat]}"></i>${m.cat}`:"—"}</span><span class="wx-ri">${k?wIco(k,18):""}</span><span class="w2">${m?windTxt(m.wind)+"KT · "+(m.temp??"—")+"°":""}</span></div>`}).join("")}</div></a>
@@ -6587,7 +6587,7 @@ APPS.roster={name:"Roster",bg:"linear-gradient(165deg,#4F8FB0,#1F4E6B)",fg:"#fff
 queueMicrotask(()=>{EYEBROW.roster=()=>vam.user?"vAMSYS · "+vam.user:"vAMSYS bookings"});
 const rsZ=t=>t?new Date(t).toISOString().slice(11,16).replace(":","")+"Z":"—";
 const rsDay=t=>t?new Date(t).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}):"Unscheduled";
-const rsDur=ms=>ms==null?"—":Math.floor(ms/3600e3)+":"+String(Math.round(ms%3600e3/60e3)).padStart(2,"0");
+const rsDur=ms=>{if(ms==null)return "—";const m=Math.round(ms/60e3);return Math.floor(m/60)+":"+String(m%60).padStart(2,"0")};
 const rsT=v=>Date.parse(v||"")||0;
 function rsLoad(force){if(!vam.url||!authOn()||RS.loading)return;if(!force&&Date.now()-RS.at<60000)return;RS.loading=true;
   Promise.allSettled([vamGet("/api/efb/bookings",15000),vamGet("/api/efb/crew",15000)]).then(([b,c])=>{
@@ -6595,6 +6595,23 @@ function rsLoad(force){if(!vam.url||!authOn()||RS.loading)return;if(!force&&Date
     if(c.status==="fulfilled"){RS.ci=c.value&&c.value.checkin||null;store.set("checkin",RS.ci)}})
     .finally(()=>{RS.loading=false;RS.at=Date.now();if(cur==="roster")render();else renderHome()})}
 setTimeout(()=>rsLoad(true),2500);
+/* home screen calendar widget: the checked-in flight (until 2 h after its arrival), else, with no SimBrief plan
+   loaded, the next booking within 36 hours. A loaded plan without a check-in keeps the widget as it was. */
+function rsCalFlight(){const now=Date.now(),ci=RS.ci;
+  if(ci){const end=(ci.sta||(ci.std||ci.at||now)+20*3600e3)+2*3600e3;if(now<end)return {ci:true,f:ci}}
+  if(!ofp._sample)return null;
+  const n=(RS.list||[]).map(b=>({...b,std:rsT(b.departureTime),sta:rsT(b.arrivalTime)})).filter(b=>b.std&&b.std>now-3600e3).sort((a,b)=>a.std-b.std)[0];
+  return n&&n.std-now<36*3600e3?{ci:false,f:n}:null}
+function rsDue(w){const f=w.f,now=Date.now();if(!f.std)return w.ci?"Checked in":"";
+  if(!w.ci){const open=f.std-12*3600e3;return now<open?"Check-in "+rsZ(open):"Check in now"}
+  if(now<f.std)return "Off-block in "+rsDur(f.std-now);if(f.sta&&now<f.sta)return "On-block "+rsZ(f.sta);return "Arrived"}
+{const _d=dueText;dueText=function(){const w=rsCalFlight();return w?rsDue(w):_d.apply(this,arguments)}}
+function rsCalHtml(){const w=rsCalFlight();if(!w)return "";const f=w.f,x=O(),fu=ofp.fuel||{},d=f.std?new Date(f.std):new Date();
+  const match=!ofp._sample&&S(x.o.icao_code)===f.from&&S(x.d.icao_code)===f.to,ac=[f.type,f.registration].filter(Boolean).map(esc).join(" · ")||"Aircraft";
+  const alt=w.ci&&match?`<div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode)||f.type)} · ${esc(S(x.ac.reg)||f.registration)}</b><span>Block fuel ${fmt(N(fu.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`
+    :`<div class="ev alt"><b>${ac}</b><span>${w.ci?(ofp._sample?"No SimBrief plan yet":"SimBrief plan doesn’t match"):"Check in on the Roster"}</span></div>`;
+  return `<a class="w w-m w-cal" href="#roster"><div class="cal-l"><span class="cal-d">${d.toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"}).toUpperCase()}</span><span class="cal-n">${d.getUTCDate()}</span><span class="cal-ex${w.ci?" ci":""}">${w.ci?"Checked in":"Booked"}</span><span class="cal-due" id="wDue">${esc(rsDue(w))}</span></div>
+    <div class="cal-r"><div class="ev"><b>${esc(f.callsign||f.flight)} · ${esc(f.from)} → ${esc(f.to)}</b><span>STD ${rsZ(f.std)} · STA ${rsZ(f.sta)}${f.std&&f.sta?" · "+rsDur(f.sta-f.std):""}</span></div>${alt}</div></a>`}
 /* home screen: a badge while a booked flight is open for check-in */
 {const _b=badge;badge=function(id){if(id==="roster"){const ci=RS.ci,now=Date.now(),n=(RS.list||[]).filter(l=>{const std=rsT(l.departureTime);return std&&std>now&&now>=std-12*3600e3&&!(ci&&String(ci.bookingId)===String(l.id))}).length;
   return n?`<span class="badge" aria-label="${n} flight${n>1?"s":""} open for check-in">${n}</span>`:""}return _b.apply(this,arguments)}}
@@ -6700,6 +6717,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .rs-wx2{display:grid;grid-template-columns:1fr 1fr;gap:0}.rs-wx{padding:14px 20px 18px;min-width:0}.rs-wx+.rs-wx{border-left:1px solid var(--line)}
 .rs-wxh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}.rs-wxh b{font:400 22px var(--f-disp)}
 .rs-wxh .c-blue{color:#3F7FA0!important}
+.cal-ex.ci{color:#2C7A4B;border-color:color-mix(in srgb,#2C7A4B 55%,transparent)}
 .rs-raw{font:500 13px/1.55 var(--f-mono);margin:0;word-break:break-word;color:var(--ink)}
 .rs-taf summary{cursor:pointer;color:var(--accent);font:600 12px var(--f-ui);letter-spacing:.08em;margin-top:10px}.rs-taf p{margin-top:6px}
 .rs-atis{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.rs-atis b{font:600 12px var(--f-ui);color:var(--accent);margin-right:8px}.rs-atis span{font:500 12px var(--f-mono);color:var(--label)}.rs-atis p{margin:4px 0 0;font:500 12.5px/1.5 var(--f-mono);color:var(--ink)}

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1124">
+<meta name="efb-build" content="1115.1150">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6095,7 +6095,18 @@ function authSignOut(){const srv=authSrv(),t=AUTH.tok&&AUTH.tok.t;
   setTimeout(()=>{authForget();AUTH.msg="You’re signed out.";authShow();if(cur==="prefs")render()},30)}
 function authStart(){const srv=authSrv();if(!srv){AUTH.msg="Set the EFB server below first.";authShow();return}
   if(!navigator.onLine){AUTH.msg="You’re offline. Connect to the internet to sign in.";authShow();return}
-  location.href=srv+"/auth/start?return="+encodeURIComponent(location.origin+location.pathname)}
+  const ret=encodeURIComponent(location.origin+location.pathname);
+  /* opened from the home screen: vAMSYS opens in a separate browser, so wait here for the server to hand over the sign-in */
+  const standalone=navigator.standalone===true||matchMedia("(display-mode: standalone)").matches;
+  if(!standalone){location.href=srv+"/auth/start?return="+ret;return}
+  const id=[...crypto.getRandomValues(new Uint8Array(24))].map(b=>b.toString(36).padStart(2,"0")).join("");
+  AUTH.pair={id,t:Date.now()};AUTH.msg="";authShow();
+  window.open(srv+"/auth/start?return="+ret+"&pair="+id,"_blank");
+  const poll=()=>{if(!AUTH.pair||AUTH.pair.id!==id)return;if(Date.now()-AUTH.pair.t>300000){AUTH.pair=null;AUTH.msg="Sign-in timed out. Please try again.";authShow();return}
+    fetch(srv+"/auth/pair?id="+id,{cache:"no-store"}).then(r=>r.status===200?r.json():null).then(j=>{
+      if(j&&j.token){const p=authParse(j.token);AUTH.pair=null;if(p){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true;authApply();authShow();setTimeout(()=>{try{mailLoad(true)}catch(e){}},300);if(cur==="prefs")render()}else{AUTH.msg="That sign-in didn’t work. Please try again.";authShow()}}
+      else setTimeout(poll,2000)}).catch(()=>setTimeout(poll,3000))};
+  setTimeout(poll,2500)}
 
 /* ---------- lock screen ---------- */
 const lockGet=()=>({on:true,h:"",len:0,after:"open",...(store.get("lock",{})||{})});
@@ -6112,7 +6123,8 @@ function authHtml(){const t=new Date(),pilot=AUTH.tok;
       <div class="au-star" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1.5l1.6 8.9L22.5 12l-8.9 1.6L12 22.5l-1.6-8.9L1.5 12l8.9-1.6z"/></svg></div>
       <h1 id="auT">Polaris EFB</h1><p class="au-sub">Electronic flight bag for Polaris Airways pilots</p>
       ${AUTH.msg?`<p class="au-msg" role="status">${esc(AUTH.msg)}</p>`:""}
-      <button class="au-go" data-auth="start"${srv?"":" disabled"}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4"/></svg>Continue with vAMSYS</button>
+      ${AUTH.pair?`<p class="au-msg" role="status"><span class="au-spin"></span>Finish signing in on vAMSYS, then come back here.</p><button class="au-go" data-auth="cancel">Cancel</button>`:""}
+      <button class="au-go" data-auth="start"${srv?"":" disabled"}${AUTH.pair?" hidden":""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4"/></svg>Continue with vAMSYS</button>
       <p class="au-note">You’ll sign in on vAMSYS and come straight back. The EFB never sees your vAMSYS password.</p>
       ${srv?`<a class="au-link" href="${esc(srv)}/privacy" target="_blank" rel="noopener">Privacy policy</a>`:`<label class="au-srv">EFB server<input type="url" id="auSrv" placeholder="https://efb-api.example.com"><button data-auth="srv">Save</button></label>`}
     </div>`}
@@ -6147,6 +6159,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("#auth [data-auth
   if(b.dataset.key){lockKey(b.dataset.key);return}
   const a=b.dataset.auth;
   if(a==="start")authStart();
+  else if(a==="cancel"){AUTH.pair=null;authShow()}
   else if(a==="forgot"){store.set("lock",{...lockGet(),h:"",len:0});AUTH.locked=false;authForget();AUTH.msg="Sign in again with vAMSYS. Your passcode goes back to the digits of your pilot ID.";authShow()}
   else if(a==="srv"){const v=($("#auSrv").value||"").trim();if(!/^https:\/\//i.test(v)){toast("Enter the server address starting with https://");return}vam.url=v.replace(/\/+$/,"");store.set("vam",vam);AUTH.msg="";authShow()}});
 document.addEventListener("keydown",e=>{if(!AUTH.locked)return;if(/^\d$/.test(e.key)){lockKey(e.key);e.preventDefault()}else if(e.key==="Backspace"){lockKey("del");e.preventDefault()}},true);
@@ -6204,7 +6217,8 @@ html.au-open body{overflow:hidden}
 .au-go{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:14px;padding:15px 18px;background:#fff;color:#0E3C43;font:600 16px var(--f-os);cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25);transition:transform .15s}
 .au-go:active{transform:scale(.98)}.au-go:disabled{opacity:.5}.au-go svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .au-note{margin:16px 0 14px;color:rgba(255,255,255,.62);font-size:13px;line-height:1.5}
-.au-link{color:#9AD6DC;font-size:13px}
+.au-link{color:#9AD6DC;font-size:13px}.au-go[hidden]{display:none}
+.au-spin{display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;vertical-align:-2px;animation:auSpin .8s linear infinite}@keyframes auSpin{to{transform:rotate(360deg)}}
 .au-srv{display:flex;gap:8px;align-items:center;justify-content:center;font-size:13px;color:rgba(255,255,255,.7)}.au-srv input{flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.2);color:#fff}.au-srv button{padding:8px 12px;border-radius:8px;border:0;background:rgba(255,255,255,.2);color:#fff}
 .au-lock{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:max(48px,6vh) 20px max(28px,4vh);box-sizing:border-box;animation:auIn .35s ease both}
 .au-time{text-align:center}.au-time b{display:block;font:600 clamp(64px,13vw,104px)/1 var(--f-os);letter-spacing:-.02em;font-variant-numeric:tabular-nums}.au-time span{display:block;margin-top:8px;font-size:clamp(16px,2.2vw,20px);color:rgba(255,255,255,.85)}

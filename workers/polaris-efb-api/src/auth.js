@@ -112,11 +112,13 @@ export async function authRoute(req, url, env, deps) {
 
   if (path === '/auth/start' && req.method === 'GET') {
     const ret = allowedReturn(env, url.searchParams.get('return') || '');
+    /* a home-screen EFB signs in through the browser and waits: the token is left for it under this pairing id */
+    const pair = /^[\w-]{24,64}$/.test(url.searchParams.get('pair') || '') ? url.searchParams.get('pair') : '';
     if (!clientId) return page('Sign-in is not set up yet', 'The vAMSYS Pilot API client is missing on the EFB server (VAMSYS_PILOT_CLIENT_ID).', ret, 503);
     const verifier = rand(48), state = rand(18);
     const challenge = b64u(await crypto.subtle.digest('SHA-256', enc.encode(verifier)));
     /* the verifier stays in this browser (signed, HTTP-only), so the answer only works where the sign-in started */
-    const flow = await sign(env, 'f1', { v: verifier, s: state, r: ret, exp: Date.now() + 600_000 });
+    const flow = await sign(env, 'f1', { v: verifier, s: state, r: ret, p: pair, exp: Date.now() + 600_000 });
     const to = new URL(AUTHORIZE);
     to.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: SCOPES, state, code_challenge: challenge, code_challenge_method: 'S256' }).toString();
     return new Response(null, { status: 302, headers: { Location: to.toString(), 'Set-Cookie': `${FLOW}=${flow}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`, 'Cache-Control': 'no-store' } });
@@ -157,11 +159,25 @@ export async function authRoute(req, url, env, deps) {
       s: [{ sid, t: now, exp }, ...((old && old.s) || [])].slice(0, MAX_DEVICES) };
     await writeRec(env, rec);
     const token = await sign(env, 'v1', { u, pid: p.id, n: rec.name, r: rec.rank, c: cid, sid, iat: now, exp });
+    if (flow.p) {
+      await env.STORE.put('auth:pair:' + flow.p, token, { expirationTtl: 300 });
+      const ok = page('You’re signed in', 'Welcome, ' + (rec.name || u) + '. Close this page and go back to the Polaris EFB; it finishes signing in by itself.', '', 200);
+      ok.headers.append('Set-Cookie', clear);
+      return ok;
+    }
     return new Response(null, { status: 302, headers: { Location: ret + '#auth=' + token, 'Set-Cookie': clear, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
   }
 
   const h = { ...deps.cors(req, env), 'Access-Control-Allow-Headers': 'Accept, Authorization, Content-Type', 'Access-Control-Max-Age': '86400' };
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
+  if (path === '/auth/pair' && req.method === 'GET') {
+    const id = url.searchParams.get('id') || '';
+    if (!/^[\w-]{24,64}$/.test(id)) return deps.json({ error: 'Bad id' }, 400, h);
+    const t = await env.STORE.get('auth:pair:' + id);
+    if (!t) return deps.json({ waiting: true }, 202, h);
+    await env.STORE.delete('auth:pair:' + id);
+    return deps.json({ token: t }, 200, h);
+  }
   if (path === '/auth/me' && req.method === 'GET') {
     const s = await sessionOf(req, env, true);
     if (!s) return deps.json({ error: 'Not signed in' }, 401, h);

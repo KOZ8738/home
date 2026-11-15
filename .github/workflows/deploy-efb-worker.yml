@@ -1,0 +1,35 @@
+# Deploys the Polaris EFB server (Cloudflare Worker) whenever its files change on main.
+# One-time setup: GitHub repo > Settings > Secrets and variables > Actions > New repository secret
+#   Name: CLOUDFLARE_API_TOKEN   Value: a Cloudflare API token made from the "Edit Cloudflare Workers" template
+# Until that secret exists, the deploy step is skipped (the run still shows as passed).
+name: Deploy EFB Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/polaris-efb-api/**'
+      - '.github/workflows/deploy-efb-worker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-efb-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: No Cloudflare token yet
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::Add the CLOUDFLARE_API_TOKEN secret to deploy the Worker automatically. Skipping."
+      - name: Deploy with Wrangler
+        if: env.HAS_TOKEN == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: workers/polaris-efb-api
+          command: deploy

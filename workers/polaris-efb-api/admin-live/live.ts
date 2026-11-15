@@ -264,14 +264,15 @@ function render(): void {
 }
 
 /* ---------- tabs ---------- */
-function currentTab(): 'mail' | 'live' { return location.hash === '#live' ? 'live' : 'mail'; }
+function currentTab(): 'mail' | 'live' | 'pilots' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : 'mail'; }
 function showTab(): void {
   if (document.querySelector('.deny')) return;
   const t = currentTab();
   document.querySelectorAll<HTMLElement>('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === t)));
-  const mail = $('#app'), live = $('#live');
+  const mail = $('#app'), live = $('#live'), pilots = $('#pilots');
   if (mail) mail.hidden = t !== 'mail';
   if (live) live.hidden = t !== 'live';
+  if (pilots) pilots.hidden = t !== 'pilots';
   document.body.classList.toggle('on-live', t === 'live');
   if (t === 'live') {
     if (!S.globe) {
@@ -311,8 +312,9 @@ document.addEventListener('click', (e) => {
   else if (k === 'follow') { S.follow = !S.follow; const f = sel(); if (S.follow && f) S.globe?.frameFlight(f); render(); }
   else if (k === 'msg') {
     const f = sel();
-    const compose = (window as unknown as { pmCompose?: (t: { cs: string; cid: string; name: string }) => void }).pmCompose;
-    if (f && !f.raw.sample && compose) compose({ cs: f.raw.cs, cid: f.raw.cid ? String(f.raw.cid) : '', name: f.raw.name || '' });
+    const compose = (window as unknown as { pmCompose?: (t: { pilot: string; cid: string; cs: string; name: string }) => void }).pmCompose;
+    // the pilot ID (vAMSYS flights) and VATSIM CID decide who gets it; callsign and name are labels for staff
+    if (f && !f.raw.sample && compose) compose({ pilot: f.raw.pilot || '', cid: f.raw.cid ? String(f.raw.cid) : '', cs: f.raw.cs, name: f.raw.name || f.raw.pilot || '' });
   }
   else if (k === 'sample') { S.sample = true; S.flights = build(samples(), Date.now()); pick('PAW806'); }
   else if (k === 'nosample') { S.sample = false; S.sel = null; S.flights = []; S.globe?.overview(); void poll(true); }

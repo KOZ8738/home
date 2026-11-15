@@ -33,6 +33,11 @@ ALLOWED_ORIGINS = "https://koz8738.com,https://www.koz8738.com"
 # While either is empty the admin stays locked.
 ACCESS_TEAM_DOMAIN = "frosty-boat-dd9f.cloudflareaccess.com"
 ACCESS_AUD = "613d19b5e1e81f090b711342d78daaca962586787804d832cfedd597a1228e4b"
+# Pilot sign-in to the EFB ("Login with vAMSYS"): the Pilot API client in Orwell > API (Authorization Code + PKCE).
+# Its Client ID is not secret. Redirect URL registered there: https://efb-api.koz8738.com/auth/callback
+VAMSYS_PILOT_CLIENT_ID = "1388"
+# Where a pilot lands after signing in, if the EFB did not say
+EFB_URL = "https://koz8738.com/efb/"
 
 # vAMSYS 金鑰不要寫在這裡（這個檔案會上 GitHub）。
 # 在 Cloudflare 後台 → 這個 Worker → Settings → Variables and Secrets 新增，類型選 Secret：

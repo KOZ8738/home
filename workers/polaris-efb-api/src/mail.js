@@ -1,11 +1,10 @@
 /* ---------- Polaris Mail ----------
    Notices from Polaris staff to the pilots' EFB Mail app. Staff write them on /admin, which Cloudflare Access protects
    (email one-time PIN); every admin request is checked again here against Access's signed token, so the admin stays
-   shut if Access is missing or set up wrongly. A mail goes to all pilots, or to one pilot (to: { cs, cid, name }, picked
-   on the Live tab): the EFB asks with its flight plan callsign and VATSIM CID and gets the ones meant for it. A callsign
-   matches for 24 hours after the mail goes out (callsigns are reused by the next pilot on that flight), a CID always;
-   the EFB also sends the ids it already has, so a pilot keeps a message after the 24 hours. This is not private: there
-   is no pilot sign-in yet.
+   shut if Access is missing or set up wrongly. A mail goes to all pilots, or to one pilot (to: { pilot, cid, cs, name },
+   picked on the Live tab or typed in). Pilots read mail signed in (Login with vAMSYS, auth.js): everyone gets the
+   mails to all pilots; a mail to one pilot goes only to the session whose pilot ID or VATSIM CID matches. Attachment
+   links carry a short signature that lasts 6 to 12 hours, because a link opened in a new tab cannot send the sign-in.
 
    KV (STORE):  mail:v1:index          -> [{ id, t, sendAt, from, subject, body, att:[{ name, type, size }], to, by, edited }]
                 mail:v1:att:<id>:<n>   -> attachment bytes
@@ -58,32 +57,34 @@ export async function accessUser(req, env) {
 let memIdx = null; // { at, list } short cache for the public list
 async function readIndex(kv) { const v = await kv.get('mail:v1:index', 'json').catch(() => null); return Array.isArray(v) ? v : []; }
 async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
-const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? { cs: m.to.cs || '', cid: m.to.cid || '' } : null, edited: m.edited || 0 });
-const CS_WINDOW = 24 * 3600_000;
+const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? { cs: m.to.cs || '', pilot: m.to.pilot || '' } : null, edited: m.edited || 0 });
+const LINK_MS = 6 * 3600_000;
 
 /* GET /api/efb/mail: what the pilots' Mail app shows (sent, not scheduled for later) */
-export async function mailPublic(req, env, h) {
+export async function mailPublic(req, env, h, sess, linkSig) {
   const kv = env && env.STORE; if (!kv) throw new MailError(503, 'Storage is not set up');
+  if (!sess) throw new MailError(401, 'Sign in to read Polaris Mail');
   if (!memIdx || Date.now() - memIdx.at > 20000) memIdx = { at: Date.now(), list: await readIndex(kv) };
-  /* who is asking: the EFB's flight plan callsign, its VATSIM CID, and the direct messages it already holds */
-  const q = new URL(req.url).searchParams, cs = String(q.get('cs') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-  const cid = String(q.get('cid') || '').replace(/\D/g, '').slice(0, 9), have = new Set(String(q.get('ids') || '').split(',').slice(0, 60));
-  const mine = (m) => !m.to || have.has(m.id) || (cid && m.to.cid === cid) || (cs && m.to.cs === cs && Date.now() - (m.sendAt || m.t) < CS_WINDOW);
+  const mine = (m) => !m.to || (m.to.pilot && m.to.pilot === sess.u) || (m.to.cid && sess.c && m.to.cid === sess.c);
   const now = Date.now(), list = memIdx.list.filter((m) => (m.sendAt || m.t) <= now && mine(m)).slice(0, 100).map(pub);
+  /* attachment links: good until the end of the next 6-hour block, so they stay the same between checks */
+  const e = (Math.floor(now / LINK_MS) + 2) * LINK_MS;
+  for (const m of list) for (const a of m.att) { a.e = e; a.k = await linkSig(env, m.id + ':' + a.n + ':' + e); }
   let hsh = 2166136261; const raw = JSON.stringify(list); for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
   const tag = '"m-' + hsh.toString(36) + '"';
   if ((req.headers.get('If-None-Match') || '') === tag) return new Response(null, { status: 304, headers: { ...h, ETag: tag, 'Cache-Control': 'no-cache' } });
   return new Response(JSON.stringify({ mails: list, at: new Date().toISOString() }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: tag } });
 }
 /* GET /api/efb/mail-att?id=&n=: one attachment of a sent mail */
-export async function mailAttachment(url, env, h) {
+export async function mailAttachment(url, env, h, linkSig) {
   const kv = env && env.STORE; if (!kv) throw new MailError(503, 'Storage is not set up');
-  const id = String(url.searchParams.get('id') || ''), n = +url.searchParams.get('n') || 0;
+  const id = String(url.searchParams.get('id') || ''), n = +url.searchParams.get('n') || 0, e = +url.searchParams.get('e') || 0, k = String(url.searchParams.get('k') || '');
+  if (!(e > Date.now()) || !k || k !== await linkSig(env, id + ':' + n + ':' + e)) throw new MailError(401, 'This attachment link has expired. Open the message in the EFB again.');
   const m = (await readIndex(kv)).find((x) => x.id === id);
   if (!m || (m.sendAt || m.t) > Date.now() || !m.att || !m.att[n]) throw new MailError(404, 'No such attachment');
   const a = m.att[n], body = await kv.get('mail:v1:att:' + id + ':' + n, 'arrayBuffer');
   if (!body) throw new MailError(404, 'No such attachment');
-  return new Response(body, { status: 200, headers: { ...h, 'Content-Type': a.type, 'Content-Disposition': 'inline; filename="' + a.name.replace(/[^\w.\- ]+/g, '_') + '"', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
+  return new Response(body, { status: 200, headers: { ...h, 'Content-Type': a.type, 'Content-Disposition': 'inline; filename="' + a.name.replace(/[^\w.\- ]+/g, '_') + '"', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
 }
 
 /* ---- /admin ---- */
@@ -97,6 +98,16 @@ export async function mailAdmin(req, url, env, opts) {
     return jsonRes({ error: e.message }, e.status || 401);
   }
   if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' } });
+  /* Pilots tab: who has signed in to the EFB; staff can end a pilot's sign-ins */
+  if (path === '/admin/api/pilots' && req.method === 'GET') {
+    try { return jsonRes(opts && opts.pilots ? await opts.pilots() : { pilots: [] }); } catch (e) { return jsonRes({ error: 'The pilot list is not available right now: ' + e.message }, 502); }
+  }
+  if (path === '/admin/api/pilots/signout' && req.method === 'POST') {
+    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
+    let b; try { b = await req.json(); } catch (e) { return jsonRes({ error: 'Bad body' }, 400); }
+    const ok = opts && opts.signOut ? await opts.signOut(String(b.username || '').toUpperCase().replace(/[^A-Z0-9]/g, '')) : false;
+    return ok ? jsonRes({ ok: true }) : jsonRes({ error: 'That pilot has not signed in to the EFB' }, 404);
+  }
   /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
   if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
   if (path === '/admin/api/live') {
@@ -115,12 +126,13 @@ export async function mailAdmin(req, url, env, opts) {
       if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
       const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
       if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
-      /* one pilot: callsign and/or VATSIM CID (the name is only for staff) */
+      /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
       let to = null;
       if (b.to) {
-        const tcs = String(b.to.cs || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
-        if (!tcs && !tcid) throw new MailError(400, "Add the pilot's callsign or VATSIM CID");
-        to = { cs: tcs, cid: tcid, name: clean(b.to.name, 60).trim() };
+        const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+        const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
+        if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
+        to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: clean(b.to.name, 60).trim() };
       }
       let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
       if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent

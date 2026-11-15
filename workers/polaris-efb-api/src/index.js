@@ -21,12 +21,16 @@
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
+ *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
+ *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
  *
  * Secrets (wrangler secret put ...): VAMSYS_CLIENT_ID, VAMSYS_CLIENT_SECRET
  * Vars (wrangler.toml): VAMSYS_SCOPE (default "ops:read"), ALLOWED_ORIGINS (comma list, or "*")
  */
 import { liveFlights } from './live.js';
 import { siteRoute, siteLive } from './site.js';
+import { PRIVACY_HTML } from './privacy.js';
+import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
@@ -510,7 +514,7 @@ function cors(req, env) {
   const origin = req.headers.get('Origin') || '';
   const allowed = String(env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean);
   const ok = allowed.includes('*') || allowed.includes(origin);
-  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept, If-None-Match', 'Access-Control-Expose-Headers': 'ETag', Vary: 'Origin' };
+  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept, If-None-Match, Authorization', 'Access-Control-Max-Age': '86400', 'Access-Control-Expose-Headers': 'ETag', Vary: 'Origin' };
 }
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
@@ -1088,11 +1092,10 @@ async function ovgeoRoute(req, url, env, h) {
   let b; try { b = JSON.parse(await req.text()); } catch (e) { throw new HttpError(400, 'Bad body'); }
   const icao = String(b.icao || '').toUpperCase(), name = String(b.name || ''), page = Math.max(1, Math.min(20, +b.page || 1)), g = b.geo || {};
   if (!/^[A-Z0-9]{3,4}$/.test(icao) || !name || name.length > 120) throw new HttpError(400, 'icao and name are required');
-  /* who is writing: the vAMSYS username set in the EFB's Settings. Once the vAMSYS keys are on this server it must be
-     a Polaris pilot; until then any name is taken, and the history below is what lets a bad change be undone. */
-  const user = String(b.user || '').trim().slice(0, 40);
-  if (!user) throw new HttpError(403, 'Connect vAMSYS in Settings to share chart alignments');
-  if (env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) { try { await findPilot(env, user); } catch (e) { throw new HttpError(403, 'Only Polaris pilots can share chart alignments'); } }
+  /* who is writing: the pilot signed in on this EFB (Login with vAMSYS); the history below lets a bad change be undone */
+  const sess = await sessionOf(req, env);
+  if (!sess) throw new HttpError(401, 'Sign in to share chart alignments');
+  const user = sess.u;
   const k = keyOf(icao, name, page), old = await kv.get(k, 'json').catch(() => null);
   const snap = (o) => ({ lat: o.lat, lon: o.lon, h: o.h, rot: o.rot, t: o.t || 0, by: o.by || '' });
   /* undo: the alignment before the last change comes back (five earlier ones are kept) */
@@ -1152,9 +1155,17 @@ async function aptsRoute(url, env, ctx, h) {
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
   async fetch(req, env, ctx) {
+    /* the EFB privacy policy (linked from the "Login with vAMSYS" consent screen) */
+    if (/^\/privacy\/?$/.test(new URL(req.url).pathname)) return new Response(PRIVACY_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
     /* the Polaris website's live flights and events: public, any origin (see site.js) */
     const siteDeps = { vget: (p, q) => vget(env, p, q), all: (p) => all(env, p), cached, edgeCache, configured: Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) };
     if (new URL(req.url).pathname.startsWith('/api/site/')) return siteRoute(req, new URL(req.url), siteDeps);
+    /* pilot sign-in with vAMSYS (see auth.js) */
+    if (new URL(req.url).pathname.startsWith('/auth/')) {
+      const display = async (e, u) => { const p = await findPilot(e, u), rk = await ranks(e).catch(() => new Map()), k = rk.get(p.rank_id); return { name: p.name || '', rank: (k && k.name) || '' }; };
+      try { return await authRoute(req, new URL(req.url), env, { cors, json, display: siteDeps.configured ? display : async () => null }); }
+      catch (e) { console.warn('[auth]', e && e.message); return json({ error: 'Sign-in is not available right now' }, 500, cors(req, env)); }
+    }
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
     if (new URL(req.url).pathname.replace(/\/+$/, '') === '/api/efb/ovgeo' && (req.method === 'GET' || req.method === 'POST')) { try { return await ovgeoRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
@@ -1164,7 +1175,14 @@ export default {
       const [vs, va] = await Promise.all([vatsimFeed(ctx).catch(() => null), siteDeps.configured ? siteLive(siteDeps).catch(() => null) : Promise.resolve(null)]);
       if (!vs && !va) throw new Error('neither vAMSYS nor VATSIM answered');
       return liveFlights(vs, va);
-    } }); }
+    }, pilots: async () => {
+      /* the vAMSYS roster with who has signed in to the EFB */
+      const [inEfb, roster, rk] = await Promise.all([signedInPilots(env), siteDeps.configured ? cached('roster', 300_000, () => all(env, '/pilots')).catch(() => null) : null, siteDeps.configured ? ranks(env).catch(() => new Map()) : new Map()]);
+      const by = new Map(inEfb.map((p) => [p.u, p])), out = [];
+      for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
+      for (const e of by.values()) out.push({ ...e, roster: !roster });
+      return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
+    }, signOut: (u) => signOutPilot(env, u) }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1173,8 +1191,9 @@ export default {
       if (ov) return await oaipVector(ov, env, ctx, h);
       switch (url.pathname.replace(/\/+$/, '')) {
         case '/api/efb/health': return json({ ok: true, configured, openaip: Boolean(env.OPENAIP_API_KEY), updatedAt: new Date().toISOString() }, 200, h);
-        case '/api/efb/pilot': if (!configured) break; return json({ ...(await pilotRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
-        case '/api/efb/bookings': if (!configured) break; return json({ ...(await bookingsRoute(env, url.searchParams.get('username'))), updatedAt: new Date().toISOString() }, 200, h);
+        /* a pilot's own profile, logbook and bookings: the signed-in pilot only */
+        case '/api/efb/pilot': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your vAMSYS profile' }, 401, h); return json({ ...(await pilotRoute(env, me.u)), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/bookings': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your bookings' }, 401, h); return json({ ...(await bookingsRoute(env, me.u)), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
@@ -1195,8 +1214,8 @@ export default {
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
-        case '/api/efb/mail': return await mailPublic(req, env, h);
-        case '/api/efb/mail-att': return await mailAttachment(url, env, h);
+        case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
+        case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/live': if (!configured) break; return json({ ...(await liveRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fleet': if (!configured) break; return json({ fleet: await fleets(env), updatedAt: new Date().toISOString() }, 200, h);

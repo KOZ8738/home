@@ -16,6 +16,8 @@
  *   GET /api/efb/airport-layout?icao=   -> runways, taxiways, stands and holds from OpenStreetMap
  *   GET /api/efb/fir                    -> FIR / ARTCC boundaries (VATSpy Data Project, CC BY-SA 4.0), simplified
  *   GET /api/efb/radar                  -> RainViewer radar frame list (tiles are loaded straight from RainViewer)
+ *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
+ *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *
  * Secrets (wrangler secret put ...): VAMSYS_CLIENT_ID, VAMSYS_CLIENT_SECRET
  * Vars (wrangler.toml): VAMSYS_SCOPE (default "ops:read"), ALLOWED_ORIGINS (comma list, or "*")
@@ -502,7 +504,7 @@ function cors(req, env) {
   const origin = req.headers.get('Origin') || '';
   const allowed = String(env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean);
   const ok = allowed.includes('*') || allowed.includes(origin);
-  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept', Vary: 'Origin' };
+  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept, If-None-Match', 'Access-Control-Expose-Headers': 'ETag', Vary: 'Origin' };
 }
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
@@ -734,6 +736,39 @@ async function pirepCellRoute(cellIn, ctx, h) {
   return new Response(r.body, { status: 200, headers: hd });
 }
 
+/* VATSIM traffic for the EFB map. The network feed (~2 MB, renewed every 15 s) is read at most once per 15 s per
+   location and cut down to what the map shows: rows of values instead of objects, no routes or remarks (one
+   pilot's route comes with ?cs=). The answer carries an ETag, so an EFB that already has this update gets a 304. */
+let vsMem = null; // { at, d } in this isolate
+async function vatsimFeed(ctx) {
+  if (vsMem && Date.now() - vsMem.at < 15000) return vsMem.d;
+  const cache = caches.default, ck = new Request('https://vatsim-feed-cache.local/v1');
+  const hit = await cache.match(ck);
+  if (hit) { const d = await hit.json(); vsMem = { at: Date.now(), d }; return d; }
+  const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
+  if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
+  const j = await up.json(), r4 = (v) => Math.round(+v * 1e4) / 1e4, rows = [], routes = {};
+  for (const p of j.pilots || []) {
+    if (!p.callsign || !isFinite(p.latitude) || !isFinite(p.longitude)) continue;
+    const f = p.flight_plan || {}, cs = String(p.callsign).toUpperCase(), t = Date.parse(p.logon_time || '');
+    rows.push([cs, p.cid || 0, String(p.name || '').slice(0, 60), r4(p.latitude), r4(p.longitude), Math.round(+p.altitude || 0), Math.round(+p.groundspeed || 0), Math.round(+p.heading || 0), p.transponder || '', isFinite(t) ? Math.round(t / 1000) : 0,
+      f.aircraft_short || '', f.departure || '', f.arrival || '', f.altitude || '', f.flight_rules || '']);
+    if (f.route) routes[cs] = String(f.route).slice(0, 2000);
+  }
+  const d = { upd: (j.general && j.general.update_timestamp) || new Date().toISOString(), rows, routes };
+  const res = new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=15' } });
+  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
+  vsMem = { at: Date.now(), d };
+  return d;
+}
+const VS_FIELDS = ['c', 'cid', 'n', 'la', 'lo', 'a', 'g', 'h', 'sq', 't', 'ac', 'dep', 'arr', 'alt', 'rules'];
+async function vatsimRoute(req, url, ctx, h) {
+  const d = await vatsimFeed(ctx), cs = String(url.searchParams.get('cs') || '').toUpperCase();
+  if (cs) return json({ cs, route: d.routes[cs] || '', upd: d.upd }, 200, h);
+  const etag = '"vs-' + d.upd + '"';
+  if ((req.headers.get('If-None-Match') || '') === etag) return new Response(null, { status: 304, headers: { ...h, ETag: etag, 'Cache-Control': 'no-cache' } });
+  return new Response(JSON.stringify({ upd: d.upd, f: VS_FIELDS, p: d.rows }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag } });
+}
 /* ATIS for one airport: real-world D-ATIS (atis.info, FAA airports) and VATSIM ATIS (network data feed). Cached 60-120 s. */
 async function fetchT(u, ms, init) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms); try { return await fetch(u, { ...(init || {}), signal: ac.signal }); } finally { clearTimeout(tm); } }
 async function vatsimAtisAll(ctx) {
@@ -1010,7 +1045,8 @@ async function awyRoute(url, ctx, h) {
 }
 
 /* Shared chart alignment: when a pilot lines a chart up on the map, everyone gets it. Kept in KV per airport,
-   chart name and page. Writes come only from the EFB's own site, are range-checked and must sit near the airport. */
+   chart name and page. Writes come only from the EFB's own site, carry the pilot's vAMSYS username (checked once the
+   vAMSYS keys are set), are range-checked, must sit near the airport, and keep the five before them for undo. */
 async function ovgeoRoute(req, url, env, h) {
   const kv = env && env.STORE; if (!kv) throw new HttpError(503, 'Storage is not set up');
   const keyOf = (icao, name, page) => 'ovgeo:v1:' + icao + ':' + String(name).toUpperCase().replace(/\s+/g, ' ').trim().slice(0, 80) + ':' + page;
@@ -1018,23 +1054,40 @@ async function ovgeoRoute(req, url, env, h) {
     const icao = String(url.searchParams.get('icao') || '').toUpperCase(), name = url.searchParams.get('name') || '', page = +url.searchParams.get('page') || 1;
     if (!/^[A-Z0-9]{3,4}$/.test(icao) || !name) throw new HttpError(400, 'icao and name are required');
     const v = await kv.get(keyOf(icao, name, page), 'json').catch(() => null);
-    return json({ geo: v || null }, 200, h);
+    return json({ geo: ovgeoPub(v) }, 200, h);
   }
   const origin = req.headers.get('Origin') || '', allowed = String(env.ALLOWED_ORIGINS || '').split(',').map((x) => x.trim());
   if (!allowed.includes(origin)) throw new HttpError(403, 'Not allowed');
   let b; try { b = JSON.parse(await req.text()); } catch (e) { throw new HttpError(400, 'Bad body'); }
   const icao = String(b.icao || '').toUpperCase(), name = String(b.name || ''), page = Math.max(1, Math.min(20, +b.page || 1)), g = b.geo || {};
-  const num = (v) => typeof v === 'number' && isFinite(v);
   if (!/^[A-Z0-9]{3,4}$/.test(icao) || !name || name.length > 120) throw new HttpError(400, 'icao and name are required');
+  /* who is writing: the vAMSYS username set in the EFB's Settings. Once the vAMSYS keys are on this server it must be
+     a Polaris pilot; until then any name is taken, and the history below is what lets a bad change be undone. */
+  const user = String(b.user || '').trim().slice(0, 40);
+  if (!user) throw new HttpError(403, 'Connect vAMSYS in Settings to share chart alignments');
+  if (env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) { try { await findPilot(env, user); } catch (e) { throw new HttpError(403, 'Only Polaris pilots can share chart alignments'); } }
+  const k = keyOf(icao, name, page), old = await kv.get(k, 'json').catch(() => null);
+  const snap = (o) => ({ lat: o.lat, lon: o.lon, h: o.h, rot: o.rot, t: o.t || 0, by: o.by || '' });
+  /* undo: the alignment before the last change comes back (five earlier ones are kept) */
+  if (b.revert) {
+    if (!old || !Array.isArray(old.prev) || !old.prev.length) throw new HttpError(409, 'There is no earlier alignment to go back to');
+    const [back, ...rest] = old.prev;
+    const v = { ...back, t: Date.now(), n: (old.n || 0) + 1, undoneBy: user, prev: rest };
+    await kv.put(k, JSON.stringify(v));
+    return json({ ok: true, geo: ovgeoPub(v) }, 200, h);
+  }
+  const num = (v) => typeof v === 'number' && isFinite(v);
   if (!num(g.lat) || !num(g.lon) || !num(g.h) || !num(g.rot) || Math.abs(g.lat) > 85 || Math.abs(g.lon) > 180 || g.h < 300 || g.h > 800000) throw new HttpError(400, 'Alignment out of range');
   /* must be near the airport (a chart centre can sit off the field, but not far) */
   try { const a = await airportRoute(icao); const ap = a && a.airport; if (ap && isFinite(ap.lat)) { const d = Math.hypot(g.lat - ap.lat, (g.lon - ap.lon) * Math.cos(ap.lat * Math.PI / 180)) * 60; if (d > Math.max(60, g.h / 1852 * 1.5)) throw new HttpError(400, 'Alignment is too far from the airport'); } } catch (e) { if (e instanceof HttpError) throw e; }
-  const k = keyOf(icao, name, page), old = await kv.get(k, 'json').catch(() => null);
-  if (old && Date.now() - (old.t || 0) < 5000) return json({ ok: true, geo: old }, 200, h);
-  const v = { lat: +g.lat.toFixed(7), lon: +g.lon.toFixed(7), h: Math.round(g.h * 10) / 10, rot: Math.round((((g.rot % 360) + 360) % 360) * 100) / 100, t: Date.now(), n: ((old && old.n) || 0) + 1 };
+  if (old && Date.now() - (old.t || 0) < 5000 && old.by === user) return json({ ok: true, geo: ovgeoPub(old) }, 200, h);
+  const prev = old ? [snap(old), ...(Array.isArray(old.prev) ? old.prev : [])].slice(0, 5) : [];
+  const v = { lat: +g.lat.toFixed(7), lon: +g.lon.toFixed(7), h: Math.round(g.h * 10) / 10, rot: Math.round((((g.rot % 360) + 360) % 360) * 100) / 100, t: Date.now(), n: ((old && old.n) || 0) + 1, by: user, prev };
   await kv.put(k, JSON.stringify(v));
-  return json({ ok: true, geo: v }, 200, h);
+  return json({ ok: true, geo: ovgeoPub(v) }, 200, h);
 }
+/* what the EFB sees of a stored alignment: no history, just how many steps can be undone */
+function ovgeoPub(v) { return v ? { lat: v.lat, lon: v.lon, h: v.h, rot: v.rot, t: v.t || 0, n: v.n || 0, by: v.by || '', undo: Array.isArray(v.prev) ? v.prev.length : 0 } : null; }
 
 /* Airports for the map, from OurAirports (public domain), rebuilt every 14 days and kept in KV.
    set=a: large and medium airports with a rank (1 large, 2 medium with airline service, 3 other medium);
@@ -1104,6 +1157,7 @@ export default {
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
         case '/api/efb/fir': return json(await firRoute(), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
+        case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/live': if (!configured) break; return json({ ...(await liveRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/fleet': if (!configured) break; return json({ fleet: await fleets(env), updatedAt: new Date().toISOString() }, 200, h);

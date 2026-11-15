@@ -12,6 +12,7 @@
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
 import { LIVE_JS } from './live-bundle.js';
+import { pmAdmin } from './pm.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -114,6 +115,8 @@ export async function mailAdmin(req, url, env, opts) {
     try { return jsonRes(opts && opts.live ? await opts.live() : { flights: [], apts: {} }); }
     catch (e) { return jsonRes({ error: 'Live flights are not available right now: ' + e.message }, 502); }
   }
+  /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
+  if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });

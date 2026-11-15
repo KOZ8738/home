@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1339">
+<meta name="efb-build" content="1115.1404">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5420,26 +5420,49 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    and read here like an iPad mailbox. A message goes to all pilots, or to one pilot: the EFB server knows who is
    signed in (Login with vAMSYS) and sends only the pilot's own messages; which ones were read or moved to Trash
    is kept on this device. Checked when the EFB opens, every 5 minutes, and when Mail is opened; the home-screen icon
-   shows the unread count. */
-const MAIL={list:null,at:0,err:null,loading:false,sel:null,box:"inbox"};
+   shows the unread count.
+   Pilots can also write: to a department (the admin's Inbox, staff answer there) or to a Polaris flight that is
+   online now, at most 20 messages a day (see the Worker's pm.js). These come as conversations ("th:<id>" rows) mixed
+   into the same mailboxes; whether a conversation was read is kept on the server, so it is the same on every device. */
+const MAIL={list:null,notes:null,pm:null,pmErr:null,at:0,err:null,loading:false,sel:null,box:"inbox",compose:null,draft:{},online:null};
 APPS.mail={name:"Mail",bg:"linear-gradient(170deg,#3FA3B1,#1A6772)",fg:"#fff",g:'<rect x="3" y="5.5" width="18" height="13" rx="2.2" fill="#fff" stroke="none"/><path d="M3.9 7l8.1 6.3L20.1 7" stroke="#1A6772" stroke-width="1.7" fill="none"/>'};
 /* LAYOUT is declared further down the script, so Mail sets its split layout when it opens */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="mail")screenEl.dataset.layout="split";return r}}
 {const i=PAGE1.indexOf("timer");PAGE1.splice(i<0?PAGE1.length:i,0,"mail");PAGE3.unshift("mail")}
 const mailSet=k=>new Set(store.get(k,[]));
 const mailSave=(k,set)=>store.set(k,[...set]);
-const mailUnread=()=>{if(!MAIL.list)return 0;const rd=mailSet("mailRead"),tr=mailSet("mailTrash");return MAIL.list.filter(m=>!rd.has(m.id)&&!tr.has(m.id)).length};
+const mailUnread=()=>{if(!MAIL.list)return 0;const rd=mailSet("mailRead"),tr=mailSet("mailTrash");return MAIL.list.filter(m=>(!m.conv||m.inbox)&&!rd.has(m.id)&&!tr.has(m.id)).length};
 /* who this EFB is comes from the pilot's sign-in (pilotauth.js): the server picks the messages meant for them */
 function mailQuery(){return ""}
 function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-MAIL.at<120000)return;MAIL.loading=true;
-  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000);
-  fetch(vam.url.replace(/\/+$/,"")+"/api/efb/mail"+mailQuery(),{cache:"no-cache",signal:ac.signal}).then(r=>{if(!r.ok)throw new Error("The EFB server answered HTTP "+r.status);return r.json()})
-    .then(j=>{MAIL.list=Array.isArray(j.mails)?j.mails:[];MAIL.err=null;
-      /* forget read/trash marks of messages that no longer exist */
-      const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)});
-      if(MAIL.sel&&!ids.has(MAIL.sel))MAIL.sel=null;mailNotify()})
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000),base=vam.url.replace(/\/+$/,"");
+  const get=p=>fetch(base+p,{cache:"no-cache",signal:ac.signal}).then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);return j}));
+  const pmP=get("/api/efb/pm").then(j=>{MAIL.pm=j;MAIL.pmErr=null},e=>{MAIL.pmErr=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":(e&&e.message)||"Couldn’t load messages"});
+  get("/api/efb/mail"+mailQuery()).then(j=>{MAIL.notes=Array.isArray(j.mails)?j.mails:[];MAIL.err=null})
     .catch(e=>{MAIL.err=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB server":(e&&e.message)||"Couldn’t load mail"})
-    .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail")render();else renderHome()})}
+    .then(()=>pmP).then(()=>{if(!MAIL.notes&&!MAIL.pm)return;mailMerge();
+       /* forget read/trash marks of messages that no longer exist (only when both lists came in) */
+       if(MAIL.notes&&MAIL.pm&&!MAIL.err&&!MAIL.pmErr){const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)})}
+       if(MAIL.sel&&!MAIL.list.some(m=>m.id===MAIL.sel))MAIL.sel=null;mailNotify()})
+    .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail"){if(!mailBusy())render()}else renderHome()})}
+/* typing a message: a background refresh must not redraw the page under the pilot's fingers */
+function mailBusy(){const a=document.activeElement;return !!MAIL.compose||!!(a&&a.closest&&a.closest(".pm-reply"))}
+/* the people a conversation is with, as the pilot sees them */
+const pmWho=p=>p?p.dept?p.dept:[p.pilot,p.name].filter(Boolean).join(" · ")||p.cs||"Polaris pilot":"";
+/* notices + one row per conversation */
+function mailMerge(){const rows=(MAIL.notes||[]).slice(),by=new Map();
+  for(const m of (MAIL.pm&&MAIL.pm.msgs)||[]){let c=by.get(m.th);if(!c)by.set(m.th,c=[]);c.push(m)}
+  const rd=mailSet("mailRead");let ch=false;
+  for(const [th,ms] of by){ms.sort((a,b)=>a.t-b.t);const inc=ms.filter(m=>!m.out),last=ms[ms.length-1],first=ms[0],staff=first.kind!=="pilot";
+    const other=first.out?first.to:first.from,id="th:"+th,un=inc.some(m=>!m.read);
+    if(un&&rd.has(id)){rd.delete(id);ch=true}else if(!un&&!rd.has(id)){rd.add(id);ch=true}
+    rows.push({id,conv:true,th,staff,t:last.t,from:pmWho(other),subject:first.subject,body:(last.out?"You: ":"")+last.body,msgs:ms,inbox:inc.length>0,sent:ms.some(m=>m.out),nk:inc.length?"pm:"+inc[inc.length-1].id:"",other})}
+  if(ch)mailSave("mailRead",rd);
+  MAIL.list=rows.sort((a,b)=>b.t-a.t)}
+const pmPost=(p,b)=>fetch(vam.url.replace(/\/+$/,"")+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);return j}));
+/* tell the server which messages of a conversation were read (or not) */
+function pmMark(row,read){if(!row||!row.conv)return;const ids=row.msgs.filter(m=>!m.out&&(read?!m.read:true)).map(m=>m.id);const sel=read?ids:ids.slice(-1);if(!sel.length)return;
+  row.msgs.forEach(m=>{if(sel.includes(m.id))m.read=read});pmPost("/api/efb/pm/state",{ids:sel,read}).catch(()=>{})}
 setTimeout(()=>mailLoad(true),1500);setInterval(()=>mailLoad(),60000);
 
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){mailLoad();setTimeout(mailNotify,600)}});
@@ -5457,29 +5480,34 @@ const mailFull=ms=>{const d=new Date(ms);return d.toLocaleString("en-US",{weekda
 const mailKB=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 const ML_I={inbox:'<path d="M3 13l2.5-8h13L21 13v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',trash:'<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',clip:'<path d="M15.5 7.5l-6.8 6.8a2 2 0 0 0 2.8 2.8l7-7a3.6 3.6 0 0 0-5.1-5.1l-7.2 7.2a5.2 5.2 0 0 0 7.4 7.4l6.3-6.3"/>',
   unread:'<rect x="3" y="6" width="15" height="12" rx="2"/><path d="M3.8 7.2l7 5.3 7-5.3"/><circle cx="19.5" cy="5.5" r="2.6" fill="currentColor" stroke="none"/>',restore:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
-  back:'<path d="M15 5l-7 7 7 7"/>',refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',mail:'<rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3.9 7l8.1 6.3L20.1 7"/>'};
+  back:'<path d="M15 5l-7 7 7 7"/>',refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',mail:'<rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="M3.9 7l8.1 6.3L20.1 7"/>',
+  compose:'<path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M17.6 3.6a2 2 0 0 1 2.8 2.8L12 14.8 8.5 15.5l.7-3.5z"/>',sent:'<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
+  send:'<path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/>',lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',plane:'<path d="M10.5 21l1.5-1 1.5 1v-2.5L12 17v-5l8 3v-2l-8-5V4.5a1 1 0 0 0-2 0V8l-8 5v2l8-3v5l-1.5 1.5z" transform="translate(1 0)"/>'};
 const mlIco=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ML_I[k]}</svg>`;
 /* a steady colour per sender, from the Polaris palette */
 const ML_C=["#1A6772","#A78970","#3F7FA0","#6B7F3A","#8C5A7A","#B5703A"];
 const mlAv=f=>{const n=String(f||"P");let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))>>>0;const ini=n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();return `<span class="pm-av" style="background:${ML_C[h%ML_C.length]}" aria-hidden="true">${esc(ini||"P")}</span>`};
 V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
-  const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)),trash=L.filter(m=>tr.has(m.id)),isTr=MAIL.box==="trash",list=isTr?trash:inbox;
+  const L=MAIL.list||[],rd=mailSet("mailRead"),tr=mailSet("mailTrash"),inbox=L.filter(m=>!tr.has(m.id)&&(!m.conv||m.inbox)),sent=L.filter(m=>!tr.has(m.id)&&m.conv&&m.sent),trash=L.filter(m=>tr.has(m.id)),isTr=MAIL.box==="trash",isSent=MAIL.box==="sent",list=isTr?trash:isSent?sent:inbox;
+  const boxName=isTr?"Trash":isSent?"Sent":"Inbox",pm=MAIL.pm,left=pm?Math.max(0,pm.limit-pm.sent24):null;
   const unread=inbox.filter(m=>!rd.has(m.id)).length,sel=MAIL.sel?L.find(m=>m.id===MAIL.sel):null;
   /* one-shot transition for a row that was just read (or marked unread), and a bump on the count when it changes */
   const an=MAIL.anim&&Date.now()-MAIL.anim.t<1500?MAIL.anim:null;MAIL.anim=null;const bump=MAIL.lastUn!=null&&MAIL.lastUn!==unread?(unread<MAIL.lastUn?" pm-dn":" pm-up"):"";MAIL.lastUn=unread;
-  const status=!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):!MAIL.list?"Checking…":isTr?(trash.length?trash.length+" message"+(trash.length>1?"s":""):"Empty"):unread?unread+" unread":"All caught up";
+  const status=!vam.url?"No EFB server set":MAIL.err&&!MAIL.list?esc(MAIL.err):!MAIL.list?"Checking…":isTr?(trash.length?trash.length+" message"+(trash.length>1?"s":""):"Empty"):isSent?(sent.length?sent.length+" conversation"+(sent.length>1?"s":""):"Nothing sent yet"):unread?unread+" unread":"All caught up";
   const boxBtn=(k,ic,label,n,cls)=>`<button class="${cls}" data-mailbox="${k}" aria-pressed="${(MAIL.box||"inbox")===k}">${mlIco(ic)}<span>${label}</span>${n?`<b class="${k==="inbox"?bump:""}">${n}</b>`:""}</button>`;
   const nav=`<aside class="pm-nav"><div class="pm-nh"><span class="eyebrow">Polaris Airways</span><h2>Mail</h2></div>
-    <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
-    <div class="pm-nf">${mlIco("mail")}<span>To all Polaris pilots${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
-  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}${m.to?'<i class="pm-to">To you</i>':""}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
-  const col=`<section class="pm-col" aria-label="${isTr?"Trash":"Inbox"}"><header class="pm-ch"><div><h3>${isTr?"Trash":"Inbox"}</h3><p>${status}</p></div>
-      <button class="pm-ib" data-mailref title="Check for new mail" aria-label="Check for new mail"${MAIL.loading?' disabled':''}>${mlIco("refresh")}</button></header>
-    <div class="pm-seg" role="group" aria-label="Mailbox">${boxBtn("inbox","inbox","Inbox",unread,"")}${boxBtn("trash","trash","Trash",0,"")}</div>
-    <div class="pm-list">${rows||`<div class="pm-none">${mlIco(isTr?"trash":"inbox")}<p>${isTr?"Trash is empty.":MAIL.list?"No messages yet.<br>Notices from Polaris staff arrive here.":MAIL.err?esc(MAIL.err):"Checking for mail…"}</p></div>`}</div></section>`;
+    <div class="pm-newp"><button class="pm-new" data-pmnew>${mlIco("compose")}<span>New Message</span></button></div>
+    <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("sent","sent","Sent",0,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
+    <div class="pm-nf">${mlIco("mail")}<span>${pm?`${left} of ${pm.limit} messages left today`:"Polaris Mail"}${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
+  const rows=list.map(m=>{const u=!rd.has(m.id);return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" aria-pressed="${MAIL.sel===m.id}"><span class="pm-top"><b>${esc(m.from)}${m.conv?`<i class="pm-to pm-cv${m.staff?"":" p"}">${m.staff?"Staff":"Pilot"}</i>`:m.to?'<i class="pm-to">To you</i>':""}</b><time>${esc(mailWhen(m.t))}</time></span><span class="pm-sub">${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></button>`}).join("");
+  const col=`<section class="pm-col" aria-label="${boxName}"><header class="pm-ch"><div><h3>${boxName}</h3><p>${status}</p></div>
+      <span class="pm-chb"><button class="pm-ib" data-mailref title="Check for new mail" aria-label="Check for new mail"${MAIL.loading?' disabled':''}>${mlIco("refresh")}</button><button class="pm-ib pm-cmpb" data-pmnew title="New message" aria-label="New message">${mlIco("compose")}</button></span></header>
+    <div class="pm-seg" role="group" aria-label="Mailbox">${boxBtn("inbox","inbox","Inbox",unread,"")}${boxBtn("sent","sent","Sent",0,"")}${boxBtn("trash","trash","Trash",0,"")}</div>
+    <div class="pm-list">${rows||`<div class="pm-none">${mlIco(isTr?"trash":"inbox")}<p>${isTr?"Trash is empty.":isSent?"Nothing sent yet.<br>Write to a department or to a Polaris flight that is online.":MAIL.list?"No messages yet.<br>Notices from Polaris staff arrive here.":MAIL.err?esc(MAIL.err):"Checking for mail…"}</p></div>`}</div></section>`;
   let rdr;
-  if(sel){const f=vam.url?vam.url.replace(/\/+$/,""):"",inTr=tr.has(sel.id);
-    rdr=`<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${isTr?"Trash":"Inbox"}">${mlIco("back")}<span>${isTr?"Trash":"Inbox"}</span></button><span class="pm-sp"></span>
+  if(sel&&sel.conv)rdr=pmConvHtml(sel,boxName,tr.has(sel.id));
+  else if(sel){const f=vam.url?vam.url.replace(/\/+$/,""):"",inTr=tr.has(sel.id);
+    rdr=`<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${boxName}">${mlIco("back")}<span>${boxName}</span></button><span class="pm-sp"></span>
         <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
         <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
       <article class="pm-mail"><div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div>
@@ -5487,17 +5515,77 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
       <div class="pm-body">${mailMd(sel.body)}</div>
       ${sel.att&&sel.att.length?`<div class="pm-att"><h4>${sel.att.length} attachment${sel.att.length>1?"s":""}</h4><div>${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}&e=${a.e||0}&k=${encodeURIComponent(a.k||"")}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}<small>${esc(mailKB(a.size))}</small></span></a>`).join("")}</div></div>`:""}</article>`}
   else rdr=`<div class="pm-empty">${mlIco("mail")}<p>No message selected</p><small>${L.length?inbox.length+" in Inbox"+(unread?" · "+unread+" unread":""):"Your Polaris mailbox"}</small></div>`;
-  return `<div class="pm3${sel?" has-sel":""}">${nav}${col}<div class="pm-read">${rdr}</div></div>`};
+  return `<div class="pm3${sel?" has-sel":""}">${nav}${col}<div class="pm-read">${rdr}</div>${MAIL.compose?pmComposeHtml():""}</div>`};
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mailid],[data-mailbox],[data-mailact],[data-mailback],[data-mailref]");if(!t||cur!=="mail")return;
-  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");MAIL.fresh=null;if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd);MAIL.fresh=MAIL.sel;MAIL.anim={id:MAIL.sel,k:"jr",t:Date.now()}}render();const d=$("#view .pm-read");if(d)d.scrollTop=0}
+  if(t.dataset.mailid){MAIL.sel=t.dataset.mailid;const rd=mailSet("mailRead");MAIL.fresh=null;const row=(MAIL.list||[]).find(m=>m.id===MAIL.sel);if(row&&row.conv)pmMark(row,true);if(!rd.has(MAIL.sel)){rd.add(MAIL.sel);mailSave("mailRead",rd);MAIL.fresh=MAIL.sel;MAIL.anim={id:MAIL.sel,k:"jr",t:Date.now()}}render();const d=$("#view .pm-read");if(d)d.scrollTop=row&&row.conv?d.scrollHeight:0}
   else if(t.dataset.mailbox){MAIL.box=t.dataset.mailbox;MAIL.sel=null;render()}
   else if(t.dataset.mailback!=null){/* on a phone the list was hidden while reading: play the "read" transition on the way back */if(MAIL.fresh&&MAIL.fresh===MAIL.sel)MAIL.anim={id:MAIL.sel,k:"jr",t:Date.now()};MAIL.fresh=null;MAIL.sel=null;render()}
   else if(t.dataset.mailref!=null){mailLoad(true);render()}
   else if(t.dataset.mailact&&MAIL.sel){const a=t.dataset.mailact,tr=mailSet("mailTrash"),rd=mailSet("mailRead");
     if(a==="trash"){tr.add(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Trash")}
     else if(a==="restore"){tr.delete(MAIL.sel);mailSave("mailTrash",tr);MAIL.sel=null;toast("Moved to Inbox")}
-    else if(a==="unread"){MAIL.anim={id:MAIL.sel,k:"ju",t:Date.now()};MAIL.fresh=null;rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null;toast("Marked as unread")}
+    else if(a==="unread"){pmMark((MAIL.list||[]).find(m=>m.id===MAIL.sel),false);MAIL.anim={id:MAIL.sel,k:"ju",t:Date.now()};MAIL.fresh=null;rd.delete(MAIL.sel);mailSave("mailRead",rd);MAIL.sel=null;toast("Marked as unread")}
     render()}});
+/* ---------- conversations and writing ---------- */
+const pmText=t=>esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+const pmLeft=()=>MAIL.pm?Math.max(0,MAIL.pm.limit-MAIL.pm.sent24):null;
+const pmLeftTxt=()=>{const n=pmLeft();if(n==null)return "";return n?`${n} of ${MAIL.pm.limit} messages left today`:`Daily limit reached · you can write again at ${new Date(MAIL.pm.nextAt).toISOString().slice(11,16)}Z`};
+function pmConvHtml(c,boxName,inTr){const o=c.other||{},who=c.staff?o.dept:(o.pilot||o.cs||"Polaris pilot");
+  const note=c.staff?`Your conversation with Polaris ${esc(o.dept)}. Staff answer from the Polaris admin.`:`Private between you and ${esc(who)}. Polaris staff can’t read messages between pilots.`;
+  const bub=c.msgs.map((m,i)=>{const p=c.msgs[i-1],gap=!p||p.out!==m.out||m.t-p.t>30*60000;
+    return `${gap?`<div class="pm-bt">${esc(m.out?"You":c.staff?o.dept:pmWho(m.from))} · ${esc(mailWhen(m.t))}</div>`:""}<div class="pm-bb${m.out?" me":""}" title="${esc(mailFull(m.t))}"><p>${pmText(m.body)}</p></div>`}).join("");
+  const left=pmLeft(),dis=left===0?" disabled":"";
+  return `<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${boxName}">${mlIco("back")}<span>${boxName}</span></button><span class="pm-sp"></span>
+      <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
+      <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
+    <article class="pm-mail pm-conv"><div class="pm-h" role="heading" aria-level="2">${esc(c.subject)}</div>
+    <div class="pm-from">${mlAv(who)}<div><b>${esc(c.staff?o.dept:pmWho(o))}</b><span>${c.staff?"Polaris Airways staff":"Polaris pilot"+(o.cs&&o.pilot?" · "+esc(o.cs):"")}</span></div></div>
+    <p class="pm-priv">${mlIco("lock")}<span>${note}</span></p>
+    <div class="pm-th">${bub}</div>
+    <div class="pm-reply"><textarea data-pmdraft="${esc(c.th)}" maxlength="4000" rows="2" placeholder="Reply to ${esc(who)}"${dis}>${esc(MAIL.draft[c.th]||"")}</textarea><button class="pm-sendb" data-pmreply="${esc(c.th)}" aria-label="Send reply" title="Send"${dis}>${mlIco("send")}</button></div>
+    <p class="pm-left">${esc(pmLeftTxt())}</p></article>`}
+function pmComposeHtml(){const c=MAIL.compose,depts=(MAIL.pm&&MAIL.pm.depts)||["Crew Management","Flight Operations","Training","Fleet"],left=pmLeft(),O=MAIL.online;
+  let pick;
+  if(c.to==="dept")pick=`<div class="pm-pick">${depts.map(d=>`<button data-pmdept="${esc(d)}" aria-pressed="${c.dept===d}">${esc(d)}</button>`).join("")}</div>`;
+  else{const L=(O&&O.list)||[];
+    pick=`<div class="pm-fl"><div class="pm-flh"><span>${O&&O.loading?"Looking for flights…":L.length?L.length+" Polaris flight"+(L.length>1?"s":"")+" online":"Online now"}</span><button class="pm-ib" data-pmonref aria-label="Refresh" title="Refresh"${O&&O.loading?" disabled":""}>${mlIco("refresh")}</button></div>
+      ${L.length?L.map(f=>`<button class="pm-fr" data-pmcs="${esc(f.cs)}" aria-pressed="${c.cs===f.cs}">${mlIco("plane")}<b>${esc(f.cs)}</b><span>${esc(f.dep||"····")} → ${esc(f.arr||"····")}${f.ac?" · "+esc(f.ac):""}</span><small>${esc(f.pilot||f.src||"")}</small></button>`).join(""):
+        `<p class="pm-fe">${O&&O.err?esc(O.err):O&&O.loading?"":"No other Polaris flights are online right now. You can write to a flight while it is online."}</p>`}</div>`}
+  const ready=!c.sending&&left!==0&&c.subject.trim()&&c.body.trim()&&(c.to==="dept"?c.dept:c.cs);
+  const anim=c.fresh?" pm-in":"";c.fresh=false;
+  return `<div class="pm-cmpw${anim}" role="dialog" aria-modal="true" aria-label="New message"><div class="pm-cmp">
+    <header><button class="pm-tx" data-pmcancel>Cancel</button><h3>New Message</h3><button class="pm-tx b" data-pmsendnew${ready?"":" disabled"}>${c.sending?"Sending…":"Send"}</button></header>
+    <div class="pm-fld"><span>To</span><div class="pm-sg"><button data-pmto="dept" aria-pressed="${c.to==="dept"}">Polaris staff</button><button data-pmto="flight" aria-pressed="${c.to==="flight"}">Online flight</button></div></div>
+    ${pick}
+    <label class="pm-fld"><span>Subject</span><input data-pmf="subject" maxlength="120" value="${esc(c.subject)}" autocomplete="off"></label>
+    <textarea class="pm-cb" data-pmf="body" maxlength="4000" placeholder="Message">${esc(c.body)}</textarea>
+    ${c.err?`<p class="pm-err">${esc(c.err)}</p>`:""}
+    <footer>${esc(pmLeftTxt()||"Up to 20 messages a day")}${c.to==="flight"?" · Messages between pilots are private: Polaris staff can’t read them.":" · Arrives in the Polaris staff inbox."}</footer></div></div>`}
+function pmOnline(){if(!vam.url)return;MAIL.online={...(MAIL.online||{}),loading:true,err:null};
+  fetch(vam.url.replace(/\/+$/,"")+"/api/efb/pm/online",{cache:"no-store"}).then(r=>r.json().then(j=>{if(!r.ok)throw new Error(j.error||"HTTP "+r.status);return j}))
+    .then(j=>{MAIL.online={list:j.flights||[],loading:false,err:j.error||null,at:Date.now()}},e=>{MAIL.online={list:[],loading:false,err:/fetch|network/i.test(e.message)?"Can’t reach the EFB server":e.message}})
+    .finally(()=>{if(MAIL.compose&&MAIL.compose.cs&&!(MAIL.online.list||[]).some(f=>f.cs===MAIL.compose.cs))MAIL.compose.cs="";if(cur==="mail")render()})}
+function pmAfterSend(j){if(!MAIL.pm)MAIL.pm={msgs:[],sent24:0,limit:20,nextAt:0};MAIL.pm.msgs.unshift(j.msg);MAIL.pm.sent24=j.sent24;MAIL.pm.nextAt=j.nextAt;mailMerge()}
+document.addEventListener("input",e=>{const t=e.target;if(cur!=="mail")return;
+  if(t.dataset&&t.dataset.pmf&&MAIL.compose){MAIL.compose[t.dataset.pmf]=t.value;MAIL.compose.err=null;const c=MAIL.compose,b=$("#view [data-pmsendnew]");if(b)b.disabled=!(!c.sending&&pmLeft()!==0&&c.subject.trim()&&c.body.trim()&&(c.to==="dept"?c.dept:c.cs))}
+  else if(t.dataset&&t.dataset.pmdraft!=null)MAIL.draft[t.dataset.pmdraft]=t.value});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&MAIL.compose&&cur==="mail"){MAIL.compose=null;render()}});
+document.addEventListener("click",async e=>{const t=e.target.closest("[data-pmnew],[data-pmcancel],[data-pmto],[data-pmdept],[data-pmcs],[data-pmonref],[data-pmsendnew],[data-pmreply]");if(!t||cur!=="mail")return;const d=t.dataset;
+  if(d.pmnew!=null){MAIL.compose={to:"dept",dept:"Flight Operations",cs:"",subject:"",body:"",err:null,sending:false,fresh:true};render();setTimeout(()=>{const i=$("#view [data-pmf=subject]");if(i)i.focus()},60);return}
+  const c=MAIL.compose;
+  if(d.pmcancel!=null){MAIL.compose=null;render();return}
+  if(d.pmto&&c){c.to=d.pmto;c.err=null;if(c.to==="flight"&&(!MAIL.online||Date.now()-(MAIL.online.at||0)>30000))pmOnline();render();return}
+  if(d.pmdept&&c){c.dept=d.pmdept;render();return}
+  if(d.pmcs&&c){c.cs=d.pmcs;render();return}
+  if(d.pmonref!=null){pmOnline();render();return}
+  if(d.pmsendnew!=null&&c){if(c.sending)return;c.sending=true;c.err=null;render();
+    try{const j=await pmPost("/api/efb/pm",{to:c.to==="dept"?{dept:c.dept}:{cs:c.cs},subject:c.subject,body:c.body});pmAfterSend(j);MAIL.compose=null;MAIL.box="sent";MAIL.sel="th:"+j.msg.th;toast("Message sent")}
+    catch(er){c.sending=false;c.err=/fetch|network/i.test(er.message)?"Can’t reach the EFB server. Your message wasn’t sent.":er.message;if(/no longer online/.test(er.message))pmOnline()}
+    render();return}
+  if(d.pmreply){const th=d.pmreply,body=(MAIL.draft[th]||"").trim(),row=(MAIL.list||[]).find(m=>m.id==="th:"+th);if(!body||!row||t.disabled)return;
+    t.disabled=true;const ta=$("#view [data-pmdraft]");if(ta)ta.disabled=true;
+    try{const j=await pmPost("/api/efb/pm",{replyTo:row.msgs[row.msgs.length-1].id,body});pmAfterSend(j);MAIL.draft[th]="";render();const r=$("#view .pm-read");if(r)r.scrollTop=r.scrollHeight}
+    catch(er){toast(/fetch|network/i.test(er.message)?"Can’t reach the EFB server. Your reply wasn’t sent.":er.message);t.disabled=false;if(ta){ta.disabled=false;ta.focus()}}}});
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* Mail: mailboxes | message list | reading pane. Three columns on a wide screen, two on a smaller iPad, one on a phone. */
 .pm3{display:grid;grid-template-columns:212px minmax(300px,360px) minmax(0,1fr);height:100%;min-height:0;background:var(--bg)}
@@ -5581,23 +5669,62 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .pm-col{border-right:0}.pm-list{overflow:visible}.pm-read{overflow:visible}
   .pm3.has-sel .pm-col,.pm3:not(.has-sel) .pm-read{display:none}.pm-back{display:inline-flex}
   .pm-mail{padding-top:20px}}
+/* writing: New Message button, conversation bubbles, reply bar, compose sheet */
+.pm3{position:relative}
+.pm-newp{padding:0 10px 10px}.pm-new{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 12px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:600 14.5px var(--f-ui);cursor:pointer}.pm-new svg{width:18px;height:18px}
+.pm-chb{display:flex;gap:2px}.pm-cmpb{display:none}
+.pm-to.pm-cv{background:#A78970}.pm-to.pm-cv.p{background:#3F7FA0}
+.pm-priv{display:flex;gap:9px;align-items:flex-start;margin:16px 0 4px;padding:10px 12px;border-radius:10px;background:var(--panel-2);color:var(--label);font-size:12.5px;line-height:1.45}.pm-priv svg{width:15px;height:15px;flex:none;margin-top:1px}
+.pm-th{display:flex;flex-direction:column;gap:4px;padding:14px 0 6px}
+.pm-bt{align-self:center;font:500 11.5px var(--f-ui);color:var(--label);margin:12px 0 4px}
+.pm-bb{max-width:78%;align-self:flex-start;padding:9px 14px;border-radius:18px;background:color-mix(in srgb,var(--ink) 9%,var(--bg));color:var(--ink);font-size:15px;line-height:1.45}
+.pm-bb p{margin:0;white-space:pre-wrap;word-break:break-word}.pm-bb a{color:inherit;text-decoration:underline}
+.pm-bb.me{align-self:flex-end;background:var(--ios-tint,#0A84FF);color:#fff}
+.pm-reply{position:sticky;bottom:0;display:flex;gap:8px;align-items:flex-end;margin-top:14px;padding:10px 0;background:var(--bg)}
+.pm-reply textarea{flex:1;min-height:38px;max-height:180px;resize:vertical;padding:9px 14px;border:1px solid var(--line);border-radius:19px;background:var(--panel);color:var(--ink);font:15px/1.4 var(--f-ui);box-sizing:border-box}
+.pm-reply textarea:focus{outline:none;border-color:var(--ios-tint,#0A84FF)}
+.pm-sendb{width:36px;height:36px;flex:none;border:0;border-radius:50%;background:var(--ios-tint,#0A84FF);color:#fff;display:grid;place-items:center;cursor:pointer;margin-bottom:1px}.pm-sendb svg{width:20px;height:20px;stroke-width:2.4}.pm-sendb:disabled{opacity:.35;cursor:default}
+.pm-left{margin:2px 0 0;font-size:11.5px;color:var(--label);text-align:right}
+.pm-cmpw{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.32)}.pm-cmpw.pm-in{animation:pmFade .2s ease-out}
+.pm-cmp{width:min(640px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;box-shadow:0 24px 70px -20px rgba(0,0,0,.6)}.pm-in .pm-cmp{animation:pmUpIn .32s cubic-bezier(.2,.9,.3,1)}
+@keyframes pmFade{from{opacity:0}}@keyframes pmUpIn{from{transform:translateY(40px);opacity:0}}
+.pm-cmp header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}.pm-cmp header h3{margin:0;font:600 16px var(--f-ui);color:var(--ink)}
+.pm-tx{justify-self:start;border:0;background:none;color:var(--ios-tint,#0A84FF);font:400 16px var(--f-ui);cursor:pointer;padding:6px 4px}.pm-tx.b{justify-self:end;font-weight:600}.pm-tx:disabled{opacity:.35;cursor:default}
+.pm-fld{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);margin:0}.pm-fld>span{color:var(--label);font-size:15px;min-width:58px}
+.pm-fld input{flex:1;border:0;background:transparent;color:var(--ink);font:15px var(--f-ui);padding:4px 0;outline:none}
+.pm-sg{display:flex;gap:2px;padding:2px;border-radius:9px;background:var(--panel-2)}.pm-sg button{border:0;border-radius:7px;padding:6px 12px;background:transparent;color:var(--label);font:500 13.5px var(--f-ui);cursor:pointer}.pm-sg [aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.pm-pick{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.pm-pick button{border:1px solid var(--line);border-radius:16px;padding:6px 13px;background:var(--panel);color:var(--ink);font:500 13.5px var(--f-ui);cursor:pointer}.pm-pick [aria-pressed="true"]{background:var(--ios-tint,#0A84FF);border-color:var(--ios-tint,#0A84FF);color:#fff}
+.pm-fl{border-bottom:1px solid var(--line);max-height:236px;overflow:auto}.pm-flh{display:flex;justify-content:space-between;align-items:center;padding:6px 10px 2px 16px;font-size:12px;color:var(--label);text-transform:uppercase;letter-spacing:.06em}
+.pm-fr{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;align-items:center;width:100%;padding:9px 16px;border:0;background:transparent;color:var(--ink);font:14px var(--f-ui);text-align:left;cursor:pointer}.pm-fr svg{width:16px;height:16px;color:var(--label)}
+.pm-fr b{font:600 14px var(--f-mono)}.pm-fr span{color:var(--label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-fr small{font:500 12px var(--f-mono);color:var(--label)}
+.pm-fr[aria-pressed="true"]{background:color-mix(in srgb,var(--ios-tint,#0A84FF) 14%,transparent)}.pm-fr[aria-pressed="true"] svg{color:var(--ios-tint,#0A84FF)}
+.pm-fe{margin:0;padding:14px 16px 16px;color:var(--label);font-size:13.5px}
+.pm-cb{min-height:220px;border:0;background:transparent;color:var(--ink);font:15.5px/1.55 var(--f-ui);padding:14px 16px;resize:vertical;outline:none}
+.pm-err{margin:0 16px 10px;padding:9px 12px;border-radius:9px;background:color-mix(in srgb,#FF3B30 14%,transparent);color:#FF453A;font-size:13.5px}
+.pm-cmp footer{padding:10px 16px 14px;color:var(--label);font-size:12px;border-top:1px solid var(--line)}
+@media (prefers-reduced-motion:reduce){.pm-cmpw,.pm-cmp{animation:none}}
+@container screen (max-width:1000px){.pm-cmpb{display:inline-flex}}
+@container screen (max-width:760px){.pm-cmpw{padding:0;place-items:stretch}.pm-cmp{border-radius:0;width:100%;height:100%;max-height:none}.pm-bb{max-width:86%}}
 </style>`);
 
 /* ===== New-mail alert in the Dynamic Island ===== */
 /* "mailSeen" holds the ids already announced. The first run only records them, so old notices don't pop up;
    while the EFB is in the background nothing is marked, and the alert plays when the pilot comes back. */
 function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
-  const seen=store.get("mailSeen",null);store.set("mailSeen",L.map(m=>m.id));if(!Array.isArray(seen))return;
-  const s=new Set(seen),rd=mailSet("mailRead"),tr=mailSet("mailTrash");
-  const nw=L.filter(m=>!s.has(m.id)&&!rd.has(m.id)&&!tr.has(m.id)).sort((a,b)=>b.t-a.t);
+  const key=m=>m.conv?m.nk:m.id,keys=L.map(key).filter(Boolean);
+  const seen=store.get("mailSeen",null);store.set("mailSeen",keys);if(!Array.isArray(seen))return;
+  /* conversations are new to this device only once the messages were loaded here (seen before = old) */
+  const s=new Set(seen),rd=mailSet("mailRead"),tr=mailSet("mailTrash"),hadPm=seen.some(k=>/^pm:/.test(k))||store.get("pmSeenOk",false);if(MAIL.pm)store.set("pmSeenOk",true);
+  const nw=L.filter(m=>key(m)&&!s.has(key(m))&&!rd.has(m.id)&&!tr.has(m.id)&&(!m.conv||hadPm)).sort((a,b)=>b.t-a.t);
   if(!nw.length)return;renderHome();
   if(cur==="mail"&&!MAIL.sel)return;/* already looking at the inbox */
   const m=nw[0],more=nw.length-1;
-  const open=()=>{MAIL.box="inbox";MAIL.sel=more?null:m.id;if(!more){const r=mailSet("mailRead");r.add(m.id);mailSave("mailRead",r)}goApp("mail");if(cur==="mail")render()};
+  const open=()=>{MAIL.box="inbox";MAIL.sel=more?null:m.id;if(!more){const r=mailSet("mailRead");r.add(m.id);mailSave("mailRead",r);if(m.conv)pmMark(m,true)}goApp("mail");if(cur==="mail")render()};
   const nt=typeof notiGet==="function"?notiGet():{mail:true};if(!nt.mail)return;if(typeof dndActive==="function"&&dndActive()){dndHold(nw);return}if(nt.sound)try{stChime()}catch(e){}
   if(window.__islOn&&window.__islOn()&&window.islAlert){
     const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
-    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.body).slice(0,90),ms:7000,tap:open});
+    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.conv||m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.conv?m.msgs[m.msgs.length-1].body:m.body).slice(0,90),ms:7000,tap:open});
     const pill=document.querySelector("#isl .isl");if(pill){pill.classList.remove("pm-n");void pill.offsetWidth;pill.classList.add("pm-n");clearTimeout(mailNotify._t);mailNotify._t=setTimeout(()=>pill.classList.remove("pm-n"),7200)}
     try{navigator.vibrate&&navigator.vibrate([30,60,30])}catch(e){}
   }else toast((more?nw.length+" new messages · ":"New mail · ")+m.subject)}
@@ -5629,7 +5756,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 15, 2026",["Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 15, 2026",["Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -6090,7 +6217,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);

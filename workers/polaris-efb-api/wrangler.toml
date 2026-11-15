@@ -18,6 +18,16 @@ binding = "STORE"
 id = "f07c7d20558c4ecf84df98ddb5ea235a"
 
 # 每 20 分鐘檢查一次美國大型機場的資料，缺的或超過 25 天的才重抓（每次最多 3 座）
+# Pilots' messages (to a department or an online flight): one Durable Object with its own SQLite database (see src/pm.js).
+# Works on the Workers Free plan; wrangler creates it on the next deploy.
+[[durable_objects.bindings]]
+name = "PM"
+class_name = "Mailbox"
+
+[[migrations]]
+tag = "pm-v1"
+new_sqlite_classes = ["Mailbox"]
+
 [triggers]
 crons = ["*/20 * * * *"]
 

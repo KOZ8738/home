@@ -57,13 +57,19 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <ul>
   <li>To confirm that you are a Polaris Airways pilot and keep you signed in</li>
   <li>To show your own vAMSYS profile, bookings and logbook in the EFB</li>
-  <li>To deliver Polaris Mail messages that staff address to you</li>
+  <li>To deliver Polaris Mail messages that staff address to you, and the messages you write to a department or another pilot</li>
   <li>To let Polaris staff see which pilots use the EFB and sign a device out if needed</li>
  </ul>
  <p>We do not sell or share this information, use it for advertising, or combine it with other sources.</p>
 </section>
 <section id="mail"><h2>Polaris Mail</h2>
- <p>Notices from Polaris staff are stored on the EFB server. Messages to all pilots can be read by every signed-in pilot; a message addressed to you is shown only to you. Which messages you have read or moved to Trash is kept on your device only.</p>
+ <p>Notices from Polaris staff are stored on the EFB server. Messages to all pilots can be read by every signed-in pilot; a message addressed to you is shown only to you. Which notices you have read or moved to Trash is kept on your device only.</p>
+ <p>You can also write messages in the EFB, to two kinds of recipient only:</p>
+ <ul>
+  <li><strong>A Polaris department</strong> (Crew Management, Flight Operations, Training, Fleet). The message, your pilot ID and your name go to the Polaris staff inbox, where staff read and answer it.</li>
+  <li><strong>A Polaris flight that is online</strong> at that moment. The message goes to that flight's pilot, who sees your pilot ID and name. Messages between pilots are <strong>private</strong>: the Polaris admin does not show them, and staff cannot read them there.</li>
+ </ul>
+ <p>Messages you send or receive are stored on the EFB server (a Cloudflare Durable Object) so they reach the other side and appear on all your devices, together with whether you have read them. You can send at most 20 messages in any 24 hours. A VATSIM CID is used only to deliver a message to a flight that is seen on VATSIM and is never shown to other pilots.</p>
 </section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
@@ -89,7 +95,7 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  </ul>
 </section>
 <section id="retention"><h2>How long we keep it</h2>
- <p>A sign-in lasts 30 days and is deleted when it expires or when you sign out. Your pilot record is kept while you fly for Polaris Airways and is deleted within 30 days after you leave, or sooner if you ask.</p>
+ <p>A sign-in lasts 30 days and is deleted when it expires or when you sign out. Your pilot record is kept while you fly for Polaris Airways and is deleted within 30 days after you leave, or sooner if you ask. Messages you write or receive are kept while you fly for Polaris Airways; ask Polaris staff to delete them, together with your record, when you leave.</p>
 </section>
 <section id="choices"><h2>Your choices</h2>
  <ul>

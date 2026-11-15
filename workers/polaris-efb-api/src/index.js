@@ -19,6 +19,7 @@
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
+ *   GET/POST /api/efb/pm, /api/efb/pm/online, /api/efb/pm/state -> pilots' messages to a department or an online flight (see pm.js)
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
@@ -32,6 +33,8 @@ import { siteRoute, siteLive } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
+import { pmPublic } from './pm.js';
+export { Mailbox } from './pm.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1169,13 +1172,19 @@ export default {
     const h = cors(req, env);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: h });
     if (new URL(req.url).pathname.replace(/\/+$/, '') === '/api/efb/ovgeo' && (req.method === 'GET' || req.method === 'POST')) { try { return await ovgeoRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
-    /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
-    { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: async () => {
-      /* vAMSYS (ACARS) first, then PAW flights seen only on VATSIM; either source may be down */
+    /* Polaris flights online now: vAMSYS (ACARS) first, then PAW flights seen only on VATSIM; either source may be down */
+    const pawLive = async () => {
       const [vs, va] = await Promise.all([vatsimFeed(ctx).catch(() => null), siteDeps.configured ? siteLive(siteDeps).catch(() => null) : Promise.resolve(null)]);
       if (!vs && !va) throw new Error('neither vAMSYS nor VATSIM answered');
       return liveFlights(vs, va);
-    }, pilots: async () => {
+    };
+    /* pilots' messages (see pm.js) */
+    if (/^\/api\/efb\/pm(\/(online|state))?\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env);
+      return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
+    }
+    /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
+    { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {
       /* the vAMSYS roster with who has signed in to the EFB */
       const [inEfb, roster, rk] = await Promise.all([signedInPilots(env), siteDeps.configured ? cached('roster', 300_000, () => all(env, '/pilots')).catch(() => null) : null, siteDeps.configured ? ranks(env).catch(() => new Map()) : new Map()]);
       const by = new Map(inEfb.map((p) => [p.u, p])), out = [];

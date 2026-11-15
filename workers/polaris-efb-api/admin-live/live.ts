@@ -264,15 +264,16 @@ function render(): void {
 }
 
 /* ---------- tabs ---------- */
-function currentTab(): 'mail' | 'live' | 'pilots' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : 'mail'; }
+function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : 'mail'; }
 function showTab(): void {
   if (document.querySelector('.deny')) return;
   const t = currentTab();
   document.querySelectorAll<HTMLElement>('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === t)));
-  const mail = $('#app'), live = $('#live'), pilots = $('#pilots');
+  const mail = $('#app'), live = $('#live'), pilots = $('#pilots'), inbox = $('#inbox');
   if (mail) mail.hidden = t !== 'mail';
   if (live) live.hidden = t !== 'live';
   if (pilots) pilots.hidden = t !== 'pilots';
+  if (inbox) inbox.hidden = t !== 'inbox';
   document.body.classList.toggle('on-live', t === 'live');
   if (t === 'live') {
     if (!S.globe) {

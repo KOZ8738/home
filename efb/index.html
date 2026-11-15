@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="efb-build" content="1115.1322">
+<meta name="efb-build" content="1115.1325">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6298,6 +6298,73 @@ if(navigator.standalone===true||matchMedia("(display-mode: standalone)").matches
 queueMicrotask(()=>{authApply();
   if(!authOn()){if(AUTH.tok)authForget();authShow()}
   else{if(!AUTH.fresh)lockNow();setTimeout(authVerify,AUTH.fresh?0:1200);if(AUTH.fresh)setTimeout(()=>{try{mailLoad(true)}catch(e){}},300)}});
+
+/* ===== iOS 18 look for Settings and the sign-in card =====
+   Settings follows the iPadOS 18 Settings app: system grouped backgrounds (#F2F2F7 / black), white or #1C1C1E inset
+   groups with 10 pt corners, 44 pt rows, hairline separators that start after the icon, the system blue tint for the
+   selected sidebar row, links and checkmarks, a centred icon + title card at the top of each page, and SF text sizes
+   (17 pt body, 13 pt footnotes and section headers). The sign-in card is an iOS 18 sign-in sheet on material. */
+document.head.insertAdjacentHTML("beforeend",`<style>
+:root{--ios-bg:#F2F2F7;--ios-grp:#FFFFFF;--ios-grp2:#E5E5EA;--ios-sep:rgba(60,60,67,.29);--ios-lbl2:rgba(60,60,67,.6);--ios-lbl3:rgba(60,60,67,.3);--ios-tint:#007AFF;--ios-red:#FF3B30;--ios-fill:rgba(118,118,128,.12);--ios-sw-off:rgba(120,120,128,.16)}
+:root[data-theme="dark"]{--ios-bg:#000000;--ios-grp:#1C1C1E;--ios-grp2:#2C2C2E;--ios-sep:rgba(84,84,88,.65);--ios-lbl2:rgba(235,235,245,.6);--ios-lbl3:rgba(235,235,245,.3);--ios-tint:#0A84FF;--ios-red:#FF453A;--ios-fill:rgba(118,118,128,.24);--ios-sw-off:rgba(120,120,128,.32)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ios-bg:#000000;--ios-grp:#1C1C1E;--ios-grp2:#2C2C2E;--ios-sep:rgba(84,84,88,.65);--ios-lbl2:rgba(235,235,245,.6);--ios-lbl3:rgba(235,235,245,.3);--ios-tint:#0A84FF;--ios-red:#FF453A;--ios-fill:rgba(118,118,128,.24);--ios-sw-off:rgba(120,120,128,.32)}}
+
+/* ---- Settings ---- */
+.screen[data-app="prefs"] main,.screen[data-app="prefs"] .split.st,.split.st .detail{background:var(--ios-bg)}
+.split.st{font-family:var(--f-os);-webkit-font-smoothing:antialiased}
+.split.st .side{background:var(--ios-bg);border-right:.5px solid var(--ios-sep);padding:10px 0 24px}
+.split.st .detail>.dwrap{max-width:720px;padding-top:6px}
+.st-side{gap:20px;padding:0 16px}
+.st-search{height:36px;border-radius:10px;background:var(--ios-fill);color:var(--ios-lbl2);padding:0 8px;gap:6px}
+.st-search input{font:400 17px var(--f-os)}.st-search input::placeholder{color:var(--ios-lbl2)}
+/* profile card: its own inset group, like the Apple Account row */
+.st-me{background:var(--ios-grp);border-radius:10px;padding:10px 14px;gap:14px}.st-me:hover{background:var(--ios-grp)}
+.st-av{width:60px;height:60px;font:500 24px var(--f-os);background:linear-gradient(180deg,#A5A5AA,#86868B)}
+.st-me b{font:600 20px/1.2 var(--f-os);letter-spacing:-.01em}.st-me small{font:400 13px/1.3 var(--f-os);color:var(--ios-lbl2)}
+.st-ng{background:var(--ios-grp);border-radius:10px}
+.st-n{min-height:44px;padding:6px 14px 6px 12px;gap:12px;font:400 17px var(--f-os);letter-spacing:-.02em}
+.st-n+.st-n::after{left:54px;height:.5px;background:var(--ios-sep)}
+.st-n em{font:400 17px var(--f-os);color:var(--ios-lbl2)}
+button.st-n:hover{background:var(--ios-grp2)}
+button.st-n[aria-pressed="true"]{background:var(--ios-tint);color:#fff;border-radius:0}
+.st-ng>button.st-n[aria-pressed="true"]:first-child{border-radius:10px 10px 0 0}.st-ng>button.st-n[aria-pressed="true"]:last-child{border-radius:0 0 10px 10px}.st-ng>button.st-n[aria-pressed="true"]:only-child{border-radius:10px}
+.st-ic{width:29px;height:29px;border-radius:7px}.st-ic svg{width:18px;height:18px}
+.st-bd{background:var(--ios-red);font:400 15px var(--f-os);min-width:24px;height:24px;border-radius:12px}
+/* detail: centred icon + title card, then inset groups */
+.st-hero{background:var(--ios-grp);border-radius:10px;padding:22px 24px 20px;margin:4px 0 30px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.st-hero .st-ic{width:60px;height:60px;border-radius:14px}.st-hero .st-ic svg{width:34px;height:34px}
+.st-hero h2{margin:12px 0 6px;font:700 22px/1.2 var(--f-os);letter-spacing:-.01em}.st-hero p{font:400 15px/1.4 var(--f-os);color:var(--ios-lbl2);max-width:460px}
+.st-gh{margin:0 0 7px 16px;font:400 13px var(--f-os);letter-spacing:0;color:var(--ios-lbl2)}
+.st-g{background:var(--ios-grp);border-radius:10px;margin-bottom:7px}
+.st-gf{margin:0 16px 30px;font:400 13px/1.35 var(--f-os);color:var(--ios-lbl2)}
+.st-g+.st-gh,.st-g+.st-g{margin-top:30px}
+.st-r{min-height:44px;padding:8px 16px;gap:12px;font:400 17px var(--f-os);letter-spacing:-.02em}
+.st-r+.st-r::before{left:16px;height:.5px;background:var(--ios-sep)}
+.st-r:has(>.st-ic)+.st-r::before,.st-r+.st-r:has(>.st-ic)::before{left:57px}
+.st-l small{font:400 13px/1.3 var(--f-os);color:var(--ios-lbl2)}
+.st-v{font:400 17px var(--f-os);color:var(--ios-lbl2)}
+.st-pick:hover,.st-act:hover{background:var(--ios-grp2)}
+.st-pick svg{color:var(--ios-tint);width:18px;height:18px;stroke-width:2.6}
+.st-act{color:var(--ios-tint);font-weight:400}.st-act.red,.st-tb.red,.st-dot.r{color:var(--ios-red)}
+.st-tb,.st-back{color:var(--ios-tint);font-family:var(--f-os)}
+.st-g .st-in input{font:400 17px var(--f-os);color:var(--ios-lbl2)}
+.st-sw{background:var(--ios-sw-off)}
+.st-sw[aria-checked="true"]{background:#34C759}
+
+/* ---- sign-in card: an iOS 18 sign-in sheet ---- */
+#auth .au-card{width:min(440px,calc(100vw - 32px));box-sizing:border-box;padding:34px 28px 24px;border-radius:28px;
+  background:rgba(30,32,36,.62);border:.5px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(40px) saturate(1.6);backdrop-filter:blur(40px) saturate(1.6);
+  box-shadow:0 30px 80px rgba(0,0,0,.45);font-family:var(--f-os);text-align:center}
+#auth .au-star{width:64px;height:64px;border-radius:15px;margin-bottom:18px}
+#auth .au-card h1{font:700 28px/1.15 var(--f-os);letter-spacing:-.02em;margin-bottom:8px}
+#auth .au-sub{font:400 15px/1.35 var(--f-os);color:rgba(235,235,245,.6);margin-bottom:26px}
+#auth .au-go{border-radius:14px;padding:0;height:50px;background:#0A84FF;color:#fff;font:600 17px var(--f-os);letter-spacing:-.02em;box-shadow:none}
+#auth .au-go:active{background:#0071E3;transform:none}
+#auth .au-note{font:400 13px/1.35 var(--f-os);color:rgba(235,235,245,.6);margin:14px 4px 12px}
+#auth .au-link{font:400 15px var(--f-os);color:#0A84FF;text-decoration:none}
+#auth .au-msg{background:rgba(118,118,128,.24);border-radius:12px;font:400 15px/1.35 var(--f-os)}
+#auth .au-go[data-auth="cancel"]{background:rgba(118,118,128,.24);color:#0A84FF}
+</style>`);
 
 /* ---------- Airport layouts (OpenStreetMap, through the EFB server) — drawn on the Map when zoomed in ---------- */
 const TX={data:{},loading:{},err:{},fly:null};const TXB=[];

@@ -578,7 +578,7 @@ function cors(req, env) {
   const origin = req.headers.get('Origin') || '';
   const allowed = String(env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()).filter(Boolean);
   const ok = allowed.includes('*') || allowed.includes(origin);
-  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept, If-None-Match, Authorization', 'Access-Control-Max-Age': '86400', 'Access-Control-Expose-Headers': 'ETag', Vary: 'Origin' };
+  return { 'Access-Control-Allow-Origin': ok ? (allowed.includes('*') ? '*' : origin) : 'null', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Accept, If-None-Match, Authorization, Content-Type', 'Access-Control-Max-Age': '86400', 'Access-Control-Expose-Headers': 'ETag', Vary: 'Origin' };
 }
 const json = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 

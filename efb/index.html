@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.1237">
+<meta name="efb-build" content="1116.1247">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5898,7 +5898,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7900,7 +7900,7 @@ function kbTouch(p){p.upd=Math.max(Date.now(),(p.upd||0)+1);p.dirty=true;p.rej="
 let kbSyncT=0;function kbSyncSoon(ms){clearTimeout(kbSyncT);kbSyncT=setTimeout(kbSync,ms||2000)}
 
 /* ---------- the server ---------- */
-const kbWire=p=>({id:p.id,upd:p.upd,del:!!p.del,data:p.del?null:{tpl:p.tpl,title:p.title||"",fl:p.fl||"",fln:p.fln||"",created:p.created,h:p.h||0,fields:p.fields||{},ink:p.ink||[],rows:p.rows||null}});
+const kbWire=p=>({id:p.id,upd:p.upd,del:!!p.del,data:p.del?null:{tpl:p.tpl,title:p.title||"",fl:p.fl||"",fln:p.fln||"",created:p.created,h:p.h||0,fields:p.fields||{},ink:p.ink||[],rows:p.rows||null,star:!!p.star}});
 async function kbFetch(method,body,q){const r=await fetch(authSrv()+"/api/efb/kb"+(q||""),method==="GET"?{}:{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);return j}
 const KB_WHY={pages:"You have 300 pages, the most the server keeps. Delete some to sync new ones.",space:"Your kneeboard is full on the server (20 MB). Delete some pages to sync new ones.","too big":"A page is too big to sync. Clear some of its handwriting.",clock:"This device’s clock looks wrong, so a page couldn’t sync."};
@@ -8057,11 +8057,54 @@ const kbWhen=t=>{const d=new Date(t),n=new Date();return d.toDateString()===n.to
 function kbList(){const me=kbMe(),q=KB.q.trim().toLowerCase(),fl=ofp._sample?null:O().id;
   let L=[...KB.pages.values()].filter(kbMine).sort((a,b)=>b.upd-a.upd);
   if(q)L=L.filter(p=>(kbTitle(p)+" "+(p.fln||"")+" "+Object.values(p.fields||{}).join(" ")).toLowerCase().includes(q));
-  const now=L.filter(p=>fl&&p.fl===fl),old=L.filter(p=>!(fl&&p.fl===fl));
-  let ri=0;const row=p=>`<button class="kb-row${KB.sel===p.id?" on":""}" data-kbopen="${p.id}" style="--i:${Math.min(ri++,12)}"><span class="kb-ri k-${p.tpl}">${kbG(p.tpl)}</span><span class="kb-rt"><b>${esc(kbTitle(p))}</b><small>${esc([p.fln,kbWhen(p.upd)].filter(Boolean).join(" · "))}${p.dirty&&me?' <i class="kb-pend" title="Waiting to sync"></i>':""}</small></span></button>`;
+  const st=L.filter(p=>p.star),rest=L.filter(p=>!p.star),now=rest.filter(p=>fl&&p.fl===fl),old=rest.filter(p=>!(fl&&p.fl===fl));
+  let ri=0;const row=p=>`<div class="kb-swr" data-swid="${p.id}" style="--i:${Math.min(ri++,12)}"><div class="kb-act l" aria-hidden="true"><span>${KB_STAR}</span></div><div class="kb-act r"><button class="kb-actb" data-kbswdel="${p.id}" tabindex="-1"><span>${KB_TRASH}</span>Delete</button></div>
+    <button class="kb-row${KB.sel===p.id?" on":""}" data-kbopen="${p.id}" aria-label="${esc(kbTitle(p))}${p.star?", starred":""}"><span class="kb-ri k-${p.tpl}">${kbG(p.tpl)}</span><span class="kb-rt"><b>${esc(kbTitle(p))}</b><small>${p.star?'<i class="kb-star">'+KB_STAR+'</i>':""}${esc([p.fln,kbWhen(p.upd)].filter(Boolean).join(" · "))}${p.dirty&&me?' <i class="kb-pend" title="Waiting to sync"></i>':""}</small></span></button></div>`;
   const sec=(t,a)=>a.length?`<div class="kb-sec">${t}</div>${a.map(row).join("")}`:"";
   if(!L.length)return `<div class="kb-empty">${q?"No pages match.":`<b>No pages yet</b><span>Tap + to start a page for this flight.</span>`}</div>`;
-  return sec(fl?"This flight · "+esc(O().flight):"",now)+sec(now.length?"Earlier":"Pages",old)}
+  return sec("Starred",st)+sec(fl?"This flight · "+esc(O().flight):"",now)+sec(now.length||st.length?"Earlier":"Pages",old)}
+const KB_STAR='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></svg>';
+const KB_TRASH='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13M10 10v6.5M14 10v6.5"/></svg>';
+/* the list redrawn with rows gliding to their new places (and new rows fading in) */
+function kbListFlip(){const l=document.getElementById("kbList");if(!l)return;const old={},hs=new Set([...l.querySelectorAll(".kb-sec")].map(h=>h.textContent));l.querySelectorAll(".kb-swr").forEach(r=>{old[r.dataset.swid]=r.getBoundingClientRect().top});
+  l.innerHTML=kbList();if(reduced())return;l.querySelectorAll(".kb-swr").forEach(r=>{const o=old[r.dataset.swid],n=r.getBoundingClientRect().top;
+    if(o==null){r.animate([{opacity:0,transform:"scale(.96)"},{opacity:1,transform:"none"}],{duration:300,easing:"cubic-bezier(.2,.8,.2,1)"});return}
+    if(Math.abs(o-n)>1)r.animate([{transform:`translateY(${o-n}px)`},{transform:"none"}],{duration:380,easing:"cubic-bezier(.2,.9,.25,1.05)"})});
+  l.querySelectorAll(".kb-sec").forEach(h=>{if(!hs.has(h.textContent))h.animate([{opacity:0,transform:"translateY(-4px)"},{opacity:1,transform:"none"}],{duration:300})})}
+/* ---------- swipe a row: left to delete, right to star ---------- */
+const KBSW={d:null,open:null};
+function kbSwClose(except){const o=KBSW.open;if(!o||o===except)return;KBSW.open=null;const r=o.querySelector(".kb-row");if(r){r.style.transition="transform .32s cubic-bezier(.2,.9,.25,1)";r.style.transform=""}o.classList.remove("open-r")}
+function kbSwDelete(w){const id=w.dataset.swid,p=KB.pages.get(id);if(!p)return;const r=w.querySelector(".kb-row"),h=w.offsetHeight;KBSW.open=null;
+  const finish=()=>{p.del=true;p.ink=[];p.fields={};kbTouch(p);kbSyncSoon(500);toast("Page deleted");if(KB.sel===id){KB.sel=null;KB.fx="";render()}else kbListFlip()};
+  if(reduced()){finish();return}
+  r.style.transition="transform .22s cubic-bezier(.4,0,1,1)";r.style.transform="translateX(-105%)";w.classList.add("going");
+  setTimeout(()=>{w.style.height=h+"px";void w.offsetHeight;w.style.transition="height .24s cubic-bezier(.4,0,.2,1),opacity .24s,margin .24s";w.style.height="0px";w.style.opacity="0";w.style.margin="0"},200);
+  setTimeout(finish,460)}
+function kbSwStar(w){const id=w.dataset.swid,p=KB.pages.get(id);if(!p)return;p.star=!p.star;kbTouch(p);try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}
+  toast(p.star?"Starred":"Star removed");setTimeout(kbListFlip,reduced()?0:330)}
+document.addEventListener("pointerdown",e=>{const r=e.target.closest&&e.target.closest(".kb-swr .kb-row");if(cur!=="kneeboard"||e.button>0)return;
+  if(!r){if(KBSW.open&&!(e.target.closest&&e.target.closest(".kb-actb")))kbSwClose();return}const w=r.parentNode;if(KBSW.open&&KBSW.open!==w)kbSwClose();
+  KBSW.d={w,r,id:e.pointerId,x:e.clientX,y:e.clientY,base:w.classList.contains("open-r")?-92:0,dx:0,on:false,t:performance.now(),armed:0}});
+document.addEventListener("pointermove",e=>{const d=KBSW.d;if(!d||e.pointerId!==d.id)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;
+  if(!d.on){if(Math.abs(dx)<9||Math.abs(dx)<Math.abs(dy)*1.3){if(Math.abs(dy)>12)KBSW.d=null;return}d.on=true;d.r.style.transition="none";try{d.r.setPointerCapture(e.pointerId)}catch(_){}d.w.classList.add("swiping")}
+  e.preventDefault();const W=d.w.offsetWidth;let x=d.base+dx;
+  /* a little resistance past the ends, like iOS */
+  if(x>0)x=x<W*.5?x:W*.5+(x-W*.5)*.25;if(x<-W)x=-W-(-W-x)*.25;
+  d.dx=x;d.r.style.transform=`translateX(${x}px)`;d.w.style.setProperty("--p",Math.min(1,Math.abs(x)/90).toFixed(3));
+  d.w.classList.toggle("dir-l",x>0);d.w.classList.toggle("dir-r",x<0);
+  const arm=x>78?1:x<-W*.5?-1:0;if(arm!==d.armed){d.armed=arm;d.w.classList.toggle("armed",!!arm);if(arm)try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}}},{passive:false});
+function kbSwEnd(e){const d=KBSW.d;if(!d||e.pointerId!==d.id)return;KBSW.d=null;if(!d.on)return;d.w.classList.remove("swiping","armed");
+  const x=d.dx,v=(x-d.base)/Math.max(1,performance.now()-d.t),W=d.w.offsetWidth;d.w._noClick=performance.now();
+  d.r.style.transition="transform .38s cubic-bezier(.2,1.25,.35,1)";
+  if(x<-W*.5||(x<-60&&v<-1.1)){kbSwDelete(d.w);return}
+  if(x>78){d.r.style.transform="";d.w.classList.add("starred-now");setTimeout(()=>d.w.classList.remove("starred-now"),600);kbSwStar(d.w);return}
+  if(x<-46){d.r.style.transition="transform .32s cubic-bezier(.2,1.1,.35,1)";d.r.style.transform="translateX(-92px)";d.w.classList.add("open-r");KBSW.open=d.w;return}
+  d.r.style.transform="";d.w.classList.remove("open-r");if(KBSW.open===d.w)KBSW.open=null}
+document.addEventListener("pointerup",kbSwEnd);document.addEventListener("pointercancel",kbSwEnd);
+/* a swipe is not a tap */
+document.addEventListener("click",e=>{const w=e.target.closest&&e.target.closest(".kb-swr");if(!w||cur!=="kneeboard")return;
+  if(e.target.closest(".kb-actb")){e.stopImmediatePropagation();e.preventDefault();kbSwDelete(w);return}
+  if((w._noClick&&performance.now()-w._noClick<350)||w.classList.contains("open-r")){e.stopImmediatePropagation();e.preventDefault();if(w.classList.contains("open-r")&&!(w._noClick&&performance.now()-w._noClick<350))kbSwClose()}},true);
 function kbSide(){const n=[...KB.pages.values()].filter(kbMine).length;
   return `<aside class="kb-side"><div class="kb-sh"><h2>Kneeboard</h2><button class="kb-gl" data-kbnew aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
     <div class="kb-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input type="search" data-kbq placeholder="Search" value="${esc(KB.q)}" autocomplete="off"></div>
@@ -8214,6 +8257,24 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-ri svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .k-lined{background:#8E8E93}.k-grid{background:#636366}.k-craft{background:#0A84FF}.k-atis{background:#30B0C7}.k-told{background:#34C759}.k-hold{background:#AF52DE}.k-fuel{background:#FF9500}.k-pirep{background:#5856D6}
 .kb-rt{min-width:0;display:flex;flex-direction:column}.kb-rt b{font:600 16px var(--f-os);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kb-rt small{font:400 13px var(--f-os);color:var(--ios-lbl2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-swr{position:relative;border-radius:11px;overflow:hidden;margin:1px 0;isolation:isolate}
+.kb-swr .kb-row{position:relative;z-index:1;background:var(--ios-bg);touch-action:pan-y;will-change:transform}
+.kb-swr .kb-row.on{background:var(--ios-tint)}
+.kb-act{position:absolute;inset:0;display:flex;align-items:center;opacity:0}
+.kb-swr.dir-l .kb-act.l,.kb-swr.dir-r .kb-act.r,.kb-swr.open-r .kb-act.r,.kb-swr.going .kb-act.r,.kb-swr.starred-now .kb-act.l{opacity:1}
+.kb-act.l{justify-content:flex-start;padding-left:22px;background:#FF9F0A;color:#fff}
+.kb-act.r{justify-content:flex-end;background:#FF3B30}
+.kb-act svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round}
+.kb-act.l span{display:grid;transform:scale(calc(.55 + var(--p,0)*.45)) rotate(calc(var(--p,0)*-72deg));transition:transform .25s cubic-bezier(.3,1.7,.5,1)}
+.kb-swr.armed.dir-l .kb-act.l span{transform:scale(1.35) rotate(-72deg)}.kb-swr.armed.dir-l .kb-act.l svg{fill:#fff}
+.kb-actb{height:100%;min-width:92px;border:0;background:none;color:#fff;font:600 14px var(--f-os);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:min-width .25s cubic-bezier(.2,.9,.3,1)}
+.kb-actb span{display:grid;transform:scale(calc(.6 + var(--p,0)*.4));transition:transform .25s cubic-bezier(.3,1.7,.5,1)}
+.kb-swr.armed.dir-r .kb-actb{min-width:100%}.kb-swr.armed.dir-r .kb-actb span{transform:scale(1.2)}
+.kb-swr.going .kb-actb{min-width:100%}
+.kb-star{display:inline-grid;vertical-align:-2px;margin-right:4px;color:#FF9F0A}.kb-star svg{width:13px;height:13px;fill:currentColor;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+.kb-row.on .kb-star{color:#FFD60A}
+@keyframes kbStarPop{0%{transform:scale(0) rotate(-90deg)}60%{transform:scale(1.5) rotate(10deg)}100%{transform:none}}
+.kb-swr.starred-now .kb-act.l svg{fill:#fff;animation:kbStarPop .5s cubic-bezier(.3,1.5,.5,1)}
 .kb-pend{display:inline-block;width:7px;height:7px;border-radius:50%;background:#FF9F0A;vertical-align:1px;margin-left:3px}
 .kb-empty{display:flex;flex-direction:column;gap:4px;padding:30px 12px;text-align:center;color:var(--ios-lbl2);font-size:15px}.kb-empty b{color:var(--ink);font-size:17px}
 .kb-foot{border-top:.5px solid var(--ios-sep);padding:10px 16px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px}
@@ -8302,21 +8363,21 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-flash{animation:kbFlash 1s ease-out both}
 /* opening the app: the list and the page come in */
 @keyframes kbRowUp{from{opacity:0;transform:translateY(10px)}}
-.kb.fx-open .kb-row,.kb.fx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
+.kb.fx-open .kb-swr,.kb.fx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
 .kb.fx-open .kb-empty,.kb.fx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
 @keyframes kbPaperIn{from{opacity:0;transform:translateY(16px) scale(.985)}}
 .kb.fx-open .kb-fit,.kb.fx-swap .kb-fit,.kb.fx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
 .kb.fx-swap .kb-bar,.kb.fx-new .kb-bar{animation:kbFade .3s ease-out both}
 @keyframes kbRowNew{0%{opacity:0;transform:translateX(-18px) scale(.95)}60%{opacity:1}}
-.kb.fx-new .kb-row.on{animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
+.kb.fx-new .kb-swr:has(.kb-row.on){animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
 @keyframes kbRowIn{from{opacity:0;transform:translateY(6px)}}
 .kb.fx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
 /* leaving: a deleted page and its row */
 @keyframes kbPaperOut{to{opacity:0;transform:scale(.94) translateY(12px)}}
 @keyframes kbRowOut{to{opacity:0;transform:translateX(-26px)}}
 .kb.out-del .kb-fit,.kb.out-all .kb-fit{animation:kbPaperOut .26s cubic-bezier(.4,0,1,1) forwards}
-.kb.out-del .kb-row.on{animation:kbRowOut .26s cubic-bezier(.4,0,1,1) forwards}
-.kb.out-all .kb-row,.kb.out-all .kb-sec{animation:kbRowOut .28s cubic-bezier(.4,0,1,1) forwards;animation-delay:calc(var(--i,0)*25ms)}
+.kb.out-del .kb-swr:has(.kb-row.on){animation:kbRowOut .26s cubic-bezier(.4,0,1,1) forwards}
+.kb.out-all .kb-swr,.kb.out-all .kb-sec{animation:kbRowOut .28s cubic-bezier(.4,0,1,1) forwards;animation-delay:calc(var(--i,0)*25ms)}
 /* the New Page sheet */
 @keyframes kbShadeIn{from{opacity:0}}@keyframes kbShadeOut{to{opacity:0}}
 .kb.fx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}

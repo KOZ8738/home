@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.0539">
+<meta name="efb-build" content="1116.0554">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4528,7 +4528,7 @@ let psec=store.get("psec","general"),stOpen=false;
 /* Settings, laid out like iPadOS Settings: a sidebar with search, the pilot's account and the sections, and on the right
    a header card for the section and inset grouped lists. Booleans are switches; one-of choices are rows with a check.
    On a phone the sidebar is the first screen, and a section opens over it with a back button. */
-const ST_I={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
+const ST_I={apps:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
   link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
   check:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
   db:'<ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/>',
@@ -4550,6 +4550,7 @@ const ST_SECS=[["general","gear","#8E8E93","General","Software updates and what�
   ["nav","navmap","#30B455","Navigation","The map’s base map and layers, and how it opens.","navigation map base layers ifr vfr satellite airports fir airspace radar traffic follow"],
   ["a11y","access","#0A84FF","Accessibility","Make the EFB easier to read and calmer to use.","accessibility text size larger bold contrast motion animation"],
   ["display","sun","#0A84FF","Display & Brightness","Theme, dimming for night flights, airline look, and what stays on screen.","display brightness dim night light red warm theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep appearance"],
+  ["home","apps","#5856D6","Home Screen","Arrange the apps on the Home Screen and in the Dock.","home screen apps dock arrange move reorder layout edit jiggle drag reset"],
   ["ops","clock","#FF9F0A","Flight Operations","Your SimBrief account, plan fetching and the aircraft used for checklists.","flight operations simbrief username fetch plan ofp aircraft checklist a320 a350 base"],
   ["cl","check","#FF9F0A","Checklists","The EFB can open the right checklist as your live vAMSYS flight moves from boarding to arrival.","checklist push phase notification live"],
   ["conn","wifi","#0A84FF","Connection","Whether the EFB can reach the internet and each service it uses.","connection network internet wifi server online offline status latency"],
@@ -4580,7 +4581,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
       <div class="st-n st-nr" data-kw="airplane mode flight offline background">${stIc("plane","#FF9F0A",1)}<span>Airplane Mode</span>${sw("data-apm",apmOn(),"Airplane Mode")}</div>
       ${nav("conn",apmOn()?"Off":cs[0])}${nav("vatsim",me?esc(me.c):cid?"Offline":"Not set")}
     </div>
-    <div class="st-ng">${nav("general","",UPD.build?1:0)}${nav("notif",dndActive()?"Do Not Disturb":"")}${nav("nav")}${nav("a11y")}${nav("display",{auto:"Auto",day:"Day",night:"Night"}[t]||"")}</div>
+    <div class="st-ng">${nav("general","",UPD.build?1:0)}${nav("notif",dndActive()?"Do Not Disturb":"")}${nav("nav")}${nav("a11y")}${nav("display",{auto:"Auto",day:"Day",night:"Night"}[t]||"")}${nav("home")}</div>
     <div class="st-ng">${nav("ops")}${nav("cl",CLP.on?"On":"Off")}${nav("vam",vamOn()?"On":"Off")}</div>
     <div class="st-ng">${nav("data")}${nav("about")}</div>
     <p class="st-none" hidden>No settings match.</p></div>`;
@@ -4624,6 +4625,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
       +grp("",[act("data-vsme","Show on the map")]);
     else main+=grp("Status",[r("VATSIM",cid?`CID ${esc(cid)} isn’t connected right now`:"Your flight plan’s callsign isn’t on the network",dot("n","Offline"))],`Checked ${ago(VS.at)} · ${VS.list.length.toLocaleString("en-US")} pilots online.`)}
   else if(psec==="vam")main+=authSettingsHtml({grp,sw,r,val,pick,act});
+  else if(psec==="home")main+=(typeof homeSettingsHtml==="function"?homeSettingsHtml({grp,r,val,act}):"");
   else if(psec==="cl"){const ntOk="Notification" in window,den=ntOk&&Notification.permission==="denied";
     main+=grp("Live checklist push",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
       r("Notify in the background",!ntOk?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))],
@@ -5893,7 +5895,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7815,6 +7817,180 @@ const EFB_BUILD=(document.querySelector('meta[name="efb-build"]')||{}).content||
   try{["play","pause","ended"].forEach(ev=>muA.addEventListener(ev,()=>update()))}catch(e){}
   setInterval(update,1000);window.addEventListener("resize",place);setTimeout(update,0);
 })();
+
+/* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
+   Touch and hold an app for its menu (Edit Home Screen), or hold and move it, or hold an empty spot: the icons jiggle and
+   any app can be dragged within the page, between pages (iPhone: hold it at the screen edge) and into or out of the Dock.
+   Done, a tap on the wallpaper or Escape ends it. iPad (one page + a Dock of 6) and iPhone (pages 2-3 + a Dock of 4) keep
+   their own arrangement on this device; apps added in an update land where the original layout puts them. */
+const HL={def:{pad:{dock:[...DOCK],p1:[...PAGE1]},phone:{dock:DOCK.slice(0,4),p2:[...PAGE2],p3:[...PAGE3]}},
+  edit:false,drag:null,menu:null,p:null,lp:0,flipT:0,suppress:false,mode:null,raf:0,type:""};
+const HL_MAX={pad:6,phone:4};
+const hlMode=()=>screenEl.clientWidth<=560?"phone":"pad";
+function hlSaved(){const s=store.get("homeLayout",null);return s&&typeof s==="object"?s:{}}
+function hlGet(m){const D=HL.def[m],S=hlSaved()[m];if(!S)return JSON.parse(JSON.stringify(D));
+  const all=new Set(Object.values(D).flat()),seen=new Set(),out={};
+  for(const k of Object.keys(D))out[k]=(Array.isArray(S[k])?S[k]:[]).filter(id=>APPS[id]&&all.has(id)&&!seen.has(id)&&seen.add(id));
+  const spill=m==="pad"?"p1":"p2";
+  if(out.dock.length>HL_MAX[m])out[spill].push(...out.dock.splice(HL_MAX[m]));
+  for(const k of Object.keys(D))for(const id of D[k])if(!seen.has(id)){seen.add(id);out[k==="dock"&&out.dock.length>=HL_MAX[m]?spill:k].push(id)}
+  return out}
+function hlSave(m,L){const all=hlSaved();if(JSON.stringify(L)===JSON.stringify(HL.def[m]))delete all[m];else all[m]=L;store.set("homeLayout",all)}
+function hlApply(){const m=hlMode(),L=hlGet(m),put=(a,v)=>a.splice(0,a.length,...v);put(DOCK,L.dock);
+  if(m==="pad")put(PAGE1,L.p1);else{put(PAGE2,L.p2);put(PAGE3,L.p3)}HL.mode=m}
+{const _rh=renderHome;renderHome=function(){if(HL.edit||HL.drag)return;hlApply();return _rh.apply(this,arguments)}}
+try{new ResizeObserver(()=>{if(hlMode()!==HL.mode){if(HL.edit)hlExit();else renderHome()}}).observe(screenEl)}catch(e){}
+
+/* ---------- which list each app sits in ---------- */
+const hlConts=()=>HL.mode==="phone"?{dock:$("#dock"),p2:$("#page2 .apps"),p3:$("#page3 .apps")}:{dock:$("#dock"),p1:$("#page1 .apps")};
+const hlIds=c=>c?[...c.querySelectorAll(":scope>.app:not(.recent)")].map(e=>e.dataset.app):[];
+function hlSaveDom(){const C=hlConts(),L={};for(const k of Object.keys(C))L[k]=hlIds(C[k]);hlSave(HL.mode,L);hlApply()}
+function hlMovable(a){if(!a||a.classList.contains("recent"))return false;const C=hlConts();return Object.values(C).some(c=>c&&a.parentNode===c)}
+const hlPage=()=>{const pg=$("#pages");return Math.round(pg.scrollLeft/Math.max(1,pg.clientWidth))};
+
+/* ---------- edit mode ---------- */
+function hlEnter(){if(HL.edit||cur)return;HL.edit=true;const h=$("#home");h.classList.add("hedit");
+  if(!h.querySelector(".hl-done"))h.insertAdjacentHTML("beforeend",'<button class="hl-done" data-hl-done>Done</button>');
+  try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}}
+function hlExit(){if(!HL.edit)return;if(HL.drag)hlDragEnd(true);HL.edit=false;const h=$("#home");h.classList.remove("hedit");
+  const b=h.querySelector(".hl-done");if(b)b.remove();h.querySelectorAll(".app").forEach(e=>{e.style.transform="";e.style.transition=""});renderHome()}
+
+/* ---------- the long-press menu ---------- */
+const HL_GRID='<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>';
+function hlMenu(a,down){hlMenuClose(true);const ic=a.querySelector(".icon");if(!ic)return;const r=ic.getBoundingClientRect(),W=innerWidth,H=innerHeight,mw=Math.min(250,W-24);
+  const left=Math.min(Math.max(12,r.left),W-mw-12),below=r.bottom+10+56<H-12;
+  const el=document.createElement("div");el.className="hl-ctx";
+  el.innerHTML=`<div class="hl-dim" data-hl-close></div><div class="hl-lift" style="left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;--ic:${r.width}px"></div>
+    <div class="hl-menu${below?"":" up"}" role="menu" aria-label="${esc(APPS[a.dataset.app].name)}" style="left:${left}px;${below?`top:${r.bottom+10}px`:`bottom:${H-r.top+10}px`};width:${mw}px">
+    <button role="menuitem" data-hl-edit><span>Edit Home Screen</span><svg viewBox="0 0 24 24" aria-hidden="true">${HL_GRID}</svg></button></div>`;
+  el.querySelector(".hl-lift").appendChild(ic.cloneNode(true));document.body.appendChild(el);
+  HL.menu={el,id:a.dataset.app,down:!!down};void el.offsetWidth;el.classList.add("on");
+  try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}}
+function hlMenuClose(now){const m=HL.menu;if(!m)return;HL.menu=null;if(now||reduced()){m.el.remove();return}
+  m.el.classList.remove("on");m.el.classList.add("off");setTimeout(()=>m.el.remove(),230)}
+document.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest(".hl-dim")&&HL.menu&&!HL.menu.down){e.preventDefault();hlMenuClose()}},true);
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-hl-edit],[data-hl-done]");if(!t)return;
+  if(t.dataset.hlDone!=null){hlExit();return}hlMenuClose();hlEnter()});
+
+/* ---------- dragging ---------- */
+function hlDragStart(a,x,y){const ic=a.querySelector(".icon");if(!ic)return;const r=ic.getBoundingClientRect();
+  const g=document.createElement("div");g.className="hl-ghost";g.style.cssText=`width:${r.width}px;height:${r.height}px;--ic:${r.width}px;transform:translate(${r.left}px,${r.top}px)`;
+  g.appendChild(ic.cloneNode(true));document.body.appendChild(g);
+  HL.drag={id:a.dataset.app,ph:a,g,ox:x-r.left,oy:y-r.top,x,y};a.classList.add("hl-ph");
+  try{$("#home").setPointerCapture(HL.p&&HL.p.id)}catch(e){}
+  requestAnimationFrame(()=>{g.classList.add("up")});try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
+function hlSlots(c){const cr=c.getBoundingClientRect(),k=cr.width/(c.offsetWidth||1);
+  return [...c.querySelectorAll(":scope>.app:not(.recent)")].filter(e=>!e.classList.contains("hl-ph"))
+    .map(e=>({e,l:cr.left+(c.clientLeft+e.offsetLeft-c.scrollLeft)*k,t:cr.top+(c.clientTop+e.offsetTop-c.scrollTop)*k,w:e.offsetWidth*k,h:e.offsetHeight*k}))}
+function hlIndex(sl,x,y,row){for(let i=0;i<sl.length;i++){const s=sl[i],cx=s.l+s.w/2;if(row){if(x<cx)return i;continue}
+    if(y<s.t+s.h&&(y<s.t||x<cx))return i}return sl.length}
+function hlFlip(conts,mutate){const els=[];conts.forEach(c=>{if(c)els.push(...c.querySelectorAll(":scope>.app"))});
+  const first=new Map(els.map(e=>[e,e.getBoundingClientRect()]));mutate();if(reduced())return;
+  const moved=[];els.forEach(e=>{if(!e.isConnected||e.classList.contains("hl-ph"))return;const f=first.get(e);e.style.transition="none";e.style.transform="";
+    const l=e.getBoundingClientRect(),dx=f.left-l.left,dy=f.top-l.top;if(Math.abs(dx)<.5&&Math.abs(dy)<.5)return;e.style.transform=`translate(${dx}px,${dy}px)`;moved.push(e)});
+  void document.body.offsetWidth;moved.forEach(e=>{e.style.transition="transform .34s cubic-bezier(.2,.8,.2,1)";e.style.transform=""})}
+function hlTarget(x,y){const C=hlConts(),d=C.dock;
+  if(d){const r=d.getBoundingClientRect();if(y>r.top-24&&x>r.left-36&&x<r.right+36)return "dock"}
+  if(HL.mode==="pad")return "p1";const p=hlPage();return p===1?"p2":p===2?"p3":null}
+function hlDragMove(x,y){const d=HL.drag;if(!d)return;d.x=x;d.y=y;d.g.style.transform=`translate(${x-d.ox}px,${y-d.oy}px)`;
+  if(HL.raf)return;HL.raf=requestAnimationFrame(()=>{HL.raf=0;hlPlace(d.x,d.y);hlEdge(d.x)})}
+function hlPlace(x,y){const d=HL.drag;if(!d)return;const C=hlConts(),k=hlTarget(x,y),c=k&&C[k];if(!c)return;
+  const ph=d.ph,from=ph.parentNode;
+  if(k==="dock"&&from!==c&&hlIds(c).length>=HL_MAX[HL.mode])return;
+  const sl=hlSlots(c),i=hlIndex(sl,x,y,k==="dock"),ref=sl[i]?sl[i].e:c.querySelector(":scope>.sep,:scope>.recent");
+  let nx=ph.nextElementSibling;while(nx&&nx.classList.contains("hl-ph"))nx=nx.nextElementSibling;
+  if(from===c&&nx===ref)return;
+  hlFlip([from,c],()=>{if(k!=="dock"&&!ph.querySelector(".lbl"))ph.insertAdjacentHTML("beforeend",`<span class="lbl">${esc(APPS[d.id].name)}</span>`);c.insertBefore(ph,ref)})}
+/* iPhone: hold an app at the screen edge to carry it to the next page */
+function hlEdge(x){if(HL.mode!=="phone"){return}const s=screenEl.getBoundingClientRect(),dir=x<s.left+30?-1:x>s.right-30?1:0;
+  if(!dir){clearTimeout(HL.flipT);HL.flipT=0;return}if(HL.flipT)return;
+  HL.flipT=setTimeout(()=>{HL.flipT=0;if(!HL.drag)return;const n=hlPage()+dir;if(n<1||n>2)return;goPage(n);
+    setTimeout(()=>{if(HL.drag){hlPlace(HL.drag.x,HL.drag.y);hlEdge(HL.drag.x)}},420)},620)}
+function hlDragEnd(quick){const d=HL.drag;if(!d)return;HL.drag=null;clearTimeout(HL.flipT);HL.flipT=0;cancelAnimationFrame(HL.raf);HL.raf=0;
+  const ph=d.ph,ic=ph.querySelector(".icon"),r=ic?ic.getBoundingClientRect():null;
+  const fin=()=>{d.g.remove();ph.classList.remove("hl-ph")};
+  if(quick||reduced()||!r){fin()}else{d.g.classList.remove("up");d.g.style.transition="transform .26s cubic-bezier(.2,.8,.2,1)";d.g.style.transform=`translate(${r.left}px,${r.top}px)`;setTimeout(fin,260)}
+  hlSaveDom()}
+
+/* ---------- pointer handling ---------- */
+{const home=$("#home");
+  const empty=t=>!t.closest(".app,.w,.dots,.dock,.hl-done,button,a,input");
+  home.addEventListener("pointerdown",e=>{HL.type=e.pointerType;HL.suppress=false;if(e.button>0||HL.p||HL.drag)return;
+    const a=e.target.closest(".app"),ok=hlMovable(a);
+    HL.p={id:e.pointerId,x0:e.clientX,y0:e.clientY,a:ok?a:null,empty:empty(e.target),moved:false};
+    if(HL.edit){if(ok)e.preventDefault();return}
+    if(ok)HL.lp=setTimeout(()=>{HL.lp=0;if(!HL.p||cur)return;hlMenu(a,true);HL.suppress=true;try{home.setPointerCapture(HL.p.id)}catch(err){}},480);
+    else if(HL.p.empty)HL.lp=setTimeout(()=>{HL.lp=0;if(!HL.p||cur)return;HL.suppress=true;hlEnter()},650)});
+  window.addEventListener("pointermove",e=>{const p=HL.p;if(!p||e.pointerId!==p.id)return;const dist=Math.hypot(e.clientX-p.x0,e.clientY-p.y0);
+    if(HL.drag){hlDragMove(e.clientX,e.clientY);return}
+    if(HL.menu&&HL.menu.down){if(dist>12){const id=HL.menu.id;hlMenuClose(true);hlEnter();const a=[...document.querySelectorAll("#home .app:not(.recent)")].find(x=>x.dataset.app===id&&hlMovable(x));if(a)hlDragStart(a,e.clientX,e.clientY)}return}
+    if(HL.edit){if(p.a&&dist>6){hlDragStart(p.a,e.clientX,e.clientY);hlDragMove(e.clientX,e.clientY)}else if(dist>10)p.moved=true;return}
+    if(HL.lp&&dist>10){clearTimeout(HL.lp);HL.lp=0}},{passive:true});
+  const up=(e,cancel)=>{const p=HL.p;if(!p||e.pointerId!==p.id)return;clearTimeout(HL.lp);HL.lp=0;HL.p=null;
+    if(HL.drag){hlDragEnd();HL.suppress=true;return}
+    if(HL.menu&&HL.menu.down){HL.menu.down=false;HL.suppress=true;return}
+    if(HL.edit&&!cancel&&!p.a&&!p.moved&&p.empty&&!HL.suppress)hlExit()};
+  window.addEventListener("pointerup",e=>up(e,false));window.addEventListener("pointercancel",e=>up(e,true));
+  /* keep the page from scrolling under a dragged icon (iOS) */
+  home.addEventListener("touchmove",e=>{if(HL.drag||(HL.menu&&HL.menu.down))e.preventDefault()},{passive:false});
+  home.addEventListener("dragstart",e=>{if(e.target.closest&&e.target.closest(".app"))e.preventDefault()});
+  home.addEventListener("contextmenu",e=>{const a=e.target.closest(".app");if(!a&&!HL.edit)return;e.preventDefault();
+    if(a&&!HL.edit&&HL.type==="mouse"&&hlMovable(a)){HL.suppress=true;hlMenu(a,false)}});
+  /* while arranging (or right after a hold), a tap never opens an app */
+  window.addEventListener("click",e=>{if(!e.target.closest||!e.target.closest("#home")||e.target.closest(".hl-done"))return;
+    if(HL.edit&&e.target.closest(".dots button"))return;
+    if(HL.suppress||HL.edit){e.preventDefault();e.stopPropagation();HL.suppress=false}},true)}
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(HL.menu){hlMenuClose();e.preventDefault()}else if(HL.edit){hlExit();e.preventDefault()}});
+window.addEventListener("hashchange",()=>{hlMenuClose(true);if(HL.edit)hlExit()});
+
+/* ---------- Settings › Home Screen ---------- */
+function homeSettingsHtml(H){const m=hlMode(),S=hlSaved(),mine=!!S[m],any=!!(S.pad||S.phone);
+  return H.grp("Arrangement",[H.r(m==="phone"?"iPhone-size layout":"iPad-size layout",mine?"Arranged by you":"The original order, following a flight",""),
+      H.act("data-hl-edit2","Edit Home Screen"),H.act("data-hl-reset","Reset Home Screen Layout",true,!any)],
+    "Touch and hold an app, or an empty spot on the Home Screen, then drag. On an iPhone, hold an app at the screen edge to move it to another page. iPad and iPhone sizes keep their own arrangement, saved on this device.")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-hl-edit2],[data-hl-reset]");if(!b||cur!=="prefs")return;
+  if(b.dataset.hlEdit2!=null){location.hash="";setTimeout(hlEnter,reduced()?0:480);return}
+  if(!confirm("Reset the Home Screen to its original layout? Both the iPad and the iPhone arrangement go back."))return;
+  store.set("homeLayout",{});toast("Home Screen reset");render()});
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* Home Screen editing */
+.home .app,.home .app *,.home .lbl{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.home .app{-webkit-user-drag:none}
+.home.hedit .apps,.home.hedit .dock{position:relative}
+.home.hedit .app:not(.recent){touch-action:none;cursor:grab}
+.home.hedit .app:not(.recent) .icon{animation:hlJig .26s ease-in-out infinite alternate}
+.home.hedit .app:nth-child(3n+1) .icon{animation-duration:.24s;animation-delay:-.09s}
+.home.hedit .app:nth-child(3n+2) .icon{animation-duration:.29s;animation-delay:-.17s}
+@keyframes hlJig{from{transform:rotate(-1.6deg)}to{transform:rotate(1.6deg)}}
+.home.hedit .app:active .icon{filter:none}
+.home.hedit .app.hl-ph{visibility:hidden}
+.home.hedit .dock .recent,.home.hedit .dock .sep{display:none}
+.dock .lbl{display:none}
+.home.hedit>.hl-done{position:absolute;z-index:6;top:calc(var(--sbh,24px) + 10px);right:max(16px,5cqw);padding:7px 17px;border:0;border-radius:999px;
+  background:rgba(255,255,255,.28);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);color:#fff;font:600 15px var(--f-os);letter-spacing:-.01em;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.12);animation:hlIn .25s ease-out}
+.home.hedit>.hl-done:active{background:rgba(255,255,255,.42)}
+@keyframes hlIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+.hl-ghost{position:fixed;left:0;top:0;z-index:2147482500;pointer-events:none;will-change:transform}
+.hl-ghost .icon{transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+.hl-ghost.up .icon{transform:scale(1.13);box-shadow:0 16px 34px rgba(0,0,0,.34),inset 0 0 0 .5px rgba(0,0,0,.08)}
+.hl-ctx{position:fixed;inset:0;z-index:2147482400;font-family:var(--f-os)}
+.hl-dim{position:absolute;inset:0;background:rgba(0,0,0,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;transition:opacity .22s}
+.hl-lift{position:absolute;pointer-events:none;transition:transform .3s cubic-bezier(.2,.9,.3,1.3)}
+.hl-lift .icon{box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.hl-menu{position:absolute;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--ios-grp,#fff) 80%,transparent);-webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);
+  box-shadow:0 10px 40px rgba(0,0,0,.24);transform-origin:top left;transform:scale(.4);opacity:0;transition:transform .34s cubic-bezier(.2,.9,.3,1.15),opacity .18s}
+.hl-menu.up{transform-origin:bottom left}
+.hl-ctx.on .hl-dim,.hl-ctx.on .hl-menu{opacity:1}.hl-ctx.on .hl-menu{transform:none}.hl-ctx.on .hl-lift{transform:scale(1.07)}
+.hl-ctx.off .hl-dim,.hl-ctx.off .hl-menu{opacity:0;transition-duration:.2s}.hl-ctx.off .hl-lift{transform:none}
+.hl-menu button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:46px;padding:0 16px;border:0;background:transparent;color:var(--ml-ink,#000);font:400 17px var(--f-os);letter-spacing:-.02em;text-align:left;cursor:pointer}
+.hl-menu button:active,.hl-menu button:hover{background:color-mix(in srgb,var(--ml-ink,#000) 9%,transparent)}
+.hl-menu svg{width:21px;height:21px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7}
+@media (prefers-reduced-motion:reduce){
+  .home.hedit .app:not(.recent) .icon{animation:none;outline:2px solid rgba(255,255,255,.65);outline-offset:3px}
+  .hl-menu,.hl-dim,.hl-lift{transition:none}}
+</style>`);
 
 /* start */
 (function(){const h=location.hash.slice(1);if(APPS[h]){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");

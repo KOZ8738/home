@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.0949">
+<meta name="efb-build" content="1116.1017">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4547,7 +4547,7 @@ const stIc=(k,bg,fill)=>`<span class="st-ic" style="background:${bg}">${fill?`<s
 /* key, icon, colour, title, header text, search words */
 const ST_SECS=[["general","gear","#8E8E93","General","Software updates and what’s new in the Polaris EFB.","general software update version new changelog"],
   ["notif","bell","#FF3B30","Notifications","Choose which alerts the EFB shows, and how.","notifications alerts mail sound banner dynamic island update"],
-  ["nav","navmap","#30B455","Navigation","The map’s base map and layers, and how it opens.","navigation map base layers ifr vfr satellite airports fir airspace radar traffic follow"],
+  ["nav","navmap","#30B455","Navigation","The map’s base map and layers, and how it opens.","navigation map base layers ifr vfr satellite airports fir airspace radar traffic follow ruler measure distance nm km kilometres"],
   ["a11y","access","#0A84FF","Accessibility","Make the EFB easier to read and calmer to use.","accessibility text size larger bold contrast motion animation"],
   ["display","sun","#0A84FF","Display & Brightness","Theme, dimming for night flights, airline look, and what stays on screen.","display brightness dim night light red warm theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep appearance"],
   ["home","apps","#5856D6","Home Screen","Arrange the apps on the Home Screen and in the Dock.","home screen apps dock arrange move reorder layout edit jiggle drag reset"],
@@ -4640,7 +4640,8 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
     main+=grp("Base map",BL.map(b=>pick("data-nvbase",b[0],(ML.base||"map")===b[0],b[1],b[2])))
       +grp("",[r("Automatic IFR High / Low","Above FL180 High, below Low, from your live flight or the zoom",`<button class="st-sw" role="switch" aria-checked="${!!ML.ifrAuto}" aria-label="Automatic IFR High / Low" data-nvl="ifrAuto" data-v="${ML.ifrAuto?0:1}"><i></i></button>`)])
       +grp("Layers",LY.map(l=>lsw(l[0],l[1])),"The same switches as the Layers button on the map.")
-      +grp("When the map opens",[r("Follow my aircraft","Centres on your live vAMSYS flight and keeps it in view",sw("data-nvfollow",store.get("mapFollowOpen",false)===true,"Follow my aircraft"))])}
+      +grp("When the map opens",[r("Follow my aircraft","Centres on your live vAMSYS flight and keeps it in view",sw("data-nvfollow",store.get("mapFollowOpen",false)===true,"Follow my aircraft"))])
+      +(typeof rulSettingsHtml==="function"?rulSettingsHtml({grp,pick}):"")}
   else if(psec==="a11y"){const ts=store.get("textSize","m");
     main+=grp("Text size",[pick("data-textsize","m",ts==="m","Default",""),pick("data-textsize","l",ts==="l","Large","112%"),pick("data-textsize","xl",ts==="xl","Extra large","125%")],"Larger text applies to the reading apps: Flight Plan, Weather, Checklist, Performance, Loadsheet, Logbook, Dispatch, Mail and Settings. The map and charts stay at 1:1 so touch and drawing stay exact.")
       +grp("Vision",[r("Bold text","",sw("data-boldtext",store.get("boldText",false)===true,"Bold text")),r("Increase contrast","Darker secondary text and lines",sw("data-hicontrast",store.get("hiContrast",false)===true,"Increase contrast"))])
@@ -5897,7 +5898,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7144,7 +7145,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
   const onMap=e=>e.target===wrap||e.target===el||el.contains(e.target)||e.target.id==="mapCv"||e.target.id==="mapBase";
   const snap=()=>({c:{...MAP.c},z:MAP.z,ov:OV.geo?{...OV.geo}:null,p:new Map([...pts].map(([k,v])=>[k,{...v}])),moved:!!(st&&st.moved)});
   wrap.addEventListener("pointerdown",e=>{if(!MAP.c||!onMap(e))return;try{wrap.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st=snap();if(pts.size===1)st.moved=false});
-  wrap.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
+  wrap.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;if(typeof RUL!=="undefined"&&RUL.on){st.moved=true;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});return}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
     if(OV.edit&&OV.img){const sz=mapSize();ovGesture(st,pts,wrap.getBoundingClientRect(),sz.w,sz.h);return}
     if(ids.length===1){const a=st.p.get(ids[0]);if(!a)return;const dx=e.clientX-a.x,dy=e.clientY-a.y;if(Math.abs(dx)+Math.abs(dy)>4)st.moved=true;if(!st.moved)return;if(MAP.follow)mapFollowSet(false);const c=mpx(st.c.lat,st.c.lon,st.z);const n=munpx(c[0]-dx,c[1]-dy,st.z);MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}
     else{const [i,j]=ids,a=st.p.get(i),b=st.p.get(j),p=pts.get(i),q=pts.get(j);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(p.x-q.x,p.y-q.y);if(d0<10)return;st.moved=true;
@@ -8448,6 +8449,69 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .ck-snz{width:min(80vw,320px);height:58px;border-radius:999px;border:0;background:#FF9F0A;color:#000;font:600 20px var(--f-os);cursor:pointer;margin-bottom:12px}
 .ck-stop{width:min(80vw,320px);height:58px;border-radius:999px;border:0;background:rgba(255,255,255,.22);color:#fff;font:600 20px var(--f-os);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.ck-sh,.ck-shc,.ck-ringov{animation:none}}
+</style>`);
+
+/* ===== Two-finger ruler (as in ForeFlight) =====
+   Hold two fingers still on the map for a moment: a ruler spans them, with the great-circle distance and the magnetic
+   course each way (variation from WMM2025 at each end, so 030° out is not always 210° back), plus the time at the
+   flight plan's ground speed. Move the fingers to stretch it; the map holds still meanwhile. Lift them and it is gone.
+   With a mouse: Shift-drag. Distance in nm or km (Settings › Map). Uses the Measure tool's maths (measure.js). */
+const RUL={on:false,t:0,p:new Map(),snap:null,mouse:null};
+const rulUnit=()=>store.get("rulerUnit","nm")==="km"?"km":"nm";
+const rulOnMap=e=>cur==="map"&&e.target.closest&&e.target.closest(".mapwrap")&&!e.target.closest("button,input,.panel,.mapinfo,.mapctl,.maptools,.mlpanel,#msPanel,.pinbar,.vsx,a");
+function rulLL(x,y){const sv=$("#mapSvg");if(!sv||!MAP.c)return null;const r=sv.getBoundingClientRect(),{w,h}=mapSize(),k=w/(r.width||w),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);
+  const n=munpx(c[0]-w/2+(x-r.left)*k,c[1]-h/2+(y-r.top)*k,z);return{lat:n[0],lon:((n[1]+540)%360)-180}}
+function rulPts(){if(RUL.mouse)return[RUL.mouse.a,RUL.mouse.b];const v=[...RUL.p.values()];return v.length>=2?[v[0],v[1]]:null}
+function rulDraw(){const wrap=document.querySelector(".mapwrap"),P=rulPts();let s=document.getElementById("rulSvg");
+  if(!RUL.on||!wrap||!P){if(s)s.remove();return}
+  if(!s){s=document.createElementNS("http://www.w3.org/2000/svg","svg");s.id="rulSvg";s.setAttribute("class","rul-svg");s.setAttribute("aria-hidden","true");wrap.appendChild(s)}
+  const wr=wrap.getBoundingClientRect(),a={x:P[0].x-wr.left,y:P[0].y-wr.top},b={x:P[1].x-wr.left,y:P[1].y-wr.top},A=rulLL(P[0].x,P[0].y),B=rulLL(P[1].x,P[1].y);if(!A||!B)return;
+  const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<8){s.innerHTML="";return}
+  const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L,nx=-uy,ny=ux,hw=Math.min(46,Math.max(30,L/6)),cap=hw+22;
+  const nm=msDist(A,B),d=rulUnit()==="km"?nm*1.852:nm,dTxt=(d<10?d.toFixed(2):d<1000?d.toFixed(1):Math.round(d).toLocaleString("en-US"))+" "+rulUnit();
+  const c12=ms3(msMag(A,msBrg(A,B))),c21=ms3(msMag(B,msBrg(B,A))),gs=msGs(),ete=gs?nm/gs*60:null;
+  const P2=(p,k)=>`${(p.x+nx*k).toFixed(1)},${(p.y+ny*k).toFixed(1)}`;
+  let ang=Math.atan2(uy,ux)*180/Math.PI;const flip=ang>90||ang<-90;
+  /* each label reads left to right: the arrow points the way that course flies */
+  const lab=(side,txt)=>{const mx=(a.x+b.x)/2+nx*side,my=(a.y+b.y)/2+ny*side,r=flip?ang+180:ang,w=txt.length*8.6+16;
+    return `<g transform="translate(${mx.toFixed(1)},${my.toFixed(1)}) rotate(${r.toFixed(1)})"><rect x="${-w/2}" y="-12" width="${w}" height="24" rx="3"/><text y="5" text-anchor="middle">${esc(txt)}</text></g>`};
+  const fwd=flip?`${c21}°M → ${dTxt} ← ${c12}°M`:`${c12}°M → ${dTxt} ← ${c21}°M`;
+  const ex=ete==null?"":(ete<60?Math.round(ete)+" min":Math.floor(ete/60)+" h "+String(Math.round(ete%60)).padStart(2,"0")+" min")+" at "+Math.round(gs)+" kt";
+  s.innerHTML=`<path class="rb" d="M${P2(a,hw)}L${P2(b,hw)}L${P2(b,-hw)}L${P2(a,-hw)}Z"/>
+    <path class="rs" d="M${P2(a,hw)}L${P2(b,hw)}M${P2(a,-hw)}L${P2(b,-hw)}"/><path class="rc" d="M${a.x.toFixed(1)},${a.y.toFixed(1)}L${b.x.toFixed(1)},${b.y.toFixed(1)}"/>
+    <path class="re" d="M${P2(a,cap)}L${P2(a,-cap)}M${P2(b,cap)}L${P2(b,-cap)}"/>
+    <circle class="rd" cx="${a.x.toFixed(1)}" cy="${a.y.toFixed(1)}" r="4"/><circle class="rd" cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="4"/>
+    <g class="rl">${lab(flip?-hw:hw,fwd)}${ex?lab(flip?hw:-hw,ex):""}</g>`}
+function rulStart(){RUL.t=0;if(RUL.p.size!==2||!MAP.c)return;RUL.on=true;
+  if(RUL.snap){MAP.c=RUL.snap.c;MAP.z=RUL.snap.z;try{mapSched()}catch(e){}}   // undo the little pinch that happened while the fingers settled
+  try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}rulDraw()}
+function rulEnd(){RUL.on=false;RUL.mouse=null;clearTimeout(RUL.t);RUL.t=0;rulDraw()}
+window.addEventListener("pointerdown",e=>{if(!rulOnMap(e))return;
+  if(e.pointerType==="mouse"){if(e.shiftKey&&e.button===0){RUL.mouse={a:{x:e.clientX,y:e.clientY},b:{x:e.clientX,y:e.clientY},id:e.pointerId};RUL.on=true;rulDraw()}return}
+  RUL.p.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY});
+  if(RUL.p.size===2&&!RUL.on){RUL.snap=MAP.c?{c:{...MAP.c},z:MAP.z}:null;clearTimeout(RUL.t);RUL.t=setTimeout(rulStart,380)}
+  else if(RUL.p.size>2){clearTimeout(RUL.t);RUL.t=0}},true);
+window.addEventListener("pointermove",e=>{if(RUL.mouse&&e.pointerId===RUL.mouse.id){RUL.mouse.b={x:e.clientX,y:e.clientY};rulDraw();return}
+  const q=RUL.p.get(e.pointerId);if(!q)return;q.x=e.clientX;q.y=e.clientY;
+  if(RUL.t&&Math.hypot(q.x-q.x0,q.y-q.y0)>10){clearTimeout(RUL.t);RUL.t=0}    // they moved first: an ordinary pinch
+  if(RUL.on)rulDraw()},true);
+const rulUp=e=>{if(RUL.mouse&&e.pointerId===RUL.mouse.id){rulEnd();return}if(!RUL.p.has(e.pointerId))return;RUL.p.delete(e.pointerId);clearTimeout(RUL.t);RUL.t=0;
+  if(RUL.on){if(RUL.p.size<2){const s=document.getElementById("rulSvg");if(s)s.remove()}if(!RUL.p.size)rulEnd()}};
+window.addEventListener("pointerup",rulUp,true);window.addEventListener("pointercancel",rulUp,true);
+window.addEventListener("hashchange",()=>{RUL.p.clear();rulEnd()});
+/* the ruler's unit, from Settings › Map */
+function rulSettingsHtml(H){const u=rulUnit();return H.grp("Two-finger ruler",[H.pick("data-rulu","nm",u==="nm","Nautical miles","nm"),H.pick("data-rulu","km",u==="km","Kilometres","km")],
+  "Hold two fingers still on the map for a moment to measure between them: distance, magnetic course each way and the time at the flight plan’s ground speed. With a mouse, Shift-drag.")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-rulu]");if(!b)return;store.set("rulerUnit",b.dataset.rulu==="km"?"km":"nm");render()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.rul-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;overflow:visible}
+.rul-svg .rb{fill:rgba(4,10,16,.2)}
+.rul-svg .rs{fill:none;stroke:#fff;stroke-width:1.4;stroke-dasharray:7 5;opacity:.9}
+.rul-svg .rc{fill:none;stroke:#fff;stroke-width:1.2;opacity:.55}
+.rul-svg .re{fill:none;stroke:#fff;stroke-width:1.6;opacity:.9}
+.rul-svg .rd{fill:#fff;stroke:rgba(0,0,0,.5);stroke-width:1}
+.rul-svg .rl rect{fill:rgba(0,0,0,.82)}
+.rul-svg .rl text{fill:#fff;font:700 14px var(--f-mono,ui-monospace,monospace);letter-spacing:.02em}
 </style>`);
 
 /* start */

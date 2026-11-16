@@ -40,7 +40,7 @@ import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
 export { Crew } from './crew.js';
-import { kbPublic } from './kb.js';
+import { kbPublic, appsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
@@ -1279,6 +1279,11 @@ export default {
     if (/^\/api\/efb\/pm(\/(online|state))?\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
+    }
+    /* the apps each pilot installed from the EFB's App Store (see kb.js) */
+    if (/^\/api\/efb\/apps\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env);
+      return appsPublic(req, env, h, me);
     }
     /* each pilot's kneeboard pages (see kb.js); only the pilot can read them */
     if (/^\/api\/efb\/kb\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {

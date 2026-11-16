@@ -79,6 +79,9 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <p>When you check in for one of your vAMSYS bookings on the Roster, the EFB server keeps that booking (flight, airports, times, aircraft) until you check in for another flight or cancel. It uses it to send your check-in and the departure and arrival weather as notifications.</p>
  <p>While a checked-in flight is on the vAMSYS flight map, the server also records its track (positions, altitudes and speeds from vAMSYS) so your logbook can show the flight even when vAMSYS has no position reports for it. Tracks shown in your logbook are kept for 30 days and are only shown to you.</p>
 </section>
+<section id="apps"><h2>App Store</h2>
+ <p>The list of apps you added from the EFB's App Store is stored on the EFB server with your pilot ID, so the same apps appear on all your devices. Nothing else about how you use the apps is recorded.</p>
+</section>
 <section id="kneeboard"><h2>Kneeboard</h2>
  <p>Pages you write in the Kneeboard app (typed notes and handwriting) are kept on your device. While you are signed in, they are also stored on the EFB server (a Cloudflare Durable Object of your own) so they appear on all your devices. Only you can read them: Polaris staff and the Polaris admin cannot see them. The server also keeps the previous version of each page, in case a change needs undoing.</p>
  <p>A page you delete is removed from the server after 30 days (the record that it was deleted is kept that long so your other devices remove it too). You can keep up to 300 pages and 20 MB. Signing out leaves your pages on the server for when you sign in again. To remove them everywhere, delete them in the Kneeboard (it has a Delete All Pages button).</p>

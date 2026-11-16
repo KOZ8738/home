@@ -11,6 +11,7 @@
 const DAY = 86_400_000;
 export const KB_LIMITS = { pageBytes: 400_000, pages: 300, bytes: 20_000_000, batch: 40, keepDeleted: 30 * DAY };
 const ID = /^[\w-]{1,32}$/;
+const APP_ID = /^[a-z0-9_]{1,24}$/;
 const J = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json' } });
 class KbError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 
@@ -22,6 +23,8 @@ export class Kneeboard {
     this.sql.exec('CREATE TABLE IF NOT EXISTS hist (u TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, upd INTEGER NOT NULL, PRIMARY KEY (u, id))');
     this.sql.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)');
     this.sql.exec('CREATE INDEX IF NOT EXISTS pages_st ON pages (u, st)');
+    /* the apps the pilot has installed from the EFB's App Store (one row per pilot) */
+    this.sql.exec('CREATE TABLE IF NOT EXISTS apps (u TEXT PRIMARY KEY, list TEXT NOT NULL, upd INTEGER NOT NULL)');
   }
   rows(q, ...b) { return this.sql.exec(q, ...b).toArray(); }
   one(q, ...b) { return this.rows(q, ...b)[0] || null; }
@@ -41,12 +44,22 @@ export class Kneeboard {
         case 'pull': return J(this.pull(a.u, Number(a.since) || 0));
         case 'push': return J(this.push(a.u, a.pages));
         case 'usage': return J(this.usage(a.u));
+        case 'appsGet': { const r = this.one('SELECT list, upd FROM apps WHERE u=?', a.u); return J(r ? { apps: JSON.parse(r.list), upd: r.upd } : { apps: null, upd: 0 }); }
+        case 'appsSet': return J(this.appsSet(a.u, a.apps, a.upd));
         default: throw new KbError(400, 'Unknown call');
       }
     } catch (e) { return J({ error: e.message || 'Error', ...(e.extra || {}) }, e.status || 500); }
   }
 
   out(r) { return { id: r.id, upd: r.upd, del: !!r.del, st: r.st, data: r.del ? null : (r.data ? JSON.parse(r.data) : null) }; }
+  appsSet(u, list, upd) {
+    if (!Array.isArray(list) || list.length > 80 || !list.every((x) => typeof x === 'string' && APP_ID.test(x))) throw new KbError(400, 'Bad app list');
+    upd = Math.floor(Number(upd)); if (!Number.isFinite(upd) || upd <= 0) throw new KbError(400, 'Bad time');
+    const cur = this.one('SELECT list, upd FROM apps WHERE u=?', u);
+    if (cur && cur.upd > upd) return { ok: true, stale: true, apps: JSON.parse(cur.list), upd: cur.upd };   // a newer list is here already
+    this.sql.exec('INSERT INTO apps (u, list, upd) VALUES (?,?,?) ON CONFLICT(u) DO UPDATE SET list=excluded.list, upd=excluded.upd', u, JSON.stringify([...new Set(list)]), upd);
+    return { ok: true, apps: [...new Set(list)], upd };
+  }
   usage(u) {
     const r = this.one('SELECT COUNT(*) n, COALESCE(SUM(size),0) b FROM pages WHERE u=? AND del=0', u);
     return { pages: r.n, bytes: r.b, limits: { pages: KB_LIMITS.pages, bytes: KB_LIMITS.bytes } };
@@ -110,5 +123,19 @@ export async function kbPublic(req, url, env, h, me) {
     if (len > 4_500_000) throw new KbError(413, 'Too much at once');
     let b; try { b = await req.json(); } catch (e) { throw new KbError(400, 'Bad body'); }
     return res(await kb(env, me.u, { op: 'push', pages: b.pages }));
+  } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
+}
+
+/** /api/efb/apps — GET the apps this pilot installed from the App Store, POST { apps:[ids], upd } to change them. Newest list wins. */
+export async function appsPublic(req, env, h, me) {
+  const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+  try {
+    if (!me) throw new KbError(401, 'Sign in first');
+    if (!env.KB) throw new KbError(503, 'Not set up on the server');
+    if (req.method === 'GET') return res(await kb(env, me.u, { op: 'appsGet' }));
+    if (req.method !== 'POST') throw new KbError(405, 'Method not allowed');
+    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new KbError(415, 'Send JSON');
+    let b; try { b = await req.json(); } catch (e) { throw new KbError(400, 'Bad body'); }
+    return res(await kb(env, me.u, { op: 'appsSet', apps: b.apps, upd: b.upd }));
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
 }

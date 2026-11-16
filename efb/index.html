@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.1211">
+<meta name="efb-build" content="1116.1237">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5898,7 +5898,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7855,16 +7855,29 @@ const EFB_BUILD=(document.querySelector('meta[name="efb-build"]')||{}).content||
    every device (Worker kb.js; only the pilot can read them). The newer copy of a page wins. */
 APPS.kneeboard={name:"Kneeboard",bg:"linear-gradient(165deg,#5E6E7B,#2C3843)",fg:"#fff",g:'<rect x="5" y="4" width="14" height="17.5" rx="1.6" fill="#fff" stroke="none"/><rect x="8.6" y="2.4" width="6.8" height="3.4" rx="1.1" fill="#C3CDD5" stroke="#fff" stroke-width="1"/><path d="M8 10h8M8 13h8M8 16h4.5" stroke="#5E6E7B" stroke-width="1.3"/><path d="M14 19.6l5.2-5.2 1.6 1.6-5.2 5.2H14z" fill="#F2B233" stroke="none"/>'};
 {const put=(a,after)=>{if(a.includes("kneeboard"))return;const i=a.indexOf(after);a.splice(i<0?a.length:i+1,0,"kneeboard")};put(PAGE1,"ofpdoc");put(PAGE2,"ofpdoc")}
-{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="kneeboard"){screenEl.dataset.layout="full";setTimeout(()=>kbSync(),0)}return r}}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="kneeboard"){KB.fx="open";KB.sheet=false;KB.menu=false;screenEl.dataset.layout="full";setTimeout(()=>kbSync(),0)}return r}}
 
 const KB_W=640;
 const KB={pages:new Map(),ready:false,sel:null,q:"",tool:store.get("kbTool","type")||"type",col:store.get("kbCol","blue")||"blue",
   finger:store.get("kbFinger",null)||"write",pencil:!!store.get("kbPencil",false),night:store.get("kbNight",null),
-  undo:[],redo:[],sheet:false,menu:false,since:0,at:0,st:"",err:"",warn:"",syncing:false,usage:null,k:1,draw:null,armAll:false};
+  undo:[],redo:[],sheet:false,menu:false,fx:"",since:0,at:0,st:"",err:"",warn:"",syncing:false,usage:null,k:1,draw:null,armAll:false};
 const kbMe=()=>authOn()?String(AUTH.tok.u):null;
 const kbNight=()=>KB.night!=null?!!KB.night:isDark();
 const kbMine=p=>!p.del&&(!p.u||p.u===kbMe());
 const kbNow=()=>{const d=new Date();return pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"};
+/* motion: a one-shot effect for the next draw (KB.fx), and short exits played before the view changes */
+const kbNarrow=()=>matchMedia("(max-width:820px)").matches;
+function kbOut(cls,ms,fn){const r=document.getElementById("kbRoot");if(!r||reduced()){fn();render();return}if(r.dataset.out)return;r.dataset.out="1";r.classList.add(cls);setTimeout(()=>{fn();render()},ms)}
+function kbSheetClose(fn){const sh=document.querySelector(".kb-sheet"),sd=document.querySelector(".kb-shade");
+  const done=()=>{KB.sheet=false;if(fn)fn();render()};if(!sh||reduced()){done();return}if(sh.classList.contains("closing"))return;sh.classList.add("closing");if(sd)sd.classList.add("closing");setTimeout(done,kbNarrow()?250:200)}
+function kbMenuClose(fn){const m=document.querySelector(".kb-menu");const done=()=>{KB.menu=false;if(fn)fn();render()};if(!m||reduced()){done();return}if(m.classList.contains("closing"))return;m.classList.add("closing");setTimeout(done,140)}
+/* fields a fill changed light up one after another */
+function kbFlash(before,p){if(reduced())return;let n=0;Object.keys(p.fields||{}).forEach(k=>{if((before[k]||"")===(p.fields[k]||""))return;const i=document.querySelector(`#kbPaper [data-kf="${k}"]`);if(!i)return;
+  const box=i.closest(".kb-f")||i;box.style.animationDelay=(n++*45)+"ms";box.classList.add("kb-flash");box.addEventListener("animationend",()=>{box.classList.remove("kb-flash");box.style.animationDelay=""},{once:true})})}
+/* strokes fade out when they go and fade in when they come back */
+function kbGhost(clones){const g=document.querySelector("#kbInk g");if(!g||reduced())return;clones.forEach(c=>{if(!c)return;c.classList.add("kb-gone");g.appendChild(c);setTimeout(()=>c.remove(),320)})}
+function kbBorn(idx){const g=document.querySelector("#kbInk g");if(!g||reduced())return;idx.forEach(i=>{const e=g.children[i];if(e)e.classList.add("kb-born")})}
+const kbClone=idx=>{const g=document.querySelector("#kbInk g");return g?idx.map(i=>g.children[i]&&g.children[i].cloneNode()):[]};
 const kbId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 
 /* ---------- this device: IndexedDB ---------- */
@@ -7927,7 +7940,7 @@ function kbStatus(){const me=kbMe(),wait=[...KB.pages.values()].filter(p=>p.dirt
   if(KB.st==="offline")return"Offline"+(wait?" · "+wait+" to sync":"");if(KB.st==="err")return"Couldn’t sync · "+KB.err;
   if(wait)return wait+" waiting to sync";if(!KB.at)return"Not synced yet";
   const m=Math.round((Date.now()-KB.at)/60000);return"Synced "+(m<1?"just now":m<60?m+" min ago":"at "+new Date(KB.at).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false}))}
-function kbStatusDraw(){const e=document.getElementById("kbSt");if(e)e.innerHTML=kbStatusHtml()}
+function kbStatusDraw(){const e=document.getElementById("kbSt");if(!e)return;const h=kbStatusHtml();if(e.innerHTML===h)return;e.innerHTML=h;if(!reduced()){e.classList.remove("kb-fade");void e.offsetWidth;e.classList.add("kb-fade")}}
 const kbStatusHtml=()=>`<span class="kb-dot ${KB.syncing?"busy":KB.st==="ok"?"ok":KB.st==="err"?"err":""}"></span>${esc(kbStatus())}${KB.warn?`<span class="kb-warn">${esc(KB.warn)}</span>`:""}`;
 
 /* ---------- templates ---------- */
@@ -7978,7 +7991,7 @@ function kbTpl(p){const t=p.tpl,F=(...a)=>kbF(p,...a);let s="",h=905;
   else if(t==="fuel"){s=kbHd("Fuel & Position Log",sub);const R=p.rows||[],n=Math.max(R.length,14),top=110,rh=40;
     s+=`<div class="kb-th" style="top:76px"><span style="left:24px;width:118px">Waypoint</span><span style="left:142px;width:70px">Plan ETE</span><span style="left:212px;width:82px">ETA</span><span style="left:294px;width:82px">ATA</span><span style="left:376px;width:84px">Plan FOB</span><span style="left:460px;width:84px">Act FOB</span><span style="left:544px;width:72px">Diff</span></div>`;
     for(let i=0;i<n;i++){const r=R[i]||{},y=top+i*rh,f=p.fields||{},act=N(f["fa"+i]),pl=r.f!=null?r.f:N(f["fp"+i]),df=act!=null&&pl!=null?act-pl:null;
-      s+=`<div class="kb-tr" style="top:${y}px;height:${rh}px">`+(r.w!=null?`<span class="ro" style="left:24px;width:118px"><b>${esc(r.w)}</b></span><span class="ro" style="left:142px;width:70px">${esc(r.t||"")}</span>`
+      s+=`<div class="kb-tr" style="top:${y}px;height:${rh}px;--i:${Math.min(i,24)}">`+(r.w!=null?`<span class="ro" style="left:24px;width:118px"><b>${esc(r.w)}</b></span><span class="ro" style="left:142px;width:70px">${esc(r.t||"")}</span>`
         :`<input data-kf="fw${i}" value="${esc(f["fw"+i]||"")}" style="left:24px;width:118px" aria-label="Waypoint ${i+1}" autocapitalize="characters"><input data-kf="ft${i}" value="${esc(f["ft"+i]||"")}" style="left:142px;width:70px" aria-label="Plan ETE ${i+1}">`)
         +`<input data-kf="fe${i}" value="${esc(f["fe"+i]||"")}" style="left:212px;width:82px" aria-label="ETA ${i+1}"><input data-kf="fx${i}" value="${esc(f["fx"+i]||"")}" style="left:294px;width:82px" aria-label="ATA ${i+1}">`
         +(r.f!=null?`<span class="ro" style="left:376px;width:84px">${fmt(r.f)}</span>`:`<input data-kf="fp${i}" value="${esc(f["fp"+i]||"")}" style="left:376px;width:84px" inputmode="numeric" aria-label="Plan fuel ${i+1}">`)
@@ -7989,15 +8002,24 @@ function kbTpl(p){const t=p.tpl,F=(...a)=>kbF(p,...a);let s="",h=905;
     s+=`<div class="kb-bg lined" style="top:540px;height:340px"></div>`;h=905}
   if(t!=="lined"&&t!=="grid"&&(p.h||0)>h)s+=`<div class="kb-bg lined" style="top:${h}px;height:${p.h-h-28}px"></div>`;
   return{html:s,h:Math.max(h,p.h||0)}}
-function kbHoldSvg(p){const f=p.fields||{},crs=N(String(f.crs||"").replace(/[^\d.]/g,"")),left=/^\s*L/i.test(f.turn||""),c=crs==null?90:crs%360,W=592,H=300,cx=W/2,cy=H/2+4;
-  /* drawn flying east (inbound 090), the fix at the east end; turned about the middle of the racetrack to the inbound course */
-  const r=38,L=136,sg=left?-1:1,fx=cx+L/2,fy=cy-r*sg,a=(c-90)*Math.PI/180,rp=(x,y)=>[cx+(x-cx)*Math.cos(a)-(y-cy)*Math.sin(a),cy+(x-cx)*Math.sin(a)+(y-cy)*Math.cos(a)];
-  const d=`M${fx-L} ${fy}L${fx} ${fy}A${r} ${r} 0 0 ${left?0:1} ${fx} ${fy+2*r*sg}L${fx-L} ${fy+2*r*sg}A${r} ${r} 0 0 ${left?0:1} ${fx-L} ${fy}`;
-  const [Fx,Fy]=rp(fx,fy),lab=rp(fx+26,fy-26*sg);
-  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-label="Holding picture"><g class="kb-hn"><path d="M40 34v-20M34 22l6-8 6 8"/><text x="40" y="50">N</text></g>
-    <g transform="rotate(${c-90} ${cx} ${cy})"><path class="kb-hi" d="M${fx-L-56} ${fy}L${fx-L} ${fy}"/><path class="kb-hp" d="${d}"/><path class="kb-ha" d="M${fx-L/2-6} ${fy-6}L${fx-L/2+6} ${fy}L${fx-L/2-6} ${fy+6}"/><path class="kb-ha" d="M${fx-L/2+6} ${fy+2*r*sg-6}L${fx-L/2-6} ${fy+2*r*sg}L${fx-L/2+6} ${fy+2*r*sg+6}"/></g>
-    <path class="kb-hf" d="M${Fx} ${Fy-9}L${Fx+9} ${Fy}L${Fx} ${Fy+9}L${Fx-9} ${Fy}z"/><text class="kb-ht" x="${lab[0]}" y="${lab[1]+5}" text-anchor="middle">${esc(f.fix||"FIX")}</text>
-    <text class="kb-hs" x="${W-16}" y="${H-14}" text-anchor="end">Inbound ${crs==null?"—":pad3(c)+"°"} · ${left?"left":"right"} turns${f.leg?" · "+esc(f.leg):""}</text></svg>`}
+const KBH={W:592,H:300,r:38,L:136};
+function kbHoldGeo(p,prev){const f=p.fields||{},crs=N(String(f.crs||"").replace(/[^\d.]/g,"")),left=/^\s*L/i.test(f.turn||""),c=crs==null?90:crs%360,{W,H,r,L}=KBH,cx=W/2,cy=H/2+4,sg=left?-1:1;
+  /* the turn always takes the short way round (350° to 010° turns 20°, not 340°) */
+  let a=c-90;if(prev!=null)a=prev+((a-prev)%360+540)%360-180;
+  const t=a*Math.PI/180,fx=cx+L/2,fy=cy-r*sg,lx=fx+20,ly=fy-24*sg,rp=(x,y)=>[cx+(x-cx)*Math.cos(t)-(y-cy)*Math.sin(t),cy+(x-cx)*Math.sin(t)+(y-cy)*Math.cos(t)],lab=rp(lx,ly);
+  return{f,crs,c,left,sg,a,cx,cy,lab,txt:`Inbound ${crs==null?"—":pad3(c)+"°"} · ${left?"left":"right"} turns${f.leg?" · "+f.leg:""}`}}
+function kbHoldSvg(p){const g=kbHoldGeo(p),{W,H,r,L}=KBH,{cx,cy}=g,fx=cx+L/2,fy=cy-r;
+  /* drawn inbound 090 with right turns, fix at the east end; then flipped for left turns and turned to the course */
+  const d=`M${fx-L} ${fy}L${fx} ${fy}A${r} ${r} 0 0 1 ${fx} ${fy+2*r}L${fx-L} ${fy+2*r}A${r} ${r} 0 0 1 ${fx-L} ${fy}`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-label="Holding picture" data-a="${g.a}"><g class="kb-hn"><path d="M40 34v-20M34 22l6-8 6 8"/><text x="40" y="50">N</text></g>
+    <g class="kb-hr" style="transform-origin:${cx}px ${cy}px;transform:rotate(${g.a}deg)"><g class="kb-hfl" style="transform-origin:${cx}px ${cy}px;transform:scaleY(${g.sg})">
+      <path class="kb-hi" d="M${fx-L-56} ${fy}L${fx-L} ${fy}"/><path class="kb-hp" d="${d}"/><path class="kb-ha" d="M${fx-L/2-6} ${fy-6}L${fx-L/2+6} ${fy}L${fx-L/2-6} ${fy+6}"/><path class="kb-ha" d="M${fx-L/2+6} ${fy+2*r-6}L${fx-L/2-6} ${fy+2*r}L${fx-L/2+6} ${fy+2*r+6}"/>
+      <path class="kb-hf" d="M${fx} ${fy-9}L${fx+9} ${fy}L${fx} ${fy+9}L${fx-9} ${fy}z"/></g></g>
+    <g class="kb-hl" style="transform:translate(${g.lab[0].toFixed(1)}px,${g.lab[1].toFixed(1)}px)"><text class="kb-ht" x="0" y="5" text-anchor="middle">${esc(g.f.fix||"FIX")}</text></g>
+    <text class="kb-hs" x="${W-16}" y="${H-14}" text-anchor="end">${esc(g.txt)}</text></svg>`}
+function kbHoldUpd(p){const box=document.getElementById("kbHold"),sv=box&&box.querySelector("svg");if(!sv||!sv.querySelector(".kb-hr")){if(box)box.innerHTML=kbHoldSvg(p);return}
+  const g=kbHoldGeo(p,+sv.dataset.a||0);sv.dataset.a=g.a;sv.querySelector(".kb-hr").style.transform=`rotate(${g.a}deg)`;sv.querySelector(".kb-hfl").style.transform=`scaleY(${g.sg})`;
+  sv.querySelector(".kb-hl").style.transform=`translate(${g.lab[0].toFixed(1)}px,${g.lab[1].toFixed(1)}px)`;sv.querySelector(".kb-ht").textContent=g.f.fix||"FIX";sv.querySelector(".kb-hs").textContent=g.txt}
 const pad3=n=>String(Math.round(n)%360||360).padStart(3,"0");
 
 /* ---------- filling a form ---------- */
@@ -8036,7 +8058,7 @@ function kbList(){const me=kbMe(),q=KB.q.trim().toLowerCase(),fl=ofp._sample?nul
   let L=[...KB.pages.values()].filter(kbMine).sort((a,b)=>b.upd-a.upd);
   if(q)L=L.filter(p=>(kbTitle(p)+" "+(p.fln||"")+" "+Object.values(p.fields||{}).join(" ")).toLowerCase().includes(q));
   const now=L.filter(p=>fl&&p.fl===fl),old=L.filter(p=>!(fl&&p.fl===fl));
-  const row=p=>`<button class="kb-row${KB.sel===p.id?" on":""}" data-kbopen="${p.id}"><span class="kb-ri k-${p.tpl}">${kbG(p.tpl)}</span><span class="kb-rt"><b>${esc(kbTitle(p))}</b><small>${esc([p.fln,kbWhen(p.upd)].filter(Boolean).join(" · "))}${p.dirty&&me?' <i class="kb-pend" title="Waiting to sync"></i>':""}</small></span></button>`;
+  let ri=0;const row=p=>`<button class="kb-row${KB.sel===p.id?" on":""}" data-kbopen="${p.id}" style="--i:${Math.min(ri++,12)}"><span class="kb-ri k-${p.tpl}">${kbG(p.tpl)}</span><span class="kb-rt"><b>${esc(kbTitle(p))}</b><small>${esc([p.fln,kbWhen(p.upd)].filter(Boolean).join(" · "))}${p.dirty&&me?' <i class="kb-pend" title="Waiting to sync"></i>':""}</small></span></button>`;
   const sec=(t,a)=>a.length?`<div class="kb-sec">${t}</div>${a.map(row).join("")}`:"";
   if(!L.length)return `<div class="kb-empty">${q?"No pages match.":`<b>No pages yet</b><span>Tap + to start a page for this flight.</span>`}</div>`;
   return sec(fl?"This flight · "+esc(O().flight):"",now)+sec(now.length?"Earlier":"Pages",old)}
@@ -8050,43 +8072,49 @@ function kbTools(){const col=c=>`<button class="kb-sw" data-kbt="col:${c}" aria-
     ${["ink","blue","red","green"].map(col).join("")}<button class="kb-tb${KB.tool==="hl"?" on":""}" data-kbt="hl" aria-pressed="${KB.tool==="hl"}" aria-label="Highlighter"><i class="kb-hlc"></i></button>
     <button class="kb-tb${KB.tool==="erase"?" on":""}" data-kbt="erase" aria-pressed="${KB.tool==="erase"}" aria-label="Eraser"><svg viewBox="0 0 24 24"><path d="M4 16l8-8 6 6-5 5H8z"/><path d="M9 19h11"/></svg></button><span class="kb-sep"></span>
     <button class="kb-tb" data-kbt="undo" aria-label="Undo"${KB.undo.length?"":" disabled"}><svg viewBox="0 0 24 24"><path d="M9 7L4.5 11.5 9 16"/><path d="M5 11.5h9a5 5 0 0 1 0 10h-2"/></svg></button><button class="kb-tb" data-kbt="redo" aria-label="Redo"${KB.redo.length?"":" disabled"}><svg viewBox="0 0 24 24"><path d="M15 7l4.5 4.5L15 16"/><path d="M19 11.5h-9a5 5 0 0 0 0 10h2"/></svg></button>
-    <span class="kb-hint">${KB.tool==="type"?(KB.pencil?"Tap a box to type · Pencil writes anywhere":"Tap a box to type"):KB.finger==="scroll"?(KB.pencil?"Pencil writes · finger scrolls":"Finger scrolls · use a Pencil or mouse to write"):"One finger writes · two fingers scroll"}</span></div>`}
+    <span class="kb-hint">${kbHint()}</span></div>`}
+const kbHint=()=>KB.tool==="type"?(KB.pencil?"Tap a box to type · Pencil writes anywhere":"Tap a box to type"):KB.finger==="scroll"?(KB.pencil?"Pencil writes · finger scrolls":"Finger scrolls · use a Pencil or mouse to write"):"One finger writes · two fingers scroll";
 function kbMain(p){if(!p)return `<section class="kb-main none"><div class="kb-none">${kbG("lined")}<b>${KB.pages.size?"Pick a page":"Your kneeboard is empty"}</b><span>Start a page with + . Forms fill themselves from your flight plan, the ATIS and Performance.</span><button class="kb-btn" data-kbnew>New Page</button></div></section>`;
   const T=kbTpl(p),fill=KB_T[p.tpl]?.fill,night=kbNight();
   return `<section class="kb-main"><div class="kb-bar"><button class="kb-back" data-kbback aria-label="Pages"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Pages</span></button>
       <input class="kb-ti" data-kbtitle value="${esc(p.title||"")}" placeholder="${esc(KB_T[p.tpl]?.name||"Page")}" aria-label="Page title" maxlength="60">
       <div class="kb-acts">${fill?`<button class="kb-pill" data-kbfill>${esc(fill)}</button>`:""}<button class="kb-tb${night?" on":""}" data-kbnight aria-pressed="${night}" aria-label="Night paper"><svg viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></svg></button>
       <button class="kb-tb" data-kbmenu aria-label="More" aria-expanded="${KB.menu}"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/></svg></button>
-      ${KB.menu?`<div class="kb-menu" role="menu"><button role="menuitem" data-kbdup>Duplicate</button><button role="menuitem" data-kbmore>Add More Paper</button>${(p.ink||[]).length?`<button role="menuitem" data-kbclear>Clear Handwriting</button>`:""}<button role="menuitem" data-kbfinger>${KB.finger==="write"?"Finger Scrolls (Pencil Writes)":"Finger Writes"}</button><button role="menuitem" class="red" data-kbdel>Delete Page</button></div>`:""}</div></div>
+      ${KB.menu?`<div class="kb-menu" role="menu" style="--n:0"><button role="menuitem" data-kbdup>Duplicate</button><button role="menuitem" data-kbmore>Add More Paper</button>${(p.ink||[]).length?`<button role="menuitem" data-kbclear>Clear Handwriting</button>`:""}<button role="menuitem" data-kbfinger>${KB.finger==="write"?"Finger Scrolls (Pencil Writes)":"Finger Writes"}</button><button role="menuitem" class="red" data-kbdel>Delete Page</button></div>`:""}</div></div>
     ${kbTools()}
     <div class="kb-scroll" id="kbScroll"><div class="kb-fit" id="kbFit"><div class="kb-paper ${night?"night":""} ${KB.tool==="type"?"typing":"inking"} t-${p.tpl}" id="kbPaper" data-id="${p.id}" style="width:${KB_W}px;height:${T.h}px">
       ${T.html}<svg class="kb-ink" id="kbInk" viewBox="0 0 ${KB_W} ${T.h}" width="${KB_W}" height="${T.h}" aria-hidden="true"${KB.finger==="scroll"?' style="touch-action:auto"':""}><g>${(p.ink||[]).map(kbStrokeEl).join("")}</g></svg>
       <div class="kb-foot-p">${esc(kbTitle(p))}${p.fln?" · "+esc(p.fln):""} · ${new Date(p.created).toISOString().slice(0,16).replace("T"," ")}Z</div></div></div></div></section>`}
 function kbSheet(){if(!KB.sheet)return"";
-  return `<div class="kb-shade" data-kbshx></div><div class="kb-sheet" role="dialog" aria-label="New page"><div class="kb-shh"><button class="kb-txt" data-kbshx>Cancel</button><b>New Page</b><span></span></div>
+  return `<div class="kb-shade" data-kbshx></div><div class="kb-sheet" role="dialog" aria-label="New page"><div class="kb-grabber" aria-hidden="true"></div><div class="kb-shh"><button class="kb-txt" data-kbshx>Cancel</button><b>New Page</b><span></span></div>
     ${ofp._sample?`<p class="kb-shn">No flight plan loaded: forms start empty.</p>`:`<p class="kb-shn">For ${esc(O().flight)} ${esc(S(O().o.icao_code))} → ${esc(S(O().d.icao_code))}</p>`}
-    <div class="kb-tgrid">${KB_ORDER.map(t=>`<button class="kb-tc" data-kbtpl="${t}"><span class="kb-ri k-${t}">${kbG(t)}</span><b>${esc(KB_T[t].name)}</b><small>${esc(KB_T[t].d)}</small></button>`).join("")}</div></div>`}
-V.kneeboard=()=>{const p=KB.sel?KB.pages.get(KB.sel):null;if(p&&!kbMine(p))KB.sel=null;const pg=KB.sel?KB.pages.get(KB.sel):null;
-  return `<div class="kb ${pg?"has-page":""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
+    <div class="kb-tgrid">${KB_ORDER.map((t,i)=>`<button class="kb-tc" data-kbtpl="${t}" style="--i:${i}"><span class="kb-ri k-${t}">${kbG(t)}</span><b>${esc(KB_T[t].name)}</b><small>${esc(KB_T[t].d)}</small></button>`).join("")}</div></div>`}
+V.kneeboard=()=>{const p=KB.sel?KB.pages.get(KB.sel):null;if(p&&!kbMine(p))KB.sel=null;const pg=KB.sel?KB.pages.get(KB.sel):null,fx=reduced()?"":KB.fx;KB.fx="";
+  return `<div class="kb ${pg?"has-page":""}${fx?" fx-"+fx:""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
 
 /* the 640-px page is scaled to fit the width (so handwriting lands in the same place on every device) */
 function kbFit(){const sc=document.getElementById("kbScroll"),fit=document.getElementById("kbFit"),pp=document.getElementById("kbPaper");if(!sc||!fit||!pp)return;
   const W=sc.clientWidth-(innerWidth<700?16:40),k=Math.max(.4,Math.min(1.35,W/KB_W)),h=pp.offsetHeight;KB.k=k;
   pp.style.transform=`scale(${k})`;fit.style.width=KB_W*k+"px";fit.style.height=h*k+"px"}
-{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="kneeboard"){kbFit();if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="kneeboard"){kbFit();
+  const R=document.getElementById("kbRoot");if(R&&/\bfx-/.test(R.className)){const c=[...R.classList].filter(x=>x.startsWith("fx-"));setTimeout(()=>{if(R.isConnected)R.classList.remove(...c)},900)}if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
   const sc=document.getElementById("kbScroll");if(sc&&kbFit._ro){kbFit._ro.disconnect();kbFit._ro.observe(sc)}}return v}}
 
 /* ---------- handwriting (the OFP's pens) ---------- */
 const kbCur=()=>KB.sel?KB.pages.get(KB.sel):null;
-function kbStrokeEl(k){const hl=k.h;return `<path d="${odPathD(k.p)}" stroke="${hl?OD_HL:(k.c==="ink"?"var(--kb-ink)":OD_COL[k.c]||OD_COL.blue)}" stroke-width="${hl?16:2.1}" ${hl?'opacity=".38" stroke-linecap="butt"':'stroke-linecap="round"'} stroke-linejoin="round" fill="none"/>`}
+function kbStrokeEl(k){const hl=k.h;return `<path d="${odPathD(k.p)}"${!hl&&k.c==="ink"?' class="ki"':` stroke="${hl?OD_HL:OD_COL[k.c]||OD_COL.blue}"`} stroke-width="${hl?16:2.1}" ${hl?'opacity=".38" stroke-linecap="butt"':'stroke-linecap="round"'} stroke-linejoin="round" fill="none"/>`}
 function kbInkRedraw(){const g=document.querySelector("#kbInk g"),p=kbCur();if(g&&p)g.innerHTML=(p.ink||[]).map(kbStrokeEl).join("")}
-function kbToolsRedraw(){const t=document.querySelector(".kb-tools");if(t)t.outerHTML=kbTools()}
+function kbToolsRedraw(){const T=document.querySelector(".kb-tools");if(!T)return;
+  T.querySelectorAll("[data-kbt]").forEach(b=>{const a=b.dataset.kbt,col=a.startsWith("col:");
+    if(col||a==="type"||a==="hl"||a==="erase"){const on=col?KB.tool==="pen"&&KB.col===a.slice(4):KB.tool===a;b.setAttribute("aria-pressed",String(on));if(!col)b.classList.toggle("on",on)}
+    if(a==="undo")b.disabled=!KB.undo.length;if(a==="redo")b.disabled=!KB.redo.length});
+  const h=T.querySelector(".kb-hint"),txt=kbHint();if(h&&h.textContent!==txt){h.textContent=txt;if(!reduced()){h.classList.remove("kb-fade");void h.offsetWidth;h.classList.add("kb-fade")}}}
 function kbPt(ev){const r=document.getElementById("kbPaper").getBoundingClientRect(),k=r.width/KB_W;return[+((ev.clientX-r.left)/k).toFixed(1),+((ev.clientY-r.top)/k).toFixed(1)]}
 function kbErase(pt){const p=kbCur();if(!p)return;const list=p.ink||[];let hit=-1;
   for(let i=list.length-1;i>=0&&hit<0;i--){const k=list[i],rr=9+(k.h?7:1),q=k.p;
     for(let j=0;j<q.length;j++){const a=q[j],b=q[j+1]||a,dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,((pt[0]-a[0])*dx+(pt[1]-a[1])*dy)/L)):0;
       if(Math.hypot(a[0]+t*dx-pt[0],a[1]+t*dy-pt[1])<rr){hit=i;break}}}
-  if(hit<0)return;const k=list.splice(hit,1)[0];KB.undo.push({a:"del",k,i:hit});KB.redo=[];kbTouch(p);kbInkRedraw();kbToolsRedraw()}
+  if(hit<0)return;const gh=kbClone([hit]);const k=list.splice(hit,1)[0];KB.undo.push({a:"del",k,i:hit});KB.redo=[];kbTouch(p);kbInkRedraw();kbGhost(gh);kbToolsRedraw()}
 const kbTP=new Map();let kbPan=null;
 function kbPanMid(){const v=[...kbTP.values()].slice(0,2);return{x:(v[0].x+v[1].x)/2,y:(v[0].y+v[1].y)/2}}
 const kbWants=ev=>ev.pointerType==="pen"||(KB.tool!=="type"&&(ev.pointerType!=="touch"||KB.finger==="write"));
@@ -8124,7 +8152,7 @@ document.addEventListener("input",e=>{if(cur!=="kneeboard")return;const p=kbCur(
   if(!p)return;
   if(t.matches("[data-kbtitle]")){p.title=t.value.slice(0,60);kbTouch(p);const r=document.querySelector(`[data-kbopen="${p.id}"] b`);if(r)r.textContent=kbTitle(p);return}
   const k=t.dataset&&t.dataset.kf;if(!k)return;p.fields=p.fields||{};p.fields[k]=t.value.slice(0,4000);kbTouch(p);
-  if(p.tpl==="hold"&&/^(crs|turn|fix|leg)$/.test(k)){const h=document.getElementById("kbHold");if(h)h.innerHTML=kbHoldSvg(p)}
+  if(p.tpl==="hold"&&/^(crs|turn|fix|leg)$/.test(k))kbHoldUpd(p)
   if(p.tpl==="fuel"&&/^f[ap]\d+$/.test(k)){const i=+k.slice(2),r=(p.rows||[])[i]||{},act=N(p.fields["fa"+i]),pl=r.f!=null?r.f:N(p.fields["fp"+i]),el=document.querySelector(`[data-kbdiff="${i}"]`);
     if(el){const df=act!=null&&pl!=null?act-pl:null;el.textContent=df==null?"":(df>0?"+":"")+fmt(df);el.className="ro df"+(df==null?"":df<0?" neg":" pos")}}});
 /* Enter moves to the next box, like a form */
@@ -8133,39 +8161,45 @@ document.addEventListener("keydown",e=>{if(cur!=="kneeboard"||e.key!=="Enter"||!
 
 /* ---------- taps ---------- */
 document.addEventListener("click",e=>{if(cur!=="kneeboard")return;const t=e.target.closest("button,[data-kbshx]");if(!t)return;const p=kbCur();
-  if(KB.menu&&!t.closest(".kb-menu")&&!t.matches("[data-kbmenu]")){KB.menu=false;render()}
-  if(t.matches("[data-kbnew]")){KB.sheet=true;render();return}
-  if(t.matches("[data-kbshx]")){KB.sheet=false;render();return}
-  if(t.dataset.kbtpl){kbNew(t.dataset.kbtpl);render();const s=document.getElementById("kbScroll");if(s)s.scrollTop=0;return}
-  if(t.dataset.kbopen){KB.sel=t.dataset.kbopen;KB.undo=[];KB.redo=[];KB.menu=false;KB.armAll=false;render();const s=document.getElementById("kbScroll");if(s)s.scrollTop=0;return}
-  if(t.matches("[data-kbback]")){KB.sel=null;KB.menu=false;render();return}
+  if(KB.menu&&!t.closest(".kb-menu")&&!t.matches("[data-kbmenu]")){kbMenuClose();if(!t.dataset.kbt)return}
+  if(t.matches("[data-kbnew]")){KB.sheet=true;KB.fx="sheet";render();return}
+  if(t.matches("[data-kbshx]")){kbSheetClose();return}
+  if(t.dataset.kbtpl){const tp=t.dataset.kbtpl;kbSheetClose(()=>{kbNew(tp);KB.fx=kbNarrow()?"push":"new";if(tp==="fuel")KB.fx+=" fx-rows"});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTop=0},kbNarrow()?260:210);return}
+  if(t.dataset.kbopen){if(KB.sel===t.dataset.kbopen&&!kbNarrow())return;KB.sel=t.dataset.kbopen;KB.undo=[];KB.redo=[];KB.menu=false;KB.armAll=false;KB.fx=kbNarrow()?"push":"swap";render();const s=document.getElementById("kbScroll");if(s)s.scrollTop=0;return}
+  if(t.matches("[data-kbback]")){KB.menu=false;kbOut("popping",290,()=>{KB.sel=null});return}
   if(t.matches("[data-kbdelall]")){const L=[...KB.pages.values()].filter(kbMine);if(!KB.armAll){KB.armAll=true;render();setTimeout(()=>{if(KB.armAll){KB.armAll=false;if(cur==="kneeboard")render()}},4000);return}
-    KB.armAll=false;L.forEach(q=>{q.del=true;q.ink=[];q.fields={};kbTouch(q)});KB.sel=null;toast(L.length+" page"+(L.length>1?"s":"")+" deleted");render();kbSyncSoon(300);return}
+    KB.armAll=false;kbOut("out-all",300+Math.min(L.length,12)*25,()=>{L.forEach(q=>{q.del=true;q.ink=[];q.fields={};kbTouch(q)});KB.sel=null;KB.fx="open";toast(L.length+" page"+(L.length>1?"s":"")+" deleted");kbSyncSoon(300)});return}
   if(!p)return;
-  if(t.matches("[data-kbmenu]")){KB.menu=!KB.menu;render();return}
-  if(t.matches("[data-kbnight]")){KB.night=!kbNight();store.set("kbNight",KB.night);render();return}
-  if(t.matches("[data-kbfill]")){if(kbFill(p)){kbTouch(p);render();toast("Filled from "+(p.tpl==="told"?"Performance":p.tpl==="atis"?"the ATIS":"the flight plan"))}return}
-  if(t.matches("[data-kbdup]")){const c=JSON.parse(JSON.stringify(kbWire(p).data));const q={...c,id:kbId(),u:kbMe(),title:(p.title||kbTitle(p))+" copy",created:Date.now(),upd:Date.now()};KB.pages.set(q.id,q);kbTouch(q);KB.sel=q.id;KB.menu=false;KB.undo=[];KB.redo=[];render();toast("Page duplicated");return}
-  if(t.matches("[data-kbmore]")){p.h=kbTpl(p).h+320;kbTouch(p);KB.menu=false;render();return}
-  if(t.matches("[data-kbfinger]")){KB.finger=KB.finger==="write"?"scroll":"write";store.set("kbFinger",KB.finger);KB.menu=false;render();return}
-  if(t.matches("[data-kbclear]")){KB.menu=false;if((p.ink||[]).length){KB.undo.push({a:"clear",list:p.ink.slice()});KB.redo=[];p.ink=[];kbTouch(p)}render();return}
-  if(t.matches("[data-kbdel]")){p.del=true;p.ink=[];p.fields={};kbTouch(p);KB.sel=null;KB.menu=false;toast("Page deleted");render();kbSyncSoon(500);return}
+  if(t.matches("[data-kbmenu]")){if(KB.menu)kbMenuClose();else{KB.menu=true;KB.fx="menu";render()}return}
+  if(t.matches("[data-kbnight]")){KB.night=!kbNight();store.set("kbNight",KB.night);const pp=document.getElementById("kbPaper");if(pp)pp.classList.toggle("night",KB.night);t.classList.toggle("on",KB.night);t.setAttribute("aria-pressed",String(KB.night));return}
+  if(t.matches("[data-kbfill]")){const before={...(p.fields||{})},rows=JSON.stringify(p.rows||null);if(kbFill(p)){kbTouch(p);if(p.tpl==="fuel"&&JSON.stringify(p.rows||null)!==rows)KB.fx="rows";render();kbFlash(before,p);toast("Filled from "+(p.tpl==="told"?"Performance":p.tpl==="atis"?"the ATIS":"the flight plan"))}return}
+  if(t.matches("[data-kbdup]")){kbMenuClose(()=>{const c=JSON.parse(JSON.stringify(kbWire(p).data));const q={...c,id:kbId(),u:kbMe(),title:(p.title||kbTitle(p))+" copy",created:Date.now(),upd:Date.now()};KB.pages.set(q.id,q);kbTouch(q);KB.sel=q.id;KB.undo=[];KB.redo=[];KB.fx="new";toast("Page duplicated")});return}
+  if(t.matches("[data-kbmore]")){kbMenuClose(()=>{p.h=kbTpl(p).h+320;kbTouch(p)});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTo({top:s.scrollHeight,behavior:reduced()?"auto":"smooth"})},220);return}
+  if(t.matches("[data-kbfinger]")){kbMenuClose(()=>{KB.finger=KB.finger==="write"?"scroll":"write";store.set("kbFinger",KB.finger);toast(KB.finger==="write"?"One finger writes":"Finger scrolls · Pencil writes")});return}
+  if(t.matches("[data-kbclear]")){const n=(p.ink||[]).length,gh=kbClone(Array.from({length:n},(_,i)=>i));kbMenuClose(()=>{if(n){KB.undo.push({a:"clear",list:p.ink.slice()});KB.redo=[];p.ink=[];kbTouch(p)}});setTimeout(()=>kbGhost(gh),150);return}
+  if(t.matches("[data-kbdel]")){KB.menu=false;const m=document.querySelector(".kb-menu");if(m)m.remove();kbOut("out-del",260,()=>{p.del=true;p.ink=[];p.fields={};kbTouch(p);KB.sel=null;toast("Page deleted");kbSyncSoon(500)});return}
   const a=t.dataset.kbt;if(!a)return;
   if(a.startsWith("col:")){KB.tool="pen";KB.col=a.slice(4);store.set("kbCol",KB.col)}
   else if(a==="type"||a==="hl"||a==="erase")KB.tool=a==="type"?"type":KB.tool===a?"pen":a;
-  else if(a==="undo"||a==="redo"){const from=a==="undo"?KB.undo:KB.redo,to=a==="undo"?KB.redo:KB.undo,u=from.pop();if(!u)return;p.ink=p.ink||[];
-    if(u.a==="add"){if(a==="undo"){u.k=p.ink.pop()}else p.ink.push(u.k)}
-    else if(u.a==="del"){if(a==="undo")p.ink.splice(Math.min(u.i,p.ink.length),0,u.k);else p.ink.splice(u.i,1)}
-    else if(u.a==="clear"){if(a==="undo")p.ink=u.list.slice();else p.ink=[]}
-    to.push(u);kbTouch(p);kbInkRedraw();kbToolsRedraw();return}
+  else if(a==="undo"||a==="redo"){const from=a==="undo"?KB.undo:KB.redo,to=a==="undo"?KB.redo:KB.undo,u=from.pop();if(!u)return;p.ink=p.ink||[];const all=n=>Array.from({length:n},(_,i)=>i);let gh=[],born=[];
+    if(u.a==="add"){if(a==="undo"){gh=kbClone([p.ink.length-1]);u.k=p.ink.pop()}else{p.ink.push(u.k);born=[p.ink.length-1]}}
+    else if(u.a==="del"){if(a==="undo"){const i=Math.min(u.i,p.ink.length);p.ink.splice(i,0,u.k);born=[i]}else{gh=kbClone([u.i]);p.ink.splice(u.i,1)}}
+    else if(u.a==="clear"){if(a==="undo"){p.ink=u.list.slice();born=all(p.ink.length)}else{gh=kbClone(all(p.ink.length));p.ink=[]}}
+    to.push(u);kbTouch(p);kbInkRedraw();kbGhost(gh);kbBorn(born);kbToolsRedraw();return}
   store.set("kbTool",KB.tool);const pp=document.getElementById("kbPaper");if(pp){pp.classList.toggle("typing",KB.tool==="type");pp.classList.toggle("inking",KB.tool!=="type")}kbToolsRedraw()});
-document.addEventListener("keydown",e=>{if(cur!=="kneeboard")return;if(e.key==="Escape"&&(KB.sheet||KB.menu)){KB.sheet=false;KB.menu=false;render();return}
+let kbSd=null;
+document.addEventListener("pointerdown",e=>{const h=e.target.closest&&e.target.closest(".kb-grabber,.kb-shh");if(!h||cur!=="kneeboard"||!kbNarrow()||e.target.closest("button"))return;const sh=h.closest(".kb-sheet");kbSd={y:e.clientY,t:performance.now(),sh,dy:0};sh.style.animation="none";sh.style.transition="none"});
+document.addEventListener("pointermove",e=>{if(!kbSd)return;kbSd.dy=Math.max(0,e.clientY-kbSd.y);kbSd.sh.style.transform=`translateY(${kbSd.dy}px)`;const sd=document.querySelector(".kb-shade");if(sd)sd.style.opacity=String(1-Math.min(1,kbSd.dy/400))});
+document.addEventListener("pointerup",e=>{const d=kbSd;if(!d)return;kbSd=null;const v=d.dy/Math.max(1,performance.now()-d.t),sh=d.sh,sd=document.querySelector(".kb-shade");
+  sh.style.transition="transform .28s cubic-bezier(.2,.9,.3,1)";if(sd)sd.style.transition="opacity .28s";
+  if(d.dy>120||v>.6){sh.style.transform="translateY(105%)";if(sd)sd.style.opacity="0";setTimeout(()=>{KB.sheet=false;render()},260)}else{sh.style.transform="";if(sd)sd.style.opacity=""}});
+document.addEventListener("keydown",e=>{if(cur!=="kneeboard")return;if(e.key==="Escape"&&(KB.sheet||KB.menu)){if(KB.sheet)kbSheetClose();else kbMenuClose();return}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="z"&&!(e.target.matches&&e.target.matches("input,textarea"))){e.preventDefault();const b=document.querySelector(`[data-kbt="${e.shiftKey?"redo":"undo"}"]`);if(b)b.click()}});
 
 document.head.insertAdjacentHTML("beforeend",`<style>
 :root{--kb-ink:#1B1F24}
 .screen[data-app="kneeboard"] main{background:var(--ios-bg)}
-.kb{position:relative;display:grid;grid-template-columns:300px 1fr;height:100%;font-family:var(--f-os);-webkit-font-smoothing:antialiased;color:var(--ink)}
+.kb{position:relative;overflow:hidden;display:grid;grid-template-columns:300px 1fr;height:100%;font-family:var(--f-os);-webkit-font-smoothing:antialiased;color:var(--ink)}
 .kb-side{display:flex;flex-direction:column;min-height:0;background:var(--ios-bg);border-right:.5px solid var(--ios-sep)}
 .kb-sh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}.kb-sh h2{margin:0;font:700 28px/1.1 var(--f-os);letter-spacing:.2px}
 .kb-gl{width:36px;height:36px;border-radius:50%;border:0;background:var(--ios-grp);color:var(--ios-tint);display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer}
@@ -8199,8 +8233,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-pill{border:0;border-radius:18px;background:var(--ios-grp);color:var(--ios-tint);font:600 14px var(--f-os);padding:8px 13px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);white-space:nowrap}
 .kb-tb{width:36px;height:36px;border-radius:10px;border:0;background:none;color:var(--ios-tint);display:grid;place-items:center;cursor:pointer;flex:none}
 .kb-tb.on{background:var(--ios-grp);box-shadow:0 1px 3px rgba(0,0,0,.1)}.kb-tb[disabled]{color:var(--ios-lbl3);cursor:default}
-.kb-menu{position:absolute;right:14px;top:52px;z-index:20;min-width:250px;background:var(--ios-grp);border-radius:13px;box-shadow:0 10px 40px rgba(0,0,0,.22);overflow:hidden;animation:kbM .18s ease-out}
-@keyframes kbM{from{opacity:0;transform:scale(.94);transform-origin:top right}}
+.kb-menu{position:absolute;right:14px;top:52px;z-index:20;min-width:250px;background:var(--ios-grp);border-radius:13px;box-shadow:0 10px 40px rgba(0,0,0,.22);overflow:hidden;transform-origin:calc(100% - 18px) -6px}
 .kb-menu button{display:block;width:100%;text-align:left;border:0;border-bottom:.5px solid var(--ios-sep);background:none;color:var(--ink);font:400 17px var(--f-os);padding:12px 16px;cursor:pointer}.kb-menu button:last-child{border:0}.kb-menu .red{color:#FF3B30}
 .kb-tools{display:flex;align-items:center;gap:4px;padding:4px 14px 8px;overflow-x:auto;scrollbar-width:none}.kb-tools::-webkit-scrollbar{display:none}
 .kb-sep{flex:none;width:.5px;height:22px;background:var(--ios-sep);margin:0 4px}
@@ -8239,20 +8272,82 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-ink{position:absolute;left:0;top:0;touch-action:none;z-index:2;color:var(--kb-ink)}
 .kb-paper.typing .kb-ink{pointer-events:none}.kb-paper.inking .kb-ink{cursor:crosshair}
 .kb-foot-p{position:absolute;left:24px;right:24px;bottom:8px;font:400 10px 'IBM Plex Mono',monospace;color:var(--kb-lbl);opacity:.75;text-align:right}
-.kb-shade{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.32);animation:kbF .2s}@keyframes kbF{from{opacity:0}}
-.kb-sheet{position:absolute;z-index:31;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 40px);overflow:auto;background:var(--ios-bg);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:kbS .25s cubic-bezier(.2,.9,.3,1.1)}
-@keyframes kbS{from{opacity:0;transform:translate(-50%,-46%)}}
+.kb-shade{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,.32)}
+.kb-sheet{position:absolute;z-index:31;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 40px);overflow:auto;background:var(--ios-bg);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .kb-shh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 4px}.kb-shh b{font:600 17px var(--f-os)}
 .kb-txt{justify-self:start;border:0;background:none;color:var(--ios-tint);font:400 17px var(--f-os);cursor:pointer;padding:0}
 .kb-shn{margin:4px 16px 10px;color:var(--ios-lbl2);font-size:14px;text-align:center}
 .kb-tgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 18px}
 .kb-tc{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:11px;text-align:left;align-items:center;border:0;border-radius:12px;background:var(--ios-grp);color:var(--ink);padding:12px;cursor:pointer;font:inherit}
 .kb-tc .kb-ri{grid-row:span 2}.kb-tc b{font:600 15px var(--f-os)}.kb-tc small{font:400 12.5px/1.3 var(--f-os);color:var(--ios-lbl2)}
-.kb-tc:active,.kb-row:active{opacity:.7}
+.kb-grabber{display:none;width:38px;height:5px;border-radius:3px;background:var(--ios-lbl3);margin:7px auto -4px;touch-action:none}
+/* ----- motion ----- */
+@keyframes kbFade{from{opacity:0}}
+.kb-fade{animation:kbFade .3s ease-out}
+.kb-tb,.kb-sw,.kb-gl,.kb-pill,.kb-btn,.kb-back,.kb-txt{transition:transform .18s cubic-bezier(.3,1.5,.5,1),background-color .22s,box-shadow .22s,color .22s,opacity .2s}
+.kb-tb:active:not([disabled]),.kb-sw:active,.kb-gl:active{transform:scale(.86)}.kb-pill:active,.kb-btn:active{transform:scale(.95)}.kb-back:active,.kb-txt:active{opacity:.45}
+.kb-sw i{transition:transform .3s cubic-bezier(.3,1.7,.5,1)}.kb-sw[aria-pressed="true"] i{transform:scale(1.18)}
+.kb-tb[data-kbnight] svg{transition:transform .5s cubic-bezier(.3,1.5,.5,1)}.kb-tb[data-kbnight].on svg{transform:rotate(-28deg) scale(1.08)}
+.kb-gl svg{transition:transform .3s cubic-bezier(.3,1.5,.5,1)}.kb-gl:hover svg{transform:rotate(90deg)}
+.kb-row{transition:background-color .22s,transform .15s}.kb-row:active{transform:scale(.98);background:var(--ios-grp2)}.kb-row.on:active{background:var(--ios-tint)}
+.kb-tc{transition:transform .18s cubic-bezier(.3,1.5,.5,1),box-shadow .2s}.kb-tc:active{transform:scale(.96)}
+.kb-paper{transition:background-color .45s ease,color .45s ease,box-shadow .45s ease}
+.kb-paper .kb-f,.kb-paper .kb-hd,.kb-paper .kb-big,.kb-paper .kb-th,.kb-paper .kb-hold,.kb-paper .kb-tr{transition:border-color .45s ease,color .45s ease,box-shadow .2s}
+.kb-paper input,.kb-paper textarea,.kb-paper .kb-f>span,.kb-paper .kb-tr>*,.kb-paper .kb-foot-p{transition:color .45s ease}
+.kb-ink .ki{stroke:var(--kb-ink);transition:stroke .45s ease}.kb-hp,.kb-hi,.kb-ha{transition:stroke .45s}.kb-hf{transition:fill .45s,stroke .45s}
+.kb-hr,.kb-hfl,.kb-hl{transition:transform .6s cubic-bezier(.3,1.25,.4,1)}
+@keyframes kbGone{to{opacity:0}}.kb-gone{animation:kbGone .3s ease-out forwards;pointer-events:none}
+@keyframes kbBorn{from{opacity:0}}.kb-born{animation:kbBorn .35s ease-out}
+@keyframes kbFlash{0%{box-shadow:0 0 0 0 rgba(10,132,255,.5);background-color:rgba(10,132,255,.16)}100%{box-shadow:0 0 0 12px rgba(10,132,255,0);background-color:rgba(10,132,255,0)}}
+.kb-flash{animation:kbFlash 1s ease-out both}
+/* opening the app: the list and the page come in */
+@keyframes kbRowUp{from{opacity:0;transform:translateY(10px)}}
+.kb.fx-open .kb-row,.kb.fx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
+.kb.fx-open .kb-empty,.kb.fx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
+@keyframes kbPaperIn{from{opacity:0;transform:translateY(16px) scale(.985)}}
+.kb.fx-open .kb-fit,.kb.fx-swap .kb-fit,.kb.fx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
+.kb.fx-swap .kb-bar,.kb.fx-new .kb-bar{animation:kbFade .3s ease-out both}
+@keyframes kbRowNew{0%{opacity:0;transform:translateX(-18px) scale(.95)}60%{opacity:1}}
+.kb.fx-new .kb-row.on{animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
+@keyframes kbRowIn{from{opacity:0;transform:translateY(6px)}}
+.kb.fx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
+/* leaving: a deleted page and its row */
+@keyframes kbPaperOut{to{opacity:0;transform:scale(.94) translateY(12px)}}
+@keyframes kbRowOut{to{opacity:0;transform:translateX(-26px)}}
+.kb.out-del .kb-fit,.kb.out-all .kb-fit{animation:kbPaperOut .26s cubic-bezier(.4,0,1,1) forwards}
+.kb.out-del .kb-row.on{animation:kbRowOut .26s cubic-bezier(.4,0,1,1) forwards}
+.kb.out-all .kb-row,.kb.out-all .kb-sec{animation:kbRowOut .28s cubic-bezier(.4,0,1,1) forwards;animation-delay:calc(var(--i,0)*25ms)}
+/* the New Page sheet */
+@keyframes kbShadeIn{from{opacity:0}}@keyframes kbShadeOut{to{opacity:0}}
+.kb.fx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}
+@keyframes kbSheetIn{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}}@keyframes kbSheetOut{to{opacity:0;transform:translate(-50%,-50%) scale(.94)}}
+.kb.fx-sheet .kb-sheet{animation:kbSheetIn .42s cubic-bezier(.2,1.2,.35,1) both}.kb-sheet.closing{animation:kbSheetOut .2s ease-in forwards}
+@keyframes kbCard{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.kb.fx-sheet .kb-tc{animation:kbCard .42s cubic-bezier(.2,1.1,.3,1) both;animation-delay:calc(70ms + var(--i,0)*30ms)}
+.kb.fx-sheet .kb-shn{animation:kbFade .35s .05s ease-out both}
+/* the ⋯ menu */
+@keyframes kbMenuIn{from{opacity:0;transform:scale(.6)}}@keyframes kbMenuOut{to{opacity:0;transform:scale(.85)}}
+.kb.fx-menu .kb-menu{animation:kbMenuIn .3s cubic-bezier(.2,1.25,.4,1) both}.kb-menu.closing{animation:kbMenuOut .14s ease-in forwards}
+.kb.fx-menu .kb-menu button{animation:kbFade .25s ease-out both}
+.kb.fx-menu .kb-menu button:nth-child(2){animation-delay:30ms}.kb.fx-menu .kb-menu button:nth-child(3){animation-delay:60ms}.kb.fx-menu .kb-menu button:nth-child(4){animation-delay:90ms}.kb.fx-menu .kb-menu button:nth-child(5){animation-delay:120ms}
 @media (max-width:820px){.kb{grid-template-columns:1fr}.kb.has-page .kb-side{display:none}.kb:not(.has-page) .kb-main{display:none}
   .kb-back{display:flex}.kb-ti{font-size:18px}.kb-bar{padding:8px 10px 2px;flex-wrap:wrap}.kb-tools{padding:2px 10px 6px}.kb-hint{display:none}
-  .kb-pill{font-size:13px;padding:7px 11px}.kb-tgrid{grid-template-columns:1fr}.kb-sheet{top:auto;bottom:0;transform:none;left:0;width:100%;border-radius:14px 14px 0 0;max-height:88%;animation:kbU .28s cubic-bezier(.2,.9,.3,1)}
-  @keyframes kbU{from{transform:translateY(40%);opacity:0}}}
+  .kb-pill{font-size:13px;padding:7px 11px}.kb-tgrid{grid-template-columns:1fr}.kb-sheet{top:auto;bottom:0;transform:none;left:0;width:100%;border-radius:14px 14px 0 0;max-height:88%;padding-bottom:env(safe-area-inset-bottom)}
+  .kb-grabber{display:block}.kb-shh{touch-action:none}
+  @keyframes kbSheetUp{from{transform:translateY(100%)}}@keyframes kbSheetDown{to{transform:translateY(105%)}}
+  .kb.fx-sheet .kb-sheet{animation:kbSheetUp .48s cubic-bezier(.16,1,.3,1) both}.kb-sheet.closing{animation:kbSheetDown .25s cubic-bezier(.5,0,.9,.6) forwards}
+  .kb.fx-sheet .kb-tc{animation-delay:calc(120ms + var(--i,0)*28ms)}
+  @keyframes kbMainIn{from{transform:translateX(100%)}}@keyframes kbSideAway{to{transform:translateX(-28%);opacity:.5}}
+  @keyframes kbMainOut{to{transform:translateX(100%)}}@keyframes kbSideBack{from{transform:translateX(-28%);opacity:.5}}
+  .kb.fx-push .kb-side,.kb.popping .kb-side{display:flex;position:absolute;inset:0;z-index:0}
+  .kb.fx-push .kb-side{animation:kbSideAway .42s cubic-bezier(.2,.8,.2,1) forwards}
+  .kb.fx-push .kb-main{position:relative;z-index:1;animation:kbMainIn .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
+  .kb.popping .kb-side{animation:kbSideBack .29s cubic-bezier(.2,.8,.2,1) both}
+  .kb.popping .kb-main{position:relative;z-index:1;animation:kbMainOut .29s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
+  .kb.fx-push .kb-fit{animation:none}
+  .kb.out-del .kb-side{display:flex;position:absolute;inset:0;z-index:0;animation:kbSideBack .26s cubic-bezier(.2,.8,.2,1) both}
+  .kb.out-del .kb-main{position:relative;z-index:1;animation:kbMainOut .26s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}.kb.out-del .kb-fit{animation:none}}
+@media (prefers-reduced-motion:reduce){.kb,.kb *{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
 @media (max-width:480px){.kb-acts{width:100%;justify-content:flex-end}.kb-acts .kb-pill{margin-right:auto}}
 </style>`);
 

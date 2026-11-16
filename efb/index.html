@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.0625">
+<meta name="efb-build" content="1116.0949">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5897,7 +5897,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -6358,7 +6358,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout)|pirep)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|pirep)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -7992,6 +7992,462 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @media (prefers-reduced-motion:reduce){
   .home.hedit .app:not(.recent) .icon{animation:none;outline:2px solid rgba(255,255,255,.65);outline-offset:3px}
   .hl-menu,.hl-dim,.hl-lift{transition:none}}
+</style>`);
+
+/* ===== Clock, as on iOS 18 =====
+   World Clock: Edit and + in glass buttons, cities you pick (search by city, country or airport code), drag to reorder,
+   delete; the flight plan's airports join on their own. On an iPad: a world map with day and night above a grid of
+   clock faces. Alarms: wheel picker, repeat days, label, snooze; they ring here while the EFB is open and, with push
+   on, arrive as notifications when it is closed (the EFB server keeps them: Worker crew.js, kind 'alarm').
+   Stopwatch: digital or analog face, laps. Timers: wheel picker, label, recents; a running timer is pushed too. */
+const CK={edit:false,sheet:null,q:"",del:-1,ring:null,ringT:0,fired:{},landD:null,wh:{},drag:null,lastSync:""};
+const CK_CITIES=`Taipei|Taiwan|Asia/Taipei|25.03|121.56|RCTP TPE TSA RCSS
+Kaohsiung|Taiwan|Asia/Taipei|22.63|120.30|RCKH KHH
+Hong Kong|China|Asia/Hong_Kong|22.32|114.17|VHHH HKG
+Macau|China|Asia/Macau|22.20|113.55|VMMC MFM
+Shanghai|China|Asia/Shanghai|31.23|121.47|ZSPD ZSSS PVG SHA
+Beijing|China|Asia/Shanghai|39.90|116.40|ZBAA ZBAD PEK PKX
+Guangzhou|China|Asia/Shanghai|23.13|113.26|ZGGG CAN
+Chengdu|China|Asia/Shanghai|30.66|104.06|ZUUU ZUTF CTU TFU
+Tokyo|Japan|Asia/Tokyo|35.68|139.69|RJTT RJAA HND NRT
+Osaka|Japan|Asia/Tokyo|34.69|135.50|RJBB RJOO KIX ITM
+Sapporo|Japan|Asia/Tokyo|43.06|141.35|RJCC CTS
+Okinawa|Japan|Asia/Tokyo|26.21|127.68|ROAH OKA
+Seoul|South Korea|Asia/Seoul|37.57|126.98|RKSI RKSS ICN GMP
+Busan|South Korea|Asia/Seoul|35.18|129.08|RKPK PUS
+Manila|Philippines|Asia/Manila|14.60|120.98|RPLL MNL
+Bangkok|Thailand|Asia/Bangkok|13.76|100.50|VTBS VTBD BKK DMK
+Phuket|Thailand|Asia/Bangkok|7.88|98.39|VTSP HKT
+Ho Chi Minh City|Vietnam|Asia/Ho_Chi_Minh|10.82|106.63|VVTS SGN
+Hanoi|Vietnam|Asia/Ho_Chi_Minh|21.03|105.85|VVNB HAN
+Singapore|Singapore|Asia/Singapore|1.35|103.82|WSSS SIN
+Kuala Lumpur|Malaysia|Asia/Kuala_Lumpur|3.14|101.69|WMKK KUL
+Jakarta|Indonesia|Asia/Jakarta|-6.21|106.85|WIII CGK
+Bali|Indonesia|Asia/Makassar|-8.65|115.22|WADD DPS
+Delhi|India|Asia/Kolkata|28.61|77.21|VIDP DEL
+Mumbai|India|Asia/Kolkata|19.08|72.88|VABB BOM
+Bengaluru|India|Asia/Kolkata|12.97|77.59|VOBL BLR
+Kathmandu|Nepal|Asia/Kathmandu|27.72|85.32|VNKT KTM
+Colombo|Sri Lanka|Asia/Colombo|6.93|79.86|VCBI CMB
+Dhaka|Bangladesh|Asia/Dhaka|23.81|90.41|VGHS DAC
+Karachi|Pakistan|Asia/Karachi|24.86|67.01|OPKC KHI
+Dubai|United Arab Emirates|Asia/Dubai|25.20|55.27|OMDB OMDW DXB DWC
+Abu Dhabi|United Arab Emirates|Asia/Dubai|24.45|54.38|OMAA AUH
+Doha|Qatar|Asia/Qatar|25.29|51.53|OTHH DOH
+Riyadh|Saudi Arabia|Asia/Riyadh|24.71|46.68|OERK RUH
+Jeddah|Saudi Arabia|Asia/Riyadh|21.49|39.19|OEJN JED
+Tel Aviv|Israel|Asia/Jerusalem|32.09|34.78|LLBG TLV
+Istanbul|Türkiye|Europe/Istanbul|41.01|28.98|LTFM LTFJ IST SAW
+Tehran|Iran|Asia/Tehran|35.69|51.39|OIIE IKA
+Cairo|Egypt|Africa/Cairo|30.04|31.24|HECA CAI
+Addis Ababa|Ethiopia|Africa/Addis_Ababa|9.03|38.74|HAAB ADD
+Nairobi|Kenya|Africa/Nairobi|-1.29|36.82|HKJK NBO
+Lagos|Nigeria|Africa/Lagos|6.52|3.38|DNMM LOS
+Casablanca|Morocco|Africa/Casablanca|33.57|-7.59|GMMN CMN
+Johannesburg|South Africa|Africa/Johannesburg|-26.20|28.05|FAOR JNB
+Cape Town|South Africa|Africa/Johannesburg|-33.92|18.42|FACT CPT
+London|United Kingdom|Europe/London|51.51|-0.13|EGLL EGKK EGSS LHR LGW STN
+Manchester|United Kingdom|Europe/London|53.48|-2.24|EGCC MAN
+Dublin|Ireland|Europe/Dublin|53.35|-6.26|EIDW DUB
+Paris|France|Europe/Paris|48.86|2.35|LFPG LFPO CDG ORY
+Nice|France|Europe/Paris|43.70|7.27|LFMN NCE
+Amsterdam|Netherlands|Europe/Amsterdam|52.37|4.90|EHAM AMS
+Brussels|Belgium|Europe/Brussels|50.85|4.35|EBBR BRU
+Frankfurt|Germany|Europe/Berlin|50.11|8.68|EDDF FRA
+Munich|Germany|Europe/Berlin|48.14|11.58|EDDM MUC
+Berlin|Germany|Europe/Berlin|52.52|13.40|EDDB BER
+Zurich|Switzerland|Europe/Zurich|47.38|8.54|LSZH ZRH
+Geneva|Switzerland|Europe/Zurich|46.20|6.14|LSGG GVA
+Vienna|Austria|Europe/Vienna|48.21|16.37|LOWW VIE
+Copenhagen|Denmark|Europe/Copenhagen|55.68|12.57|EKCH CPH
+Oslo|Norway|Europe/Oslo|59.91|10.75|ENGM OSL
+Stockholm|Sweden|Europe/Stockholm|59.33|18.07|ESSA ARN
+Helsinki|Finland|Europe/Helsinki|60.17|24.94|EFHK HEL
+Reykjavík|Iceland|Atlantic/Reykjavik|64.15|-21.94|BIKF KEF
+Madrid|Spain|Europe/Madrid|40.42|-3.70|LEMD MAD
+Barcelona|Spain|Europe/Madrid|41.39|2.17|LEBL BCN
+Lisbon|Portugal|Europe/Lisbon|38.72|-9.14|LPPT LIS
+Rome|Italy|Europe/Rome|41.90|12.50|LIRF FCO
+Milan|Italy|Europe/Rome|45.46|9.19|LIMC MXP
+Athens|Greece|Europe/Athens|37.98|23.73|LGAV ATH
+Warsaw|Poland|Europe/Warsaw|52.23|21.01|EPWA WAW
+Prague|Czechia|Europe/Prague|50.08|14.44|LKPR PRG
+Budapest|Hungary|Europe/Budapest|47.50|19.04|LHBP BUD
+Moscow|Russia|Europe/Moscow|55.76|37.62|UUEE UUDD SVO DME
+New York|United States|America/New_York|40.71|-74.01|KJFK KEWR KLGA JFK EWR LGA
+Boston|United States|America/New_York|42.36|-71.06|KBOS BOS
+Washington, D.C.|United States|America/New_York|38.91|-77.04|KIAD KDCA IAD DCA
+Atlanta|United States|America/New_York|33.75|-84.39|KATL ATL
+Miami|United States|America/New_York|25.76|-80.19|KMIA MIA
+Orlando|United States|America/New_York|28.54|-81.38|KMCO MCO
+Detroit|United States|America/Detroit|42.33|-83.05|KDTW DTW
+Chicago|United States|America/Chicago|41.88|-87.63|KORD KMDW ORD MDW
+Dallas|United States|America/Chicago|32.78|-96.80|KDFW DFW
+Houston|United States|America/Chicago|29.76|-95.37|KIAH IAH
+Minneapolis|United States|America/Chicago|44.98|-93.27|KMSP MSP
+Denver|United States|America/Denver|39.74|-104.99|KDEN DEN
+Salt Lake City|United States|America/Denver|40.76|-111.89|KSLC SLC
+Phoenix|United States|America/Phoenix|33.45|-112.07|KPHX PHX
+Las Vegas|United States|America/Los_Angeles|36.17|-115.14|KLAS LAS
+Los Angeles|United States|America/Los_Angeles|34.05|-118.24|KLAX LAX
+San Francisco|United States|America/Los_Angeles|37.77|-122.42|KSFO KOAK KSJC SFO OAK SJC
+San Diego|United States|America/Los_Angeles|32.72|-117.16|KSAN SAN
+Seattle|United States|America/Los_Angeles|47.61|-122.33|KSEA SEA
+Portland|United States|America/Los_Angeles|45.52|-122.68|KPDX PDX
+Anchorage|United States|America/Anchorage|61.22|-149.90|PANC ANC
+Honolulu|United States|Pacific/Honolulu|21.31|-157.86|PHNL HNL
+Toronto|Canada|America/Toronto|43.65|-79.38|CYYZ YYZ
+Montréal|Canada|America/Toronto|45.50|-73.57|CYUL YUL
+Vancouver|Canada|America/Vancouver|49.28|-123.12|CYVR YVR
+Calgary|Canada|America/Edmonton|51.05|-114.07|CYYC YYC
+Mexico City|Mexico|America/Mexico_City|19.43|-99.13|MMMX MEX
+Cancún|Mexico|America/Cancun|21.16|-86.85|MMUN CUN
+Panama City|Panama|America/Panama|8.98|-79.52|MPTO PTY
+Bogotá|Colombia|America/Bogota|4.71|-74.07|SKBO BOG
+Lima|Peru|America/Lima|-12.05|-77.04|SPJC LIM
+Santiago|Chile|America/Santiago|-33.45|-70.67|SCEL SCL
+Buenos Aires|Argentina|America/Argentina/Buenos_Aires|-34.60|-58.38|SAEZ EZE
+São Paulo|Brazil|America/Sao_Paulo|-23.55|-46.63|SBGR GRU
+Rio de Janeiro|Brazil|America/Sao_Paulo|-22.91|-43.17|SBGL GIG
+Sydney|Australia|Australia/Sydney|-33.87|151.21|YSSY SYD
+Melbourne|Australia|Australia/Melbourne|-37.81|144.96|YMML MEL
+Brisbane|Australia|Australia/Brisbane|-27.47|153.03|YBBN BNE
+Perth|Australia|Australia/Perth|-31.95|115.86|YPPH PER
+Auckland|New Zealand|Pacific/Auckland|-36.85|174.76|NZAA AKL
+Guam|Guam|Pacific/Guam|13.44|144.79|PGUM GUM
+Nadi|Fiji|Pacific/Fiji|-17.76|177.44|NFFN NAN`.split("\n").map(l=>{const p=l.split("|");return{name:p[0],cc:p[1],tz:p[2],lat:+p[3],lon:+p[4],codes:p[5]}});
+const ckCity=tz=>CK_CITIES.find(c=>c.tz===tz);
+/* ---------- the cities the pilot keeps ---------- */
+const wcGet=()=>{const L=store.get("wcCities",null);return Array.isArray(L)?L:[{tz:"UTC",name:"UTC"},{tz:LOCAL_TZ,name:"Local"}]};
+const wcSet=L=>store.set("wcCities",L);
+function wcAll(){const x=O(),list=wcGet().map(c=>({...c,sub:c.tz==="UTC"?"Coordinated Universal Time":c.name==="Local"?LOCAL_TZ.replace(/_/g," "):(c.cc||c.tz.replace(/_/g," ").split("/").pop())}));
+  const have=new Set(list.map(c=>c.name+"|"+c.tz));
+  [["o","Departure"],["d","Destination"],["a","Alternate"]].forEach(([k,role])=>{const a=x[k]||{},code=S(a.icao_code),tz=code&&aptTz(a);if(!tz||have.has(code+"|"+tz))return;have.add(code+"|"+tz);
+    list.push({tz,name:code,sub:role+" · "+S(a.name),fp:1,lat:+a.pos_lat,lon:+a.pos_long})});
+  return list.map(c=>{if(isFinite(c.lat)&&isFinite(c.lon)&&c.lat!=null)return c;if(c.tz==="UTC")return {...c,lat:null,lon:null};
+    const g=c.name==="Local"?ckCity(c.tz):CK_CITIES.find(x=>x.tz===c.tz&&x.name===c.name);return {...c,lat:g?g.lat:null,lon:g?g.lon:null}})}
+function wcWhen(tz,d){const p=tzP(tz,d),lp=tzP(LOCAL_TZ,d);if(!p||!lp)return null;const diff=tzOff(p,d)-tzOff(lp,d),dd=Date.UTC(p.y,p.mo-1,p.d)-Date.UTC(lp.y,lp.mo-1,lp.d),ah=Math.abs(diff);
+  return {p,day:dd>0?"Tomorrow":dd<0?"Yesterday":"Today",off:(diff<0?"−":"+")+Math.floor(ah/60)+(ah%60?":"+pad(ah%60):"")+"HRS",hm:pad(p.h)+":"+pad(p.m)}}
+/* a clock face (iOS: white by day, black by night) */
+function ckFace(p,big){const night=p.h<6||p.h>=18,face=night?"#1C1C1E":"#FFFFFF",ink=night?"#FFFFFF":"#000000";let t="";
+  for(let i=0;i<60;i++){const a=i*6*Math.PI/180,l=i%5?2.2:4.5;t+=`<line x1="${50+Math.sin(a)*(45-l)}" y1="${50-Math.cos(a)*(45-l)}" x2="${50+Math.sin(a)*45}" y2="${50-Math.cos(a)*45}" stroke="${ink}" stroke-opacity="${i%5?.35:.85}" stroke-width="${i%5?.6:1.3}"/>`}
+  if(big)for(let i=1;i<=12;i++){const a=i*30*Math.PI/180;t+=`<text x="${50+Math.sin(a)*32.5}" y="${50-Math.cos(a)*32.5+3.8}" text-anchor="middle" font-size="10.5" font-weight="500" fill="${ink}" font-family="-apple-system,system-ui,sans-serif">${i}</text>`}
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="49" fill="${face}"/>${t}<line x1="50" y1="54" x2="50" y2="25" stroke="${ink}" stroke-width="3.6" stroke-linecap="round" transform="rotate(${(p.h%12)*30+p.m*.5} 50 50)"/><line x1="50" y1="54" x2="50" y2="10" stroke="${ink}" stroke-width="2.4" stroke-linecap="round" transform="rotate(${p.m*6+p.s*.1} 50 50)"/><line x1="50" y1="60" x2="50" y2="8" stroke="#FF9500" stroke-width="1" transform="rotate(${p.s*6} 50 50)"/><circle cx="50" cy="50" r="2.6" fill="#FF9500"/><circle cx="50" cy="50" r="1" fill="${face}"/></svg>`}
+/* ---------- world map with day and night (iPad) ---------- */
+function ckLand(){if(CK.landD)return CK.landD;if(!GEO.lo){loadGeo();return ""}const W=1000,H=500;let d="";
+  for(const r of GEO.lo.land){const src=r.p;let pts=[src[0]],jump=false;
+    for(let i=1;i<src.length;i++){let l=src[i][0];const pv=pts[i-1][0];if(Math.abs(l-pv)>180)jump=true;while(l-pv>180)l-=360;while(l-pv<-180)l+=360;pts.push([l,src[i][1]])}
+    /* a ring that goes all the way round (Antarctica) is closed over its pole */
+    if(Math.abs(pts[pts.length-1][0]-pts[0][0])>180){const pole=src.reduce((a,q)=>a+q[1],0)/src.length<0?-90:90;pts.push([pts[pts.length-1][0],pole],[pts[0][0],pole])}
+    const one=off=>pts.map((q,i)=>(i?"L":"M")+((q[0]+180+off)/360*W).toFixed(1)+","+((90-q[1])/180*H).toFixed(1)).join("")+"Z";
+    d+=one(0);if(jump)d+=one(-360)+one(360)}
+  return CK.landD=d}
+function ckSun(t){const d=t/864e5-10957.5,g=(357.529+.98560028*d)*Math.PI/180,q=280.459+.98564736*d,L=(q+1.915*Math.sin(g)+.02*Math.sin(2*g))*Math.PI/180,e=(23.439-3.6e-7*d)*Math.PI/180;
+  const dec=Math.asin(Math.sin(e)*Math.sin(L)),ra=Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L))*180/Math.PI,gmst=(280.46061837+360.98564736629*d)%360;let lon=ra-gmst;lon=((lon+540)%360)-180;return{dec,lon}}
+function ckNight(t){const {dec,lon}=ckSun(t),W=1000,H=500,P=[];const tl=Math.tan(Math.abs(dec)<1e-4?1e-4:dec);
+  for(let x=-180;x<=180;x+=2){const la=Math.atan(-Math.cos((x-lon)*Math.PI/180)/tl)*180/Math.PI;P.push(((x+180)/360*W).toFixed(1)+","+((90-la)/180*H).toFixed(1))}
+  const yEnd=dec>0?H:0;return "M0,"+yEnd+"L"+P.join("L")+"L"+W+","+yEnd+"Z"}
+function ckMap(list,d){const W=1000,H=500,land=ckLand(),sun=ckSun(+d);
+  const placed=[];
+  const pins=list.filter(c=>c.lat!=null&&isFinite(c.lat)&&isFinite(c.lon)).map(c=>({c,x:(c.lon+180)/360*W,y:(90-c.lat)/180*H})).sort((a,b)=>a.y-b.y).map(({c,x,y})=>{const w=wcWhen(c.tz,d);if(!w)return"";
+    const nm=c.name.length>16?c.name.slice(0,15)+"…":c.name,bw=Math.round(nm.length*7.4+58),right=x<W-bw-12;let bx=right?x+9:x-9-bw,by=y-11;
+    for(let k=0;k<6&&placed.some(r=>bx<r[0]+r[2]&&bx+bw>r[0]&&by<r[1]+24&&by+24>r[1]);k++)by+=25;placed.push([bx,by,bw]);
+    return `<g class="wm-pin"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5"/>${by!==y-11?`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${(right?bx:bx+bw).toFixed(1)}" y2="${(by+11).toFixed(1)}" class="ld"/>`:""}<g transform="translate(${bx.toFixed(1)},${by.toFixed(1)})"><rect width="${bw}" height="22" rx="11"/><text x="10" y="15">${esc(nm)}</text><text class="t" x="${bw-10}" y="15" text-anchor="end" data-wct="${esc(c.tz)}">${w.hm}</text></g></g>`}).join("");
+  const sx=(sun.lon+180)/360*W,sy=(90-sun.dec*180/Math.PI)/180*H;
+  return `<svg class="wm" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="World map with day and night"><defs><filter id="wmBlur" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="7"/></filter><clipPath id="wmClip"><rect width="${W}" height="${H}"/></clipPath></defs>
+    <rect class="wm-sea" width="${W}" height="${H}"/><path class="wm-land" d="${land}" clip-path="url(#wmClip)"/><path id="wmNight" class="wm-night" d="${ckNight(+d)}" filter="url(#wmBlur)"/>
+    <circle class="wm-sun" cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="7"/>${pins}</svg>`}
+/* ---------- alarms ---------- */
+const alGet=()=>store.get("alarms",[]);
+const alSet=L=>{store.set("alarms",L);ckSyncSoon()};
+const AL_D=["S","M","T","W","T","F","S"],AL_DN=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function alRepText(r){r=(r||[]).slice().sort();if(!r.length)return"";if(r.length===7)return"every day";if(r.join()==="1,2,3,4,5")return"every weekday";if(r.join()==="0,6")return"every weekend";
+  return "every "+r.map(i=>AL_DN[i].slice(0,3)).join(", ")}
+/* a minute that has already begun counts as passed (iOS): saving or switching on an alarm for this very minute rings next time */
+const ckNowKey=()=>{const n=new Date();return n.getFullYear()+"-"+n.getMonth()+"-"+n.getDate()+" "+pad(n.getHours())+":"+pad(n.getMinutes())};
+const alArm=a=>{const n=new Date();if(a.hm===pad(n.getHours())+":"+pad(n.getMinutes()))CK.fired[a.id]=ckNowKey()};
+const alNextLocal=a=>{const [h,m]=a.hm.split(":").map(Number),n=new Date();for(let k=0;k<=7;k++){const t=new Date(n.getFullYear(),n.getMonth(),n.getDate()+k,h,m,0,0);if(t>n&&(!a.rep||!a.rep.length||a.rep.includes(t.getDay())))return +t}return null};
+/* the server rings the closed EFB: the whole list goes up whenever it changes */
+let ckSyncT=0;function ckSyncSoon(){clearTimeout(ckSyncT);ckSyncT=setTimeout(ckSync,700)}
+function ckSync(){if(typeof pushOn!=="function"||!pushOn()||typeof authOn!=="function"||!authOn()||!vam.url)return;
+  const list=[];alGet().filter(a=>a.on).forEach(a=>{if(a.rep&&a.rep.length)list.push({id:a.id,kind:"alarm",hm:a.hm,tz:LOCAL_TZ,rep:a.rep,label:a.label||""});else{const at=alNextLocal(a);if(at)list.push({id:a.id,kind:"alarm",at,hm:a.hm,label:a.label||""})}});
+  (store.get("alSnooze",[])||[]).forEach(s=>{if(s.at>Date.now())list.push({id:"z"+s.id,kind:"alarm",at:s.at,hm:s.hm,label:(s.label?s.label+" · ":"")+"Snoozed"})});
+  if(cd.end!=null)list.push({id:"timer",kind:"timer",at:cd.end,label:cd.label||""});
+  const k=JSON.stringify(list);if(k===CK.lastSync)return;
+  pmPost("/api/efb/crew/alarms",{list}).then(()=>{CK.lastSync=k}).catch(()=>{})}
+/* ring: here while the EFB is open (the push may also show) */
+function ckAudio(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();actx.resume&&actx.resume()}catch(e){}}
+function ckRing(r){if(CK.ring)return;CK.ring=r;let n=0;clearInterval(CK.ringT);beep();try{navigator.vibrate&&navigator.vibrate([400,200,400])}catch(e){}
+  CK.ringT=setInterval(()=>{if(++n>40){ckRingStop(true);return}beep()},1500);ckRingDraw()}
+function ckRingDraw(){let el=document.getElementById("ckRing");const r=CK.ring;if(!r){if(el)el.remove();return}
+  if(!el){el=document.createElement("div");el.id="ckRing";el.className="ck-ringov";el.setAttribute("role","alertdialog");el.setAttribute("aria-label",r.kind==="timer"?"Timer":"Alarm");document.body.appendChild(el)}
+  el.innerHTML=`<div class="ck-rin"><p class="k">${r.kind==="timer"?"Timer":"Alarm"}</p><p class="t">${esc(r.hm||"")}</p><p class="l">${esc(r.label||(r.kind==="timer"?"Your timer is done":""))}</p>
+    ${r.snooze?`<button class="ck-snz" data-cksnooze>Snooze</button>`:""}<button class="ck-stop" data-ckstop>Stop</button></div>`}
+function ckRingStop(missed){const r=CK.ring;clearInterval(CK.ringT);CK.ring=null;ckRingDraw();if(missed&&r)toast((r.kind==="timer"?"Timer":"Alarm "+r.hm)+" stopped ringing")}
+setInterval(()=>{const n=new Date(),key=n.getFullYear()+"-"+n.getMonth()+"-"+n.getDate()+" "+pad(n.getHours())+":"+pad(n.getMinutes()),hm=pad(n.getHours())+":"+pad(n.getMinutes());
+  let L=alGet(),ch=false;
+  for(const a of L){if(!a.on||a.hm!==hm||CK.fired[a.id]===key)continue;if(a.rep&&a.rep.length&&!a.rep.includes(n.getDay()))continue;
+    CK.fired[a.id]=key;if(!a.rep||!a.rep.length){a.on=false;ch=true}ckRing({id:a.id,kind:"alarm",hm:a.hm,label:a.label,snooze:a.snooze!==false})}
+  if(ch){alSet(L);if(cur==="timer"&&clockTab==="alarm"&&!CK.sheet)render()}
+  const Z=store.get("alSnooze",[])||[],due=Z.filter(s=>s.at<=Date.now());
+  if(due.length){store.set("alSnooze",Z.filter(s=>s.at>Date.now()));ckRing({id:due[0].id,kind:"alarm",hm:due[0].hm,label:due[0].label,snooze:true})}},1000);
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ckstop],[data-cksnooze]");if(!t)return;const r=CK.ring;
+  if(t.dataset.cksnooze!=null&&r){const at=Date.now()+9*60000,Z=(store.get("alSnooze",[])||[]).filter(s=>s.id!==r.id);Z.push({id:r.id,at,hm:r.hm,label:r.label});store.set("alSnooze",Z);ckSyncSoon();toast("Snoozed for 9 minutes")}
+  ckRingStop()});
+/* a timer that ends while the EFB is open rings like an alarm */
+{const _cc=cdCheck;cdCheck=function(){const was=cd.end!=null&&Date.now()>=cd.end,lab=cd.label;const r=_cc.apply(this,arguments);if(was){ckRing({id:"timer",kind:"timer",hm:"",label:lab});ckSyncSoon()}return r}}
+/* ---------- wheel picker ---------- */
+const WH=36;
+const whl=(k,max,val,unit,two)=>`<div class="whl"><div class="whl-s" data-whl="${k}" data-v="${val}" tabindex="0" aria-label="${unit}" role="listbox">${Array.from({length:max+1},(_,i)=>`<div class="whl-i" data-i="${i}">${two?pad(i):i}</div>`).join("")}</div>${unit?`<span class="whl-u">${unit}</span>`:""}</div>`;
+function whlInit(){document.querySelectorAll("#view .whl-s").forEach(s=>{if(s._on)return;s._on=1;s.scrollTop=(+s.dataset.v||0)*WH;let t=0;
+  s.addEventListener("scroll",()=>{clearTimeout(t);t=setTimeout(()=>{const v=Math.max(0,Math.min(s.children.length-1,Math.round(s.scrollTop/WH)));s.dataset.v=v;CK.wh[s.dataset.whl]=v;
+    s.querySelectorAll(".whl-i").forEach(i=>i.classList.toggle("on",+i.dataset.i===v))},90)},{passive:true});
+  s.addEventListener("click",e=>{const i=e.target.closest(".whl-i");if(i)s.scrollTo({top:+i.dataset.i*WH,behavior:"smooth"})});
+  s.addEventListener("keydown",e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();s.scrollTo({top:((+s.dataset.v||0)+(e.key==="ArrowUp"?-1:1))*WH,behavior:"smooth"})});
+  CK.wh[s.dataset.whl]=+s.dataset.v||0;s.querySelectorAll(".whl-i").forEach(i=>i.classList.toggle("on",+i.dataset.i===(+s.dataset.v||0)))})}
+/* ---------- the views ---------- */
+const CK_IC={plus:'<path d="M12 5v14M5 12h14"/>',minus:'<path d="M7 12h10"/>',grab:'<path d="M5 9h14M5 15h14"/>',play:'<path d="M9 6.5v11l9-5.5z" fill="currentColor" stroke="none"/>',bell:'<path d="M6 16.5h12l-1.4-2V10a4.6 4.6 0 0 0-9.2 0v4.5zM10.3 19a1.9 1.9 0 0 0 3.4 0"/>',x:'<path d="M7 7l10 10M17 7L7 17"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/>'};
+const ckI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${CK_IC[k]}</svg>`;
+const ckTop=(btns,title)=>`<div class="ck-top">${btns}</div><h1 class="ck-h1">${title}</h1>`;
+const ckGlass=(attr,label,icon)=>`<button class="ck-gl${icon?" ic":""}" ${attr} aria-label="${label}">${icon?ckI(icon):label}</button>`;
+function ckWorld(){const d=new Date(),list=wcAll(),mine=wcGet().length;
+  const top=ckTop(CK.edit?ckGlass('data-ckdone',"Done"):ckGlass('data-ckedit',"Edit")+ckGlass('data-ckadd',"Add a city","plus"),"World Clock");
+  if(CK.edit){return top+`<div class="wc-ed" id="wcEd">${wcGet().map((c,i)=>{const w=wcWhen(c.tz,d);return `<div class="wc-er${CK.del===i?" arm":""}" data-wci="${i}">
+      <button class="wc-min" data-wcmin="${i}" aria-label="Delete ${esc(c.name)}">${ckI("minus")}</button><span class="wc-en"><b>${esc(c.name)}</b><small>${w?w.day+", "+w.off:""}</small></span>
+      <button class="wc-del" data-wcdel="${i}">Delete</button><span class="wc-grab" data-wcgrab="${i}" aria-label="Reorder ${esc(c.name)}">${ckI("grab")}</span></div>`}).join("")}</div>
+      ${list.some(c=>c.fp)?`<p class="ck-note">The flight plan’s airports are added on their own.</p>`:""}`}
+  const rows=list.map(c=>{const w=wcWhen(c.tz,d);if(!w)return"";return `<div class="wc-r"><span class="wc-l"><small>${w.day}, ${w.off}${c.fp?`<i class="wc-fp">Flight plan</i>`:""}</small><b>${esc(c.name)}</b><small class="s2">${esc(c.sub||"")}</small></span><span class="wc-t" data-wct="${esc(c.tz)}">${w.hm}</span></div>`}).join("");
+  const cards=list.map(c=>{const w=wcWhen(c.tz,d);if(!w)return"";return `<div class="wc-c"><div class="wc-f" data-wcf="${esc(c.tz)}">${ckFace(w.p,true)}</div><b>${esc(c.name)}</b><small>${w.day}, ${w.off}</small><span class="wc-ct" data-wct="${esc(c.tz)}">${w.hm}</span></div>`}).join("");
+  return top+`<div class="wc-wide"><div class="wc-map" id="wcMap">${ckMap(list,d)}</div><div class="wc-grid">${cards}</div></div><div class="wc-list" id="wcList">${rows}</div>
+    ${mine?"":`<p class="ck-empty">No World Clocks</p>`}`}
+function ckAlarms(){const L=alGet(),Z=store.get("alSnooze",[])||[];
+  const top=ckTop(CK.edit?ckGlass('data-ckdone',"Done"):(L.length?ckGlass('data-ckedit',"Edit"):"")+ckGlass('data-ckadd',"Add an alarm","plus"),"Alarms");
+  const rows=L.slice().sort((a,b)=>a.hm.localeCompare(b.hm)).map(a=>{const i=L.indexOf(a),sub=[a.label||"Alarm",alRepText(a.rep)].filter(Boolean).join(", "),z=Z.find(s=>s.id===a.id);
+    return `<div class="al-r${a.on?"":" off"}${CK.del===i?" arm":""}">${CK.edit?`<button class="wc-min" data-almin="${i}" aria-label="Delete alarm ${a.hm}">${ckI("minus")}</button>`:""}
+      <button class="al-main" data-aledit="${i}"><span class="al-t">${a.hm}</span><span class="al-s">${esc(sub)}${z?` · Snoozed until ${pad(new Date(z.at).getHours())}:${pad(new Date(z.at).getMinutes())}`:""}</span></button>
+      ${CK.edit?`<button class="wc-del" data-aldel="${i}">Delete</button>`:`<button class="ck-sw" role="switch" aria-checked="${!!a.on}" aria-label="Alarm ${a.hm}" data-alon="${i}"><i></i></button>`}</div>`}).join("");
+  const pushNote=typeof pushOn==="function"&&pushOn()?"Alarms ring here while the EFB is open, and arrive as notifications when it is closed.":"Alarms ring while the EFB is open. Turn on push notifications in Settings › Notifications to get them when it is closed too.";
+  return top+(L.length?`<div class="al-list">${rows}</div>`:`<p class="ck-empty">No Alarms</p>`)+`<p class="ck-note">${pushNote}</p>`}
+function ckStopwatch(){const run=!!tmr.start,ms=swMs(),face=store.get("swFace","dig");
+  return `<div class="sw-pages" id="swPages" data-face="${face}"><div class="sw-pg dig"><span class="sw-dig" id="swDig">${swFmt(ms)}</span></div>
+    <div class="sw-pg ana"><svg class="sw-ana" viewBox="0 0 300 300" aria-hidden="true">${swDial()}<g id="swSub" transform="rotate(${(ms/60000%30)*12} 150 92)"><line x1="150" y1="92" x2="150" y2="62" class="hd"/></g>
+      <text id="swAnaD" x="150" y="210" text-anchor="middle" class="dg">${swFmt(ms)}</text><g id="swLapH" transform="rotate(${((ms-(tmr.laps[tmr.laps.length-1]||0))/1000%60)*6} 150 150)" ${tmr.laps.length?"":'style="display:none"'}><line x1="150" y1="165" x2="150" y2="22" class="lh"/></g>
+      <g id="swHand" transform="rotate(${(ms/1000%60)*6} 150 150)"><line x1="150" y1="168" x2="150" y2="18" class="hd"/></g><circle cx="150" cy="150" r="5" class="hc"/><circle cx="150" cy="150" r="2" fill="var(--ck-bg)"/></svg></div></div>
+    <div class="sw-dots"><button data-swface="dig" aria-label="Digital" aria-pressed="${face==="dig"}"></button><button data-swface="ana" aria-label="Analog" aria-pressed="${face==="ana"}"></button></div>
+    <div class="ck-btns2"><button class="cb2 grey" id="swLap"${!run&&!ms?" disabled":""}>${run||!ms?"Lap":"Reset"}</button><button class="cb2 ${run?"red":"green"}" id="swStart">${run?"Stop":"Start"}</button></div>
+    <div class="laps">${lapsHtml()}</div>`}
+function swDial(){let s=`<circle cx="150" cy="150" r="146" class="dl"/>`;for(let i=0;i<240;i++){const a=i*1.5*Math.PI/180,L=i%20===0?13:i%4===0?8:5;s+=`<line x1="${150+Math.sin(a)*(140-L)}" y1="${150-Math.cos(a)*(140-L)}" x2="${150+Math.sin(a)*140}" y2="${150-Math.cos(a)*140}" class="${i%20===0?"tk b":i%4===0?"tk":"tk f"}"/>`}
+  for(let i=1;i<=12;i++){const a=i*30*Math.PI/180;s+=`<text x="${150+Math.sin(a)*112}" y="${150-Math.cos(a)*112+7}" text-anchor="middle" class="nm">${i*5}</text>`}
+  s+=`<circle cx="150" cy="92" r="34" class="sd"/>`;for(let i=0;i<30;i++){const a=i*12*Math.PI/180,L=i%5===0?6:3;s+=`<line x1="${150+Math.sin(a)*(32-L)}" y1="${92-Math.cos(a)*(32-L)}" x2="${150+Math.sin(a)*32}" y2="${92-Math.cos(a)*32}" class="tk${i%5?" f":""}"/>`}
+  [[30,0],[5,1],[10,2],[15,3],[20,4],[25,5]].forEach(([n,k])=>{const a=k*60*Math.PI/180;s+=`<text x="${150+Math.sin(a)*19}" y="${92-Math.cos(a)*19+3.5}" text-anchor="middle" class="nm s">${n}</text>`});return s}
+function ckTimers(){const active=cd.end!=null||cd.remain!=null,R=store.get("cdRecents",[])||[];
+  if(active){const t=cdLeft(),run=cd.end!=null,endAt=new Date(Date.now()+t*1000);
+    return `<div class="tm-act">${cd.label?`<p class="tm-lab">${esc(cd.label)}</p>`:""}<div class="cd-ring2"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="var(--ck-line)" stroke-width="2.4"/><circle id="cdArc" cx="50" cy="50" r="46" fill="none" stroke="var(--ck-orange)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="289" stroke-dashoffset="${(289*(1-t/Math.max(1,cd.total||cd.dur))).toFixed(1)}" transform="rotate(-90 50 50)"/></svg>
+      <div class="in"><span class="cd-dig2" id="cdDig">${cdFmt(t)}</span><span class="cd-end2">${ckI("bell")}${run?pad(endAt.getHours())+":"+pad(endAt.getMinutes()):"Paused"}</span></div></div>
+      <div class="ck-btns2"><button class="cb2 grey" data-tmcancel>Cancel</button><button class="cb2 ${run?"orange":"green"}" data-tmpause>${run?"Pause":"Resume"}</button></div></div>`}
+  const h=Math.floor(cd.dur/3600),m=Math.floor(cd.dur%3600/60),s=cd.dur%60;
+  return `<div class="tm-pick"><div class="whl-band"></div>${whl("h",23,h,"hours")}${whl("m",59,m,"min")}${whl("s",59,s,"sec")}</div>
+    <div class="ck-btns2"><button class="cb2 grey" disabled>Cancel</button><button class="cb2 green" data-tmstart>Start</button></div>
+    <div class="ck-grp"><label class="ck-row"><span>Label</span><input data-tmlabel value="${esc(cd.label||"")}" placeholder="Timer" maxlength="40"></label><div class="ck-row"><span>When Timer Ends</span><span class="v">Beep${typeof pushOn==="function"&&pushOn()?" · Push":""}</span></div></div>
+    <div class="cd-pre">${[1,3,5,10,20,30].map(n=>`<button data-tmpre="${n*60}">${n} min</button>`).join("")}</div>
+    ${R.length?`<h2 class="ck-sec">Recents</h2><div class="tm-rec">${R.map((r,i)=>`<div class="tm-rr"><span><b>${cdFmt(r.dur)}</b><small>${esc(r.label||ckDurName(r.dur))}</small></span><button class="tm-go" data-tmrec="${i}" aria-label="Start ${esc(r.label||ckDurName(r.dur))}">${ckI("play")}</button></div>`).join("")}</div>`:""}`}
+const ckIn=s=>s>=86400?Math.floor(s/86400)+(s>=172800?" days":" day")+(s%86400>=3600?" "+Math.floor(s%86400/3600)+" hr":""):ckDurName(s);
+const ckDurName=s=>[s>=3600?Math.floor(s/3600)+" hr":"",s%3600>=60?Math.floor(s%3600/60)+" min":"",s%60?s%60+" sec":""].filter(Boolean).join(" ");
+function ckSheet(){const s=CK.sheet;if(!s)return"";
+  if(s.k==="city"){return `<div class="ck-sh" role="dialog" aria-label="Choose a city"><div class="ck-shc"><div class="ck-shh"><span></span><b>Choose a City</b><button class="ck-tx" data-ckshx>Cancel</button></div>
+    <label class="ck-search">${ckI("search")}<input data-ckq type="search" placeholder="Search a city, country or airport" autocomplete="off" value="${esc(CK.q)}"></label><div class="ck-res" id="ckRes">${ckCityRes(CK.q)}</div></div></div>`}
+  const a=s.a,[h,m]=a.hm.split(":").map(Number);
+  return `<div class="ck-sh" role="dialog" aria-label="${s.i<0?"Add Alarm":"Edit Alarm"}"><div class="ck-shc"><div class="ck-shh"><button class="ck-tx" data-ckshx>Cancel</button><b>${s.i<0?"Add Alarm":"Edit Alarm"}</b><button class="ck-tx b" data-alsave>Save</button></div>
+    <div class="tm-pick al"><div class="whl-band"></div>${whl("ah",23,h,"",true)}${whl("am",59,m,"",true)}</div>
+    <div class="ck-grp"><div class="ck-row col"><span>Repeat</span><span class="al-days">${AL_D.map((x,i)=>`<button data-alday="${i}" aria-pressed="${(a.rep||[]).includes(i)}" aria-label="${AL_DN[i]}">${x}</button>`).join("")}</span></div>
+      <label class="ck-row"><span>Label</span><input data-allabel value="${esc(a.label||"")}" placeholder="Alarm" maxlength="40"></label>
+      <div class="ck-row"><span>Snooze</span><button class="ck-sw" role="switch" aria-checked="${a.snooze!==false}" aria-label="Snooze" data-alsnz><i></i></button></div></div>
+    ${s.i>=0?`<div class="ck-grp"><button class="ck-row red" data-aldelete>Delete Alarm</button></div>`:""}</div></div>`}
+function ckCityRes(q){q=String(q||"").trim().toLowerCase();const have=new Set(wcGet().map(c=>c.tz+"|"+c.name));
+  let L=CK_CITIES.map(c=>({...c,key:(c.name+" "+c.cc+" "+c.codes).toLowerCase()}));
+  if(q)L=L.filter(c=>c.key.includes(q));L.sort((a,b)=>a.name.localeCompare(b.name));
+  let extra=[];if(q&&q.length>=2){try{extra=Intl.supportedValuesOf("timeZone").filter(z=>z.toLowerCase().replace(/_/g," ").includes(q)&&!L.some(c=>c.tz===z)).slice(0,20).map(z=>({name:z.split("/").pop().replace(/_/g," "),cc:z.split("/")[0],tz:z}))}catch(e){}
+    if(/^[a-z]{4}$/.test(q)&&typeof ICAO_TZ==="object"&&ICAO_TZ[q.toUpperCase()]&&!L.length)extra.unshift({name:q.toUpperCase(),cc:"Airport",tz:ICAO_TZ[q.toUpperCase()]});
+    if(q==="utc"||q==="zulu")extra.unshift({name:"UTC",cc:"Coordinated Universal Time",tz:"UTC"})}
+  const all=L.concat(extra).slice(0,140);if(!all.length)return `<p class="ck-none">No results</p>`;
+  return all.map(c=>`<button class="ck-ri" data-ckpick="${esc(c.tz)}" data-name="${esc(c.name)}" data-cc="${esc(c.cc||"")}"${c.lat!=null?` data-lat="${c.lat}" data-lon="${c.lon}"`:""}${have.has(c.tz+"|"+c.name)?" disabled":""}><b>${esc(c.name)}</b>, <span>${esc(c.cc||"")}</span>${c.codes?`<small>${esc(c.codes.split(" ").filter(x=>x.length===4).join(" "))}</small>`:""}</button>`).join("")}
+V.timer=()=>{const tab=["world","alarm","sw","cd"].includes(clockTab)?clockTab:"world";
+  const body=tab==="world"?ckWorld():tab==="alarm"?ckAlarms():tab==="sw"?ckStopwatch():ckTimers();
+  const tabs=[["world","World Clock",'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>'],["alarm","Alarms",'<circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.4 1.6M4.5 5.5l3-2.5M19.5 5.5l-3-2.5M7 19.5l-1.5 2M17 19.5l1.5 2"/>'],["sw","Stopwatch",'<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4M10 2.5h4M18.5 6.5l1.3-1.3"/>'],["cd","Timers",'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>']];
+  return `<div class="clk ck18" data-tab="${tab}"><div class="ck-body">${body}</div>${ckSheet()}<nav class="ck-tabs" aria-label="Clock sections">${tabs.map(t=>`<button data-ctab="${t[0]}" aria-pressed="${tab===t[0]}"><svg viewBox="0 0 24 24" aria-hidden="true">${t[2]}</svg>${t[1]}</button>`).join("")}</nav></div>`};
+/* live updates without redrawing (wheels and sheets keep their place) */
+{const _ut=updateTimer;updateTimer=function(){if(cur!=="timer")return;const d=new Date();
+  if(clockTab==="world"){document.querySelectorAll("#view [data-wct]").forEach(e=>{const w=wcWhen(e.dataset.wct,d);if(w&&e.textContent!==w.hm)e.textContent=w.hm});
+    document.querySelectorAll("#view [data-wcf]").forEach(e=>{const w=wcWhen(e.dataset.wcf,d);if(w)e.innerHTML=ckFace(w.p,true)});
+    const n=$("#wmNight");if(n&&d.getSeconds()===0)n.setAttribute("d",ckNight(+d));if(!CK.landD&&GEO.lo&&$("#wcMap")){const m=$("#wcMap");m.innerHTML=ckMap(wcAll(),d)}return}
+  if(clockTab==="sw"){if(!swRaf)swLoop();return}
+  if(clockTab==="cd"&&(cd.end!=null||cd.remain!=null)){const t=cdLeft(),dg=$("#cdDig"),r=$("#cdArc");if(dg)dg.textContent=cdFmt(t);if(r)r.setAttribute("stroke-dashoffset",(289*(1-t/Math.max(1,cd.total||cd.dur))).toFixed(1))}}}
+{const _sl=swLoop;swLoop=function(){_sl.apply(this,arguments);const ms=swMs(),h=$("#swHand");if(!h)return;h.setAttribute("transform",`rotate(${(ms/1000%60)*6} 150 150)`);
+  const sb=$("#swSub");if(sb)sb.setAttribute("transform",`rotate(${(ms/60000%30)*12} 150 92)`);const d=$("#swAnaD");if(d)d.textContent=swFmt(ms);
+  const lh=$("#swLapH");if(lh&&tmr.laps.length)lh.setAttribute("transform",`rotate(${((ms-(tmr.laps[tmr.laps.length-1]||0))/1000%60)*6} 150 150)`)}}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="timer"){whlInit();const p=$("#swPages");if(p){const f=p.dataset.face==="ana"?1:0;p.scrollLeft=f*p.clientWidth;
+      if(!p._on){p._on=1;let t=0;p.addEventListener("scroll",()=>{clearTimeout(t);t=setTimeout(()=>{const f2=Math.round(p.scrollLeft/Math.max(1,p.clientWidth))?"ana":"dig";if(f2!==store.get("swFace","dig")){store.set("swFace",f2);p.dataset.face=f2;document.querySelectorAll("[data-swface]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.swface===f2))}},120)},{passive:true})}}
+    const q=$("#view [data-ckq]");if(q&&CK.sheet&&CK.sheet.k==="city"&&!CK.qFocused){CK.qFocused=1;setTimeout(()=>{try{q.focus({preventScroll:true})}catch(e){}},300)}}else{CK.edit=false;CK.sheet=null;CK.del=-1}return v}}
+/* ---------- taps ---------- */
+document.addEventListener("click",e=>{if(cur!=="timer")return;const t=e.target.closest("button,[data-wcgrab]");if(!t)return;const ds=t.dataset;
+  if(ds.ctab!=null){CK.edit=false;CK.sheet=null;CK.del=-1;return}   // the Clock's own handler switches the tab
+  if(ds.ckedit!=null){CK.edit=true;CK.del=-1;render();return}
+  if(ds.ckdone!=null){CK.edit=false;CK.del=-1;render();return}
+  if(ds.ckadd!=null){CK.edit=false;if(clockTab==="alarm"){ckAudio();const n=new Date();CK.sheet={k:"alarm",i:-1,a:{id:"a"+Date.now().toString(36),hm:pad(n.getHours())+":"+pad(n.getMinutes()),rep:[],label:"",snooze:true,on:true}}}else{CK.sheet={k:"city"};CK.q="";CK.qFocused=0}render();return}
+  if(ds.ckshx!=null){CK.sheet=null;render();return}
+  if(ds.ckpick!=null){const L=wcGet();L.push({tz:ds.ckpick,name:ds.name,cc:ds.cc,...(ds.lat!=null?{lat:+ds.lat,lon:+ds.lon}:{})});wcSet(L);CK.sheet=null;render();toast(ds.name+" added");return}
+  if(ds.wcmin!=null){CK.del=CK.del===+ds.wcmin?-1:+ds.wcmin;render();return}
+  if(ds.wcdel!=null){const L=wcGet();L.splice(+ds.wcdel,1);wcSet(L);CK.del=-1;render();return}
+  if(ds.almin!=null){CK.del=CK.del===+ds.almin?-1:+ds.almin;render();return}
+  if(ds.aldel!=null){const L=alGet();L.splice(+ds.aldel,1);alSet(L);CK.del=-1;if(!L.length)CK.edit=false;render();return}
+  if(ds.alon!=null){ckAudio();const L=alGet(),a=L[+ds.alon];if(a){a.on=!a.on;alSet(L);if(a.on){alArm(a);const at=alNextLocal(a);if(at)toast("Alarm in "+ckIn(Math.round((at-Date.now())/60000)*60||60))}}render();return}
+  if(ds.aledit!=null){if(CK.edit)return;ckAudio();const a=alGet()[+ds.aledit];if(a){CK.sheet={k:"alarm",i:+ds.aledit,a:JSON.parse(JSON.stringify(a))};render()}return}
+  if(ds.alday!=null){const s=CK.sheet;if(!s)return;const r=new Set(s.a.rep||[]),k=+ds.alday;r.has(k)?r.delete(k):r.add(k);s.a.rep=[...r].sort();t.setAttribute("aria-pressed",r.has(k));return}
+  if(ds.alsnz!=null){const s=CK.sheet;if(!s)return;s.a.snooze=s.a.snooze===false;t.setAttribute("aria-checked",s.a.snooze!==false);return}
+  if(ds.alsave!=null){const s=CK.sheet;if(!s)return;const lab=$("#view [data-allabel]");s.a.label=lab?lab.value.trim():s.a.label;s.a.hm=pad(CK.wh.ah||0)+":"+pad(CK.wh.am||0);s.a.on=true;alArm(s.a);
+    const L=alGet();if(s.i<0)L.push(s.a);else L[s.i]=s.a;alSet(L);CK.sheet=null;render();const at=alNextLocal(s.a);if(at)toast("Alarm in "+ckIn(Math.max(60,Math.round((at-Date.now())/60000)*60)));return}
+  if(ds.aldelete!=null){const s=CK.sheet;if(!s)return;const L=alGet();L.splice(s.i,1);alSet(L);CK.sheet=null;render();return}
+  if(ds.swface!=null){const p=$("#swPages");store.set("swFace",ds.swface);if(p){p.dataset.face=ds.swface;p.scrollTo({left:(ds.swface==="ana"?1:0)*p.clientWidth,behavior:"smooth"})}document.querySelectorAll("[data-swface]").forEach(b=>b.setAttribute("aria-pressed",b===t));return}
+  const startCd=(dur,label)=>{ckAudio();if(!(dur>0)){toast("Set a time first");return}cd={dur,total:dur,end:Date.now()+dur*1000,remain:null,label:label||""};store.set("cd",cd);
+    const R=(store.get("cdRecents",[])||[]).filter(r=>!(r.dur===dur&&(r.label||"")===(label||"")));R.unshift({dur,label:label||""});store.set("cdRecents",R.slice(0,6));ckSyncSoon();render()};
+  if(ds.tmstart!=null){const dur=(CK.wh.h||0)*3600+(CK.wh.m||0)*60+(CK.wh.s||0),lab=$("#view [data-tmlabel]");cd.dur=dur||cd.dur;startCd(dur,lab?lab.value.trim():"");return}
+  if(ds.tmpre!=null){const lab=$("#view [data-tmlabel]");startCd(+ds.tmpre,lab?lab.value.trim():"");return}
+  if(ds.tmrec!=null){const r=(store.get("cdRecents",[])||[])[+ds.tmrec];if(r){cd.dur=r.dur;startCd(r.dur,r.label)}return}
+  if(ds.tmpause!=null){if(cd.end!=null){cd.remain=cdLeft();cd.end=null}else{cd.end=Date.now()+cd.remain*1000;cd.remain=null}store.set("cd",cd);ckSyncSoon();render();return}
+  if(ds.tmcancel!=null){cd={dur:cd.dur,end:null,remain:null,label:cd.label||""};store.set("cd",cd);ckSyncSoon();render();return}});
+document.addEventListener("input",e=>{if(cur!=="timer")return;const t=e.target;
+  if(t.matches("[data-ckq]")){CK.q=t.value;const r=$("#ckRes");if(r)r.innerHTML=ckCityRes(CK.q)}
+  if(t.matches("[data-tmlabel]"))cd.label=t.value.trim()});
+document.addEventListener("keydown",e=>{if(cur!=="timer"||e.key!=="Escape")return;if(CK.sheet){CK.sheet=null;render()}else if(CK.edit){CK.edit=false;render()}});
+/* drag a city by its handle to reorder */
+document.addEventListener("pointerdown",e=>{if(cur!=="timer")return;const g=e.target.closest&&e.target.closest("[data-wcgrab]");if(!g)return;e.preventDefault();const row=g.closest(".wc-er"),box=$("#wcEd");if(!row||!box)return;
+  row.classList.add("lift");CK.drag={row,box,id:e.pointerId};try{g.setPointerCapture(e.pointerId)}catch(x){}});
+window.addEventListener("pointermove",e=>{const D=CK.drag;if(!D||e.pointerId!==D.id)return;const rows=[...D.box.children].filter(r=>r!==D.row);
+  let ref=null;for(const r of rows){const b=r.getBoundingClientRect();if(e.clientY<b.top+b.height/2){ref=r;break}}
+  if(D.row.nextElementSibling!==ref&&!(ref===null&&D.row===D.box.lastElementChild)){const first=new Map(rows.map(r=>[r,r.getBoundingClientRect().top]));D.box.insertBefore(D.row,ref);
+    rows.forEach(r=>{const dy=first.get(r)-r.getBoundingClientRect().top;if(!dy)return;r.style.transition="none";r.style.transform=`translateY(${dy}px)`;void r.offsetWidth;r.style.transition="transform .25s ease";r.style.transform=""})}});
+const ckDrop=e=>{const D=CK.drag;if(!D||e.pointerId!==D.id)return;CK.drag=null;D.row.classList.remove("lift");const L=wcGet(),order=[...D.box.children].map(r=>+r.dataset.wci);wcSet(order.map(i=>L[i]).filter(Boolean));render()};
+window.addEventListener("pointerup",ckDrop);window.addEventListener("pointercancel",ckDrop);
+/* keep the server's copy fresh after a launch */
+setTimeout(ckSyncSoon,4000);
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* ===== Clock · iOS 18 ===== */
+.ck18{--ck-gl:color-mix(in srgb,var(--ck-btn) 70%,transparent);--ck-grp:#F2F2F7;--ck-card:#FFFFFF}
+:root[data-theme="dark"] .ck18{--ck-grp:#1C1C1E;--ck-card:#2C2C2E}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ck18{--ck-grp:#1C1C1E;--ck-card:#2C2C2E}}
+.ck18 .ck-body{max-width:none;padding:6px max(20px,env(safe-area-inset-right,0px)) 28px max(20px,env(safe-area-inset-left,0px));position:relative}
+.ck18[data-tab="world"] .ck-body,.ck18[data-tab="alarm"] .ck-body{max-width:980px}
+.ck-top{display:flex;justify-content:flex-end;gap:10px;min-height:44px;align-items:center;padding-top:4px}
+.ck-gl{height:44px;min-width:44px;padding:0 18px;border:0;border-radius:999px;background:var(--ck-gl);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6);color:var(--ck-ink);font:600 17px var(--f-os);letter-spacing:-.02em;cursor:pointer;
+  box-shadow:inset 0 .5px 0 rgba(255,255,255,.22),0 1px 3px rgba(0,0,0,.12)}
+.ck-gl.ic{padding:0;width:44px;display:grid;place-items:center}.ck-gl svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ck-gl:active{opacity:.6}
+.ck-h1{font:700 34px/1.15 var(--f-os);letter-spacing:.01em;margin:6px 0 10px;color:var(--ck-ink)}
+.ck-note{color:var(--ck-sub);font:400 13px/1.4 var(--f-os);margin:18px 0 0}
+.ck-empty{color:var(--ck-sub);font:400 22px var(--f-os);text-align:center;margin:18vh 0 0}
+/* world clock list (iPhone, and every size while editing) */
+.wc-r{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:.5px solid var(--ck-line)}
+.wc-l{flex:1;min-width:0;display:flex;flex-direction:column}.wc-l small{font:400 15px var(--f-os);color:var(--ck-sub)}.wc-l small.s2{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-l b{font:400 24px/1.25 var(--f-os);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wc-fp{font-style:normal;font:600 11px var(--f-os);color:var(--ck-orange);margin-left:6px;text-transform:uppercase;letter-spacing:.04em}
+.wc-t{font:200 56px/1 var(--f-os);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.wc-wide{display:none}
+@container screen (min-width:761px){.ck18[data-tab="world"] .wc-wide{display:block}.ck18[data-tab="world"] .wc-list{display:none}}
+.wc-map{border-radius:16px;overflow:hidden;aspect-ratio:2/1;max-height:42cqh;width:100%;background:#0B2033}
+.wm{width:100%;height:100%;display:block}.wm-sea{fill:#1B3A55}.wm-land{fill:#4E7A5A;stroke:#2C5038;stroke-width:.6}
+:root:not([data-theme="dark"]) .wm-sea{fill:#7FB3D5}:root:not([data-theme="dark"]) .wm-land{fill:#9DC08B;stroke:#7FA06E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wm-sea{fill:#1B3A55}:root:not([data-theme="light"]) .wm-land{fill:#4E7A5A;stroke:#2C5038}}
+.wm-night{fill:#000;opacity:.45}.wm-sun{fill:#FFD54A;stroke:#fff;stroke-width:2}
+.wm-pin .ld{stroke:rgba(255,255,255,.6);stroke-width:1}.wm-pin circle{fill:var(--ck-orange);stroke:#fff;stroke-width:2}.wm-pin rect{fill:rgba(0,0,0,.62)}.wm-pin text{fill:#fff;font:600 12px var(--f-os)}.wm-pin text.t{font-weight:400;font-variant-numeric:tabular-nums;fill:rgba(255,255,255,.85)}
+.wc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px 16px;margin-top:22px}
+.wc-c{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.wc-f{width:118px;height:118px;margin-bottom:8px}.wc-f svg{width:100%;height:100%;display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+.wc-c b{font:600 17px var(--f-os)}.wc-c small{font:400 13px var(--f-os);color:var(--ck-sub)}.wc-ct{font:400 15px var(--f-os);font-variant-numeric:tabular-nums;color:var(--ck-sub)}
+/* editing rows */
+.wc-er,.al-r{display:flex;align-items:center;gap:12px;min-height:64px;border-bottom:.5px solid var(--ck-line);background:var(--ck-bg);position:relative}
+.wc-er.lift{z-index:3;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:10px;padding:0 8px}
+.wc-min{flex:none;width:24px;height:24px;border-radius:50%;border:0;background:#FF3B30;color:#fff;display:grid;place-items:center;cursor:pointer;padding:0;transition:transform .2s}
+.wc-min svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round}.arm .wc-min{transform:rotate(-90deg)}
+.wc-en{flex:1;min-width:0;display:flex;flex-direction:column}.wc-en b{font:400 20px var(--f-os)}.wc-en small{font:400 13px var(--f-os);color:var(--ck-sub)}
+.wc-del{display:none;border:0;background:#FF3B30;color:#fff;font:500 15px var(--f-os);padding:0 16px;align-self:stretch;cursor:pointer}.arm .wc-del{display:block}
+.wc-grab{flex:none;width:36px;height:44px;display:grid;place-items:center;color:var(--ck-sub);cursor:grab;touch-action:none}.wc-grab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+/* alarms */
+.al-main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;border:0;background:none;color:var(--ck-ink);padding:8px 0;cursor:pointer;text-align:left}
+.al-t{font:200 56px/1.05 var(--f-os);letter-spacing:-.02em;font-variant-numeric:tabular-nums}.al-s{font:400 15px var(--f-os);color:var(--ck-ink)}
+.al-r.off .al-t,.al-r.off .al-s{color:var(--ck-sub)}
+.ck-sw{flex:none;width:51px;height:31px;border-radius:999px;border:0;padding:2px;background:var(--ck-btn);cursor:pointer;transition:background .2s}
+.ck-sw i{display:block;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .25s cubic-bezier(.3,.7,.4,1.2)}
+.ck-sw[aria-checked="true"]{background:#34C759}.ck-sw[aria-checked="true"] i{transform:translateX(20px)}
+/* stopwatch */
+.sw-pages{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 calc(-1*max(20px,env(safe-area-inset-left,0px)))}.sw-pages::-webkit-scrollbar{display:none}
+.sw-pg{flex:0 0 100%;scroll-snap-align:center;display:grid;place-items:center;min-height:min(46cqh,380px)}
+.sw-pg .sw-dig{font:200 clamp(64px,19cqw,120px)/1 var(--f-os);font-variant-numeric:tabular-nums;letter-spacing:-.02em;margin:0}
+.sw-ana{width:min(86cqw,360px,42cqh);height:auto}.sw-ana .dl{fill:none}.sw-ana .tk{stroke:var(--ck-ink);stroke-width:1.2}.sw-ana .tk.b{stroke-width:2.2}.sw-ana .tk.f{stroke:var(--ck-sub);stroke-width:.8}
+.sw-ana .nm{fill:var(--ck-ink);font:400 21px var(--f-os)}.sw-ana .nm.s{font-size:9px;fill:var(--ck-sub)}.sw-ana .sd{fill:none}
+.sw-ana .hd{stroke:var(--ck-orange);stroke-width:2.2;stroke-linecap:round}.sw-ana .lh{stroke:#0A84FF;stroke-width:1.6;stroke-linecap:round}.sw-ana .hc{fill:var(--ck-orange)}.sw-ana .dg{fill:var(--ck-ink);font:400 22px var(--f-os);font-variant-numeric:tabular-nums}
+.sw-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 4px}.sw-dots button{width:8px;height:8px;padding:0;border:0;border-radius:50%;background:var(--ck-sub);opacity:.4;cursor:pointer}.sw-dots button[aria-pressed="true"]{opacity:1;background:var(--ck-ink)}
+.ck-btns2{display:flex;justify-content:space-between;padding:10px 0 22px;max-width:640px;margin:0 auto}
+.cb2{width:84px;height:84px;border-radius:50%;border:0;font:400 17px var(--f-os);cursor:pointer;--c:var(--ck-btn);background:color-mix(in srgb,var(--c) 26%,var(--ck-bg));color:var(--c);
+  box-shadow:0 0 0 2px var(--ck-bg),0 0 0 4px color-mix(in srgb,var(--c) 26%,var(--ck-bg))}
+.cb2.grey{background:var(--ck-btn);color:var(--ck-ink);box-shadow:0 0 0 2px var(--ck-bg),0 0 0 4px var(--ck-btn)}.cb2.green{--c:var(--ck-green)}.cb2.red{--c:var(--ck-red)}.cb2.orange{--c:var(--ck-orange)}
+.cb2:disabled{opacity:.5;cursor:default}.cb2:active:not(:disabled){filter:brightness(1.25)}
+.ck18 .laps{max-width:640px;margin:0 auto}.ck18 .lap{font:400 17px var(--f-os);font-variant-numeric:tabular-nums}
+/* timers */
+.tm-pick{position:relative;display:flex;justify-content:center;gap:4px;margin:8px auto 14px;max-width:420px}
+.tm-pick.al{max-width:220px}
+.whl-band{position:absolute;left:0;right:0;top:calc(50% - 18px);height:36px;border-radius:9px;background:var(--ck-btn);opacity:.7;pointer-events:none}
+.whl{position:relative;display:flex;align-items:center;flex:1}
+.whl-s{height:216px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;padding:90px 0;flex:1;outline:none;position:relative;z-index:1;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.whl-s::-webkit-scrollbar{display:none}
+.whl-i{height:36px;line-height:36px;scroll-snap-align:center;text-align:right;padding-right:10px;font:400 22px var(--f-os);font-variant-numeric:tabular-nums;color:var(--ck-sub);cursor:pointer}
+.whl-i.on{color:var(--ck-ink)}.tm-pick.al .whl-i{text-align:center;padding:0}
+.whl-u{position:relative;z-index:1;font:600 17px var(--f-os);color:var(--ck-ink);min-width:48px;pointer-events:none}
+.ck-grp{background:var(--ck-grp);border-radius:12px;margin:8px auto;max-width:640px;overflow:hidden}
+.ck-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding:0 16px;font:400 17px var(--f-os);color:var(--ck-ink);border:0;width:100%;background:none;box-sizing:border-box}
+.ck-row+.ck-row{box-shadow:inset 16px .5px 0 var(--ck-grp),inset 0 .5px 0 var(--ck-line)}
+.ck-row.col{flex-direction:column;align-items:flex-start;padding:10px 16px}
+.ck-row input{flex:1;text-align:right;border:0;background:none;color:var(--ck-sub);font:400 17px var(--f-os);outline:none;min-width:0}
+.ck-row .v{color:var(--ck-sub)}.ck-row.red{color:#FF3B30;justify-content:center;cursor:pointer}
+.al-days{display:flex;gap:6px;flex-wrap:wrap}.al-days button{width:38px;height:38px;border-radius:50%;border:0;background:var(--ck-btn);color:var(--ck-ink);font:500 15px var(--f-os);cursor:pointer}
+.al-days button[aria-pressed="true"]{background:var(--ck-orange);color:#fff}
+.ck18 .cd-pre{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px auto;max-width:640px}
+.ck18 .cd-pre button{border:0;background:var(--ck-btn);color:var(--ck-ink);border-radius:99px;padding:8px 14px;font:500 14px var(--f-os);cursor:pointer}
+.ck-sec{font:600 20px var(--f-os);margin:22px auto 4px;max-width:640px}
+.tm-rec{max-width:640px;margin:0 auto}.tm-rr{display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid var(--ck-line);padding:8px 0}
+.tm-rr b{display:block;font:200 44px/1.1 var(--f-os);font-variant-numeric:tabular-nums}.tm-rr small{font:400 15px var(--f-os);color:var(--ck-sub)}
+.tm-go{width:44px;height:44px;border-radius:50%;border:0;background:color-mix(in srgb,var(--ck-green) 26%,var(--ck-bg));color:var(--ck-green);display:grid;place-items:center;cursor:pointer}.tm-go svg{width:20px;height:20px}
+.tm-act{display:flex;flex-direction:column;align-items:center}.tm-lab{font:400 17px var(--f-os);color:var(--ck-sub);margin:8px 0 0}
+.cd-ring2{position:relative;width:min(80cqw,340px,48cqh);aspect-ratio:1;margin:14px auto 10px}.cd-ring2 svg{width:100%;height:100%}
+.cd-ring2 .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.cd-dig2{font:200 clamp(52px,14cqw,78px)/1 var(--f-os);font-variant-numeric:tabular-nums}.cd-end2{display:flex;align-items:center;gap:4px;font:400 17px var(--f-os);color:var(--ck-sub)}.cd-end2 svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8}
+.ck18 .ck-btns2{width:100%}
+/* sheets */
+.ck-sh{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.32);display:flex;align-items:flex-end;justify-content:center;animation:ckFade .2s ease-out}
+.ck-shc{background:var(--ck-grp);width:100%;max-width:560px;max-height:92%;border-radius:12px 12px 0 0;display:flex;flex-direction:column;overflow:hidden;animation:ckUp .32s cubic-bezier(.2,.8,.2,1);padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}
+@container screen (min-width:761px){.ck-sh{align-items:center}.ck-shc{border-radius:14px;max-height:80%}}
+@keyframes ckFade{from{opacity:0}}@keyframes ckUp{from{transform:translateY(40px);opacity:.4}}
+.ck-shc .ck-grp{background:var(--ck-card);width:calc(100% - 32px);margin:8px 16px}.ck-shc .ck-row+.ck-row{box-shadow:inset 16px .5px 0 var(--ck-card),inset 0 .5px 0 var(--ck-line)}
+.ck-shh{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:54px;padding:0 16px}.ck-shh b{font:600 17px var(--f-os)}
+.ck-shh>:first-child{justify-self:start}.ck-shh>:last-child{justify-self:end}
+.ck-tx{border:0;background:none;color:var(--ck-orange);font:400 17px var(--f-os);cursor:pointer;padding:8px 0}.ck-tx.b{font-weight:600}
+.ck-search{display:flex;align-items:center;gap:6px;height:36px;margin:0 16px 8px;padding:0 8px;border-radius:10px;background:var(--ck-btn);color:var(--ck-sub)}
+.ck-search svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.1;flex:none}.ck-search input:focus,.ck-search input:focus-visible,.ck-row input:focus-visible{outline:none;box-shadow:none}.ck-search input{flex:1;min-width:0;border:0;background:none;color:var(--ck-ink);font:400 17px var(--f-os);outline:none}
+.ck-res{overflow-y:auto;flex:1;padding:0 16px}
+.ck-ri{display:block;width:100%;text-align:left;border:0;border-bottom:.5px solid var(--ck-line);background:none;color:var(--ck-ink);font:400 17px var(--f-os);padding:12px 0;cursor:pointer}
+.ck-ri span{color:var(--ck-sub)}.ck-ri small{float:right;color:var(--ck-sub);font:400 13px var(--f-mono,monospace);margin-top:3px}.ck-ri:disabled{opacity:.4;cursor:default}
+.ck-none{color:var(--ck-sub);text-align:center;padding:30px 0}
+/* tab bar */
+.ck18 .ck-tabs{background:color-mix(in srgb,var(--ck-bg) 82%,transparent);-webkit-backdrop-filter:saturate(1.8) blur(20px);backdrop-filter:saturate(1.8) blur(20px);gap:clamp(18px,7cqw,80px)}
+.ck18 .ck-tabs button{font:500 10.5px var(--f-os);min-width:64px}.ck18 .ck-tabs svg{width:27px;height:27px}
+/* the strip under the status bar is the Clock's own background, and its text follows */
+.screen[data-app="timer"] .appwin>.nav,.screen[data-app="timer"] .sbspace,.screen[data-app="timer"] .appwin{background:var(--ck-bg)!important}
+.screen.in-app[data-app="timer"] .statusbar{color:var(--ck-ink)}.screen.in-app[data-app="timer"] .statusbar svg,.screen.in-app[data-app="timer"] .statusbar svg.sbx{fill:currentColor}
+/* ringing */
+.ck-ringov{position:fixed;inset:0;z-index:2147482600;display:grid;place-items:center;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);color:#fff;font-family:var(--f-os);animation:ckFade .25s}
+.ck-rin{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:24px}
+.ck-rin .k{font:600 17px var(--f-os);opacity:.8;margin:0}.ck-rin .t{font:200 96px/1 var(--f-os);font-variant-numeric:tabular-nums;margin:4px 0}.ck-rin .l{font:400 20px var(--f-os);margin:0 0 26px;opacity:.9}
+.ck-snz{width:min(80vw,320px);height:58px;border-radius:999px;border:0;background:#FF9F0A;color:#000;font:600 20px var(--f-os);cursor:pointer;margin-bottom:12px}
+.ck-stop{width:min(80vw,320px);height:58px;border-radius:999px;border:0;background:rgba(255,255,255,.22);color:#fff;font:600 20px var(--f-os);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.ck-sh,.ck-shc,.ck-ringov{animation:none}}
 </style>`);
 
 /* start */

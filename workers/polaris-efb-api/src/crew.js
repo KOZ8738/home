@@ -120,6 +120,7 @@ export class Crew {
       case 'checkout': return this.checkout(a.u);
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
+      case 'alarmSync': { const r = this.alarmSync(String(a.u || ''), a.list); await this.wake(); return r; }
       default: throw new CrewError(400, 'Unknown call');
     }
   }
@@ -184,7 +185,7 @@ export class Crew {
     let L;
     if (to.all) L = this.rows('SELECT ep, cats FROM subs');
     else L = this.rows("SELECT ep, cats FROM subs WHERE (? != '' AND u = ?) OR (? != '' AND cid = ?)", to.u || '', to.u || '', to.cid ? String(to.cid) : '', to.cid ? String(to.cid) : '');
-    L = L.filter((s) => s.cats.split(',').includes(c));
+    L = L.filter((s) => c === 'alarm' || s.cats.split(',').includes(c));   // an alarm reaches every device with push on
     const body = JSON.stringify({ title: String(payload.title || 'Polaris EFB').slice(0, 120), body: String(payload.body || '').slice(0, 600), url: String(payload.url || '#mail').slice(0, 120), tag: String(payload.tag || '').slice(0, 64), cat: c });
     for (const s of L) this.sql.exec('INSERT INTO outbox (ep, payload, ttl, tries, at) VALUES (?, ?, ?, 0, ?)', s.ep, body, payload.ttl || 4 * 3600, Date.now());
     return L.length;
@@ -260,9 +261,27 @@ export class Crew {
       if (!m) return;
       const at = m.sendAt || m.t; if (at > Date.now() + 1000) { this.job(j.id, at, 'mail', '', d); return; }
       this.enqueue(mailTo(m), 'mail', mailPayload(m));
+    } else if (j.kind === 'alarm') {
+      const t = d.kind === 'timer';
+      this.enqueue({ u: j.u }, 'alarm', { title: t ? 'Timer' : 'Alarm · ' + (d.hm || hhmmTz(j.at, d.tz)), body: d.label || (t ? 'Your timer is done.' : 'Polaris EFB alarm'), url: '#timer', tag: 'alarm-' + d.id, ttl: 900 });
+      if (!t && Array.isArray(d.rep) && d.rep.length) { const nx = alarmNext(d, Date.now() + 60_000); if (nx) this.job(j.id, nx, 'alarm', j.u, d); }
     } else if (j.kind === 'trail') {
       await this.trail(j.u, d);
     }
+  }
+  /* the alarms and running timer of one pilot, as the EFB last sent them (it sends the whole list each time) */
+  alarmSync(u, list) {
+    if (!u) throw new CrewError(400, 'No pilot');
+    this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'alarm'", u);
+    let n = 0; const now = Date.now();
+    for (const x of (Array.isArray(list) ? list : []).slice(0, 30)) {
+      const d = { id: String(x.id || '').replace(/[^\w-]/g, '').slice(0, 24), kind: x.kind === 'timer' ? 'timer' : 'alarm', label: String(x.label || '').slice(0, 60),
+        hm: /^\d{2}:\d{2}$/.test(x.hm || '') ? x.hm : '', tz: String(x.tz || 'UTC').slice(0, 40), rep: Array.isArray(x.rep) ? x.rep.filter((k) => Number.isInteger(k) && k >= 0 && k <= 6).slice(0, 7) : [], at: Number(x.at) || 0 };
+      if (!d.id) continue;
+      const at = alarmNext(d, now); if (!at || at > now + 8 * 86400_000) continue;
+      this.job('alarm:' + u + ':' + d.id, at, 'alarm', u, d); n++;
+    }
+    return { ok: true, n };
   }
   async trail(u, d) {
     const t = this.one('SELECT * FROM trk WHERE bid = ?', d.bid); if (!t) return;
@@ -323,6 +342,21 @@ export async function crew(env, a) {
   return j;
 }
 /* fire and forget, for notifications sent while answering another request */
+/* when an alarm next rings: a one-off at its time; a repeating one at hh:mm in its time zone on its weekdays (0 = Sunday) */
+function tzWall(t, tz) { try { const o = {}; new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', weekday: 'short' }).formatToParts(new Date(t)).forEach((p) => (o[p.type] = p.value)); return { y: +o.year, mo: +o.month, d: +o.day, h: +o.hour % 24, m: +o.minute, wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(o.weekday) }; } catch (e) { return null; } }
+function hhmmTz(t, tz) { const w = tzWall(t, tz || 'UTC'); return w ? String(w.h).padStart(2, '0') + ':' + String(w.m).padStart(2, '0') : ''; }
+export function alarmNext(d, after) {
+  if (!d.rep || !d.rep.length) return d.at && d.at > after - 60_000 ? d.at : null;
+  const [hh, mm] = (d.hm || '').split(':').map(Number); if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  for (let k = 0; k <= 8; k++) {
+    const w = tzWall(after + k * 86400_000, d.tz); if (!w) return null;
+    const base = Date.UTC(w.y, w.mo - 1, w.d, hh, mm); let t = base;   // that wall time, read as UTC, then moved by the zone's offset
+    for (let i = 0; i < 2; i++) { const v = tzWall(t, d.tz); t = base - (Date.UTC(v.y, v.mo - 1, v.d, v.h, v.m) - Math.floor(t / 60000) * 60000); }
+    const v = tzWall(t, d.tz);
+    if (t > after && v && d.rep.includes(v.wd)) return t;
+  }
+  return null;
+}
 export function crewSoon(env, ctx, a) { const p = crew(env, a).catch((e) => console.warn('[crew]', a.op, e && e.message)); if (ctx && ctx.waitUntil) ctx.waitUntil(p); return p; }
 
 /** EFB routes: /api/efb/push/*, /api/efb/crew/*. deps: { bookings(u) -> {bookings} } */
@@ -350,6 +384,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
         return res(await crew(env, { op: 'checkin', u: me.u, booking: bk }));
       }
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
+      case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));
     }
     throw new CrewError(404, 'Not found');
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }

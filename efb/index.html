@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.0010">
+<meta name="efb-build" content="1116.0539">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5893,7 +5893,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -6459,8 +6459,13 @@ function authVerify(){const srv=authSrv();if(!authOn()||!srv||!navigator.onLine)
   fetch(srv+"/auth/me",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{if(j&&j.pilot&&AUTH.tok){const p=j.pilot;
     if(p.name!==AUTH.tok.n||p.rank!==AUTH.tok.r||p.vatsim!==AUTH.tok.c){AUTH.tok={...AUTH.tok,n:p.name,r:p.rank,c:p.vatsim};store.set("auth",AUTH.tok);authApply()}}}).catch(()=>{})}
 
+/* keypad keys count the moment a finger lands, like the iPad's own keypad. A click waits for the finger to lift, and iOS
+   swallows a quick second tap on the same key (the 0-0 in 0006) as a double tap, so fast typing dropped digits. */
+document.addEventListener("pointerdown",e=>{const b=e.target.closest&&e.target.closest("#auth [data-key]");if(!b||e.button>0)return;
+  e.preventDefault();b.classList.remove("pr");void b.offsetWidth;b.classList.add("pr");clearTimeout(b._pr);b._pr=setTimeout(()=>b.classList.remove("pr"),140);
+  lockKey(b.dataset.key)},true);
 document.addEventListener("click",e=>{const b=e.target.closest("#auth [data-auth],#auth [data-key]");if(!b)return;
-  if(b.dataset.key){lockKey(b.dataset.key);return}
+  if(b.dataset.key){if(e.detail===0||!window.PointerEvent)lockKey(b.dataset.key);return}
   const a=b.dataset.auth;
   if(a==="open"){authStage("pad");return}
   if(a==="cover"){AUTH.entry="";lockDots();authStage("cover");return}
@@ -6561,8 +6566,8 @@ html.au-sa .au-sb{display:none}html.au-sa .au-home{display:none}html.au-open,htm
 .au-dots{display:flex;gap:16px;height:16px;margin-bottom:26px}.au-dots i{width:13px;height:13px;border-radius:50%;border:1.5px solid #fff;transition:background .12s}.au-dots i.on{background:#fff}
 .au-bad{animation:auShake .45s cubic-bezier(.36,.07,.19,.97) both}@keyframes auShake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-9px)}40%,60%{transform:translateX(9px)}}
 .au-keys{display:grid;grid-template-columns:repeat(3,78px);gap:16px 26px}
-.au-k{width:78px;height:78px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font:400 32px var(--f-os);cursor:pointer;display:grid;place-items:center;transition:background .12s;-webkit-tap-highlight-color:transparent}
-.au-k:active{background:rgba(255,255,255,.42)}.au-del{background:transparent}.au-del svg{width:30px;height:30px;fill:none;stroke:#fff;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.au-k{width:78px;height:78px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;font:400 32px var(--f-os);cursor:pointer;display:grid;place-items:center;transition:background .3s ease-out;-webkit-tap-highlight-color:transparent}
+.au-k:active,.au-k.pr{background:rgba(255,255,255,.42);transition:none}.au-keys,.au-k{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.au-del{background:transparent}.au-del svg{width:30px;height:30px;fill:none;stroke:#fff;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .au-forgot{border:0;background:none;color:rgba(255,255,255,.75);font:14px var(--f-os);cursor:pointer}
 @media (max-height:700px){.au-keys{grid-template-columns:repeat(3,64px);gap:12px 20px}.au-k{width:64px;height:64px;font-size:27px}}
 @media (max-width:600px){.au-brand img{width:78vw}.au-sbd{display:none}.au-utc{top:36px}}

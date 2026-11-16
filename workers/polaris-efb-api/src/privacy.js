@@ -79,12 +79,17 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <p>When you check in for one of your vAMSYS bookings on the Roster, the EFB server keeps that booking (flight, airports, times, aircraft) until you check in for another flight or cancel. It uses it to send your check-in and the departure and arrival weather as notifications.</p>
  <p>While a checked-in flight is on the vAMSYS flight map, the server also records its track (positions, altitudes and speeds from vAMSYS) so your logbook can show the flight even when vAMSYS has no position reports for it. Tracks shown in your logbook are kept for 30 days and are only shown to you.</p>
 </section>
+<section id="kneeboard"><h2>Kneeboard</h2>
+ <p>Pages you write in the Kneeboard app (typed notes and handwriting) are kept on your device. While you are signed in, they are also stored on the EFB server (a Cloudflare Durable Object of your own) so they appear on all your devices. Only you can read them: Polaris staff and the Polaris admin cannot see them. The server also keeps the previous version of each page, in case a change needs undoing.</p>
+ <p>A page you delete is removed from the server after 30 days (the record that it was deleted is kept that long so your other devices remove it too). You can keep up to 300 pages and 20 MB. Signing out leaves your pages on the server for when you sign in again. To remove them everywhere, delete them in the Kneeboard (it has a Delete All Pages button).</p>
+</section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
  <div class="wrap-t"><table><thead><tr><th>Item</th><th>Why</th><th>Kept until</th></tr></thead><tbody>
   <tr><td>Sign-in token</td><td>Keeps you signed in</td><td>30 days, or until you sign out</td></tr>
   <tr><td>Push choice and the current check-in</td><td>Notifications and the Roster briefing on this device</td><td>You turn push off, cancel the check-in or clear site data</td></tr>
   <tr><td>Lock screen passcode</td><td>Unlocks the EFB on this device</td><td>You change it, sign out or clear site data</td></tr>
+  <tr><td>Kneeboard pages</td><td>Your notes, also when you are offline</td><td>You delete them or clear site data</td></tr>
   <tr><td>Your flight plan (SimBrief OFP) and logbook entries</td><td>Shown in the flight plan, loadsheet and logbook apps</td><td>You replace or delete them</td></tr>
   <tr><td>Settings (including your Home Screen arrangement), checklist progress, map layers, read and Trash marks</td><td>Keeps the EFB the way you set it</td><td>You clear site data</td></tr>
  </tbody></table></div>

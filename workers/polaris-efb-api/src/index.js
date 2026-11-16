@@ -40,6 +40,8 @@ import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
 export { Crew } from './crew.js';
+import { kbPublic } from './kb.js';
+export { Kneeboard } from './kb.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1277,6 +1279,11 @@ export default {
     if (/^\/api\/efb\/pm(\/(online|state))?\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
+    }
+    /* each pilot's kneeboard pages (see kb.js); only the pilot can read them */
+    if (/^\/api\/efb\/kb\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env);
+      return kbPublic(req, new URL(req.url), env, h, me);
     }
     /* Web Push and check-in (see crew.js) */
     if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms))?)\/?$/.test(new URL(req.url).pathname)) {

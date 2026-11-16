@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.1038">
+<meta name="efb-build" content="1116.1133">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5898,7 +5898,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7672,6 +7672,24 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
   b.addEventListener("click",e=>{if(e.detail===0)goHome()});
   b.addEventListener("keydown",e=>{if(e.key==="Escape")b.blur()});
   window.addEventListener("resize",()=>place(false));if(window.ResizeObserver)new ResizeObserver(()=>place(false)).observe(screenEl);
+  /* out of the way: when the button would sit on a card, a control or text, it slides along its side (or to the other
+     side) to the clearest spot nearby, and goes back to where it was put once that spot is clear again. Not saved. */
+  const AV="button,a[href],input,textarea,select,[role=button],[role=switch],.mapinfo,.vsx,.assheet,.panel,.mlpanel,#msPanel,.pinbar,.radarbar,.pm-bar,.ck-btns2,.ck-tabs,.cd-pre,.lap,.tm-rr,.al-r,.wc-r,.st-grp,.st-foot,.card,.dock,.hl-done,p,li,h1,h2,h3,td,.lgrow";
+  let avT=0,avOn=false;
+  function rects(){const sr=screenEl.getBoundingClientRect(),big=sr.width*sr.height*.3,out=[];
+    for(const e of screenEl.querySelectorAll(AV)){if(e===b||b.contains(e)||e.closest("[inert],#auth,.hl-ctx,.ck-ringov"))continue;const r=e.getBoundingClientRect();if(!r.width||!r.height||r.width*r.height>big)continue;
+      if(r.right<sr.left||r.left>sr.right||r.bottom<sr.top||r.top>sr.bottom)continue;const cs=getComputedStyle(e);if(cs.visibility==="hidden"||cs.opacity==="0")continue;out.push({l:r.left-sr.left,t:r.top-sr.top,r:r.right-sr.left,b:r.bottom-sr.top})}return out}
+  function cost(R,x,y,s){let a=0;for(const q of R){const w=Math.min(q.r,x+s+4)-Math.max(q.l,x-4),h=Math.min(q.b,y+s+4)-Math.max(q.t,y-4);if(w>0&&h>0)a+=w*h}return a}
+  function avoid(){avT=0;if(st||document.hidden||b.style.display==="none")return;const L=lim(),R=rects(),home={x:pos.side==="l"?M:L.W-L.s-M,y:Math.min(L.bot,Math.max(L.top,pos.y*L.H))};
+    const c0=cost(R,home.x,home.y,L.s);if(c0<20){if(avOn){avOn=false;place(true)}return}
+    let best={c:c0,x:home.x,y:home.y,d:0};
+    for(const side of [pos.side,pos.side==="l"?"r":"l"]){const x=side==="l"?M:L.W-L.s-M;for(let y=L.top;y<=L.bot;y+=12){const d=Math.hypot(x-home.x,y-home.y),c=cost(R,x,y,L.s)+d*1.5+(side===pos.side?0:400);if(c<best.c+best.d*1.5)best={c:c-d*1.5,x,y,d}}}
+    if(best.d<4){if(avOn){avOn=false;place(true)}return}
+    avOn=true;b.style.transition=ease;b.style.left=best.x+"px";b.style.top=best.y+"px"}
+  const soon=ms=>{clearTimeout(avT);avT=setTimeout(avoid,ms||220)};
+  try{new MutationObserver(()=>soon()).observe(screenEl,{childList:true,subtree:true,attributes:true,attributeFilter:["class","hidden","open","aria-expanded"]})}catch(e){}
+  screenEl.addEventListener("scroll",()=>soon(260),{capture:true,passive:true});window.addEventListener("hashchange",()=>soon(500));window.addEventListener("resize",()=>soon(300));
+  const _place=place;place=function(anim){avOn=false;_place(anim);soon(400)};
   place(false);wake();window.addEventListener("hashchange",wake);
 })();
 
@@ -7839,9 +7857,18 @@ function hlGet(m){const D=HL.def[m],S=hlSaved()[m];if(!S)return JSON.parse(JSON.
   for(const k of Object.keys(D))for(const id of D[k])if(!seen.has(id)){seen.add(id);out[k==="dock"&&out.dock.length>=HL_MAX[m]?spill:k].push(id)}
   return out}
 function hlSave(m,L){const all=hlSaved();if(JSON.stringify(L)===JSON.stringify(HL.def[m]))delete all[m];else all[m]=L;store.set("homeLayout",all)}
-function hlApply(){const m=hlMode(),L=hlGet(m),put=(a,v)=>a.splice(0,a.length,...v);put(DOCK,L.dock);
-  if(m==="pad")put(PAGE1,L.p1);else{put(PAGE2,L.p2);put(PAGE3,L.p3)}HL.mode=m}
-{const _rh=renderHome;renderHome=function(){if(HL.edit||HL.drag)return;hlApply();return _rh.apply(this,arguments)}}
+const hlHidden=()=>(store.get("homeHidden",[])||[]).filter(id=>id!=="prefs"&&APPS[id]);
+const hlWG=()=>{const g=store.get("homeWidgets",null);return g&&typeof g==="object"?{order:Array.isArray(g.order)?g.order:[],hidden:Array.isArray(g.hidden)?g.hidden:[]}:{order:[],hidden:[]}};
+const HL_WN={clock:"Clock",rem:"Checklist",cal:"Calendar",wx:"Weather"};
+function hlApply(){const m=hlMode(),L0=hlGet(m),hid=new Set(hlHidden()),L={};for(const k in L0)L[k]=L0[k].filter(id=>!hid.has(id));const put=(a,v)=>a.splice(0,a.length,...v);put(DOCK,L.dock);
+  if(m==="pad")put(PAGE1,L.p1);else{put(PAGE2,L.p2);put(PAGE3,L.p3)}
+  [PAGE1,PAGE2,PAGE3].forEach(a=>put(a,a.filter(id=>!hid.has(id))));HL.mode=m}
+{const _rh=renderHome;renderHome=function(){if(HL.edit||HL.drag)return;hlApply();const v=_rh.apply(this,arguments);hlWidgets();return v}}
+function hlWKey(w){return w.classList.contains("w-clock")?"clock":w.classList.contains("w-cal")?"cal":w.classList.contains("w-wx")?"wx":/#checklist$/.test(w.getAttribute("href")||"")?"rem":""}
+function hlWidgets(){const box=$("#page1 .widgets");if(!box)return;const G=hlWG(),ws=[...box.children].filter(e=>e.classList.contains("w"));
+  ws.forEach(w=>{w.dataset.wk=hlWKey(w)});const rank=k=>{const i=G.order.indexOf(k);return i<0?100+ws.findIndex(w=>w.dataset.wk===k):i};
+  ws.slice().sort((a,b)=>rank(a.dataset.wk)-rank(b.dataset.wk)).forEach(w=>box.appendChild(w));
+  ws.forEach(w=>{if(G.hidden.includes(w.dataset.wk))w.remove()})}
 try{new ResizeObserver(()=>{if(hlMode()!==HL.mode){if(HL.edit)hlExit();else renderHome()}}).observe(screenEl)}catch(e){}
 
 /* ---------- which list each app sits in ---------- */
@@ -7853,11 +7880,28 @@ const hlPage=()=>{const pg=$("#pages");return Math.round(pg.scrollLeft/Math.max(
 
 /* ---------- edit mode ---------- */
 function hlEnter(){if(HL.edit||cur)return;HL.edit=true;const h=$("#home");h.classList.add("hedit");
-  if(!h.querySelector(".hl-done"))h.insertAdjacentHTML("beforeend",'<button class="hl-done" data-hl-done>Done</button>');
+  if(!h.querySelector(".hl-done"))h.insertAdjacentHTML("beforeend",'<button class="hl-done" data-hl-done>Done</button>');hlBadges();
   try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}}
 function hlExit(){if(!HL.edit)return;if(HL.drag)hlDragEnd(true);HL.edit=false;const h=$("#home");h.classList.remove("hedit");
   const b=h.querySelector(".hl-done");if(b)b.remove();h.querySelectorAll(".app").forEach(e=>{e.style.transform="";e.style.transition=""});renderHome()}
 
+function hlBadges(){document.querySelectorAll("#home .app:not(.recent),#page1 .widgets>.w").forEach(e=>{if(e.querySelector(":scope>.hl-x")||e.dataset.app==="prefs")return;
+  const nm=e.dataset.app?APPS[e.dataset.app].name:(HL_WN[e.dataset.wk]||"widget")+" widget";e.insertAdjacentHTML("afterbegin",`<span class="hl-x" role="button" aria-label="Remove ${esc(nm)}"></span>`)})}
+function hlHide(e){if(e.dataset.app){const id=e.dataset.app;if(id==="prefs")return;const H=hlHidden();if(!H.includes(id))H.push(id);store.set("homeHidden",H);toast(APPS[id].name+" removed from the Home Screen")}
+  else{const G=hlWG(),k=e.dataset.wk;if(!k)return;if(!G.hidden.includes(k))G.hidden.push(k);G.order=[...e.parentNode.children].map(x=>x.dataset.wk).filter(Boolean);store.set("homeWidgets",G);toast((HL_WN[k]||"Widget")+" widget removed")}
+  const done=()=>{const par=e.parentNode;e.remove();if(e.dataset.app&&par)hlSaveDom()};
+  if(reduced()){done();return}e.style.transition="transform .25s ease-in,opacity .25s";e.style.transform="scale(.2)";e.style.opacity="0";setTimeout(done,240)}
+/* ---------- widgets: drag to reorder (page 1) ---------- */
+function hlWDragStart(w,x,y){const r=w.getBoundingClientRect(),g=w.cloneNode(true);g.classList.add("hl-wghost");g.querySelectorAll(".hl-x").forEach(n=>n.remove());
+  g.style.cssText=`position:fixed;left:0;top:0;width:${r.width}px;height:${r.height}px;z-index:2147482500;pointer-events:none;transform:translate(${r.left}px,${r.top}px) scale(1.04);margin:0`;
+  $("#home").appendChild(g);HL.wdrag={w,g,ox:x-r.left,oy:y-r.top};w.classList.add("hl-ph");try{$("#home").setPointerCapture(HL.p&&HL.p.id)}catch(e){}try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}}
+function hlWDragMove(x,y){const d=HL.wdrag;if(!d)return;d.g.style.transform=`translate(${x-d.ox}px,${y-d.oy}px) scale(1.04)`;const box=d.w.parentNode;
+  const sl=[...box.children].filter(e=>e!==d.w&&e.classList.contains("w")).map(e=>{const r=e.getBoundingClientRect();return{e,l:r.left,t:r.top,w:r.width,h:r.height}});
+  const i=hlIndex(sl,x,y,false),ref=sl[i]?sl[i].e:null;if(d.w.nextElementSibling===ref)return;hlFlipW(box,()=>box.insertBefore(d.w,ref))}
+function hlFlipW(box,mut){const els=[...box.children],f=new Map(els.map(e=>[e,e.getBoundingClientRect()]));mut();if(reduced())return;
+  els.forEach(e=>{if(e.classList.contains("hl-ph"))return;const a=f.get(e),b=e.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top;if(!dx&&!dy)return;e.style.transition="none";e.style.transform=`translate(${dx}px,${dy}px)`;void e.offsetWidth;e.style.transition="transform .34s cubic-bezier(.2,.8,.2,1)";e.style.transform=""})}
+function hlWDragEnd(){const d=HL.wdrag;if(!d)return;HL.wdrag=null;const r=d.w.getBoundingClientRect();d.g.style.transition="transform .25s cubic-bezier(.2,.8,.2,1)";d.g.style.transform=`translate(${r.left}px,${r.top}px)`;
+  setTimeout(()=>{d.g.remove();d.w.classList.remove("hl-ph")},reduced()?0:250);const G=hlWG();G.order=[...d.w.parentNode.children].map(x=>x.dataset.wk).filter(Boolean);store.set("homeWidgets",G)}
 /* ---------- the long-press menu ---------- */
 const HL_GRID='<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>';
 function hlMenu(a,down){hlMenuClose(true);const ic=a.querySelector(".icon");if(!ic)return;const r=ic.getBoundingClientRect(),W=innerWidth,H=innerHeight,mw=Math.min(250,W-24);
@@ -7920,22 +7964,26 @@ function hlDragEnd(quick){const d=HL.drag;if(!d)return;HL.drag=null;clearTimeout
   const empty=t=>!t.closest(".app,.w,.dots,.dock,.hl-done,button,a,input");
   home.addEventListener("pointerdown",e=>{HL.type=e.pointerType;HL.suppress=false;if(e.button>0||HL.p||HL.drag)return;
     const a=e.target.closest(".app"),ok=hlMovable(a);
-    HL.p={id:e.pointerId,x0:e.clientX,y0:e.clientY,a:ok?a:null,empty:empty(e.target),moved:false};
-    if(HL.edit){if(ok)e.preventDefault();return}
+    const wg=HL.edit&&e.target.closest("#page1 .widgets>.w");
+    HL.p={id:e.pointerId,x0:e.clientX,y0:e.clientY,a:ok?a:null,w:wg||null,x:HL.edit&&e.target.closest(".hl-x")||null,empty:empty(e.target),moved:false};
+    if(HL.edit){if(ok||wg)e.preventDefault();return}
     if(ok)HL.lp=setTimeout(()=>{HL.lp=0;if(!HL.p||cur)return;hlMenu(a,true);HL.suppress=true;try{home.setPointerCapture(HL.p.id)}catch(err){}},480);
-    else if(HL.p.empty)HL.lp=setTimeout(()=>{HL.lp=0;if(!HL.p||cur)return;HL.suppress=true;hlEnter()},650)});
+    else if(HL.p.empty||e.target.closest("#page1 .widgets>.w"))HL.lp=setTimeout(()=>{HL.lp=0;if(!HL.p||cur)return;HL.suppress=true;hlEnter()},HL.p.empty?650:550)});
   window.addEventListener("pointermove",e=>{const p=HL.p;if(!p||e.pointerId!==p.id)return;const dist=Math.hypot(e.clientX-p.x0,e.clientY-p.y0);
     if(HL.drag){hlDragMove(e.clientX,e.clientY);return}
+    if(HL.wdrag){hlWDragMove(e.clientX,e.clientY);return}
     if(HL.menu&&HL.menu.down){if(dist>12){const id=HL.menu.id;hlMenuClose(true);hlEnter();const a=[...document.querySelectorAll("#home .app:not(.recent)")].find(x=>x.dataset.app===id&&hlMovable(x));if(a)hlDragStart(a,e.clientX,e.clientY)}return}
-    if(HL.edit){if(p.a&&dist>6){hlDragStart(p.a,e.clientX,e.clientY);hlDragMove(e.clientX,e.clientY)}else if(dist>10)p.moved=true;return}
+    if(HL.edit){if(p.a&&dist>6){hlDragStart(p.a,e.clientX,e.clientY);hlDragMove(e.clientX,e.clientY)}else if(p.w&&dist>6){hlWDragStart(p.w,e.clientX,e.clientY);hlWDragMove(e.clientX,e.clientY)}else if(dist>10)p.moved=true;return}
     if(HL.lp&&dist>10){clearTimeout(HL.lp);HL.lp=0}},{passive:true});
   const up=(e,cancel)=>{const p=HL.p;if(!p||e.pointerId!==p.id)return;clearTimeout(HL.lp);HL.lp=0;HL.p=null;
     if(HL.drag){hlDragEnd();HL.suppress=true;return}
+    if(HL.wdrag){hlWDragEnd();HL.suppress=true;return}
+    if(HL.edit&&p.x&&!cancel&&Math.hypot(e.clientX-p.x0,e.clientY-p.y0)<10){HL.suppress=true;hlHide(p.x.parentNode);return}
     if(HL.menu&&HL.menu.down){HL.menu.down=false;HL.suppress=true;return}
     if(HL.edit&&!cancel&&!p.a&&!p.moved&&p.empty&&!HL.suppress)hlExit()};
   window.addEventListener("pointerup",e=>up(e,false));window.addEventListener("pointercancel",e=>up(e,true));
   /* keep the page from scrolling under a dragged icon (iOS) */
-  home.addEventListener("touchmove",e=>{if(HL.drag||(HL.menu&&HL.menu.down))e.preventDefault()},{passive:false});
+  home.addEventListener("touchmove",e=>{if(HL.drag||HL.wdrag||(HL.menu&&HL.menu.down))e.preventDefault()},{passive:false});
   home.addEventListener("dragstart",e=>{if(e.target.closest&&e.target.closest(".app"))e.preventDefault()});
   home.addEventListener("contextmenu",e=>{const a=e.target.closest(".app");if(!a&&!HL.edit)return;e.preventDefault();
     if(a&&!HL.edit&&HL.type==="mouse"&&hlMovable(a)){HL.suppress=true;hlMenu(a,false)}});
@@ -7947,14 +7995,20 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(HL.menu){h
 window.addEventListener("hashchange",()=>{hlMenuClose(true);if(HL.edit)hlExit()});
 
 /* ---------- Settings › Home Screen ---------- */
-function homeSettingsHtml(H){const m=hlMode(),S=hlSaved(),mine=!!S[m],any=!!(S.pad||S.phone);
+function homeSettingsHtml(H){const m=hlMode(),S=hlSaved(),mine=!!S[m],hid=hlHidden(),G=hlWG(),any=!!(S.pad||S.phone)||hid.length||G.hidden.length||G.order.length;
+  const back=hid.map(id=>H.r(esc(APPS[id].name),"App","<button class=\"st-mini\" data-hlshow=\""+id+"\">Add to Home Screen</button>")).concat(G.hidden.map(k=>H.r(esc(HL_WN[k]||k)+" widget","Widget","<button class=\"st-mini\" data-hlwshow=\""+k+"\">Add to Home Screen</button>")));
   return H.grp("Arrangement",[H.r(m==="phone"?"iPhone-size layout":"iPad-size layout",mine?"Arranged by you":"The original order, following a flight",""),
       H.act("data-hl-edit2","Edit Home Screen"),H.act("data-hl-reset","Reset Home Screen Layout",true,!any)],
-    "Touch and hold an app, or an empty spot on the Home Screen, then drag. On an iPhone, hold an app at the screen edge to move it to another page. iPad and iPhone sizes keep their own arrangement, saved on this device.")}
+    "Touch and hold an app, or an empty spot on the Home Screen, then drag. Widgets on the first page move the same way, and the minus badge removes an app or widget. On an iPhone, hold an app at the screen edge to move it to another page. iPad and iPhone sizes keep their own arrangement, saved on this device.")
+    +(back.length?H.grp("Removed from the Home Screen",back,"Removed apps still open from Search, the Dynamic Island and links."):"")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-hlshow],[data-hlwshow]");if(!b||cur!=="prefs")return;
+  if(b.dataset.hlshow){store.set("homeHidden",hlHidden().filter(x=>x!==b.dataset.hlshow));toast(APPS[b.dataset.hlshow].name+" is back on the Home Screen")}
+  else{const G=hlWG();G.hidden=G.hidden.filter(x=>x!==b.dataset.hlwshow);store.set("homeWidgets",G);toast((HL_WN[b.dataset.hlwshow]||"Widget")+" widget is back")}
+  renderHome();render()});
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-hl-edit2],[data-hl-reset]");if(!b||cur!=="prefs")return;
   if(b.dataset.hlEdit2!=null){location.hash="";setTimeout(hlEnter,reduced()?0:480);return}
-  if(!confirm("Reset the Home Screen to its original layout? Both the iPad and the iPhone arrangement go back."))return;
-  store.set("homeLayout",{});toast("Home Screen reset");render()});
+  if(!confirm("Reset the Home Screen to its original layout? Both the iPad and the iPhone arrangement go back, with every removed app and widget."))return;
+  store.set("homeLayout",{});store.set("homeHidden",[]);store.set("homeWidgets",null);toast("Home Screen reset");render()});
 
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* Home Screen editing */
@@ -7967,7 +8021,19 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .home.hedit .app:nth-child(3n+2) .icon{animation-duration:.29s;animation-delay:-.17s}
 @keyframes hlJig{from{transform:rotate(-1.6deg)}to{transform:rotate(1.6deg)}}
 .home.hedit .app:active .icon{filter:none}
-.home.hedit .app.hl-ph{visibility:hidden}
+.home.hedit .app.hl-ph,.home.hedit .w.hl-ph{visibility:hidden}
+.home.hedit .widgets>.w{animation:hlJigW .3s ease-in-out infinite alternate;touch-action:none;cursor:grab;position:relative;overflow:visible}
+.home.hedit .widgets>.w:nth-child(2n){animation-delay:-.15s}
+@keyframes hlJigW{from{transform:rotate(-.6deg)}to{transform:rotate(.6deg)}}
+.home.hedit .app:not(.recent){position:relative}
+.hl-x{display:none}
+.st-mini{border:0;background:color-mix(in srgb,var(--ios-tint,#007AFF) 12%,transparent);color:var(--ios-tint,#007AFF);font:600 14px var(--f-os);border-radius:999px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.home.hedit .hl-x{display:block;position:absolute;z-index:3;top:-7px;left:-7px;width:24px;height:24px;border-radius:50%;cursor:pointer;
+  background:rgba(120,120,128,.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 12h10' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E") center/18px no-repeat;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 1px 3px rgba(0,0,0,.25);animation:hlIn .2s ease-out}
+.home.hedit .app .hl-x{left:calc(50% - var(--ic,64px)/2 - 7px)}
+.dock .hl-x{top:-5px}
+@media (prefers-reduced-motion:reduce){.home.hedit .widgets>.w{animation:none;outline:2px solid rgba(255,255,255,.55);outline-offset:3px}}
 .home.hedit .dock .recent,.home.hedit .dock .sep{display:none}
 .dock .lbl{display:none}
 .home.hedit>.hl-done{position:absolute;z-index:6;top:calc(var(--sbh,24px) + 10px);right:max(16px,5cqw);padding:7px 17px;border:0;border-radius:999px;

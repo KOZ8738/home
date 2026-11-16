@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.1133">
+<meta name="efb-build" content="1116.1139">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5898,7 +5898,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -6658,6 +6658,13 @@ button.st-n[aria-pressed="true"]{background:var(--ios-tint);color:#fff;border-ra
 .screen.in-app[data-app="prefs"] .statusbar{color:var(--ink)}.screen[data-app="prefs"] .statusbar svg,.screen[data-app="prefs"] .statusbar svg.sbx{fill:currentColor}
 body:has(.screen.in-app[data-app="prefs"]),body:has(.screen.in-app[data-app="prefs"])::before,html:has(.screen.in-app[data-app="prefs"]){background:var(--ios-bg)!important}
 </style>`);
+/* iOS back swipe in Settings (iPhone-size screens): a section opened from the list gets its own history step, so the
+   system's edge swipe (and the browser's back) returns to the Settings list instead of leaving Settings */
+document.addEventListener("click",e=>{if(cur!=="prefs"||!e.target.closest)return;
+  if(e.target.closest(".split.st [data-psec]")){setTimeout(()=>{const bk=[...document.querySelectorAll("[data-stback]")].some(b=>b.offsetParent);
+    if(stOpen&&bk&&!(history.state&&history.state.st))history.pushState({st:1},"",location.href)},0);return}
+  if(e.target.closest("[data-stback]")&&history.state&&history.state.st)history.back()});
+window.addEventListener("popstate",()=>{if(cur==="prefs"&&stOpen){stOpen=false;render()}});
 
 /* ===== Push notifications (Web Push) =====
    With push on, the EFB server can reach this device while the EFB is closed: new mail and messages, staff replies,

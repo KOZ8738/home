@@ -86,7 +86,7 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
   <tr><td>Push choice and the current check-in</td><td>Notifications and the Roster briefing on this device</td><td>You turn push off, cancel the check-in or clear site data</td></tr>
   <tr><td>Lock screen passcode</td><td>Unlocks the EFB on this device</td><td>You change it, sign out or clear site data</td></tr>
   <tr><td>Your flight plan (SimBrief OFP) and logbook entries</td><td>Shown in the flight plan, loadsheet and logbook apps</td><td>You replace or delete them</td></tr>
-  <tr><td>Settings, checklist progress, map layers, read and Trash marks</td><td>Keeps the EFB the way you set it</td><td>You clear site data</td></tr>
+  <tr><td>Settings (including your Home Screen arrangement), checklist progress, map layers, read and Trash marks</td><td>Keeps the EFB the way you set it</td><td>You clear site data</td></tr>
  </tbody></table></div>
 </section>
 <section id="live"><h2>Live flight data</h2>

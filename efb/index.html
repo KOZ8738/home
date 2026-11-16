@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.0554">
+<meta name="efb-build" content="1116.0625">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4630,7 +4630,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
     main+=grp("Live checklist push",[r("Push checklists by flight phase","Boarding, taxi, climb, descent, final, taxi in and arrival",sw("data-clauto",CLP.on,"Push checklists by flight phase")),
       r("Notify in the background",!ntOk?"Not supported by this browser":den?"Blocked in this browser’s site settings":"A system notification when a checklist is due",sw("data-clnotify",CLP.notify,"Notify in the background"))],
       vamOn()?"Uses your live vAMSYS flight.":"Needs a vAMSYS connection. Set it up in vAMSYS.")}
-  else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks, and your VATSIM CID, also stay on this device.");
+  else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks, your Home Screen arrangement and your VATSIM CID also stay on this device.");
   else if(psec==="about")main+=grp(esc(alN)+" EFB",[r("Version","",val("2.0")),r("Build","",`<span class="st-v mono">${esc(EFB_BUILD||"—")}</span>`),r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo · A350-900"))])
       +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth · VATSpy","Base map, FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",val(x[1]))))
       +grp("This device",[r("Display",`<span class="mono">${esc(devInfo())}</span>`,"")]);
@@ -5448,9 +5448,9 @@ function mailLoad(force){if(!vam.url||MAIL.loading)return;if(!force&&Date.now()-
        /* forget read/trash marks of messages that no longer exist (only when both lists came in) */
        if(MAIL.notes&&MAIL.pm&&!MAIL.err&&!MAIL.pmErr){const ids=new Set(MAIL.list.map(m=>m.id));["mailRead","mailTrash"].forEach(k=>{const s=mailSet(k),n=[...s].filter(id=>ids.has(id));if(n.length!==s.size)store.set(k,n)})}
        if(MAIL.sel&&!MAIL.list.some(m=>m.id===MAIL.sel))MAIL.sel=null;mailNotify()})
-    .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail"){if(!mailBusy())render()}else renderHome()})}
+    .finally(()=>{clearTimeout(tm);MAIL.loading=false;MAIL.at=Date.now();if(cur==="mail"){if(!mailBusy()){MAIL.stale=false;render()}else MAIL.stale=true}else renderHome()})}
 /* typing a message: a background refresh must not redraw the page under the pilot's fingers */
-function mailBusy(){const a=document.activeElement;return !!MAIL.compose||!!(a&&a.closest&&a.closest(".pm-reply"))}
+function mailBusy(){const a=document.activeElement;return !!MAIL.compose||!!(a&&a.closest&&a.closest(".pm-reply,.pm-search"))}
 /* the people a conversation is with, as the pilot sees them */
 const pmWho=p=>p?p.dept?p.dept:[p.pilot,p.name].filter(Boolean).join(" · ")||p.cs||"Polaris pilot":"";
 /* notices + one row per conversation */
@@ -5596,6 +5596,8 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-pmne
     t.disabled=true;const ta=$("#view [data-pmdraft]");if(ta)ta.disabled=true;
     try{const j=await pmPost("/api/efb/pm",{replyTo:row.msgs[row.msgs.length-1].id,body});pmAfterSend(j);MAIL.draft[th]="";render();const r=$("#view .pm-read");if(r)r.scrollTop=r.scrollHeight}
     catch(er){toast(/fetch|network/i.test(er.message)?"Can’t reach the EFB server. Your reply wasn’t sent.":er.message);t.disabled=false;if(ta){ta.disabled=false;ta.focus()}}}});
+/* mail that arrived while the search field had the keyboard is drawn once it lets go */
+document.addEventListener("focusout",e=>{if(cur==="mail"&&MAIL.stale&&e.target.matches&&e.target.matches("[data-mailq]"))setTimeout(()=>{if(MAIL.stale&&!mailBusy()){MAIL.stale=false;render()}},250)});
 /* search: filter the rows in place, so typing never redraws the page */
 document.addEventListener("input",e=>{const t=e.target;if(cur!=="mail"||!t.matches||!t.matches("[data-mailq]"))return;MAIL.q=t.value;const q=t.value.trim().toLowerCase();let n=0;
   document.querySelectorAll("#view .pm-row").forEach(r=>{const hit=!q||(r.dataset.q||"").includes(q);r.hidden=!hit;if(hit)n++});
@@ -5895,7 +5897,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 16, 2026",["Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 16, 2026",["Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -7955,7 +7957,7 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
 
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* Home Screen editing */
-.home .app,.home .app *,.home .lbl{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.home,.home a,.home a *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .home .app{-webkit-user-drag:none}
 .home.hedit .apps,.home.hedit .dock{position:relative}
 .home.hedit .app:not(.recent){touch-action:none;cursor:grab}

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.1220">
+<meta name="efb-build" content="1117.1323">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6160,7 +6160,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 17, 2026",["Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 17, 2026",["Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -9142,10 +9142,28 @@ const asIcon=(id,cls)=>{const a=APPS[id];return `<span class="as-ic ${cls||""}" 
 function asRow(id,i){const A=AS_INFO[id];return `<div class="as-row" style="--i:${i||0}"><button class="as-rowb" data-asdet="${id}">${asIcon(id)}<span class="as-rt"><b>${esc(APPS[id].name)}</b><small>${esc(A.s)}</small></span></button>${asBtn(id)}</div>`}
 function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["ofpdoc","perf","load"].filter(id=>!asHas(id));
   const card=(cls,eyebrow,title,sub,body,i)=>`<section class="as-card ${cls}" style="--i:${i}"><div class="as-ch"><span>${eyebrow}</span><b>${title}</b><p>${sub}</p></div>${body}</section>`;
-  return `<div class="as-date">${day}</div><h1 class="as-h1">Today</h1>
+  const hero=`<div class="as-hero">${asOk("calendar")||APPS.calendar?`<button class="as-hc h-cal" data-asdet="calendar" style="--i:0"><span class="as-hk">New for you</span><b>Calendar</b><p>Your bookings, the flight plan and your own events by day, week, month and year, in Zulu time.</p><span class="as-hf">${asIcon("calendar","sm")}<span>Calendar</span></span></button>`:""}
+    <button class="as-hc h-eim" data-astab="partners" style="--i:1;background-image:linear-gradient(180deg,rgba(11,52,141,0) 30%,rgba(11,52,141,.92)),url(${typeof EIM_WALL!=="undefined"?EIM_WALL:""})"><span class="as-hk">Partner airline</span><b>海岸航空</b><p>Medium5 VA · Enjoy wonderful flights</p><span class="as-hf"><span class="as-pl">M5</span><span>See partners</span></span></button></div>`;
+  const miss2=AS_LIST().filter(id=>!asHas(id)).slice(0,5);
+  const disc=`<div class="as-sec"><h2 class="as-h2">Discover something new</h2><button class="as-link" data-astab="apps">All apps</button></div>${miss2.length?`<div class="as-group">${miss2.map((id,i)=>asRow(id,i)).join("")}</div>`:`<p class="as-none">You have every app. Nice.</p>`}`;
+  const partners=`<div class="as-sec"><h2 class="as-h2">Today with our partners</h2><button class="as-link" data-astab="partners">All partners</button></div><div class="as-ptoday">${AS_PARTNERS.slice(0,2).map((p,i)=>asPartnerCard(p,i,true)).join("")}</div>`;
+  return `<div class="as-date">${day}</div><h1 class="as-h1">Today</h1>${hero}
   ${card("c-plan","Get started","Plan your first flight","Open Flight and go step by step: load the plan, read the OFP, then work out the numbers.",`<div class="as-feat">${asIcon("flight","md")}<span class="as-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="as-bund">${["simbrief","ofpdoc","perf","load"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="as-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="as-ok">All on your Home Screen</span>`}</div>`,0)}
   ${card("c-kb","New","Kneeboard","Clearances, ATIS and takeoff data on forms that fill themselves, with the OFP pens.",`<div class="as-feat">${asIcon("kneeboard","md")}<span class="as-rt"><b>Kneeboard</b><small>${esc(AS_INFO.kneeboard.s)}</small></span>${asBtn("kneeboard")}</div>`,1)}
-  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="as-list">${["checklist","charts","wx","logbook"].map((id,i)=>asRow(id,i)).join("")}</div>`,2)}`}
+  ${partners}
+  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="as-list">${["checklist","charts","wx","logbook"].map((id,i)=>asRow(id,i)).join("")}</div>`,2)}
+  ${disc}`}
+/* ---------- partners ---------- */
+const AS_PARTNERS=[
+  {id:"eim",kind:"Partner airline",name:"海岸航空",sub:"Medium5 VA",d:"Our partner virtual airline, with its own fleet, ranks and community. Fly with us and you can fly with them too. The EFB can wear their colours and wallpaper: Settings › Display › Airline.",url:"https://medium5va.org",img:()=>typeof EIM_WALL!=="undefined"?EIM_WALL:"",c1:"#0B348D",c2:"#0FAFFF",act:'<button class="as-pb" data-airline-set="eim">Use their theme</button>'}];
+const AS_SERVICES=[["SimBrief","Flight planning: the OFP the EFB loads","https://www.simbrief.com","#C8102E"],["vAMSYS","Bookings, PIREPs and the live flight map","https://vamsys.io","#3B5BDB"],["VATSIM","The online network: traffic and controllers on the map","https://vatsim.net","#2A6FDB"],["aviationweather.gov","METAR, TAF, SIGMETs and G-AIRMETs","https://aviationweather.gov","#1E6091"],["NOAA GFS","Model weather: winds, pressure, jet streams","https://www.nco.ncep.noaa.gov/pmb/products/gfs/","#2E7D32"]];
+function asPartnerCard(p,i,small){const img=p.img&&p.img();return `<section class="as-pc${small?" sm":""}" style="--i:${i};--c1:${p.c1};--c2:${p.c2}">
+    <div class="as-pimg"${img?` style="background-image:url(${img})"`:""}><span class="as-hk">${esc(p.kind)}</span></div>
+    <div class="as-pb0"><b>${esc(p.name)}</b><small>${esc(p.sub)}</small><p>${esc(p.d)}</p><div class="as-pact">${p.act||""}<a class="as-pb ghost" href="${esc(p.url)}" target="_blank" rel="noopener">Visit site ↗</a></div></div></section>`}
+function asPartners(){return `<div class="as-date">${new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase()}</div><h1 class="as-h1">Partners</h1>
+  <p class="as-lead">Airlines that fly alongside Polaris.</p>${AS_PARTNERS.map((p,i)=>asPartnerCard(p,i)).join("")}
+  <h2 class="as-h2">Works with</h2><p class="as-lead">Services the EFB reads from. They are not partners of Polaris, just the sources behind your plan, flights and weather.</p>
+  <div class="as-group">${AS_SERVICES.map(([n,s,u,c],i)=>`<div class="as-row" style="--i:${i}"><a class="as-rowb" href="${esc(u)}" target="_blank" rel="noopener"><span class="as-ic" style="background:${c};color:#fff;font:700 15px var(--f-os)" aria-hidden="true">${esc(n[0])}</span><span class="as-rt"><b>${esc(n)}</b><small>${esc(s)}</small></span></a><a class="as-get open" href="${esc(u)}" target="_blank" rel="noopener">Visit</a></div>`).join("")}</div>`}
 function asApps(){const q=ASX.q.trim().toLowerCase();let out="";
   AS_CAT.forEach(([c,t])=>{const L=AS_LIST().filter(id=>AS_INFO[id].c===c&&(!q||(APPS[id].name+" "+AS_INFO[id].s+" "+AS_INFO[id].d).toLowerCase().includes(q)));
     if(L.length)out+=`<h2 class="as-h2">${t}</h2><div class="as-group">${L.map((id,i)=>asRow(id,i)).join("")}</div>`});
@@ -9153,15 +9171,15 @@ function asApps(){const q=ASX.q.trim().toLowerCase();let out="";
 function asDetail(id){const A=AS_INFO[id],a=APPS[id],news=[];
   (typeof UPD_LOG!=="undefined"?UPD_LOG:[]).forEach(([d,L])=>L.forEach(t=>{if(news.length<3&&new RegExp("^"+a.name+"\\b|\\b"+a.name+":","i").test(t)){const x=t.replace(new RegExp("^"+a.name+":\\s*","i"),"");news.push([d,x.charAt(0).toUpperCase()+x.slice(1)])}}));
   const cat=(AS_CAT.find(c=>c[0]===A.c)||[])[1]||"";
-  return `<button class="as-back" data-asback><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>${ASX.tab==="today"?"Today":"Apps"}</button>
+  return `<button class="as-back" data-asback><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>${ASX.tab==="today"?"Today":ASX.tab==="partners"?"Partners":"Apps"}</button>
   <div class="as-dh">${asIcon(id,"lg")}<div class="as-dt"><h1>${esc(a.name)}</h1><p>${esc(A.s)}</p><div class="as-dact">${asBtn(id,true)}</div></div></div>
   <div class="as-meta"><div><small>Category</small><b>${esc(cat)}</b></div><div><small>Developer</small><b>Polaris EFB</b></div><div><small>Price</small><b>Free</b></div></div>
   <p class="as-desc">${esc(A.d)}</p>${A.f.length?`<ul class="as-feats">${A.f.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:""}
   ${news.length?`<h2 class="as-h2">What’s New</h2><div class="as-group as-news">${news.map(([d,t])=>`<div><small>${esc(d)}</small><p>${esc(t)}</p></div>`).join("")}</div>`:""}
   ${asHas(id)&&!AS_CORE.includes(id)?`<button class="as-del" data-asdel="${id}">${ASX.armDel===id?"Tap again to remove "+esc(a.name):"Remove App"}</button><p class="as-fine">Removing takes ${esc(a.name)} off your Home Screen on all your devices. What you saved in it stays.</p>`:""}`}
-V.store=()=>{const anim=ASX.anim;ASX.anim=0;const body=ASX.det&&AS_INFO[ASX.det]?asDetail(ASX.det):ASX.tab==="apps"?asApps():asToday();
+V.store=()=>{const anim=ASX.anim;ASX.anim=0;const body=ASX.det&&AS_INFO[ASX.det]?asDetail(ASX.det):ASX.tab==="apps"?asApps():ASX.tab==="partners"?asPartners():asToday();
   return `<div class="as${anim?" as-in":""}${ASX.det?" as-det":""}" id="asRoot"><div class="as-scroll" id="asScroll"><div class="as-wrap">${body}</div></div>
-  <nav class="as-tabs" aria-label="App Store">${[["today","Today",'<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M4 9h16"/>'],["apps","Apps",'<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>']].map(([k,l,g])=>`<button class="${ASX.tab===k&&!ASX.det?"on":""}" data-astab="${k}" aria-current="${ASX.tab===k}"><svg viewBox="0 0 24 24">${g}</svg>${l}</button>`).join("")}</nav></div>`};
+  <nav class="as-tabs" aria-label="App Store">${[["today","Today",'<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M4 9h16"/>'],["partners","Partners",'<circle cx="8.5" cy="9" r="3.2"/><circle cx="15.5" cy="9" r="3.2"/><path d="M3 19c.6-3 2.8-4.6 5.5-4.6S13.4 16 14 19M10 19c.6-3 2.8-4.6 5.5-4.6S20.4 16 21 19"/>'],["apps","Apps",'<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>']].map(([k,l,g])=>`<button class="${ASX.tab===k&&!ASX.det?"on":""}" data-astab="${k}" aria-current="${ASX.tab===k}"><svg viewBox="0 0 24 24">${g}</svg>${l}</button>`).join("")}</nav></div>`};
 
 /* ---------- taps ---------- */
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-asget],[data-asopen],[data-asdet],[data-astab],[data-asback],[data-asdel],[data-asall],[data-asneed],[data-asneedx]");if(!t)return;const d=t.dataset;
@@ -9269,6 +9287,29 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .as-alist button{border:0;border-bottom:.5px solid var(--ios-sep);background:none;color:var(--ios-tint);font:400 17px var(--f-os);padding:12px;cursor:pointer}.as-alist button:last-child{border:0}.as-alist .red{color:#FF3B30}.as-alist .b{font-weight:600}
 @media (max-width:560px){.as-wrap{padding:10px 16px 100px}.as-h1{font-size:30px}.as-ic.lg{width:96px;height:96px;border-radius:22px}.as-ch b{font-size:23px}}
 @media (prefers-reduced-motion:reduce){.as *,.as-need *,#home .app.as-pop .icon{animation:none!important;transition:none!important}}
+.as-hero{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+.as-hc{position:relative;min-height:230px;border:0;border-radius:18px;overflow:hidden;text-align:left;cursor:pointer;color:#fff;padding:18px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;background-size:cover;background-position:center;box-shadow:0 10px 30px rgba(0,0,0,.18);font-family:var(--f-os);animation:asUp .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*70ms);transition:transform .2s cubic-bezier(.3,1.4,.5,1)}
+.as-hc:active{transform:scale(.985)}
+.h-cal{background:radial-gradient(120% 90% at 85% 10%,#FF6B5E 0,transparent 55%),linear-gradient(150deg,#0A84FF,#3A3AD9 60%,#151A6B)}
+.as-hk{font:700 11px var(--f-os);letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.as-hc>b{font:700 26px/1.1 var(--f-os)}.as-hc>p{margin:0;font:500 14px/1.35 var(--f-os);opacity:.9;max-width:36ch}
+.as-hf{display:flex;align-items:center;gap:8px;margin-top:10px;font:600 13px var(--f-os)}.as-hf .as-ic.sm{width:26px;height:26px;border-radius:7px}
+.as-pl{width:26px;height:26px;border-radius:7px;background:#fff;color:#0B348D;display:grid;place-items:center;font:800 11px var(--f-os)}
+.as-sec{display:flex;align-items:baseline;justify-content:space-between;margin-top:8px}.as-sec .as-h2{margin-bottom:8px}
+.as-link{border:0;background:none;color:var(--ios-tint);font:500 15px var(--f-os);cursor:pointer}
+.as-lead{color:var(--ios-lbl2);font:15px/1.45 var(--f-os);margin:-4px 0 16px;max-width:62ch}
+.as-ptoday{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:20px}
+.as-pc{display:grid;grid-template-columns:42% 1fr;border-radius:18px;overflow:hidden;background:var(--ios-grp);box-shadow:0 8px 28px rgba(0,0,0,.10);margin-bottom:18px;animation:asUp .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*70ms)}
+.as-pc.sm{grid-template-columns:1fr;margin:0}.as-pc.sm .as-pimg{min-height:150px}
+.as-pimg{min-height:220px;background:linear-gradient(135deg,var(--c1),var(--c2));background-size:cover;background-position:center;position:relative;padding:14px;color:#fff;display:flex;align-items:flex-start}
+.as-pimg .as-hk{background:rgba(0,0,0,.35);padding:4px 8px;border-radius:999px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.as-pb0{padding:16px 18px;display:flex;flex-direction:column;gap:3px}.as-pb0>b{font:700 21px var(--f-os)}.as-pb0>small{color:var(--ios-lbl2);font:500 13px var(--f-os)}
+.as-pb0>p{font:14.5px/1.45 var(--f-os);margin:8px 0 10px}
+.as-pact{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.as-pb{border:0;border-radius:999px;padding:8px 16px;background:var(--ios-tint);color:#fff;font:600 14px var(--f-os);cursor:pointer;text-decoration:none}
+.as-pb.ghost{background:color-mix(in srgb,var(--ios-tint) 14%,transparent);color:var(--ios-tint)}
+@container screen (max-width:760px){.as-hero{grid-template-columns:1fr}.as-pc{grid-template-columns:1fr}.as-pimg{min-height:160px}}
+a.as-rowb,a.as-get,a.as-pb{text-decoration:none;color:inherit}a.as-get{color:var(--ios-tint)}a.as-pb.ghost{color:var(--ios-tint)}
 </style>`);
 
 /* ===== Clock, as on iOS 18 =====
@@ -9789,6 +9830,306 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .rul-svg .rl rect{fill:rgba(0,0,0,.82)}
 .rul-svg .rl text{fill:#fff;font:700 14px var(--f-mono,ui-monospace,monospace);letter-spacing:.02em}
 </style>`);
+
+/* ===== Calendar, as on iPadOS 18 =====
+   Day, Week, Month and Year, all in UTC (Z) like the rest of the flight deck. What it shows comes from three
+   calendars that can be switched on and off: Roster (the pilot's vAMSYS bookings and the checked-in flight), Flight
+   Plan (the loaded SimBrief plan, unless the Roster already has that flight) and Personal (events the pilot adds with
+   +, kept on this device). Search finds events by name or airport. Tap an event for its details; a booking opens the
+   Roster, the plan opens Flight Plan. */
+{const d=new Date();APPS.calendar={name:"Calendar",bg:"#FFFFFF",fg:"#1C1C1E",g:`<text x="12" y="8.2" text-anchor="middle" font-size="4.6" font-weight="600" fill="#FF3B30" stroke="none" font-family="-apple-system,system-ui,sans-serif" letter-spacing=".2">${d.toLocaleDateString("en-US",{weekday:"short"}).toUpperCase()}</text><text x="12" y="20" text-anchor="middle" font-size="12.5" font-weight="300" fill="#1C1C1E" stroke="none" font-family="-apple-system,system-ui,sans-serif">${d.getDate()}</text>`}}
+{const put=(a,after)=>{if(!a||a.includes("calendar"))return;const i=a.indexOf(after);a.splice(i<0?a.length:i+1,0,"calendar")};
+  put(PAGE1,"roster");put(PAGE2,"roster");if(typeof HL!=="undefined"){put(HL.def.pad.p1,"roster");put(HL.def.phone.p2,"roster")}}
+if(typeof AS_INFO!=="undefined"){AS_INFO.calendar={c:"company",s:"Your flights and plans by day, week, month and year",d:"Your vAMSYS bookings, the loaded flight plan and your own events in one calendar, in UTC. Switch between day, week, month and year, search by flight or airport, and add your own events.",f:["Day, Week, Month and Year","Bookings and the flight plan in Zulu time","Your own events"]};if(Array.isArray(AS_DEF)&&!AS_DEF.includes("calendar"))AS_DEF.splice(1,0,"calendar")}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="calendar"){screenEl.dataset.layout="full";CAL.anim=1}return r}}
+queueMicrotask(()=>{if(typeof EYEBROW!=="undefined")EYEBROW.calendar=()=>"All times UTC"});
+
+const CAL={view:store.get("calView","month"),d:null,q:"",sel:null,add:null,src:Object.assign({roster:true,plan:true,personal:true},store.get("calSrc",{})||{}),srcOpen:false,anim:0};
+const CAL_SRC=[["roster","Roster","#30B0C7"],["plan","Flight Plan","#5E5CE6"],["personal","Personal","#FF9F0A"]];
+const CAL_MON=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const CAL_WD=["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const calDay=t=>{const d=new Date(t);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())};
+const calToday=()=>calDay(Date.now());
+const calAnchor=()=>CAL.d==null?(CAL.d=calToday()):CAL.d;
+const calZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")+"z"};
+const calMonStart=t=>{const d=new Date(t);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)};
+const calWeekStart=t=>{const d=new Date(calDay(t));return d.getTime()-((d.getUTCDay()+6)%7)*864e5};
+const calColor=s=>(CAL_SRC.find(x=>x[0]===s)||[0,0,"#8E8E93"])[2];
+
+/* ---------- events ---------- */
+function calPersonal(){const L=store.get("calEv",[]);return Array.isArray(L)?L:[]}
+function calEvents(){const out=[],T=v=>Date.parse(v||"")||0;
+  if(CAL.src.roster){const ci=typeof RS!=="undefined"?RS.ci:null;
+    ((typeof RS!=="undefined"&&RS.list)||[]).forEach((b,i)=>{const s=T(b.departureTime);if(!s)return;const e=T(b.arrivalTime)||s+3600e3,cs=b.callsign||b.flight||"Flight";
+      const isCi=ci&&(((ci.bookingId||ci.booking)&&String(ci.bookingId||ci.booking)===String(b.id))||(ci.from===b.from&&ci.to===b.to&&Math.abs((ci.std||0)-s)<3*3600e3));
+      out.push({id:"r"+(b.id||i),src:"roster",title:cs+" "+(b.from||"")+"–"+(b.to||""),sub:[b.type,b.registration].filter(Boolean).join(" · "),s,e,from:b.from,to:b.to,flight:b.flight||cs,ci:!!isCi})});
+    if(ci&&ci.std&&!out.some(x=>x.ci))out.push({id:"rci",src:"roster",title:(ci.callsign||ci.flight||"Flight")+" "+(ci.from||"")+"–"+(ci.to||""),sub:"Checked in",s:ci.std,e:ci.sta||ci.std+3600e3,from:ci.from,to:ci.to,flight:ci.flight,ci:true})}
+  if(CAL.src.plan&&!ofp._sample){const x=O(),tm=ofp.times||{},s=N(tm.sched_out)*1000,e=N(tm.sched_in)*1000,from=S(x.o.icao_code),to=S(x.d.icao_code);
+    if(s&&!out.some(v=>v.from===from&&v.to===to&&Math.abs(v.s-s)<4*3600e3))out.push({id:"p"+x.id,src:"plan",title:x.flight+" "+from+"–"+to,sub:"SimBrief OFP "+x.id+(S(x.ac.icaocode)?" · "+S(x.ac.icaocode):""),s,e:e||s+3600e3,from,to,flight:x.flight})}
+  if(CAL.src.personal)calPersonal().forEach(v=>out.push({id:v.id,src:"personal",title:v.t||"New Event",sub:v.n||"",s:v.s,e:v.e||v.s+3600e3,allDay:!!v.ad}));
+  return out.sort((a,b)=>a.s-b.s)}
+const calOn=(E,day)=>E.filter(v=>v.allDay?calDay(v.s)<=day&&calDay(v.e-1)>=day:v.s<day+864e5&&v.e>day);
+const calMatch=(v,q)=>(v.title+" "+v.sub+" "+(v.from||"")+" "+(v.to||"")).toLowerCase().includes(q);
+
+/* ---------- views ---------- */
+function calChip(v,cls){return `<button class="cal-chip ${cls||""}${v.ci?" ci":""}" style="--c:${calColor(v.src)}" data-calev="${esc(v.id)}"><span>${v.allDay?"":calZ(v.s)+" "}</span><b>${esc(v.title)}</b></button>`}
+function calMonth(E){const a=calAnchor(),m0=calMonStart(a),start=calWeekStart(m0),today=calToday(),mon=new Date(m0).getUTCMonth();let cells="";
+  for(let i=0;i<42;i++){const d=start+i*864e5,dd=new Date(d),ev=calOn(E,d),out=dd.getUTCMonth()!==mon;
+    cells+=`<div class="cal-cell${out?" out":""}${d===today?" today":""}" data-calday="${d}"><span class="cal-dn">${dd.getUTCDate()}</span>${ev.slice(0,3).map(v=>calChip(v)).join("")}${ev.length>3?`<span class="cal-more">${ev.length-3} more</span>`:""}</div>`}
+  return `<div class="cal-month"><div class="cal-wd">${CAL_WD.map(w=>`<span>${w}</span>`).join("")}</div><div class="cal-grid">${cells}</div></div>`}
+function calTimeGrid(E,days){const today=calToday(),now=Date.now(),H=48;
+  const head=days.map(d=>{const dd=new Date(d);return `<button class="cal-th${d===today?" today":""}" data-calday="${d}"><span>${CAL_WD[(dd.getUTCDay()+6)%7]}</span><b>${dd.getUTCDate()}</b></button>`}).join("");
+  const allday=days.map(d=>`<div class="cal-ad">${calOn(E,d).filter(v=>v.allDay).map(v=>calChip(v)).join("")}</div>`).join("");
+  const hours=Array.from({length:24},(_,h)=>`<div class="cal-hr"><span>${String(h).padStart(2,"0")}z</span></div>`).join("");
+  const cols=days.map(d=>{const ev=calOn(E,d).filter(v=>!v.allDay),lanes=[];
+    const blocks=ev.map(v=>{const s=Math.max(v.s,d),e=Math.min(v.e,d+864e5),top=(s-d)/36e5*H,h=Math.max(22,(e-s)/36e5*H-2);let l=lanes.findIndex(x=>x<=s);if(l<0){l=lanes.length;lanes.push(0)}lanes[l]=e;return {v,top,h,l}});
+    const n=Math.max(1,lanes.length);
+    return `<div class="cal-col${d===today?" today":""}">${blocks.map(b=>`<button class="cal-blk${b.v.ci?" ci":""}" style="--c:${calColor(b.v.src)};top:${b.top}px;height:${b.h}px;left:calc(${b.l/n*100}% + 2px);width:calc(${100/n}% - 4px)" data-calev="${esc(b.v.id)}"><b>${esc(b.v.title)}</b><span>${calZ(b.v.s)} – ${calZ(b.v.e)}</span>${b.v.sub&&b.h>60?`<span>${esc(b.v.sub)}</span>`:""}</button>`).join("")}${d===today?`<i class="cal-now" style="top:${(now-d)/36e5*H}px"></i>`:""}</div>`}).join("");
+  return `<div class="cal-tg" style="--n:${days.length}"><div class="cal-tgh"><span class="cal-gut"></span>${head}</div><div class="cal-tga"><span class="cal-gut">all-day</span>${allday}</div>
+    <div class="cal-tgs" id="calScroll"><div class="cal-tgb" style="height:${24*H}px"><div class="cal-hrs">${hours}</div>${cols}</div></div></div>`}
+function calDayList(E,d){const ev=calOn(E,d);return `<aside class="cal-side"><h3>${new Date(d).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",timeZone:"UTC"})}</h3>${ev.length?ev.map(v=>calRowHtml(v)).join(""):`<p class="cal-none">No events.</p>`}</aside>`}
+function calRowHtml(v){return `<button class="cal-row" style="--c:${calColor(v.src)}" data-calev="${esc(v.id)}"><i></i><span><b>${esc(v.title)}</b><small>${v.allDay?"All day":calZ(v.s)+" – "+calZ(v.e)}${v.sub?" · "+esc(v.sub):""}</small></span></button>`}
+function calYear(E){const y=new Date(calAnchor()).getUTCFullYear(),today=calToday(),has=new Set();E.forEach(v=>{for(let d=calDay(v.s);d<=calDay(Math.max(v.s,v.e-1));d+=864e5)has.add(d)});
+  return `<div class="cal-year">${CAL_MON.map((mn,m)=>{const m0=Date.UTC(y,m,1),st=calWeekStart(m0);let c="";
+    for(let i=0;i<42;i++){const d=st+i*864e5,dd=new Date(d);c+=dd.getUTCMonth()!==m?"<i></i>":`<i class="${d===today?"t":""}${has.has(d)?" e":""}">${dd.getUTCDate()}</i>`}
+    return `<button class="cal-ym${m===new Date(today).getUTCMonth()&&y===new Date(today).getUTCFullYear()?" cur":""}" data-calmonth="${m0}"><b>${mn}</b><span class="cal-ymw">${CAL_WD.map(w=>`<i>${w[0]}</i>`).join("")}</span><span class="cal-ymg">${c}</span></button>`}).join("")}</div>`}
+function calSearch(E){const q=CAL.q.trim().toLowerCase(),L=E.filter(v=>calMatch(v,q));if(!L.length)return `<p class="cal-none big">No events match “${esc(CAL.q)}”.</p>`;let last=0,h="";
+  L.forEach(v=>{const d=calDay(v.s);if(d!==last){last=d;h+=`<h3 class="cal-sh">${new Date(d).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})}</h3>`}h+=calRowHtml(v)});return `<div class="cal-list">${h}</div>`}
+function calTitle(){const a=new Date(calAnchor());if(CAL.q.trim())return "Search";
+  if(CAL.view==="year")return String(a.getUTCFullYear());
+  if(CAL.view==="day")return `${a.toLocaleDateString("en-GB",{day:"numeric",month:"long",timeZone:"UTC"})} <span>${a.getUTCFullYear()}</span><small>${a.toLocaleDateString("en-GB",{weekday:"long",timeZone:"UTC"})}</small>`;
+  return `${CAL_MON[a.getUTCMonth()]} <span>${a.getUTCFullYear()}</span>`}
+V.calendar=()=>{const E=calEvents(),a=calAnchor(),anim=CAL.anim;CAL.anim=0;if(typeof rsLoad==="function")rsLoad();
+  const body=CAL.q.trim()?calSearch(E):CAL.view==="year"?calYear(E):CAL.view==="week"?calTimeGrid(E,Array.from({length:7},(_,i)=>calWeekStart(a)+i*864e5)):CAL.view==="day"?`<div class="cal-dayw">${calTimeGrid(E,[calDay(a)])}${calDayList(E,calDay(a))}</div>`:calMonth(E);
+  const seg=[["day","Day"],["week","Week"],["month","Month"],["year","Year"]].map(([k,t])=>`<button data-calview="${k}" aria-pressed="${CAL.view===k&&!CAL.q.trim()}">${t}</button>`).join("");
+  return `<div class="cal${anim?" cal-in":""}" id="calRoot"><div class="cal-bar">
+      <div class="cal-pill"><button data-calgo="-1" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button data-calgo="0">Today</button><button data-calgo="1" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
+      <button class="cal-round" data-caladd aria-label="New event"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="cal-pill cal-cals" data-calsrc aria-expanded="${CAL.srcOpen}"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Calendars</button>
+      <div class="cal-seg" role="group" aria-label="View">${seg}</div>
+      <label class="cal-q"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input type="search" data-calq placeholder="Search" value="${esc(CAL.q)}" aria-label="Search events"></label></div>
+    <h1 class="cal-h1">${calTitle()}</h1><div class="cal-body cal-v-${CAL.q.trim()?"search":CAL.view}" id="calBody">${body}</div>
+    ${CAL.srcOpen?calSrcPop():""}${CAL.sel?calDetail(E):""}${CAL.add?calAddSheet():""}</div>`};
+function calSrcPop(){return `<div class="cal-pop" role="dialog" aria-label="Calendars"><b>Calendars</b>${CAL_SRC.map(([k,t,c])=>`<label class="cal-src"><input type="checkbox" data-calsrcset="${k}" ${CAL.src[k]?"checked":""}><i style="--c:${c}"></i>${t}</label>`).join("")}<small>Times are UTC. Personal events stay on this device.</small></div>`}
+function calDetail(E){const v=E.find(x=>x.id===CAL.sel);if(!v)return "";const src=CAL_SRC.find(x=>x[0]===v.src);
+  const dur=v.allDay?"All day":`${calZ(v.s)} – ${calZ(v.e)} · ${Math.floor((v.e-v.s)/36e5)}:${String(Math.round((v.e-v.s)/6e4)%60).padStart(2,"0")}`;
+  const act=v.src==="roster"?`<a class="cal-btn" href="#roster">${v.ci?"Open briefing in Roster":"Open in Roster"}</a>`:v.src==="plan"?`<a class="cal-btn" href="#ofp">Open Flight Plan</a>`:`<button class="cal-btn del" data-caldel="${esc(v.id)}">${CAL.armDel===v.id?"Tap again to delete":"Delete Event"}</button>`;
+  return `<div class="cal-sheetw" data-calx><div class="cal-sheet" role="dialog" aria-label="${esc(v.title)}"><div class="cal-sh1"><i style="background:${calColor(v.src)}"></i><b>${esc(v.title)}</b><button class="cal-x" data-calx aria-label="Close">✕</button></div>
+    <p>${new Date(v.s).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})}<br>${dur}</p>${v.sub?`<p class="dim">${esc(v.sub)}</p>`:""}
+    ${v.from?`<div class="cal-rt"><b>${esc(v.from)}</b><svg viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></svg><b>${esc(v.to||"")}</b>${typeof ftTag==="function"?ftTag(v.flight,v.from,v.to):""}</div>`:""}
+    <p class="dim">Calendar: ${esc(src?src[1]:"")}${v.ci?" · Checked in":""}</p>${act}</div></div>`}
+function calAddSheet(){const a=CAL.add,d=new Date(a.d).toISOString().slice(0,10);
+  return `<div class="cal-sheetw" data-calx><form class="cal-sheet cal-form" id="calForm" role="dialog" aria-label="New event"><div class="cal-sh1"><button type="button" class="cal-tb" data-calx>Cancel</button><b>New Event</b><button type="submit" class="cal-tb pri">Add</button></div>
+    <label class="cal-f"><input name="t" placeholder="Title" maxlength="80" autocomplete="off" required></label>
+    <label class="cal-f row"><span>All-day</span><input type="checkbox" name="ad"></label>
+    <label class="cal-f row"><span>Date</span><input type="date" name="d" value="${d}" required></label>
+    <label class="cal-f row"><span>Starts (UTC)</span><input type="time" name="s" value="${a.h}"></label>
+    <label class="cal-f row"><span>Ends (UTC)</span><input type="time" name="e" value="${String((+a.h.slice(0,2)+1)%24).padStart(2,"0")+a.h.slice(2)}"></label>
+    <label class="cal-f"><textarea name="n" rows="3" placeholder="Notes" maxlength="400"></textarea></label></form></div>`}
+
+/* ---------- taps, keys, typing ---------- */
+function calMove(k){const a=new Date(calAnchor());if(k===0){CAL.d=calToday();return}
+  if(CAL.view==="day")CAL.d=calAnchor()+k*864e5;else if(CAL.view==="week")CAL.d=calAnchor()+k*7*864e5;
+  else if(CAL.view==="year")CAL.d=Date.UTC(a.getUTCFullYear()+k,a.getUTCMonth(),1);else CAL.d=Date.UTC(a.getUTCFullYear(),a.getUTCMonth()+k,1)}
+function calScrollTo(){const s=document.getElementById("calScroll");if(!s)return;const d=calAnchor(),E=calEvents().filter(v=>!v.allDay&&calDay(v.s)>=calWeekStart(d)),h=E.length?Math.max(0,new Date(E[0].s).getUTCHours()-1):Math.max(0,new Date().getUTCHours()-2);s.scrollTop=h*48}
+{const _r=render;render=function(){const r=_r.apply(this,arguments);if(cur==="calendar"&&(CAL.view==="week"||CAL.view==="day")&&!CAL.q.trim()&&CAL._scroll!==CAL.view+calAnchor()){CAL._scroll=CAL.view+calAnchor();calScrollTo()}return r}}
+document.addEventListener("click",e=>{if(cur!=="calendar")return;const t=e.target.closest&&e.target.closest("[data-calgo],[data-calview],[data-caladd],[data-calsrc],[data-calday],[data-calev],[data-calmonth],[data-calx],[data-caldel]");
+  if(CAL.srcOpen&&!e.target.closest(".cal-pop")&&!(t&&t.dataset.calsrc!=null)){CAL.srcOpen=false;render();if(!t)return}
+  if(!t)return;const d=t.dataset;
+  if(d.calx!=null){if(t.classList.contains("cal-sheetw")&&e.target!==t)return;CAL.sel=null;CAL.add=null;CAL.armDel=null;render();return}
+  if(d.calgo!=null){calMove(+d.calgo);render();return}
+  if(d.calview){CAL.view=d.calview;CAL.q="";store.set("calView",CAL.view);render();return}
+  if(d.caladd!=null){const h=String((new Date().getUTCHours()+1)%24).padStart(2,"0")+":00";CAL.add={d:calAnchor(),h};render();setTimeout(()=>{const i=document.querySelector('#calForm [name="t"]');if(i)i.focus()},60);return}
+  if(d.calsrc!=null){CAL.srcOpen=!CAL.srcOpen;render();return}
+  if(d.calev){e.stopPropagation();CAL.sel=d.calev;CAL.armDel=null;render();return}
+  if(d.calmonth){CAL.d=+d.calmonth;CAL.view="month";store.set("calView","month");render();return}
+  if(d.calday){CAL.d=+d.calday;if(CAL.view!=="day"){CAL.view="day";store.set("calView","day")}render();return}
+  if(d.caldel){if(CAL.armDel!==d.caldel){CAL.armDel=d.caldel;render();return}store.set("calEv",calPersonal().filter(v=>v.id!==d.caldel));CAL.sel=null;CAL.armDel=null;render();toast("Event deleted")}});
+document.addEventListener("change",e=>{if(cur!=="calendar")return;const k=e.target.dataset&&e.target.dataset.calsrcset;if(!k)return;CAL.src[k]=e.target.checked;store.set("calSrc",CAL.src);CAL.srcOpen=true;render()});
+document.addEventListener("submit",e=>{if(e.target.id!=="calForm")return;e.preventDefault();const f=new FormData(e.target),day=Date.parse(f.get("d")+"T00:00:00Z");if(!day)return;
+  const ad=!!f.get("ad"),hm=v=>{const m=String(v||"").match(/^(\d\d):(\d\d)/);return m?(+m[1]*60+ +m[2])*6e4:0};let s=ad?day:day+hm(f.get("s")),en=ad?day+864e5:day+hm(f.get("e"));if(en<=s)en+=ad?0:864e5;
+  const v={id:"u"+Date.now().toString(36),t:String(f.get("t")||"").trim()||"New Event",s,e:en,ad,n:String(f.get("n")||"").trim()};store.set("calEv",[...calPersonal(),v]);
+  if(!CAL.src.personal){CAL.src.personal=true;store.set("calSrc",CAL.src)}CAL.add=null;CAL.d=calDay(s);render();toast("Event added")});
+document.addEventListener("input",e=>{if(cur!=="calendar"||!e.target.matches("[data-calq]"))return;CAL.q=e.target.value;const p=e.target.selectionStart,root=document.getElementById("calRoot");if(!root)return;
+  if(!CAL.q.trim()){render();const i=document.querySelector("[data-calq]");if(i){i.focus();try{i.setSelectionRange(p,p)}catch(x){}}return}
+  root.querySelector(".cal-h1").innerHTML=calTitle();const b=document.getElementById("calBody");b.className="cal-body cal-v-search";b.innerHTML=calSearch(calEvents());
+  root.querySelectorAll("[data-calview]").forEach(x=>x.setAttribute("aria-pressed","false"))});
+document.addEventListener("keydown",e=>{if(cur!=="calendar"||e.target.closest("input,textarea"))return;
+  if(e.key==="Escape"&&(CAL.sel||CAL.add||CAL.srcOpen)){CAL.sel=null;CAL.add=null;CAL.srcOpen=false;render();return}
+  if(e.key==="ArrowLeft"||e.key==="ArrowRight"){calMove(e.key==="ArrowLeft"?-1:1);render()}else if(e.key==="t"){calMove(0);render()}});
+/* swipe left or right on the month to change it */
+{let sx=null,sy=0;document.addEventListener("touchstart",e=>{if(cur!=="calendar"||e.touches.length!==1||!e.target.closest(".cal-month,.cal-year"))return;sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+  document.addEventListener("touchend",e=>{if(sx==null)return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){calMove(dx<0?1:-1);render()}},{passive:true})}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.cal{--cal-bg:var(--bg);--cal-ln:var(--line);--cal-red:#FF3B30;height:100%;display:flex;flex-direction:column;background:var(--cal-bg);color:var(--ink);font-family:var(--f-os);position:relative;overflow:hidden}
+.cal-in .cal-body{animation:calIn .32s cubic-bezier(.2,.8,.2,1) both}@keyframes calIn{from{opacity:0;transform:translateY(8px)}}
+.cal-bar{display:flex;align-items:center;gap:10px;padding:12px 14px 6px;flex-wrap:wrap}
+.cal-bar svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cal-pill,.cal-seg,.cal-round,.cal-q{background:color-mix(in srgb,var(--panel) 80%,transparent);border:1px solid var(--cal-ln);border-radius:999px;-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.cal-pill{display:inline-flex;align-items:center;height:40px;padding:0 4px;color:var(--ink);font:500 15px var(--f-os)}
+.cal-pill button{background:none;border:0;color:inherit;font:inherit;height:36px;padding:0 12px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center}
+.cal-pill button:hover,.cal-round:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+.cal-cals{gap:8px;padding:0 14px;cursor:pointer}
+.cal-round{width:40px;height:40px;display:grid;place-items:center;color:var(--ink);cursor:pointer}
+.cal-seg{display:inline-flex;padding:3px;margin-left:auto;margin-right:auto}
+.cal-seg button{border:0;background:none;color:var(--ink);font:600 14px var(--f-os);height:34px;padding:0 16px;border-radius:999px;cursor:pointer}
+.cal-seg button[aria-pressed="true"]{background:color-mix(in srgb,var(--ink) 14%,transparent)}
+.cal-q{display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;color:var(--label);min-width:180px}
+.cal-q input{border:0;background:none;outline:0;color:var(--ink);font:15px var(--f-os);width:100%}
+.cal-h1{font:700 30px/1.15 var(--f-os);margin:6px 16px 10px;letter-spacing:-.01em}.cal-h1 span{font-weight:400;color:var(--label)}.cal-h1 small{display:block;font:500 15px var(--f-os);color:var(--label);margin-top:2px}
+.cal-body{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
+.cal-month{display:flex;flex-direction:column;height:100%;min-height:520px}
+.cal-wd{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--cal-ln)}.cal-wd span{text-align:center;font:600 11px var(--f-os);color:var(--label);padding:6px 0;letter-spacing:.04em}
+.cal-grid{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr)}
+.cal-cell{border-right:1px solid var(--cal-ln);border-bottom:1px solid var(--cal-ln);padding:4px 4px 2px;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.cal-cell:nth-child(7n){border-right:0}.cal-cell:hover{background:color-mix(in srgb,var(--ink) 3%,transparent)}
+.cal-dn{align-self:flex-end;font:500 14px var(--f-os);min-width:26px;height:26px;display:grid;place-items:center;border-radius:50%}
+.cal-cell.out .cal-dn{color:var(--label);opacity:.6}.cal-cell.out .cal-chip{opacity:.45}
+.cal-cell.today .cal-dn{background:var(--cal-red);color:#fff;font-weight:700}
+.cal-chip{display:flex;gap:4px;align-items:center;width:100%;min-width:0;border:0;cursor:pointer;text-align:left;font:500 11.5px var(--f-os);padding:3px 6px;border-radius:5px;background:color-mix(in srgb,var(--c) 18%,transparent);color:color-mix(in srgb,var(--c) 70%,var(--ink));box-shadow:inset 3px 0 0 var(--c)}
+.cal-chip span{flex:none;opacity:.85}.cal-chip b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-chip.ci,.cal-blk.ci{background:var(--c);color:#fff}
+.cal-more{font:500 11px var(--f-os);color:var(--label);padding-left:6px}
+.cal-tg{display:grid;grid-template-rows:auto auto 1fr;height:100%;min-height:420px}
+.cal-tgh,.cal-tga{display:grid;grid-template-columns:52px repeat(var(--n),1fr);border-bottom:1px solid var(--cal-ln)}
+.cal-gut{font:500 10.5px var(--f-os);color:var(--label);display:grid;place-items:center}
+.cal-th{border:0;background:none;color:var(--ink);cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center;padding:8px 0;font:500 12px var(--f-os)}
+.cal-th span{color:var(--label);letter-spacing:.04em}.cal-th b{font:600 17px var(--f-os);min-width:30px;height:30px;display:grid;place-items:center;border-radius:50%}
+.cal-th.today b{background:var(--cal-red);color:#fff}
+.cal-ad{min-height:26px;padding:2px;border-left:1px solid var(--cal-ln);display:flex;flex-direction:column;gap:2px}
+.cal-tgs{overflow:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.cal-tgb{position:relative;display:grid;grid-template-columns:52px repeat(var(--n),1fr)}
+.cal-hrs{grid-row:1;grid-column:1;position:relative}
+.cal-hr{height:48px;position:relative}.cal-hr span{position:absolute;top:-7px;right:8px;font:500 10.5px var(--f-os);color:var(--label)}.cal-hr:first-child span{display:none}
+.cal-col{grid-row:1;position:relative;border-left:1px solid var(--cal-ln);background:repeating-linear-gradient(to bottom,transparent 0 47px,var(--cal-ln) 47px 48px)}
+.cal-col.today{background-color:color-mix(in srgb,var(--cal-red) 3%,transparent)}
+.cal-blk{position:absolute;border:0;border-radius:6px;padding:4px 6px;text-align:left;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;gap:1px;background:color-mix(in srgb,var(--c) 22%,var(--panel));color:color-mix(in srgb,var(--c) 65%,var(--ink));box-shadow:inset 3px 0 0 var(--c);font:12px var(--f-os)}
+.cal-blk b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cal-blk span{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-now{position:absolute;left:-4px;right:0;height:2px;background:var(--cal-red);z-index:2}.cal-now::before{content:"";position:absolute;left:0;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--cal-red)}
+.cal-dayw{display:grid;grid-template-columns:1fr 300px;height:100%}.cal-dayw .cal-tg{border-right:1px solid var(--cal-ln)}
+.cal-side{padding:10px 14px;overflow:auto}.cal-side h3,.cal-sh{font:600 15px var(--f-os);margin:6px 0 10px}
+.cal-row{display:flex;gap:10px;align-items:stretch;width:100%;border:0;background:var(--panel);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;text-align:left;color:var(--ink);font-family:var(--f-os)}
+.cal-row i{width:4px;border-radius:2px;background:var(--c);flex:none}.cal-row span{display:flex;flex-direction:column;gap:2px;min-width:0}.cal-row b{font:600 14.5px var(--f-os)}.cal-row small{font:13px var(--f-os);color:var(--label)}
+.cal-none{color:var(--label);font-size:14px}.cal-none.big{text-align:center;margin-top:60px;font-size:16px}
+.cal-list{padding:4px 16px 30px;max-width:760px}
+.cal-year{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 26px;padding:6px 18px 30px}
+.cal-ym{border:0;background:none;color:var(--ink);text-align:left;cursor:pointer;padding:6px;border-radius:12px;font-family:var(--f-os)}
+.cal-ym:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}.cal-ym>b{display:block;font:700 17px var(--f-os);margin:0 0 6px 2px}.cal-ym.cur>b{color:var(--cal-red)}
+.cal-ymw,.cal-ymg{display:grid;grid-template-columns:repeat(7,1fr);text-align:center}.cal-ymw i{font:600 9.5px var(--f-os);color:var(--label);font-style:normal}
+.cal-ymg i{font:500 11px/22px var(--f-os);font-style:normal;height:22px;position:relative}
+.cal-ymg i.t{background:var(--cal-red);color:#fff;border-radius:50%;font-weight:700;width:22px;justify-self:center}
+.cal-ymg i.e::after{content:"";position:absolute;left:50%;bottom:0;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#30B0C7}.cal-ymg i.t.e::after{background:#fff}
+.cal-pop{position:absolute;top:58px;left:200px;z-index:6;background:var(--panel);border:1px solid var(--cal-ln);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:230px;animation:calIn .2s both}
+.cal-pop>b{font:600 15px var(--f-os);margin-bottom:4px}.cal-pop small{color:var(--label);font-size:12px;margin-top:4px}
+.cal-src{display:flex;align-items:center;gap:10px;font:15px var(--f-os);cursor:pointer;padding:4px 0}.cal-src input{display:none}
+.cal-src i{width:20px;height:20px;border-radius:50%;border:2px solid var(--c);display:grid;place-items:center}.cal-src input:checked+i{background:var(--c)}.cal-src input:checked+i::after{content:"✓";color:#fff;font:700 12px var(--f-os);font-style:normal}
+.cal-sheetw{position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.28);display:grid;place-items:center;padding:16px;animation:calFade .2s both}@keyframes calFade{from{opacity:0}}
+.cal-sheet{background:var(--panel);color:var(--ink);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(420px,100%);padding:16px 18px 18px;font-family:var(--f-os);animation:calIn .25s cubic-bezier(.2,.8,.2,1) both}
+.cal-sh1{display:flex;align-items:center;gap:10px;margin-bottom:10px}.cal-sh1>i{width:12px;height:12px;border-radius:50%;flex:none}.cal-sh1 b{font:700 19px var(--f-os);flex:1;text-align:left}
+.cal-form .cal-sh1 b{text-align:center}
+.cal-x{border:0;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--label);width:30px;height:30px;border-radius:50%;cursor:pointer}
+.cal-sheet p{margin:0 0 8px;font-size:15px;line-height:1.45}.cal-sheet p.dim{color:var(--label);font-size:13.5px}
+.cal-rt{display:flex;align-items:center;gap:8px;font:600 20px var(--f-mono);margin:8px 0 10px}.cal-rt svg{width:22px;height:22px;fill:none;stroke:var(--label);stroke-width:2}
+.cal-btn{display:block;width:100%;text-align:center;border:0;border-radius:12px;padding:12px;margin-top:12px;background:color-mix(in srgb,#0A84FF 14%,transparent);color:#0A84FF;font:600 15px var(--f-os);cursor:pointer;text-decoration:none}
+.cal-btn.del{background:color-mix(in srgb,var(--cal-red) 12%,transparent);color:var(--cal-red)}
+.cal-tb{border:0;background:none;color:#0A84FF;font:500 16px var(--f-os);cursor:pointer;padding:4px}.cal-tb.pri{font-weight:700}
+.cal-f{display:block;background:var(--bg);border-radius:10px;padding:0 12px;margin-bottom:8px}.cal-f.row{display:flex;align-items:center;justify-content:space-between;min-height:44px}
+.cal-f input:not([type=checkbox]),.cal-f textarea{width:100%;border:0;background:none;outline:0;color:var(--ink);font:16px var(--f-os);padding:11px 0;resize:vertical}
+.cal-f.row input{width:auto;text-align:right;padding:8px 0}.cal-f.row span{font:16px var(--f-os)}
+.cal-f input[type=checkbox]{width:22px;height:22px;accent-color:#34C759}
+@container screen (max-width:900px){.cal-dayw{grid-template-columns:1fr}.cal-side{display:none}.cal-year{grid-template-columns:repeat(3,1fr)}}
+@container screen (max-width:700px){.cal-seg{order:5;margin:0;width:100%;justify-content:space-between}.cal-seg button{flex:1;padding:0 6px}.cal-q{min-width:0;flex:1}.cal-year{grid-template-columns:repeat(2,1fr)}.cal-chip span{display:none}.cal-chip{font-size:10px;padding:2px 4px}.cal-pop{left:12px}.cal-h1{font-size:26px}}
+@media (prefers-reduced-motion:reduce){.cal-in .cal-body,.cal-pop,.cal-sheet,.cal-sheetw{animation:none}}
+</style>`);
+
+/* ===== Messages: the roaming text after landing in another country =====
+   Like a phone abroad: when the pilot's flight arrives in a different country from the last one, "Crew Mobile"
+   (the airline's crew phone plan, a made-up carrier) sends a welcome text: the country, that the crew plan covers it,
+   the local emergency number and the time difference to UTC when the airport's time zone is known. The arrival is
+   read from the live vAMSYS flight (After landing / Parking phase at the destination), or from the checked-in flight
+   once its arrival time has passed. Texts stay on this device; the home country is that of the airline's base. */
+APPS.messages={name:"Messages",bg:"linear-gradient(180deg,#5BF675,#0CBD2A)",fg:"#fff",g:'<path d="M12 4.2c-5 0-9 3.3-9 7.4 0 2.4 1.4 4.5 3.5 5.9-.2 1.2-.8 2.3-1.7 3.1 1.8-.1 3.4-.8 4.6-1.8.8.2 1.7.3 2.6.3 5 0 9-3.3 9-7.5S17 4.2 12 4.2z" fill="#fff" stroke="none"/>'};
+{const put=(a,after)=>{if(!a||a.includes("messages"))return;const i=a.indexOf(after);a.splice(i<0?a.length:i+1,0,"messages")};
+  put(PAGE1,"mail");put(PAGE2,"mail");if(typeof HL!=="undefined"){put(HL.def.pad.p1,"mail");put(HL.def.phone.p2,"mail")}}
+if(typeof AS_INFO!=="undefined"){AS_INFO.messages={c:"company",s:"Texts from your crew phone plan",d:"When you land in another country, your crew phone plan says hello: which country you are in, that roaming is covered, the local emergency number and the time difference.",f:["A welcome text in every new country","Local emergency numbers","Time difference to UTC"]};if(Array.isArray(AS_DEF)&&!AS_DEF.includes("messages"))AS_DEF.push("messages")}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="messages"){screenEl.dataset.layout="full";const L=msgList();if(L.some(m=>!m.read)){L.forEach(m=>m.read=true);store.set("msgs",L)}}return r}}
+
+/* ICAO location prefix -> country, flag, emergency number (longest prefix wins) */
+const MSG_CC={K:["the United States","🇺🇸","911"],PA:["the United States","🇺🇸","911"],PH:["the United States","🇺🇸","911"],PG:["Guam","🇬🇺","911"],TJ:["Puerto Rico","🇵🇷","911"],
+  C:["Canada","🇨🇦","911"],MM:["Mexico","🇲🇽","911"],MK:["Jamaica","🇯🇲","119"],MY:["the Bahamas","🇧🇸","919"],MD:["the Dominican Republic","🇩🇴","911"],MR:["Costa Rica","🇨🇷","911"],MP:["Panama","🇵🇦","911"],MU:["Cuba","🇨🇺","106"],
+  SB:["Brazil","🇧🇷","190"],SA:["Argentina","🇦🇷","911"],SC:["Chile","🇨🇱","133"],SK:["Colombia","🇨🇴","123"],SP:["Peru","🇵🇪","105"],SE:["Ecuador","🇪🇨","911"],SU:["Uruguay","🇺🇾","911"],
+  EG:["the United Kingdom","🇬🇧","999"],EI:["Ireland","🇮🇪","112"],LF:["France","🇫🇷","112"],ED:["Germany","🇩🇪","112"],ET:["Germany","🇩🇪","112"],EH:["the Netherlands","🇳🇱","112"],EB:["Belgium","🇧🇪","112"],EL:["Luxembourg","🇱🇺","112"],
+  LS:["Switzerland","🇨🇭","112"],LO:["Austria","🇦🇹","112"],LI:["Italy","🇮🇹","112"],LE:["Spain","🇪🇸","112"],GC:["Spain","🇪🇸","112"],LP:["Portugal","🇵🇹","112"],LG:["Greece","🇬🇷","112"],LT:["Türkiye","🇹🇷","112"],
+  EK:["Denmark","🇩🇰","112"],EN:["Norway","🇳🇴","112"],ES:["Sweden","🇸🇪","112"],EF:["Finland","🇫🇮","112"],BI:["Iceland","🇮🇸","112"],EP:["Poland","🇵🇱","112"],LK:["Czechia","🇨🇿","112"],LZ:["Slovakia","🇸🇰","112"],LH:["Hungary","🇭🇺","112"],
+  LR:["Romania","🇷🇴","112"],LB:["Bulgaria","🇧🇬","112"],LD:["Croatia","🇭🇷","112"],LJ:["Slovenia","🇸🇮","112"],LY:["Serbia","🇷🇸","112"],LM:["Malta","🇲🇹","112"],LC:["Cyprus","🇨🇾","112"],EY:["Lithuania","🇱🇹","112"],EV:["Latvia","🇱🇻","112"],EE:["Estonia","🇪🇪","112"],
+  UK:["Ukraine","🇺🇦","112"],U:["Russia","🇷🇺","112"],LL:["Israel","🇮🇱","100"],OJ:["Jordan","🇯🇴","911"],OM:["the United Arab Emirates","🇦🇪","999"],OT:["Qatar","🇶🇦","999"],OB:["Bahrain","🇧🇭","999"],OK:["Kuwait","🇰🇼","112"],OE:["Saudi Arabia","🇸🇦","911"],OO:["Oman","🇴🇲","9999"],OI:["Iran","🇮🇷","110"],
+  HE:["Egypt","🇪🇬","122"],GM:["Morocco","🇲🇦","19"],DT:["Tunisia","🇹🇳","197"],HK:["Kenya","🇰🇪","999"],HA:["Ethiopia","🇪🇹","991"],FA:["South Africa","🇿🇦","10111"],DN:["Nigeria","🇳🇬","112"],DG:["Ghana","🇬🇭","112"],FM:["Madagascar","🇲🇬","117"],FI:["Mauritius","🇲🇺","112"],
+  VI:["India","🇮🇳","112"],VA:["India","🇮🇳","112"],VE:["India","🇮🇳","112"],VO:["India","🇮🇳","112"],VC:["Sri Lanka","🇱🇰","119"],VR:["the Maldives","🇲🇻","119"],VN:["Nepal","🇳🇵","100"],OP:["Pakistan","🇵🇰","15"],VG:["Bangladesh","🇧🇩","999"],
+  VT:["Thailand","🇹🇭","191"],VV:["Vietnam","🇻🇳","113"],VD:["Cambodia","🇰🇭","117"],VL:["Laos","🇱🇦","191"],VY:["Myanmar","🇲🇲","199"],WS:["Singapore","🇸🇬","999"],WM:["Malaysia","🇲🇾","999"],WB:["Malaysia","🇲🇾","999"],WI:["Indonesia","🇮🇩","112"],WA:["Indonesia","🇮🇩","112"],WR:["Indonesia","🇮🇩","112"],RP:["the Philippines","🇵🇭","911"],
+  Z:["China","🇨🇳","110"],VH:["Hong Kong","🇭🇰","999"],VM:["Macao","🇲🇴","999"],RC:["Taiwan","🇹🇼","110"],RJ:["Japan","🇯🇵","110"],RO:["Japan","🇯🇵","110"],RK:["South Korea","🇰🇷","112"],ZK:["North Korea","🇰🇵",""],ZM:["Mongolia","🇲🇳","102"],
+  Y:["Australia","🇦🇺","000"],NZ:["New Zealand","🇳🇿","111"],NF:["Fiji","🇫🇯","911"],NT:["French Polynesia","🇵🇫","17"]};
+function msgCountry(icao){icao=String(icao||"").toUpperCase();if(!/^[A-Z]{4}$/.test(icao))return null;return MSG_CC[icao.slice(0,2)]||MSG_CC[icao[0]]||null}
+const msgList=()=>{const L=store.get("msgs",[]);return Array.isArray(L)?L:[]};
+const msgUnread=()=>msgList().filter(m=>!m.read).length;
+/* the home country: the airline base (KSFO for Polaris) until a first arrival is seen */
+function msgHome(){const c=store.get("msgCountry",null);if(c)return c;const b=msgCountry((typeof BASE!=="undefined"&&BASE)||"KSFO");return b?b[0]:"the United States"}
+function msgUtc(icao){try{const a=typeof AS!=="undefined"&&AS.data&&AS.data[icao]&&AS.data[icao].airport,tz=a&&(a.timezone||a.tz);if(!tz)return "";
+    const p=new Intl.DateTimeFormat("en-GB",{timeZone:tz,timeZoneName:"shortOffset",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date());
+    const t=p.filter(x=>x.type==="hour"||x.type==="minute").map(x=>x.value).join(":"),o=(p.find(x=>x.type==="timeZoneName")||{}).value||"";return t+(o?" ("+o.replace("GMT","UTC")+")":"")}catch(e){return ""}}
+/* an arrival: one text per flight, only when the country changes */
+function msgArrive(icao,flightKey){const c=msgCountry(icao);if(!c)return;const done=store.get("msgArr",{})||{};if(done[flightKey])return;done[flightKey]=Date.now();
+  const keys=Object.keys(done).sort((a,b)=>done[b]-done[a]);keys.slice(40).forEach(k=>delete done[k]);store.set("msgArr",done);
+  const prev=msgHome();store.set("msgCountry",c[0]);if(prev===c[0])return;
+  const lt=msgUtc(icao),name=c[0].replace(/^the /,""),the=c[0].startsWith("the ")?"the ":"";
+  const body=`Welcome to ${the}${name} ${c[1]}\nYour Crew Mobile plan works here: calls, texts and data at home rates, no roaming charges.${lt?"\nLocal time "+lt+".":""}${c[2]?"\nEmergency: "+c[2]+".":""}\nHave a good layover!`;
+  const m={id:"m"+Date.now().toString(36),from:"Crew Mobile",t:Date.now(),body,icao,read:cur==="messages"};const L=[...msgList(),m].slice(-60);store.set("msgs",L);
+  if(cur==="messages")render();else renderHome();msgAlert(m,name,c[1])}
+function msgAlert(m,name,flag){if(typeof dndActive==="function"&&dndActive())return;const open=()=>goApp("messages");
+  const ic=`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${APPS.messages.bg};color:#fff"><svg viewBox="0 0 24 24">${APPS.messages.g}</svg></span>`;
+  if(window.__islOn&&window.__islOn()&&window.islAlert)islAlert({app:"Messages · Crew Mobile",short:flag+" "+name,icon:ic,title:"Welcome to "+name+" "+flag,sub:"Your crew plan works here. Tap to read.",ms:8000,tap:open});
+  else toast("Messages · Welcome to "+name+" "+flag);try{navigator.vibrate&&navigator.vibrate([20,40,20])}catch(e){}}
+/* watch for arrivals: the live flight first, the checked-in flight as a fallback */
+function msgWatch(){try{const f=typeof CLP!=="undefined"&&CLP.flight;
+    if(f&&f.to){const ph=typeof clPhase==="function"?clPhase(f):null,why=(ph&&(ph.sec||"")+" "+(ph.why||""))||f.phase||"";if(/after landing|landed|parking|arrived|on ?block/i.test(why))msgArrive(f.to,"live:"+(f.callsign||"")+":"+f.to+":"+(f.from||""))}
+    const ci=typeof RS!=="undefined"&&RS.ci;if(ci&&ci.to&&ci.sta&&Date.now()>ci.sta+15*60e3&&Date.now()<ci.sta+12*3600e3)msgArrive(ci.to,"ci:"+(ci.bookingId||ci.flight||"")+":"+ci.to+":"+ci.sta)}catch(e){}}
+setInterval(msgWatch,30000);setTimeout(msgWatch,6000);
+/* the unread count on the Home Screen icon */
+{const _b=badge;badge=function(id){if(id==="messages"){const n=msgUnread();return n?`<span class="badge" aria-label="${n} unread">${n>99?"99+":n}</span>`:""}return _b(id)}}
+
+/* ---------- the app ---------- */
+const MSGV={sel:"Crew Mobile"};
+const msgTime=t=>{const d=new Date(t),now=new Date();return d.toDateString()===now.toDateString()?d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):d.toLocaleDateString("en-GB",{day:"numeric",month:"short"})};
+V.messages=()=>{const L=msgList(),threads={};L.forEach(m=>{(threads[m.from]=threads[m.from]||[]).push(m)});const names=Object.keys(threads).sort((a,b)=>threads[b].slice(-1)[0].t-threads[a].slice(-1)[0].t);
+  const sel=names.includes(MSGV.sel)?MSGV.sel:names[0],T=sel?threads[sel]:[];
+  const side=`<aside class="msg-side"><h1>Messages</h1>${names.length?names.map(n=>{const last=threads[n].slice(-1)[0];return `<button class="msg-th${n===sel?" on":""}" data-msgth="${esc(n)}"><span class="msg-av">${esc(n.split(" ").map(w=>w[0]).join("").slice(0,2))}</span><span class="msg-tt"><b>${esc(n)}<small>${msgTime(last.t)}</small></b><span>${esc(last.body.split("\n")[0])}</span></span></button>`}).join(""):`<p class="msg-none">No messages.<br><small>Your provider will get in touch once you land in another country.</small></p>`}</aside>`;
+  let last=0;const bubbles=T.map(m=>{const day=new Date(m.t).toDateString(),h=day!==last?`<div class="msg-day">${new Date(m.t).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})} ${new Date(m.t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</div>`:"";last=day;return h+`<div class="msg-b">${esc(m.body).replace(/\n/g,"<br>")}</div>`}).join("");
+  const main=sel?`<section class="msg-main"><header class="msg-hd"><span class="msg-av lg">${esc(sel.split(" ").map(w=>w[0]).join("").slice(0,2))}</span><b>${esc(sel)}</b><small>Text Message · SMS</small></header><div class="msg-conv" id="msgConv">${bubbles}</div><div class="msg-ro">This sender doesn’t accept replies.</div></section>`:`<section class="msg-main empty"></section>`;
+  return `<div class="msg">${side}${main}</div>`};
+{const _r=render;render=function(){const r=_r.apply(this,arguments);if(cur==="messages"){const c=document.getElementById("msgConv");if(c)c.scrollTop=c.scrollHeight}return r}}
+document.addEventListener("click",e=>{if(cur!=="messages")return;const t=e.target.closest&&e.target.closest("[data-msgth]");if(!t)return;MSGV.sel=t.dataset.msgth;render()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.msg{display:grid;grid-template-columns:320px 1fr;height:100%;background:var(--bg);color:var(--ink);font-family:var(--f-os)}
+.msg-side{border-right:1px solid var(--line);overflow:auto;padding:8px 10px;background:var(--panel)}
+.msg-side h1{font:700 30px var(--f-os);margin:8px 8px 12px}
+.msg-th{display:flex;gap:10px;width:100%;border:0;background:none;color:var(--ink);text-align:left;padding:10px 8px;border-radius:12px;cursor:pointer;font-family:var(--f-os)}
+.msg-th.on{background:#0A84FF;color:#fff}.msg-th.on .msg-tt span,.msg-th.on small{color:rgba(255,255,255,.85)}
+.msg-av{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;background:linear-gradient(180deg,#A5ABB8,#858994);color:#fff;font:600 16px var(--f-os)}
+.msg-av.lg{width:56px;height:56px;font-size:20px}
+.msg-tt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}.msg-tt b{display:flex;justify-content:space-between;font:600 15.5px var(--f-os)}.msg-tt small{font:400 13px var(--f-os);color:var(--label)}
+.msg-tt span{font-size:14px;color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-none{text-align:center;color:var(--label);margin-top:80px;font-size:15px;line-height:1.5}.msg-none small{font-size:13px}
+.msg-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.msg-hd{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent)}.msg-hd b{font:600 15px var(--f-os)}.msg-hd small{color:var(--label);font-size:12px}
+.msg-conv{flex:1;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.msg-day{text-align:center;color:var(--label);font:500 12px var(--f-os);margin:12px 0 6px}
+.msg-b{align-self:flex-start;max-width:min(520px,78%);background:color-mix(in srgb,var(--ink) 9%,var(--panel));color:var(--ink);padding:9px 13px;border-radius:19px 19px 19px 6px;font:16px/1.4 var(--f-os);animation:msgIn .35s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes msgIn{from{opacity:0;transform:scale(.9) translateY(6px)}}
+.msg-ro{text-align:center;color:var(--label);font-size:12.5px;padding:10px 0 18px}
+@container screen (max-width:700px){.msg{grid-template-columns:1fr}.msg-main{display:none}.msg-th.on{background:none;color:var(--ink)}}
+@media (prefers-reduced-motion:reduce){.msg-b{animation:none}}
+</style>`);
+try{window.__efbMsg={msgArrive,msgCountry,msgWatch}}catch(e){}
 
 /* start */
 (function(){const h=location.hash.slice(1);if(APPS[h]){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");

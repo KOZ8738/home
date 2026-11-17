@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.1336">
+<meta name="efb-build" content="1117.1355">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4807,6 +4807,7 @@ const WXS={
   "fog-night":"linear-gradient(180deg,#252B32 0%,#3A424B 55%,#535D67 100%)","snow":"linear-gradient(180deg,#6E86A1 0%,#93A8BF 55%,#BFCCDB 100%)"};
 /* a solid colour for the hourly table's row names, which stay put while the hours scroll under them */
 const WXTH={"clear-day":"#4A8DD8","clear-night":"#1D3466","cloud-day":"#6F88A3","cloud-night":"#2A384B","rain":"#4B6074","rain-night":"#212F3F","storm":"#383C4D","fog":"#929DA7","fog-night":"#3C454F","snow":"#8DA2BA"};
+const WXA={int:1,wdir:null,wspd:0,sky:""};
 function wxSky(m,day){if(!m)return day?"cloud-day":"cloud-night";const w=m.wx.join(" ");
   if(/TS/.test(w))return"storm";if(/SN|SG|PL|GS/.test(w))return"snow";if(/RA|SH|DZ/.test(w))return day?"rain":"rain-night";
   if(/FG|BR|HZ|FU/.test(w)&&m.visSM!=null&&m.visSM<5)return day?"fog":"fog-night";
@@ -4885,6 +4886,8 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
 {const _v=V.wx;V.wx=function(){const html=_v.apply(this,arguments);const apts=wxFor(O());
   const sel=apts.find(a=>a[1]===wxSel),ms=sel&&decodeMetar(sel[3]),sky=sel?wxSky(ms,wxIsDay(sel[2])):"clear-day";
   if(WXS[sky]){screenEl.style.setProperty("--wxsky",WXS[sky]);screenEl.style.setProperty("--wxth",WXTH[sky]);screenEl.dataset.wxsky=sky}
+  /* for the moving sky (wxanim.js): precipitation intensity and the wind */
+  {const w=ms?ms.wx.join(" "):"";WXA.int=/\+/.test(w)?2:/-/.test(w)?0:1;WXA.wdir=ms&&ms.wind&&ms.wind.dir!=null?ms.wind.dir:null;WXA.wspd=ms&&ms.wind?ms.wind.spd||0:0;WXA.sky=sky}
   const T=document.createElement("template");T.innerHTML=html;const R=T.content,side=R.querySelector(".split>.side");
   if(side){const cards=apts.map(a=>{const m=decodeMetar(a[3]),d=wxIsDay(a[2]),k=wxSky(m,d),F=FCW.fc[S(a[2].icao_code)],d0=F&&F.d&&F.d.days&&F.d.days[0];
       return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${WXS[k]}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(windTxt(m.wind))} kt</small>`:""}</span>
@@ -4994,6 +4997,114 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @container screen (max-width:560px){.wi-hero h2{font-size:26px}.wi-grid{gap:10px}.wi-tile{min-height:0}.wi-tile .wi-tv{font-size:26px}
   .wi-wb{grid-template-columns:1fr}.wi-rose svg.wind{max-width:200px}.wi-day{grid-template-columns:52px 44px 34px minmax(0,1fr) 34px;gap:8px;font-size:16px}}
 </style>`);
+
+/* ===== Weather: the moving sky =====
+   Behind the Weather app, one canvas draws the sky that the airport's METAR describes (wxios.js picks the kind):
+   twinkling stars, the odd shooting star and the Moon in tonight's real phase; the Sun's glow; drifting cloud layers;
+   rain whose amount follows -RA / RA / +RA and whose slant follows the reported wind; lightning in a storm; snow;
+   banks of fog. It runs only while Weather is open and on screen, dims as the page scrolls, and with Reduce Motion
+   shows one still frame. */
+const WXAN={cv:null,ctx:null,w:0,h:0,dpr:1,raf:0,last:0,t:0,kind:"",parts:null,clouds:null,fog:null,flash:0,nextBolt:0,bolt:null,shoot:null,nextShoot:0,dim:0,still:false};
+
+/* the Moon's phase: days since a known new moon, over the synodic month */
+function wxMoon(){const syn=29.530588853,d=(Date.now()-Date.UTC(2000,0,6,18,14))/864e5,age=((d%syn)+syn)%syn;return{age,f:age/syn}}
+
+function wxaKind(){const s=WXA.sky||screenEl.dataset.wxsky||"clear-day",night=/night/.test(s);
+  return{s,night,stars:s==="clear-night"||s==="cloud-night",moon:s==="clear-night"||s==="cloud-night",sun:s==="clear-day",
+    clouds:/cloud|rain|storm|snow/.test(s)?(s.startsWith("cloud")?1:2):s==="clear-day"?.35:0,rain:/rain|storm/.test(s),storm:s==="storm",snow:s==="snow",fog:/fog/.test(s)}}
+
+function wxaSize(){const c=WXAN.cv;if(!c)return;const r=c.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1)*(r.width*r.height>1.6e6?.75:1);
+  const w=Math.max(1,Math.round(r.width)),h=Math.max(1,Math.round(r.height));if(w===WXAN.w&&h===WXAN.h&&dpr===WXAN.dpr)return;
+  WXAN.w=w;WXAN.h=h;WXAN.dpr=dpr;c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);WXAN.ctx.setTransform(dpr,0,0,dpr,0,0);WXAN.kind="";}
+
+/* a cloud drawn once to its own canvas, then moved */
+function wxaCloud(r,tone,a){const W=Math.round(r*5.2),H=Math.round(r*2.7),c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");
+  try{g.filter="blur("+Math.max(2,Math.round(r*.06))+"px)"}catch(e){}
+  /* a flat-bottomed heap of soft puffs, all inside the canvas so no edge shows */
+  const n=14+Math.floor(Math.random()*8);for(let i=0;i<n;i++){const u=Math.random(),rr=r*(.32+.5*Math.random()*(1-Math.abs(u-.5))),x=r*1.05+u*(W-r*2.1),y=H*.66-rr*(.35+.5*Math.random())*(1-Math.abs(u-.5)*1.2);
+    const gr=g.createRadialGradient(x,y-rr*.3,rr*.05,x,y,rr);gr.addColorStop(0,`rgba(${tone},${a})`);gr.addColorStop(.55,`rgba(${tone},${a*.7})`);gr.addColorStop(1,`rgba(${tone},0)`);g.fillStyle=gr;g.beginPath();g.arc(x,y,rr,0,7);g.fill()}
+  return c}
+function wxaSetup(){const K=wxaKind(),w=WXAN.w,h=WXAN.h,area=w*h;WXAN.K=K;WXAN.kind=K.s+WXA.int;
+  /* stars */
+  WXAN.stars=K.stars?Array.from({length:Math.round(area/2600)},()=>({x:Math.random()*w,y:Math.random()*h*.85,r:Math.random()<.08?1.6+Math.random()*.9:.5+Math.random()*1.1,
+    a:.35+Math.random()*.65,p:Math.random()*6.3,s:.6+Math.random()*2.2,c:Math.random()<.15?"255,228,200":Math.random()<.15?"205,220,255":"255,255,255"})):[];
+  /* clouds: three layers, far ones smaller and slower */
+  WXAN.clouds=[];if(K.clouds){const dark=K.rain||K.storm,tone=K.storm?"70,78,92":dark?(K.night?"74,84,100":"128,138,152"):K.night?"120,130,150":K.snow?"236,240,246":"255,255,255";
+    const layers=[[.5,.11,.55],[.75,.2,.7],[1,.32,.85]];
+    layers.forEach(([sc,sp,a],li)=>{const n=Math.max(2,Math.round((w/360)*K.clouds*(1.2-li*.2)));for(let i=0;i<n;i++){const r=(h*.07+Math.random()*h*.07)*sc*(dark?1.25:1);
+      WXAN.clouds.push({img:wxaCloud(r,tone,a*(K.night&&!dark?.55:1)*(K.clouds<1?.8:1)),x:Math.random()*(w+r*4)-r*2,y:(dark?-r*.6:0)+Math.random()*h*(dark?.45:.55)*(li?.9:.7),v:(6+Math.random()*8)*sp*(1+WXA.wspd/25)})}})}
+  /* rain or snow */
+  const per=K.storm?1.5:[.45,1,1.9][WXA.int];
+  WXAN.parts=K.rain?Array.from({length:Math.round(area/1e6*380*per)},()=>wxaDrop(true)):K.snow?Array.from({length:Math.round(area/1e6*160*[.6,1,1.6][WXA.int])},()=>wxaFlake(true)):[];
+  WXAN.splash=[];
+  /* fog banks */
+  WXAN.fog=K.fog?Array.from({length:5},(_,i)=>({y:h*(.25+i*.15),x:Math.random()*w,v:4+Math.random()*6,s:.7+Math.random()*.6})):null;
+  /* wind slant: the wind blows from wdir, so rain drifts toward wdir+180; only its east-west part shows on screen */
+  const e=WXA.wdir!=null?-Math.sin(WXA.wdir*Math.PI/180):0;WXAN.slant=Math.max(-.45,Math.min(.45,e*Math.min(1,WXA.wspd/30)*.6))+(WXA.wdir==null?.08:0);
+  WXAN.nextBolt=WXAN.t+2+Math.random()*4;WXAN.nextShoot=WXAN.t+4+Math.random()*8}
+function wxaDrop(any){const w=WXAN.w,h=WXAN.h,heavy=WXA.int===2||WXAN.K&&WXAN.K.storm,z=Math.random();return{x:Math.random()*(w*1.3)-w*.15,y:any?Math.random()*h:-30-Math.random()*h*.3,z,l:(heavy?18:12)+z*(heavy?22:14),v:(heavy?1100:850)+z*700,a:.18+z*.35}}
+function wxaFlake(any){const w=WXAN.w,h=WXAN.h,z=Math.random();return{x:Math.random()*w,y:any?Math.random()*h:-10,z,r:.8+z*2.8,v:22+z*55,p:Math.random()*6.3,sw:.6+Math.random()*1.4}}
+
+function wxaFrame(now){WXAN.raf=0;if(!WXAN.cv||cur!=="wx"||document.hidden)return;const dt=Math.min(.05,(now-(WXAN.last||now))/1000);WXAN.last=now;WXAN.t+=dt;
+  wxaSize();if(WXAN.kind!==(WXA.sky||screenEl.dataset.wxsky)+WXA.int)wxaSetup();wxaDraw(dt);if(!WXAN.still)WXAN.raf=requestAnimationFrame(wxaFrame)}
+
+function wxaDraw(dt){const g=WXAN.ctx,w=WXAN.w,h=WXAN.h,K=WXAN.K,t=WXAN.t;g.clearRect(0,0,w,h);
+  /* the Sun */
+  if(K.sun){const x=w*.8,y=h*.12,R=Math.max(w,h)*.55,p=1+.04*Math.sin(t*.5);const gr=g.createRadialGradient(x,y,0,x,y,R*p);gr.addColorStop(0,"rgba(255,250,225,.75)");gr.addColorStop(.06,"rgba(255,240,190,.45)");gr.addColorStop(.25,"rgba(255,225,160,.12)");gr.addColorStop(1,"rgba(255,220,150,0)");g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.save();g.translate(x,y);g.rotate(t*.02);g.globalCompositeOperation="lighter";for(let i=0;i<12;i++){g.rotate(Math.PI/6);const l=R*(.55+.15*Math.sin(t*.7+i));const rg=g.createLinearGradient(0,0,l,0);rg.addColorStop(0,"rgba(255,245,210,.045)");rg.addColorStop(1,"rgba(255,245,210,0)");g.fillStyle=rg;g.beginPath();g.moveTo(0,0);g.lineTo(l,-l*.06);g.lineTo(l,l*.06);g.fill()}g.restore()}
+  /* stars and shooting stars */
+  if(WXAN.stars.length){for(const s of WXAN.stars){const a=s.a*(.55+.45*Math.sin(t*s.s+s.p));g.fillStyle=`rgba(${s.c},${a})`;g.beginPath();g.arc(s.x,s.y,s.r,0,7);g.fill();if(s.r>1.5){g.fillStyle=`rgba(${s.c},${a*.09})`;g.beginPath();g.arc(s.x,s.y,s.r*3.2,0,7);g.fill()}}
+    if(!WXAN.shoot&&t>WXAN.nextShoot&&K.s==="clear-night"){WXAN.shoot={x:w*(.1+Math.random()*.6),y:h*(.05+Math.random()*.3),vx:(Math.random()<.5?-1:1)*(500+Math.random()*300),vy:220+Math.random()*120,life:0}}
+    const S=WXAN.shoot;if(S){S.life+=dt;S.x+=S.vx*dt;S.y+=S.vy*dt;const a=Math.max(0,1-S.life/.9),L=.09;const gr=g.createLinearGradient(S.x,S.y,S.x-S.vx*L,S.y-S.vy*L);gr.addColorStop(0,`rgba(255,255,255,${a})`);gr.addColorStop(1,"rgba(255,255,255,0)");
+      g.strokeStyle=gr;g.lineWidth=1.6;g.beginPath();g.moveTo(S.x,S.y);g.lineTo(S.x-S.vx*L,S.y-S.vy*L);g.stroke();if(S.life>.9){WXAN.shoot=null;WXAN.nextShoot=t+7+Math.random()*14}}}
+  /* the Moon, lit as tonight */
+  if(K.moon)wxaMoonDraw(g,w*.8,h*.24,Math.min(w,h)*.075,K.s==="cloud-night"?.55:1);
+  /* clouds */
+  for(const c of WXAN.clouds){c.x+=c.v*dt;if(c.x>w+20)c.x=-c.img.width-20;g.drawImage(c.img,c.x,c.y)}
+  /* rain darkens the sky a little */
+  if(K.rain){g.fillStyle=K.storm?"rgba(10,14,22,.22)":"rgba(20,26,36,.12)";g.fillRect(0,0,w,h)}
+  /* fog */
+  if(WXAN.fog)for(const f of WXAN.fog){f.x+=f.v*dt;if(f.x>w*1.5)f.x=-w*.5;for(const dx of [-w,0]){const x=f.x+dx,R=w*.45*f.s,gr=g.createRadialGradient(x,f.y,0,x,f.y,R);gr.addColorStop(0,K.night?"rgba(150,160,175,.20)":"rgba(255,255,255,.28)");gr.addColorStop(1,"rgba(255,255,255,0)");g.save();g.translate(x,f.y);g.scale(1,.28);g.translate(-x,-f.y);g.fillStyle=gr;g.beginPath();g.arc(x,f.y,R,0,7);g.fill();g.restore()}}
+  /* rain */
+  if(K.rain){const sl=WXAN.slant;g.lineCap="round";for(const d of WXAN.parts){d.y+=d.v*dt;d.x+=d.v*sl*dt;
+      if(d.y>h){if(d.z>.6&&WXAN.splash.length<120)WXAN.splash.push({x:d.x,y:h-2-Math.random()*30,life:0});Object.assign(d,wxaDrop(false))}
+      g.strokeStyle=`rgba(210,222,240,${d.a})`;g.lineWidth=.6+d.z*1.1;g.beginPath();g.moveTo(d.x,d.y);g.lineTo(d.x-d.l*sl,d.y-d.l);g.stroke()}
+    g.strokeStyle="rgba(220,230,245,.35)";g.lineWidth=1;WXAN.splash=WXAN.splash.filter(s=>{s.life+=dt;const k=s.life/.28;if(k>=1)return false;g.globalAlpha=1-k;g.beginPath();g.ellipse(s.x,s.y,2+k*7,(2+k*7)*.3,0,0,7);g.stroke();g.globalAlpha=1;return true})}
+  /* snow */
+  if(K.snow){const sl=WXAN.slant;for(const f of WXAN.parts){f.y+=f.v*dt;f.p+=dt*f.sw;f.x+=(Math.sin(f.p)*14+f.v*sl)*dt;if(f.y>h+8)Object.assign(f,wxaFlake(false));if(f.x>w+8)f.x=-8;if(f.x<-8)f.x=w+8;
+      g.fillStyle=`rgba(255,255,255,${.45+f.z*.5})`;g.beginPath();g.arc(f.x,f.y,f.r,0,7);g.fill()}}
+  /* lightning */
+  if(K.storm){if(t>WXAN.nextBolt){WXAN.flash=1;WXAN.bolt=Math.random()<.6?wxaBolt(w,h):null;WXAN.boltT=0;WXAN.nextBolt=t+3+Math.random()*9;WXAN.second=Math.random()<.5?t+.18:0}
+    if(WXAN.second&&t>WXAN.second){WXAN.flash=.8;WXAN.second=0}
+    if(WXAN.bolt&&WXAN.boltT<.25){WXAN.boltT+=dt;g.strokeStyle=`rgba(235,240,255,${1-WXAN.boltT/.25})`;g.lineWidth=2;g.shadowColor="rgba(190,210,255,.9)";g.shadowBlur=16;g.beginPath();WXAN.bolt.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.shadowBlur=0}
+    if(WXAN.flash>0){g.fillStyle=`rgba(225,232,255,${WXAN.flash*.42})`;g.fillRect(0,0,w,h);WXAN.flash=Math.max(0,WXAN.flash-dt*4.5)}}}
+function wxaBolt(w,h){let x=w*(.2+Math.random()*.6),y=0;const P=[[x,y]];while(y<h*(.45+Math.random()*.3)){y+=10+Math.random()*26;x+=(Math.random()-.5)*36;P.push([x,y])}return P}
+function wxaMoonDraw(g,x,y,R,alpha){const {f}=wxMoon(),lit=(1-Math.cos(f*2*Math.PI))/2;g.save();g.globalAlpha=alpha;
+  const glow=g.createRadialGradient(x,y,R*.8,x,y,R*3.2);glow.addColorStop(0,`rgba(220,228,245,${.18*Math.max(.25,lit)})`);glow.addColorStop(1,"rgba(220,228,245,0)");g.fillStyle=glow;g.beginPath();g.arc(x,y,R*3.2,0,7);g.fill();
+  /* the dark limb, faintly lit by earthshine */
+  g.fillStyle="rgba(150,160,185,.06)";g.beginPath();g.arc(x,y,R,0,7);g.fill();
+  /* the lit part: a half disc on the Sun's side, closed by the terminator (an ellipse of width |cos|) */
+  const waxing=f<.5,k=Math.cos(f*2*Math.PI);g.beginPath();g.arc(x,y,R,-Math.PI/2,Math.PI/2,!waxing);g.ellipse(x,y,Math.abs(k)*R,R,0,Math.PI/2,-Math.PI/2,(waxing?k>0:k<0));g.closePath();
+  const mg=g.createRadialGradient(x-R*.3,y-R*.3,R*.1,x,y,R);mg.addColorStop(0,"#F4F5F8");mg.addColorStop(1,"#C9CDD8");g.fillStyle=mg;g.fill();
+  /* a few maria, only on the lit part */
+  g.save();g.clip();g.fillStyle="rgba(120,128,148,.14)";[[-.25,-.2,.28],[.2,.1,.22],[-.05,.35,.18],[.3,-.35,.12]].forEach(([dx,dy,r])=>{g.beginPath();g.arc(x+dx*R,y+dy*R,r*R,0,7);g.fill()});g.restore();g.restore()}
+
+/* the canvas lives in the app window, behind everything in it */
+function wxaStart(){if(cur!=="wx")return wxaStop();const win=document.getElementById("win");if(!win)return;
+  if(!WXAN.cv||!WXAN.cv.isConnected){WXAN.cv=document.createElement("canvas");WXAN.cv.className="wxa-cv";WXAN.cv.setAttribute("aria-hidden","true");win.prepend(WXAN.cv);WXAN.ctx=WXAN.cv.getContext("2d");WXAN.w=0}
+  WXAN.cv.hidden=false;WXAN.still=reduced();wxaSize();if(!WXAN.raf){WXAN.last=0;WXAN.raf=requestAnimationFrame(wxaFrame)}}
+function wxaStop(){if(WXAN.raf)cancelAnimationFrame(WXAN.raf);WXAN.raf=0;if(WXAN.cv)WXAN.cv.hidden=true}
+{const _r=render;render=function(){const r=_r.apply(this,arguments);if(cur==="wx")wxaStart();else if(WXAN.cv&&!WXAN.cv.hidden)wxaStop();return r}}
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id!=="wx")wxaStop();return r}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&cur==="wx")wxaStart()});
+window.addEventListener("resize",()=>{if(cur==="wx")wxaSize()});
+/* the sky dims and softens as the page scrolls, so the cards stay easy to read */
+document.addEventListener("scroll",e=>{if(cur!=="wx"||!WXAN.cv)return;const t=e.target;if(!t||!t.scrollTop&&t.scrollTop!==0)return;const k=Math.min(1,(t.scrollTop||0)/500);WXAN.cv.style.opacity=String(1-k*.4);WXAN.cv.style.filter=k>.05?`blur(${(k*3).toFixed(1)}px)`:""},true);
+document.head.insertAdjacentHTML("beforeend",`<style>
+.wxa-cv{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;transition:opacity .2s,filter .2s}
+.screen:not([data-app="wx"]) .wxa-cv{display:none}
+</style>`);
+try{window.__efbWxa={WXAN,WXA,wxMoon,wxaSetup}}catch(e){}
 
 /* ===== Winter Ops: cold temperature altitude correction (ICAO Doc 8168) and de/anti-icing holdover times (FAA) ===== */
 let wiTab=store.get("wiTab","cold");
@@ -6149,7 +6260,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 17, 2026",["Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 17, 2026",["Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();

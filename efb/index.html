@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.1429">
+<meta name="efb-build" content="1117.1500">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4807,14 +4807,75 @@ const WXS={
   "fog-night":"linear-gradient(180deg,#252B32 0%,#3A424B 55%,#535D67 100%)","snow":"linear-gradient(180deg,#6E86A1 0%,#93A8BF 55%,#BFCCDB 100%)"};
 /* a solid colour for the hourly table's row names, which stay put while the hours scroll under them */
 const WXTH={"clear-day":"#4A8DD8","clear-night":"#1D3466","cloud-day":"#6F88A3","cloud-night":"#2A384B","rain":"#4B6074","rain-night":"#212F3F","storm":"#383C4D","fog":"#929DA7","fog-night":"#3C454F","snow":"#8DA2BA"};
-const WXA={int:1,wdir:null,wspd:0,sky:"",lat:null,lon:null};
-function wxSky(m,day){if(!m)return day?"cloud-day":"cloud-night";const w=m.wx.join(" ");
+const WXA={int:1,wdir:null,wspd:0,sky:"",lat:null,lon:null,sun:null,cover:null};
+function wxSky(m,day){if(!m)return day?"cloud-day":"cloud-night";const w=m.wx.filter(s=>!/^VC/.test(s)).join(" ");
   if(/TS/.test(w))return"storm";if(/SN|SG|PL|GS/.test(w))return"snow";if(/RA|SH|DZ/.test(w))return day?"rain":"rain-night";
   if(/FG|BR|HZ|FU/.test(w)&&m.visSM!=null&&m.visSM<5)return day?"fog":"fog-night";
-  if(m.ceiling!=null&&m.ceiling<12000)return day?"cloud-day":"cloud-night";return day?"clear-day":"clear-night"}
-function wxIsDay(apt){const icao=S(apt.icao_code),F=FCW.fc[icao],fc=F&&F.d;
+  if(m.ceiling!=null)return day?"cloud-day":"cloud-night";return day?"clear-day":"clear-night"}
+/* how much of the sky the METAR's cloud layers cover (drives the clouds drawn) */
+function wxCover(m){if(!m)return null;let c=0;for(const l of m.clouds)c=Math.max(c,{FEW:.2,SCT:.4,BKN:.62,OVC:.84,VV:.86}[l.c]||0);return c}
+
+/* ---- the Sun at the airport, and the sky's colours from it ----
+   Day and night follow sunrise and sunset at the airport (the Sun 0.833° below the horizon), and the colours follow
+   how high the Sun is: night, nautical and civil twilight with a warm horizon, sunrise and sunset, golden hour, day.
+   Where the airport has no position the model's day flag or the clock decides, as before. */
+function wxLL(apt){if(!apt)return null;let la=N(apt.pos_lat),lo=N(apt.pos_long);
+  if((la==null||lo==null)&&typeof AS!=="undefined"){const j=AS.data[S(apt.icao_code)],a=j&&j.airport;if(a&&isFinite(a.lat)&&isFinite(a.lon)){la=+a.lat;lo=+a.lon}}
+  return la!=null&&lo!=null?[la,lo]:null}
+function wxSunAA(lat,lon,ms){const r=Math.PI/180,p=sunPos(ms),tst=(((ms%864e5)+864e5)%864e5)/6e4+p.eot+4*lon,ha=((((tst/4-180)%360)+540)%360)-180,la=lat*r,h=ha*r;
+  const alt=Math.asin(Math.sin(la)*Math.sin(p.dec)+Math.cos(la)*Math.cos(p.dec)*Math.cos(h))/r;
+  const az=(Math.atan2(Math.sin(h),Math.cos(h)*Math.sin(la)-Math.tan(p.dec)*Math.cos(la))/r+540)%360;return{alt,az}}
+const wxSS=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
+/* top, middle and horizon colours by the Sun's altitude (degrees) */
+const WXK={
+  clear:[[-18,"#081633","#13285A","#26447E"],[-11,"#0A1A3E","#1B3166","#3A4E86"],[-6,"#132656","#384A84","#8A7596"],[-2,"#1F3D78","#5B6EA6","#D69486"],[1.5,"#2C579F","#7590C6","#EDB48E"],[6,"#2D6FC8","#5D9ADD","#C8D4E2"],[14,"#2D7AD6","#4C95E2","#7DB7EE"]],
+  cloud:[[-18,"#151D29","#263345","#3C4C61"],[-9,"#1A2333","#2F3B52","#4D5770"],[-4,"#29344E","#4E5978","#8E7F8C"],[1,"#44577A","#7987A5","#C1A797"],[7,"#53698A","#7890AE","#AFBBCB"],[14,"#56718E","#7790AB","#A3B6C9"]],
+  rain:[[-14,"#121A24","#1F2C3B","#334457"],[-4,"#1E2938","#344456","#5A5F6C"],[4,"#2F4152","#475C70","#6C7A8A"],[12,"#34475A","#4D6377","#6E8499"]],
+  storm:[[-14,"#0F1118","#1B1E28","#2D313F"],[-3,"#181A23","#2A2D3A","#4A4550"],[10,"#22252F","#363A4A","#535870"]],
+  fog:[[-14,"#252B32","#3A424B","#535D67"],[-4,"#3D434C","#5B6169","#8E8584"],[3,"#6A737D","#8C949C","#B8B5B2"],[12,"#7D8892","#9AA4AD","#BCC4CB"]],
+  snow:[[-14,"#18202D","#2A3649","#46566C"],[-4,"#2C3850","#4F5D78","#8A8798"],[4,"#5F7690","#8499B1","#B5C2D2"],[12,"#6E86A1","#93A8BF","#BFCCDB"]]};
+const wxFam=k=>String(k).replace(/-(day|night)$/,"");
+function wxGrad(fam,alt){const K=WXK[fam]||WXK.clear;let a=K[0],b=K[K.length-1];
+  if(alt<=a[0])b=a;else if(alt>=b[0])a=b;else for(let i=0;i<K.length-1;i++)if(alt<=K[i+1][0]){a=K[i];b=K[i+1];break}
+  const t=a===b?0:(alt-a[0])/(b[0]-a[0]),hx=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const c=[1,2,3].map(j=>{const x=hx(a[j]),y=hx(b[j]);return"rgb("+x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(",")+")"});
+  return{bg:`linear-gradient(180deg,${c[0]} 0%,${c[1]} 62%,${c[2]} 100%)`,th:c[1]}}
+function wxIsDay(apt){const ll=wxLL(apt);if(ll)return wxSunAA(ll[0],ll[1],Date.now()).alt>-.833;
+  const icao=S(apt.icao_code),F=FCW.fc[icao],fc=F&&F.d;
   if(fc){const nowH=Math.floor(Date.now()/3600000)*3600000,h=fc.hours.find(x=>Date.parse(x.t)===nowH);if(h&&h.day!=null)return !!h.day}
+  if(N(apt.pos_long)==null){const d=new Date(Date.now()),hl=d.getHours()+d.getMinutes()/60;return hl>=6.5&&hl<18.5}
   return wxDay([0,0,apt])}
+/* everything the page needs about one airport's sky */
+function wxSkyOf(apt,m){const ll=wxLL(apt),sun=ll?wxSunAA(ll[0],ll[1],Date.now()):null,day=sun?sun.alt>-.833:wxIsDay(apt),k=wxSky(m,day);
+  const g=sun?wxGrad(wxFam(k),sun.alt):{bg:WXS[k],th:WXTH[k]};return{k,day,sun,ll,bg:g.bg,th:g.th}}
+/* the sky keeps following the Sun while the app is open */
+function wxSkyTick(){if(cur!=="wx"||WXA.lat==null||wxSel==="dec")return;const s=wxSunAA(WXA.lat,WXA.lon,Date.now()),was=WXA.sun;WXA.sun=s;
+  const g=wxGrad(wxFam(WXA.sky),s.alt);screenEl.style.setProperty("--wxsky",g.bg);screenEl.style.setProperty("--wxth",g.th);
+  if(!was||(was.alt>-.833)!==(s.alt>-.833))render()}
+setInterval(wxSkyTick,30000);
+
+/* ---- words ----
+   Present weather the way it is said: "light rain showers", "thunderstorm with heavy rain", "freezing drizzle",
+   "showers in the vicinity". The sky by its cover: mostly clear (FEW), partly cloudy (SCT), mostly cloudy (BKN),
+   overcast (OVC). */
+const WXW={RA:"rain",SN:"snow",DZ:"drizzle",GR:"hail",GS:"small hail",PL:"ice pellets",SG:"snow grains",IC:"ice crystals",UP:"precipitation",BR:"mist",FG:"fog",HZ:"haze",FU:"smoke",SA:"sand",DU:"dust",SQ:"squalls",FC:"funnel cloud",PO:"dust whirls",DS:"duststorm",SS:"sandstorm",VA:"volcanic ash"};
+wxWords=function(list){return list.map(s=>{const p=s[0]==="-"?"light ":s[0]==="+"?"heavy ":"";let x=s.replace(/^[-+]/,""),vc=false;if(x.startsWith("VC")){vc=true;x=x.slice(2)}
+  const cs=[];for(let i=0;i<x.length;i+=2)cs.push(x.substr(i,2));const ds=cs.filter(c=>/^(TS|SH|FZ|MI|BC|PR|DR|BL)$/.test(c)),ph=cs.filter(c=>!ds.includes(c)).map(c=>WXW[c]||c).join(" and ");
+  let o;if(ds.includes("TS"))o=ph?"thunderstorm with "+p+ph:p+"thunderstorm";else if(ds.includes("SH"))o=p+(ph?ph+" showers":"showers");else if(ds.includes("FZ"))o=p+"freezing "+(ph||"precipitation");
+  else{const d={MI:"shallow ",BC:"patches of ",PR:"partial ",DR:"low drifting ",BL:"blowing "}[ds[0]]||"";o=p+d+(ph||"")}
+  return (o.trim()||x)+(vc?" in the vicinity":"")}).join(", ")};
+condText=function(m){if(!m)return"—";if(m.wx.length){const w=wxWords(m.wx);return w.charAt(0).toUpperCase()+w.slice(1)}
+  if(m.ceiling!=null&&m.ceiling<1000)return"Low cloud";const c=wxCover(m);return c>=.84?"Overcast":c>=.6?"Mostly cloudy":c>=.4?"Partly cloudy":c>0?"Mostly clear":"Clear"};
+const WXCW={FEW:"Few clouds",SCT:"Scattered clouds",BKN:"Broken layer",OVC:"Overcast layer",VV:"Sky obscured"};
+function wxCeilFoot(m){if(m.ceiling!=null){const L=m.clouds.find(c=>/BKN|OVC|VV/.test(c.c)&&c.h===m.ceiling)||m.clouds[0];
+    return L.c==="VV"?`Sky obscured: vertical visibility ${fmt(L.h)} ft.`:`${WXCW[L.c]} at ${fmt(L.h)} ft above the airport.`}
+  if(m.clouds.length){const L=m.clouds[0];return `${WXCW[L.c]} at ${fmt(L.h)} ft. No ceiling.`}return /CAVOK/.test(m.raw)?"CAVOK: no cloud below 5,000 ft.":"No cloud reported."}
+/* when the report was made, and how old it is */
+function wxObs(m){const t=m&&m.raw.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);if(!t)return null;const now=Date.now(),d=new Date(now);
+  let ms=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),+t[1],+t[2],+t[3]);if(ms>now+36e5)ms=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-1,+t[1],+t[2],+t[3]);
+  const min=Math.max(0,Math.round((now-ms)/6e4));return{ms,min,z:t[2]+t[3]+"Z",ago:ms>now+6e4?"":min<1?"just now":min<60?min+" min ago":Math.floor(min/60)+" h "+(min%60?min%60+" min ":"")+"ago"}}
+/* the day's high and low from the model, stretched to take in the temperature reported now */
+function wxHL(d0,m){if(!d0)return null;const t=m&&m.temp!=null?m.temp:null;return{hi:Math.round(t!=null?Math.max(d0.hi,t):d0.hi),lo:Math.round(t!=null?Math.min(d0.lo,t):d0.lo)}}
 function wxLocalTime(apt){const F=FCW.fc[S(apt.icao_code)],tz=F&&F.d&&F.d.tz;
   try{if(tz)return new Date().toLocaleTimeString("en-US",{timeZone:tz,hour:"numeric",minute:"2-digit"})}catch(e){}
   return new Date().toISOString().slice(11,16)+"Z"}
@@ -4824,15 +4885,61 @@ const WXI={wind:'<path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5M3 12h15a3 3 0 1 1-3 3M
   da:'<path d="M3 19l6-9 4 5 3-4 5 8z"/><path d="M12 3v4M10 5h4"/>',rain:'<path d="M7 14a5 5 0 0 1 10 0"/><path d="M12 9V7M8 18l-1 2M12 18l-1 2M16 18l-1 2"/>',
   wx:'<path d="M7 16h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.1 3.1 0 0 0 7 16z"/><path d="M9 19l-.8 2M13 19l-.8 2"/>',clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
   cal:'<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',raw:'<path d="M5 6h14M5 10h14M5 14h9M5 18h6"/>',taf:'<path d="M4 18l5-6 4 3 7-9"/><path d="M15 6h5v5"/>',
-  layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',pin:'<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'};
+  layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>',
+  moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',pin:'<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'};
 const wxIc=k=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${WXI[k]}</svg>`;
 const wxCard=(ic,title,body,cls,extra)=>`<section class="wi-card ${cls||""}"><header class="wi-ch">${wxIc(ic)}<span>${title}</span>${extra?`<em>${extra}</em>`:""}</header>${body}</section>`;
 
 /* the 7-day list with temperature bars, from the model forecast */
-function wxDays(fc){const lo=Math.min(...fc.days.map(d=>d.lo)),hi=Math.max(...fc.days.map(d=>d.hi)),span=Math.max(1,hi-lo);
-  return `<div class="wi-days">${fc.days.map((d,i)=>{const dt=new Date(d.d+"T12:00:00Z"),a=(d.lo-lo)/span*100,b=(d.hi-lo)/span*100;
+function wxDays(fc,m){const now=m&&m.temp!=null?m.temp:null,days=fc.days.map((d,i)=>i===0&&now!=null?{...d,lo:Math.min(d.lo,now),hi:Math.max(d.hi,now)}:d);
+  const lo=Math.min(...days.map(d=>d.lo)),hi=Math.max(...days.map(d=>d.hi)),span=Math.max(1,hi-lo);
+  return `<div class="wi-days">${days.map((d,i)=>{const dt=new Date(d.d+"T12:00:00Z"),a=(d.lo-lo)/span*100,b=(d.hi-lo)/span*100;
+    /* today: a dot for the temperature now, as on the phone */
+    const dot=i===0&&now!=null?`<em style="left:${((now-lo)/span*100).toFixed(1)}%" title="Now ${now}°"></em>`:"";
     return `<div class="wi-day"><b>${i===0?"Today":dt.toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short"})}</b><span class="wi-dic">${wIco(wmoKind(d.code,true),26)}${d.pop>=20?`<small>${d.pop}%</small>`:""}</span>
-      <span class="wi-lo">${Math.round(d.lo)}°</span><span class="wi-bar"><i style="left:${a.toFixed(1)}%;right:${(100-b).toFixed(1)}%"></i></span><span class="wi-hi">${Math.round(d.hi)}°</span></div>`}).join("")}</div>`}
+      <span class="wi-lo">${Math.round(d.lo)}°</span><span class="wi-bar"><i style="left:${a.toFixed(1)}%;right:${(100-b).toFixed(1)}%"></i>${dot}</span><span class="wi-hi">${Math.round(d.hi)}°</span></div>`}).join("")}</div>`}
+
+/* ---- Sun and Moon tiles ---- */
+const wxZ=ms=>new Date(ms).toISOString().slice(11,16).replace(":","")+"Z";
+function wxLT(ms,tz){if(typeof ms!=="number")return ms==="up"?"Up all day":"Down all day";if(!tz)return wxZ(ms);try{return new Date(ms).toLocaleTimeString("en-US",{timeZone:tz,hour:"numeric",minute:"2-digit"})}catch(e){return wxZ(ms)}}
+function wxSunTile(ll,F){const[la,lo]=ll,now=Date.now(),tz=F&&F.tz,off=F&&F.off!=null?F.off*1000:lo/15*36e5;
+  const ymd=sunYmd(now,tz),T=sunTimes(la,lo,...ymd),T2=sunTimes(la,lo,...sunYmd(now+864e5,tz));
+  let lab,v,foot;
+  if(T.rise==="up"||T.rise==="down"){lab="Sun";v=T.rise==="up"?"Up all day":"Below the horizon";foot=T.rise==="up"?"Midnight sun: the Sun does not set today.":"Polar night: the Sun does not rise today."}
+  else if(now<T.rise){lab="Sunrise";v=T.rise;foot="Sunset "+wxLT(T.set,tz)}
+  else if(now<T.set){lab="Sunset";v=T.set;foot="Sunrise "+wxLT(T.rise,tz)}
+  else{lab="Sunrise";v=T2.rise;foot="Sunset "+wxLT(T2.set,tz)}
+  const big=typeof v==="number"?`${esc(wxLT(v,tz))}<small>${tz?wxZ(v):""}</small>`:esc(v);
+  const civ=typeof T.dawn==="number"&&typeof T.dusk==="number"?`First light ${esc(wxLT(T.dawn,tz))}<br>Last light ${esc(wxLT(T.dusk,tz))}`:"";
+  /* the Sun's height through the local day, the horizon, and where it is now */
+  const d0=Date.UTC(ymd[0],ymd[1]-1,ymd[2])-off,X=t=>(t-d0)/864e5*200,Y=a=>40-a*.42;let pts=[];
+  for(let i=0;i<=96;i++){const t=d0+i*9e5;pts.push(X(t).toFixed(1)+","+Y(wxSunAA(la,lo,t).alt).toFixed(1))}
+  const s=wxSunAA(la,lo,now),cx=X(now),cy=Y(s.alt),path="M"+pts.join("L");
+  const arc=`<svg class="wi-sunarc" viewBox="0 -2 200 78" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="wiUp"><rect x="0" y="-2" width="200" height="42"/></clipPath><clipPath id="wiDn"><rect x="0" y="40" width="200" height="40"/></clipPath>
+    <linearGradient id="wiSg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <path d="${path}L200,40L0,40Z" fill="url(#wiSg)" clip-path="url(#wiUp)"/><path d="${path}" fill="none" stroke="#fff" stroke-width="1.6" clip-path="url(#wiUp)" vector-effect="non-scaling-stroke"/>
+    <path d="${path}" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.6" clip-path="url(#wiDn)" vector-effect="non-scaling-stroke"/>
+    <line x1="0" y1="40" x2="200" y2="40" stroke="rgba(255,255,255,.45)" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>
+    <i class="wi-sundot${s.alt<-.833?" down":""}" style="left:${(cx/2).toFixed(2)}%;top:${((cy+2)/78*100).toFixed(2)}%"></i>`;
+  return `<section class="wi-card wi-tile wi-wide wi-sun"><header class="wi-ch">${wxIc("sun")}<span>${esc(lab)}</span></header>
+    <div class="wi-sb"><div><div class="wi-tv">${big}</div><p>${esc(foot)}${civ?`<br>${civ}`:""}</p></div><div class="wi-arcw">${arc}</div></div></section>`}
+/* the Moon tonight: its face as seen from the airport, phase, light, rise and set, the next full moon */
+const WXMT={key:"",url:"",wait:0};
+function wxMoonImg(A){const T=typeof wxmTex==="function"&&wxmTex();if(!T){if(!WXMT.wait)WXMT.wait=setInterval(()=>{if(WXM.tex){clearInterval(WXMT.wait);WXMT.wait=0;if(cur==="wx")render()}},400);return""}
+  const key=Math.round(A.phase*120)+":"+Math.round(Math.atan2(A.limb[0],A.limb[1])*40);if(WXMT.key!==key){const r=wxmRender(46,A);if(!r)return"";WXMT.url=r.c.toDataURL();WXMT.key=key}return WXMT.url}
+function wxMoonRS(la,lo,now){const h0=.125,st=6e5;let p=wxAstro(la,lo,now).alt-h0,rise=null,set=null;const up=p>=0;
+  for(let i=1;i<=186&&(rise==null||set==null);i++){const t=now+i*st,a=wxAstro(la,lo,t).alt-h0;if(p<0&&a>=0&&rise==null)rise=t-st*a/(a-p);if(p>=0&&a<0&&set==null)set=t-st*a/(a-p);p=a}return{rise,set,up}}
+function wxFullMoon(now){const age=wxMoon().age,syn=29.530588853;let est=now+(((14.765-age)%syn+syn)%syn)*864e5;if(est-now<36e5*6&&age>14.765)est+=syn*864e5;
+  let best=est,bl=-1;for(let h=-40;h<=40;h++){const t=est+h*36e5,l=wxAstro(0,0,t).lit;if(l>bl){bl=l;best=t}}return best}
+function wxMoonTile(ll,F){const[la,lo]=ll,now=Date.now(),tz=F&&F.tz,A=wxAstro(la,lo,now),age=wxMoon().age;
+  const name=age<1.2||age>28.33?"New Moon":age<6.38?"Waxing Crescent":age<8.38?"First Quarter":age<13.77?"Waxing Gibbous":age<15.77?"Full Moon":age<21.15?"Waning Gibbous":age<23.15?"Last Quarter":"Waning Crescent";
+  const rs=wxMoonRS(la,lo,now),fm=wxFullMoon(now),fd=Math.round((fm-now)/864e5);
+  let fmd="";try{fmd=new Date(fm).toLocaleDateString("en-US",{timeZone:tz||"UTC",month:"short",day:"numeric"})}catch(e){fmd=new Date(fm).toISOString().slice(5,10)}
+  const img=wxMoonImg(A),row=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
+  const ev=[rs.rise!=null?[rs.rise,"Moonrise"]:null,rs.set!=null?[rs.set,"Moonset"]:null].filter(Boolean).sort((a,b)=>a[0]-b[0]);
+  return `<section class="wi-card wi-tile wi-wide wi-moon"><header class="wi-ch">${wxIc("moon")}<span>Moon</span><em>${rs.up?"Above the horizon":"Below the horizon"}</em></header>
+    <div class="wi-mb"><div class="wi-mface"${img?"":` data-loading`}>${img?`<img src="${img}" alt="" style="transform:rotate(${A.rot.toFixed(3)}rad)">`:""}</div>
+    <div class="wi-mt"><div class="wi-tv wi-mname">${name}</div><dl>${row("Illumination",Math.round(A.lit*100)+"%")}${ev.map(e=>row(e[1],esc(wxLT(e[0],tz))+(tz?` <small>${wxZ(e[0])}</small>`:""))).join("")}${row("Next full moon",esc(fmd)+(fd>0?` <small>in ${fd} day${fd>1?"s":""}</small>`:""))}</dl></div></div></section>`}
 
 /* rebuild one airport's page from what the Weather app made for it */
 function wxIos(html,role,label,apt,metar){const T=document.createElement("template");T.innerHTML=html;const R=T.content,q=s=>R.querySelector(s);
@@ -4842,63 +4949,76 @@ function wxIos(html,role,label,apt,metar){const T=document.createElement("templa
   const svg=q("svg.wind"),chips=q(".wr-chips");
   const st={};R.querySelectorAll("dl.stats>div").forEach(d=>{const k=(d.querySelector("dt")||{}).textContent||"";st[k]=(d.querySelector("dd")||{}).innerHTML||"—"});
   const comp=Object.keys(st).find(k=>/components$/.test(k));
-  const d0=fc&&fc.days&&fc.days[0];
-  const top=`<div class="wi-hero"><span class="wi-role">${wxIc("pin")}${esc(label)} · ${esc(icao)}</span><h2>${esc(S(apt.name)||icao)}</h2>
+  const d0=fc&&fc.days&&fc.days[0],hl=wxHL(d0,m),dec=role==="DEC",ob=wxObs(m);
+  /* an old report says so on the page */
+  const stale=!dec&&ob&&ob.min>=75?`<span class="pill wi-stale">METAR ${esc(ob.ago.replace(/ ago$/,""))} old</span>`:"";
+  const top=`<div class="wi-hero"><span class="wi-role">${wxIc(dec?"raw":"pin")}${esc(label)} · ${esc(icao)}</span><h2>${esc(S(apt.name)||icao)}</h2>
     <div class="wi-temp">${m&&m.temp!=null?m.temp+"°":"—"}</div><div class="wi-cond">${esc(condText(m))}</div>
-    ${d0?`<div class="wi-hl">H:${Math.round(d0.hi)}°  L:${Math.round(d0.lo)}°</div>`:""}<div class="wi-pills">${pills}</div></div>`;
-  if(!m){const nt=q(".notice");const rest=[...R.querySelectorAll("section.card")].map(s=>s.outerHTML).join("");
-    return `<div class="wi">${top}${nt?`<section class="wi-card wi-none">${nt.innerHTML}</section>`:""}${wxRestCards(R,fc)}</div>`}
-  const w=m.wind,spd=w?(w.spd===0&&!w.gust?"Calm":w.spd):"—";
+    ${hl?`<div class="wi-hl">H:${hl.hi}°  L:${hl.lo}°</div>`:""}<div class="wi-pills">${pills}${stale}</div></div>`;
+  if(!m){const nt=q(".notice");
+    return `<div class="wi">${top}${nt?`<section class="wi-card wi-none">${nt.innerHTML}</section>`:""}${dec?"":wxRestCards(R,fc,"",m)}</div>`}
+  const w=m.wind,calm=w&&w.spd===0&&!w.gust,spd=w?(calm?"Calm":w.spd):"—";
   const windTile=`<section class="wi-card wi-wind"><header class="wi-ch">${wxIc("wind")}<span>Wind</span></header><div class="wi-wb">
-     <div class="wi-wl"><div class="wi-wrow"><b>${spd}</b>${spd!=="Calm"&&w?"<small>kt<br>Wind</small>":""}</div>
+     <div class="wi-wl"><div class="wi-wrow"><b>${spd}</b>${!calm&&w?"<small>kt<br>Wind</small>":""}</div>
        ${w&&w.gust?`<div class="wi-wrow"><b>${w.gust}</b><small>kt<br>Gusts</small></div>`:""}
-       <dl><div><dt>Direction</dt><dd>${w&&w.dir!=null?String(w.dir).padStart(3,"0")+"°":w&&w.spd?"Variable":"—"}</dd></div>${comp?`<div><dt>${esc(comp.replace(/ components$/,""))}</dt><dd>${st[comp]}</dd></div>`:""}<div><dt>METAR</dt><dd>${st.Wind||"—"}</dd></div></dl></div>
+       <dl><div><dt>Direction</dt><dd>${calm?"—":w&&w.dir!=null?String(w.dir).padStart(3,"0")+"°":w&&w.spd?"Variable":"—"}</dd></div>${comp?`<div><dt>${esc(comp.replace(/ components$/,""))}</dt><dd>${st[comp]}</dd></div>`:""}<div><dt>METAR</dt><dd>${st.Wind||"—"}</dd></div></dl></div>
      <div class="wi-rose">${svg?svg.outerHTML:""}</div></div>${chips?chips.outerHTML:""}</section>`;
+  /* the hourly list's "Now" shows the sky the METAR reports, like the top of the page */
+  {const td=R.querySelector(".fc-ic td.now");if(td){const k=metarKind({...m,wx:m.wx.filter(s=>!/^VC/.test(s))},wxIsDay(apt));if(k)td.innerHTML=wIco(k,26)}}
   const spread=m.temp!=null&&m.dew!=null?m.temp-m.dew:null;
-  const tile=(ic,lab,val,foot,cls)=>`<section class="wi-card wi-tile ${cls||""}"><header class="wi-ch">${wxIc(ic)}<span>${lab}</span></header><div class="wi-tv">${val}</div>${foot?`<p>${foot}</p>`:""}</section>`;
+  /* a tile with nothing to show is left out */
+  const tile=(ic,lab,val,foot,cls)=>val==null||/^\s*—\s*$/.test(String(val).replace(/<[^>]+>/g,""))?"":`<section class="wi-card wi-tile ${cls||""}"><header class="wi-ch">${wxIc(ic)}<span>${lab}</span></header><div class="wi-tv">${val}</div>${foot?`<p>${foot}</p>`:""}</section>`;
   const tiles=[
     tile("vis","Visibility",st.Visibility,m.visSM==null?"":m.visSM>=10?"Clear view, 10 statute miles or more.":m.visSM<3?"Below VFR minimums.":"Reduced by "+esc(m.wx.length?wxWords(m.wx):"haze")+"."),
-    tile("ceil","Ceiling",st.Ceiling,m.ceiling==null?(m.clouds.length?"Scattered cloud, no ceiling.":"No cloud reported."):"Lowest broken or overcast layer."),
+    tile("ceil","Ceiling",st.Ceiling,esc(wxCeilFoot(m))),
     tile("dew","Temp / Dew point",st["Temp / dew"],spread!=null?`Spread ${spread}°${spread<=3?": fog or low cloud likely.":"."}`:""),
     tile("press","Altimeter",st.Altimeter,m.alt?`QNH ${m.alt.hpa} hPa · ${m.alt.inhg.toFixed(2)} inHg`:""),
     st.Humidity!=null?tile("hum","Humidity",st.Humidity,m.dew!=null?`The dew point is ${m.dew}° right now.`:""):"",
     st["Density altitude"]!=null?tile("da","Density altitude",st["Density altitude"],N(apt.elevation)!=null?`Field elevation ${fmt(N(apt.elevation))} ft.`:""):"",
     st["Rain chance"]!=null?tile("rain","Rain chance",st["Rain chance"],"Model forecast for this hour."):"",
     tile("wx","Weather",`<span class="wi-cap">${st.Weather}</span>`,m.wx.length?esc(m.wx.join(" ")):"Nothing significant.")].join("");
-  return `<div class="wi">${top}${wxRestCards(R,fc,"hourly")}<div class="wi-grid">${windTile}${tiles}</div>${wxRestCards(R,fc,"rest")}</div>`}
-function wxRestCards(R,fc,part){const q=s=>R.querySelector(s);let out="";
+  /* the Sun and the Moon where the airport is */
+  let sky="";const ll=wxLL(apt);if(ll){try{sky=wxSunTile(ll,fc)+(typeof wxAstro==="function"?wxMoonTile(ll,fc):"")}catch(e){console.warn(e)}}
+  return `<div class="wi">${top}${dec?"":wxRestCards(R,fc,"hourly",m)}<div class="wi-grid">${windTile}${tiles}${sky}</div>${wxRestCards(R,fc,"rest",m,ob)}</div>`}
+function wxRestCards(R,fc,part,m,ob){const q=s=>R.querySelector(s);let out="";
   const secs=[...R.querySelectorAll("section.card")],fcCards=secs.filter(s=>/Forecast/.test((s.querySelector(".card-h .eyebrow")||{}).textContent||""));
   if(part!=="rest"){const hc=fcCards.find(s=>s.querySelector(".fc-wrap"));
     if(hc){const tz=(hc.querySelector(".card-h .r")||{}).textContent||"",nt=hc.querySelector(".fc-note");
       out+=wxCard("clock","Hourly forecast",hc.querySelector(".fc-wrap").outerHTML+(nt?`<p class="wi-note">${nt.innerHTML}</p>`:""),"wi-hourly",esc(tz))}
     else if(fcCards[0])out+=wxCard("clock","Forecast",`<p class="wi-note">${(fcCards[0].querySelector(".note")||{}).innerHTML||"Loading forecast…"}</p>`,"wi-hourly")}
   if(part==="hourly")return out;
-  if(fc&&fc.days&&fc.days.length)out+=wxCard("cal",fc.days.length+"-day forecast",wxDays(fc),"wi-7");
+  if(fc&&fc.days&&fc.days.length)out+=wxCard("cal",fc.days.length+"-day forecast",wxDays(fc,m),"wi-7");
   const cl=q(".clouds")||(q(".cols2 .empty")),raw=q(".raw");
-  if(cl||raw)out+=`<div class="wi-two">${cl?wxCard("layers","Cloud layers",`<div class="wi-cl">${cl.outerHTML}</div>`,"wi-clc","Height above the airport"):""}${raw?wxCard("raw","METAR",`<div class="wi-raw">${raw.innerHTML}</div>`,"wi-metar"):""}</div>`;
+  if(cl||raw)out+=`<div class="wi-two">${cl?wxCard("layers","Cloud layers",`<div class="wi-cl">${cl.outerHTML}</div>`,"wi-clc","Height above the airport"):""}${raw?wxCard("raw","METAR",`<div class="wi-raw">${raw.innerHTML}</div>`,"wi-metar"+(ob&&ob.min>=75?" wi-old":""),ob?`Observed ${ob.z}${ob.ago?" · "+ob.ago:""}`:""):""}</div>`;
   const taf=q(".taf");if(taf)out+=wxCard("taf","TAF",taf.outerHTML,"wi-taf","Terminal forecast");
   return out}
 {const _wd=wxDetail;wxDetail=function(role,label,apt,metar,taf){const s=_wd.apply(this,arguments);try{return wxIos(s,role,label,apt,metar)}catch(e){console.warn(e);return s}}}
 
 let WXS_LAST=null;const WXDEC={raw:"",rwy:""};
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#mtGo");if(!t)return;const a=$("#mtIn"),b=$("#mtRwy");WXDEC.raw=a?a.value.trim():"";WXDEC.rwy=b?b.value.trim().toUpperCase():""},true);
+/* the decoder: a report may start with METAR or SPECI (and COR); the station is the next word */
+const wxDecNorm=raw=>S(raw).replace(/\s+/g," ").replace(/^(METAR|SPECI)\s+(COR\s+)?/i,"").toUpperCase();
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#mtGo");if(!t)return;const a=$("#mtIn"),b=$("#mtRwy");WXDEC.raw=a?a.value.trim():"";WXDEC.rwy=b?b.value.trim().toUpperCase():"";
+  /* the Weather app draws the result itself (with the sky of the decoded report) */
+  e.stopPropagation();e.preventDefault();WXS_LAST=null;render()},true);
 /* the airport list as sky cards, and the sky behind the app */
 {const _v=V.wx;V.wx=function(){const html=_v.apply(this,arguments);const apts=wxFor(O());
-  const sel=apts.find(a=>a[1]===wxSel),ms=sel&&decodeMetar(sel[3]),sky=sel?wxSky(ms,wxIsDay(sel[2])):"clear-day";
-  if(WXS[sky]){screenEl.style.setProperty("--wxsky",WXS[sky]);screenEl.style.setProperty("--wxth",WXTH[sky]);screenEl.dataset.wxsky=sky}
-  /* for the moving sky (wxanim.js): precipitation intensity and the wind */
-  {const w=ms?ms.wx.join(" "):"";WXA.int=/\+/.test(w)?2:/-/.test(w)?0:1;WXA.wdir=ms&&ms.wind&&ms.wind.dir!=null?ms.wind.dir:null;WXA.wspd=ms&&ms.wind?ms.wind.spd||0:0;WXA.sky=sky;const ap=sel&&sel[2];WXA.lat=ap&&ap.pos_lat!=null&&ap.pos_lat!==""?+ap.pos_lat:null;WXA.lon=ap&&ap.pos_long!=null&&ap.pos_long!==""?+ap.pos_long:null}
+  const sel=apts.find(a=>a[1]===wxSel),draw=wxDecNorm(WXDEC.raw),dm=wxSel==="dec"&&draw?decodeMetar(draw):null,dapt=dm?{icao_code:draw.split(" ")[0],plan_rwy:WXDEC.rwy,name:draw.split(" ")[0]}:null;
+  const ms=sel?decodeMetar(sel[3]):dm,SK=sel?wxSkyOf(sel[2],ms):dapt?wxSkyOf(dapt,dm):{k:"clear-day",bg:WXS["clear-day"],th:WXTH["clear-day"],sun:null,ll:null},sky=SK.k;
+  screenEl.style.setProperty("--wxsky",SK.bg);screenEl.style.setProperty("--wxth",SK.th);screenEl.dataset.wxsky=sky;
+  /* for the moving sky (wxanim.js): precipitation intensity, the wind, the cloud cover, the Sun and where the airport is */
+  {const w=ms?ms.wx.filter(s=>!/^VC/.test(s)).join(" "):"";WXA.int=/\+/.test(w)?2:/-/.test(w)?0:1;WXA.wdir=ms&&ms.wind&&ms.wind.dir!=null?ms.wind.dir:null;WXA.wspd=ms&&ms.wind?ms.wind.spd||0:0;WXA.sky=sky;
+    WXA.cover=wxCover(ms);WXA.sun=SK.sun;WXA.lat=SK.ll?SK.ll[0]:null;WXA.lon=SK.ll?SK.ll[1]:null}
   const T=document.createElement("template");T.innerHTML=html;const R=T.content,side=R.querySelector(".split>.side");
-  if(side){const cards=apts.map(a=>{const m=decodeMetar(a[3]),d=wxIsDay(a[2]),k=wxSky(m,d),F=FCW.fc[S(a[2].icao_code)],d0=F&&F.d&&F.d.days&&F.d.days[0];
-      return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${WXS[k]}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(windTxt(m.wind))} kt</small>`:""}</span>
-        <span class="wi-lT">${m&&m.temp!=null?m.temp+"°":"—"}</span><span class="wi-lb"><span class="wi-lc">${m?esc(condText(m)):"No report"}</span><span class="wi-lr">${d0?`H:${Math.round(d0.hi)}°  L:${Math.round(d0.lo)}°`:""}</span></span></button>`}).join("");
+  if(side){const cards=apts.map(a=>{const m=decodeMetar(a[3]),K=wxSkyOf(a[2],m),F=FCW.fc[S(a[2].icao_code)],hl=wxHL(F&&F.d&&F.d.days&&F.d.days[0],m);
+      return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${K.bg}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(windTxt(m.wind))} kt</small>`:""}</span>
+        <span class="wi-lT">${m&&m.temp!=null?m.temp+"°":"—"}</span><span class="wi-lb"><span class="wi-lc">${m?esc(condText(m)):"No report"}</span><span class="wi-lr">${hl?`H:${hl.hi}°  L:${hl.lo}°`:""}</span></span></button>`}).join("");
     const foot=side.querySelector(".sfoot");
     side.innerHTML=`<div class="wi-sh"><h2>Weather</h2><p>Airports in your OFP</p></div><div class="wi-locs">${cards}
       <button class="wi-loc wi-dec" data-wxsel="dec" aria-pressed="${wxSel==="dec"}"><span class="wi-lt"><b>METAR decoder</b><small>Decode any report</small></span><span class="wi-lT">${wxIc("raw")}</span></button></div>${foot?foot.outerHTML:""}`}
   /* the decoder keeps its report and result when the app redraws (a forecast arriving redraws it) */
-  if(wxSel==="dec"&&WXDEC.raw){const ta=R.querySelector("#mtIn"),rw=R.querySelector("#mtRwy"),out=R.querySelector("#mtOut"),m=decodeMetar(WXDEC.raw);
+  if(wxSel==="dec"&&WXDEC.raw){const ta=R.querySelector("#mtIn"),rw=R.querySelector("#mtRwy"),out=R.querySelector("#mtOut");
     if(ta)ta.textContent=WXDEC.raw;if(rw)rw.setAttribute("value",WXDEC.rwy);
-    if(out&&m)out.innerHTML=`<div class="dwrap" style="display:flex;flex-direction:column;gap:16px">${wxDetail("DEC","Decoded",{icao_code:WXDEC.raw.split(/\s+/)[0],plan_rwy:WXDEC.rwy,name:WXDEC.raw.split(/\s+/)[0]},WXDEC.raw,"")}</div>`}
+    if(out)out.innerHTML=dm?`<div class="dwrap" style="display:flex;flex-direction:column;gap:16px">${wxDetail("DEC","Decoded",dapt,draw,"")}</div>`:`<div class="notice"><b>Nothing to decode</b><span>Paste a METAR first, for example KSFO 171356Z 00000KT 10SM FEW010 07/06 A3009.</span></div>`}
   const tb=R.querySelector(".tabbar");if(tb)tb.classList.add("wi-tabs");
   const dw=R.querySelector(".dwrap");if(dw&&WXS_LAST!==wxSel&&!reduced())dw.classList.add("wi-in");WXS_LAST=wxSel;
   const h=document.createElement("div");h.appendChild(R.cloneNode(true));return h.innerHTML}}
@@ -4934,7 +5054,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="wx"] .side .sfoot{border-color:rgba(255,255,255,.16);color:rgba(255,255,255,.75)}
 .screen[data-app="wx"] .side .sfoot .btn{color:#fff;border-color:rgba(255,255,255,.4)}.screen[data-app="wx"] .side .sfoot .note{color:rgba(255,255,255,.75)}
 .wi{display:flex;flex-direction:column;gap:12px;max-width:980px;margin:0 auto;color:#fff;font-family:var(--f-os)}
-.wi-hero{text-align:center;padding:18px 0 14px;text-shadow:0 1px 6px rgba(0,0,0,.12)}
+.wi-hero{text-align:center;padding:18px 0 14px;text-shadow:0 1px 8px rgba(0,0,0,.22)}
 .wi-role{display:inline-flex;align-items:center;gap:5px;font:600 12px var(--f-os);letter-spacing:.06em;text-transform:uppercase;opacity:.85}.wi-role svg{width:13px;height:13px}
 .wi-hero h2{margin:6px 0 0;font:500 30px/1.15 var(--f-os);letter-spacing:-.01em;color:#fff}
 .wi-temp{font:200 104px/1 var(--f-os);letter-spacing:-.04em;margin:4px 0 0 .25em}
@@ -4944,6 +5064,9 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .wi-pills .pill{background:rgba(255,255,255,.18)!important;color:#fff!important;border:0!important;box-shadow:none!important}
 .wi-card{background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border-radius:16px;padding:12px 14px 14px;box-shadow:inset 0 0 0 .5px rgba(255,255,255,.16);min-width:0}
 .screen[data-wxsky$="night"] .wi-card,.screen[data-wxsky="storm"] .wi-card{background:rgba(255,255,255,.09)}
+/* on a bright sky the cards take a little shade, so white text stays easy to read */
+.screen[data-wxsky="cloud-day"] .wi-card,.screen[data-wxsky="fog"] .wi-card,.screen[data-wxsky="snow"] .wi-card,.screen[data-wxsky="rain"] .wi-card{background:rgba(28,44,66,.2)}
+.screen[data-wxsky="clear-day"] .wi-card{background:rgba(22,60,120,.14)}
 .wi-ch{display:flex;align-items:center;gap:6px;font:600 12px var(--f-os);letter-spacing:.04em;text-transform:uppercase;color:rgba(255,255,255,.65);padding-bottom:9px;margin-bottom:8px;border-bottom:.5px solid rgba(255,255,255,.22)}
 .wi-ch svg{width:14px;height:14px;flex:none}.wi-ch em{margin-left:auto;font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}
 .wi-note{margin:8px 0 0;font:400 11.5px/1.4 var(--f-os);color:rgba(255,255,255,.7)}
@@ -4967,7 +5090,10 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .wi .fc-t th{color:rgba(255,255,255,.75);z-index:2;background:var(--wxth,#24364C)!important;box-shadow:6px 0 10px -6px rgba(0,0,0,.35)}
 .wi .fc-t td.now{background:rgba(255,255,255,.12)!important}.wi .fc-t td.mdl{opacity:.7}
 .wi .fc-t small,.wi .fc-day{color:rgba(255,255,255,.7)!important}.wi .fc-drop{fill:#7FD0FF}
-.wi .fc-t .VFR{color:#7CF0A4}.wi .fc-t .MVFR{color:#8CC8FF}.wi .fc-t .IFR{color:#FF8A8A}.wi .fc-t .LIFR{color:#F49CF0}
+.wi .fc-t span.VFR,.wi .fc-t span.MVFR,.wi .fc-t span.IFR,.wi .fc-t span.LIFR{color:#fff}
+.wi .fc-t b.VFR,.wi .fc-t b.MVFR,.wi .fc-t b.IFR,.wi .fc-t b.LIFR{color:#fff;padding:2px 6px;border-radius:5px;background:rgba(48,209,88,.45)}
+.wi .fc-t b.MVFR{background:rgba(10,132,255,.55)}.wi .fc-t b.IFR{background:rgba(255,69,58,.62)}.wi .fc-t b.LIFR{background:rgba(191,90,242,.66)}
+.wi .fc-t small.VFR,.wi .fc-t small.MVFR,.wi .fc-t small.IFR,.wi .fc-t small.LIFR{color:#fff!important;opacity:.85}
 .wi-days{display:flex;flex-direction:column}
 .wi-day{display:grid;grid-template-columns:64px 52px 38px minmax(0,1fr) 38px;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid rgba(255,255,255,.18);font:500 17px var(--f-os)}
 .wi-day:last-child{border-bottom:0}
@@ -4991,11 +5117,32 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="wx"] .detail>.dwrap>.card ::placeholder{color:rgba(255,255,255,.55)}
 .screen[data-app="wx"] .detail>.dwrap>.card .btn.pri{background:#fff;border-color:#fff;color:#1D3550}
 #mtOut .wi{margin-top:12px}
+.wi-cat{color:#fff!important}.wi-cat.VFR{background:rgba(48,209,88,.45)}.wi-cat.MVFR{background:rgba(10,132,255,.55)}.wi-cat.IFR{background:rgba(255,69,58,.6)}.wi-cat.LIFR{background:rgba(191,90,242,.65)}
+.wi-note,.wi-note *{color:rgba(255,255,255,.75)!important}
+.wi .wr-chip b{color:inherit}.wi .wr-chip[aria-pressed="true"] b{color:#1D3550}
+.wi-pills .wi-stale{background:rgba(255,196,84,.92)!important;color:#3B2700!important;font-weight:600}.wi-old .wi-ch em{color:#FFD27A}
+.wi-bar em{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.28)}
+.wi-wide{grid-column:span 2;aspect-ratio:auto;min-height:0}
+.wi-sb{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:18px;align-items:stretch;flex:1}
+.wi-sun .wi-tv small{font:500 12px var(--f-mono);opacity:.7;margin-left:8px;letter-spacing:.02em}
+.wi-sun p{margin:12px 0 0}
+.wi-arcw{position:relative;min-height:112px}
+.wi-sunarc{position:absolute;inset:6px 0;width:100%;height:calc(100% - 12px);overflow:visible}
+.wi-sundot{position:absolute;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.22),0 0 16px 5px rgba(255,232,160,.75)}
+.wi-sundot.down{background:rgba(255,255,255,.5);box-shadow:0 0 0 3px rgba(255,255,255,.12)}
+.wi-mb{display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:center;flex:1}
+.wi-mface{width:96px;height:96px;border-radius:50%;background:radial-gradient(circle,rgba(160,175,200,.13) 0 46px,transparent 47px);filter:drop-shadow(0 0 12px rgba(255,255,255,.18))}
+.wi-mface img{width:100%;height:100%;display:block}
+.wi-mface[data-loading]{animation:wiPulse 1.2s ease-in-out infinite alternate}@keyframes wiPulse{to{opacity:.5}}
+.wi-mname{font-size:24px!important}
+.wi-mt dl{margin:10px 0 0;display:grid;gap:7px}.wi-mt dl div{display:flex;justify-content:space-between;gap:8px;font:500 13px var(--f-os)}.wi-mt dt{color:rgba(255,255,255,.7)}.wi-mt dd{margin:0;text-align:right}
+.wi-mt dd small{opacity:.65;font:500 11px var(--f-mono);margin-left:4px}
 @container screen (max-width:1100px){.wi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container screen (max-width:760px){.wi-two{grid-template-columns:1fr}.wi-temp{font-size:88px}
   .screen[data-app="wx"] .split>.side{background:transparent}}
 @container screen (max-width:560px){.wi-hero h2{font-size:26px}.wi-grid{gap:10px}.wi-tile{min-height:0}.wi-tile .wi-tv{font-size:26px}
-  .wi-wb{grid-template-columns:1fr}.wi-rose svg.wind{max-width:200px}.wi-day{grid-template-columns:52px 44px 34px minmax(0,1fr) 34px;gap:8px;font-size:16px}}
+  .wi-wb{grid-template-columns:1fr}.wi-rose svg.wind{max-width:200px}.wi-day{grid-template-columns:52px 44px 34px minmax(0,1fr) 34px;gap:8px;font-size:16px}
+  .wi-sb{grid-template-columns:1fr;gap:6px}.wi-arcw{min-height:96px}.wi-mb{gap:16px}.wi-mface{width:84px;height:84px;background:radial-gradient(circle,rgba(160,175,200,.13) 0 40px,transparent 41px)}}
 </style>`);
 
 /* ===== Weather: the moving sky =====
@@ -5009,9 +5156,13 @@ const WXAN={cv:null,ctx:null,w:0,h:0,dpr:1,raf:0,last:0,t:0,kind:"",parts:null,c
 /* the Moon's phase: days since a known new moon, over the synodic month */
 function wxMoon(){const syn=29.530588853,d=(Date.now()-Date.UTC(2000,0,6,18,14))/864e5,age=((d%syn)+syn)%syn;return{age,f:age/syn}}
 
-function wxaKind(){const s=WXA.sky||screenEl.dataset.wxsky||"clear-day",night=/night/.test(s);
-  return{s,night,stars:s==="clear-night"||s==="cloud-night",moon:s==="clear-night"||s==="cloud-night",sun:s==="clear-day",
-    clouds:/cloud|rain|storm|snow/.test(s)?(s.startsWith("cloud")?1:2):s==="clear-day"?.35:0,rain:/rain|storm/.test(s),storm:s==="storm",snow:s==="snow",fog:/fog/.test(s)}}
+function wxaKind(){const s=WXA.sky||screenEl.dataset.wxsky||"clear-day",night=/night/.test(s),cv=WXA.cover;
+  /* the clouds follow the METAR's cover (FEW to OVC); no stars through an overcast */
+  return{s,night,stars:(s==="clear-night"||s==="cloud-night")&&!(cv>=.84),moon:s==="clear-night"||s==="cloud-night",sun:s==="clear-day",
+    clouds:/rain|storm|snow/.test(s)?2:cv!=null?Math.min(2,cv*2.4):s.startsWith("cloud")?1:s==="clear-day"?.35:0,rain:/rain|storm/.test(s),storm:s==="storm",snow:s==="snow",fog:/fog/.test(s)}}
+/* where the Sun is (wxios.js keeps WXA.sun): daylight, how warm the light is near sunrise and sunset, how many stars show */
+function wxSunF(){const a=WXA.sun?WXA.sun.alt:/night/.test(WXA.sky)?-25:35;
+  return{alt:a,dl:wxSS(-8,6,a),warm:wxSS(-10,-2,a)*(1-wxSS(2,11,a)),star:1-wxSS(-12,-1,a)}}
 
 function wxaSize(){const c=WXAN.cv;if(!c)return;const r=c.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1)*(r.width*r.height>1.6e6?.75:1);
   const w=Math.max(1,Math.round(r.width)),h=Math.max(1,Math.round(r.height));if(w===WXAN.w&&h===WXAN.h&&dpr===WXAN.dpr)return;
@@ -5024,7 +5175,9 @@ function wxaCloud(r,tone,a){const W=Math.round(r*5.2),H=Math.round(r*2.7),c=docu
   const n=14+Math.floor(Math.random()*8);for(let i=0;i<n;i++){const u=Math.random(),rr=r*(.32+.5*Math.random()*(1-Math.abs(u-.5))),x=r*1.05+u*(W-r*2.1),y=H*.66-rr*(.35+.5*Math.random())*(1-Math.abs(u-.5)*1.2);
     const gr=g.createRadialGradient(x,y-rr*.3,rr*.05,x,y,rr);gr.addColorStop(0,`rgba(${tone},${a})`);gr.addColorStop(.55,`rgba(${tone},${a*.7})`);gr.addColorStop(1,`rgba(${tone},0)`);g.fillStyle=gr;g.beginPath();g.arc(x,y,rr,0,7);g.fill()}
   return c}
-function wxaSetup(){const K=wxaKind(),w=WXAN.w,h=WXAN.h,area=w*h;WXAN.K=K;WXAN.kind=K.s+WXA.int;
+function wxaSetup(){const K=wxaKind(),w=WXAN.w,h=WXAN.h,area=w*h;WXAN.K=K;WXAN.kind=K.s+WXA.int+":"+WXA.cover;
+  /* the Sun and Moon sit top right of the airport's page (beside the title, clear of the cards) */
+  {const d=document.querySelector(".split>.detail"),cr=WXAN.cv.getBoundingClientRect(),r=d&&d.getBoundingClientRect();WXAN.ax=r&&r.width>0?(r.left-cr.left)+r.width*.86:w*.84;WXAN.ay=Math.max(64,h*.1)}
   /* stars */
   WXAN.stars=K.stars?Array.from({length:Math.round(area/1700)},()=>({x:Math.random()*w,y:Math.random()*h*.85,r:Math.random()<.06?1.3+Math.random()*.7:.35+Math.random()*.8,
     a:.35+Math.random()*.65,p:Math.random()*6.3,s:.6+Math.random()*2.2,c:Math.random()<.18?"255,226,196":Math.random()<.2?"200,218,255":"255,255,255"})):[];
@@ -5046,19 +5199,25 @@ function wxaDrop(any){const w=WXAN.w,h=WXAN.h,heavy=WXA.int===2||WXAN.K&&WXAN.K.
 function wxaFlake(any){const w=WXAN.w,h=WXAN.h,z=Math.random();return{x:Math.random()*w,y:any?Math.random()*h:-10,z,r:.8+z*2.8,v:22+z*55,p:Math.random()*6.3,sw:.6+Math.random()*1.4}}
 
 function wxaFrame(now){WXAN.raf=0;if(!WXAN.cv||cur!=="wx"||document.hidden)return;const dt=Math.min(.05,(now-(WXAN.last||now))/1000);WXAN.last=now;WXAN.t+=dt;
-  wxaSize();if(WXAN.kind!==(WXA.sky||screenEl.dataset.wxsky)+WXA.int)wxaSetup();wxaDraw(dt);if(typeof wxglDraw==="function")wxglDraw(dt);if(!WXAN.still)WXAN.raf=requestAnimationFrame(wxaFrame)}
+  wxaSize();if(WXAN.kind!==(WXA.sky||screenEl.dataset.wxsky)+WXA.int+":"+WXA.cover)wxaSetup();wxaDraw(dt);if(typeof wxglDraw==="function")wxglDraw(dt);if(!WXAN.still)WXAN.raf=requestAnimationFrame(wxaFrame)}
 
-function wxaDraw(dt){const g=WXAN.ctx,w=WXAN.w,h=WXAN.h,K=WXAN.K,t=WXAN.t;g.clearRect(0,0,w,h);
-  /* the Sun */
-  if(K.sun){const x=w*.8,y=h*.12,R=Math.max(w,h)*.55,p=1+.04*Math.sin(t*.5);const gr=g.createRadialGradient(x,y,0,x,y,R*p);gr.addColorStop(0,"rgba(255,250,225,.75)");gr.addColorStop(.06,"rgba(255,240,190,.45)");gr.addColorStop(.25,"rgba(255,225,160,.12)");gr.addColorStop(1,"rgba(255,220,150,0)");g.fillStyle=gr;g.fillRect(0,0,w,h);
-    g.save();g.translate(x,y);g.rotate(t*.02);g.globalCompositeOperation="lighter";for(let i=0;i<12;i++){g.rotate(Math.PI/6);const l=R*(.55+.15*Math.sin(t*.7+i));const rg=g.createLinearGradient(0,0,l,0);rg.addColorStop(0,"rgba(255,245,210,.045)");rg.addColorStop(1,"rgba(255,245,210,0)");g.fillStyle=rg;g.beginPath();g.moveTo(0,0);g.lineTo(l,-l*.06);g.lineTo(l,l*.06);g.fill()}g.restore()}
-  /* stars and shooting stars */
-  if(WXAN.stars.length){for(const s of WXAN.stars){const a=s.a*(.55+.45*Math.sin(t*s.s+s.p));g.fillStyle=`rgba(${s.c},${a})`;g.beginPath();g.arc(s.x,s.y,s.r,0,7);g.fill();if(s.r>1.3){const gr=g.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*4);gr.addColorStop(0,`rgba(${s.c},${a*.35})`);gr.addColorStop(1,`rgba(${s.c},0)`);g.fillStyle=gr;g.beginPath();g.arc(s.x,s.y,s.r*4,0,7);g.fill()}}
-    if(!WXAN.shoot&&t>WXAN.nextShoot&&K.s==="clear-night"){WXAN.shoot={x:w*(.1+Math.random()*.6),y:h*(.05+Math.random()*.3),vx:(Math.random()<.5?-1:1)*(500+Math.random()*300),vy:220+Math.random()*120,life:0}}
+function wxaDraw(dt){const g=WXAN.ctx,w=WXAN.w,h=WXAN.h,K=WXAN.K,t=WXAN.t;g.clearRect(0,0,w,h);const F=wxSunF();WXAN.glow=null;
+  /* the Sun sits lower and warmer as it nears the horizon */
+  const sx=WXAN.ax||w*.8,sy=h*(.08+.3*(1-wxSS(0,32,F.alt)));
+  /* dawn and dusk: a warm glow low on the Sun's side of the sky */
+  if(F.warm>.01&&!K.storm){const k=F.warm*(K.rain||K.fog?.45:K.s.startsWith("cloud")?.7:1),gx=sx,gy=F.alt>0?sy+h*.2:h*1.08,R=Math.max(w,h)*(.5+.2*F.warm);
+    const gr=g.createRadialGradient(gx,gy,0,gx,gy,R);gr.addColorStop(0,`rgba(255,176,118,${(.3*k).toFixed(3)})`);gr.addColorStop(.4,`rgba(255,146,124,${(.12*k).toFixed(3)})`);gr.addColorStop(1,"rgba(255,140,120,0)");g.fillStyle=gr;g.fillRect(0,0,w,h)}
+  if(K.sun&&F.alt>-1){const x=sx,y=sy,R=Math.max(w,h)*.55,p=1+.04*Math.sin(t*.5),wm=F.warm,c=(a,b)=>Math.round(a+(b-a)*wm);WXAN.glow={x,y,r:.16,s:.55,col:[1,.94-.2*wm,.82-.3*wm]};
+    const c0=`${c(255,255)},${c(250,214)},${c(225,160)}`,c1=`${c(255,255)},${c(240,196)},${c(190,130)}`;
+    const gr=g.createRadialGradient(x,y,0,x,y,R*p);gr.addColorStop(0,`rgba(${c0},.78)`);gr.addColorStop(.06,`rgba(${c1},.47)`);gr.addColorStop(.25,`rgba(${c1},${(.12+.1*wm).toFixed(3)})`);gr.addColorStop(1,`rgba(${c1},0)`);g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.save();g.translate(x,y);g.rotate(t*.02);g.globalCompositeOperation="lighter";for(let i=0;i<12;i++){g.rotate(Math.PI/6);const l=R*(.55+.15*Math.sin(t*.7+i));const rg=g.createLinearGradient(0,0,l,0);rg.addColorStop(0,`rgba(${c0},.045)`);rg.addColorStop(1,`rgba(${c0},0)`);g.fillStyle=rg;g.beginPath();g.moveTo(0,0);g.lineTo(l,-l*.06);g.lineTo(l,l*.06);g.fill()}g.restore()}
+  /* stars and shooting stars: they fade out through twilight */
+  if(WXAN.stars.length&&F.star>.02){const fs=F.star*(K.s==="cloud-night"?.55:1);for(const s of WXAN.stars){const a=s.a*fs*(.55+.45*Math.sin(t*s.s+s.p));g.fillStyle=`rgba(${s.c},${a})`;g.beginPath();g.arc(s.x,s.y,s.r,0,7);g.fill();if(s.r>1.3){const gr=g.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*4);gr.addColorStop(0,`rgba(${s.c},${a*.35})`);gr.addColorStop(1,`rgba(${s.c},0)`);g.fillStyle=gr;g.beginPath();g.arc(s.x,s.y,s.r*4,0,7);g.fill()}}
+    if(!WXAN.shoot&&t>WXAN.nextShoot&&K.s==="clear-night"&&F.star>.8){WXAN.shoot={x:w*(.1+Math.random()*.6),y:h*(.05+Math.random()*.3),vx:(Math.random()<.5?-1:1)*(500+Math.random()*300),vy:220+Math.random()*120,life:0}}
     const S=WXAN.shoot;if(S){S.life+=dt;S.x+=S.vx*dt;S.y+=S.vy*dt;const a=Math.max(0,1-S.life/.9),L=.09;const gr=g.createLinearGradient(S.x,S.y,S.x-S.vx*L,S.y-S.vy*L);gr.addColorStop(0,`rgba(255,255,255,${a})`);gr.addColorStop(1,"rgba(255,255,255,0)");
       g.strokeStyle=gr;g.lineWidth=1.6;g.beginPath();g.moveTo(S.x,S.y);g.lineTo(S.x-S.vx*L,S.y-S.vy*L);g.stroke();if(S.life>.9){WXAN.shoot=null;WXAN.nextShoot=t+7+Math.random()*14}}}
   /* the Moon, lit as tonight */
-  if(K.moon)wxaMoonDraw(g,w*.74,h*.3,Math.min(w,h)*.062,K.s==="cloud-night"?.6:1);
+  if(K.moon)wxaMoonDraw(g,WXAN.ax||w*.8,(WXAN.ay||h*.1)+Math.min(w,h)*.02,Math.min(w,h)*.056,WXA.cover>=.84?.35:K.s==="cloud-night"||WXA.cover>=.4?.7:1);
   /* with WebGL (wxgl.js) the clouds, rain, snow and fog are drawn in 3D on the canvas above; this one keeps the sky */
   const GL=WXAN.glOn;
   /* clouds */
@@ -5131,6 +5290,7 @@ function wxmRender(R,A){const T=wxmTex();if(!T)return null;const dpr=Math.min(2,
     D[o]=Math.min(255,v*262);D[o+1]=Math.min(255,v*264);D[o+2]=Math.min(255,v*272);D[o+3]=Math.min(255,255*edge*Math.min(1,b*3))}
   g.putImageData(im,0,0);return{c,S,dpr}}
 function wxaMoonDraw(g,x,y,R,alpha){const lat=WXA.lat!=null?WXA.lat:37.62,lon=WXA.lon!=null?WXA.lon:-122.38,A=wxAstro(lat,lon,Date.now());if(A.alt<-1)return;
+  WXAN.glow={x,y,r:.07+.05*A.lit,s:.25+.45*A.lit,col:[.78,.83,.95]};
   const key=Math.round(R)+":"+Math.round(A.phase*200)+":"+Math.round(A.rot*60)+":"+Math.round(Math.atan2(A.limb[0],A.limb[1])*60)+":"+(WXM.tex?1:0);
   if(WXM.key!==key){const r=wxmRender(R,A);if(!r)return;WXM.img=r;WXM.key=key}
   const M=WXM.img,s=M.S/M.dpr;g.save();g.globalAlpha=alpha;g.translate(x,y);g.rotate(A.rot);
@@ -5178,7 +5338,7 @@ float fbmN(vec3 p,float n){float a=.5,s=0.,w=0.;for(int i=0;i<5;i++){if(float(i)
 float hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}`;
 /* pass 1: volumetric clouds into a texture */
 const WXGL_CLOUD_FS=`precision highp float;
-uniform vec2 uR;uniform float uT,uCover,uBase,uSteps,uAbs,uFlash;uniform vec3 uLit,uDark,uL;uniform vec2 uWind,uFP;
+uniform vec2 uR;uniform float uT,uCover,uBase,uSteps,uAbs,uFlash;uniform vec3 uLit,uDark,uL,uGC;uniform vec2 uWind,uFP;uniform vec4 uG;
 ${WXGL_NOISE}
 /* the cloud layer is a slab of sky between two heights; the camera stands on the ground and looks a little up */
 const float H0=1.0,H1=2.1;
@@ -5212,6 +5372,8 @@ void main(){
       c*=.72+.55*(1.-d);                           /* thin parts paler, dense cores darker: texture in a deck */
       /* distance: far clouds fade into the haze near the horizon */
       float fogk=1.-exp(-t*.09);c=mix(c,mix(uDark,uLit,.55),fogk*.7);
+      /* thin cloud passing near the Moon (or the Sun) glows with its light: a silver lining */
+      if(uG.w>0.){float gd=length(vec2((uv.x-uG.x)*asp,uv.y-uG.y));c+=uGC*uG.w*exp(-gd/uG.z)*(.3+.7*(1.-d));}
       if(uFlash>0.){vec2 sp=vec2(uv.x-uFP.x,(uv.y-uFP.y)*.6);c+=vec3(.78,.82,1.)*uFlash*exp(-length(sp)*4.)*1.6*(1.-hf*.5);}
       float a=(1.-exp(-d*dt*7.))*(1.-fogk*.5);
       col+=T*a*c;T*=1.-a;if(T<.02)break;}}
@@ -5280,6 +5442,7 @@ function wxglInit(){if(WXGL.ok!=null)return WXGL.ok;WXGL.ok=false;try{
 const WXGL_SKY={
   "clear-day":{cover:.36,base:.55,lit:[1,1,1],dark:[.74,.79,.88],abs:3},
   "cloud-day":{cover:.5,base:.36,lit:[1,1,1],dark:[.66,.71,.80],abs:3.6},
+  "clear-night":{cover:.3,base:.4,lit:[.42,.47,.58],dark:[.11,.13,.19],abs:3.6,night:1},
   "cloud-night":{cover:.5,base:.38,lit:[.42,.47,.58],dark:[.11,.13,.19],abs:3.6,night:1},
   "rain":{cover:.74,base:.22,lit:[.74,.77,.83],dark:[.20,.23,.28],abs:2.2,rain:1},
   "rain-night":{cover:.74,base:.22,lit:[.34,.38,.46],dark:[.06,.08,.11],abs:2.2,rain:1,night:1},
@@ -5287,12 +5450,24 @@ const WXGL_SKY={
   "snow":{cover:.7,base:.26,lit:[.97,.98,1],dark:[.58,.62,.70],abs:2.4,snow:1},
   "fog":{cover:.55,base:.5,lit:[.94,.95,.97],dark:[.70,.73,.78],abs:2.6,fog:1},
   "fog-night":{cover:.5,base:.5,lit:[.40,.44,.52],dark:[.16,.18,.23],abs:2.6,fog:1,night:1}};
-function wxglSetup(K){const S=WXGL_SKY[K.s];WXAN.glOn=false;if(WXAN.gcv)WXAN.gcv.hidden=true;if(!S||!wxglInit())return;
+/* the same sky by day and by night, so twilight can light the clouds between the two */
+const WXGL_DN={"clear-day":"clear-night","clear-night":"clear-day","cloud-day":"cloud-night","cloud-night":"cloud-day","rain":"rain-night","rain-night":"rain","fog":"fog-night","fog-night":"fog"};
+function wxglSetup(K){const S=WXGL_SKY[K.s];WXAN.glOn=false;if(WXAN.gcv)WXAN.gcv.hidden=true;if(!S)return;
+  /* how much cloud: the METAR's layers (FEW .2 … OVC .84); rain, storm and snow keep at least their own deck */
+  const cv=WXA.cover,cover=cv==null?S.cover:S.rain||S.snow?Math.max(S.cover,cv):cv;
+  if(cover<.05&&!S.rain&&!S.snow&&!S.fog)return;if(!wxglInit())return;
   const gcv=WXAN.gcv;if(!gcv.isConnected&&WXAN.cv)WXAN.cv.after(gcv);gcv.hidden=false;
-  const int=WXA.int,e=WXA.wdir!=null?-Math.sin(WXA.wdir*Math.PI/180):.3;
-  WXGL.s={...S,rain:S.rain?S.rain*[.45,1,1.8][int]:0,snow:S.snow?[.55,1,1.6][int]:0,night:S.night?1:0,
+  const int=WXA.int,e=WXA.wdir!=null?-Math.sin(WXA.wdir*Math.PI/180):.3,O=WXGL_SKY[WXGL_DN[K.s]];
+  const dim=(c,k)=>c.map(v=>v*k),D=S.night?(O||{lit:dim(S.lit,2.2),dark:dim(S.dark,2.4)}):S,Nn=S.night?S:(O||{lit:dim(S.lit,.42),dark:dim(S.dark,.35)});
+  WXGL.s={...S,cover,day:{lit:D.lit,dark:D.dark},nite:{lit:Nn.lit,dark:Nn.dark},rain:S.rain?S.rain*[.45,1,1.8][int]:0,snow:S.snow?[.55,1,1.6][int]:0,night:S.night?1:0,
     wind:[e*(.012+Math.min(30,WXA.wspd)/900),.004+Math.min(30,WXA.wspd)/2400],L:K.night?[.45,.55,.7]:[.55,.6,.6]};
   WXAN.glOn=true}
+/* the clouds' colours now: between their night and day colours by daylight, warmed near sunrise and sunset */
+function wxglCol(S){const F=typeof wxSunF==="function"?wxSunF():{dl:S.night?0:1,warm:0,alt:S.night?-25:35},mx=(a,b,k)=>a.map((v,i)=>v+(b[i]-v)*k);
+  let lit=mx(S.nite.lit,S.day.lit,F.dl),dark=mx(S.nite.dark,S.day.dark,F.dl);
+  const wk=F.warm*(S.rain||S.fog?.35:.85),b=.72+.28*F.dl;lit=mx(lit,[1*b,.74*b,.62*b],wk);dark=mx(dark,[.56*b,.42*b,.5*b],wk*.55);
+  /* low Sun: light from the side; at night the Moon's light from above */
+  const e=Math.max(.06,Math.min(1,F.alt/40)),L=F.alt>-6?[.8-.35*e,.12+.5*e,.6]:S.L;return{lit,dark,L,night:1-F.dl}}
 function wxglSize(){const gl=WXGL.gl,c=WXAN.gcv,w=WXAN.w,h=WXAN.h,dpr=Math.min(1.5,window.devicePixelRatio||1);
   const cw=Math.round(w*dpr),ch=Math.round(h*dpr);if(c.width!==cw||c.height!==ch){c.width=cw;c.height=ch}
   const fw=Math.max(64,Math.round(w*WXGL.scale)),fh=Math.max(48,Math.round(h*WXGL.scale));
@@ -5305,17 +5480,18 @@ function wxglDraw(dt){if(!WXAN.glOn||!WXGL.gl)return;const gl=WXGL.gl,S=WXGL.s,t
   if(dt>0){WXGL.ft.push(dt);if(WXGL.ft.length>45){const a=WXGL.ft.reduce((x,y)=>x+y,0)/WXGL.ft.length;WXGL.ft=[];
     if(a>.04&&WXGL.scale<=.22){WXAN.glOn=false;WXAN.gcv.hidden=true;WXGL.ok=false;console.warn("[wx3d] too slow here, using the 2D sky");return}
     if(a>.024&&WXGL.scale>.22){WXGL.scale=Math.max(.22,WXGL.scale*.8);WXGL.steps=Math.max(12,WXGL.steps-3)}else if(a<.0175&&WXGL.scale<.42){WXGL.scale=Math.min(.42,WXGL.scale*1.12);WXGL.steps=Math.min(22,WXGL.steps+1)}}}
-  const f=WXAN.flash||0;
+  const f=WXAN.flash||0;const C=WXGL.col=wxglCol(S);
   /* clouds every other frame (they move slowly), or every frame while lightning is on */
   WXGL.odd=!WXGL.odd;if(WXGL.odd||f>0||WXAN.still){const P=WXGL.P,u=P.u;gl.bindFramebuffer(gl.FRAMEBUFFER,WXGL.fb);gl.viewport(0,0,WXGL.fw,WXGL.fh);gl.useProgram(P.p);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,WXGL.ntex);gl.uniform1i(u.uN,0);
-    gl.uniform2f(u.uR,WXGL.fw,WXGL.fh);gl.uniform1f(u.uT,t);gl.uniform1f(u.uCover,S.cover);gl.uniform1f(u.uBase,S.base);gl.uniform1f(u.uSteps,WXGL.steps);gl.uniform1f(u.uAbs,S.abs);
-    gl.uniform1f(u.uFlash,f);gl.uniform2f(u.uFP,WXAN.flashX||.5,.8);gl.uniform3fv(u.uLit,S.lit);gl.uniform3fv(u.uDark,S.dark);gl.uniform3fv(u.uL,S.L);gl.uniform2fv(u.uWind,S.wind);
+    gl.uniform2f(u.uR,WXGL.fw,WXGL.fh);gl.uniform1f(u.uT,t);gl.uniform1f(u.uCover,S.cover);const C=WXGL.col;gl.uniform1f(u.uBase,S.base);gl.uniform1f(u.uSteps,WXGL.steps);gl.uniform1f(u.uAbs,S.abs);
+    gl.uniform1f(u.uFlash,f);gl.uniform2f(u.uFP,WXAN.flashX||.5,.8);gl.uniform3fv(u.uLit,C.lit);gl.uniform3fv(u.uDark,C.dark);gl.uniform3fv(u.uL,C.L);gl.uniform2fv(u.uWind,S.wind);
+    const G=WXAN.glow;gl.uniform4f(u.uG,G?G.x/WXAN.w:0,G?1-G.y/WXAN.h:0,G?G.r:.1,G?G.s:0);gl.uniform3fv(u.uGC,G?G.col:[0,0,0]);
     gl.drawArrays(gl.TRIANGLES,0,3)}
   const Q=WXGL.Q,u=Q.u;gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,WXAN.gcv.width,WXAN.gcv.height);gl.useProgram(Q.p);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,WXGL.ntex);gl.uniform1i(u.uN,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,WXGL.tex);gl.uniform1i(u.uC,1);
   gl.uniform2f(u.uR,WXAN.gcv.width,WXAN.gcv.height);gl.uniform2f(u.uCR,WXGL.fw,WXGL.fh);gl.uniform1f(u.uT,t);gl.uniform1f(u.uRain,S.rain);gl.uniform1f(u.uSnow,S.snow);gl.uniform1f(u.uFog,S.fog?1:0);
-  gl.uniform1f(u.uSlant,-(WXAN.slant||0));gl.uniform1f(u.uFlash,f);gl.uniform1f(u.uNight,S.night);gl.uniform3fv(u.uHaze,S.dark.map((v,i)=>v*.6+S.lit[i]*.4));
+  gl.uniform1f(u.uSlant,-(WXAN.slant||0));gl.uniform1f(u.uFlash,f);gl.uniform1f(u.uNight,C.night);gl.uniform3fv(u.uHaze,C.dark.map((v,i)=>v*.6+C.lit[i]*.4));
   gl.drawArrays(gl.TRIANGLES,0,3)}
 try{window.__efbWxgl=WXGL}catch(e){}
 
@@ -6473,7 +6649,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 17, 2026",["Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();

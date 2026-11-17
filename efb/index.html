@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1116.2249">
+<meta name="efb-build" content="1117.0832">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5901,7 +5901,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 17, 2026",["App Store: new pilots start with Roster, Mail, Map, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 17, 2026",["Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -8445,6 +8445,108 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @media (max-width:480px){.kb-acts{width:100%;justify-content:flex-end}.kb-acts .kb-pill{margin-right:auto}}
 </style>`);
 
+/* ===== Flight: the preflight in one app =====
+   Flight walks through the apps a pilot uses before departure, in order: Import Plan (Dispatch), the OFP, the
+   Loadsheet, Takeoff and Descent performance, and Charts. Each step is the real app, so everything in it works as
+   usual; a step bar under the app moves between the steps, and Flight reopens at the step where the pilot left it for
+   the same plan. Loading a plan moves on to the OFP by itself. Going to the Home Screen or to another app ends it. */
+APPS.flight={name:"Flight",bg:"linear-gradient(160deg,#2F8F9C,#123F49)",fg:"#fff",g:'<path d="M3 20.2h18" stroke-width="1.7"/><path d="M20.6 6.3c.7.6.6 1.6-.2 2.2L9.3 15.7c-.5.3-1.1.3-1.6 0l-3.4-2.4 1.5-.8 2.6.9 3.1-2-4.8-4.2 1.9-.9 6.5 2.3 3.3-2.1c.7-.5 1.6-.6 2.2-.2z" fill="#fff" stroke="none"/><circle cx="6" cy="20.2" r="1.15" fill="#9FE3EA" stroke="none"/><circle cx="12" cy="20.2" r="1.15" fill="#9FE3EA" stroke="none"/><circle cx="18" cy="20.2" r="1.15" fill="#fff" stroke="none"/>'};
+{const put=(a)=>{if(!a.includes("flight"))a.splice(0,0,"flight")};put(PAGE1);put(PAGE2)}
+const FL_STEPS=[{k:"plan",app:"simbrief",t:"Import Plan"},{k:"ofp",app:"ofpdoc",t:"OFP"},{k:"load",app:"load",t:"Loadsheet"},
+  {k:"to",app:"perf",mode:"to",t:"Takeoff"},{k:"ds",app:"perf",mode:"ds",t:"Descent"},{k:"charts",app:"charts",t:"Charts"}];
+const FL_APPS=[...new Set(FL_STEPS.map(s=>s.app))];
+const FL={on:store.get("flOn",false)===true,last:-1};
+/* the App Store lets Flight open its steps, also those not on the Home Screen */
+const flAllows=id=>FL.on&&(FL_APPS.includes(id)||id==="ofp");
+function flKey(){if(ofp._sample)return "";const x=O();return [x.flight,S(x.o.icao_code),S(x.d.icao_code),S(ofp.params&&ofp.params.request_id)].join("|")}
+function flSeen(){const s=store.get("flSeen",null),k=flKey();return s&&s.k===k&&Array.isArray(s.steps)?s:{k,steps:[],at:null}}
+function flMark(k){const s=flSeen();if(!s.steps.includes(k))s.steps.push(k);s.at=k;store.set("flSeen",s)}
+function flNow(){if(!FL.on||!cur||!FL_APPS.includes(cur))return -1;
+  if(cur==="perf"){const m=pfDs?"ds":pfState().mode;return m==="to"?3:4}
+  return FL_STEPS.findIndex(s=>s.app===cur)}
+function flResume(){if(ofp._sample)return 0;const i=FL_STEPS.findIndex(x=>x.k===flSeen().at);return i>=0?i:1}
+function flGo(i,replace){const st=FL_STEPS[i];if(!st)return;FL.on=true;store.set("flOn",true);
+  if(st.mode){pfDs=st.mode==="ds";store.set("pfDs",pfDs);if(!pfDs){const s=pfState();s.mode=st.mode;pfSave(s)}}
+  if(cur===st.app){render();const m=$("#main");if(m)m.scrollTop=0;return}
+  if(replace)location.replace("#"+st.app);else location.hash=st.app}
+function flDone(){const s=flSeen();s.at=null;store.set("flSeen",s);FL.on=false;store.set("flOn",false);goHome()}
+
+/* opening Flight goes straight to the step the pilot is on */
+V.flight=()=>{const i=flResume();FL.last=-1;setTimeout(()=>{if(cur==="flight")flGo(i,true)},0);
+  return `<div class="fl-boot" aria-hidden="true"></div>`};
+{const _g=goApp;goApp=function(id){
+  /* a plan loaded in Dispatch moves on to the OFP */
+  if(FL.on&&cur==="simbrief"&&id==="ofp"){flMark("plan");flGo(1);return}
+  return _g.apply(this,arguments)}}
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);
+  if(FL.on&&!FL_APPS.includes(h)&&h!=="flight"&&h!=="descent"){FL.on=false;FL.last=-1;store.set("flOn",false)}});
+
+/* ---------- the step bar ---------- */
+const FL_CHK='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.9 2.9 6.1-6.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FL_CHV=d=>`<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d<0?"M10 3.5L5.5 8l4.5 4.5":"M6 3.5L10.5 8 6 12.5"}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function flBar(){if(!cur)return;let b=$("#flBar");
+  if(!b){b=document.createElement("nav");b.id="flBar";b.className="fl-bar";b.setAttribute("aria-label","Flight steps");$("#homeInd").before(b)}
+  const i=flNow();screenEl.classList.toggle("fl-on",i>=0);if(i<0){b.innerHTML="";b._h="";FL.last=-1;return}
+  const st=FL_STEPS[i],seen=flSeen(),nx=FL_STEPS[i+1],pv=FL_STEPS[i-1];flMark(st.k);
+  const done=(s,j)=>j!==i&&(s.k==="plan"?!ofp._sample:seen.steps.includes(s.k));
+  const html=`<button class="fl-nav fl-prev" data-flgo="${i-1}"${pv?"":" disabled"} aria-label="${pv?"Back to "+esc(pv.t):"First step"}">${FL_CHV(-1)}<span>Back</span></button>
+  <ol class="fl-steps">${FL_STEPS.map((s,j)=>`<li><button class="fl-st${j===i?" on":""}${done(s,j)?" done":""}" data-flgo="${j}" aria-current="${j===i?"step":"false"}" aria-label="Step ${j+1}, ${esc(s.t)}${done(s,j)?", done":""}"><i>${done(s,j)?FL_CHK:j+1}</i><span>${esc(s.t)}</span></button></li>`).join("")}</ol>
+  <button class="fl-nav fl-next" data-flgo="${i+1}" aria-label="${nx?"Next: "+esc(nx.t):"Done, back to the Home Screen"}"><span class="fl-nl">${nx?"Next":"Done"}</span>${nx?`<span class="fl-nt">${esc(nx.t)}</span>`:""}${nx?FL_CHV(1):FL_CHK}</button>`;
+  if(b._h!==html){b.innerHTML=html;b._h=html}
+  /* the step slides in from the side it comes from */
+  if(FL.last>=0&&FL.last!==i&&!reduced()){const v=$("#view");if(v){v.classList.remove("fl-in-n","fl-in-p");void v.offsetWidth;v.classList.add(i>FL.last?"fl-in-n":"fl-in-p")}}
+  FL.last=i}
+/* the header shows the step, under Flight */
+{const _u=updBar;updBar=function(){_u.apply(this,arguments);flBar();const i=flNow();if(i<0)return;
+  const st=FL_STEPS[i],a=APPS.flight,x=O();$("#appTitle").textContent=st.t;
+  $("#navEyebrow").textContent=`Flight · Step ${i+1} of ${FL_STEPS.length}`+(ofp._sample?"":` · ${x.flight} ${S(x.o.icao_code)} → ${S(x.d.icao_code)}`);
+  const ic=$("#navIc");if(ic.dataset.fl!=="1"){ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;ic.dataset.fl="1"}}}
+{const _ac=appChrome;appChrome=function(){const r=_ac.apply(this,arguments);const ic=$("#navIc");if(ic)delete ic.dataset.fl;return r}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-flgo]");if(!t||t.disabled)return;const j=+t.dataset.flgo;
+  if(j>=FL_STEPS.length){flDone();return}if(j<0)return;try{navigator.vibrate&&navigator.vibrate(6)}catch(_){}flGo(j)});
+document.addEventListener("animationend",e=>{if(e.target&&e.target.id==="view")e.target.classList.remove("fl-in-n","fl-in-p")});
+document.addEventListener("keydown",e=>{if(flNow()<0||e.altKey||e.ctrlKey||e.metaKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+  if(e.key==="]"||e.key==="["){e.preventDefault();const j=flNow()+(e.key==="]"?1:-1);if(j>=0&&j<FL_STEPS.length)flGo(j)}});
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.fl-bar{display:none}
+.screen.fl-on .fl-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-top:1px solid var(--line);font-family:var(--f-ui);min-height:58px;box-sizing:border-box;position:relative;z-index:3;animation:flUp .32s cubic-bezier(.2,.85,.25,1)}
+@keyframes flUp{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
+.fl-boot{min-height:60vh}
+.fl-nav{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:2px;min-height:40px;padding:0 14px;font:500 13px/1 var(--f-ui);letter-spacing:.04em;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:transform .12s,background .15s,opacity .15s}
+.fl-nav svg{width:15px;height:15px;flex:none}
+.fl-nav:active{transform:scale(.96)}
+.fl-nav:disabled{opacity:.35;cursor:default;transform:none}
+.fl-next{background:var(--brand);border-color:var(--brand);color:#fff;margin-left:auto}
+.fl-next .fl-nt{font-weight:600}
+.fl-next .fl-nt::before{content:"· ";opacity:.7;font-weight:400}
+.fl-steps{list-style:none;margin:0 auto;padding:0;display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+.fl-steps li{display:flex;align-items:center;flex:none}
+.fl-steps li+li::before{content:"";width:16px;height:1px;background:var(--line);margin:0 2px}
+.fl-st{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--label);padding:6px 8px;border-radius:999px;font:500 12.5px/1 var(--f-ui);letter-spacing:.03em;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s}
+.fl-st i{font-style:normal;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.4px solid var(--line);font:600 11px/1 var(--f-mono);color:var(--label);transition:background .2s,border-color .2s,color .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.fl-st i svg{width:13px;height:13px}
+.fl-st.done i{background:color-mix(in srgb,var(--green) 14%,transparent);border-color:var(--green);color:var(--green)}
+.fl-st.on{color:var(--ink);background:color-mix(in srgb,var(--brand) 11%,transparent)}
+.fl-st.on i{background:var(--brand);border-color:var(--brand);color:#fff;transform:scale(1.08)}
+.fl-st:hover:not(.on){color:var(--ink)}
+:root[data-theme="dark"] .fl-st.on{background:rgba(124,194,201,.14)}
+#view.fl-in-n{animation:flInN .3s cubic-bezier(.2,.85,.25,1)}
+#view.fl-in-p{animation:flInP .3s cubic-bezier(.2,.85,.25,1)}
+@keyframes flInN{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
+@keyframes flInP{from{transform:translateX(-28px);opacity:0}to{transform:none;opacity:1}}
+@media (max-width:1000px){.fl-st:not(.on) span{display:none}.fl-steps li+li::before{width:10px}}
+@media (max-width:560px){
+  .screen.fl-on .fl-bar{gap:6px;padding:7px 10px;min-height:54px}
+  .fl-prev span,.fl-next .fl-nt,.fl-st span{display:none}
+  .fl-nav{padding:0 12px;min-height:40px}
+  .fl-prev{padding:0 10px}
+  .fl-steps{gap:0}.fl-steps li+li::before{width:6px;margin:0 1px}
+  .fl-st{padding:5px 3px}.fl-st i{width:24px;height:24px}}
+html.pwa-ios .screen.fl-on .fl-bar{margin-bottom:0}
+@media (prefers-reduced-motion:reduce){.screen.fl-on .fl-bar,#view.fl-in-n,#view.fl-in-p{animation:none}}
+</style>`);
+
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
    Touch and hold an app for its menu (Edit Home Screen), or hold and move it, or hold an empty spot: the icons jiggle and
    any app can be dragged within the page, between pages (iPhone: hold it at the screen edge) and into or out of the Dock.
@@ -8673,10 +8775,11 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    download animation. The installed list follows the pilot to every device (Worker /api/efb/apps). A device that was
    already in use before the App Store keeps every app. Removing an app takes it off the Home Screen; its data stays. */
 APPS.store={name:"App Store",bg:"linear-gradient(180deg,#1DA1FF,#0A62E0)",fg:"#fff",g:'<path d="M12 4.5l-1.3 2.2M8.9 9.7L5 16.4M15.1 9.7l-1.6-2.8M19 16.4l-1.6-2.8" stroke-width="2.1"/><path d="M4.5 13.6h7.3M14 13.6h5.5" stroke-width="2.1"/><path d="M10.2 9.7h-1.3l3.1-5.2" stroke-width="2.1"/>'};
-const AS_CORE=["prefs","store"],AS_DEF=["roster","mail","map","simbrief","timer","store","prefs"];
+const AS_CORE=["prefs","store"],AS_DEF=["roster","mail","map","flight","simbrief","timer","store","prefs"];
 const AS_INFO={
   roster:{c:"company",s:"Bookings, check-in and briefings",d:"See your upcoming flights from vAMSYS, check in up to 12 hours before departure and get a briefing with the plan, weather and ATIS for both ends.",f:["Duty times and turnarounds","Check in from the EFB","Briefing with METAR, TAF and ATIS"]},
   mail:{c:"company",s:"Company notices and messages",d:"Read notices from Polaris operations and write to staff. New messages arrive with a notification, also when the EFB is closed if push is on.",f:["Notices with attachments","Messages to and from staff","Notifications on the Dynamic Island"]},
+  flight:{c:"plan",s:"Your preflight, step by step",d:"Load the plan, read the OFP, then work through the loadsheet, takeoff and descent performance and the charts, one step after another. Flight opens the apps it needs, also before you get them.",f:["Import Plan, OFP, Loadsheet, Takeoff, Descent, Charts","Picks up where you left off","Moves on to the OFP when the plan loads"]},
   simbrief:{c:"plan",s:"Load your SimBrief plan",d:"Fetch your newest SimBrief flight plan and every app fills in with your flight: the OFP, performance, loadsheet, weather and the map.",f:["One tap to load the newest plan","Paste or upload when fetching is blocked","Can load automatically when the EFB opens"]},
   ofp:{c:"plan",s:"Route, fuel and times at a glance",d:"A summary of the loaded flight: route, fuel figures, weights and times, with the nav log and block times.",f:["Fuel and weight summary","Nav log","Block times (OOOI)"]},
   ofpdoc:{c:"plan",s:"The operational flight plan",d:"The full OFP as a document you can read and write on with the pens, like the paper copy on the flight deck.",f:["Red, blue, green and black pens","Highlighter and eraser","Kept with the flight"]},
@@ -8703,6 +8806,7 @@ const ASX={st:null,tab:"today",q:"",det:null,busy:{},fresh:new Set(),syncing:fal
 function asState(){if(ASX.st)return ASX.st;let s=store.get("appsInst",null);
   if(!s||!Array.isArray(s.list)){s={list:asUsedBefore()?Object.keys(APPS).filter(id=>id[0]!=="_"):AS_DEF.slice(),upd:1,first:true};store.set("appsInst",s)}
   ASX.st=s;return s}
+const asOk=id=>asHas(id)||(typeof flAllows==="function"&&flAllows(id));
 const asHas=id=>!APPS[id]||id[0]==="_"||AS_CORE.includes(id)||asState().list.includes(id);
 function asSet(list,fromServer,upd){const s=asState();s.list=[...new Set([...list.filter(id=>APPS[id]),...AS_CORE])];s.upd=fromServer?upd:Date.now();delete s.first;store.set("appsInst",s);const rc=store.get("recents",null);if(Array.isArray(rc))store.set("recents",rc.filter(id=>s.list.includes(id)||!APPS[id]));if(!fromServer)asSyncSoon()}
 
@@ -8742,7 +8846,7 @@ function asRow(id,i){const A=AS_INFO[id];return `<div class="as-row" style="--i:
 function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["ofpdoc","perf","load"].filter(id=>!asHas(id));
   const card=(cls,eyebrow,title,sub,body,i)=>`<section class="as-card ${cls}" style="--i:${i}"><div class="as-ch"><span>${eyebrow}</span><b>${title}</b><p>${sub}</p></div>${body}</section>`;
   return `<div class="as-date">${day}</div><h1 class="as-h1">Today</h1>
-  ${card("c-plan","Get started","Plan your first flight","Load the plan in Dispatch, then read the OFP and work out the numbers.",`<div class="as-bund">${["simbrief","ofpdoc","perf","load"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="as-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="as-ok">All on your Home Screen</span>`}</div>`,0)}
+  ${card("c-plan","Get started","Plan your first flight","Open Flight and go step by step: load the plan, read the OFP, then work out the numbers.",`<div class="as-feat">${asIcon("flight","md")}<span class="as-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="as-bund">${["simbrief","ofpdoc","perf","load"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="as-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="as-ok">All on your Home Screen</span>`}</div>`,0)}
   ${card("c-kb","New","Kneeboard","Clearances, ATIS and takeoff data on forms that fill themselves, with the OFP pens.",`<div class="as-feat">${asIcon("kneeboard","md")}<span class="as-rt"><b>Kneeboard</b><small>${esc(AS_INFO.kneeboard.s)}</small></span>${asBtn("kneeboard")}</div>`,1)}
   ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="as-list">${["checklist","charts","wx","logbook"].map((id,i)=>asRow(id,i)).join("")}</div>`,2)}`}
 function asApps(){const q=ASX.q.trim().toLowerCase();let out="";
@@ -8781,16 +8885,19 @@ function asNeed(id){if(!APPS[id]||!AS_INFO[id])return;asNeedClose(true);const A=
   document.body.insertAdjacentHTML("beforeend",`<div class="as-need" id="asNeed" role="dialog" aria-label="Get ${esc(APPS[id].name)}"><div class="as-nshade" data-asneedx></div><div class="as-ncard">${asIcon(id,"md")}<b>${esc(APPS[id].name)}</b><p>${esc(A.s)}. Get it from the App Store to open it.</p><div class="as-nact"><button class="as-nbtn" data-asneedx>Not Now</button><button class="as-nbtn pri" data-asneed="${id}" data-asb="${id}">Get</button></div></div></div>`)}
 function asNeedClose(now){const n=$("#asNeed");if(!n)return;if(now||reduced()){n.remove();return}n.classList.add("out");setTimeout(()=>n.remove(),200)}
 /* links and icons pointing at an app that isn't installed */
-document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;const id=a.getAttribute("href").slice(1);if(APPS[id]&&!asHas(id)){e.preventDefault();e.stopImmediatePropagation();asNeed(id)}},true);
-{const _g=goApp;goApp=function(id){if(APPS[id]&&!asHas(id)){asNeed(id);return}return _g.apply(this,arguments)}}
-{const _ac=appChrome;appChrome=function(id){if(APPS[id]&&!asHas(id)){setTimeout(()=>{goHome();asNeed(id)},0)}return _ac.apply(this,arguments)}}
+document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;const id=a.getAttribute("href").slice(1);if(APPS[id]&&!asOk(id)){e.preventDefault();e.stopImmediatePropagation();asNeed(id)}},true);
+{const _g=goApp;goApp=function(id){
+  /* a plan loaded in Dispatch opens the OFP, or the operational flight plan when only that is on the Home Screen */
+  if(id==="ofp"&&cur==="simbrief"&&!asOk("ofp")){if(asOk("ofpdoc"))id="ofpdoc";else{render();return}}
+  if(APPS[id]&&!asOk(id)){asNeed(id);return}return _g.call(this,id)}}
+{const _ac=appChrome;appChrome=function(id){if(APPS[id]&&!asOk(id)){setTimeout(()=>{goHome();asNeed(id)},0)}return _ac.apply(this,arguments)}}
 
 /* ---------- Home Screen: remove an app, or only take it off the Home Screen ---------- */
 {const _h=hlHide;hlHide=function(e){const id=e&&e.dataset&&e.dataset.app;if(!id||AS_CORE.includes(id)||!AS_INFO[id])return _h.apply(this,arguments);
   const old=$("#asRm");if(old)old.remove();
   document.body.insertAdjacentHTML("beforeend",`<div class="as-need" id="asRm" role="alertdialog" aria-label="Remove ${esc(APPS[id].name)}"><div class="as-nshade" data-asrmx></div><div class="as-ncard as-alert"><b>Remove “${esc(APPS[id].name)}”?</b><p>Removing it from the Home Screen keeps it installed: add it back in Settings › Home Screen. Remove App takes it off all your devices; get it again from the App Store.</p><div class="as-alist"><button class="red" data-asrm="app">Remove App</button><button data-asrm="home">Remove from Home Screen</button><button class="b" data-asrmx>Cancel</button></div></div></div>`);
   const box=$("#asRm"),close=()=>{box.classList.add("out");setTimeout(()=>box.remove(),reduced()?0:200)};
-  const t0=performance.now();box.addEventListener("click",ev=>{const b=ev.target.closest("[data-asrm],[data-asrmx]");if(!b)return;if(performance.now()-t0<400&&b.classList.contains("as-nshade"))return;close();
+  const t0=performance.now();box.addEventListener("click",ev=>{const b=ev.target.closest("[data-asrm],[data-asrmx]");if(!b)return;/* the tap that opened the alert must not also answer it */if(performance.now()-t0<400)return;close();
     if(b.dataset.asrm==="home")_h.call(this,e);
     else if(b.dataset.asrm==="app"){const par=e.parentNode;asSet(asState().list.filter(x=>x!==id));toast(APPS[id].name+" removed");
       const done=()=>{e.remove();if(par)hlSaveDom()};if(reduced()){done();return}e.style.transition="transform .25s ease-in,opacity .25s";e.style.transform="scale(.2)";e.style.opacity="0";setTimeout(done,240)}})}}
@@ -8811,6 +8918,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .as-all{margin-left:auto;border:0;border-radius:18px;background:var(--ios-tint);color:#fff;font:700 15px var(--f-os);padding:8px 16px;cursor:pointer}
 .as-ok{margin-left:auto;font:600 14px var(--f-os);color:var(--ios-lbl2)}
 .as-feat{display:flex;align-items:center;gap:12px;padding:14px 18px 18px}
+.as-feat+.as-bund{padding-top:0}
 .as-list{padding:4px 8px 10px}
 .as-ic{flex:none;width:58px;height:58px;border-radius:13px;display:grid;place-items:center;box-shadow:0 0 0 .5px rgba(0,0,0,.08)}
 .as-ic svg{width:60%;height:60%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

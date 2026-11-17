@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.2343">
+<meta name="efb-build" content="1117.2347">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5788,7 +5788,7 @@ function wxbPage(id){const keep={sel:wxSel,last:WXS_LAST,locs:WXR.locs,wxa:Objec
   const T=document.createElement("template");T.innerHTML=html;const d=T.content.querySelector(".split>.detail>.dwrap");return d?{html:d.innerHTML,bg}:null}
 function wxbPager(dir){const det=$(".split>.detail"),cw=det&&det.querySelector(":scope>.dwrap");if(!det||!cw)return null;
   const ids=wxbIds(),i=ids.indexOf(wxSel),j=i+dir,P={det,cw,dir,W:det.clientWidth+18,id:j>=0&&j<ids.length?ids[j]:null,g:null,bgx:null};
-  if(P.id){const pg=wxbPage(P.id);if(pg){const g=document.createElement("div");g.className="dwrap wxb-ghost";g.setAttribute("aria-hidden","true");g.innerHTML=pg.html;g.style.top=det.scrollTop+"px";
+  if(P.id){const pg=wxbPage(P.id);if(pg){const g=document.createElement("div");g.className="dwrap wxb-ghost";g.setAttribute("aria-hidden","true");g.innerHTML=pg.html;/* line up with the page it sits beside (the pane has padding the absolute box would otherwise skip) */g.style.top=(det.scrollTop+cw.offsetTop)+"px";g.style.left=cw.offsetLeft+"px";g.style.width=cw.offsetWidth+"px";g.style.right="auto";
       g.style.transform=`translateX(${dir*P.W}px)`;det.appendChild(g);P.g=g;
       const win=$("#win");if(win&&pg.bg){const b=document.createElement("div");b.className="wxb-bgx";b.style.background=pg.bg;b.style.opacity="0";win.appendChild(b);P.bgx=b}}}
   return P}

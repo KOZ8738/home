@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.2300">
+<meta name="efb-build" content="1117.2327">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4868,8 +4868,8 @@ condText=function(m){if(!m)return"—";if(m.wx.length){const w=wxWords(m.wx);ret
   if(m.ceiling!=null&&m.ceiling<1000)return"Low cloud";const c=wxCover(m);return c>=.84?"Overcast":c>=.6?"Mostly cloudy":c>=.4?"Partly cloudy":c>0?"Mostly clear":"Clear"};
 const WXCW={FEW:"Few clouds",SCT:"Scattered clouds",BKN:"Broken layer",OVC:"Overcast layer",VV:"Sky obscured"};
 function wxCeilFoot(m){if(m.ceiling!=null){const L=m.clouds.find(c=>/BKN|OVC|VV/.test(c.c)&&c.h===m.ceiling)||m.clouds[0];
-    return L.c==="VV"?`Sky obscured: vertical visibility ${fmt(L.h)} ft.`:`${WXCW[L.c]} at ${fmt(L.h)} ft above the airport.`}
-  if(m.clouds.length){const L=m.clouds[0];return `${WXCW[L.c]} at ${fmt(L.h)} ft. No ceiling.`}return /CAVOK/.test(m.raw)?"CAVOK: no cloud below 5,000 ft.":"No cloud reported."}
+    return L.c==="VV"?`Sky obscured: vertical visibility ${wxHt(L.h)}.`:`${WXCW[L.c]} at ${wxHt(L.h)} above the airport.`}
+  if(m.clouds.length){const L=m.clouds[0];return `${WXCW[L.c]} at ${wxHt(L.h)}. No ceiling.`}return /CAVOK/.test(m.raw)?"CAVOK: no cloud below 5,000 ft.":"No cloud reported."}
 /* when the report was made, and how old it is */
 function wxObs(m){const t=m&&m.raw.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);if(!t)return null;const now=Date.now(),d=new Date(now);
   let ms=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),+t[1],+t[2],+t[3]);if(ms>now+36e5)ms=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-1,+t[1],+t[2],+t[3]);
@@ -4895,9 +4895,9 @@ function wxDays(fc,m){const now=m&&m.temp!=null?m.temp:null,days=fc.days.map((d,
   const lo=Math.min(...days.map(d=>d.lo)),hi=Math.max(...days.map(d=>d.hi)),span=Math.max(1,hi-lo);
   return `<div class="wi-days">${days.map((d,i)=>{const dt=new Date(d.d+"T12:00:00Z"),a=(d.lo-lo)/span*100,b=(d.hi-lo)/span*100;
     /* today: a dot for the temperature now, as on the phone */
-    const dot=i===0&&now!=null?`<em style="left:${((now-lo)/span*100).toFixed(1)}%" title="Now ${now}°"></em>`:"";
+    const dot=i===0&&now!=null?`<em style="left:${((now-lo)/span*100).toFixed(1)}%" title="Now ${wxTs(now)}"></em>`:"";
     return `<div class="wi-day"><b>${i===0?"Today":dt.toLocaleDateString("en-US",{timeZone:"UTC",weekday:"short"})}</b><span class="wi-dic">${wIco(wmoKind(d.code,true),26)}${d.pop>=20?`<small>${d.pop}%</small>`:""}</span>
-      <span class="wi-lo">${Math.round(d.lo)}°</span><span class="wi-bar"><i style="left:${a.toFixed(1)}%;right:${(100-b).toFixed(1)}%"></i>${dot}</span><span class="wi-hi">${Math.round(d.hi)}°</span></div>`}).join("")}</div>`}
+      <span class="wi-lo">${wxTs(d.lo)}</span><span class="wi-bar"><i style="left:${a.toFixed(1)}%;right:${(100-b).toFixed(1)}%"></i>${dot}</span><span class="wi-hi">${wxTs(d.hi)}</span></div>`}).join("")}</div>`}
 
 /* ---- Sun and Moon tiles ---- */
 const wxZ=ms=>new Date(ms).toISOString().slice(11,16).replace(":","")+"Z";
@@ -4953,14 +4953,14 @@ function wxIos(html,role,label,apt,metar){const T=document.createElement("templa
   /* an old report says so on the page */
   const stale=!dec&&ob&&ob.min>=75?`<span class="pill wi-stale">METAR ${esc(ob.ago.replace(/ ago$/,""))} old</span>`:"";
   const top=`<div class="wi-hero"><span class="wi-role">${wxIc(dec?"raw":"pin")}${esc(label)} · ${esc(icao)}</span><h2>${esc(S(apt.name)||icao)}</h2>
-    <div class="wi-temp">${m&&m.temp!=null?m.temp+"°":"—"}</div><div class="wi-cond">${esc(condText(m))}</div>
-    ${hl?`<div class="wi-hl">H:${hl.hi}°  L:${hl.lo}°</div>`:""}<div class="wi-pills">${pills}${stale}</div></div>`;
+    <div class="wi-temp">${m&&m.temp!=null?wxTs(m.temp):"—"}</div><div class="wi-cond">${esc(condText(m))}</div>
+    ${hl?`<div class="wi-hl">H:${wxTs(hl.hi)}  L:${wxTs(hl.lo)}</div>`:""}<div class="wi-pills">${pills}${stale}</div></div>`;
   if(!m){const nt=q(".notice");
     return `<div class="wi">${top}${nt?`<section class="wi-card wi-none">${nt.innerHTML}</section>`:""}${dec?"":wxRestCards(R,fc,"",m)}</div>`}
   const w=m.wind,calm=w&&w.spd===0&&!w.gust,spd=w?(calm?"Calm":w.spd):"—";
   const windTile=`<section class="wi-card wi-wind"><header class="wi-ch">${wxIc("wind")}<span>Wind</span></header><div class="wi-wb">
-     <div class="wi-wl"><div class="wi-wrow"><b>${spd}</b>${!calm&&w?"<small>kt<br>Wind</small>":""}</div>
-       ${w&&w.gust?`<div class="wi-wrow"><b>${w.gust}</b><small>kt<br>Gusts</small></div>`:""}
+     <div class="wi-wl"><div class="wi-wrow"><b>${calm||!w?spd:wxWs(w.spd)}</b>${!calm&&w?`<small>${wxWu()}<br>Wind</small>`:""}</div>
+       ${w&&w.gust?`<div class="wi-wrow"><b>${wxWs(w.gust)}</b><small>${wxWu()}<br>Gusts</small></div>`:""}
        <dl><div><dt>Direction</dt><dd>${calm?"—":w&&w.dir!=null?String(w.dir).padStart(3,"0")+"°":w&&w.spd?"Variable":"—"}</dd></div>${comp?`<div><dt>${esc(comp.replace(/ components$/,""))}</dt><dd>${st[comp]}</dd></div>`:""}<div><dt>METAR</dt><dd>${st.Wind||"—"}</dd></div></dl></div>
      <div class="wi-rose">${svg?svg.outerHTML:""}</div></div>${chips?chips.outerHTML:""}</section>`;
   /* the hourly list's "Now" shows the sky the METAR reports, like the top of the page */
@@ -4969,11 +4969,11 @@ function wxIos(html,role,label,apt,metar){const T=document.createElement("templa
   /* a tile with nothing to show is left out */
   const tile=(ic,lab,val,foot,cls)=>val==null||/^\s*—\s*$/.test(String(val).replace(/<[^>]+>/g,""))?"":`<section class="wi-card wi-tile ${cls||""}"><header class="wi-ch">${wxIc(ic)}<span>${lab}</span></header><div class="wi-tv">${val}</div>${foot?`<p>${foot}</p>`:""}</section>`;
   const tiles=[
-    tile("vis","Visibility",st.Visibility,m.visSM==null?"":m.visSM>=10?"Clear view, 10 statute miles or more.":m.visSM<3?"Below VFR minimums.":"Reduced by "+esc(m.wx.length?wxWords(m.wx):"haze")+"."),
-    tile("ceil","Ceiling",st.Ceiling,esc(wxCeilFoot(m))),
-    tile("dew","Temp / Dew point",st["Temp / dew"],spread!=null?`Spread ${spread}°${spread<=3?": fog or low cloud likely.":"."}`:""),
-    tile("press","Altimeter",st.Altimeter,m.alt?`QNH ${m.alt.hpa} hPa · ${m.alt.inhg.toFixed(2)} inHg`:""),
-    st.Humidity!=null?tile("hum","Humidity",st.Humidity,m.dew!=null?`The dew point is ${m.dew}° right now.`:""):"",
+    tile("vis","Visibility",m.visSM==null?"—":wxVis(m.visSM),m.visSM==null?"":m.visSM>=10?(WXU.v==="km"?"Clear view, 16 km or more.":"Clear view, 10 statute miles or more."):m.visSM<3?"Below VFR minimums.":"Reduced by "+esc(m.wx.length?wxWords(m.wx):"haze")+"."),
+    tile("ceil","Ceiling",m.ceiling==null?"None":wxHt(m.ceiling,1),esc(wxCeilFoot(m))),
+    tile("dew","Temp / Dew point",`${m.temp!=null?wxT(m.temp):"—"} / ${m.dew!=null?wxT(m.dew):"—"} <small>°${WXU.t}</small>`,spread!=null?`Spread ${Math.round(spread*(WXU.t==="F"?1.8:1))}°${spread<=3?": fog or low cloud likely.":"."}`:""),
+    tile("press","Altimeter",!m.alt?"—":WXU.p==="hPa"?`${m.alt.hpa} <small>hPa</small>`:`${m.alt.inhg.toFixed(2)} <small>inHg</small>`,m.alt?(WXU.p==="hPa"?`A${m.alt.inhg.toFixed(2)} · QNH ${m.alt.hpa} hPa`:`QNH ${m.alt.hpa} hPa · ${m.alt.inhg.toFixed(2)} inHg`):""),
+    st.Humidity!=null?tile("hum","Humidity",st.Humidity,m.dew!=null?`The dew point is ${wxTs(m.dew)} right now.`:""):"",
     st["Density altitude"]!=null?tile("da","Density altitude",st["Density altitude"],N(apt.elevation)!=null?`Field elevation ${fmt(N(apt.elevation))} ft.`:""):"",
     st["Rain chance"]!=null?tile("rain","Rain chance",st["Rain chance"],"Model forecast for this hour."):"",
     tile("wx","Weather",`<span class="wi-cap">${st.Weather}</span>`,m.wx.length?esc(m.wx.join(" ")):"Nothing significant.")].join("");
@@ -5010,8 +5010,8 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
     WXA.cover=wxCover(ms);WXA.sun=SK.sun;WXA.lat=SK.ll?SK.ll[0]:null;WXA.lon=SK.ll?SK.ll[1]:null}
   const T=document.createElement("template");T.innerHTML=html;const R=T.content,side=R.querySelector(".split>.side");
   if(side){const cards=apts.map(a=>{const m=decodeMetar(a[3]),K=wxSkyOf(a[2],m),F=FCW.fc[S(a[2].icao_code)],hl=wxHL(F&&F.d&&F.d.days&&F.d.days[0],m);
-      return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${K.bg}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(windTxt(m.wind))} kt</small>`:""}</span>
-        <span class="wi-lT">${m&&m.temp!=null?m.temp+"°":"—"}</span><span class="wi-lb"><span class="wi-lc">${m?esc(condText(m)):"No report"}</span><span class="wi-lr">${hl?`H:${hl.hi}°  L:${hl.lo}°`:""}</span></span></button>`}).join("");
+      return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${K.bg}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(wxWindShort(m.wind))}</small>`:""}</span>
+        <span class="wi-lT">${m&&m.temp!=null?wxTs(m.temp):"—"}</span><span class="wi-lb"><span class="wi-lc">${m?esc(condText(m)):"No report"}</span><span class="wi-lr">${hl?`H:${wxTs(hl.hi)}  L:${wxTs(hl.lo)}`:""}</span></span></button>`}).join("");
     const foot=side.querySelector(".sfoot");
     side.innerHTML=`<div class="wi-sh"><h2>Weather</h2><p>Airports in your OFP</p></div><div class="wi-locs">${cards}
       <button class="wi-loc wi-dec" data-wxsel="dec" aria-pressed="${wxSel==="dec"}"><span class="wi-lt"><b>METAR decoder</b><small>Decode any report</small></span><span class="wi-lT">${wxIc("raw")}</span></button></div>${foot?foot.outerHTML:""}`}
@@ -5495,6 +5495,186 @@ function wxglDraw(dt){if(!WXAN.glOn||!WXGL.gl)return;const gl=WXGL.gl,S=WXGL.s,t
   gl.drawArrays(gl.TRIANGLES,0,3)}
 try{window.__efbWxgl=WXGL}catch(e){}
 
+/* ===== Weather: your airports, the list's menu, units, and skies on the cards =====
+   As in iOS 18 Weather:
+   - the airport cards in the list (the iPad's sidebar, the iPhone's list sheet) show the airport's moving sky;
+   - add any airport by its ICAO (or IATA) code from the search field under the list; saved airports follow the
+     flight plan's and stay on this device;
+   - the "…" menu: Edit List (remove saved airports, drag them into order; the plan's airports stay put),
+     °C or °F, and Units for wind, pressure, visibility and cloud height. METAR and TAF text stay as reported. */
+const WXU=Object.assign({t:"C",w:"kt",p:"inHg",v:"sm",h:"ft"},store.get("wxUnits",{}));
+const wxT=c=>Math.round(WXU.t==="F"?c*9/5+32:c),wxTs=c=>wxT(c)+"°";
+const wxWu=()=>({kt:"kt",kmh:"km/h",ms:"m/s"})[WXU.w]||"kt";
+const wxWs=k=>Math.round(WXU.w==="kmh"?k*1.852:WXU.w==="ms"?k*.5144:k);
+function wxWindShort(w){if(!w)return"—";if(w.spd===0&&!w.gust)return"Calm";if(WXU.w==="kt")return windTxt(w)+" kt";
+  return(w.dir==null?"VRB":String(w.dir).padStart(3,"0")+"°")+" "+wxWs(w.spd)+(w.gust?"G"+wxWs(w.gust):"")+" "+wxWu()}
+function wxVis(sm){if(WXU.v==="km"){const k=sm*1.609;return(sm>=10?"16+":k<5?Math.round(k*10)/10:Math.round(k))+" <small>km</small>"}return(sm>=10?"10+":+(+sm).toFixed(1))+" <small>SM</small>"}
+function wxHt(ft,big){const m=WXU.h==="m",v=m?Math.round(ft*.3048/10)*10:ft,u=m?"m":"ft";return big?`${fmt(v)} <small>${u.toUpperCase()}</small>`:`${fmt(v)} ${u}`}
+function wxUSet(k,v){if(WXU[k]===v)return;WXU[k]=v;try{store.set("wxUnits",WXU)}catch(e){}wxlRefresh();if(typeof renderHome==="function"&&cur!=="wx")renderHome();const m=$("#wxlMenu");if(m)wxlMenuFill(m)}
+
+/* ---- saved airports ---- */
+const WXL={fav:(store.get("wxFav",[])||[]).filter(x=>/^[A-Z0-9]{3,4}$/.test(x)),edit:false,del:null,q:"",res:null,tm:0};
+function wxlName(n){n=S(n).trim();if(!n)return"";const p=n.split("/");n=(p[p.length-1]||n).trim();return n.toLowerCase().replace(/(^|[\s\-'(])([a-z])/g,(x,a,b)=>a+b.toUpperCase())}
+function wxlEntry(icao){const j=typeof AS!=="undefined"&&AS.data[icao],a=j&&j.airport,t=FCW.taf[icao];
+  const apt={icao_code:icao,name:a?wxlName(a.name)||icao:icao,elevation:a&&a.elevM!=null?Math.round(a.elevM*3.28084):"",pos_lat:a&&isFinite(a.lat)?a.lat:"",pos_long:a&&isFinite(a.lon)?a.lon:""};
+  try{fcwLoad(icao,a&&isFinite(a.lat)?a.lat:null,a&&isFinite(a.lon)?a.lon:null)}catch(e){}
+  return["Saved","F-"+icao,apt,(t&&t.metar)||(j&&j.metar&&j.metar.raw)||"",(t&&t.raw)||(j&&j.taf&&j.taf.raw)||""]}
+/* in Weather the list is the plan's airports (or the base), then yours */
+{const _f=wxFor;wxFor=function(x){const r=_f.apply(this,arguments);if(cur!=="wx"||!WXL.fav.length)return r;const have=new Set(r.map(a=>S(a[2].icao_code)));
+  return r.concat(WXL.fav.filter(i=>!have.has(i)).map(wxlEntry))}}
+function wxlSave(){try{store.set("wxFav",WXL.fav)}catch(e){}}
+function wxlRefresh(){render();if(typeof WXR!=="undefined"&&WXR.sheet)wxbSheet(true)}
+
+/* ---- the sky on each card ---- */
+function wxlInfo(a){const m=decodeMetar(a[3]),K=wxSkyOf(a[2],m),w=m?m.wx.filter(s=>!/^VC/.test(s)).join(" "):"";
+  return{k:K.k,bg:K.bg,sun:K.sun,ll:K.ll,cover:wxCover(m),int:/\+/.test(w)?2:/-/.test(w)?0:1,wdir:m&&m.wind&&m.wind.dir!=null?m.wind.dir:null,wspd:m&&m.wind?m.wind.spd||0:0}}
+const WXL_I={more:'<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',units:'<path d="M5 19V13M10 19V9M15 19V5M20 19v-8"/>',search:'<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+  chev:'<path d="M9 5.5l6.5 6.5L9 18.5"/>',back:'<path d="M15 5.5L8.5 12l6.5 6.5"/>',check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',grab:'<path d="M4 8h16M4 12h16M4 16h16"/>'};
+const wxlIc=(k,f)=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="${f?"currentColor":"none"}" stroke="${f?"none":"currentColor"}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${WXL_I[k]}</svg>`;
+/* the buttons at the top of the list */
+function wxlTools(sheet){if(WXL.edit)return`<div class="wxl-tools"><button class="wxl-done" data-wxedit="0">Done</button></div>`;
+  return`<div class="wxl-tools"><button class="wxl-more" data-wxmenu aria-label="More" aria-haspopup="menu">${wxlIc("more",1)}</button>${sheet?`<button class="wxb-done" data-wxlistx>Done</button>`:""}</div>`}
+function wxlResHtml(){const r=WXL.res;if(!r)return"";
+  if(r.st==="busy")return`<p class="wxs-note">Looking up ${esc(r.q)}…</p>`;
+  if(r.st==="none")return`<p class="wxs-note">No airport found for ${esc(r.q)}. Try its 4-letter ICAO code.</p>`;
+  if(r.st==="err")return`<p class="wxs-note">${esc(r.msg||"Couldn’t look that up right now.")}</p>`;
+  const a=r.a,icao=a.icao,inList=WXL.fav.includes(icao)||wxFor(O()).some(x=>S(x[2].icao_code)===icao&&!/^F-/.test(x[1]));
+  return`<button class="wxl-hit" data-wxadd="${esc(icao)}"${inList?" disabled":""}><b>${esc(icao)}</b><span>${esc(wxlName(a.name)||icao)}${a.country?" · "+esc(a.country):""}</span><i>${inList?"In the list":"Add"}</i></button>`}
+function wxlResPaint(){document.querySelectorAll(".wxs-res").forEach(e=>e.innerHTML=wxlResHtml())}
+function wxlLook(q){q=q.toUpperCase();WXL.res={st:"busy",q};wxlResPaint();
+  const go=c=>vamGet("/api/efb/airport?icao="+encodeURIComponent(c),20000);
+  go(q).then(async j=>{if(WXL.q.toUpperCase()!==q)return;if(!j||j.notFound||!j.airport){WXL.res={st:"none",q};return}
+    let a=j.airport,icao=S(a.icao).toUpperCase()||q;
+    /* an IATA code: look the airport up again by its ICAO code for its METAR and TAF */
+    if(icao!==q){try{const j2=await go(icao);if(j2&&j2.airport)j=j2,a=j2.airport}catch(e){}}
+    if(typeof AS!=="undefined")AS.data[icao]=j;FCW.taf[icao]={at:Date.now(),raw:j.taf&&j.taf.raw||null,metar:j.metar&&j.metar.raw||null};
+    WXL.res={st:"ok",q,a:{icao,name:a.name,country:a.country}}})
+   .catch(e=>{if(WXL.q.toUpperCase()===q)WXL.res={st:"err",q,msg:/4-letter|ICAO/.test(e.message)?"Enter a 3 or 4 letter code.":e.message}})
+   .finally(()=>{if(WXL.q.toUpperCase()===q)wxlResPaint()})}
+function wxlAdd(icao){if(!WXL.fav.includes(icao))WXL.fav.push(icao);wxlSave();WXL.q="";WXL.res=null;wxSel="F-"+icao;store.set("wxSel",wxSel);
+  if(typeof WXR!=="undefined"&&WXR.sheet)wxbSheet(false);render();toast(icao+" added to Weather")}
+function wxlRemove(icao){WXL.fav=WXL.fav.filter(x=>x!==icao);WXL.del=null;wxlSave();if(wxSel==="F-"+icao)wxSel=(wxFor(O())[0]||[])[1]||"dec";wxlRefresh()}
+
+/* ---- the list: skies on the cards, editing, the search field ---- */
+{const _v=V.wx;V.wx=function(){const html=_v.apply(this,arguments);const T=document.createElement("template");T.innerHTML=html;const R=T.content;
+  const apts=wxFor(O()),byId={};apts.forEach(a=>byId[a[1]]=a);
+  const sh=R.querySelector(".split>.side .wi-sh");if(sh){sh.innerHTML=`<div>${sh.innerHTML}</div>${wxlTools(false)}`}
+  const locs=R.querySelector(".split>.side .wi-locs");
+  if(locs){locs.classList.toggle("wxl-editing",WXL.edit);
+    locs.querySelectorAll(".wi-loc:not(.wi-dec)").forEach(b=>{const id=b.dataset.wxsel,a=byId[id];if(!a)return;
+      try{WWC.info[id]=wxlInfo(a)}catch(e){}
+      b.insertAdjacentHTML("afterbegin",`<canvas class="ww-cv" aria-hidden="true"></canvas>`);
+      const fav=/^F-/.test(id)?id.slice(2):null;if(fav){b.classList.add("wxl-fav");b.dataset.wxfav=fav}
+      if(WXL.edit){const d=document.createElement("div");[...b.attributes].forEach(at=>{if(at.name!=="data-wxsel"&&at.name!=="aria-pressed")d.setAttribute(at.name,at.value)});d.dataset.wxid=id;d.innerHTML=b.innerHTML;
+        d.classList.add("wxl-ed");if(fav){d.insertAdjacentHTML("beforeend",`<button class="wxl-del" data-wxdel="${fav}" aria-label="Remove ${fav}"><i></i></button><span class="wxl-grab" data-wxgrab="${fav}" aria-label="Move ${fav}" role="button">${wxlIc("grab")}</span>${WXL.del===fav?`<button class="wxl-delc" data-wxdelc="${fav}">Delete</button>`:""}`)}else d.classList.add("wxl-lock");b.replaceWith(d)}});
+    if(WXL.edit){const dec=locs.querySelector(".wi-dec");if(dec)dec.remove();locs.insertAdjacentHTML("beforeend",`<p class="wxs-note wxl-hint">The flight plan’s airports stay in the list. Drag your saved airports by ≡ to reorder them.</p>`)}
+    else locs.insertAdjacentHTML("beforeend",`<div class="wxl-add"><label class="wxl-search">${wxlIc("search")}<input class="wxs-in" type="search" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" placeholder="Add an airport (ICAO or IATA)" aria-label="Add an airport by its ICAO or IATA code" value="${esc(WXL.q)}"></label><div class="wxs-res">${wxlResHtml()}</div></div>`)}
+  /* units in the hourly table (written in °C, kt, SM and ft) */
+  R.querySelectorAll(".wi-hourly .wi-ch em").forEach(e=>{e.textContent=e.textContent.replace("°C","°"+WXU.t)});
+  R.querySelectorAll(".wi .fc-t tr").forEach(tr=>{const th=tr.querySelector("th");if(!th)return;const lab=th.textContent.trim().toLowerCase(),tds=[...tr.querySelectorAll("td")],sm=th.querySelector("small");
+    if(/^temp/.test(lab)&&WXU.t==="F")tds.forEach(td=>td.innerHTML=td.innerHTML.replace(/(-?\d+)°/,(x,n)=>wxTs(+n)));
+    else if(/^wind/.test(lab)&&WXU.w!=="kt"){if(sm)sm.textContent=wxWu();tds.forEach(td=>td.innerHTML=td.innerHTML.replace(/<br>(\d+)(?:–(\d+))?/,(x,a,b)=>"<br>"+wxWs(+a)+(b?"–"+wxWs(+b):"")))}
+    else if(/^visibility/.test(lab)&&WXU.v==="km")tds.forEach(td=>td.innerHTML=td.innerHTML.replace(/(6\+|\.?\d[\d.]*) sm/,(x,v)=>v==="6+"?"10+ km":(Math.round(parseFloat(v)*1.609*10)/10)+" km"));
+    else if(/^ceiling/.test(lab)&&WXU.h==="m"){if(sm)sm.textContent="m";tds.forEach(td=>td.innerHTML=td.innerHTML.replace(/\d{1,3}(,\d{3})+|\d+(?=<)/,x=>fmt(Math.round(+x.replace(/,/g,"")*.3048/10)*10)))}});
+  setTimeout(()=>{try{wwStart()}catch(e){}},0);
+  const h=document.createElement("div");h.appendChild(R.cloneNode(true));return h.innerHTML}}
+/* typing in the search field survives the list being redrawn (a forecast arriving redraws it) */
+{const _r=render;render=function(){const ae=document.activeElement,keep=ae&&ae.classList&&ae.classList.contains("wxs-in")&&!ae.closest("#wxbSheet")?[ae.selectionStart,ae.selectionEnd]:null;
+  const r=_r.apply(this,arguments);if(keep&&cur==="wx"){const i=document.querySelector(".split>.side .wxs-in");if(i){i.focus({preventScroll:true});try{i.setSelectionRange(keep[0],keep[1])}catch(e){}}}return r}}
+document.addEventListener("input",e=>{const i=e.target;if(!i.classList||!i.classList.contains("wxs-in"))return;const v=i.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,4);if(i.value!==v)i.value=v;WXL.q=v;
+  document.querySelectorAll(".wxs-in").forEach(o=>{if(o!==i)o.value=v});clearTimeout(WXL.tm);
+  if(v.length<3){WXL.res=null;wxlResPaint();return}WXL.tm=setTimeout(()=>wxlLook(v),450)});
+document.addEventListener("keydown",e=>{const i=e.target;if(i.classList&&i.classList.contains("wxs-in")&&e.key==="Enter"){e.preventDefault();clearTimeout(WXL.tm);if(WXL.res&&WXL.res.st==="ok"&&WXL.res.q===WXL.q)wxlAdd(WXL.res.a.icao);else if(WXL.q.length>=3)wxlLook(WXL.q)}
+  if(e.key==="Escape"&&$("#wxlMenu"))wxlMenu(false)});
+
+/* ---- the "…" menu ---- */
+function wxlMenuFill(m){if(m.dataset.p==="units"){const seg=(k,opts)=>`<div class="wxl-seg" role="radiogroup">${opts.map(([v,l])=>`<button data-wxu="${k}:${v}" role="radio" aria-checked="${WXU[k]===v}" aria-pressed="${WXU[k]===v}">${l}</button>`).join("")}</div>`;
+    m.innerHTML=`<button class="wxl-mi wxl-mback" data-wxmenup="main">${wxlIc("back")}<span>Units</span></button>
+      <div class="wxl-urow"><span>Temperature</span>${seg("t",[["C","°C"],["F","°F"]])}</div>
+      <div class="wxl-urow"><span>Wind</span>${seg("w",[["kt","kt"],["kmh","km/h"],["ms","m/s"]])}</div>
+      <div class="wxl-urow"><span>Pressure</span>${seg("p",[["inHg","inHg"],["hPa","hPa"]])}</div>
+      <div class="wxl-urow"><span>Visibility</span>${seg("v",[["sm","SM"],["km","km"]])}</div>
+      <div class="wxl-urow"><span>Cloud height</span>${seg("h",[["ft","ft"],["m","m"]])}</div>
+      <p class="wxl-mnote">METAR and TAF text and runway wind components stay as reported (knots and feet).</p>`;return}
+  const ck=v=>WXU.t===v?wxlIc("check"):"";
+  m.innerHTML=`<button class="wxl-mi" data-wxedit="1" role="menuitem"><i></i><span>Edit List</span>${wxlIc("edit")}</button><div class="wxl-sep"></div>
+    <button class="wxl-mi" data-wxu="t:C" role="menuitemradio" aria-checked="${WXU.t==="C"}"><i>${ck("C")}</i><span>Celsius</span><b>°C</b></button>
+    <button class="wxl-mi" data-wxu="t:F" role="menuitemradio" aria-checked="${WXU.t==="F"}"><i>${ck("F")}</i><span>Fahrenheit</span><b>°F</b></button><div class="wxl-sep"></div>
+    <button class="wxl-mi" data-wxmenup="units" role="menuitem"><i></i><span>Units</span>${wxlIc("units")}</button>`}
+function wxlMenu(btn){let m=$("#wxlMenu"),sc=$("#wxlMScrim");if(!btn){if(m)m.remove();if(sc)sc.remove();return}
+  const win=screenEl.querySelector(".appwin"),wr=win.getBoundingClientRect(),br=btn.getBoundingClientRect();
+  sc=document.createElement("div");sc.id="wxlMScrim";sc.className="wxl-mscrim";win.appendChild(sc);
+  m=document.createElement("div");m.id="wxlMenu";m.className="wxl-menu";m.setAttribute("role","menu");m.dataset.p="main";win.appendChild(m);wxlMenuFill(m);
+  const w=Math.min(290,wr.width-24),left=Math.max(12,Math.min(br.right-wr.left-w,wr.width-w-12));m.style.width=w+"px";m.style.left=left+"px";m.style.top=(br.bottom-wr.top+8)+"px";
+  m.style.transformOrigin=`${Math.max(0,br.left+br.width/2-wr.left-left)}px 0`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-wxmenu],[data-wxmenup],[data-wxu],[data-wxedit],[data-wxdel],[data-wxdelc],[data-wxadd],#wxlMScrim");if(!t)return;e.preventDefault();e.stopPropagation();
+  if(t.id==="wxlMScrim")return wxlMenu(false);
+  if(t.matches("[data-wxmenu]"))return $("#wxlMenu")?wxlMenu(false):wxlMenu(t);
+  if(t.matches("[data-wxmenup]")){const m=$("#wxlMenu");if(m){m.dataset.p=t.dataset.wxmenup;wxlMenuFill(m)}return}
+  if(t.matches("[data-wxu]")){const[k,v]=t.dataset.wxu.split(":");const main=$("#wxlMenu")&&$("#wxlMenu").dataset.p==="main";wxUSet(k,v);if(main)wxlMenu(false);return}
+  if(t.matches("[data-wxedit]")){wxlMenu(false);WXL.edit=t.dataset.wxedit==="1";WXL.del=null;if(WXL.edit&&typeof WXR!=="undefined"&&!WXR.sheet&&!$(".split>.side")?.offsetParent)wxbSheet(true);wxlRefresh();return}
+  if(t.matches("[data-wxdel]")){WXL.del=WXL.del===t.dataset.wxdel?null:t.dataset.wxdel;wxlRefresh();return}
+  if(t.matches("[data-wxdelc]"))return wxlRemove(t.dataset.wxdelc);
+  if(t.matches("[data-wxadd]")&&!t.disabled)return wxlAdd(t.dataset.wxadd)},true);
+/* drag a saved airport by ≡ to move it */
+document.addEventListener("pointerdown",e=>{const g=e.target.closest&&e.target.closest("[data-wxgrab]");if(!g||!WXL.edit||e.button>0)return;e.preventDefault();
+  const card=g.closest(".wi-loc"),list=card.parentElement,cards=[...list.querySelectorAll(".wi-loc.wxl-fav")],i0=cards.indexOf(card);if(i0<0)return;
+  const rects=cards.map(c=>c.getBoundingClientRect()),y0=e.clientY,step=rects[i0].height+10;let to=i0;card.classList.add("wxl-drag");try{g.setPointerCapture(e.pointerId)}catch(x){}
+  const mv=ev=>{const dy=ev.clientY-y0;card.style.transform=`translateY(${dy}px) scale(1.02)`;const mid=rects[i0].top+rects[i0].height/2+dy;to=i0;
+    rects.forEach((r,j)=>{const c=r.top+r.height/2;if(j<i0&&mid<c)to=Math.min(to,j);if(j>i0&&mid>c)to=Math.max(to,j)});
+    cards.forEach((c,j)=>{if(c!==card)c.style.transform=j>=to&&j<i0?`translateY(${step}px)`:j<=to&&j>i0?`translateY(${-step}px)`:""})};
+  const up=()=>{g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up);g.removeEventListener("pointercancel",up);
+    const ids=cards.map(c=>c.dataset.wxfav),[mvd]=ids.splice(i0,1);ids.splice(to,0,mvd);WXL.fav=ids.concat(WXL.fav.filter(x=>!ids.includes(x)));wxlSave();wxlRefresh()};
+  g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up);g.addEventListener("pointercancel",up)});
+window.addEventListener("hashchange",()=>{if(location.hash!=="#wx"){WXL.edit=false;WXL.del=null;wxlMenu(false)}});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.wi-loc{position:relative;overflow:hidden;isolation:isolate;text-shadow:0 1px 4px rgba(0,0,0,.2)}
+.wi-loc>canvas.ww-cv{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;border-radius:inherit}
+.wi-loc>span{position:relative;z-index:1}
+.wi-sh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.wxl-tools{display:flex;align-items:center;gap:4px;flex:none}
+.wxl-more{width:34px;height:34px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+.wxl-more svg{width:20px;height:20px}.wxl-more:active{background:rgba(255,255,255,.28)}
+.wxl-done{border:0;background:transparent;color:#fff;font:600 16px var(--f-os);padding:8px 4px;cursor:pointer}
+.wxl-add{margin-top:6px}
+.wxl-search{display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border-radius:12px;background:rgba(255,255,255,.16);color:rgba(255,255,255,.7);cursor:text}
+.wxl-search svg{width:18px;height:18px;flex:none}
+.wxl-search input{flex:1;min-width:0;border:0;background:transparent;color:#fff;font:400 16px var(--f-os);outline:none;padding:0;letter-spacing:.02em}
+.wxl-search input::placeholder{color:rgba(255,255,255,.6);letter-spacing:0}.wxl-search input::-webkit-search-cancel-button{filter:invert(1)}
+.wxs-note{margin:8px 4px 0;font:400 13px/1.4 var(--f-os);color:rgba(255,255,255,.78)}
+.wxl-hit{display:flex;align-items:center;gap:10px;width:100%;margin-top:8px;padding:11px 13px;border:0;border-radius:12px;background:rgba(255,255,255,.16);color:#fff;text-align:left;font:500 14px var(--f-os);cursor:pointer}
+.wxl-hit b{font:700 16px var(--f-os)}.wxl-hit span{flex:1;min-width:0;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wxl-hit i{font-style:normal;font-weight:600}
+.wxl-hit:disabled{opacity:.6;cursor:default}.wxl-hit:not(:disabled):active{background:rgba(255,255,255,.26)}
+.wi-loc.wxl-ed{cursor:default;transition:transform .2s}
+.wi-loc.wxl-fav.wxl-ed{padding-left:50px;padding-right:50px}
+.wi-loc.wxl-lock{opacity:.62}
+.wxl-del{position:absolute;left:12px;top:50%;margin-top:-12px;width:24px;height:24px;border-radius:50%;border:0;background:#FF3B30;z-index:2;display:grid;place-items:center;padding:0;cursor:pointer}
+.wxl-del i{width:11px;height:2.4px;border-radius:2px;background:#fff;display:block}
+.wi-loc>.wxl-grab{position:absolute;right:8px;top:50%;margin-top:-20px;width:36px;height:40px;display:grid;place-items:center;z-index:2;color:rgba(255,255,255,.85);touch-action:none;cursor:grab}
+.wxl-grab svg{width:22px;height:22px}
+.wxl-delc{position:absolute;right:0;top:0;bottom:0;z-index:3;border:0;background:#FF3B30;color:#fff;font:600 15px var(--f-os);padding:0 20px;cursor:pointer;animation:wxlDel .2s ease-out}
+@keyframes wxlDel{from{transform:translateX(100%)}to{transform:none}}
+.wi-loc.wxl-drag{z-index:5;transition:none;box-shadow:0 12px 30px rgba(0,0,0,.35)!important}
+.wxl-hint{text-align:center}
+.wxl-mscrim{position:absolute;inset:0;z-index:60}
+.wxl-menu{position:absolute;z-index:61;max-height:75%;overflow:auto;background:rgba(38,46,58,.84);-webkit-backdrop-filter:blur(30px) saturate(160%);backdrop-filter:blur(30px) saturate(160%);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.4),inset 0 0 0 .5px rgba(255,255,255,.12);color:#fff;font-family:var(--f-os);animation:wxlMenu .22s cubic-bezier(.2,.85,.25,1)}
+@keyframes wxlMenu{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+.wxl-mi{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:6px;width:100%;min-height:46px;padding:0 16px 0 12px;border:0;background:transparent;color:#fff;font:400 16px var(--f-os);text-align:left;cursor:pointer}
+.wxl-mi+.wxl-mi{border-top:.5px solid rgba(255,255,255,.14)}.wxl-mi:active{background:rgba(255,255,255,.1)}
+.wxl-mi i{display:grid;place-items:center;font-style:normal}.wxl-mi i svg{width:17px;height:17px;stroke-width:2.4}
+.wxl-mi>svg{width:19px;height:19px}.wxl-mi b{font:500 16px var(--f-os)}
+.wxl-sep{height:7px;background:rgba(0,0,0,.2)}
+.wxl-mback{grid-template-columns:24px 1fr;font-weight:600;border-bottom:.5px solid rgba(255,255,255,.14)}.wxl-mback svg{width:19px;height:19px}
+.wxl-urow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;font:400 15px var(--f-os)}
+.wxl-urow+.wxl-urow{border-top:.5px solid rgba(255,255,255,.1)}
+.wxl-seg{display:flex;background:rgba(255,255,255,.12);border-radius:9px;padding:2px;flex:none}
+.wxl-seg button{border:0;background:transparent;color:#fff;font:500 13px var(--f-os);padding:6px 10px;border-radius:7px;cursor:pointer}
+.wxl-seg button[aria-pressed="true"]{background:rgba(255,255,255,.3);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.wxl-mnote{margin:0;padding:8px 14px 12px;font:400 12px/1.35 var(--f-os);color:rgba(255,255,255,.65)}
+@media (prefers-reduced-motion:reduce){.wxl-menu,.wxl-delc{animation:none}}
+</style>`);
+
 /* ===== Weather: map button, airport list, and the way back =====
    As in iOS 18 Weather: on the phone the bottom bar has a map button on the left, a dot for each airport (and the
    decoder) in the middle, and a list button on the right that brings up the airports as sky cards. On the iPad the
@@ -5521,7 +5701,7 @@ const wxbIc=(k,c)=>`<svg viewBox="0 0 24 24" aria-hidden="true" class="${c||""}"
 function wxbSheet(open){let s=$("#wxbSheet");WXR.sheet=open;
   if(!open){if(s){s.classList.remove("on");setTimeout(()=>{if(!WXR.sheet&&s.isConnected)s.remove()},reduced()?0:280)}return}
   if(!s){s=document.createElement("div");s.id="wxbSheet";s.className="wxb-sheet";screenEl.querySelector(".appwin").appendChild(s)}
-  s.innerHTML=`<div class="wxb-scrim" data-wxlistx></div><div class="wxb-panel" role="dialog" aria-label="Airports"><div class="wxb-grab"></div><div class="wxb-sh"><h2>Weather</h2><button class="wxb-done" data-wxlistx>Done</button></div><div class="wi-locs">${WXR.locs}</div></div>`;
+  s.innerHTML=`<div class="wxb-scrim" data-wxlistx></div><div class="wxb-panel" role="dialog" aria-label="Airports"><div class="wxb-grab"></div><div class="wxb-sh"><h2>Weather</h2>${typeof wxlTools==="function"?wxlTools(true):`<button class="wxb-done" data-wxlistx>Done</button>`}</div><div class="wi-locs">${WXR.locs}</div></div>`;
   requestAnimationFrame(()=>s.classList.add("on"))}
 /* the weather map: the Map app on this airport with radar, METARs and SIGMETs on */
 function wxbMap(){const a=wxFor(O()).find(x=>x[1]===wxSel);if(!a)return;const ll=wxLL(a[2]);
@@ -5571,7 +5751,7 @@ document.addEventListener("keydown",e=>{if(cur!=="wx"||WXR.sheet||e.metaKey||e.c
   if(e.key==="ArrowRight"||e.key==="ArrowLeft"){if(wxbGo(e.key==="ArrowRight"?1:-1)!==undefined)e.preventDefault()}});
 /* the list sheet follows a finger down and closes */
 {let D=null;
-  document.addEventListener("touchstart",e=>{D=null;const p=e.target.closest&&e.target.closest(".wxb-panel");if(!p||e.touches.length!==1)return;
+  document.addEventListener("touchstart",e=>{D=null;const p=e.target.closest&&e.target.closest(".wxb-panel");if(!p||e.touches.length!==1||e.target.closest(".wxl-grab,input,.wxl-del"))return;
     if(p.scrollTop>0&&!e.target.closest(".wxb-grab,.wxb-sh"))return;D={p,y:e.touches[0].clientY,t:Date.now(),dy:0}},{passive:true});
   document.addEventListener("touchmove",e=>{if(!D)return;const dy=e.touches[0].clientY-D.y;if(dy<=0&&!D.dy)return;D.dy=Math.max(0,dy);D.p.classList.add("drag");D.p.style.transform=`translateY(${D.dy}px)`;if(e.cancelable)e.preventDefault()},{passive:false});
   document.addEventListener("touchend",()=>{if(!D)return;const{p,dy,t}=D;D=null;p.classList.remove("drag");p.style.transform="";
@@ -6761,7 +6941,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 18, 2026",["Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 18, 2026",["Weather: the airport cards in the list show each airport’s moving sky; add any airport by its ICAO or IATA code from the field under the list; the “…” menu has Edit List (remove and reorder your airports), °C or °F, and Units for wind, pressure, visibility and cloud height (the Home Screen widget follows °C or °F)","Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -10747,6 +10927,8 @@ function wwInfo(){try{const d=wxFor(O()).find(a=>a[1]==="DEST"||a[1]==="BASE");i
 function wwApply(){const I=WW.info=wwInfo();WW.sunAt=Date.now();
   document.querySelectorAll(".w-wx").forEach(el=>{if(!I){el.style.background="";delete el.dataset.wwsky;const c=el.querySelector(":scope>canvas.ww-cv");if(c)c.remove();return}
     el.style.background=I.bg;el.dataset.wwsky=I.k;
+    /* temperatures in the unit picked in Weather (the widget is written in °C) */
+    if(typeof WXU!=="undefined"&&WXU.t==="F"&&!el.dataset.wwu){el.dataset.wwu="1";el.querySelectorAll(".wx-temp,.w2").forEach(e=>{e.innerHTML=e.innerHTML.replace(/(-?\d+)°/g,(x,n)=>wxTs(+n))})}
     if(!el.querySelector(":scope>canvas.ww-cv")){const c=document.createElement("canvas");c.className="ww-cv";c.setAttribute("aria-hidden","true");el.prepend(c)}});
   wwStart()}
 function wwF(I){const a=I.sun?I.sun.alt:/night/.test(I.k)?-25:35;return{alt:a,dl:wxSS(-8,6,a),warm:wxSS(-10,-2,a)*(1-wxSS(2,11,a)),star:1-wxSS(-12,-1,a)}}
@@ -10767,9 +10949,11 @@ function wwSetup(I,w,h,F){const s={w,h},K=I.k,night=/night/.test(K),area=w*h,cv=
   s.nextBolt=WW.t+2+Math.random()*5;s.flash=0;s.moon=null;return s}
 function wwDrop(s,any){const z=Math.random();return{x:Math.random()*s.w*1.3-s.w*.15,y:any?Math.random()*s.h:-20-Math.random()*s.h*.3,z,l:8+z*12,v:260+z*320,a:.18+z*.4}}
 function wwFlake(s,any){const z=Math.random();return{x:Math.random()*s.w,y:any?Math.random()*s.h:-6,z,r:.6+z*1.9,v:14+z*34,p:Math.random()*6.3,sw:.6+Math.random()*1.4}}
-function wwDraw(c,rc,dt){const I=WW.info,dpr=Math.min(2,window.devicePixelRatio||1),w=Math.round(rc.width),h=Math.round(rc.height),F=wwF(I);
-  const key=I.k+I.int+":"+I.cover+":"+w+"x"+h+":"+Math.round(F.warm*4);let s=c.__ww;
-  if(!s||s.key!==key){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);s=c.__ww=wwSetup(I,w,h,F);s.key=key;s.g=c.getContext("2d");s.g.setTransform(dpr,0,0,dpr,0,0)}
+function wwDraw(c,rc,dt,I0,H){const I=I0||WW.info,dpr=Math.min(2,window.devicePixelRatio||1),w=Math.round(rc.width),h=Math.round(rc.height),F=wwF(I);
+  const key=I.k+I.int+":"+I.cover+":"+w+"x"+h+":"+Math.round(F.warm*4);H=H||c;let s=H.__ww;
+  if(!s||s.key!==key){s=H.__ww=wwSetup(I,w,h,F);s.key=key;s.cv=null}
+  /* the scene can outlive its canvas (a list card is redrawn): pick up the new one where it left off */
+  if(s.cv!==c){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);s.g=c.getContext("2d");s.g.setTransform(dpr,0,0,dpr,0,0);s.cv=c}
   const g=s.g,t=WW.t;g.clearRect(0,0,w,h);
   /* dawn and dusk glow, low on one side */
   if(F.warm>.01&&!s.storm){const k=F.warm*(s.rain||s.fog?.45:I.k.startsWith("cloud")?.7:1),gr=g.createRadialGradient(w*.8,h*1.1,0,w*.8,h*1.1,w*.75);
@@ -10798,18 +10982,20 @@ function wwDraw(c,rc,dt){const I=WW.info,dpr=Math.min(2,window.devicePixelRatio|
     g.fillStyle=`rgba(255,255,255,${(.45+f.z*.5).toFixed(2)})`;g.beginPath();g.arc(f.x,f.y,f.r,0,7);g.fill()}}
   /* lightning */
   if(s.storm){if(t>s.nextBolt){s.flash=1;s.nextBolt=t+3+Math.random()*9}if(s.flash>0){g.fillStyle=`rgba(225,232,255,${(s.flash*.4).toFixed(3)})`;g.fillRect(0,0,w,h);s.flash=Math.max(0,s.flash-dt*4.5)}}}
-function wwFrame(now){WW.raf=0;if(cur||document.hidden||!WW.info)return;
+const WWC={info:{},hold:{}};
+function wwFrame(now){WW.raf=0;const inWx=cur==="wx";if(document.hidden||(cur&&!inWx)||(!cur&&!WW.info))return;
   const still=reduced();
   /* about 30 frames a second is plenty for a widget */
   if(still||now-WW.drawn>=31){const dt=WW.drawn?Math.min(.1,(now-WW.drawn)/1000):0;WW.t+=dt;WW.drawn=now;
     /* the Sun moves: refresh where it is (and the colours) every half minute */
-    if(Date.now()-WW.sunAt>30000){wwApply();return}
-    document.querySelectorAll(".w-wx>canvas.ww-cv").forEach(c=>{const r=c.getBoundingClientRect();if(r.width<2||r.height<2||r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth)return;
-      wwDraw(c,r,still?0:dt)})}
+    if(!inWx&&Date.now()-WW.sunAt>30000){wwApply();return}
+    /* on the Home Screen the widget; in Weather the airport cards (the iPad's sidebar or the iPhone's list) */
+    document.querySelectorAll(inWx?".wi-loc>canvas.ww-cv":".w-wx>canvas.ww-cv").forEach(c=>{const r=c.getBoundingClientRect();if(r.width<2||r.height<2||r.bottom<0||r.top>innerHeight||r.right<0||r.left>innerWidth)return;
+      if(inWx){const id=c.parentElement.dataset.wxsel||c.parentElement.dataset.wxid,I=WWC.info[id];if(!I)return;wwDraw(c,r,still?0:dt,I,WWC.hold[id]||(WWC.hold[id]={}))}else wwDraw(c,r,still?0:dt)})}
   if(!still)WW.raf=requestAnimationFrame(wwFrame)}
-function wwStart(){if(WW.raf||cur||!WW.info)return;WW.drawn=0;WW.raf=requestAnimationFrame(wwFrame)}
+function wwStart(){if(WW.raf||(cur&&cur!=="wx")||(!cur&&!WW.info))return;WW.drawn=0;WW.raf=requestAnimationFrame(wwFrame)}
 {const _rh=renderHome;renderHome=function(){const v=_rh.apply(this,arguments);try{wwApply()}catch(e){console.warn("[ww]",e)}return v}}
-window.addEventListener("hashchange",()=>setTimeout(()=>{if(!cur)wwStart()},60));
+window.addEventListener("hashchange",()=>setTimeout(()=>{if(!cur||cur==="wx")wwStart()},60));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!cur)wwStart()});
 document.head.insertAdjacentHTML("beforeend",`<style>
 .w-wx{position:relative;transition:background .6s}

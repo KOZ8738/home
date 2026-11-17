@@ -19,7 +19,7 @@
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
- *   GET/POST /api/efb/pm, /api/efb/pm/online, /api/efb/pm/state -> pilots' messages to a department or an online flight (see pm.js)
+ *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
@@ -1276,7 +1276,7 @@ export default {
       return liveFlights(vs, va);
     };
     /* pilots' messages (see pm.js) */
-    if (/^\/api\/efb\/pm(\/(online|state))?\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+    if (/^\/api\/efb\/pm(\/state)?\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }

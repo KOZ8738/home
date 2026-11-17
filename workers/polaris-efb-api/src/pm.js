@@ -1,9 +1,8 @@
 /* ---------- Polaris Mail: messages from pilots ----------
-   Pilots can write from the EFB to two kinds of recipient, and nobody else:
-     - a department (Crew Management, Flight Operations, Training, Fleet): the message lands in the admin's Inbox tab,
-       staff answer there, and the answer goes back to that pilot's EFB;
-     - a Polaris flight that is online right now (vAMSYS, or a PAW callsign on VATSIM): the message goes to that pilot.
-   Either side can reply inside a conversation afterwards, also when the other pilot has landed.
+   Pilots can write from the EFB to a department (Crew Management, Flight Operations, Training, Fleet) and nobody
+   else: the message lands in the admin's Inbox tab, staff answer there, and the answer goes back to that pilot's EFB.
+   Writing to another pilot's online flight was removed (Nov 2026). Conversations between pilots from before that stay
+   readable, but new messages and replies in them are refused.
    At most 20 messages per pilot in any 24 hours. Messages between pilots are never shown on the admin: the admin API only
    reads conversations with a department.
 
@@ -87,12 +86,7 @@ export class Mailbox {
       if (!mine) throw new PmError(403, 'You are not part of that conversation');
       m.th = p.th; if (!m.subj) m.subj = /^re:/i.test(p.subj) ? p.subj : 'Re: ' + p.subj;
       if (p.kind === 'staff' || p.kind === 'reply') { m.kind = 'staff'; m.dept = p.dept; }
-      else {
-        m.kind = 'pilot';
-        if (p.fu === u) { m.tu = p.tu; m.tcid = p.tcid; m.tcs = p.tcs; m.tname = p.tname; }   // writing again to the same pilot
-        else { m.tu = p.fu; m.tcs = p.fcs; m.tname = p.fname; }                                 // answering the pilot who wrote
-        if (m.tu === u) throw new PmError(400, 'You cannot write to yourself');
-      }
+      else throw new PmError(410, 'Messages between pilots have ended. You can still write to Polaris staff.');
     } else {
       if (!m.subj) throw new PmError(400, 'Add a subject');
       m.th = m.id;
@@ -100,12 +94,7 @@ export class Mailbox {
       if (to.dept) {
         if (!PM_DEPTS.includes(to.dept)) throw new PmError(400, 'Pick a department');
         m.kind = 'staff'; m.dept = to.dept;
-      } else if (to.flight) {
-        const f = to.flight; m.kind = 'pilot'; m.tu = up(f.pilot, 12); m.tcid = m.tu ? '' : String(f.cid || '').replace(/\D/g, '').slice(0, 9);
-        m.tcs = up(f.cs, 10); m.tname = clean(f.name, 60);
-        if (!m.tu && !m.tcid) throw new PmError(400, 'That flight has no pilot we can write to');
-        if (m.tu === u || (m.tcid && m.tcid === String(a.cid || ''))) throw new PmError(400, 'You cannot write to yourself');
-      } else throw new PmError(400, 'Pick who the message is for');
+      } else throw new PmError(400, 'Pick a department');
     }
     this.sql.exec('INSERT INTO msg (id, t, th, kind, fu, fname, fcs, dept, by, tu, tcid, tcs, tname, subj, body) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       m.id, m.t, m.th, m.kind, m.fu, m.fname, m.fcs, m.dept, m.by, m.tu, m.tcid, m.tcs, m.tname, m.subj, m.body);
@@ -187,19 +176,6 @@ async function box(env, a) {
   return j;
 }
 
-/* the Polaris flights online now that a pilot may write to (deps.live() = liveFlights(): vAMSYS first, then VATSIM PAW) */
-async function onlineFor(deps, me) {
-  const L = await deps.live();
-  const out = [];
-  for (const f of (L && L.flights) || []) {
-    const pilot = up(f.pilot, 12), cid = f.cid ? String(f.cid) : '';
-    if (!pilot && !cid) continue;
-    if ((pilot && pilot === me.u) || (cid && me.c && cid === String(me.c))) continue;
-    out.push({ cs: f.cs, pilot, cid, dep: f.dep || '', arr: f.arr || '', ac: f.ac || '', src: f.src || '' });
-  }
-  return out;
-}
-
 /** EFB routes. me = signed-in session ({ u, n, c }) or null. */
 export async function pmPublic(req, url, env, h, me, deps) {
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -207,10 +183,6 @@ export async function pmPublic(req, url, env, h, me, deps) {
     if (!me) throw new PmError(401, 'Sign in to use messages');
     const path = url.pathname.replace(/\/+$/, '');
     if (path === '/api/efb/pm' && req.method === 'GET') return res({ ...(await box(env, { op: 'list', u: me.u, cid: me.c ? String(me.c) : '' })), depts: PM_DEPTS });
-    if (path === '/api/efb/pm/online' && req.method === 'GET') {
-      let flights = []; try { flights = await onlineFor(deps, me); } catch (e) { return res({ flights: [], error: 'Online flights are not available right now' }); }
-      return res({ flights: flights.map(({ cid, ...f }) => f) });   // a VATSIM CID never leaves the server
-    }
     if (req.method !== 'POST') throw new PmError(405, 'Method not allowed');
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new PmError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new PmError(400, 'Bad body'); }
@@ -221,13 +193,7 @@ export async function pmPublic(req, url, env, h, me, deps) {
       const a = { op: 'send', u: me.u, name: me.n || '', cid: me.c ? String(me.c) : '', cs: clean(b.cs, 10), replyTo: b.replyTo || '', subject: b.subject, body: b.body };
       if (!b.replyTo) {
         if (b.to && b.to.dept) a.to = { dept: String(b.to.dept) };
-        else if (b.to && b.to.cs) {
-          /* only a flight that is online right now, checked here and not trusted from the EFB */
-          let L; try { L = await onlineFor(deps, me); } catch (e) { throw new PmError(503, 'Online flights are not available right now. Try again in a minute.'); }
-          const f = L.find((x) => x.cs === up(b.to.cs, 10));
-          if (!f) throw new PmError(409, up(b.to.cs, 10) + ' is no longer online. You can write to flights that are online now.');
-          a.to = { flight: f };
-        } else throw new PmError(400, 'Pick who the message is for');
+        else throw new PmError(400, 'Messages go to a Polaris department');
       }
       const r = await box(env, a), n = r.notify; delete r.notify;
       await pmPush(env, n, 'pm-' + (r.msg && r.msg.th));

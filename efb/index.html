@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.1355">
+<meta name="efb-build" content="1117.1412">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -5041,12 +5041,12 @@ function wxaSetup(){const K=wxaKind(),w=WXAN.w,h=WXAN.h,area=w*h;WXAN.K=K;WXAN.k
   WXAN.fog=K.fog?Array.from({length:5},(_,i)=>({y:h*(.25+i*.15),x:Math.random()*w,v:4+Math.random()*6,s:.7+Math.random()*.6})):null;
   /* wind slant: the wind blows from wdir, so rain drifts toward wdir+180; only its east-west part shows on screen */
   const e=WXA.wdir!=null?-Math.sin(WXA.wdir*Math.PI/180):0;WXAN.slant=Math.max(-.45,Math.min(.45,e*Math.min(1,WXA.wspd/30)*.6))+(WXA.wdir==null?.08:0);
-  WXAN.nextBolt=WXAN.t+2+Math.random()*4;WXAN.nextShoot=WXAN.t+4+Math.random()*8}
+  WXAN.nextBolt=WXAN.t+2+Math.random()*4;WXAN.nextShoot=WXAN.t+4+Math.random()*8;if(typeof wxglSetup==="function")wxglSetup(K)}
 function wxaDrop(any){const w=WXAN.w,h=WXAN.h,heavy=WXA.int===2||WXAN.K&&WXAN.K.storm,z=Math.random();return{x:Math.random()*(w*1.3)-w*.15,y:any?Math.random()*h:-30-Math.random()*h*.3,z,l:(heavy?18:12)+z*(heavy?22:14),v:(heavy?1100:850)+z*700,a:.18+z*.35}}
 function wxaFlake(any){const w=WXAN.w,h=WXAN.h,z=Math.random();return{x:Math.random()*w,y:any?Math.random()*h:-10,z,r:.8+z*2.8,v:22+z*55,p:Math.random()*6.3,sw:.6+Math.random()*1.4}}
 
 function wxaFrame(now){WXAN.raf=0;if(!WXAN.cv||cur!=="wx"||document.hidden)return;const dt=Math.min(.05,(now-(WXAN.last||now))/1000);WXAN.last=now;WXAN.t+=dt;
-  wxaSize();if(WXAN.kind!==(WXA.sky||screenEl.dataset.wxsky)+WXA.int)wxaSetup();wxaDraw(dt);if(!WXAN.still)WXAN.raf=requestAnimationFrame(wxaFrame)}
+  wxaSize();if(WXAN.kind!==(WXA.sky||screenEl.dataset.wxsky)+WXA.int)wxaSetup();wxaDraw(dt);if(typeof wxglDraw==="function")wxglDraw(dt);if(!WXAN.still)WXAN.raf=requestAnimationFrame(wxaFrame)}
 
 function wxaDraw(dt){const g=WXAN.ctx,w=WXAN.w,h=WXAN.h,K=WXAN.K,t=WXAN.t;g.clearRect(0,0,w,h);
   /* the Sun */
@@ -5059,25 +5059,27 @@ function wxaDraw(dt){const g=WXAN.ctx,w=WXAN.w,h=WXAN.h,K=WXAN.K,t=WXAN.t;g.clea
       g.strokeStyle=gr;g.lineWidth=1.6;g.beginPath();g.moveTo(S.x,S.y);g.lineTo(S.x-S.vx*L,S.y-S.vy*L);g.stroke();if(S.life>.9){WXAN.shoot=null;WXAN.nextShoot=t+7+Math.random()*14}}}
   /* the Moon, lit as tonight */
   if(K.moon)wxaMoonDraw(g,w*.8,h*.24,Math.min(w,h)*.075,K.s==="cloud-night"?.55:1);
+  /* with WebGL (wxgl.js) the clouds, rain, snow and fog are drawn in 3D on the canvas above; this one keeps the sky */
+  const GL=WXAN.glOn;
   /* clouds */
-  for(const c of WXAN.clouds){c.x+=c.v*dt;if(c.x>w+20)c.x=-c.img.width-20;g.drawImage(c.img,c.x,c.y)}
+  if(!GL)for(const c of WXAN.clouds){c.x+=c.v*dt;if(c.x>w+20)c.x=-c.img.width-20;g.drawImage(c.img,c.x,c.y)}
   /* rain darkens the sky a little */
-  if(K.rain){g.fillStyle=K.storm?"rgba(10,14,22,.22)":"rgba(20,26,36,.12)";g.fillRect(0,0,w,h)}
+  if(K.rain&&!GL){g.fillStyle=K.storm?"rgba(10,14,22,.22)":"rgba(20,26,36,.12)";g.fillRect(0,0,w,h)}
   /* fog */
-  if(WXAN.fog)for(const f of WXAN.fog){f.x+=f.v*dt;if(f.x>w*1.5)f.x=-w*.5;for(const dx of [-w,0]){const x=f.x+dx,R=w*.45*f.s,gr=g.createRadialGradient(x,f.y,0,x,f.y,R);gr.addColorStop(0,K.night?"rgba(150,160,175,.20)":"rgba(255,255,255,.28)");gr.addColorStop(1,"rgba(255,255,255,0)");g.save();g.translate(x,f.y);g.scale(1,.28);g.translate(-x,-f.y);g.fillStyle=gr;g.beginPath();g.arc(x,f.y,R,0,7);g.fill();g.restore()}}
+  if(WXAN.fog&&!GL)for(const f of WXAN.fog){f.x+=f.v*dt;if(f.x>w*1.5)f.x=-w*.5;for(const dx of [-w,0]){const x=f.x+dx,R=w*.45*f.s,gr=g.createRadialGradient(x,f.y,0,x,f.y,R);gr.addColorStop(0,K.night?"rgba(150,160,175,.20)":"rgba(255,255,255,.28)");gr.addColorStop(1,"rgba(255,255,255,0)");g.save();g.translate(x,f.y);g.scale(1,.28);g.translate(-x,-f.y);g.fillStyle=gr;g.beginPath();g.arc(x,f.y,R,0,7);g.fill();g.restore()}}
   /* rain */
-  if(K.rain){const sl=WXAN.slant;g.lineCap="round";for(const d of WXAN.parts){d.y+=d.v*dt;d.x+=d.v*sl*dt;
+  if(K.rain&&!GL){const sl=WXAN.slant;g.lineCap="round";for(const d of WXAN.parts){d.y+=d.v*dt;d.x+=d.v*sl*dt;
       if(d.y>h){if(d.z>.6&&WXAN.splash.length<120)WXAN.splash.push({x:d.x,y:h-2-Math.random()*30,life:0});Object.assign(d,wxaDrop(false))}
       g.strokeStyle=`rgba(210,222,240,${d.a})`;g.lineWidth=.6+d.z*1.1;g.beginPath();g.moveTo(d.x,d.y);g.lineTo(d.x-d.l*sl,d.y-d.l);g.stroke()}
     g.strokeStyle="rgba(220,230,245,.35)";g.lineWidth=1;WXAN.splash=WXAN.splash.filter(s=>{s.life+=dt;const k=s.life/.28;if(k>=1)return false;g.globalAlpha=1-k;g.beginPath();g.ellipse(s.x,s.y,2+k*7,(2+k*7)*.3,0,0,7);g.stroke();g.globalAlpha=1;return true})}
   /* snow */
-  if(K.snow){const sl=WXAN.slant;for(const f of WXAN.parts){f.y+=f.v*dt;f.p+=dt*f.sw;f.x+=(Math.sin(f.p)*14+f.v*sl)*dt;if(f.y>h+8)Object.assign(f,wxaFlake(false));if(f.x>w+8)f.x=-8;if(f.x<-8)f.x=w+8;
+  if(K.snow&&!GL){const sl=WXAN.slant;for(const f of WXAN.parts){f.y+=f.v*dt;f.p+=dt*f.sw;f.x+=(Math.sin(f.p)*14+f.v*sl)*dt;if(f.y>h+8)Object.assign(f,wxaFlake(false));if(f.x>w+8)f.x=-8;if(f.x<-8)f.x=w+8;
       g.fillStyle=`rgba(255,255,255,${.45+f.z*.5})`;g.beginPath();g.arc(f.x,f.y,f.r,0,7);g.fill()}}
   /* lightning */
-  if(K.storm){if(t>WXAN.nextBolt){WXAN.flash=1;WXAN.bolt=Math.random()<.6?wxaBolt(w,h):null;WXAN.boltT=0;WXAN.nextBolt=t+3+Math.random()*9;WXAN.second=Math.random()<.5?t+.18:0}
+  if(K.storm){if(t>WXAN.nextBolt){WXAN.flash=1;WXAN.bolt=Math.random()<.6?wxaBolt(w,h):null;WXAN.flashX=WXAN.bolt?WXAN.bolt[0][0]/w:.2+Math.random()*.6;WXAN.boltT=0;WXAN.nextBolt=t+3+Math.random()*9;WXAN.second=Math.random()<.5?t+.18:0}
     if(WXAN.second&&t>WXAN.second){WXAN.flash=.8;WXAN.second=0}
     if(WXAN.bolt&&WXAN.boltT<.25){WXAN.boltT+=dt;g.strokeStyle=`rgba(235,240,255,${1-WXAN.boltT/.25})`;g.lineWidth=2;g.shadowColor="rgba(190,210,255,.9)";g.shadowBlur=16;g.beginPath();WXAN.bolt.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke();g.shadowBlur=0}
-    if(WXAN.flash>0){g.fillStyle=`rgba(225,232,255,${WXAN.flash*.42})`;g.fillRect(0,0,w,h);WXAN.flash=Math.max(0,WXAN.flash-dt*4.5)}}}
+    if(WXAN.flash>0){if(!GL){g.fillStyle=`rgba(225,232,255,${WXAN.flash*.42})`;g.fillRect(0,0,w,h)}WXAN.flash=Math.max(0,WXAN.flash-dt*4.5)}}}
 function wxaBolt(w,h){let x=w*(.2+Math.random()*.6),y=0;const P=[[x,y]];while(y<h*(.45+Math.random()*.3)){y+=10+Math.random()*26;x+=(Math.random()-.5)*36;P.push([x,y])}return P}
 function wxaMoonDraw(g,x,y,R,alpha){const {f}=wxMoon(),lit=(1-Math.cos(f*2*Math.PI))/2;g.save();g.globalAlpha=alpha;
   const glow=g.createRadialGradient(x,y,R*.8,x,y,R*3.2);glow.addColorStop(0,`rgba(220,228,245,${.18*Math.max(.25,lit)})`);glow.addColorStop(1,"rgba(220,228,245,0)");g.fillStyle=glow;g.beginPath();g.arc(x,y,R*3.2,0,7);g.fill();
@@ -5093,18 +5095,182 @@ function wxaMoonDraw(g,x,y,R,alpha){const {f}=wxMoon(),lit=(1-Math.cos(f*2*Math.
 function wxaStart(){if(cur!=="wx")return wxaStop();const win=document.getElementById("win");if(!win)return;
   if(!WXAN.cv||!WXAN.cv.isConnected){WXAN.cv=document.createElement("canvas");WXAN.cv.className="wxa-cv";WXAN.cv.setAttribute("aria-hidden","true");win.prepend(WXAN.cv);WXAN.ctx=WXAN.cv.getContext("2d");WXAN.w=0}
   WXAN.cv.hidden=false;WXAN.still=reduced();wxaSize();if(!WXAN.raf){WXAN.last=0;WXAN.raf=requestAnimationFrame(wxaFrame)}}
-function wxaStop(){if(WXAN.raf)cancelAnimationFrame(WXAN.raf);WXAN.raf=0;if(WXAN.cv)WXAN.cv.hidden=true}
+function wxaStop(){if(WXAN.raf)cancelAnimationFrame(WXAN.raf);WXAN.raf=0;if(WXAN.cv)WXAN.cv.hidden=true;if(WXAN.gcv)WXAN.gcv.hidden=true}
 {const _r=render;render=function(){const r=_r.apply(this,arguments);if(cur==="wx")wxaStart();else if(WXAN.cv&&!WXAN.cv.hidden)wxaStop();return r}}
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id!=="wx")wxaStop();return r}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&cur==="wx")wxaStart()});
 window.addEventListener("resize",()=>{if(cur==="wx")wxaSize()});
 /* the sky dims and softens as the page scrolls, so the cards stay easy to read */
-document.addEventListener("scroll",e=>{if(cur!=="wx"||!WXAN.cv)return;const t=e.target;if(!t||!t.scrollTop&&t.scrollTop!==0)return;const k=Math.min(1,(t.scrollTop||0)/500);WXAN.cv.style.opacity=String(1-k*.4);WXAN.cv.style.filter=k>.05?`blur(${(k*3).toFixed(1)}px)`:""},true);
+document.addEventListener("scroll",e=>{if(cur!=="wx"||!WXAN.cv)return;const t=e.target;if(!t||!t.scrollTop&&t.scrollTop!==0)return;const k=Math.min(1,(t.scrollTop||0)/500);[WXAN.cv,WXAN.gcv].forEach(c=>{if(!c)return;c.style.opacity=String(1-k*.4);c.style.filter=k>.05?`blur(${(k*3).toFixed(1)}px)`:""})},true);
 document.head.insertAdjacentHTML("beforeend",`<style>
-.wxa-cv{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;transition:opacity .2s,filter .2s}
-.screen:not([data-app="wx"]) .wxa-cv{display:none}
+.wxa-cv,.wxa-gl{position:absolute;inset:0;width:100%;height:100%;z-index:-2;pointer-events:none;transition:opacity .2s,filter .2s}
+.wxa-gl{z-index:-1}
+.screen:not([data-app="wx"]) .wxa-cv,.screen:not([data-app="wx"]) .wxa-gl{display:none}
 </style>`);
 try{window.__efbWxa={WXAN,WXA,wxMoon,wxaSetup}}catch(e){}
+
+/* ===== Weather: the sky in 3D (WebGL) =====
+   On a second canvas above the 2D sky (wxanim.js keeps the stars, Moon, Sun and the lightning bolt), the GPU draws:
+   - volumetric clouds: a field of 3D noise marched front to back, lit from the Sun or Moon side with self-shadowing,
+     so cloud tops shine, bases go grey and the edges glow; it drifts with the reported wind, and lightning lights
+     the clouds from inside. Clouds are drawn at reduced resolution into a texture (they are soft anyway) and only
+     every other frame;
+   - rain and snow in four depth layers at full resolution: near drops long, fast and bright, far ones thin, slow and
+     lost in the haze; near snowflakes large and out of focus;
+   - fog banks that roll across the lower sky.
+   The amount follows the METAR (-RA / RA / +RA, -SN / SN / +SN) and the slant the wind. If the frame time grows the
+   clouds lose resolution and steps; without WebGL (or if the GPU drops the context) the 2D sky draws everything. */
+const WXGL={ok:null,gl:null,P:null,Q:null,fb:null,tex:null,ntex:null,cw:0,ch:0,fw:0,fh:0,scale:.42,steps:22,odd:false,ft:[],u:{}};
+
+const WXGL_VS="attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}";
+const WXGL_NOISE=`
+uniform sampler2D uN;
+float noise(vec3 x){vec3 p=floor(x);vec3 f=fract(x);f=f*f*(3.-2.*f);vec2 uv=(p.xy+vec2(37.,17.)*p.z)+f.xy;vec2 rg=texture2D(uN,(uv+.5)/256.).xy;return mix(rg.x,rg.y,f.z);}
+float fbm(vec3 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*noise(p);p=p*2.02+vec3(1.7,9.2,3.1);a*=.5;}return s;}
+float fbmN(vec3 p,float n){float a=.5,s=0.,w=0.;for(int i=0;i<5;i++){if(float(i)>=n)break;s+=a*noise(p);w+=a;p=p*2.02+vec3(1.7,9.2,3.1);a*=.5;}return s/w*.94;}
+float hash(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}`;
+/* pass 1: volumetric clouds into a texture */
+const WXGL_CLOUD_FS=`precision highp float;
+uniform vec2 uR;uniform float uT,uCover,uBase,uSteps,uAbs,uFlash;uniform vec3 uLit,uDark,uL;uniform vec2 uWind,uFP;
+${WXGL_NOISE}
+/* the cloud layer is a slab of sky between two heights; the camera stands on the ground and looks a little up */
+const float H0=1.0,H1=2.1;
+float cover(vec2 xz){float c=noise(vec3(xz*.42,4.7))*.62+noise(vec3(xz*1.1,9.1))*.38;return smoothstep(1.-uCover-.06,1.-uCover+.2,c);}
+float dens(vec3 p,float lod){
+  vec2 xz=p.xz+uT*uWind*vec2(14.,14.);
+  float cv=cover(xz);if(cv<=.001)return 0.;
+  vec3 q=vec3(xz.x,p.y*1.5-uT*.02,xz.y)*1.25;
+  float det=fbmN(q,lod);
+  /* a lumpy base (darker pockets under a deck), flat-ish under small clouds; rounded tops that rise with the cloud's size */
+  float hf=(p.y-H0-(det-.5)*.5*uCover)/(H1-H0);
+  float top=.18+cv*(.55+uCover*.3);
+  float prof=smoothstep(0.,.08,hf)*smoothstep(top,top*.55,hf);if(prof<=.001)return 0.;
+  return clamp((cv*prof-(1.-det)*(.5+uCover*.25))*2.4,0.,1.);}
+void main(){
+  vec2 uv=gl_FragCoord.xy/uR;float asp=uR.x/uR.y;
+  float pitch=.24;vec3 fw=vec3(0.,sin(pitch),cos(pitch)),up=vec3(0.,cos(pitch),-sin(pitch)),rt=vec3(1.,0.,0.);
+  vec3 rd=normalize(fw+(uv.x-.5)*asp*.95*rt+(uv.y-.5)*.95*up);
+  if(rd.y<.015){gl_FragColor=vec4(0.);return;}
+  float t0=(H0-uBase*.0)/rd.y,t1=min(H1/rd.y,40.);if(t0>=t1){gl_FragColor=vec4(0.);return;}
+  float jit=.5+(hash(gl_FragCoord.xy)-.5)*.7;
+  float dt=(t1-t0)/uSteps,T=1.;vec3 col=vec3(0.);
+  for(int i=0;i<32;i++){if(float(i)>=uSteps)break;
+    float t=t0+(float(i)+jit)*dt;vec3 p=rd*t;
+    float d=dens(p,clamp(5.-t*.35,2.,5.));
+    if(d>.003){
+      float dl=dens(p+uL*.18,2.)+dens(p+uL*.45,1.)*.7;
+      float sh=exp(-dl*uAbs);
+      float hf=clamp((p.y-H0)/(H1-H0),0.,1.);
+      vec3 c=mix(uDark,uLit,clamp(sh*.85+hf*.3,0.,1.));
+      c*=.72+.55*(1.-d);                           /* thin parts paler, dense cores darker: texture in a deck */
+      /* distance: far clouds fade into the haze near the horizon */
+      float fogk=1.-exp(-t*.09);c=mix(c,mix(uDark,uLit,.55),fogk*.7);
+      if(uFlash>0.){vec2 sp=vec2(uv.x-uFP.x,(uv.y-uFP.y)*.6);c+=vec3(.78,.82,1.)*uFlash*exp(-length(sp)*4.)*1.6*(1.-hf*.5);}
+      float a=(1.-exp(-d*dt*7.))*(1.-fogk*.5);
+      col+=T*a*c;T*=1.-a;if(T<.02)break;}}
+  /* the cloud deck fades out toward the horizon */
+  float hor=smoothstep(.015,.09,rd.y);
+  gl_FragColor=vec4(col,1.-T)*hor;}`;
+/* pass 2: clouds, then fog, rain and snow in depth, at full resolution */
+const WXGL_COMP_FS=`precision highp float;
+uniform vec2 uR,uCR;uniform float uT,uRain,uSnow,uFog,uSlant,uFlash,uNight;uniform sampler2D uC;uniform vec3 uHaze;
+${WXGL_NOISE}
+float rainL(vec2 p,float s,float v,float len,float wid,float dens,float seed){
+  p*=s;p.x+=p.y*uSlant;p.y+=uT*v*s;
+  vec2 id=floor(vec2(p.x,p.y*.25));float r=hash(id+seed),r2=hash(id+seed+7.31);
+  if(hash(id+seed+2.17)>dens)return 0.;
+  float x=fract(p.x)-.15-.7*r2;float h=r*(1.-len-.04)+.02,y=fract(p.y*.25)-h;
+  float tail=step(0.,y)*smoothstep(len,0.,y)*smoothstep(0.,.012,y);
+  return smoothstep(wid,wid*.2,abs(x))*tail;}
+float snowL(vec2 p,float s,float v,float rad,float soft,float dens,float seed){
+  p*=s;p.y+=uT*v*s;p.x+=uSlant*p.y*.6;
+  vec2 id=floor(p);float r=hash(id+seed);if(r>dens)return 0.;
+  vec2 c=vec2(.2+.6*hash(id+seed+3.1),.2+.6*hash(id+seed+5.7));
+  c.x+=sin(uT*(.8+r)+r*6.3)*.18;
+  float d=length(fract(p)-c);return smoothstep(rad,rad*(1.-soft),d);}
+void main(){
+  vec2 uv=gl_FragCoord.xy/uR;float asp=uR.x/uR.y;vec2 xy=vec2(uv.x*asp,uv.y);
+  /* the clouds, softened a little as they are scaled up */
+  vec2 o=1.15/uCR;vec4 C=(texture2D(uC,uv+vec2(o.x,o.y))+texture2D(uC,uv+vec2(-o.x,o.y))+texture2D(uC,uv+vec2(o.x,-o.y))+texture2D(uC,uv-o))*.25;vec3 col=C.rgb;float A=C.a;
+  /* fog: banks of noise in the lower two thirds */
+  if(uFog>0.){float f=fbm(vec3(xy.x*1.6+uT*.03,xy.y*3.2,uT*.02));float band=smoothstep(.95,.15,uv.y);
+    float a=clamp((f-.25)*1.6,0.,1.)*band*uFog*.75;vec3 fc=mix(vec3(.92,.93,.95),vec3(.42,.46,.52),uNight);col=fc*a+col*(1.-a);A=a+A*(1.-a);}
+  /* rain: four layers, far to near */
+  if(uRain>0.){float dn=clamp(uRain*.32,0.,.92);
+    float l4=rainL(xy,46.,.95,.30,.10,dn,4.)*.16,l3=rainL(xy,30.,1.25,.36,.08,dn,3.)*.24,l2=rainL(xy,19.,1.65,.42,.06,dn*.9,2.)*.36,l1=rainL(xy,11.,2.2,.5,.05,dn*.7,1.)*.5;
+    vec3 rc=mix(vec3(.84,.88,.95),vec3(.55,.6,.7),uNight);
+    float far=l4+l3,near=l2+l1;vec3 add=mix(uHaze,rc,.55)*far+rc*near;float ra=clamp(far+near,0.,1.);
+    col=add+col*(1.-ra);A=ra+A*(1.-ra);
+    /* a mist of rain near the ground */
+    float m=smoothstep(.35,0.,uv.y)*.12*min(uRain,1.6);col=uHaze*m+col*(1.-m);A=m+A*(1.-m);}
+  /* snow: far small flakes, near large soft ones */
+  if(uSnow>0.){float dn=clamp(uSnow*.55,0.,.95);
+    float s=snowL(xy,26.,.05,.07,.5,dn,1.)*.45+snowL(xy,15.,.075,.09,.45,dn,2.)*.65+snowL(xy,8.,.11,.11,.55,dn*.8,3.)*.8+snowL(xy,4.,.16,.13,.85,dn*.5,4.)*.5;
+    s=clamp(s,0.,1.);col=vec3(1.)*s+col*(1.-s);A=s+A*(1.-s);}
+  /* lightning lights the whole sky for a moment */
+  if(uFlash>0.){float f=uFlash*.32;col=vec3(.88,.9,1.)*f+col*(1.-f);A=f+A*(1.-f);}
+  gl_FragColor=vec4(col,A);}`;
+
+function wxglInit(){if(WXGL.ok!=null)return WXGL.ok;WXGL.ok=false;try{
+  const c=document.createElement("canvas");c.className="wxa-gl";c.setAttribute("aria-hidden","true");
+  const gl=c.getContext("webgl",{alpha:true,premultipliedAlpha:true,antialias:false,depth:false,stencil:false,powerPreference:"low-power"});if(!gl)return false;
+  const hp=gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT);if(!hp||hp.precision<16)return false;
+  const sh=(type,src)=>{const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s};
+  const prog=fs=>{const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,WXGL_VS));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.bindAttribLocation(p,0,"a");gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));
+    const u={};const n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);for(let i=0;i<n;i++){const a=gl.getActiveUniform(p,i);u[a.name]=gl.getUniformLocation(p,a.name)}return{p,u}};
+  WXGL.P=prog(WXGL_CLOUD_FS);WXGL.Q=prog(WXGL_COMP_FS);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  /* the noise texture: R random, G the same shifted by (37,17), so one fetch gives two z-layers */
+  const N=256,R=new Uint8Array(N*N),D=new Uint8Array(N*N*4);for(let i=0;i<R.length;i++)R[i]=Math.random()*256|0;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=(y*N+x)*4;D[i]=R[y*N+x];D[i+1]=R[((y+17)&255)*N+((x+37)&255)];D[i+2]=0;D[i+3]=255}
+  WXGL.ntex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,WXGL.ntex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,N,N,0,gl.RGBA,gl.UNSIGNED_BYTE,D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+  WXGL.tex=gl.createTexture();WXGL.fb=gl.createFramebuffer();
+  c.addEventListener("webglcontextlost",e=>{e.preventDefault();WXGL.ok=false;WXAN.glOn=false;c.remove();WXAN.gcv=null;WXAN.kind=""});
+  WXGL.gl=gl;WXAN.gcv=c;WXGL.ok=true;return true}catch(e){console.warn("[wx3d]",e.message);return false}}
+
+/* per sky: how much cloud, where its base is, its lit and shaded colours, the light's direction, rain, snow, fog */
+const WXGL_SKY={
+  "clear-day":{cover:.36,base:.55,lit:[1,1,1],dark:[.74,.79,.88],abs:3},
+  "cloud-day":{cover:.5,base:.36,lit:[1,1,1],dark:[.66,.71,.80],abs:3.6},
+  "cloud-night":{cover:.5,base:.38,lit:[.42,.47,.58],dark:[.11,.13,.19],abs:3.6,night:1},
+  "rain":{cover:.74,base:.22,lit:[.74,.77,.83],dark:[.20,.23,.28],abs:2.2,rain:1},
+  "rain-night":{cover:.74,base:.22,lit:[.34,.38,.46],dark:[.06,.08,.11],abs:2.2,rain:1,night:1},
+  "storm":{cover:.78,base:.16,lit:[.56,.58,.66],dark:[.05,.06,.09],abs:2.6,rain:1.7},
+  "snow":{cover:.7,base:.26,lit:[.97,.98,1],dark:[.58,.62,.70],abs:2.4,snow:1},
+  "fog":{cover:.55,base:.5,lit:[.94,.95,.97],dark:[.70,.73,.78],abs:2.6,fog:1},
+  "fog-night":{cover:.5,base:.5,lit:[.40,.44,.52],dark:[.16,.18,.23],abs:2.6,fog:1,night:1}};
+function wxglSetup(K){const S=WXGL_SKY[K.s];WXAN.glOn=false;if(WXAN.gcv)WXAN.gcv.hidden=true;if(!S||!wxglInit())return;
+  const gcv=WXAN.gcv;if(!gcv.isConnected&&WXAN.cv)WXAN.cv.after(gcv);gcv.hidden=false;
+  const int=WXA.int,e=WXA.wdir!=null?-Math.sin(WXA.wdir*Math.PI/180):.3;
+  WXGL.s={...S,rain:S.rain?S.rain*[.45,1,1.8][int]:0,snow:S.snow?[.55,1,1.6][int]:0,night:S.night?1:0,
+    wind:[e*(.012+Math.min(30,WXA.wspd)/900),.004+Math.min(30,WXA.wspd)/2400],L:K.night?[.45,.55,.7]:[.55,.6,.6]};
+  WXAN.glOn=true}
+function wxglSize(){const gl=WXGL.gl,c=WXAN.gcv,w=WXAN.w,h=WXAN.h,dpr=Math.min(1.5,window.devicePixelRatio||1);
+  const cw=Math.round(w*dpr),ch=Math.round(h*dpr);if(c.width!==cw||c.height!==ch){c.width=cw;c.height=ch}
+  const fw=Math.max(64,Math.round(w*WXGL.scale)),fh=Math.max(48,Math.round(h*WXGL.scale));
+  if(fw!==WXGL.fw||fh!==WXGL.fh){WXGL.fw=fw;WXGL.fh=fh;gl.bindTexture(gl.TEXTURE_2D,WXGL.tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,fw,fh,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,WXGL.fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,WXGL.tex,0);gl.bindFramebuffer(gl.FRAMEBUFFER,null);WXGL.odd=false}}
+function wxglDraw(dt){if(!WXAN.glOn||!WXGL.gl)return;const gl=WXGL.gl,S=WXGL.s,t=WXAN.t;if(gl.isContextLost())return;
+  const c=WXAN.gcv;if(!c.isConnected&&WXAN.cv)WXAN.cv.after(c);if(c.hidden)c.hidden=false;wxglSize();
+  /* keep a steady frame: lower the clouds' resolution and steps if frames run long, raise them back when there is room */
+  if(dt>0){WXGL.ft.push(dt);if(WXGL.ft.length>45){const a=WXGL.ft.reduce((x,y)=>x+y,0)/WXGL.ft.length;WXGL.ft=[];
+    if(a>.04&&WXGL.scale<=.22){WXAN.glOn=false;WXAN.gcv.hidden=true;WXGL.ok=false;console.warn("[wx3d] too slow here, using the 2D sky");return}
+    if(a>.024&&WXGL.scale>.22){WXGL.scale=Math.max(.22,WXGL.scale*.8);WXGL.steps=Math.max(12,WXGL.steps-3)}else if(a<.0175&&WXGL.scale<.42){WXGL.scale=Math.min(.42,WXGL.scale*1.12);WXGL.steps=Math.min(22,WXGL.steps+1)}}}
+  const f=WXAN.flash||0;
+  /* clouds every other frame (they move slowly), or every frame while lightning is on */
+  WXGL.odd=!WXGL.odd;if(WXGL.odd||f>0||WXAN.still){const P=WXGL.P,u=P.u;gl.bindFramebuffer(gl.FRAMEBUFFER,WXGL.fb);gl.viewport(0,0,WXGL.fw,WXGL.fh);gl.useProgram(P.p);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,WXGL.ntex);gl.uniform1i(u.uN,0);
+    gl.uniform2f(u.uR,WXGL.fw,WXGL.fh);gl.uniform1f(u.uT,t);gl.uniform1f(u.uCover,S.cover);gl.uniform1f(u.uBase,S.base);gl.uniform1f(u.uSteps,WXGL.steps);gl.uniform1f(u.uAbs,S.abs);
+    gl.uniform1f(u.uFlash,f);gl.uniform2f(u.uFP,WXAN.flashX||.5,.8);gl.uniform3fv(u.uLit,S.lit);gl.uniform3fv(u.uDark,S.dark);gl.uniform3fv(u.uL,S.L);gl.uniform2fv(u.uWind,S.wind);
+    gl.drawArrays(gl.TRIANGLES,0,3)}
+  const Q=WXGL.Q,u=Q.u;gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,WXAN.gcv.width,WXAN.gcv.height);gl.useProgram(Q.p);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,WXGL.ntex);gl.uniform1i(u.uN,0);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,WXGL.tex);gl.uniform1i(u.uC,1);
+  gl.uniform2f(u.uR,WXAN.gcv.width,WXAN.gcv.height);gl.uniform2f(u.uCR,WXGL.fw,WXGL.fh);gl.uniform1f(u.uT,t);gl.uniform1f(u.uRain,S.rain);gl.uniform1f(u.uSnow,S.snow);gl.uniform1f(u.uFog,S.fog?1:0);
+  gl.uniform1f(u.uSlant,-(WXAN.slant||0));gl.uniform1f(u.uFlash,f);gl.uniform1f(u.uNight,S.night);gl.uniform3fv(u.uHaze,S.dark.map((v,i)=>v*.6+S.lit[i]*.4));
+  gl.drawArrays(gl.TRIANGLES,0,3)}
+try{window.__efbWxgl=WXGL}catch(e){}
 
 /* ===== Winter Ops: cold temperature altitude correction (ICAO Doc 8168) and de/anti-icing holdover times (FAA) ===== */
 let wiTab=store.get("wiTab","cold");
@@ -6260,7 +6426,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 17, 2026",["Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 17, 2026",["Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1117.0949">
+<meta name="efb-build" content="1117.1005">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -4805,6 +4805,8 @@ const WXS={
   "rain":"linear-gradient(180deg,#34475A 0%,#4D6377 55%,#6E8499 100%)","rain-night":"linear-gradient(180deg,#121A24 0%,#1F2C3B 55%,#334457 100%)",
   "storm":"linear-gradient(180deg,#22252F 0%,#363A4A 55%,#535870 100%)","fog":"linear-gradient(180deg,#7D8892 0%,#9AA4AD 55%,#BCC4CB 100%)",
   "fog-night":"linear-gradient(180deg,#252B32 0%,#3A424B 55%,#535D67 100%)","snow":"linear-gradient(180deg,#6E86A1 0%,#93A8BF 55%,#BFCCDB 100%)"};
+/* a solid colour for the hourly table's row names, which stay put while the hours scroll under them */
+const WXTH={"clear-day":"#4A8DD8","clear-night":"#1D3466","cloud-day":"#6F88A3","cloud-night":"#2A384B","rain":"#4B6074","rain-night":"#212F3F","storm":"#383C4D","fog":"#929DA7","fog-night":"#3C454F","snow":"#8DA2BA"};
 function wxSky(m,day){if(!m)return day?"cloud-day":"cloud-night";const w=m.wx.join(" ");
   if(/TS/.test(w))return"storm";if(/SN|SG|PL|GS/.test(w))return"snow";if(/RA|SH|DZ/.test(w))return day?"rain":"rain-night";
   if(/FG|BR|HZ|FU/.test(w)&&m.visSM!=null&&m.visSM<5)return day?"fog":"fog-night";
@@ -4882,7 +4884,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
 /* the airport list as sky cards, and the sky behind the app */
 {const _v=V.wx;V.wx=function(){const html=_v.apply(this,arguments);const apts=wxFor(O());
   const sel=apts.find(a=>a[1]===wxSel),ms=sel&&decodeMetar(sel[3]),sky=sel?wxSky(ms,wxIsDay(sel[2])):"clear-day";
-  if(WXS[sky]){screenEl.style.setProperty("--wxsky",WXS[sky]);screenEl.dataset.wxsky=sky}
+  if(WXS[sky]){screenEl.style.setProperty("--wxsky",WXS[sky]);screenEl.style.setProperty("--wxth",WXTH[sky]);screenEl.dataset.wxsky=sky}
   const T=document.createElement("template");T.innerHTML=html;const R=T.content,side=R.querySelector(".split>.side");
   if(side){const cards=apts.map(a=>{const m=decodeMetar(a[3]),d=wxIsDay(a[2]),k=wxSky(m,d),F=FCW.fc[S(a[2].icao_code)],d0=F&&F.d&&F.d.days&&F.d.days[0];
       return `<button class="wi-loc" data-wxsel="${a[1]}" aria-pressed="${wxSel===a[1]}" style="background:${WXS[k]}"><span class="wi-lt"><b>${esc(S(a[2].icao_code))}</b><small>${esc(a[0])} · ${esc(wxLocalTime(a[2]))}</small>${m?`<small><i class="wi-cat ${m.cat}">${m.cat}</i> ${esc(windTxt(m.wind))} kt</small>`:""}</span>
@@ -4957,9 +4959,10 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .wi .w-ring{stroke:rgba(255,255,255,.4)}.wi .w-tick{stroke:rgba(255,255,255,.55)}.wi .w-card{fill:#fff}.wi .w-arrow{stroke:#fff;fill:#fff}.wi .w-rwy{fill:rgba(20,30,40,.55);stroke:rgba(255,255,255,.6)}.wi .w-rwyl{fill:#fff}
 .wi .wr-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}
 .wi .wr-chip{background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:999px;padding:6px 11px;font:500 12px var(--f-os)}.wi .wr-chip[aria-pressed="true"]{background:#fff;color:#1D3550}
-.wi-hourly .fc-wrap{border:0;background:transparent;margin:0 -14px;padding:0 4px}
+.wi-hourly .fc-wrap{border:0;background:transparent;margin:0 -14px;padding:0}.wi-hourly .fc-t th{padding-left:14px}
 .wi .fc-t,.wi .fc-t th,.wi .fc-t td{color:#fff;border-color:rgba(255,255,255,.14)!important;background:transparent!important}
-.wi .fc-t th{color:rgba(255,255,255,.7)}.wi .fc-t td.now{background:rgba(255,255,255,.12)!important}.wi .fc-t td.mdl{opacity:.7}
+.wi .fc-t th{color:rgba(255,255,255,.75);z-index:2;background:var(--wxth,#24364C)!important;box-shadow:6px 0 10px -6px rgba(0,0,0,.35)}
+.wi .fc-t td.now{background:rgba(255,255,255,.12)!important}.wi .fc-t td.mdl{opacity:.7}
 .wi .fc-t small,.wi .fc-day{color:rgba(255,255,255,.7)!important}.wi .fc-drop{fill:#7FD0FF}
 .wi .fc-t .VFR{color:#7CF0A4}.wi .fc-t .MVFR{color:#8CC8FF}.wi .fc-t .IFR{color:#FF8A8A}.wi .fc-t .LIFR{color:#F49CF0}
 .wi-days{display:flex;flex-direction:column}

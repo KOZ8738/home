@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1118.2224">
+<meta name="efb-build" content="1118.2235">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -10110,7 +10110,7 @@ function asDetail(id){const A=AS_INFO[id],a=APPS[id],news=[];
   ${asHas(id)&&!AS_CORE.includes(id)?`<button class="as-del" data-asdel="${id}">${ASX.armDel===id?"Tap again to remove "+esc(a.name):"Remove App"}</button><p class="as-fine">Removing takes ${esc(a.name)} off your Home Screen on all your devices. What you saved in it stays.</p>`:""}`}
 V.store=()=>{const anim=ASX.anim;ASX.anim=0;const body=ASX.det&&AS_INFO[ASX.det]?asDetail(ASX.det):ASX.tab==="apps"?asApps():ASX.tab==="partners"?asPartners():asToday();
   return `<div class="as${anim?" as-in":""}${ASX.det?" as-det":""}" id="asRoot"><div class="as-scroll" id="asScroll"><div class="as-wrap">${body}</div></div>
-  <nav class="as-tabs" aria-label="App Store">${[["today","Today",'<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M4 9h16"/>'],["partners","Partners",'<circle cx="8.5" cy="9" r="3.2"/><circle cx="15.5" cy="9" r="3.2"/><path d="M3 19c.6-3 2.8-4.6 5.5-4.6S13.4 16 14 19M10 19c.6-3 2.8-4.6 5.5-4.6S20.4 16 21 19"/>'],["apps","Apps",'<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>']].map(([k,l,g])=>`<button class="${ASX.tab===k&&!ASX.det?"on":""}" data-astab="${k}" aria-current="${ASX.tab===k}"><svg viewBox="0 0 24 24">${g}</svg>${l}</button>`).join("")}</nav></div>`};
+  <nav class="asx-tabs" aria-label="App Store">${[["today","Today",'<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M4 9h16"/>'],["partners","Partners",'<circle cx="8.5" cy="9" r="3.2"/><circle cx="15.5" cy="9" r="3.2"/><path d="M3 19c.6-3 2.8-4.6 5.5-4.6S13.4 16 14 19M10 19c.6-3 2.8-4.6 5.5-4.6S20.4 16 21 19"/>'],["apps","Apps",'<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>']].map(([k,l,g])=>`<button class="${ASX.tab===k&&!ASX.det?"on":""}" data-astab="${k}" aria-current="${ASX.tab===k}"><svg viewBox="0 0 24 24">${g}</svg>${l}</button>`).join("")}</nav></div>`};
 
 /* ---------- taps ---------- */
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-asget],[data-asopen],[data-asdet],[data-astab],[data-asback],[data-asdel],[data-asall],[data-asneed],[data-asneedx]");if(!t)return;const d=t.dataset;
@@ -10194,10 +10194,10 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .as-news>div{padding:12px 12px;border-bottom:.5px solid var(--ios-sep)}.as-news>div:last-child{border:0}.as-news small{color:var(--ios-lbl2);font:500 13px var(--f-os)}.as-news p{margin:3px 0 0;font:400 15px/1.45 var(--f-os)}
 .as-del{display:block;width:100%;margin-top:28px;border:0;border-radius:12px;background:var(--ios-grp);color:#FF3B30;font:500 17px var(--f-os);padding:13px;cursor:pointer}
 .as-fine{color:var(--ios-lbl2);font:400 13px/1.4 var(--f-os);margin:8px 4px}
-.as-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:40px;padding:6px 0 calc(8px + env(safe-area-inset-bottom));background:rgba(249,249,249,.86);-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8);border-top:.5px solid var(--ios-sep)}
-:root[data-theme="dark"] .as-tabs{background:rgba(22,22,24,.86)}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .as-tabs{background:rgba(22,22,24,.86)}}
-.as-tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--ios-lbl2);font:600 11px var(--f-os);min-width:64px;cursor:pointer;transition:color .2s}
-.as-tabs svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}.as-tabs button.on{color:var(--ios-tint)}.as-tabs button.on svg{fill:currentColor;fill-opacity:.15}
+.asx-tabs{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:40px;padding:6px 0 calc(8px + env(safe-area-inset-bottom));background:rgba(249,249,249,.86);-webkit-backdrop-filter:blur(20px) saturate(1.8);backdrop-filter:blur(20px) saturate(1.8);border-top:.5px solid var(--ios-sep)}
+:root[data-theme="dark"] .asx-tabs{background:rgba(22,22,24,.86)}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .asx-tabs{background:rgba(22,22,24,.86)}}
+.asx-tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--ios-lbl2);font:600 11px var(--f-os);min-width:64px;cursor:pointer;transition:color .2s}
+.asx-tabs svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}.asx-tabs button.on{color:var(--ios-tint)}.asx-tabs button.on svg{fill:currentColor;fill-opacity:.15}
 /* motion */
 @keyframes asUp{from{opacity:0;transform:translateY(16px) scale(.98)}}@keyframes asFade{from{opacity:0}}@keyframes asSlide{from{opacity:0;transform:translateX(28px)}}
 .as-in .as-card,.as-in .as-group,.as-in .as-h1,.as-in .as-date{animation:asUp .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*70ms)}

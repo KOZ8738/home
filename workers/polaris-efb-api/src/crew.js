@@ -118,6 +118,8 @@ export class Crew {
       case 'unjob': this.sql.exec('DELETE FROM jobs WHERE id = ?', String(a.id || '')); return { ok: true };
       case 'checkin': { const r = this.checkin(a); await this.wake(); return r; }
       case 'checkout': return this.checkout(a.u);
+      case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '' }; }) };
+      case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
       case 'alarmSync': { const r = this.alarmSync(String(a.u || ''), a.list); await this.wake(); return r; }
@@ -207,7 +209,7 @@ export class Crew {
     const u = String(a.u || ''), b = a.booking || {}; if (!u || !b.id) throw new CrewError(400, 'No booking');
     const now = Date.now(), std = Date.parse(b.departureTime || '') || 0, sta = Date.parse(b.arrivalTime || '') || 0;
     const data = { bookingId: String(b.id), flight: b.flight || '', callsign: b.callsign || '', from: b.from || '', to: b.to || '', fromName: b.fromName || '', toName: b.toName || '',
-      std: std || null, sta: sta || null, type: b.type || '', registration: b.registration || '', altitude: b.altitude ?? null, costIndex: b.costIndex ?? null, route: b.route || '', network: b.network || '' };
+      std: std || null, sta: sta || null, altn: /^[A-Z0-9]{4}$/.test(a.altn || '') ? a.altn : '', type: b.type || '', registration: b.registration || '', altitude: b.altitude ?? null, costIndex: b.costIndex ?? null, route: b.route || '', network: b.network || '' };
     this.checkout(u, true);
     this.sql.exec('INSERT OR REPLACE INTO ci (u, bid, data, at) VALUES (?, ?, ?, ?)', u, data.bookingId, JSON.stringify(data), now);
     const fl = data.callsign || data.flight || 'your flight', hhmm = (t) => new Date(t).toISOString().slice(11, 16) + 'Z';
@@ -219,8 +221,26 @@ export class Crew {
     this.job('trail:' + u, Math.max(now + MIN, std ? std - 30 * MIN : now + MIN), 'trail', u, { bid: data.bookingId, until: (sta || std || now) + (sta ? 4 : 20) * 3600_000 });
     return { ok: true, checkin: { ...data, at: now } };
   }
+  /* the destination or alternate weather for a checked-in flight got worse (or came back): tell the pilot, once per change */
+  wxSeen(a) {
+    const u = String(a.u || ''), icao = String(a.icao || ''); if (!u || !icao) return { ok: false };
+    const k = 'wxw:' + u + ':' + icao, row = this.one('SELECT v FROM kv WHERE k = ?', k), prev = row ? JSON.parse(row.v) : null;
+    const R = { VFR: 0, MVFR: 1, IFR: 2, LIFR: 3 }, r = R[a.cat] ?? null, pr = prev ? (R[prev.cat] ?? null) : null;
+    const hz = Array.isArray(a.hz) ? a.hz.map(String).slice(0, 6) : [], newHz = hz.filter((x) => !(prev && (prev.hz || []).includes(x)));
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ cat: a.cat || (prev && prev.cat) || '', hz, at: Date.now() }));
+    const parts = [];
+    if (r != null && r >= 2 && (pr == null || r > pr)) parts.push('now ' + a.cat);
+    if (newHz.length) parts.push(newHz.join(', '));
+    const better = prev && pr != null && pr >= 2 && r != null && r <= 1;
+    if (!parts.length && !better) return { ok: true, sent: false };
+    const who = a.role === 'altn' ? 'Alternate' : 'Destination', fl = a.fl ? ' · ' + a.fl : '';
+    const title = parts.length ? `${who} ${icao}: ${parts.join(' · ')}` : `${who} ${icao}: back to ${a.cat}`;
+    this.enqueue({ u }, 'brief', { title, body: String(a.raw || '').slice(0, 180) + fl, url: '#wx', tag: 'wx-' + icao });
+    return { ok: true, sent: true };
+  }
   checkout(u, quiet) {
     this.sql.exec('DELETE FROM ci WHERE u = ?', u);
+    this.sql.exec('DELETE FROM kv WHERE k LIKE ?', 'wxw:' + u + ':%');
     this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'brief'", u);
     if (!quiet) this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'trail'", u);
     return { ok: true };
@@ -381,7 +401,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
         if (!bk) throw new CrewError(404, 'That booking is no longer in your vAMSYS bookings');
         const std = Date.parse(bk.departureTime || ''), now = Date.now();
         if (std && std - now > 12 * 3600_000) throw new CrewError(409, 'Check-in opens 12 hours before departure (' + new Date(std - 12 * 3600_000).toISOString().slice(11, 16) + 'Z).');
-        return res(await crew(env, { op: 'checkin', u: me.u, booking: bk }));
+        return res(await crew(env, { op: 'checkin', u: me.u, booking: bk, altn: String(b.altn || '').toUpperCase() }));
       }
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));

@@ -25,6 +25,8 @@ export class Kneeboard {
     this.sql.exec('CREATE INDEX IF NOT EXISTS pages_st ON pages (u, st)');
     /* the apps the pilot has installed from the EFB's App Store (one row per pilot) */
     this.sql.exec('CREATE TABLE IF NOT EXISTS apps (u TEXT PRIMARY KEY, list TEXT NOT NULL, upd INTEGER NOT NULL)');
+    /* the pilot's Weather app: saved airports in their order, and the units (one row per pilot) */
+    this.sql.exec('CREATE TABLE IF NOT EXISTS wx (u TEXT PRIMARY KEY, data TEXT NOT NULL, upd INTEGER NOT NULL)');
   }
   rows(q, ...b) { return this.sql.exec(q, ...b).toArray(); }
   one(q, ...b) { return this.rows(q, ...b)[0] || null; }
@@ -46,12 +48,25 @@ export class Kneeboard {
         case 'usage': return J(this.usage(a.u));
         case 'appsGet': { const r = this.one('SELECT list, upd FROM apps WHERE u=?', a.u); return J(r ? { apps: JSON.parse(r.list), upd: r.upd } : { apps: null, upd: 0 }); }
         case 'appsSet': return J(this.appsSet(a.u, a.apps, a.upd));
+        case 'wxGet': { const r = this.one('SELECT data, upd FROM wx WHERE u=?', a.u); return J(r ? { wx: JSON.parse(r.data), upd: r.upd } : { wx: null, upd: 0 }); }
+        case 'wxSet': return J(this.wxSet(a.u, a.wx, a.upd));
         default: throw new KbError(400, 'Unknown call');
       }
     } catch (e) { return J({ error: e.message || 'Error', ...(e.extra || {}) }, e.status || 500); }
   }
 
   out(r) { return { id: r.id, upd: r.upd, del: !!r.del, st: r.st, data: r.del ? null : (r.data ? JSON.parse(r.data) : null) }; }
+  wxSet(u, wx, upd) {
+    const UNITS = { t: ['C', 'F'], w: ['kt', 'kmh', 'ms'], p: ['inHg', 'hPa'], v: ['sm', 'km'], h: ['ft', 'm'] };
+    if (!wx || typeof wx !== 'object') throw new KbError(400, 'Bad Weather settings');
+    const fav = Array.isArray(wx.fav) ? [...new Set(wx.fav.filter((x) => typeof x === 'string' && /^[A-Z0-9]{3,4}$/.test(x)))].slice(0, 60) : [];
+    const units = {}; for (const k of Object.keys(UNITS)) { const v = wx.units && wx.units[k]; if (UNITS[k].includes(v)) units[k] = v; }
+    upd = Math.floor(Number(upd)); if (!Number.isFinite(upd) || upd <= 0) throw new KbError(400, 'Bad time');
+    const cur = this.one('SELECT data, upd FROM wx WHERE u=?', u);
+    if (cur && cur.upd > upd) return { ok: true, stale: true, wx: JSON.parse(cur.data), upd: cur.upd };   // a newer copy is here already
+    this.sql.exec('INSERT INTO wx (u, data, upd) VALUES (?,?,?) ON CONFLICT(u) DO UPDATE SET data=excluded.data, upd=excluded.upd', u, JSON.stringify({ fav, units }), upd);
+    return { ok: true, upd };
+  }
   appsSet(u, list, upd) {
     if (!Array.isArray(list) || list.length > 80 || !list.every((x) => typeof x === 'string' && APP_ID.test(x))) throw new KbError(400, 'Bad app list');
     upd = Math.floor(Number(upd)); if (!Number.isFinite(upd) || upd <= 0) throw new KbError(400, 'Bad time');
@@ -137,5 +152,19 @@ export async function appsPublic(req, env, h, me) {
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new KbError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new KbError(400, 'Bad body'); }
     return res(await kb(env, me.u, { op: 'appsSet', apps: b.apps, upd: b.upd }));
+  } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
+}
+
+/** /api/efb/wx: the pilot's Weather app settings (saved airports, units), the same on every device */
+export async function wxPrefsPublic(req, env, h, me) {
+  const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+  try {
+    if (!me) throw new KbError(401, 'Sign in first');
+    if (!env.KB) throw new KbError(503, 'Not set up on the server');
+    if (req.method === 'GET') return res(await kb(env, me.u, { op: 'wxGet' }));
+    if (req.method !== 'POST') throw new KbError(405, 'Method not allowed');
+    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new KbError(415, 'Send JSON');
+    let b; try { b = await req.json(); } catch (e) { throw new KbError(400, 'Bad body'); }
+    return res(await kb(env, me.u, { op: 'wxSet', wx: b.wx, upd: b.upd }));
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
 }

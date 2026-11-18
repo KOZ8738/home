@@ -24,6 +24,7 @@
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
+ *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
  *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
@@ -40,7 +41,7 @@ import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
 export { Crew } from './crew.js';
-import { kbPublic, appsPublic } from './kb.js';
+import { kbPublic, appsPublic, wxPrefsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
@@ -597,6 +598,32 @@ async function majorRoute(env) {
 /* every 20 minutes: keep the major airports stored. Three layouts per run at most (missing or oldest
    first) to go easy on the public Overpass servers,
    and every chart list of the current AIRAC cycle. */
+/* Destination weather for checked-in flights: every cron run (20 min) the METAR at each checked-in flight's
+   destination and alternate is read (the same cached report the EFB shows), and the crew object pushes a notice to
+   the pilot when it gets worse: IFR or LIFR, or thunderstorms, freezing precipitation, heavy snow, hail, squalls or a
+   funnel cloud appear; and once when it is back to VFR or MVFR. From 3 h before departure to 1 h after arrival. */
+async function wxWatch(env, ctx) {
+  if (!env || !env.CREW) return;
+  const { list } = await crewCall(env, { op: 'ciList' }), now = Date.now(), by = new Map();
+  for (const c of list || []) {
+    if ((c.std && now < c.std - 3 * 3600_000) || (c.sta && now > c.sta + 3600_000) || (!c.sta && c.std && now > c.std + 16 * 3600_000)) continue;
+    for (const [role, icao] of [['dest', c.to], ['altn', c.altn]]) if (/^[A-Z0-9]{4}$/.test(icao || '')) { if (!by.has(icao)) by.set(icao, []); by.get(icao).push({ u: c.u, role, fl: c.fl }); }
+  }
+  for (const [icao, who] of by) {
+    let j = null; try { j = await airportRoute(icao, ctx); } catch (e) { continue; }
+    const raw = j && j.metar && j.metar.raw; if (!raw) continue;
+    const body = raw.replace(/\s+(RMK|TEMPO|BECMG|NOSIG)\b.*$/, ''), all = body.split(/\s+/), t0 = all.findIndex((t) => /^\d{6}Z$/.test(t));
+    /* the present-weather groups only (not the station, time, wind or cloud) */
+    const toks = all.slice(t0 + 1).filter((t) => /^(-|\+|VC)?(TS|SH|FZ|MI|BC|PR|DR|BL)?(DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)*$/.test(t) && /[A-Z]{2}/.test(t));
+    const hz = [];
+    if (toks.some((t) => /TS/.test(t))) hz.push('thunderstorms');
+    if (toks.some((t) => /^[-+]?FZ(RA|DZ)/.test(t))) hz.push('freezing precipitation');
+    if (toks.some((t) => /^\+[A-Z]*SN/.test(t))) hz.push('heavy snow');
+    if (toks.some((t) => /GR|GS/.test(t))) hz.push('hail');
+    if (toks.some((t) => /FC/.test(t))) hz.push('funnel cloud'); else if (toks.some((t) => /SQ/.test(t))) hz.push('squalls');
+    for (const w of who) await crewCall(env, { op: 'wxSeen', u: w.u, icao, role: w.role, fl: w.fl, cat: (j.metar.cat || '').toUpperCase(), hz, raw: body });
+  }
+}
 async function refreshMajor(env, ctx) {
   const kv = env && env.STORE; if (!kv) return;
   const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v11:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
@@ -1254,7 +1281,7 @@ async function aptsRoute(url, env, ctx, h) {
   return new Response(body, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
 }
 export default {
-  async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); },
+  async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message))); },
   async fetch(req, env, ctx) {
     /* the EFB privacy policy (linked from the "Login with vAMSYS" consent screen) */
     if (/^\/privacy\/?$/.test(new URL(req.url).pathname)) return new Response(PRIVACY_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
@@ -1285,6 +1312,11 @@ export default {
     if (/^\/api\/efb\/apps\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
       return appsPublic(req, env, h, me);
+    }
+    /* each pilot's Weather settings (see kb.js): saved airports and units, on every device */
+    if (/^\/api\/efb\/wx\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env);
+      return wxPrefsPublic(req, env, h, me);
     }
     /* each pilot's kneeboard pages (see kb.js); only the pilot can read them */
     if (/^\/api\/efb\/kb\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {

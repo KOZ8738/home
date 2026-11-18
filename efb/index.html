@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1118.2221">
+<meta name="efb-build" content="1118.2224">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3184,7 +3184,7 @@ function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))retur
 function gwxLegend(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;let el=wrap.querySelector("#gwxLeg");const f=gwxF();
   if(!f){if(el)el.hidden=true;return}if(!el){el=document.createElement("div");el.id="gwxLeg";el.className="gwxleg";wrap.appendChild(el)}el.hidden=false;
   /* it is asked for at every frame of a pan: the legend is only rewritten when its text changes */
-  const L={set h(v){if(el._gh!==v){el._gh=v;L.h=v}}};
+  const L={set h(v){if(el._gh!==v){el._gh=v;el.innerHTML=v}}};
   if(f==="cloud"){L.h=`<div class="gl-top"><b>Clouds</b><span>Satellite infrared</span></div><div class="gl-lab"><span>GOES, Meteosat, Himawari · every 10–15 min</span></div>`;return}
   const R=GWX_RAMP[f],name=(GWX_FIELDS.find(x=>x[0]===f)||[,""])[1],lvn=gwxLv()?(GWX_LVS.find(x=>x[0]===gwxLv())||[,""])[1]:f==="jet"?"FL340":f==="vis"||f==="mslp"||f==="cloud"?"Surface":"";
   const unit={jet:"kt",isa:"°C",cloud:"%",vis:"km",vv:"fpm",trop:"FL",mslp:"hPa"}[f],fmt=v=>f==="vis"?(v/1000).toFixed(v<2000?1:0):f==="vv"&&v>0?"+"+v:String(v);

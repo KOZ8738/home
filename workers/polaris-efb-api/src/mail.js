@@ -90,16 +90,23 @@ export async function mailAttachment(url, env, h, linkSig) {
 }
 
 /* ---- /admin ---- */
+const ADMIN_FRAME = "frame-ancestors 'self' https://koz8738.com https://www.koz8738.com";
 const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').slice(0, n);
 export async function mailAdmin(req, url, env, opts) {
   const path = url.pathname.replace(/\/+$/, '');
   let who;
   try { who = await accessUser(req, env); }
   catch (e) {
-    if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>The admin is locked.</b> ' + String(e.message).replace(/[<>&]/g, '') + '</div>'), { status: e.status || 401, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>The admin is locked.</b> ' + String(e.message).replace(/[<>&]/g, '') + '</div>'), { status: e.status || 401, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
     return jsonRes({ error: e.message }, e.status || 401);
   }
-  if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' } });
+  /* the EFB's Admin app shows this page inside the EFB (koz8738.com); no other site may frame it */
+  if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME, 'Referrer-Policy': 'no-referrer' } });
+  /* the Admin app's Sign in: Cloudflare Access signs the staff member in on the way here, then back to the EFB */
+  if (path === '/admin/signin') {
+    const back = String(url.searchParams.get('back') || '');
+    return new Response(null, { status: 302, headers: { Location: /^https:\/\/(www\.)?koz8738\.com\/efb\/[^\s]*$/.test(back) ? back : '/admin', 'Cache-Control': 'no-store' } });
+  }
   /* Pilots tab: who has signed in to the EFB; staff can end a pilot's sign-ins */
   if (path === '/admin/api/pilots' && req.method === 'GET') {
     try { return jsonRes(opts && opts.pilots ? await opts.pilots() : { pilots: [] }); } catch (e) { return jsonRes({ error: 'The pilot list is not available right now: ' + e.message }, 502); }

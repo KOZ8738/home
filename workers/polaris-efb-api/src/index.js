@@ -415,7 +415,8 @@ async function chartPdfRoute(url, h) {
   return new Response(res.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
 }
 
-const MAJOR = ['KATL','KDFW','KDEN','KORD','KLAX','KJFK','KLAS','KMCO','KMIA','KCLT','KSEA','KPHX','KEWR','KSFO','KIAH','KBOS','KFLL','KMSP','KLGA','KDTW','KPHL','KSLC','KBWI','KIAD','KDCA','KSAN','KTPA','KBNA','KAUS','PHNL','PANC','KPDX','KMSY','KRDU','KSJC','KOAK','KSAT','KMCI','KSMF','KSTL'];
+/* Polaris's network outside the US first (they had no head start), then the big US airports */
+const MAJOR = ['CYYZ','VHHH','RJTT','RCTP','ZBAA','ZSPD','WSSS','EGLL','LSZH','ENGM','KATL','KDFW','KDEN','KORD','KLAX','KJFK','KLAS','KMCO','KMIA','KCLT','KSEA','KPHX','KEWR','KSFO','KIAH','KBOS','KFLL','KMSP','KLGA','KDTW','KPHL','KSLC','KBWI','KIAD','KDCA','KSAN','KTPA','KBNA','KAUS','PHNL','PANC','KPDX','KMSY','KRDU','KSJC','KOAK','KSAT','KMCI','KSMF','KSTL'];
 /* Permanent store (Workers KV): a value is served from the store, refreshed in the background once it is
    older than maxAge, and built on the spot only the first time. Without the binding it just builds. */
 async function kvStore(env, ctx, key, maxAge, fn, keep) {

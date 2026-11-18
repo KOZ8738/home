@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1118.1325">
+<meta name="efb-build" content="1118.1339">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11254,6 +11254,49 @@ function mwTick(){if(MW.busy||!vam.url||document.hidden||(navigator.onLine===fal
 setTimeout(mwTick,8000);setInterval(mwTick,60000);
 /* a plan just loaded: its airports first, straight away */
 {const _l=loadOfp;loadOfp=function(){const r=_l.apply(this,arguments);if(r!==false)setTimeout(mwTick,1200);return r}}
+
+/* ===== Map performance probe (developer tool) =====
+   Off unless the EFB is opened with ?mapperf in the address (or localStorage "pefb:mapPerf" is "1"); then nothing on
+   the map changes, but its drawing steps are timed and window.__mapPerf can run a scripted pan or pinch with a chosen
+   set of layers and report the frame times. Used to find which layers make the map stutter. Must load after every
+   map module, so it times the outermost version of each step. */
+const MPF={on:false,t:{},n:{},mx:{}};
+try{MPF.on=/[?&]mapperf\b/.test(location.search)||localStorage.getItem("pefb:mapPerf")==="1"}catch(e){}
+if(MPF.on){
+  const T=(name,get,set)=>{const f=get();if(typeof f!=="function")return;set(function(){const t=performance.now();try{return f.apply(this,arguments)}finally{const d=performance.now()-t;MPF.t[name]=(MPF.t[name]||0)+d;MPF.n[name]=(MPF.n[name]||0)+1;if(d>(MPF.mx[name]||0))MPF.mx[name]=d}})};
+  T("drawMap",()=>drawMap0,f=>{drawMap0=f});T("fast",()=>mapFast,f=>{mapFast=f});T("canvas",()=>mapCanvas,f=>{mapCanvas=f});T("vatsim",()=>vsDraw,f=>{vsDraw=f});
+  T("sigmet",()=>sigDraw,f=>{sigDraw=f});T("winds",()=>wnDraw,f=>{wnDraw=f});T("pireps",()=>prDraw,f=>{prDraw=f});T("metar",()=>mtDraw,f=>{mtDraw=f});
+  T("aptSvg",()=>aptLayerSvg,f=>{aptLayerSvg=f});T("geoLine",()=>geoLine,f=>{geoLine=f});T("geoFill",()=>geoFill,f=>{geoFill=f});T("tiles",()=>tileLayer,f=>{tileLayer=f});T("chartOv",()=>ovDraw,f=>{ovDraw=f});
+  T("vecSync",()=>vecSync,f=>{vecSync=f});T("aptsTick",()=>aptsTick,f=>{aptsTick=f});T("gwxTick",()=>gwxTick,f=>{gwxTick=f});T("ifrTick",()=>ifrTick,f=>{ifrTick=f});T("vfrTick",()=>vfrTick,f=>{vfrTick=f});T("ifrAuto",()=>ifrAutoPick,f=>{ifrAutoPick=f});
+  const pct=(a,p)=>{if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))]};
+  const r1=v=>Math.round(v*10)/10,sleep=ms=>new Promise(r=>setTimeout(r,ms)),raf=()=>new Promise(r=>requestAnimationFrame(r));
+  const TOG=["apt","apts","wx","fir","oaip","radar","sig","traffic","vatsim","vec"];
+  /* the MapLibre redraw itself, inside vecSync */
+  function hookGl(){const m=VEC.map;if(!m||m._mpf)return;m._mpf=1;const r=m.redraw.bind(m);m.redraw=function(){const t=performance.now();try{return r()}finally{const d=performance.now()-t;MPF.t.gl=(MPF.t.gl||0)+d;MPF.n.gl=(MPF.n.gl||0)+1;if(d>(MPF.mx.gl||0))MPF.mx.gl=d}}}
+  function reset(){MPF.t={};MPF.n={};MPF.mx={}}
+  function times(frames){const o={};for(const k of Object.keys(MPF.t))o[k]={ms:r1(MPF.t[k]/Math.max(1,frames)),max:r1(MPF.mx[k]||0),n:MPF.n[k]};return o}
+  /* the layers, base map, winds, PIREPs and model weather to test, the rest off */
+  function setLayers(L){for(const k of TOG)ML[k]=!!(L.layers||[]).includes(k);ML.base=L.base||"map";ML.wind=L.wind||null;ML.pirep=L.pirep||"off";ML.gwx=L.gwx||"off";ML.ifrAuto=false}
+  async function settle(ms){const t0=performance.now();await sleep(300);for(let i=0;i<4;i++){try{mapLoadAll()}catch(e){}drawMap();await sleep(ms/4)}
+    const m=VEC.map;if(m&&ML.vec){await Promise.race([new Promise(r=>m.once("idle",r)),sleep(6000)])}hookGl();return performance.now()-t0}
+  /* one scripted gesture: pan (a drag across the screen), out / in (a pinch over 2.5 zoom levels), fling (fast pan) */
+  async function bench(o){o=Object.assign({z:5,lat:37.6,lon:-122.4,mode:"pan",frames:90,settle:2500},o||{});
+    if(cur!=="map"){location.hash="map";await sleep(1500)}
+    const keep=JSON.stringify(ML);setLayers(o);MAP.follow=false;MAP.sel=null;MAP.z=o.z;MAP.c={lat:o.lat,lon:o.lon};
+    const st=await settle(o.settle);reset();const {w}=mapSize(),z0=MAP.z,c0=mpx(MAP.c.lat,MAP.c.lon,z0),ft=[];let last=performance.now();
+    for(let i=1;i<=o.frames;i++){const now=await raf();ft.push(now-last);last=now;const f=i/o.frames;
+      if(o.mode==="pan"||o.mode==="fling"){const dx=(o.mode==="fling"?2.2:1)*w*.9*f,q=munpx(c0[0]+dx,c0[1],z0);MAP.c={lat:q[0],lon:q[1]}}
+      else{MAP.z=Math.max(2,Math.min(ZMAX,z0+(o.mode==="out"?-2.5:2.5)*f))}
+      try{mapFast()}catch(e){}}
+    const js=times(o.frames);reset();const t1=performance.now();await sleep(400);const after=times(1);
+    const res={mode:o.mode,z:r1(z0),to:r1(MAP.z),layers:(o.layers||[]).join(","),base:o.base||"map",wind:o.wind||"",pirep:o.pirep||"",gwx:o.gwx||"",
+      frames:{p50:r1(pct(ft,.5)),p95:r1(pct(ft,.95)),max:r1(Math.max(...ft)),slow:ft.filter(x=>x>25).length,drop:ft.filter(x=>x>40).length,n:ft.length},js,
+      lift:after.drawMap?after.drawMap.max:0,settled:Math.round(st)};
+    Object.assign(ML,JSON.parse(keep));try{drawMap()}catch(e){}return res}
+  /* many runs one after another; results collect in __mapPerf.out while it runs, so it can be read as it goes */
+  async function suite(list){const P=window.__mapPerf;P.out=[];P.busy=true;try{for(const o of list){try{P.out.push(await bench(o))}catch(e){P.out.push({err:String(e&&e.message||e),o})}}}finally{P.busy=false}return P.out}
+  window.__mapPerf={bench,suite,reset,times:()=>times(1),out:[],busy:false,info:()=>({dpr:window.devicePixelRatio,size:mapSize(),vec:!!VEC.map,ua:navigator.userAgent})};
+}
 
 /* start */
 (function(){const h=location.hash.slice(1);if(APPS[h]){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");

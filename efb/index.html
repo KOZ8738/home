@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1118.1513">
+<meta name="efb-build" content="1118.2221">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -3183,11 +3183,13 @@ function gwxTick(){const m=VEC.map;if(!m||!VEC.ready||!m.getSource("gwxi"))retur
 /* a small legend over the map */
 function gwxLegend(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;let el=wrap.querySelector("#gwxLeg");const f=gwxF();
   if(!f){if(el)el.hidden=true;return}if(!el){el=document.createElement("div");el.id="gwxLeg";el.className="gwxleg";wrap.appendChild(el)}el.hidden=false;
-  if(f==="cloud"){el.innerHTML=`<div class="gl-top"><b>Clouds</b><span>Satellite infrared</span></div><div class="gl-lab"><span>GOES, Meteosat, Himawari · every 10–15 min</span></div>`;return}
+  /* it is asked for at every frame of a pan: the legend is only rewritten when its text changes */
+  const L={set h(v){if(el._gh!==v){el._gh=v;L.h=v}}};
+  if(f==="cloud"){L.h=`<div class="gl-top"><b>Clouds</b><span>Satellite infrared</span></div><div class="gl-lab"><span>GOES, Meteosat, Himawari · every 10–15 min</span></div>`;return}
   const R=GWX_RAMP[f],name=(GWX_FIELDS.find(x=>x[0]===f)||[,""])[1],lvn=gwxLv()?(GWX_LVS.find(x=>x[0]===gwxLv())||[,""])[1]:f==="jet"?"FL340":f==="vis"||f==="mslp"||f==="cloud"?"Surface":"";
   const unit={jet:"kt",isa:"°C",cloud:"%",vis:"km",vv:"fpm",trop:"FL",mslp:"hPa"}[f],fmt=v=>f==="vis"?(v/1000).toFixed(v<2000?1:0):f==="vv"&&v>0?"+"+v:String(v);
   const grad=R?`linear-gradient(90deg,${R.map(s=>`rgba(${s[1]},${s[2]},${s[3]},${Math.max(s[4],.12)})`).join(",")})`:"";
-  el.innerHTML=`<div class="gl-top"><b>${esc(name)}</b><span>${esc(lvn)}${GWX.hour?" · "+esc(GWX.hour.slice(11,16).replace(":",""))+"Z":""}</span></div>${R?`<div class="gl-bar" style="background:${grad}"></div><div class="gl-lab"><span>${fmt(R[0][0])}</span><span>${unit}</span><span>${fmt(R[R.length-1][0])}</span></div>`:`<div class="gl-lab"><span>Isobars every 4 hPa · H high · L low</span></div>`}${GWX.busy[f+"/"+gwxLv()]?'<div class="gl-lab"><span>Loading GFS…</span></div>':GWX.err&&!gwxGrid(f,gwxLv())?`<div class="gl-lab"><span>${esc(GWX.err)}</span></div>`:""}`}
+  L.h=`<div class="gl-top"><b>${esc(name)}</b><span>${esc(lvn)}${GWX.hour?" · "+esc(GWX.hour.slice(11,16).replace(":",""))+"Z":""}</span></div>${R?`<div class="gl-bar" style="background:${grad}"></div><div class="gl-lab"><span>${fmt(R[0][0])}</span><span>${unit}</span><span>${fmt(R[R.length-1][0])}</span></div>`:`<div class="gl-lab"><span>Isobars every 4 hPa · H high · L low</span></div>`}${GWX.busy[f+"/"+gwxLv()]?'<div class="gl-lab"><span>Loading GFS…</span></div>':GWX.err&&!gwxGrid(f,gwxLv())?`<div class="gl-lab"><span>${esc(GWX.err)}</span></div>`:""}`}
 /* layer panel: field and level buttons */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-mlgwx],[data-mlgwxlv]");if(!t)return;
   if(t.dataset.mlgwx){ML.gwx=t.dataset.mlgwx;if(ML.gwx!=="off")ML.vec=true}else ML.gwxLv=+t.dataset.mlgwxlv;store.set("mapL",ML);

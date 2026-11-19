@@ -244,12 +244,15 @@ export class Crew {
      devices, and a push when a service the pilot may be waiting for away from the screen has finished */
   gsxSet(a) {
     const u = String(a.u || ''); if (!u || !a.v || typeof a.v !== 'object') return { ok: false };
-    const K = ['coua', 'board', 'deboard', 'cater', 'fuel', 'dep', 'deice', 'cargoB', 'cargoD', 'hose', 'paxB', 'paxD', 'pax'], v = {};
-    for (const k of K) { const n = Number(a.v[k]); if (Number.isFinite(n) && n >= 0 && n < 100000) v[k] = Math.round(n); }
+    const K = ['coua', 'board', 'deboard', 'cater', 'fuel', 'dep', 'deice', 'cargoB', 'cargoD', 'hose', 'paxB', 'paxD', 'pax', 'fob'], v = {};
+    for (const k of K) { const n = Number(a.v[k]); if (Number.isFinite(n) && n >= 0 && n < 1000000) v[k] = Math.round(n); }
     const k = 'gsx:' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), prev = row ? JSON.parse(row.v) : null, p = (prev && prev.v) || {};
     /* the OOOI times the simulator PC stamped, for the flight plan it has open (fid), so the pilot's iPad shows them too */
     const oo = {}; if (a.oo && typeof a.oo === 'object') for (const x of ['OUT', 'OFF', 'ON', 'IN']) if (/^\d\d:\d\d$/.test(String(a.oo[x] || ''))) oo[x] = a.oo[x];
-    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ v, at: Date.now(), ac: String(a.ac || '').slice(0, 60), fid: String(a.fid || '').slice(0, 40), oo }));
+    /* the turnaround so far: when each service was called (4), started (5) and finished (6) */
+    const SV = ['board', 'cater', 'fuel', 'deice', 'dep', 'deboard'], log = (Array.isArray(a.log) ? a.log : []).slice(-60)
+      .filter((e) => e && SV.includes(e.k) && [4, 5, 6].includes(e.s) && Number.isFinite(e.t)).map((e) => ({ k: e.k, s: e.s, t: Math.round(e.t) }));
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ v, at: Date.now(), ac: String(a.ac || '').slice(0, 60), fid: String(a.fid || '').slice(0, 40), oo, log }));
     /* only a change seen within the last 10 minutes counts (a bridge coming back online is not news) */
     const fresh = prev && Date.now() - prev.at < 600000, done = (x) => fresh && p[x] !== 6 && v[x] === 6;
     const msgs = [];
@@ -426,7 +429,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
         if (std && std - now > 12 * 3600_000) throw new CrewError(409, 'Check-in opens 12 hours before departure (' + new Date(std - 12 * 3600_000).toISOString().slice(11, 16) + 'Z).');
         return res(await crew(env, { op: 'checkin', u: me.u, booking: bk, altn: String(b.altn || '').toUpperCase() }));
       }
-      case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo }));
+      case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo, log: b.log }));
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));
     }

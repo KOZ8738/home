@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1119.1403">
+<meta name="efb-build" content="1119.2235">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -2142,7 +2142,9 @@ function txPrep(d){if(d._m)return d._m;const nx=lo=>(lo+180)/360,ny=la=>{const s
     if(!A||best<=0)return;const ux=(B[0]-A[0])/best,uy=(B[1]-A[1])/best,brg=(Math.atan2(ux,-uy)*180/Math.PI+360)%360;
     const off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
     let a=G.parts[0],b=G.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
-    const lenM=best*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180);if(a)ends.push({p:A,ll:A.ll,ux,uy,name:a,w:G.w,len:lenM});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:b,w:G.w,len:lenM})});
+    /* painted and named with two digits, as on the runway (05L, not 5L) */
+    const p2=n=>/^\d(?!\d)/.test(n)?"0"+n:n;
+    const lenM=best*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180);if(a)ends.push({p:A,ll:A.ll,ux,uy,name:p2(a),w:G.w,len:lenM});if(b)ends.push({p:B,ll:B.ll,ux:-ux,uy:-uy,name:p2(b),w:G.w,len:lenM})});
   return d._m={ax:nx(d.airport.lon),outline:(d.outline||[]).map(L),aprons:d.aprons.map(L),holes:(d.apronHoles||[]).map(L),bldg:d.buildings.map(b=>({l:L(b.pts),h:(b.holes||[]).map(L),kind:b.kind,term:b.kind==="terminal",name:b.name||""})).sort((a,b)=>({terminal:0,cargo:1,hangar:2}[a.kind]??3)-({terminal:0,cargo:1,hangar:2}[b.kind]??3)),places:(d.places||[]).map(p=>({p:pt(p.pt),name:p.name,kind:p.kind})),
     rwyArea:d.runways.filter(r=>r.area).map(r=>L(r.pts)),rwy:lines.map(r=>({l:L(r.pts),w:r.width||45,stop:!!r.stopway})),ends,stops:lines.filter(r=>r.stopway&&r.pts.length>1).map(r=>{let a=pt(r.pts[0]),b=pt(r.pts[r.pts.length-1]);const dn=p=>ends.reduce((m,e)=>Math.min(m,Math.hypot(e.p[0]-p[0],e.p[1]-p[1])),9);if(dn(b)<dn(a)){const t=a;a=b;b=t}const L0=Math.hypot(b[0]-a[0],b[1]-a[1]);return{t:a,f:b,len:L0*40075016.7*Math.cos((d.airport.lat||0)*Math.PI/180),vx:(b[0]-a[0])/(L0||1),vy:(b[1]-a[1])/(L0||1),w:r.width||45}}),
     twy:d.taxiways.map(t=>({l:L(t.pts),w:t.width||(t.kind==="taxilane"?15:23)})),
@@ -7113,7 +7115,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 19, 2026",["Backup PFD: an HSI with your flight plan’s course and cross-track (next waypoint, distance, time, distance to destination), VATSIM traffic around you with relative altitude, wind with head and cross components and OAT","Backup PFD: V1, VR, V2 and VLS, VAPP from Performance on the speed tape, an overspeed band (VMO / MMO by type), a target altitude with 1,000 ft-to-go and deviation alerts, minimums (baro or radio) with spoken callouts","Backup PFD: night colours after sunset at the aircraft, a small PFD on the Map (PFD button), and the touchdown rate and G of each landing (also filled in when you save Block times to the logbook)","Backup PFD: a new app in the App Store shows a standby primary flight display live from the simulator (attitude with bank scale and slip, flight path marker, speed and altitude tapes, vertical speed, heading and track, baro and radio altitude) on your iPad, phone or the simulator PC, with the delay shown and a red cross when data stops","Ground: refuelling shows the fuel on board against the plan’s block fuel; boarding, deboarding and refuelling show the time left and when they’ll be done, with a warning when boarding will run past STD","Ground: a Turnaround timeline of when each GSX service was called, started and finished, against STD and OUT; it is kept with the flight and shows in the Logbook with the PIREP","Ground: cargo in kg (or lb) as well as per cent, and a note when the simulator PC has another flight plan loaded","Loadsheet: when GSX finishes boarding, the passengers it boarded go into the Loadsheet (with a Use GSX button if you changed them)","Ground on the Home Screen and in the Dynamic Island while GSX is at work: boarding count, fuel per cent and the time each will be done","Home Screen: apps from the App Store that had no place (Ground, Fenix EFB) now appear on it","Ground: a new app shows GSX Pro’s boarding, refuelling, catering, pushback, de-icing and deboarding live, on your iPad as well as on the simulator PC (with FSUIPC7 and its WebSocket Server), with a notification when boarding, refuelling, catering or deboarding is done","Block times: with Ground set up on the simulator PC, OUT, OFF, ON and IN are stamped for you (GSX pushback, takeoff, touchdown, GSX deboarding) and show on all your devices for the same flight plan"]],["Nov 18, 2026",["Calculator: Convert is now a calculator with conversion built in (weight, fuel by density, length, speed, vertical speed, pressure, temperature, volume), with history and the reference tables","Mail: the Crew Mobile welcome when you land in another country now arrives in Mail, and the Messages app is gone (earlier texts moved to Mail)","Map: zoomed in to an airport, VATSIM aircraft are drawn to their real size from the filed type","Map: much smoother pans and pinches, above all on the IFR and VFR charts: labels fade in and out instead of being placed again at every frame, FIR boundaries are drawn by the map engine, and the IFR, VFR, airport and model-weather layers load new areas once the map stops moving","Map: VATSIM traffic stays smooth zoomed out to the whole world","Admin: for Polaris staff, the staff admin (Mail, Live, Inbox, Pilots) is now an app in the App Store, with its own staff sign-in","Weather: your saved airports and units follow you to every device you sign in on","Notifications: once you check in, you get a notice when the weather at your destination or the plan’s alternate gets worse (IFR or LIFR, thunderstorms, freezing precipitation, heavy snow, hail, squalls) and when it is back to VFR or MVFR","Calendar: a Polaris Events calendar shows the airline’s group events from vAMSYS, with their routes, airports, aircraft and points","Fenix EFB: a new app in the App Store opens the Fenix A320’s EFB from your simulator PC","Map: a newly loaded flight plan’s airport diagrams are prepared straight away","The 海岸航空 theme and partner page have been taken out for now","Map: airport diagrams of Polaris’s network (now including CYYZ, VHHH, RJTT, RCTP, ZBAA, ZSPD, WSSS, EGLL, LSZH and ENGM), your flight plan and your saved Weather airports are prepared ahead, so they open without the long first wait","Weather: the Moon’s lit side reaches the terminator as it should (a gibbous Moon no longer looks like a half Moon), and it sits clear of the Map button","Fixed: cloud layer labels close together no longer overlap; they move along the line and sit on a dark backing","Weather: the Moon tile shows the whole Moon, larger, with its night side faintly lit by the Earth, as on the iPhone","Fixed: the weather widget’s sky no longer jumps about while the Home Screen is being edited","Map: VATSIM aircraft on the ground are shown in tan, as in ForeFlight; airborne traffic stays blue and Polaris flights amber","Weather: smoother 3D clouds, without the fine grain over a cloudy sky","Weather: changing airport cross-fades the sky: the old sky (its stars, Moon and clouds) fades out as the new one fades in, whether you swipe, tap a dot or pick from the list","Weather: turning to the next airport follows your finger, with the next page coming in beside it and the sky cross-fading; let go past a third, or flick, to turn","Weather: while you fly a Polaris flight, the list starts with the weather at the airport nearest your aircraft, with its distance, and follows you as you fly; add airports by name or city too (e.g. “Narita”, “Tokyo”), not only by code","Weather: the airport cards in the list show each airport’s moving sky; add any airport by its ICAO or IATA code from the field under the list; the “…” menu has Edit List (remove and reorder your airports), °C or °F, and Units for wind, pressure, visibility and cloud height (the Home Screen widget follows °C or °F)","Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 20, 2026",["Map: with the simulator connected (Ground on the simulator PC), your aircraft moves on the Map, the airport diagrams and a chart laid over the Map 15 times a second, with a speed vector and, zoomed in, at its real size; ME follows it","Runway callouts on the Map and the Backup PFD: “Approaching runway 05L” before you enter or cross one, “On runway 05L, 9,000 feet remaining” when lined up, and “Approaching runway” on final; a runway closed by a NOTAM is said so","Nearest airports: NRST on the Map and the Backup PFD lists the nearest airports for your type with distance, bearing, time, longest runway and weather; Direct sets a diversion that the Map draws and the PFD steers to","NOTAMs: Flight Plan › NOTAMs shows the plan’s NOTAMs by airport and kind, important ones first (runway closed, ILS out of service), with their validity; closed runways are crossed out on the Map, and a NOTAM with a place can be shown on the Map","Logbook: play a flight back from its PIREP: the aircraft moves along the track with a cursor on the profile, the time, altitude, ground speed and distance, at 10× to 240×","Runway numbers on the airport diagrams are shown with two digits (05L)"]],["Nov 19, 2026",["Backup PFD: an HSI with your flight plan’s course and cross-track (next waypoint, distance, time, distance to destination), VATSIM traffic around you with relative altitude, wind with head and cross components and OAT","Backup PFD: V1, VR, V2 and VLS, VAPP from Performance on the speed tape, an overspeed band (VMO / MMO by type), a target altitude with 1,000 ft-to-go and deviation alerts, minimums (baro or radio) with spoken callouts","Backup PFD: night colours after sunset at the aircraft, a small PFD on the Map (PFD button), and the touchdown rate and G of each landing (also filled in when you save Block times to the logbook)","Backup PFD: a new app in the App Store shows a standby primary flight display live from the simulator (attitude with bank scale and slip, flight path marker, speed and altitude tapes, vertical speed, heading and track, baro and radio altitude) on your iPad, phone or the simulator PC, with the delay shown and a red cross when data stops","Ground: refuelling shows the fuel on board against the plan’s block fuel; boarding, deboarding and refuelling show the time left and when they’ll be done, with a warning when boarding will run past STD","Ground: a Turnaround timeline of when each GSX service was called, started and finished, against STD and OUT; it is kept with the flight and shows in the Logbook with the PIREP","Ground: cargo in kg (or lb) as well as per cent, and a note when the simulator PC has another flight plan loaded","Loadsheet: when GSX finishes boarding, the passengers it boarded go into the Loadsheet (with a Use GSX button if you changed them)","Ground on the Home Screen and in the Dynamic Island while GSX is at work: boarding count, fuel per cent and the time each will be done","Home Screen: apps from the App Store that had no place (Ground, Fenix EFB) now appear on it","Ground: a new app shows GSX Pro’s boarding, refuelling, catering, pushback, de-icing and deboarding live, on your iPad as well as on the simulator PC (with FSUIPC7 and its WebSocket Server), with a notification when boarding, refuelling, catering or deboarding is done","Block times: with Ground set up on the simulator PC, OUT, OFF, ON and IN are stamped for you (GSX pushback, takeoff, touchdown, GSX deboarding) and show on all your devices for the same flight plan"]],["Nov 18, 2026",["Calculator: Convert is now a calculator with conversion built in (weight, fuel by density, length, speed, vertical speed, pressure, temperature, volume), with history and the reference tables","Mail: the Crew Mobile welcome when you land in another country now arrives in Mail, and the Messages app is gone (earlier texts moved to Mail)","Map: zoomed in to an airport, VATSIM aircraft are drawn to their real size from the filed type","Map: much smoother pans and pinches, above all on the IFR and VFR charts: labels fade in and out instead of being placed again at every frame, FIR boundaries are drawn by the map engine, and the IFR, VFR, airport and model-weather layers load new areas once the map stops moving","Map: VATSIM traffic stays smooth zoomed out to the whole world","Admin: for Polaris staff, the staff admin (Mail, Live, Inbox, Pilots) is now an app in the App Store, with its own staff sign-in","Weather: your saved airports and units follow you to every device you sign in on","Notifications: once you check in, you get a notice when the weather at your destination or the plan’s alternate gets worse (IFR or LIFR, thunderstorms, freezing precipitation, heavy snow, hail, squalls) and when it is back to VFR or MVFR","Calendar: a Polaris Events calendar shows the airline’s group events from vAMSYS, with their routes, airports, aircraft and points","Fenix EFB: a new app in the App Store opens the Fenix A320’s EFB from your simulator PC","Map: a newly loaded flight plan’s airport diagrams are prepared straight away","The 海岸航空 theme and partner page have been taken out for now","Map: airport diagrams of Polaris’s network (now including CYYZ, VHHH, RJTT, RCTP, ZBAA, ZSPD, WSSS, EGLL, LSZH and ENGM), your flight plan and your saved Weather airports are prepared ahead, so they open without the long first wait","Weather: the Moon’s lit side reaches the terminator as it should (a gibbous Moon no longer looks like a half Moon), and it sits clear of the Map button","Fixed: cloud layer labels close together no longer overlap; they move along the line and sit on a dark backing","Weather: the Moon tile shows the whole Moon, larger, with its night side faintly lit by the Earth, as on the iPhone","Fixed: the weather widget’s sky no longer jumps about while the Home Screen is being edited","Map: VATSIM aircraft on the ground are shown in tan, as in ForeFlight; airborne traffic stays blue and Polaris flights amber","Weather: smoother 3D clouds, without the fine grain over a cloudy sky","Weather: changing airport cross-fades the sky: the old sky (its stars, Moon and clouds) fades out as the new one fades in, whether you swipe, tap a dot or pick from the list","Weather: turning to the next airport follows your finger, with the next page coming in beside it and the sky cross-fading; let go past a third, or flick, to turn","Weather: while you fly a Polaris flight, the list starts with the weather at the airport nearest your aircraft, with its distance, and follows you as you fly; add airports by name or city too (e.g. “Narita”, “Tokyo”), not only by code","Weather: the airport cards in the list show each airport’s moving sky; add any airport by its ICAO or IATA code from the field under the list; the “…” menu has Edit List (remove and reorder your airports), °C or °F, and Units for wind, pressure, visibility and cloud height (the Home Screen widget follows °C or °F)","Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -11631,7 +11633,7 @@ const BP_O=[["p",0x0578,"int",4],["b",0x057C,"int",4],["h",0x0580,"uint",4],["mv
   ["la",0x0560,"int",8],["lo",0x0568,"int",8],["gla",0x6010,"float",8],["glo",0x6018,"float",8],["oat",0x0E8C,"int",2],["wsp",0x0E90,"uint",2],["wd",0x0E92,"uint",2],["tdv",0x030C,"int",4],["gf",0x11BA,"int",2]];
 const BP={buf:[],src:"",rx:[],lastRx:0,pub:null,pubBusy:0,pubRtt:null,subs:0,sub:null,subBusy:0,subClose:0,rtt:null,pubThere:null,reading:0,nm:"",seq:0,raf:0,raw:null,
   cal:{bs:store.get("bpBankSign",1),ps:store.get("bpPitchSign",1)},calPrev:null,calN:0,calAcc:0,trend:{ias:0,lastT:0,lastIas:null},
-  set:Object.assign({night:"auto",voice:true,tcas:10,inset:false},store.get("bpSet",{})),nav:null,leg:null,tfc:[],tfcAt:0,lprev:null,liftAt:0,landAt:0,landPend:null,ldOut:null,ldShow:null,al:{},ann:[],pfC:null};
+  set:Object.assign({night:"auto",voice:true,tcas:10,inset:false},store.get("bpSet",{})),nav:null,leg:null,tfc:[],tfcAt:0,lprev:null,liftAt:0,landAt:0,landPend:null,ldOut:null,ldShow:null,al:{},ann:[],pfC:null,onFrame:[]};
 const bpLocal=()=>typeof GX!=="undefined"&&GX.bridge&&GX.st==="on";
 const bpWrap=a=>((a%360)+360)%360;
 const bpDA=(a,b)=>{let d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return d};
@@ -11641,6 +11643,8 @@ const bpBug=()=>bpPlan()?Object.assign({alt:null,min:null,minT:"baro"},store.get
 const bpBugSave=b=>{if(bpPlan())store.set("bpBug:"+O().id,b)};
 /* where a PFD is on screen: this app, or its small version on the Map */
 const bpShown=()=>cur==="pfd"||(cur==="map"&&BP.set.inset);
+/* the simulator's data is wanted while a PFD is shown, or the Map (own aircraft, runway callouts; own.js) */
+const bpWant=()=>bpShown()||(cur==="map"&&BP.set.own!==false);
 
 /* ---------- on the simulator PC: FSUIPC ---------- */
 function bpDecode(r){const A=360/4294967296,mv=(Number(r.mv)||0)*360/65536,th=bpWrap((Number(r.h)>>>0)*A),tr=Number(r.trk);
@@ -11654,7 +11658,7 @@ function bpDecode(r){const A=360/4294967296,mv=(Number(r.mv)||0)*360/65536,th=bp
     la:pos?+la.toFixed(5):null,lo:pos?+lo.toFixed(5):null,mv:+mv.toFixed(1),oat:+((Number(r.oat)||0)/256).toFixed(1),wsp:Math.round(Number(r.wsp)||0),wd:Math.round(bpWrap((Number(r.wd)||0)*360/65536)),
     tdv:Math.round((Number(r.tdv)||0)/256*196.8504),gf:+((Number(r.gf)||625)/625).toFixed(2)}}
 /* read 15 times a second only while someone looks (a PFD on this PC's screen, or a device of the pilot's) */
-const bpNeed=()=>bpLocal()&&(bpShown()||BP.subs>0);
+const bpNeed=()=>bpLocal()&&(bpWant()||BP.subs>0);
 function bpReadSync(){const need=bpNeed();if(need===!!BP.reading)return;
   if(need){BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;gxSend({command:"offsets.declare",name:BP.nm,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
   else{BP.reading=0;gxSend({command:"offsets.stop",name:BP.nm})}}
@@ -11698,7 +11702,7 @@ async function bpPubSync(){const want=bpLocal()&&typeof authOn==="function"&&aut
 function bpPubSend(f){const w=BP.pub;if(!w||w.readyState!==1||!BP.subs)return;try{const o=Object.assign({l:BP.pubRtt!=null?Math.round(BP.pubRtt/2):null},f);delete o._r;w.send(JSON.stringify(o))}catch(e){}}
 setInterval(()=>{if(bpLocal()&&!BP.pub)bpPubSync()},20000);
 /* a device watching: connected while a PFD is on screen (and a little after, for a quick look elsewhere) */
-async function bpSubSync(){const want=bpShown()&&!bpLocal()&&typeof authOn==="function"&&authOn()&&!document.hidden;
+async function bpSubSync(){const want=bpWant()&&!bpLocal()&&typeof authOn==="function"&&authOn()&&!document.hidden;
   if(!want){if(BP.sub&&!BP.subClose)BP.subClose=setTimeout(()=>{BP.subClose=0;const w=BP.sub;BP.sub=null;if(w)try{w.close()}catch(e){}},8000);return}
   clearTimeout(BP.subClose);BP.subClose=0;if(BP.sub||BP.subBusy)return;BP.subBusy=1;
   try{const w=new WebSocket(bpWsUrl("sub",await bpTicket()));BP.sub=w;let pi=0;
@@ -11707,20 +11711,21 @@ async function bpSubSync(){const want=bpShown()&&!bpLocal()&&typeof authOn==="fu
       if(j.pong!=null){const r=performance.now()-j.pong;BP.rtt=BP.rtt==null?r:BP.rtt*.7+r*.3;return}
       if(j.pub!=null){BP.pubThere=j.pub;bpHud();return}if(j.subs!=null||j.hello)return;
       if(j.t&&j.p!=null){if(j.ld)bpLanded(j.ld);bpIn(j,"cloud")}};
-    w.onclose=()=>{clearInterval(pi);if(BP.sub!==w)return;BP.sub=null;if(bpShown())setTimeout(bpSubSync,3000)}}
-  catch(e){if(bpShown())setTimeout(bpSubSync,8000)}finally{BP.subBusy=0}}
+    w.onclose=()=>{clearInterval(pi);if(BP.sub!==w)return;BP.sub=null;if(bpWant())setTimeout(bpSubSync,3000)}}
+  catch(e){if(bpWant())setTimeout(bpSubSync,8000)}finally{BP.subBusy=0}}
 
 /* ---------- frames: kept for a moment and blended ---------- */
 function bpIn(f,src){const now=performance.now();f._r=now;BP.src=src;const p=BP.buf[BP.buf.length-1];BP.buf.push(f);if(BP.buf.length>30)BP.buf.shift();BP.rx.push(now);while(BP.rx.length&&now-BP.rx[0]>2000)BP.rx.shift();BP.lastRx=now;
   if(p&&p.g===1&&f.g===0)BP.liftAt=Date.now();
   /* trends: speed over the last second, for the 6-second speed arrow */
   const T=BP.trend;if(T.lastIas!=null&&f.t>T.lastT){const dt=(f.t-T.lastT)/1000;if(dt>0&&dt<2){const a=(f.ias-T.lastIas)/dt;T.ias=T.ias*.85+a*.15}}T.lastIas=f.ias;T.lastT=f.t;
-  bpNavUpd(f);bpAlerts(f)}
+  bpNavUpd(f);bpAlerts(f);for(const fn of BP.onFrame)try{fn(f)}catch(e){}}
 const bpRate=()=>BP.rx.length>1?(BP.rx.length-1)/((BP.rx[BP.rx.length-1]-BP.rx[0])/1000||1):0;
 function bpState(now){const B=BP.buf;if(!B.length)return null;const hz=bpRate()||15,D=BP.src==="pc"?1000/hz:Math.max(90,1600/hz),t=now-D;
   let i=B.length-1;while(i>0&&B[i-1]._r>t)i--;if(i===0||B[i]._r<=t)return B[B.length-1];const a=B[i-1],b=B[i],x=Math.max(0,Math.min(1,(t-a._r)/((b._r-a._r)||1)));
   const L=(u,v)=>u+(v-u)*x,An=(u,v)=>bpWrap(u+bpDA(u,v)*x),o=Object.assign({},b);
-  for(const k of ["p","b","ias","tas","gs","vs","alt","ra","ball","m"])o[k]=L(a[k],b[k]);o.h=An(a.h,b.h);if(a.k!=null&&b.k!=null)o.k=An(a.k,b.k);return o}
+  for(const k of ["p","b","ias","tas","gs","vs","alt","ra","ball","m"])o[k]=L(a[k],b[k]);o.h=An(a.h,b.h);if(a.k!=null&&b.k!=null)o.k=An(a.k,b.k);
+  if(a.la!=null&&b.la!=null){o.la=L(a.la,b.la);o.lo=a.lo+bpDA(a.lo,b.lo)*x}return o}
 
 /* ---------- the flight: phase, V speeds, limits ---------- */
 /* takeoff speeds on the ground and for 4 minutes after lift-off, landing speeds below 3,000 ft RA or descending under 12,000 ft */
@@ -11962,6 +11967,8 @@ function bpSheetHtml(){const B=bpBug(),P=bpPerf(),S=BP.set,seg=(k,opts,v)=>`<div
     <div class="bpf-f"><span>Night colours</span>${seg("night",[["auto","Auto"],["day","Day"],["night","Night"]],S.night)}</div>
     <div class="bpf-f"><span>Traffic (VATSIM)</span>${seg("tcas",[[0,"Off"],[5,"5 NM"],[10,"10 NM"],[20,"20 NM"]],S.tcas)}</div>
     <label class="bpf-sw"><input type="checkbox" data-bpsw="voice"${S.voice?" checked":""}><span></span>Spoken minimums callouts</label>
+    <label class="bpf-sw"><input type="checkbox" data-bpsw="rwy"${S.rwy!==false?" checked":""}><span></span>Runway callouts (on the ground and on final)</label>
+    <label class="bpf-sw"><input type="checkbox" data-bpsw="own"${S.own!==false?" checked":""}><span></span>My aircraft on the Map from the simulator</label>
     <label class="bpf-sw"><input type="checkbox" data-bpsw="inset"${S.inset?" checked":""}><span></span>Small PFD on the Map</label>
     <p class="bpf-note">Target altitude and minimums are kept with this flight plan. Callouts and chimes play on the device showing the PFD (tap the PFD once so the browser allows sound).</p>`}
 V.pfd=()=>{queueMicrotask(()=>{bpReadSync();bpSubSync();bpLoop()});
@@ -11971,9 +11978,13 @@ V.pfd=()=>{queueMicrotask(()=>{bpReadSync();bpSubSync();bpLoop()});
 function bpLoop(){if(BP.raf)return;let n=0;const tick=()=>{if(!bpShown()){BP.raf=0;bpReadSync();bpSubSync();return}BP.raf=requestAnimationFrame(tick);
   const cv=cur==="pfd"?$("#bpCv"):$("#bpCvI");if(cv)bpDraw(cv,cur!=="pfd");if(++n%15===0)bpHud();if(n%60===0){const f=BP.buf[BP.buf.length-1];bpTfcUpd(f)}};BP.raf=requestAnimationFrame(tick)}
 window.addEventListener("hashchange",()=>setTimeout(()=>{bpReadSync();bpSubSync();if(bpShown())bpLoop()},0));
+/* a frame is "fresh" for 3 s: the own-aircraft symbol and callouts use only fresh ones */
+const bpFresh=()=>BP.lastRx&&performance.now()-BP.lastRx<3000&&BP.buf.length&&BP.buf[BP.buf.length-1].la!=null;
 document.addEventListener("visibilitychange",()=>{bpSubSync()});
 /* sound needs a touch first */
-document.addEventListener("pointerdown",e=>{if(!e.target.closest(".bpf,.bpf-inset"))return;try{bpAc=bpAc||new (window.AudioContext||window.webkitAudioContext)();if(bpAc.state==="suspended")bpAc.resume()}catch(er){}},true);
+document.addEventListener("pointerdown",e=>{if(!e.target.closest(".bpf,.bpf-inset,.mapwrap"))return;try{bpAc=bpAc||new (window.AudioContext||window.webkitAudioContext)();if(bpAc.state==="suspended")bpAc.resume()}catch(er){}
+  /* iPad Safari speaks only after a first utterance inside a touch */
+  if(!BP.ttsOk&&window.speechSynthesis){BP.ttsOk=1;try{const u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}catch(er){}}},true);
 function bpParseAlt(t){t=String(t||"").trim().toUpperCase().replace(/[, ]/g,"");if(!t)return null;const m=t.match(/^FL?(\d{2,3})$/);if(m)return +m[1]*100;const n=parseInt(t,10);return isFinite(n)&&n>=-1000&&n<=60000?Math.round(n):null}
 document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest(".bpf-sheet"))return;
   if(t.id==="bpTgt"){const B=bpBug();B.alt=bpParseAlt(t.value);bpBugSave(B);t.value=B.alt!=null?bpFt(B.alt).replace(/,/g,""):"";return}
@@ -12020,6 +12031,396 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .bpf-inset canvas{position:absolute;inset:0;width:100%;height:100%}
 .bpf-io,.bpf-ix{position:absolute;top:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:0;display:grid;place-items:center;font:600 14px var(--f-os);text-decoration:none;cursor:pointer;z-index:1}.bpf-io{right:34px}.bpf-ix{right:6px}
 @container screen (max-width:560px){.bpf-inset{width:min(220px,58%);bottom:96px}}
+</style>`);
+
+/* ===== Own aircraft on the Map, and runway callouts =====
+   With the simulator's position (Backup PFD frames: FSUIPC on the simulator PC, or the relay on an iPad or phone) the
+   Map shows your aircraft as it moves, 60 times a second between the 15 a second frames: on the airport diagrams, on a
+   chart laid over the Map and en route, with a speed vector (where you will be in a minute, 30 s on the ground) and,
+   zoomed in to an airport, at its real size. ME follows it. vAMSYS's position (every 15–30 s) is used only when the
+   simulator is not sending.
+   Runway callouts, from the airport layouts (OpenStreetMap runways) while the Map or a PFD is open:
+     on the ground, below 45 kt: "Approaching runway 05L, 23R" when about to enter one, "On runway 05L, 9,000 feet
+     remaining" when lined up on it (and a "Crossing runway" note when crossing);
+     in the air, 300–900 ft above the ground, descending: "Approaching runway 05L" once, lined up with it;
+     a runway closed by a NOTAM of the plan is said so (notam.js). */
+const OW={raf:0,fAt:0,meAt:0,rw:null,rwAt:0,ldAt:0,said:{},prev:{},air:{}};
+const owOn=()=>BP.set.own!==false;
+/* the simulator's position, blended between frames (only a fresh one) */
+function owPos(){if(!owOn()||!bpFresh())return null;const s=bpState(performance.now());return s&&s.la!=null?s:null}
+{const _m=mapMine;mapMine=function(){if(owOn()&&bpFresh()){const f=BP.buf[BP.buf.length-1];return{lat:f.la,lon:f.lo,heading:bpWrap(f.h+(f.mv||0)),groundspeed:f.gs,altitude:f.alt,callsign:String(((ofp||{}).atc||{}).callsign||""),pilot:vam.user||"",_sim:1}}return _m.apply(this,arguments)}}
+const owSpan=()=>{let t="";try{t=String(acType()||"")}catch(e){}return /A35|350/.test(t.toUpperCase())?64.75:/A3[12]1|A21N/.test(t.toUpperCase())?35.8:35.8};
+
+/* ---------- the symbol, on its own canvas over the Map ---------- */
+function owPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w||w.querySelector("#owCv"))return;const sv=w.querySelector("#mapSvg");if(!sv)return;
+  sv.insertAdjacentHTML("afterend",`<canvas id="owCv" class="mapcv ow-cv" aria-hidden="true"></canvas>`);owLoop()}
+function owLoop(){if(OW.raf)return;const tick=()=>{if(cur!=="map"){OW.raf=0;return}OW.raf=requestAnimationFrame(tick);try{owDraw()}catch(e){}};OW.raf=requestAnimationFrame(tick)}
+function owDraw(){const cv=$("#owCv");if(!cv||!MAP.c)return;const {w,h}=mapSize();if(!w||!h)return;const dpr=Math.min(2,devicePixelRatio||1),now=performance.now();
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+  const s=owPos();
+  /* without a moving aircraft, drawn again only when the Map or what is on it changes (not 60 times a second) */
+  if(!s){const key=[MAP.c.lat,MAP.c.lon,MAP.z,w,h,typeof NT!=="undefined"&&NT.hl?NT.hl.id:"",typeof NR!=="undefined"?NR.open+"|"+(NR.div?NR.div.icao:"")+"|"+NR.list.length:"",BP.ann.map(a=>a.t).join(),typeof TX!=="undefined"?Object.keys(TX.data).length:0].join("|");
+    if(key===OW.key&&now-OW.at<1500)return;OW.key=key;OW.at=now}else OW.key="";
+  const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);cv.parentElement.classList.toggle("ow-on",!!s);
+  const z=MAP.z,c0=mpx(MAP.c.lat,MAP.c.lon,z),P=(la,lo)=>{while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const p=mpx(la,lo,z);return[p[0]-c0[0]+w/2,p[1]-c0[1]+h/2]};
+  try{if(typeof ntDrawMap==="function")ntDrawMap(c,P,z,w,h)}catch(e){}
+  try{if(typeof nrDrawMap==="function")nrDrawMap(c,P,z,w,h,s)}catch(e){}
+  /* the runway callout as a banner at the top of the Map (the PFD shows it in its own place) */
+  {const a=BP.ann.find(x=>x.k==="rwy"&&(!x.until||x.until>Date.now()));if(a){c.save();c.font="700 15px "+(bpFont||"ui-monospace,monospace");const tw=Math.min(w-24,c.measureText(a.t).width+28),bx=w/2-tw/2;
+    /* below the Dynamic Island when it sits over the Map */
+    let by=14;try{const il=document.getElementById("isl"),r0=cv.getBoundingClientRect();if(il&&!il.hidden){const r=il.getBoundingClientRect();if(r.bottom>r0.top&&r.height)by=Math.max(by,r.bottom-r0.top+8)}
+      /* and below the airport chips when they reach under it (a phone) */
+      const ap=cv.parentElement.querySelector(".mapapt");if(ap){const r=ap.getBoundingClientRect();if(r.right-r0.left>bx&&r.height)by=Math.max(by,r.bottom-r0.top+8)}}catch(e){}
+    if(tw<c.measureText(a.t).width+20)c.font="700 12px "+(bpFont||"ui-monospace,monospace");
+    c.fillStyle="rgba(0,0,0,.82)";c.beginPath();c.roundRect?c.roundRect(bx,by,tw,32,9):c.rect(bx,by,tw,32);c.fill();c.strokeStyle=a.col;c.lineWidth=2;c.stroke();c.fillStyle=a.col;c.textAlign="center";c.textBaseline="middle";c.fillText(a.t,w/2,by+16);c.restore()}}
+  if(!s)return;const [X,Y]=P(s.la,s.lo),mpp=40075016.7*Math.cos(s.la*BP_R)/(256*Math.pow(2,z));
+  /* follow: the Map recentred twice a second (not while a finger is on it) */
+  if(MAP.follow&&now-OW.fAt>500&&!(typeof mapBusy==="function"&&mapBusy())){OW.fAt=now;MAP.c={lat:s.la,lon:s.lo};try{drawMap()}catch(e){}}
+  if(now-OW.meAt>1000){OW.meAt=now;const b=$("#mapMe");if(b)b.disabled=!mapMine()}
+  if(X<-200||Y<-200||X>w+200||Y>h+200)return;
+  /* speed vector: a minute ahead in the air, 30 s on the ground */
+  const trk=bpWrap((s.k!=null?s.k:s.h)+(s.mv||0)),hdg=bpWrap(s.h+(s.mv||0));
+  if(s.gs>=5){const sec=s.g?30:60,L=Math.min(Math.hypot(w,h),s.gs*.5144*sec/mpp),ex=X+Math.sin(trk*BP_R)*L,ey=Y-Math.cos(trk*BP_R)*L;
+    c.save();c.strokeStyle="rgba(255,255,255,.9)";c.lineWidth=5;c.lineCap="round";c.beginPath();c.moveTo(X,Y);c.lineTo(ex,ey);c.stroke();c.strokeStyle="#D63AF9";c.lineWidth=2.5;c.stroke();
+    c.fillStyle="#D63AF9";c.beginPath();c.arc(ex,ey,3.5,0,Math.PI*2);c.fill();c.restore()}
+  /* the aircraft: 26 px, or its real wingspan when that is bigger */
+  const px=Math.max(26,owSpan()/mpp),k=px/20;c.save();c.translate(X,Y);c.rotate(hdg*BP_R);c.scale(k,k);
+  const g=typeof VS_GLYPH!=="undefined"&&VS_GLYPH?VS_GLYPH:new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");
+  c.shadowColor="rgba(0,0,0,.45)";c.shadowBlur=6/k;c.lineJoin="round";c.strokeStyle="#fff";c.lineWidth=3/k;c.stroke(g);c.shadowBlur=0;c.fillStyle="#0A84FF";c.fill(g);c.restore();
+  /* altitude and speed beside it, in the air */
+  if(!s.g){const t=(s.alt>=18000?"FL"+Math.round(s.alt/100):fmt(Math.round(s.alt/10)*10)+" ft")+" · "+Math.round(s.gs)+" kt";c.save();c.font="600 12px "+(bpFont||"ui-monospace,monospace");
+    const tw=c.measureText(t).width+12,tx=X+px/2+8,ty=Y+px/2+4;c.fillStyle="rgba(10,132,255,.92)";c.beginPath();c.roundRect?c.roundRect(tx,ty-9,tw,18,5):c.rect(tx,ty-9,tw,18);c.fill();c.fillStyle="#fff";c.textBaseline="middle";c.fillText(t,tx+6,ty);c.restore()}}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="map")owPlace();return v}}
+window.addEventListener("hashchange",()=>setTimeout(()=>{if(cur==="map")owPlace()},0));
+
+/* ---------- runway callouts ---------- */
+/* runway ends within 12 NM, from the airport layouts loaded (the plan's airports are loaded ahead; on the ground near
+   another airport, its layout is asked for) */
+function owRwys(f){const now=Date.now();if(OW.rw&&now-OW.rwAt<4000)return OW.rw;OW.rwAt=now;const L=[];let near=false;
+  for(const ic in TX.data){const d=TX.data[ic];if(!d||!d.airport||d.airport.lat==null||!d.runways)continue;const dn=(d.airport.lat-f.la)*60,de=bpDA(f.lo,d.airport.lon)*60*Math.cos(f.la*BP_R);if(Math.hypot(dn,de)>12)continue;near=true;
+    for(const e of owEnds(d))L.push(Object.assign({icao:ic},e))}
+  /* none loaded near here: the plan's airports first (within 15 NM), then on the ground the nearest airport */
+  if(!near&&now-OW.ldAt>20000&&bpPlan()){const x=O();for(const a of [x.o,x.d,x.a]){const ic=S(a&&a.icao_code),la=N(a&&a.pos_lat),lo=N(a&&a.pos_long);if(!ic||!isFinite(la)||TX.data[ic])continue;
+    if(Math.hypot((la-f.la)*60,bpDA(f.lo,lo)*60*Math.cos(f.la*BP_R))<15){OW.ldAt=now;near=true;try{txLoad(ic)}catch(e){}}}}
+  if(!near&&f.g&&now-OW.ldAt>20000&&typeof APTS!=="undefined"){OW.ldAt=now;if(!APTS.a){try{aptsLoad("a")}catch(e){}}else{let best=null,bd=4;for(const r of APTS.a){if(Math.abs(r[3]-f.la)>.1)continue;const d=Math.hypot((r[3]-f.la)*60,bpDA(f.lo,r[4])*60*Math.cos(f.la*BP_R));if(d<bd){bd=d;best=r[0]}}if(best)try{txLoad(best)}catch(e){}}}
+  OW.rw=L;return L}
+/* each runway end of a layout: its threshold, true course, length and width, however many pieces OpenStreetMap drew
+   it in (the two ends farthest apart); the end whose number matches the course takes that name */
+function owEnds(d){if(d._ow)return d._ow;const G={},out=[];
+  for(const r of d.runways||[]){if(r.area||r.stopway||!r.ref||!r.pts||r.pts.length<2)continue;const parts=String(r.ref).toUpperCase().split("/").map(x=>x.trim().replace(/^0+(?=\d)/,"")).filter(Boolean);if(!parts.length)continue;
+    const key=parts.slice().sort().join("/"),g=G[key]||(G[key]={parts,w:0,pts:[]});g.w=Math.max(g.w,r.width||45);g.pts.push(r.pts[0],r.pts[r.pts.length-1])}
+  const P=q=>({la:q[1],lo:q[0]});
+  for(const key in G){const g=G[key];let A=null,B=null,best=-1;for(let i=0;i<g.pts.length;i++)for(let j=i+1;j<g.pts.length;j++){const dd=bpGd(P(g.pts[i]),P(g.pts[j]))*6371000;if(dd>best){best=dd;A=g.pts[i];B=g.pts[j]}}
+    if(!A||best<300)continue;const brg=bpBrg(P(A),P(B)),off=n=>{const m=String(n).match(/^(\d{1,2})/);if(!m)return 999;const x=Math.abs(+m[1]*10-brg)%360;return Math.min(x,360-x)};
+    let a=g.parts[0],b=g.parts[1]||"";if(b&&off(b)<off(a)){const t=a;a=b;b=t}else if(!b&&off(a)>90){b=a;a=""}
+    const p2=n=>/^\d(?!\d)/.test(n)?"0"+n:n;a=a&&p2(a);b=b&&p2(b);
+    const both=[a,b].filter(Boolean).sort().join(", ");if(a)out.push({name:a,both,lon:A[0],lat:A[1],brg,len:best,w:g.w});if(b)out.push({name:b,both,lon:B[0],lat:B[1],brg:bpWrap(brg+180),len:best,w:g.w})}
+  d._ow=out;return out}
+/* where the aircraft is from a runway end: along the runway (m, + into it) and across (m, + to the right) */
+function owRel(e,f){const dE=bpDA(e.lon,f.lo)*111320*Math.cos(f.la*BP_R),dN=(f.la-e.lat)*110540,sb=Math.sin(e.brg*BP_R),cb=Math.cos(e.brg*BP_R);return{al:dE*sb+dN*cb,cr:dE*cb-dN*sb}}
+/* "05L" spoken: "zero five left" */
+function owSay(n){const D=["zero","one","two","three","four","five","six","seven","eight","nine"],m=String(n).toUpperCase().match(/^(\d)(\d)?([LRC])?$/);if(!m)return String(n);
+  return [m[1],m[2]].filter(x=>x!=null).map(d=>D[+d]).join(" ")+(m[3]?" "+{L:"left",R:"right",C:"center"}[m[3]]:"")}
+function owCall(key,ann,col,speech,cool){const now=Date.now();if(OW.said[key]&&now-OW.said[key]<(cool||60000))return;OW.said[key]=now;bpAnn("rwy",ann,col,6000);
+  if(BP.set.rwy!==false&&speech)bpSay(speech)}
+function owRwyFrame(f){if(!bpWant()||BP.set.rwy===false||f.la==null)return;const now=Date.now();if(now-(OW.tAt||0)<250)return;OW.tAt=now;
+  const R=owRwys(f);if(!R.length)return;const hdg=bpWrap((f.k!=null&&f.gs>3?f.k:f.h)+(f.mv||0));
+  if(f.g&&f.gs<45){const seen={};
+    for(const e of R){const q=owRel(e,f),k=e.icao+e.both,half=e.w/2+4,inside=q.al>=-5&&q.al<=e.len+5&&Math.abs(q.cr)<=half;if(seen[k]==="in")continue;
+      const closed=typeof ntClosed==="function"?ntClosed(e.icao,e.name):null;
+      /* on it: lined up with one of its two ends, or crossing it */
+      if(inside){seen[k]="in";const e2=R.find(x=>x.icao===e.icao&&x.both===e.both&&Math.abs(bpDA(x.brg,hdg))<25);
+        if(e2){const q2=owRel(e2,f),rem=Math.max(0,e2.len-q2.al)*3.28084,remR=rem>=1000?Math.floor(rem/1000)*1000:0;
+          const cl2=typeof ntClosed==="function"?ntClosed(e2.icao,e2.name):null;
+          if(cl2)owCall("cl"+k,"RWY "+e2.name+" CLOSED","#FF453A","Runway "+owSay(e2.name)+" closed",30000);
+          else owCall("on"+e2.icao+e2.name,"ON RWY "+e2.name+(remR?" · "+fmt(remR)+" FT":""),"#30D158","On runway "+owSay(e2.name)+(remR&&rem<e2.len*3.28084*.85?", "+fmt(remR)+" feet remaining":""),90000)}
+        else if(!OW.said["x"+k]||now-OW.said["x"+k]>60000){OW.said["x"+k]=now;bpAnn("rwy","CROSSING RWY "+e.both.replace(", ","/"),"#FF9F0A",5000)}
+        continue}
+      const near=q.al>=-40&&q.al<=e.len+40&&Math.abs(q.cr)>half&&Math.abs(q.cr)<=half+70,p=OW.prev[k];OW.prev[k]=Math.abs(q.cr);
+      if(near&&p!=null&&Math.abs(q.cr)<p-.3&&f.gs>=2&&!seen[k]){seen[k]="near";
+        owCall("ap"+k,"APPROACHING RWY "+e.both.replace(", ","/")+(closed?" · CLOSED":""),closed?"#FF453A":"#5AC8FA","Approaching runway "+e.both.split(", ").map(owSay).join(", ")+(closed?", closed":""),60000)}
+      if(!near&&Math.abs(q.cr)>half+150)delete OW.said["ap"+k]}}
+  else if(!f.g&&f.ra>300&&f.ra<900&&f.vs<-200){
+    for(const e of R){const q=owRel(e,f);if(q.al>-100||q.al<-11000)continue;if(Math.abs(q.cr)>Math.max(90,-q.al*Math.tan(3*BP_R)))continue;if(Math.abs(bpDA(e.brg,hdg))>15)continue;
+      const closed=typeof ntClosed==="function"?ntClosed(e.icao,e.name):null;owCall("air"+e.icao+e.name,"APPROACHING RWY "+e.name+(closed?" · CLOSED":""),closed?"#FF453A":"#5AC8FA","Approaching runway "+owSay(e.name)+(closed?", closed":""),180000);break}}}
+BP.onFrame.push(owRwyFrame);
+document.head.insertAdjacentHTML("beforeend",`<style>
+.mapwrap.ow-on .mapsvg .ac.mine path{opacity:0}.mapwrap.ow-on .mapsvg .acl.mine{display:none}
+</style>`);
+/* for checking from the browser console: what the runway callouts see */
+window.__owDbg=()=>({fresh:!!bpFresh(),want:bpWant(),rw:(OW.rw||[]).map(e=>e.icao+" "+e.name+" "+Math.round(e.len)+"m "+Math.round(e.brg)+"°"),tx:Object.keys(TX.data),ann:BP.ann.map(a=>a.t),last:(()=>{const f=BP.buf[BP.buf.length-1];return f?{la:f.la,lo:f.lo,g:f.g,gs:f.gs,h:f.h}:null})()});
+
+/* ===== Nearest airports and diversion =====
+   NRST on the Map and on the Backup PFD lists the 12 nearest airports an airliner can use (OurAirports' large airports
+   and medium ones with airline service), nearest first, from the aircraft (the simulator's position; else vAMSYS's;
+   else the middle of the Map): distance, magnetic bearing, time at the present ground speed, the longest runway and the
+   flight category of the METAR (both from the EFB server's airport info, asked for as the list shows them), and whether
+   that runway is long enough for the plan's type (A321 6,500 ft, A350 8,500 ft). The plan's airports are marked.
+   Direct turns any of them into a diversion: a magenta line from where you were to it on the Map, and the PFD's HSI and
+   next-waypoint box steer to it (course, distance, time, cross-track) until it is cancelled. Kept on this device. */
+const NR={open:false,div:store.get("bpDiv",null),busy:{},at:0,list:[],pos:null};
+const nrNeed=()=>{let t="";try{t=String(acType()||"")}catch(e){}t=t.toUpperCase();return /A35|350/.test(t)?8500:6500};
+/* where from: the simulator, vAMSYS, or the Map */
+function nrPos(){try{if(typeof bpFresh==="function"&&bpFresh()){const f=BP.buf[BP.buf.length-1];return{la:f.la,lo:f.lo,gs:f.gs,mv:f.mv||0,src:"sim"}}}catch(e){}
+  try{const me=mapMine();if(me&&me.lat!=null)return{la:me.lat,lo:me.lon,gs:me.groundspeed||0,mv:0,src:"vamsys"}}catch(e){}
+  if(typeof MAP!=="undefined"&&MAP.c)return{la:MAP.c.lat,lo:MAP.c.lon,gs:0,mv:0,src:"map"};return null}
+function nrCompute(){const p=nrPos();NR.pos=p;if(!p)return[];if(typeof APTS==="undefined")return[];if(!APTS.a){try{aptsLoad("a")}catch(e){}return[]}
+  const L=[];for(const r of APTS.a){if(r[5]>2||Math.abs(r[3]-p.la)>9)continue;const q={la:r[3],lo:r[4]},d=bpGd(p,q)*BP_NM;if(d>900)continue;
+    L.push({icao:r[0],iata:r[1],name:r[2],la:r[3],lo:r[4],d,brg:bpWrap(bpBrg(p,q)-(p.mv||0))})}
+  L.sort((a,b)=>a.d-b.d);NR.list=L.slice(0,12);NR.at=Date.now();return NR.list}
+/* longest runway and flight category, from the airport info (shared with the airport sheet) */
+function nrLoad(icao){if(!vam.url||AS.data[icao]||NR.busy[icao])return;NR.busy[icao]=1;
+  vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{if(j&&(j.airport||j.notFound))AS.data[icao]=j}).catch(()=>{}).finally(()=>{setTimeout(()=>{delete NR.busy[icao]},60000);nrPaint()})}
+function nrInfo(icao){const j=AS.data[icao];if(!j){nrLoad(icao);return null}const a=j.airport||{},len=Math.max(0,...(a.runways||[]).map(r=>+r.lengthFt||0));
+  const m=j.metar&&j.metar.raw?decodeMetar(j.metar.raw):null;return{len,cat:m&&m.cat}}
+const NR_CAT={VFR:"#30D158",MVFR:"#0A84FF",IFR:"#FF453A",LIFR:"#BF5AF2"};
+function nrRole(icao){if(!bpPlan())return"";const x=O();return icao===S(x.d.icao_code)?"DEST":icao===S(x.a.icao_code)?"ALTN":icao===S(x.o.icao_code)?"ORIG":""}
+function nrHtml(){const L=Date.now()-NR.at>4000||!NR.list.length?nrCompute():NR.list,p=NR.pos,need=nrNeed(),dv=NR.div;
+  const from=!p?"No position yet":p.src==="sim"?"From your aircraft (simulator)":p.src==="vamsys"?"From your aircraft (vAMSYS)":"From the middle of the Map";
+  let dvH="";if(dv&&p){const d=bpGd(p,dv)*BP_NM,b=bpWrap(bpBrg(p,dv)-(p.mv||0)),t=p.gs>40?d/p.gs*60:null;
+    dvH=`<div class="nr-div"><div><small>Diverting to</small><b>${esc(dv.icao)}</b><span>${esc(dv.name||"")}</span></div><div class="nr-dvn"><b>${Math.round(d)} NM</b><span>${String(Math.round(b)%360||360).padStart(3,"0")}°${t!=null?" · "+nrT(t):""}</span></div><button class="nr-cx" data-nrcancel>Cancel</button></div>`}
+  const rows=L.map(a=>{const I=nrInfo(a.icao),short=I&&I.len&&I.len<need,role=nrRole(a.icao),t=p&&p.gs>40?a.d/p.gs*60:null,on=dv&&dv.icao===a.icao;
+    return `<div class="nr-r${short?" short":""}${on?" on":""}"><div class="nr-a"><b>${esc(a.icao)}${role?`<em>${role}</em>`:""}</b><span>${esc([a.iata,a.name].filter(Boolean).join(" · "))}</span></div>
+      <div class="nr-d"><b>${a.d<10?a.d.toFixed(1):Math.round(a.d)} NM</b><span>${String(Math.round(a.brg)%360||360).padStart(3,"0")}°${t!=null?" · "+nrT(t):""}</span></div>
+      <div class="nr-w">${I?`${I.cat?`<i style="background:${NR_CAT[I.cat]}" title="${I.cat}"></i>`:""}<span>${I.len?fmt(I.len)+" ft":"–"}</span>${short?"<small>short</small>":""}`:`<span class="nr-ld">…</span>`}</div>
+      <button class="nr-go" data-nrgo="${esc(a.icao)}"${on?" disabled":""}>${on?"On":"Direct"}</button></div>`}).join("");
+  return `<div class="nr-h"><div><b>Nearest airports</b><small>${esc(from)} · runway ${fmt(need)} ft for the ${need>7000?"A350":"A321"}</small></div><button class="nr-x" data-nrx aria-label="Close">×</button></div>
+    ${dvH}<div class="nr-list">${rows||`<p class="nr-empty">${typeof APTS!=="undefined"&&APTS.a?"No airports within 900 NM.":"Loading airports…"}</p>`}</div>`}
+const nrT=m=>m<60?Math.round(m)+" min":Math.floor(m/60)+" h "+pad(Math.round(m%60));
+function nrPaint(){if(!NR.open)return;document.querySelectorAll(".nr-panel").forEach(el=>{const h=nrHtml();if(el._h!==h){el._h=h;el.innerHTML=h}})}
+setInterval(()=>{if(NR.open&&!document.hidden)nrPaint()},5000);
+/* the panel: in the Map and in the PFD */
+function nrPlace(){const host=cur==="map"?$("#view .mapwrap"):cur==="pfd"?$("#view .bpf"):null;if(!host)return;
+  if(cur==="map"){const ctl=host.querySelector(".mapctl");if(ctl&&!ctl.querySelector("#nrBtn")){const b=document.createElement("button");b.className="btn";b.id="nrBtn";b.dataset.nr="";b.setAttribute("aria-label","Nearest airports");b.textContent="NRST";ctl.insertBefore(b,ctl.querySelector("#bpBtn")||ctl.querySelector("#mapIn"))}
+    const b=host.querySelector("#nrBtn");if(b)b.setAttribute("aria-pressed",String(NR.open))}
+  if(cur==="pfd"&&!host.querySelector(".bpf-nr"))host.insertAdjacentHTML("beforeend",`<button class="bpf-i bpf-nr" data-nr aria-label="Nearest airports">NRST</button>`);
+  let p=host.querySelector(".nr-panel");if(NR.open&&!p){host.insertAdjacentHTML("beforeend",`<aside class="nr-panel"></aside>`);nrPaint()}else if(!NR.open&&p)p.remove()}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="map"||cur==="pfd")nrPlace();return v}}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-nr],[data-nrx],[data-nrgo],[data-nrcancel]");if(!t)return;
+  if(t.dataset.nrgo){const a=NR.list.find(x=>x.icao===t.dataset.nrgo),p=nrPos();if(!a||!p)return;NR.div={icao:a.icao,name:a.name,la:a.la,lo:a.lo,from:{la:p.la,lo:p.lo},at:Date.now()};store.set("bpDiv",NR.div);if(typeof BP!=="undefined")BP.leg=null;
+    toast("Diverting to "+a.icao+" · "+Math.round(a.d)+" NM");nrPaint();return}
+  if(t.dataset.nrcancel!=null){NR.div=null;store.set("bpDiv",null);if(typeof BP!=="undefined")BP.leg=null;toast("Diversion cancelled · back to the flight plan");nrPaint();return}
+  NR.open=t.dataset.nrx!=null?false:!NR.open;if(NR.open){nrCompute();const s=$("#bpSheet");if(s)s.hidden=true;const d=$("#bpDiag");if(d)d.hidden=true}nrPlace();if(cur==="map")try{drawMap()}catch(er){}});
+/* the PFD steers to the diversion: course from where it was set, to the airport */
+{const _n=bpNavUpd;bpNavUpd=function(f){const dv=NR.div;if(!dv||!f||f.la==null)return _n.apply(this,arguments);const pos={la:f.la,lo:f.lo},A=dv.from||pos,B={la:dv.la,lo:dv.lo};
+  const q=bpXt(A,B,pos),dist=bpGd(pos,B)*BP_NM,pt=bpDest(A,bpBrg(A,B),Math.max(0,Math.min(q.len,q.at))/BP_NM);
+  BP.nav={from:"DIV",to:dv.icao,xtk:q.xtk,dtk:bpWrap(bpBrg(pt,B)-(f.mv||0)),dist,rem:dist,fsd:dist<30?1:2,div:true}}}
+/* on the Map (drawn by own.js on its canvas): the diversion line, and the listed airports while the panel is open */
+function nrDrawMap(c,P,z,w,h,s){const dv=NR.div,p=s&&s.la!=null?{la:s.la,lo:s.lo}:NR.pos;
+  if(NR.open)for(const a of NR.list){const [x,y]=P(a.la,a.lo);if(x<-20||y<-20||x>w+20||y>h+20)continue;c.save();c.strokeStyle="#0A84FF";c.lineWidth=2;c.fillStyle="rgba(10,132,255,.15)";c.beginPath();c.arc(x,y,9,0,Math.PI*2);c.fill();c.stroke();
+    c.font="700 11px "+(bpFont||"ui-monospace,monospace");c.fillStyle="#0A84FF";c.textAlign="left";c.textBaseline="middle";c.fillText(a.icao,x+12,y);c.restore()}
+  if(!dv||!p)return;const [x0,y0]=P(p.la,p.lo),[x1,y1]=P(dv.la,dv.lo);c.save();c.strokeStyle="rgba(255,255,255,.9)";c.lineWidth=6;c.lineCap="round";c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();
+  c.strokeStyle="#D63AF9";c.lineWidth=3;c.setLineDash([10,6]);c.stroke();c.setLineDash([]);c.fillStyle="#D63AF9";c.beginPath();c.arc(x1,y1,7,0,Math.PI*2);c.fill();
+  const d=bpGd(p,dv)*BP_NM,t="DIVERT "+dv.icao+" · "+Math.round(d)+" NM";c.font="700 12px "+(bpFont||"ui-monospace,monospace");const tw=c.measureText(t).width+12;
+  c.fillStyle="#D63AF9";c.beginPath();c.roundRect?c.roundRect(x1+12,y1-10,tw,20,5):c.rect(x1+12,y1-10,tw,20);c.fill();c.fillStyle="#fff";c.textBaseline="middle";c.fillText(t,x1+18,y1);c.restore()}
+document.head.insertAdjacentHTML("beforeend",`<style>
+.nr-panel{position:absolute;right:72px;top:12px;width:min(380px,calc(100% - 96px));max-height:calc(100% - 24px);overflow:auto;background:var(--panel,#fff);color:var(--ink);border-radius:16px;box-shadow:0 10px 36px rgba(0,0,0,.28);z-index:8;font-family:var(--f-os)}
+.bpf .nr-panel{right:12px;top:12px;bottom:52px;max-height:none;background:rgba(28,28,30,.96);color:#fff;--label:#98989F;--line:rgba(255,255,255,.12)}
+.nr-h{position:sticky;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:14px 14px 10px;background:inherit;border-bottom:.5px solid var(--line);z-index:1}
+.nr-h b{display:block;font:700 17px var(--f-os)}.nr-h small{display:block;font:400 12px/1.35 var(--f-os);color:var(--label);margin-top:2px}
+.nr-x{border:0;background:rgba(127,127,127,.18);color:inherit;width:28px;height:28px;border-radius:50%;font:600 16px var(--f-os);cursor:pointer;flex:none}
+.nr-div{display:flex;align-items:center;gap:10px;margin:10px 12px;padding:10px 12px;border-radius:12px;background:rgba(214,58,249,.14);box-shadow:inset 0 0 0 1.5px #D63AF9}
+.nr-div small{display:block;font:600 10.5px var(--f-os);letter-spacing:.05em;text-transform:uppercase;color:#D63AF9}.nr-div b{font:700 17px var(--f-mono)}.nr-div span{display:block;font:400 12px var(--f-os);color:var(--label)}
+.nr-div>div:first-child{flex:1;min-width:0}.nr-dvn{text-align:right}.nr-dvn b{font-size:15px}
+.nr-cx{border:0;background:#FF453A;color:#fff;font:600 13px var(--f-os);padding:7px 10px;border-radius:9px;cursor:pointer}
+.nr-list{padding:4px 0 8px}.nr-empty{padding:16px;color:var(--label);font-size:14px}
+.nr-r{display:grid;grid-template-columns:minmax(0,1fr) auto 78px 64px;gap:8px;align-items:center;padding:9px 12px;border-bottom:.5px solid var(--line)}
+.nr-r.short{opacity:.6}.nr-r.on{background:rgba(214,58,249,.1)}
+.nr-a b{font:700 15px var(--f-mono);display:flex;align-items:center;gap:6px}.nr-a em{font:700 9.5px var(--f-os);font-style:normal;padding:2px 5px;border-radius:5px;background:#0A84FF;color:#fff;letter-spacing:.04em}
+.nr-a span{display:block;font:400 12px var(--f-os);color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nr-d{text-align:right}.nr-d b{display:block;font:600 14px var(--f-mono)}.nr-d span{font:400 11.5px var(--f-mono);color:var(--label);white-space:nowrap}
+.nr-w{display:flex;align-items:center;gap:5px;font:500 12px var(--f-mono);flex-wrap:wrap}.nr-w i{width:9px;height:9px;border-radius:50%;flex:none}.nr-w small{font:700 10px var(--f-os);color:#FF9F0A;text-transform:uppercase}.nr-ld{color:var(--label)}
+.nr-go{border:0;background:#D63AF9;color:#fff;font:600 12.5px var(--f-os);padding:7px 0;border-radius:9px;cursor:pointer}.nr-go:disabled{background:rgba(214,58,249,.35)}
+.bpf-i.bpf-nr{right:88px;width:auto;padding:0 9px;border-radius:15px;font:700 11.5px var(--f-os)}
+@container screen (max-width:560px){.nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}.bpf .nr-panel{top:auto;bottom:48px;max-height:70%}.nr-r{grid-template-columns:minmax(0,1fr) auto 64px}.nr-w{display:none}}
+</style>`);
+
+/* ===== NOTAMs =====
+   The NOTAMs SimBrief attaches to the plan's origin, destination and alternate(s), sorted and drawn:
+   - Flight Plan › NOTAMs: per airport, important ones first (runway or aerodrome closed, ILS or navaid out of service),
+     filtered by kind (runways and taxiways, navaids and ILS, lighting, obstacles, procedures, airspace, other), each
+     with its validity (in force now, starts later, a daily schedule) and its full text; "Show on map" where it has a
+     place (its Q line's centre and radius, or an obstacle's position).
+   - The Map: a runway closed now is crossed out in red on the airport diagram; the NOTAM picked with "Show on map" is
+     drawn as its circle or point; obstacles in force are marked. own.js says "runway closed" in its callouts.
+   - The Map's Flight panel shows each airport's count, with a red dot when one is important.
+   The kind comes from the Q code (QMRLC: runway, closed), or from the text when there is none. */
+const NT={id:null,list:null,sel:null,f:"all",hl:null,hlAt:0};
+ICO.alert='<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>';
+const NT_K=[["all","All"],["imp","Important"],["rwy","Runways & taxiways"],["nav","Navaids & ILS"],["lgt","Lighting"],["obs","Obstacles"],["proc","Procedures"],["asp","Airspace"],["oth","Other"]];
+const NT_KC={rwy:"#FF9F0A",nav:"#BF5AF2",lgt:"#FFD60A",obs:"#FF453A",proc:"#0A84FF",asp:"#5AC8FA",oth:"#8E8E93"};
+/* SimBrief's dates: "2026-11-19T13:00:00+00:00" or "2026-11-19 13:00:00" (UTC) */
+const ntDate=s=>{s=String(s||"").trim();if(!s)return null;if(/^\d{4}-\d\d-\d\d \d/.test(s))s=s.replace(" ","T");if(/T\d\d:\d\d(:\d\d)?$/.test(s))s+="Z";const t=Date.parse(s);return isFinite(t)?t:null};
+/* the Q line: Q) FIR/QCODE/traffic/purpose/scope/lower/upper/ddmmNdddmmEradius */
+function ntQ(raw){const m=String(raw||"").match(/Q\)\s*([A-Z]{4})\/Q([A-Z]{4})\/[^\/]*\/[^\/]*\/[^\/]*\/(\d{3})\/(\d{3})\/(\d{2})(\d{2})([NS])(\d{3})(\d{2})([EW])(\d{3})/);if(!m)return null;
+  const la=(+m[5]+m[6]/60)*(m[7]==="S"?-1:1),lo=(+m[8]+m[9]/60)*(m[10]==="W"?-1:1);return{fir:m[1],code:m[2],lo:+m[3],hi:+m[4],la,lon:lo,r:+m[11]}}
+/* positions written in the text (an obstacle's): 251234N1211234E or 2512N12112E */
+function ntPts(t){const out=[],re=/(\d{2})(\d{2})(\d{2}(?:\.\d+)?)?\s?([NS])\s?(\d{3})(\d{2})(\d{2}(?:\.\d+)?)?\s?([EW])/g;let m;
+  while((m=re.exec(String(t||"")))&&out.length<20){const la=(+m[1]+m[2]/60+(+m[3]||0)/3600)*(m[4]==="S"?-1:1),lo=(+m[5]+m[6]/60+(+m[7]||0)/3600)*(m[8]==="W"?-1:1);if(Math.abs(la)<=90&&Math.abs(lo)<=180)out.push({la,lo})}return out}
+/* runways named in the text: RWY 05L, RWY 05L/23R */
+const ntRwys=t=>{const s=new Set(),re=/RWY\s*(\d{2}[LRC]?)(?:\s*\/\s*(\d{2}[LRC]?))?/g;let m;while((m=re.exec(String(t||"").toUpperCase()))){s.add(m[1]);if(m[2])s.add(m[2])}return[...s]};
+function ntKind(n){const q=(n.q||"").toUpperCase().replace(/^Q/,""),sub=q.slice(0,2),c1=sub[0],t=String(n.text||"").toUpperCase();
+  if(n.obst||c1==="O")return"obs";if(sub==="MR"||sub==="MX"||sub==="MN"||sub==="MP"||sub==="MD"||sub==="MS"||sub==="MT"||sub==="MW"||sub==="MY"||sub==="MB"||sub==="MA")return"rwy";
+  if(c1==="I"||c1==="N"||c1==="G")return"nav";if(c1==="L")return"lgt";if(c1==="P")return"proc";if(c1==="R"||c1==="A"||c1==="W")return"asp";
+  if(!q){if(/\bRWY\b|\bTWY\b|\bAPRON\b|\bSTAND/.test(t))return"rwy";if(/\bILS\b|\bLOC\b|\bGP\b|\bVOR\b|\bDME\b|\bNDB\b|\bGNSS\b|\bGPS\b/.test(t))return"nav";if(/\bOBST/.test(t))return"obs";if(/\bLGT|\bLIGHT|\bPAPI|\bALS\b/.test(t))return"lgt";if(/\bSID\b|\bSTAR\b|\bIAP\b|\bAPCH\b|PROC/.test(t))return"proc"}
+  return"oth"}
+const ntClosedQ=n=>{const q=(n.q||"").toUpperCase().replace(/^Q/,""),t=String(n.text||"").toUpperCase();return /LC$/.test(q)||/\bCLSD\b|\bCLOSED\b/.test(t)};
+const ntUs=n=>{const q=(n.q||"").toUpperCase().replace(/^Q/,""),t=String(n.text||"").toUpperCase();return /AS$|AU$/.test(q)||/\bU\/S\b|UNSERVICEABLE|OUT OF SERVICE|\bNOT AVBL\b/.test(t)};
+/* important: a runway or the aerodrome closed, an ILS, localizer or glide path out of service */
+function ntImp(n){const q=(n.q||"").toUpperCase().replace(/^Q/,""),sub=q.slice(0,2);if(n.kind==="rwy"&&ntClosedQ(n)&&(sub==="MR"||(!q&&ntRwys(n.text).length&&!/\bTWY\b/.test(String(n.text).toUpperCase()))))return true;
+  if(sub==="FA"&&ntClosedQ(n))return true;if((sub==="IC"||sub==="IL"||sub==="IG"||sub==="IS"||/\bILS\b|\bLOC\b|\bGP\b/.test(String(n.text).toUpperCase()))&&ntUs(n))return true;return false}
+function ntAll(){if(!bpPlan())return[];const x=O();if(NT.id===x.id&&NT.list)return NT.list;const out=[],seen=new Set();
+  const alts=Array.isArray(ofp.alternate)?ofp.alternate:[ofp.alternate||{}];
+  for(const [role,a] of [["DEP",ofp.origin],["DEST",ofp.destination],...alts.map(a=>["ALTN",a])]){if(!a)continue;let L=a.notam;if(!L)continue;if(!Array.isArray(L))L=[L];
+    for(const r of L){if(!r||typeof r!=="object")continue;const id=S(r.notam_id)||S(r.source_id);const icao=(S(r.location_icao)||S(a.icao_code)).toUpperCase(),k=icao+"|"+id;if(seen.has(k))continue;seen.add(k);
+      const n={id,icao,role,from:ntDate(r.date_effective),to:ntDate(r.date_expire),est:/true|1/i.test(S(r.date_expire_is_estimated)),sched:S(r.notam_schedule),text:S(r.notam_text)||S(r.notam_raw),raw:S(r.notam_raw),
+        q:S(r.notam_qcode),subj:S(r.notam_qcode_subject),stat:S(r.notam_qcode_status),obst:/true|1/i.test(S(r.notam_is_obstacle))};
+      n.qp=ntQ(n.raw);if(!n.q&&n.qp)n.q="Q"+n.qp.code;n.kind=ntKind(n);n.imp=ntImp(n);n.pts=n.kind==="obs"?ntPts(n.text):[];n.rwys=ntRwys(n.text);out.push(n)}}
+  NT.id=x.id;NT.list=out;return out}
+/* in force now (a daily schedule counts as "partly") */
+function ntState(n,now){now=now||Date.now();if(n.to&&n.to<now)return"ended";if(n.from&&n.from>now)return"later";return n.sched?"sched":"now"}
+/* a runway of icao closed now by a NOTAM (not one with a schedule: it may be open now) */
+function ntClosed(icao,rwy){const p2=s=>/^\d(?!\d)/.test(s)?"0"+s:s;rwy=p2(String(rwy||"").toUpperCase());
+  for(const n of ntAll()){if(n.icao!==icao||n.kind!=="rwy"||!ntClosedQ(n)||ntState(n)!=="now")continue;if(/\bTWY\b/.test(String(n.text).toUpperCase())&&!/\bRWY\b/.test(String(n.text).toUpperCase()))continue;if(n.rwys.map(p2).includes(rwy))return n.id||true}return null}
+const ntFmt=t=>{if(!t)return"";const d=new Date(t);return pad(d.getUTCDate())+" "+["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]+" "+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"};
+function ntValid(n){const st=ntState(n);return st==="now"?`<span class="nt-st now">In force</span>${n.to?` until ${ntFmt(n.to)}${n.est?" (est.)":""}`:" · permanent"}`
+  :st==="sched"?`<span class="nt-st sch">Scheduled</span> ${esc(n.sched)} · ${ntFmt(n.from)} – ${n.to?ntFmt(n.to):"PERM"}`:st==="later"?`<span class="nt-st later">From ${ntFmt(n.from)}</span>${n.to?" until "+ntFmt(n.to):""}`:`<span class="nt-st end">Ended ${ntFmt(n.to)}</span>`}
+/* the NOTAMs of one airport, as cards */
+function ntCards(L){if(!L.length)return `<p class="nt-empty">None of this kind.</p>`;
+  return L.map(n=>{const pos=n.pts.length||(n.qp&&n.qp.r>0&&n.qp.r<=150);
+    return `<article class="nt-c${n.imp?" imp":""}${ntState(n)==="ended"?" ended":""}"><div class="nt-ch"><span class="nt-k" style="--k:${NT_KC[n.kind]}">${esc((NT_K.find(k=>k[0]===n.kind)||[])[1]||"Other")}</span>${n.imp?'<span class="nt-imp">Important</span>':""}<b>${esc(n.id||"")}</b><small>${ntValid(n)}</small></div>
+      <pre class="nt-t">${esc(n.text)}</pre>${pos?`<button class="nt-map" data-ntmap="${esc(n.icao+"|"+n.id)}">Show on map ›</button>`:""}</article>`}).join("")}
+function ntPage(){const A=ntAll(),x=O(),apts=[...new Set(A.map(n=>n.icao))];
+  if(!A.length)return `<section class="card">${cardH("NOTAMs","From the flight plan")}<div class="empty">This plan has no NOTAMs. SimBrief adds them for the origin, destination and alternate when they are switched on in its options (NOTAMs: on).</div></section>`;
+  if(!NT.sel||!apts.includes(NT.sel))NT.sel=apts.includes(S(x.d.icao_code))&&A.some(n=>n.icao===S(x.d.icao_code)&&n.imp)?S(x.d.icao_code):apts[0];
+  const mine=A.filter(n=>n.icao===NT.sel),cnt=k=>k==="all"?mine.length:k==="imp"?mine.filter(n=>n.imp).length:mine.filter(n=>n.kind===k).length;
+  const L=mine.filter(n=>NT.f==="all"||(NT.f==="imp"?n.imp:n.kind===NT.f)).sort((a,b)=>(b.imp-a.imp)||(["now","sched","later","ended"].indexOf(ntState(a))-["now","sched","later","ended"].indexOf(ntState(b)))||((b.from||0)-(a.from||0)));
+  const role=ic=>(A.find(n=>n.icao===ic)||{}).role||"";
+  return `<section class="card nt-card">${cardH("NOTAMs",esc(apts.length+" airports · "+A.length+" NOTAMs"))}
+    <div class="nt-apts">${apts.map(ic=>{const n=A.filter(q=>q.icao===ic),imp=n.filter(q=>q.imp).length;return `<button data-ntapt="${esc(ic)}" aria-pressed="${ic===NT.sel}"><small>${role(ic)}</small><b>${esc(ic)}</b><span>${n.length}${imp?` · <i>${imp} important</i>`:""}</span></button>`}).join("")}</div>
+    <div class="nt-f">${NT_K.filter(k=>cnt(k[0])||k[0]==="all").map(k=>`<button data-ntf="${k[0]}" aria-pressed="${NT.f===k[0]}">${k[1]} <small>${cnt(k[0])}</small></button>`).join("")}</div>
+    <div class="nt-list">${ntCards(L)}</div></section>`}
+/* Flight Plan: a NOTAMs section */
+if(store.get("ofpTab","")==="notam")ofpTab="notam";
+{const _s=ofpSide;ofpSide=function(){const h=_s.apply(this,arguments);if(ofp._sample)return h;const A=ntAll(),imp=A.filter(n=>n.imp&&ntState(n)!=="ended").length;
+  const b=navBtn('data-tab="notam"',ofpTab==="notam",ico("alert"),"NOTAMs",A.length?A.length+(imp?" · "+imp+" important":""):"None");
+  return h.replace(/(<nav class="snav" aria-label="Flight plan sections">[\s\S]*?)(<\/nav>)/,(m,a,c)=>a+b+c)}}
+{const _v=V.ofp;V.ofp=function(){if(ofp._sample)return _v.apply(this,arguments);const T=[["sum","doc","Overview"],["fuel","fuel","Fuel"],["route","route","Route"],["navlog","list","Nav log"],["oooi","clock","Block"],["notam","alert","NOTAMs"]];
+  if(ofpTab!=="notam")return _v.apply(this,arguments).replace(/(<nav class="tabbar" aria-label="Sections">[\s\S]*?)(<\/nav>)/,(m,a,c)=>a+`<button data-tab="notam" aria-pressed="false">${ico("alert")}<span>NOTAMs</span></button>`+c);
+  return split(ofpSide(),ntPage(),"",tabbar(T.map(t=>[`data-tab="${t[0]}"`,ofpTab===t[0],ico(t[1]),t[2]])))}}
+/* Map › Flight panel: each airport's NOTAM count */
+{const _a=fpAirport;fpAirport=function(role,a){const h=_a.apply(this,arguments),ic=S(a&&a.icao_code);if(!ic)return h;const L=ntAll().filter(n=>n.icao===ic&&ntState(n)!=="ended");if(!L.length)return h;const imp=L.filter(n=>n.imp).length;
+  return h+`<button class="fp-nt${imp?" imp":""}" data-ntgo="${esc(ic)}">${imp?"<i></i>":""}NOTAMs <b>${L.length}</b>${imp?` · ${imp} important`:""} ›</button>`}}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-ntapt],[data-ntf],[data-ntmap],[data-ntgo]");if(!t)return;
+  if(t.dataset.ntapt){NT.sel=t.dataset.ntapt;NT.f="all";render();return}
+  if(t.dataset.ntf){NT.f=t.dataset.ntf;render();return}
+  if(t.dataset.ntgo){NT.sel=t.dataset.ntgo;NT.f="all";ofpTab="notam";store.set("ofpTab","notam");goApp("ofp");return}
+  const [ic,id]=t.dataset.ntmap.split("|"),n=ntAll().find(q=>q.icao===ic&&q.id===id);if(!n)return;const p=n.pts[0]||(n.qp?{la:n.qp.la,lo:n.qp.lon}:null);if(!p)return;
+  NT.hl=n;NT.hlAt=Date.now();MAP.follow=false;MAP.c={lat:p.la,lon:p.lo};const r=n.qp&&!n.pts.length?n.qp.r:1;MAP.z=Math.max(6,Math.min(14,Math.log2(40075016.7*Math.cos(p.la*Math.PI/180)/256/((r*1852*3)/Math.min(innerWidth,innerHeight)))));goApp("map")});
+/* on the Map (own.js's canvas): closed runways crossed out, obstacles in force, the NOTAM picked */
+function ntDrawMap(c,P,z,w,h){const A=bpPlan()?ntAll():[];if(!A.length)return;const now=Date.now();
+  if(z>=11)for(const n of A){if(n.kind!=="rwy"||!ntClosedQ(n)||ntState(n,now)!=="now"||!n.rwys.length)continue;const d=TX.data[n.icao];if(!d||!d.runways||typeof owEnds!=="function")continue;
+    const p2=s=>/^\d(?!\d)/.test(s)?"0"+s:s,names=n.rwys.map(p2),E=owEnds(d).filter(e=>names.includes(e.name));const done=new Set();
+    for(const e of E){if(done.has(e.both))continue;done.add(e.both);const o=owEnds(d).find(x=>x.both===e.both&&x!==e);if(!o)continue;const [x1,y1]=P(e.lat,e.lon),[x2,y2]=P(o.lat,o.lon),mx=(x1+x2)/2,my=(y1+y2)/2,s=Math.max(14,Math.min(40,Math.hypot(x2-x1,y2-y1)/8));
+      c.save();c.strokeStyle="rgba(255,69,58,.85)";c.lineWidth=5;c.setLineDash([14,10]);c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();c.setLineDash([]);c.lineWidth=6;c.beginPath();c.moveTo(mx-s,my-s);c.lineTo(mx+s,my+s);c.moveTo(mx+s,my-s);c.lineTo(mx-s,my+s);c.stroke();
+      c.font="700 12px "+(bpFont||"ui-monospace,monospace");const t="RWY "+e.both.replace(", ","/")+" CLOSED",tw=c.measureText(t).width+12;c.fillStyle="#FF453A";c.fillRect(mx-tw/2,my+s+6,tw,20);c.fillStyle="#fff";c.textAlign="center";c.textBaseline="middle";c.fillText(t,mx,my+s+16);c.restore()}}
+  if(z>=10)for(const n of A){if(n.kind!=="obs"||ntState(n,now)!=="now")continue;for(const q of n.pts){const [x,y]=P(q.la,q.lo);if(x<-20||y<-20||x>w+20||y>h+20)continue;c.save();c.fillStyle="#FF453A";c.strokeStyle="#fff";c.lineWidth=1.5;c.beginPath();c.moveTo(x,y-9);c.lineTo(x+7,y+5);c.lineTo(x-7,y+5);c.closePath();c.fill();c.stroke();c.restore()}}
+  const n=NT.hl;if(!n||Date.now()-NT.hlAt>300000)return;c.save();c.strokeStyle="#FF453A";c.fillStyle="rgba(255,69,58,.12)";c.lineWidth=2.5;
+  if(n.qp&&!n.pts.length&&n.qp.r>0){const [x,y]=P(n.qp.la,n.qp.lon),rp=n.qp.r*1852/(40075016.7*Math.cos(n.qp.la*Math.PI/180)/(256*Math.pow(2,z)));c.beginPath();c.arc(x,y,Math.max(8,rp),0,Math.PI*2);c.fill();c.stroke();ntTag(c,x,y-Math.max(8,rp)-14,n)}
+  for(const q of n.pts){const [x,y]=P(q.la,q.lo);c.beginPath();c.arc(x,y,14,0,Math.PI*2);c.fill();c.stroke();ntTag(c,x,y-28,n)}c.restore()}
+function ntTag(c,x,y,n){c.font="700 12px "+(bpFont||"ui-monospace,monospace");const t=n.icao+" "+n.id+(n.qp?" · "+(n.qp.lo?"FL"+String(n.qp.lo).padStart(3,"0"):"SFC")+"–FL"+String(n.qp.hi).padStart(3,"0"):""),tw=c.measureText(t).width+12;
+  c.fillStyle="#FF453A";c.fillRect(x-tw/2,y-10,tw,20);c.fillStyle="#fff";c.textAlign="center";c.textBaseline="middle";c.fillText(t,x,y)}
+document.head.insertAdjacentHTML("beforeend",`<style>
+.nt-apts{display:flex;gap:8px;padding:0 16px 12px;overflow-x:auto}.nt-apts button{flex:none;border:0;border-radius:12px;padding:8px 12px;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--line);color:var(--ink);text-align:left;cursor:pointer;font-family:var(--f-os)}
+.nt-apts button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--accent,#0A84FF)}.nt-apts small{display:block;font:700 10px var(--f-os);letter-spacing:.06em;color:var(--label)}.nt-apts b{display:block;font:700 16px var(--f-mono)}.nt-apts span{font:400 12px var(--f-os);color:var(--label)}.nt-apts i{font-style:normal;color:#FF453A;font-weight:600}
+.nt-f{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 12px}.nt-f button{border:0;border-radius:99px;padding:6px 11px;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--line);color:var(--ink);font:600 12.5px var(--f-os);cursor:pointer}.nt-f button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}.nt-f small{opacity:.6;font-weight:500}
+.nt-list{display:flex;flex-direction:column;gap:10px;padding:0 16px 16px}.nt-empty{color:var(--label);font-size:14px;margin:4px 0}
+.nt-c{border-radius:12px;padding:10px 12px;background:var(--bg);box-shadow:inset 0 0 0 .5px var(--line)}.nt-c.imp{box-shadow:inset 0 0 0 1.5px #FF453A}.nt-c.ended{opacity:.55}
+.nt-ch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}.nt-ch b{font:700 13.5px var(--f-mono)}.nt-ch small{font:400 12px var(--f-os);color:var(--label);flex-basis:100%}
+.nt-k{font:700 10.5px var(--f-os);letter-spacing:.03em;padding:3px 7px;border-radius:6px;color:#fff;background:var(--k)}.nt-imp{font:700 10.5px var(--f-os);padding:3px 7px;border-radius:6px;background:#FF453A;color:#fff}
+.nt-st{font-weight:700}.nt-st.now{color:#1FA347}.nt-st.sch{color:#E08600}.nt-st.later{color:#0A84FF}.nt-st.end{color:var(--label)}
+.nt-t{margin:0;white-space:pre-wrap;word-break:break-word;font:400 12.5px/1.45 var(--f-mono);color:var(--ink)}
+.nt-map{margin-top:8px;border:0;background:none;color:var(--accent,#0A84FF);font:600 13px var(--f-os);padding:0;cursor:pointer}
+.fp-nt{display:flex;align-items:center;gap:6px;width:100%;margin:-2px 0 8px;border:0;border-radius:10px;padding:8px 10px;background:rgba(127,127,127,.1);color:var(--ink);font:500 13px var(--f-os);cursor:pointer;text-align:left}
+.fp-nt.imp{background:rgba(255,69,58,.12)}.fp-nt i{width:8px;height:8px;border-radius:50%;background:#FF453A}.fp-nt b{font-family:var(--f-mono)}
+</style>`);
+
+/* ===== Logbook: play the flight back =====
+   Under a PIREP's flown track: play, pause, 10× to 240× speed and a slider through the flight. The aircraft moves
+   along the track on the map (the part flown so far drawn bright, the rest faint), a cursor runs along the altitude
+   profile, and a line shows the time (from the position reports' own times; spread evenly over the block time when
+   they have none), the time since the start, altitude, ground speed and distance flown. "Follow" keeps the map on the
+   aircraft. Space bar plays and pauses. */
+const LP={id:null,on:false,t:0,spd:60,follow:false,raf:0,last:0,M:null,laidFor:null};
+const LP_SPD=[10,30,60,120,240];
+/* the track's times (ms from the first point) and distances (NM) */
+function lpModel(id){const j=LT.data[id],pts=j&&j.track&&j.track.pts||[];if(pts.length<2)return null;if(LP.M&&LP.M.id===id)return LP.M;
+  const ll=ltUnwrap(pts),n=pts.length,D=[0];for(let i=1;i<n;i++)D.push(D[i-1]+ltNm(pts[i-1],pts[i]));
+  const real=pts.every(p=>p[4]),p=j.pirep||{},block=(+p.blockMinutes||+p.flightMinutes||0)*60000,T0=real?pts[0][4]:0;
+  const T=real?pts.map(q=>q[4]-T0):pts.map((q,i)=>i*(block>0?block/(n-1):20000));
+  LP.M={id,pts,ll,D,T,real,T0,dur:T[n-1]||1,dist:D[n-1]};return LP.M}
+/* the aircraft at time t: position, heading, altitude, ground speed, distance */
+function lpAt(M,t){t=Math.max(0,Math.min(M.dur,t));let lo=0,hi=M.T.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(M.T[m]<=t)lo=m;else hi=m}
+  const a=M.pts[lo],b=M.pts[hi],A=M.ll[lo],B=M.ll[hi],x=M.T[hi]>M.T[lo]?(t-M.T[lo])/(M.T[hi]-M.T[lo]):0,L=(u,v)=>u+(v-u)*x;
+  const h=(Math.atan2((B[1]-A[1])*Math.cos(A[0]*Math.PI/180),B[0]-A[0])*180/Math.PI+360)%360;
+  return{i:lo,lat:L(A[0],B[0]),lon:L(A[1],B[1]),h,alt:L(a[2]||0,b[2]||0),gs:a[3]!=null&&b[3]!=null?L(a[3],b[3]):(a[3]||b[3]||null),d:L(M.D[lo],M.D[hi]),t}}
+const lpDur=ms=>{const m=Math.round(ms/60000);return Math.floor(m/60)+":"+pad(m%60)};
+function lpHtml(id){const M=lpModel(id);if(!M)return"";const s=lpAt(M,LP.id===id?LP.t:0);
+  return `<div class="lp" id="lpBox" data-for="${esc(String(id))}"><div class="lp-row"><button class="lp-play" data-lp="play" aria-label="${LP.on&&LP.id===id?"Pause":"Play"}">${LP.on&&LP.id===id?'<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg>'}</button>
+    <input type="range" class="lp-seek" min="0" max="1000" step="1" value="${Math.round(s.t/M.dur*1000)}" data-lpseek aria-label="Position in the flight">
+    <button class="lp-spd" data-lp="spd" aria-label="Playback speed">${LP.spd}×</button><button class="lp-fol" data-lp="follow" aria-pressed="${LP.follow}">Follow</button></div>
+    <div class="lp-info" id="lpInfo">${lpInfo(M,s)}</div>${M.real?"":`<p class="lp-note">These position reports carry no times: the flight is spread evenly over its block time.</p>`}</div>`}
+function lpInfo(M,s){const tz=M.real?new Date(M.T0+s.t):null;
+  return `<span><small>${M.real?"UTC":"Elapsed"}</small><b>${tz?pad(tz.getUTCHours())+pad(tz.getUTCMinutes())+"Z":lpDur(s.t)}</b></span>${M.real?`<span><small>Elapsed</small><b>${lpDur(s.t)}</b></span>`:""}
+    <span><small>Altitude</small><b>${s.alt>=18000?"FL"+Math.round(s.alt/100):fmt(Math.round(s.alt/10)*10)+" ft"}</b></span><span><small>Ground speed</small><b>${s.gs!=null?Math.round(s.gs)+" kt":"–"}</b></span>
+    <span><small>Distance</small><b>${Math.round(s.d)} / ${Math.round(M.dist)} NM</b></span>`}
+/* in the PIREP: the controls under the map, a cursor on the profile */
+{const _h=ltHtml;ltHtml=function(id){let h=_h.apply(this,arguments);const M=lpModel(id);if(!M)return h;
+  h=h.replace(/(<div class="lt-map" id="ltMap"[^>]*><\/div>)/,"$1"+lpHtml(id));
+  return h.replace(/(<svg class="lt-prof")/,'<div class="lp-pw"><i class="lp-cur" id="lpCur"></i>$1').replace(/(<\/svg>\s*<div class="lt-leg">)/,'</svg></div><div class="lt-leg">')}}
+/* the map's layers: the part flown, the aircraft */
+function lpLay(){const m=LT.map,M=LP.M;if(!m||!M||LP.laidFor===m)return;if(!m.isStyleLoaded()||!m.getSource("lt")){setTimeout(lpLay,300);return}LP.laidFor=m;
+  try{const c=document.createElement("canvas");c.width=c.height=48;const g=c.getContext("2d");g.translate(24,24);g.scale(2,2);
+    const P=typeof VS_GLYPH!=="undefined"&&VS_GLYPH?VS_GLYPH:new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");
+    g.lineJoin="round";g.strokeStyle="#fff";g.lineWidth=2.4;g.stroke(P);g.fillStyle="#0A84FF";g.fill(P);if(!m.hasImage("lpPlane"))m.addImage("lpPlane",g.getImageData(0,0,48,48),{pixelRatio:2})}catch(e){}
+  m.addSource("lpDone",{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",coordinates:[[M.ll[0][1],M.ll[0][0]],[M.ll[0][1],M.ll[0][0]]]}}});
+  m.addSource("lpAc",{type:"geojson",data:{type:"Feature",properties:{h:0},geometry:{type:"Point",coordinates:[M.ll[0][1],M.ll[0][0]]}}});
+  try{m.setPaintProperty("lt-line","line-opacity",.35)}catch(e){}
+  m.addLayer({id:"lp-done",type:"line",source:"lpDone",paint:{"line-color":"#E2A04A","line-width":4},layout:{"line-cap":"round","line-join":"round"}});
+  m.addLayer({id:"lp-ac",type:"symbol",source:"lpAc",layout:{"icon-image":"lpPlane","icon-rotate":["get","h"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true}});lpDraw(true)}
+function lpDraw(force){const M=LP.M;if(!M||LP.id!==M.id)return;const s=lpAt(M,LP.t),m=LT.map;
+  if(m&&LP.laidFor===m){try{const done=M.ll.slice(0,s.i+1).map(q=>[q[1],q[0]]);done.push([s.lon,s.lat]);m.getSource("lpDone").setData({type:"Feature",geometry:{type:"LineString",coordinates:done.length>1?done:[done[0],done[0]]}});
+    m.getSource("lpAc").setData({type:"Feature",properties:{h:s.h},geometry:{type:"Point",coordinates:[s.lon,s.lat]}});if(LP.follow&&(force||LP.on))m.jumpTo({center:[s.lon,s.lat]})}catch(e){}}
+  /* the simple map (when the map engine could not load): a dot on its drawing, placed as logtrack.js placed the line */
+  else{const el=$("#ltMap"),sv=el&&el.querySelector("svg.lt-fb");if(sv){const ll=M.ll.map(q=>[q[1],q[0]]);let w=180,e=-180,so=90,n=-90;for(const [x,y] of ll){w=Math.min(w,x);e=Math.max(e,x);so=Math.min(so,y);n=Math.max(n,y)}
+    const pd=.08*Math.max(e-w,n-so,1),W2=el.clientWidth||600,H2=el.clientHeight||320,k=Math.min(W2/((e-w)+2*pd),H2/((n-so)+2*pd)),X=(W2-(e-w)*k)/2+(s.lon-w)*k,Y=(H2-(n-so)*k)/2+(n-s.lat)*k;
+    let dot=sv.querySelector(".lp-dot");if(!dot){sv.insertAdjacentHTML("beforeend",'<circle class="lp-dot" r="7"/>');dot=sv.querySelector(".lp-dot")}dot.setAttribute("cx",X.toFixed(1));dot.setAttribute("cy",Y.toFixed(1))}}
+  const info=$("#lpInfo");if(info)info.innerHTML=lpInfo(M,s);const sk=document.querySelector("[data-lpseek]");if(sk&&document.activeElement!==sk)sk.value=String(Math.round(s.t/M.dur*1000));
+  /* the profile's cursor, at the same distance (its x runs 46…854 of 900) */
+  const cu=$("#lpCur");if(cu){cu.style.left=((46+(900-92)*(M.dist?s.d/M.dist:0))/900*100).toFixed(2)+"%";cu.style.opacity=LP.t>0||LP.on?1:0}}
+function lpTick(now){if(!LP.on){LP.raf=0;return}LP.raf=requestAnimationFrame(lpTick);const M=LP.M;if(!M||cur!=="logbook"||!$("#lpBox")){LP.on=false;return}
+  const dt=LP.last?Math.min(200,now-LP.last):0;LP.last=now;LP.t+=dt*LP.spd;if(LP.t>=M.dur){LP.t=M.dur;LP.on=false;lpBtn()}lpDraw()}
+function lpBtn(){const b=document.querySelector("[data-lp='play']");if(b){b.setAttribute("aria-label",LP.on?"Pause":"Play");b.innerHTML=LP.on?'<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg>'}}
+function lpPlay(on){const box=$("#lpBox");if(!box)return;const id=box.dataset.for,M=lpModel(id);if(!M)return;if(LP.id!==id){LP.id=id;LP.t=0}
+  LP.on=on==null?!LP.on:on;if(LP.on&&LP.t>=M.dur)LP.t=0;LP.last=0;lpBtn();lpLay();if(LP.on&&!LP.raf)LP.raf=requestAnimationFrame(lpTick)}
+document.addEventListener("click",e=>{const t=e.target.closest("[data-lp]");if(!t||cur!=="logbook")return;const k=t.dataset.lp;
+  if(k==="play")lpPlay();
+  if(k==="spd"){LP.spd=LP_SPD[(LP_SPD.indexOf(LP.spd)+1)%LP_SPD.length];t.textContent=LP.spd+"×"}
+  if(k==="follow"){LP.follow=!LP.follow;t.setAttribute("aria-pressed",String(LP.follow));lpDraw(true)}});
+document.addEventListener("input",e=>{const t=e.target;if(!t.matches||!t.matches("[data-lpseek]"))return;const box=$("#lpBox");if(!box)return;const id=box.dataset.for,M=lpModel(id);if(!M)return;
+  if(LP.id!==id){LP.id=id}LP.t=(+t.value/1000)*M.dur;lpLay();lpDraw(true)});
+document.addEventListener("keydown",e=>{if(cur!=="logbook"||e.code!=="Space"||!$("#lpBox")||/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||"")&&!(document.activeElement||{}).matches("[data-lpseek]"))return;e.preventDefault();lpPlay()});
+/* a new PIREP or a rebuilt page: lay the layers again on the new map, keep the place in the flight */
+{const _m=ltMapMount;ltMapMount=function(){const r=_m.apply(this,arguments);const box=$("#lpBox");if(box){const id=box.dataset.for;if(LP.id!==id){LP.id=id;LP.t=0;LP.on=false}lpModel(id);setTimeout(lpLay,50);setTimeout(()=>lpDraw(true),400)}return r}}
+document.head.insertAdjacentHTML("beforeend",`<style>
+.lp{margin:10px 16px 0;display:flex;flex-direction:column;gap:8px}
+.lp-row{display:flex;align-items:center;gap:10px}
+.lp-play{width:40px;height:40px;border-radius:50%;border:0;background:var(--accent,#0A84FF);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}.lp-play svg{width:20px;height:20px;fill:currentColor}
+.lp-seek{flex:1;min-width:0;accent-color:#E2A04A}
+.lp-spd,.lp-fol{border:0;border-radius:9px;padding:7px 10px;background:rgba(127,127,127,.15);color:var(--ink);font:600 13px var(--f-mono);cursor:pointer;flex:none}.lp-fol{font-family:var(--f-os)}.lp-fol[aria-pressed="true"]{background:var(--accent,#0A84FF);color:#fff}
+.lp-info{display:flex;flex-wrap:wrap;gap:6px 18px}.lp-info span{display:flex;flex-direction:column}.lp-info small{font:600 10.5px var(--f-os);letter-spacing:.05em;text-transform:uppercase;color:var(--label)}.lp-info b{font:600 15px var(--f-mono);color:var(--ink)}
+.lp-note{margin:0;font:400 12px var(--f-os);color:var(--label)}
+.lp-pw{position:relative}.lt-fb .lp-dot{fill:#0A84FF;stroke:#fff;stroke-width:2.5}.lp-cur{position:absolute;top:6%;bottom:12%;width:0;border-left:2px solid #E2A04A;pointer-events:none;opacity:0;transition:opacity .2s}
 </style>`);
 
 /* ===== Crew Mobile: the roaming welcome after landing in another country, delivered to Mail =====

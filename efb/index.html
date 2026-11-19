@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1119.1338">
+<meta name="efb-build" content="1119.1403">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -7113,7 +7113,7 @@ body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail
    the first few kilobytes of the page are read, then the download is cancelled. Checked 20 s after start, every 10 min,
    and when the EFB comes back to the front. A newer build lights a badge on Settings and General; Update reloads it. */
 const UPD={build:null,at:0,busy:false,err:null,alerted:null};
-const UPD_LOG=[["Nov 19, 2026",["Backup PFD: a new app in the App Store shows a standby primary flight display live from the simulator (attitude with bank scale and slip, flight path marker, speed and altitude tapes, vertical speed, heading and track, baro and radio altitude) on your iPad, phone or the simulator PC, with the delay shown and a red cross when data stops","Ground: refuelling shows the fuel on board against the plan’s block fuel; boarding, deboarding and refuelling show the time left and when they’ll be done, with a warning when boarding will run past STD","Ground: a Turnaround timeline of when each GSX service was called, started and finished, against STD and OUT; it is kept with the flight and shows in the Logbook with the PIREP","Ground: cargo in kg (or lb) as well as per cent, and a note when the simulator PC has another flight plan loaded","Loadsheet: when GSX finishes boarding, the passengers it boarded go into the Loadsheet (with a Use GSX button if you changed them)","Ground on the Home Screen and in the Dynamic Island while GSX is at work: boarding count, fuel per cent and the time each will be done","Home Screen: apps from the App Store that had no place (Ground, Fenix EFB) now appear on it","Ground: a new app shows GSX Pro’s boarding, refuelling, catering, pushback, de-icing and deboarding live, on your iPad as well as on the simulator PC (with FSUIPC7 and its WebSocket Server), with a notification when boarding, refuelling, catering or deboarding is done","Block times: with Ground set up on the simulator PC, OUT, OFF, ON and IN are stamped for you (GSX pushback, takeoff, touchdown, GSX deboarding) and show on all your devices for the same flight plan"]],["Nov 18, 2026",["Calculator: Convert is now a calculator with conversion built in (weight, fuel by density, length, speed, vertical speed, pressure, temperature, volume), with history and the reference tables","Mail: the Crew Mobile welcome when you land in another country now arrives in Mail, and the Messages app is gone (earlier texts moved to Mail)","Map: zoomed in to an airport, VATSIM aircraft are drawn to their real size from the filed type","Map: much smoother pans and pinches, above all on the IFR and VFR charts: labels fade in and out instead of being placed again at every frame, FIR boundaries are drawn by the map engine, and the IFR, VFR, airport and model-weather layers load new areas once the map stops moving","Map: VATSIM traffic stays smooth zoomed out to the whole world","Admin: for Polaris staff, the staff admin (Mail, Live, Inbox, Pilots) is now an app in the App Store, with its own staff sign-in","Weather: your saved airports and units follow you to every device you sign in on","Notifications: once you check in, you get a notice when the weather at your destination or the plan’s alternate gets worse (IFR or LIFR, thunderstorms, freezing precipitation, heavy snow, hail, squalls) and when it is back to VFR or MVFR","Calendar: a Polaris Events calendar shows the airline’s group events from vAMSYS, with their routes, airports, aircraft and points","Fenix EFB: a new app in the App Store opens the Fenix A320’s EFB from your simulator PC","Map: a newly loaded flight plan’s airport diagrams are prepared straight away","The 海岸航空 theme and partner page have been taken out for now","Map: airport diagrams of Polaris’s network (now including CYYZ, VHHH, RJTT, RCTP, ZBAA, ZSPD, WSSS, EGLL, LSZH and ENGM), your flight plan and your saved Weather airports are prepared ahead, so they open without the long first wait","Weather: the Moon’s lit side reaches the terminator as it should (a gibbous Moon no longer looks like a half Moon), and it sits clear of the Map button","Fixed: cloud layer labels close together no longer overlap; they move along the line and sit on a dark backing","Weather: the Moon tile shows the whole Moon, larger, with its night side faintly lit by the Earth, as on the iPhone","Fixed: the weather widget’s sky no longer jumps about while the Home Screen is being edited","Map: VATSIM aircraft on the ground are shown in tan, as in ForeFlight; airborne traffic stays blue and Polaris flights amber","Weather: smoother 3D clouds, without the fine grain over a cloudy sky","Weather: changing airport cross-fades the sky: the old sky (its stars, Moon and clouds) fades out as the new one fades in, whether you swipe, tap a dot or pick from the list","Weather: turning to the next airport follows your finger, with the next page coming in beside it and the sky cross-fading; let go past a third, or flick, to turn","Weather: while you fly a Polaris flight, the list starts with the weather at the airport nearest your aircraft, with its distance, and follows you as you fly; add airports by name or city too (e.g. “Narita”, “Tokyo”), not only by code","Weather: the airport cards in the list show each airport’s moving sky; add any airport by its ICAO or IATA code from the field under the list; the “…” menu has Edit List (remove and reorder your airports), °C or °F, and Units for wind, pressure, visibility and cloud height (the Home Screen widget follows °C or °F)","Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
+const UPD_LOG=[["Nov 19, 2026",["Backup PFD: an HSI with your flight plan’s course and cross-track (next waypoint, distance, time, distance to destination), VATSIM traffic around you with relative altitude, wind with head and cross components and OAT","Backup PFD: V1, VR, V2 and VLS, VAPP from Performance on the speed tape, an overspeed band (VMO / MMO by type), a target altitude with 1,000 ft-to-go and deviation alerts, minimums (baro or radio) with spoken callouts","Backup PFD: night colours after sunset at the aircraft, a small PFD on the Map (PFD button), and the touchdown rate and G of each landing (also filled in when you save Block times to the logbook)","Backup PFD: a new app in the App Store shows a standby primary flight display live from the simulator (attitude with bank scale and slip, flight path marker, speed and altitude tapes, vertical speed, heading and track, baro and radio altitude) on your iPad, phone or the simulator PC, with the delay shown and a red cross when data stops","Ground: refuelling shows the fuel on board against the plan’s block fuel; boarding, deboarding and refuelling show the time left and when they’ll be done, with a warning when boarding will run past STD","Ground: a Turnaround timeline of when each GSX service was called, started and finished, against STD and OUT; it is kept with the flight and shows in the Logbook with the PIREP","Ground: cargo in kg (or lb) as well as per cent, and a note when the simulator PC has another flight plan loaded","Loadsheet: when GSX finishes boarding, the passengers it boarded go into the Loadsheet (with a Use GSX button if you changed them)","Ground on the Home Screen and in the Dynamic Island while GSX is at work: boarding count, fuel per cent and the time each will be done","Home Screen: apps from the App Store that had no place (Ground, Fenix EFB) now appear on it","Ground: a new app shows GSX Pro’s boarding, refuelling, catering, pushback, de-icing and deboarding live, on your iPad as well as on the simulator PC (with FSUIPC7 and its WebSocket Server), with a notification when boarding, refuelling, catering or deboarding is done","Block times: with Ground set up on the simulator PC, OUT, OFF, ON and IN are stamped for you (GSX pushback, takeoff, touchdown, GSX deboarding) and show on all your devices for the same flight plan"]],["Nov 18, 2026",["Calculator: Convert is now a calculator with conversion built in (weight, fuel by density, length, speed, vertical speed, pressure, temperature, volume), with history and the reference tables","Mail: the Crew Mobile welcome when you land in another country now arrives in Mail, and the Messages app is gone (earlier texts moved to Mail)","Map: zoomed in to an airport, VATSIM aircraft are drawn to their real size from the filed type","Map: much smoother pans and pinches, above all on the IFR and VFR charts: labels fade in and out instead of being placed again at every frame, FIR boundaries are drawn by the map engine, and the IFR, VFR, airport and model-weather layers load new areas once the map stops moving","Map: VATSIM traffic stays smooth zoomed out to the whole world","Admin: for Polaris staff, the staff admin (Mail, Live, Inbox, Pilots) is now an app in the App Store, with its own staff sign-in","Weather: your saved airports and units follow you to every device you sign in on","Notifications: once you check in, you get a notice when the weather at your destination or the plan’s alternate gets worse (IFR or LIFR, thunderstorms, freezing precipitation, heavy snow, hail, squalls) and when it is back to VFR or MVFR","Calendar: a Polaris Events calendar shows the airline’s group events from vAMSYS, with their routes, airports, aircraft and points","Fenix EFB: a new app in the App Store opens the Fenix A320’s EFB from your simulator PC","Map: a newly loaded flight plan’s airport diagrams are prepared straight away","The 海岸航空 theme and partner page have been taken out for now","Map: airport diagrams of Polaris’s network (now including CYYZ, VHHH, RJTT, RCTP, ZBAA, ZSPD, WSSS, EGLL, LSZH and ENGM), your flight plan and your saved Weather airports are prepared ahead, so they open without the long first wait","Weather: the Moon’s lit side reaches the terminator as it should (a gibbous Moon no longer looks like a half Moon), and it sits clear of the Map button","Fixed: cloud layer labels close together no longer overlap; they move along the line and sit on a dark backing","Weather: the Moon tile shows the whole Moon, larger, with its night side faintly lit by the Earth, as on the iPhone","Fixed: the weather widget’s sky no longer jumps about while the Home Screen is being edited","Map: VATSIM aircraft on the ground are shown in tan, as in ForeFlight; airborne traffic stays blue and Polaris flights amber","Weather: smoother 3D clouds, without the fine grain over a cloudy sky","Weather: changing airport cross-fades the sky: the old sky (its stars, Moon and clouds) fades out as the new one fades in, whether you swipe, tap a dot or pick from the list","Weather: turning to the next airport follows your finger, with the next page coming in beside it and the sky cross-fading; let go past a third, or flick, to turn","Weather: while you fly a Polaris flight, the list starts with the weather at the airport nearest your aircraft, with its distance, and follows you as you fly; add airports by name or city too (e.g. “Narita”, “Tokyo”), not only by code","Weather: the airport cards in the list show each airport’s moving sky; add any airport by its ICAO or IATA code from the field under the list; the “…” menu has Edit List (remove and reorder your airports), °C or °F, and Units for wind, pressure, visibility and cloud height (the Home Screen widget follows °C or °F)","Weather fixes: a swipe from the very edge of the screen turns to the next or previous airport instead of leaving for the Home Screen; the page gives a small bounce at the first and last airport; arrow keys switch airports on a keyboard; the map’s Weather button moves up clear of the radar bar; weather layers the map button turned on go back off when you leave the map","Weather on iPhone: swipe left or right to go to the next airport, drag the airport list down to close it, and a slimmer bottom bar","Weather: a map button opens the Map on the airport shown with radar, METARs and SIGMETs on, and a Weather button there leads back; on the iPhone the bottom bar has the map button, a dot for each airport and a list button for all airports","Home Screen: the weather widget shows the Weather app’s sky for its airport: colours that follow the conditions and the Sun (night, dawn, dusk, day), with twinkling stars, tonight’s Moon, the Sun’s glow, clouds as the METAR reports them, rain, snow, fog and lightning"]],["Nov 17, 2026",["Weather: the sky follows the Sun at the airport: night, dawn and dusk with a warm horizon, sunrise and sunset, golden hour and day; stars fade out at first light and clouds catch the colour of the low Sun","Weather: the clouds drawn follow the METAR (few, scattered, broken, overcast), so a partly cloudy night has clouds and a clear day has none; thin cloud near the Moon glows with its light","Weather: new Sun and Moon tiles: sunrise and sunset with the Sun’s path through the day, first and last light, and tonight’s Moon with its phase, illumination, moonrise, moonset and the next full moon","Weather: clearer words: “Mostly clear”, “Partly cloudy”, “Mostly cloudy”, “Overcast”, and “light rain showers” or “thunderstorm with rain”; the ceiling tile names the lowest layer and its height","Weather: the METAR card says when the report was made and how old it is, and a report older than 75 minutes is flagged at the top; today’s high and low take in the temperature now, with a dot for it on today’s bar","Weather: the METAR decoder reads reports that start with METAR or SPECI, shows the station, uses the runway you enter, and draws the sky of the decoded report","Fixed in Weather: calm wind no longer shows a 000° direction; flight category, runway and note text are easier to read on every sky; the hourly list’s Now matches the METAR","Weather: the Moon is NASA’s real lunar surface, in tonight’s phase and turned the way it stands in the sky at the airport shown; it sets below the horizon too","Weather: 3D sky on devices with WebGL: volumetric clouds lit by the Sun or Moon and drifting with the wind, rain and snow in depth, rolling fog, lightning inside the clouds; older devices keep the 2D sky","Weather: the sky moves now, as on iOS: stars and tonight’s Moon, the Sun, drifting clouds, rain that follows the METAR intensity and wind, lightning, snow and fog","Mail: writing to other pilots’ online flights has been removed; messages go to Polaris staff only, and older conversations between pilots can be read but not answered","Calendar: a new app with Day, Week, Month and Year views of your bookings, the flight plan and your own events, all in UTC","Messages: a welcome text from your crew phone plan when you land in another country","App Store: Today has featured stories, and a new Partners tab shows our partner airline and the services the EFB works with","Fixed: a load exactly at MTOW or MLW no longer shows as over the limit (Overload of 0 kg) in the Loadsheet and Performance","Flight: a chart laid over the map from Flight shows a Back to Flight button","Weather: with no flight loaded, the Polaris base shows its live METAR again, and retries soon when the weather service is slow","Weather in the iOS 18 style: a sky that follows the conditions, airports as sky cards, a large temperature, and tiles for wind with the runway rose, visibility, ceiling, pressure and more; the hourly table, 7-day list, cloud layers, METAR and TAF are all still there","Fixed: the METAR decoder’s result no longer disappears when a forecast finishes loading","Flight types: a coloured tag next to the flight number shows what kind of Polaris flight it is (international or domestic, flagship, training, delivery, extra callsign), with SFRA for Washington National; in the Roster, the calendar widget, Dispatch, Flight Plan and Flight","Charts: pick a category first (APT, SID, STAR, APP or REF), then the charts in it show as larger cards in the category’s colour; a search still looks through every category","Flight: a new app for the preflight, step by step: Import Plan, OFP, Loadsheet, Takeoff, Descent and Charts. A step bar under each app moves back and forth, the plan moves on to the OFP when it loads, and Flight picks up where you left off","App Store: new pilots start with Roster, Mail, Map, Flight, Dispatch and Clock and add the rest from the App Store; your apps follow you to every device. Apps you already use stay where they are","Dispatch: the paste or upload card now stays hidden until fetching from SimBrief fails, or you tap “Paste or upload a plan instead”"]],["Nov 16, 2026",["Map: SIGMET, AIRMET and CWA areas no longer slow the map down when many are active","Kneeboard: swipe a page left to delete it or right to star it; starred pages stay at the top","Fixed: the EFB server now accepts the EFB’s sends, so Kneeboard sync, Mail messages, push sign-up and alarms reach it","Kneeboard moves: the New Page sheet springs up (swipe it down to close), pages slide in and out, filled boxes light up, strokes fade when undone or erased, night paper fades in, and the holding picture turns to the new course","Kneeboard: lined and grid paper and forms for a clearance (CRAFT), ATIS, takeoff and landing, holding, fuel and position log and PIREP; type or write with the OFP pens, on day or night paper; forms fill from the flight plan, the ATIS and Performance; pages sync to all your devices and only you can read them","Display: the brightness slider now goes brighter to the right, like the iPad’s","iPhone: swiping back in a Settings section returns to the Settings list","Home Screen: drag widgets, and remove apps or widgets with the minus badge (bring them back in Settings › Home Screen)","The floating Home button slides out of the way of cards, buttons and text","Map: pinch-zoom holds the spot under your fingers still and no longer slides or jumps when the fingers lift","Two-finger ruler on the map: hold two fingers still to measure distance and magnetic course each way (nm or km in Settings › Map)","Clock in the iOS 18 style: pick your own world clocks (with a day and night map on iPad), Alarms that also arrive as push notifications, an analog stopwatch, timer recents and labels","Mail search keeps the keyboard up when new mail arrives","Holding a widget no longer opens the browser’s link menu","Arrange the Home Screen: touch and hold an app, then drag it, including into and out of the Dock","Passcode keys respond the moment you touch them, so fast typing no longer drops digits","Mail in the iOS 18 style: Search, blue unread dots, sender circles and a bottom toolbar","Do Not Disturb now also holds push notifications, by hand or while your flight is airborne; flight briefings still come through"]],["Nov 15, 2026",["Roster with check-in and flight briefings, push notifications, and the flown track in the Logbook","Mail: write to Polaris staff or to a Polaris flight that is online (up to 20 messages a day); messages between pilots are private","Sign in with vAMSYS, iPad-style lock screen, and Settings in the iOS 18 style","Polaris Mail: notices from Polaris staff, with alerts in the Dynamic Island","VATSIM traffic on the map","Airport diagram labels no longer cover taxiway letters","Settings redesigned, with software update, notifications, connection and VATSIM status"]],
   ["Nov 14, 2026",["Map fixes: steadier selection, follow mode, international airport codes, automatic retries","海岸航空 theme"]]];
 const updNewer=(a,b)=>!!a&&!!b&&a!==b&&(a>b||(b.slice(0,2)==="12"&&a.slice(0,2)==="01"));
 async function updCheck(force){if(UPD.busy||!EFB_BUILD||!/^https?:/.test(location.protocol))return;if(!force&&Date.now()-UPD.at<600000)return;UPD.busy=true;if(cur==="prefs")render();
@@ -11612,33 +11612,49 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 
 /* ===== Backup PFD =====
    A standby primary flight display from the simulator: attitude with a pitch ladder, bank scale and slip indicator,
-   flight path marker, speed tape with trend, altitude tape with vertical speed, heading tape with track, baro setting,
-   ground speed, TAS, Mach and radio altitude.
+   flight path marker, speed tape with trend, V speeds and overspeed band, altitude tape with vertical speed, target
+   altitude and minimums, an HSI with the flight plan's course (CDI), the next waypoint and VATSIM traffic, wind and OAT,
+   baro setting, GS, TAS, Mach, radio altitude, and the touchdown rate and G of each landing.
    - On the simulator PC (Ground's "This PC runs the simulator" on): read from FSUIPC through the same FSUIPC WebSocket
-     Server connection as Ground, 15 times a second, only while this app is open here or a device of the pilot's watches.
+     Server connection as Ground, 15 times a second, only while this app (or its Map inset) is open here or a device of
+     the pilot's watches.
    - On the pilot's iPad or phone: browsers do not let this https page reach the PC on the home network, so the PC sends
      the frames to the EFB server's relay (one per pilot, wss://…/api/efb/pfd/ws) and the device takes them from there.
      Frames are drawn a little behind real time (about one frame) and blended, so 15 a second look smooth at 60.
-   Everything comes from FSUIPC's standard offsets: no FSUIPC7.ini lines are needed. Nothing is stored on the server. */
+   Everything comes from FSUIPC's standard offsets: no FSUIPC7.ini lines are needed. Nothing is stored on the server.
+   The V speeds come from Performance, the course from the loaded flight plan, the traffic from VATSIM. */
 APPS.pfd={name:"Backup PFD",bg:"linear-gradient(180deg,#3B8FEA 0%,#2468C4 50%,#8A5427 50%,#5E3714 100%)",fg:"#FFD60A",g:'<path d="M3.5 12.5h5l1.5 2h4l1.5-2h5" stroke-width="2.2"/><path d="M12 4.5v2"/>'};
-if(typeof AS_INFO!=="undefined")AS_INFO.pfd={c:"flight",s:"Standby attitude, speed and altitude, live",d:"A backup primary flight display on your iPad or phone, live from the simulator: attitude with the bank scale and slip, flight path marker, speed and altitude tapes with trends, vertical speed, heading and track, baro setting and radio altitude. It reads the simulator on your PC through FSUIPC (as Ground does) and needs nothing else set up.",f:["15 updates a second, drawn smoothly","Works on iPad, phone and the simulator PC","Shows the delay and warns when data stops"]};
+if(typeof AS_INFO!=="undefined")AS_INFO.pfd={c:"flight",s:"Standby flight display, live from the simulator",d:"A backup primary flight display on your iPad or phone, live from the simulator: attitude, speed and altitude tapes with your V speeds from Performance, target altitude and minimums alerts, an HSI with your flight plan's course and VATSIM traffic, wind and OAT, and your touchdown rate. It reads the simulator on your PC through FSUIPC (as Ground does) and needs nothing else set up.",f:["15 updates a second, drawn smoothly","HSI with course, traffic and wind","Minimums and altitude callouts","Also as a small PFD on the Map"]};
 /* [name, offset, type, bytes] (FSUIPC standard offsets) */
 const BP_O=[["p",0x0578,"int",4],["b",0x057C,"int",4],["h",0x0580,"uint",4],["mv",0x02A0,"int",2],["ias",0x02BC,"int",4],["tas",0x02B8,"int",4],["gs",0x02B4,"int",4],
-  ["vs",0x02C8,"int",4],["alt",0x3324,"int",4],["baro",0x0330,"uint",2],["ra",0x31E4,"int",4],["ball",0x036E,"int",1],["mach",0x11C6,"int",2],["gnd",0x0366,"uint",2],["trk",0x6040,"float",8]];
-const BP={buf:[],src:"",rx:[],lastRx:0,pub:null,pubBusy:0,pubRtt:null,subs:0,sub:null,subBusy:0,subClose:0,rtt:null,pubThere:null,reading:0,nm:"",seq:0,raf:0,diag:false,raw:null,
-  cal:{bs:store.get("bpBankSign",1),ps:store.get("bpPitchSign",1)},calPrev:null,calN:0,calAcc:0,trend:{ias:0,alt:0,lastT:0,lastIas:null}};
+  ["vs",0x02C8,"int",4],["alt",0x3324,"int",4],["baro",0x0330,"uint",2],["ra",0x31E4,"int",4],["ball",0x036E,"int",1],["mach",0x11C6,"int",2],["gnd",0x0366,"uint",2],["trk",0x6040,"float",8],
+  ["la",0x0560,"int",8],["lo",0x0568,"int",8],["gla",0x6010,"float",8],["glo",0x6018,"float",8],["oat",0x0E8C,"int",2],["wsp",0x0E90,"uint",2],["wd",0x0E92,"uint",2],["tdv",0x030C,"int",4],["gf",0x11BA,"int",2]];
+const BP={buf:[],src:"",rx:[],lastRx:0,pub:null,pubBusy:0,pubRtt:null,subs:0,sub:null,subBusy:0,subClose:0,rtt:null,pubThere:null,reading:0,nm:"",seq:0,raf:0,raw:null,
+  cal:{bs:store.get("bpBankSign",1),ps:store.get("bpPitchSign",1)},calPrev:null,calN:0,calAcc:0,trend:{ias:0,lastT:0,lastIas:null},
+  set:Object.assign({night:"auto",voice:true,tcas:10,inset:false},store.get("bpSet",{})),nav:null,leg:null,tfc:[],tfcAt:0,lprev:null,liftAt:0,landAt:0,landPend:null,ldOut:null,ldShow:null,al:{},ann:[],pfC:null};
 const bpLocal=()=>typeof GX!=="undefined"&&GX.bridge&&GX.st==="on";
 const bpWrap=a=>((a%360)+360)%360;
 const bpDA=(a,b)=>{let d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return d};
+const bpPlan=()=>!!(ofp&&!ofp._sample);
+const bpSetSave=()=>store.set("bpSet",BP.set);
+const bpBug=()=>bpPlan()?Object.assign({alt:null,min:null,minT:"baro"},store.get("bpBug:"+O().id,{})):{alt:null,min:null,minT:"baro"};
+const bpBugSave=b=>{if(bpPlan())store.set("bpBug:"+O().id,b)};
+/* where a PFD is on screen: this app, or its small version on the Map */
+const bpShown=()=>cur==="pfd"||(cur==="map"&&BP.set.inset);
 
 /* ---------- on the simulator PC: FSUIPC ---------- */
 function bpDecode(r){const A=360/4294967296,mv=(Number(r.mv)||0)*360/65536,th=bpWrap((Number(r.h)>>>0)*A),tr=Number(r.trk);
+  let la=(Number(r.la)||0)*90/(10001750*4294967296),lo=(Number(r.lo)||0)*360/18446744073709551616;
+  if(!(Math.abs(la)<=90&&Math.abs(lo)<=180)||(!la&&!lo)){la=Number(r.gla);lo=Number(r.glo)}
+  const pos=Number.isFinite(la)&&Number.isFinite(lo)&&(la||lo)&&Math.abs(la)<=90&&Math.abs(lo)<=180;
   return{t:Date.now(),p:+(-(Number(r.p)||0)*A*BP.cal.ps).toFixed(2),b:+(-(Number(r.b)||0)*A*BP.cal.bs).toFixed(2),h:+bpWrap(th-mv).toFixed(2),
     k:Number.isFinite(tr)&&tr!==0?+bpWrap(tr*180/Math.PI-mv).toFixed(1):null,ias:+((Number(r.ias)||0)/128).toFixed(1),tas:Math.round((Number(r.tas)||0)/128),
     gs:Math.round((Number(r.gs)||0)/65536*1.943844),vs:Math.round((Number(r.vs)||0)/256*196.8504),alt:Math.round(Number(r.alt)||0),qnh:+((Number(r.baro)||0)/16).toFixed(1),
-    ra:Math.round((Number(r.ra)||0)/65536*3.28084),ball:+Math.max(-1,Math.min(1,(Number(r.ball)||0)/127)).toFixed(2),m:+((Number(r.mach)||0)/20480).toFixed(3),g:Number(r.gnd)?1:0}}
-/* read 15 times a second only while someone looks (this app open here, or a device of the pilot's) */
-const bpNeed=()=>bpLocal()&&(cur==="pfd"||BP.subs>0);
+    ra:Math.round((Number(r.ra)||0)/65536*3.28084),ball:+Math.max(-1,Math.min(1,(Number(r.ball)||0)/127)).toFixed(2),m:+((Number(r.mach)||0)/20480).toFixed(3),g:Number(r.gnd)?1:0,
+    la:pos?+la.toFixed(5):null,lo:pos?+lo.toFixed(5):null,mv:+mv.toFixed(1),oat:+((Number(r.oat)||0)/256).toFixed(1),wsp:Math.round(Number(r.wsp)||0),wd:Math.round(bpWrap((Number(r.wd)||0)*360/65536)),
+    tdv:Math.round((Number(r.tdv)||0)/256*196.8504),gf:+((Number(r.gf)||625)/625).toFixed(2)}}
+/* read 15 times a second only while someone looks (a PFD on this PC's screen, or a device of the pilot's) */
+const bpNeed=()=>bpLocal()&&(bpShown()||BP.subs>0);
 function bpReadSync(){const need=bpNeed();if(need===!!BP.reading)return;
   if(need){BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;gxSend({command:"offsets.declare",name:BP.nm,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
   else{BP.reading=0;gxSend({command:"offsets.stop",name:BP.nm})}}
@@ -11650,13 +11666,22 @@ if(typeof GX!=="undefined"){
       if(j.command==="offsets.declare"&&!/already/i.test(String(j.errorMessage||""))){BP.reading=0;setTimeout(bpReadSync,4000);return}
       setTimeout(()=>{if(BP.reading&&j.name===BP.nm)gxSend({command:"offsets.read",name:BP.nm,interval:66})},3000);return}
     if(j.command==="offsets.declare"){if(j.name===BP.nm&&BP.reading)gxSend({command:"offsets.read",name:j.name,interval:66});return}
-    if(j.command==="offsets.read"&&j.data&&j.name===BP.nm&&BP.reading){BP.raw=j.data;const f=bpDecode(j.data);bpCal(f);bpIn(f,"pc");bpPubSend(f)}};
+    if(j.command==="offsets.read"&&j.data&&j.name===BP.nm&&BP.reading){BP.raw=j.data;const f=bpDecode(j.data);bpCal(f);bpLandCheck(f);if(BP.ldOut&&f.t-BP.ldOut.t<60000)f.ld=BP.ldOut;bpIn(f,"pc");bpPubSend(f)}};
   GX.onOpen.push(()=>{BP.reading=0;bpReadSync();bpPubSync()});
   GX.onClose.push(()=>{BP.reading=0;bpPubSync()})}
 /* the bank's sign, checked in flight: banked right, the heading goes up; flipped (and kept) if it keeps saying otherwise */
 function bpCal(f){const p=BP.calPrev;BP.calPrev=f;if(!p||f.g||f.gs<80||Math.abs(f.b)<8)return;const dt=(f.t-p.t)/1000;if(dt<=0||dt>1)return;
   const rate=bpDA(p.h,f.h)/dt;if(Math.abs(rate)<.4)return;BP.calAcc+=Math.sign(rate)===Math.sign(f.b)?1:-1;
   if(++BP.calN>=40){if(BP.calAcc<-25){BP.cal.bs*=-1;store.set("bpBankSign",BP.cal.bs)}BP.calN=0;BP.calAcc=0}}
+/* touchdown (this PC): the vertical speed the simulator froze at the moment of contact, and the most G in the next 1.5 s */
+function bpLandCheck(f){const p=BP.lprev;BP.lprev=f;if(!p)return;
+  if(p.g===0&&f.g===1&&p.ias>40&&(!BP.landAt||f.t-BP.landAt>20000))BP.landPend={t:f.t,fpm:f.tdv||p.vs,g:Math.max(f.gf||1,p.gf||1),ias:Math.round(p.ias),pitch:+p.p.toFixed(1),fl:bpPlan()?O().flight:"",fid:bpPlan()?O().id:""};
+  if(BP.landPend){BP.landPend.g=Math.max(BP.landPend.g,f.gf||0);if(f.t-BP.landPend.t>1500){const L=BP.landPend;BP.landPend=null;L.g=+L.g.toFixed(2);BP.ldOut=L;bpLanded(L)}}}
+const bpLdCol=fpm=>{const a=Math.abs(fpm);return a<=200?"#30D158":a<=400?"#FF9F0A":"#FF453A"};
+function bpLanded(L){if(!L||BP.landAt&&Math.abs(BP.landAt-L.t)<5000&&BP.ldShow)return;BP.landAt=L.t;BP.ldShow=L;
+  const A=store.get("bpLandings",[]).filter(x=>Math.abs(x.t-L.t)>5000);A.unshift(L);store.set("bpLandings",A.slice(0,40));if(L.fid)store.set("bpLand:"+L.fid,L);
+  const ic=`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${APPS.pfd.bg};display:block"></span>`,t="Touchdown "+(L.fpm<0?"−":"")+Math.abs(Math.round(L.fpm))+" fpm",sub=L.g.toFixed(2)+" G · "+L.ias+" kt · pitch "+L.pitch+"°";
+  if(window.islAlert&&window.__islOn&&window.__islOn())window.islAlert({app:"Backup PFD",short:t.replace("Touchdown ",""),icon:ic,title:t,sub,ms:9000,tap:()=>{location.hash="pfd"}});else toast(t+" · "+L.g.toFixed(2)+" G")}
 
 /* ---------- the relay on the EFB server ---------- */
 async function bpTicket(){const j=await pmPost("/api/efb/pfd/ticket",{});if(!j||!j.ticket)throw new Error("No ticket");return j.ticket}
@@ -11670,10 +11695,10 @@ async function bpPubSync(){const want=bpLocal()&&typeof authOn==="function"&&aut
     w.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(_){return}if(j.subs!=null){BP.subs=j.subs;bpReadSync();bpHud()}if(j.pong!=null)BP.pubRtt=performance.now()-j.pong};
     w.onclose=e=>{clearInterval(pi);if(BP.pub!==w)return;BP.pub=null;BP.subs=0;bpReadSync();setTimeout(bpPubSync,e.code===4000?60000:5000)}}
   catch(e){setTimeout(bpPubSync,15000)}finally{BP.pubBusy=0}}
-function bpPubSend(f){const w=BP.pub;if(!w||w.readyState!==1||!BP.subs)return;try{w.send(JSON.stringify(Object.assign({l:BP.pubRtt!=null?Math.round(BP.pubRtt/2):null},f)))}catch(e){}}
+function bpPubSend(f){const w=BP.pub;if(!w||w.readyState!==1||!BP.subs)return;try{const o=Object.assign({l:BP.pubRtt!=null?Math.round(BP.pubRtt/2):null},f);delete o._r;w.send(JSON.stringify(o))}catch(e){}}
 setInterval(()=>{if(bpLocal()&&!BP.pub)bpPubSync()},20000);
-/* a device watching: connected while the app is open (and a little after, for a quick look elsewhere) */
-async function bpSubSync(){const want=cur==="pfd"&&!bpLocal()&&typeof authOn==="function"&&authOn()&&!document.hidden;
+/* a device watching: connected while a PFD is on screen (and a little after, for a quick look elsewhere) */
+async function bpSubSync(){const want=bpShown()&&!bpLocal()&&typeof authOn==="function"&&authOn()&&!document.hidden;
   if(!want){if(BP.sub&&!BP.subClose)BP.subClose=setTimeout(()=>{BP.subClose=0;const w=BP.sub;BP.sub=null;if(w)try{w.close()}catch(e){}},8000);return}
   clearTimeout(BP.subClose);BP.subClose=0;if(BP.sub||BP.subBusy)return;BP.subBusy=1;
   try{const w=new WebSocket(bpWsUrl("sub",await bpTicket()));BP.sub=w;let pi=0;
@@ -11681,94 +11706,234 @@ async function bpSubSync(){const want=cur==="pfd"&&!bpLocal()&&typeof authOn==="
     w.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(_){return}
       if(j.pong!=null){const r=performance.now()-j.pong;BP.rtt=BP.rtt==null?r:BP.rtt*.7+r*.3;return}
       if(j.pub!=null){BP.pubThere=j.pub;bpHud();return}if(j.subs!=null||j.hello)return;
-      if(j.t&&j.p!=null)bpIn(j,"cloud")};
-    w.onclose=()=>{clearInterval(pi);if(BP.sub!==w)return;BP.sub=null;if(cur==="pfd")setTimeout(bpSubSync,3000)}}
-  catch(e){if(cur==="pfd")setTimeout(bpSubSync,8000)}finally{BP.subBusy=0}}
+      if(j.t&&j.p!=null){if(j.ld)bpLanded(j.ld);bpIn(j,"cloud")}};
+    w.onclose=()=>{clearInterval(pi);if(BP.sub!==w)return;BP.sub=null;if(bpShown())setTimeout(bpSubSync,3000)}}
+  catch(e){if(bpShown())setTimeout(bpSubSync,8000)}finally{BP.subBusy=0}}
 
 /* ---------- frames: kept for a moment and blended ---------- */
-function bpIn(f,src){const now=performance.now();f._r=now;BP.src=src;BP.buf.push(f);if(BP.buf.length>30)BP.buf.shift();BP.rx.push(now);while(BP.rx.length&&now-BP.rx[0]>2000)BP.rx.shift();BP.lastRx=now;
+function bpIn(f,src){const now=performance.now();f._r=now;BP.src=src;const p=BP.buf[BP.buf.length-1];BP.buf.push(f);if(BP.buf.length>30)BP.buf.shift();BP.rx.push(now);while(BP.rx.length&&now-BP.rx[0]>2000)BP.rx.shift();BP.lastRx=now;
+  if(p&&p.g===1&&f.g===0)BP.liftAt=Date.now();
   /* trends: speed over the last second, for the 6-second speed arrow */
-  const T=BP.trend;if(T.lastIas!=null&&f.t>T.lastT){const dt=(f.t-T.lastT)/1000;if(dt>0&&dt<2){const a=(f.ias-T.lastIas)/dt;T.ias=T.ias*.85+a*.15}}T.lastIas=f.ias;T.lastT=f.t}
+  const T=BP.trend;if(T.lastIas!=null&&f.t>T.lastT){const dt=(f.t-T.lastT)/1000;if(dt>0&&dt<2){const a=(f.ias-T.lastIas)/dt;T.ias=T.ias*.85+a*.15}}T.lastIas=f.ias;T.lastT=f.t;
+  bpNavUpd(f);bpAlerts(f)}
 const bpRate=()=>BP.rx.length>1?(BP.rx.length-1)/((BP.rx[BP.rx.length-1]-BP.rx[0])/1000||1):0;
 function bpState(now){const B=BP.buf;if(!B.length)return null;const hz=bpRate()||15,D=BP.src==="pc"?1000/hz:Math.max(90,1600/hz),t=now-D;
   let i=B.length-1;while(i>0&&B[i-1]._r>t)i--;if(i===0||B[i]._r<=t)return B[B.length-1];const a=B[i-1],b=B[i],x=Math.max(0,Math.min(1,(t-a._r)/((b._r-a._r)||1)));
   const L=(u,v)=>u+(v-u)*x,An=(u,v)=>bpWrap(u+bpDA(u,v)*x),o=Object.assign({},b);
   for(const k of ["p","b","ias","tas","gs","vs","alt","ra","ball","m"])o[k]=L(a[k],b[k]);o.h=An(a.h,b.h);if(a.k!=null&&b.k!=null)o.k=An(a.k,b.k);return o}
 
+/* ---------- the flight: phase, V speeds, limits ---------- */
+/* takeoff speeds on the ground and for 4 minutes after lift-off, landing speeds below 3,000 ft RA or descending under 12,000 ft */
+function bpPhase(f){if(!f)return"";if(f.g)return BP.landAt&&Date.now()-BP.landAt<1200000?"":"to";
+  if(BP.liftAt&&Date.now()-BP.liftAt<240000&&f.vs>-300)return"to";if((f.ra>0&&f.ra<3000)||(f.alt<12000&&f.vs<-300))return"ld";return""}
+/* V1, VR, V2 and VLS, VAPP as Performance has them for this plan (worked out at most every 5 s) */
+function bpPerf(){if(!bpPlan()||typeof pfCalc!=="function")return{};const id=O().id,now=Date.now();if(BP.pfC&&BP.pfC.id===id&&now-BP.pfC.at<5000)return BP.pfC;const r={id,at:now};
+  const _ps=pfState;for(const m of ["to","ld"]){pfState=function(){return Object.assign(_ps.apply(this,arguments),{mode:m})};
+    try{const R=pfCalc();if(m==="to")Object.assign(r,{v1:R.v1,vr:R.vr,v2:R.v2});else Object.assign(r,{vls:R.vls,vapp:R.vapp})}catch(e){}finally{pfState=_ps}}
+  BP.pfC=r;return r}
+/* VMO / MMO by type: the plan's aircraft, else the simulator's title */
+function bpLim(){let t="";try{t=String(acType()||"")}catch(e){}if(!t&&typeof GX!=="undefined")t=GX.ac||"";t=t.toUpperCase();
+  return /A35|A359|A35K|350/.test(t)?{vmo:340,mmo:.89}:/A3[12]|A2[01]N|A19N|320|321|319/.test(t)?{vmo:350,mmo:.82}:{vmo:350,mmo:.82}}
+
+/* ---------- navigation: the leg of the plan's route, course, distance, cross-track ---------- */
+const BP_NM=3440.065,BP_R=Math.PI/180;
+function bpGd(a,b){const dLa=(b.la-a.la)*BP_R,dLo=(b.lo-a.lo)*BP_R,x=Math.sin(dLa/2)**2+Math.cos(a.la*BP_R)*Math.cos(b.la*BP_R)*Math.sin(dLo/2)**2;return 2*Math.asin(Math.min(1,Math.sqrt(x)))}
+function bpBrg(a,b){const y=Math.sin((b.lo-a.lo)*BP_R)*Math.cos(b.la*BP_R),x=Math.cos(a.la*BP_R)*Math.sin(b.la*BP_R)-Math.sin(a.la*BP_R)*Math.cos(b.la*BP_R)*Math.cos((b.lo-a.lo)*BP_R);return bpWrap(Math.atan2(y,x)/BP_R)}
+function bpDest(a,brg,d){const la1=a.la*BP_R,lo1=a.lo*BP_R,t=brg*BP_R,la2=Math.asin(Math.sin(la1)*Math.cos(d)+Math.cos(la1)*Math.sin(d)*Math.cos(t)),lo2=lo1+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(la1),Math.cos(d)-Math.sin(la1)*Math.sin(la2));return{la:la2/BP_R,lo:lo2/BP_R}}
+function bpXt(A,B,P){const d13=bpGd(A,P),t=(bpBrg(A,P)-bpBrg(A,B))*BP_R,dxt=Math.asin(Math.sin(d13)*Math.sin(t)),dat=Math.acos(Math.max(-1,Math.min(1,Math.cos(d13)/Math.cos(dxt))));
+  return{xtk:dxt*BP_NM,at:(Math.cos(t)<0?-1:1)*dat*BP_NM,len:bpGd(A,B)*BP_NM}}
+function bpRoute(){if(!bpPlan())return[];const id=O().id;if(BP.rt&&BP.rt.id===id)return BP.rt.P;const x=O(),P=[];
+  const add=(n,la,lo)=>{la=+la;lo=+lo;if(!isFinite(la)||!isFinite(lo)||(!la&&!lo))return;const l=P[P.length-1];if(l&&Math.abs(l.la-la)<1e-5&&Math.abs(l.lo-lo)<1e-5)return;P.push({id:n,la,lo})};
+  add(S(x.o.icao_code),x.o.pos_lat,x.o.pos_long);for(const f of x.fixes||[]){const n=S(f.ident);if(/^(TOC|TOD)$/i.test(n))continue;add(n,f.pos_lat,f.pos_long)}add(S(x.d.icao_code),x.d.pos_lat,x.d.pos_long);
+  BP.rt={id,P};BP.leg=null;return P}
+function bpNavUpd(f){if(f.la==null){BP.nav=null;return}const P=bpRoute();if(P.length<2){BP.nav=null;return}const pos={la:f.la,lo:f.lo};
+  const score=j=>{const q=bpXt(P[j],P[j+1],pos),out=q.at<0?-q.at:q.at>q.len?q.at-q.len:0;return Math.abs(q.xtk)+out*1.5};
+  let i=BP.leg;if(i==null||i>=P.length-1){let bs=1e9;for(let j=0;j<P.length-1;j++){const s=score(j);if(s<bs){bs=s;i=j}}}
+  let q=bpXt(P[i],P[i+1],pos);while(i<P.length-2&&q.at>q.len-.3){i++;q=bpXt(P[i],P[i+1],pos)}
+  /* far off the leg (a direct-to, a vector): look again, every 10 s at most */
+  if(Math.abs(q.xtk)>12&&(!BP.legAt||Date.now()-BP.legAt>10000)){BP.legAt=Date.now();let bs=score(i),b=i;for(let j=0;j<P.length-1;j++){const s=score(j);if(s<bs-2){bs=s;b=j}}if(b!==i){i=b;q=bpXt(P[i],P[i+1],pos)}}
+  BP.leg=i;const A=P[i],B=P[i+1],pt=bpDest(A,bpBrg(A,B),Math.max(0,Math.min(q.len,q.at))/BP_NM),dist=bpGd(pos,B)*BP_NM;
+  let rem=dist;for(let j=i+1;j<P.length-1;j++)rem+=bpGd(P[j],P[j+1])*BP_NM;
+  BP.nav={from:A.id,to:B.id,xtk:q.xtk,dtk:bpWrap(bpBrg(pt,B)-(f.mv||0)),dist,rem,fsd:rem<30?1:2}}
+
+/* ---------- VATSIM traffic around the aircraft (once a second) ---------- */
+function bpTfcUpd(f){if(!BP.set.tcas||!f||f.la==null||typeof VS==="undefined"){BP.tfc=[];return}
+  if(!VS.loading&&!document.hidden&&Date.now()>=(VS.next||VS.at+20000))try{vsLoad()}catch(e){}
+  if(!VS.list){BP.tfc=[];return}const now=Date.now(),el=Math.max(0,(now-(VS.t0||now))/1000),own=String(((ofp||{}).atc||{}).callsign||"").toUpperCase(),rng=BP.set.tcas,out=[];
+  for(const p of VS.list){if(own&&p.c===own)continue;if(Math.abs(p.la-f.la)>rng/40)continue;let la=p.la,lo=p.lo;
+    if(p.g>=40&&el<120){const d=p.g*el/3600/60;la+=d*Math.cos(p.h*BP_R);lo+=d*Math.sin(p.h*BP_R)/Math.max(.05,Math.cos(la*BP_R))}
+    const dn=(la-f.la)*60,de=bpDA(f.lo,lo)*60*Math.cos(f.la*BP_R),dist=Math.hypot(dn,de);if(dist>rng*1.05)continue;
+    const rel=Math.round((p.a+(p.vs||0)*Math.min(el,60)/60-f.alt)/100);if(dist<.4&&Math.abs(rel)<4)continue;
+    out.push({c:p.c,dist,brg:Math.atan2(de,dn)/BP_R,rel,vs:p.vs||0,ta:dist<2.5&&Math.abs(rel)<=9&&!f.g,prox:dist<6&&Math.abs(rel)<=12})}
+  BP.tfc=out.sort((a,b)=>b.dist-a.dist);BP.tfcAt=now}
+
+/* ---------- alerts: target altitude and minimums, with a chime and the spoken callout ---------- */
+let bpAc=null;
+function bpChime(hi){try{bpAc=bpAc||new (window.AudioContext||window.webkitAudioContext)();const t=bpAc.currentTime;[0,.18].forEach((d,i)=>{const o=bpAc.createOscillator(),g=bpAc.createGain();o.type="sine";o.frequency.value=hi?(i?880:1175):(i?660:880);
+  g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.18,t+d+.02);g.gain.exponentialRampToValueAtTime(.001,t+d+.25);o.connect(g);g.connect(bpAc.destination);o.start(t+d);o.stop(t+d+.3)})}catch(e){}}
+function bpSay(t){if(!BP.set.voice||!window.speechSynthesis)return;try{const u=new SpeechSynthesisUtterance(t);u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+function bpAnn(k,t,col,ms){BP.ann=BP.ann.filter(a=>a.k!==k);if(t)BP.ann.push({k,t,col,until:ms?Date.now()+ms:0})}
+function bpAlerts(f){if(!bpShown()||!f)return;const B=bpBug(),A=BP.al,air=!f.g;
+  /* target altitude: 1,000 ft to go (moving towards it), then a deviation of more than 200 ft once it was reached */
+  if(B.alt!=null){if(A.tgt!==B.alt){A.tgt=B.alt;A.st=Math.abs(f.alt-B.alt)<200?"cap":"arm"}const d=f.alt-B.alt,ad=Math.abs(d);
+    if(A.st==="arm"&&air&&ad<=1000&&ad>200&&Math.sign(-d)===Math.sign(f.vs)&&Math.abs(f.vs)>200){A.st="near";bpAnn("alt","ALT "+bpFt(B.alt),"#5AC8FA",6000);bpChime(false)}
+    if((A.st==="arm"||A.st==="near"||A.st==="dev")&&ad<200){A.st="cap";bpAnn("alt","");bpAnn("dev","")}
+    if(A.st==="cap"&&ad>200&&air){A.st="dev";bpAnn("dev","ALT DEVIATION","#FF9F0A",10000);bpChime(true)}
+    if(A.st==="near"&&ad>1100)A.st="arm"}else{if(A.tgt!=null){A.tgt=null;bpAnn("alt","");bpAnn("dev","")}}
+  /* minimums: "approaching" 100 ft above, "minimums" at it, descending; armed again 300 ft above */
+  if(B.min!=null&&air){const v=B.minT==="radio"?(f.ra>0&&f.ra<2500?f.ra:null):f.alt;if(v!=null){
+    if(A.min==null||A.minV!==B.min+B.minT){A.minV=B.min+B.minT;A.min=v>B.min?"arm":"done"}if(v>B.min+300)A.min="arm";
+    if(A.min==="arm"&&f.vs<-100&&v<=B.min+100&&v>B.min){A.min="app";bpAnn("min","APPROACHING MINIMUMS","#5AC8FA",5000);bpSay("Approaching minimums")}
+    if((A.min==="arm"||A.min==="app")&&f.vs<-100&&v<=B.min){A.min="done";bpAnn("min","MINIMUMS","#FF9F0A",8000);bpChime(true);bpSay("Minimums")}}}}
+const bpFt=v=>v>=18000&&v%100===0?"FL"+String(v/100).padStart(3,"0"):fmt(v);
+
+/* ---------- night: the colours dim from 4° below the horizon at the aircraft (or on the switch) ---------- */
+function bpSunAlt(la,lo,ms){try{const {dec,eot}=sunPos(ms),d=new Date(ms),m=d.getUTCHours()*60+d.getUTCMinutes()+d.getUTCSeconds()/60,ha=((m+eot+4*lo)/4-180)*BP_R;
+  return Math.asin(Math.sin(la*BP_R)*Math.sin(dec)+Math.cos(la*BP_R)*Math.cos(dec)*Math.cos(ha))/BP_R}catch(e){return 30}}
+function bpNight(s){if(BP.set.night==="day")return false;if(BP.set.night==="night")return true;let la=s&&s.la,lo=s&&s.lo;
+  if(la==null&&bpPlan()){la=N(O().o.pos_lat);lo=N(O().o.pos_long)}if(la==null||!isFinite(la))return false;
+  const k=Math.round(Date.now()/60000);if(BP.ntK!==k){BP.ntK=k;BP.nt=bpSunAlt(la,lo,Date.now())<-4}return BP.nt}
+
 /* ---------- drawing ---------- */
-const BPC={sky0:"#1D5FC4",sky1:"#4F9BEA",gnd0:"#8A5326",gnd1:"#4E2C0E",fg:"#FFFFFF",yel:"#FFD60A",mag:"#FF4FD8",grn:"#3BE07A",tape:"rgba(18,22,30,.55)",box:"#000"};
-let bpFont="";
+const BPC_D={sky0:"#1D5FC4",sky1:"#4F9BEA",gnd0:"#8A5326",gnd1:"#4E2C0E",fg:"#FFFFFF",sub:"#E6E6E6",yel:"#FFD60A",mag:"#FF4FD8",grn:"#3BE07A",cy:"#5AC8FA",tape:"rgba(18,22,30,.55)",box:"#000",hsi:"rgba(10,12,16,.78)"};
+const BPC_N={sky0:"#0A1F45",sky1:"#173B73",gnd0:"#4A2D13",gnd1:"#24150A",fg:"#D9D9D9",sub:"#BDBDBD",yel:"#E5C010",mag:"#E048C0",grn:"#2FC06A",cy:"#4BAFDB",tape:"rgba(6,8,12,.62)",box:"#000",hsi:"rgba(4,5,8,.84)"};
+let BPC=BPC_D,bpFont="";
 function bpText(c,t,x,y,sz,al,col,wt){if(!bpFont)bpFont=(getComputedStyle(document.body).getPropertyValue("--f-mono")||"").trim()||"ui-monospace,monospace";c.font=`${wt||600} ${sz}px ${bpFont}`;c.textAlign=al||"center";c.textBaseline="middle";c.fillStyle=col||BPC.fg;c.fillText(t,x,y)}
-function bpDraw(cv){const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
+/* full: the app; small: the Map inset (attitude, tapes and heading only) */
+function bpDraw(cv,small){const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
   if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
   const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);const now=performance.now(),s=bpState(now)||{p:0,b:0,h:0,ias:0,alt:0,vs:0,gs:0,tas:0,qnh:0,ra:0,ball:0,m:0,g:1,k:null};
-  const stale=!BP.lastRx||now-BP.lastRx>1500,u=Math.min(W,H),phone=W<560,cx=W/2,cy=H*.5,k=H/46,f=phone?.85:1;
-  /* sky and ground, the ladder */
-  c.save();c.translate(cx,cy);c.rotate(-s.b*Math.PI/180);c.translate(0,s.p*k);const R=Math.hypot(W,H);
+  BPC=bpNight(s)?BPC_N:BPC_D;
+  const stale=!BP.lastRx||now-BP.lastRx>1500,u=Math.min(W,H),phone=small||W<560,f=small?.72:phone?.85:1;
+  /* layout: an HSI under the attitude when there is room for one */
+  const hr=small?0:Math.min(H*.165,W/2-(phone?80:122),175),hsi=hr>=72,cx=W/2,cy=hsi?H*(phone?.37:.4):H*.5,k=(hsi?H*.86:H)/46;
+  const th=small?H*.72:hsi?Math.min(H*(phone?.44:.5),430):Math.min(H*.62,440),ty=cy-th/2,sw=small?48:phone?64:86,sx=small?4:phone?6:14,aw=small?54:phone?72:96,vw=small?0:phone?20:28,ax=W-(small?4:phone?6:14)-vw-aw;
+  const rb=Math.max(small?34:60,Math.min(u*(small?.34:.36),(hsi?H*.33:H*.36),W/2-(small?56:phone?80:110)));
+  /* sky and ground */
+  c.save();c.translate(cx,cy);c.rotate(-s.b*BP_R);c.translate(0,s.p*k);const R=Math.hypot(W,H);
   let g=c.createLinearGradient(0,-H,0,0);g.addColorStop(0,BPC.sky0);g.addColorStop(1,BPC.sky1);c.fillStyle=g;c.fillRect(-R,-R*2,R*2,R*2);
   g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,BPC.gnd0);g.addColorStop(1,BPC.gnd1);c.fillStyle=g;c.fillRect(-R,0,R*2,R*2);
-  c.strokeStyle="#fff";c.lineWidth=2;c.beginPath();c.moveTo(-R,0);c.lineTo(R,0);c.stroke();c.restore();
+  c.strokeStyle=BPC.fg;c.lineWidth=2;c.beginPath();c.moveTo(-R,0);c.lineTo(R,0);c.stroke();c.restore();
   /* the ladder, inside the bank scale only */
-  const rb=Math.max(60,Math.min(u*.36,H*.36,W/2-(phone?80:110)));c.save();c.beginPath();c.arc(cx,cy,rb*.9,0,Math.PI*2);c.clip();c.translate(cx,cy);c.rotate(-s.b*Math.PI/180);c.translate(0,s.p*k);c.strokeStyle="#fff";
+  c.save();c.beginPath();c.arc(cx,cy,rb*.9,0,Math.PI*2);c.clip();c.translate(cx,cy);c.rotate(-s.b*BP_R);c.translate(0,s.p*k);c.strokeStyle=BPC.fg;
   c.lineWidth=1.6;for(let d=-90;d<=90;d+=2.5){if(!d||Math.abs(d-s.p)>14)continue;const y=-d*k,w=d%10===0?u*.15:d%5===0?u*.075:u*.035;
-    c.beginPath();c.moveTo(-w,y);c.lineTo(w,y);c.stroke();if(d%10===0){bpText(c,String(Math.abs(d)),-w-16,y,13*f,"center");bpText(c,String(Math.abs(d)),w+16,y,13*f,"center")}}
+    c.beginPath();c.moveTo(-w,y);c.lineTo(w,y);c.stroke();if(d%10===0&&!small){bpText(c,String(Math.abs(d)),-w-16,y,13*f,"center");bpText(c,String(Math.abs(d)),w+16,y,13*f,"center")}}
   c.restore();
   /* bank scale (turns with the horizon) and the fixed pointer with the slip indicator */
-  c.save();c.translate(cx,cy);c.rotate(-s.b*Math.PI/180);c.strokeStyle="#fff";c.fillStyle="#fff";c.lineWidth=2;
-  c.beginPath();c.arc(0,0,rb,(-90-60)*Math.PI/180,(-90+60)*Math.PI/180);c.stroke();
-  for(const a of [-60,-45,-30,-20,-10,10,20,30,45,60]){const L=Math.abs(a)===30||Math.abs(a)===60?16:Math.abs(a)===45?10:9,t=(a-90)*Math.PI/180;
+  c.save();c.translate(cx,cy);c.rotate(-s.b*BP_R);c.strokeStyle=BPC.fg;c.fillStyle=BPC.fg;c.lineWidth=2;
+  c.beginPath();c.arc(0,0,rb,(-150)*BP_R,(-30)*BP_R);c.stroke();
+  for(const a of [-60,-45,-30,-20,-10,10,20,30,45,60]){const L=(Math.abs(a)===30||Math.abs(a)===60?16:Math.abs(a)===45?10:9)*(small?.7:1),t=(a-90)*BP_R;
     if(Math.abs(a)===45){c.beginPath();c.moveTo(Math.cos(t)*rb,Math.sin(t)*rb);c.lineTo(Math.cos(t-.035)*(rb+L),Math.sin(t-.035)*(rb+L));c.lineTo(Math.cos(t+.035)*(rb+L),Math.sin(t+.035)*(rb+L));c.closePath();c.fill();continue}
     c.beginPath();c.moveTo(Math.cos(t)*rb,Math.sin(t)*rb);c.lineTo(Math.cos(t)*(rb+L),Math.sin(t)*(rb+L));c.stroke()}
   c.beginPath();c.moveTo(0,-rb);c.lineTo(-8,-rb-13);c.lineTo(8,-rb-13);c.closePath();c.stroke();c.restore();
-  c.save();c.translate(cx,cy);c.fillStyle="#fff";c.strokeStyle="#000";c.lineWidth=1;c.beginPath();c.moveTo(0,-rb);c.lineTo(-9,-rb+14);c.lineTo(9,-rb+14);c.closePath();c.fill();c.stroke();
+  c.save();c.translate(cx,cy);c.fillStyle=BPC.fg;c.strokeStyle="#000";c.lineWidth=1;c.beginPath();c.moveTo(0,-rb);c.lineTo(-9,-rb+14);c.lineTo(9,-rb+14);c.closePath();c.fill();c.stroke();
   const sl=s.ball*18;c.beginPath();c.moveTo(-10+sl,-rb+17);c.lineTo(10+sl,-rb+17);c.lineTo(12+sl,-rb+22);c.lineTo(-12+sl,-rb+22);c.closePath();c.fill();c.stroke();c.restore();
   /* flight path marker */
-  if(s.k!=null&&s.gs>30&&!stale){const fpa=Math.atan2(s.vs,s.gs*101.27)*180/Math.PI,dr=Math.max(-20,Math.min(20,bpDA(s.h,s.k)));
-    c.save();c.translate(cx,cy);c.rotate(-s.b*Math.PI/180);const x=dr*k,y=(s.p-fpa)*k;c.strokeStyle=BPC.grn;c.lineWidth=2.4;c.shadowColor="rgba(0,0,0,.6)";c.shadowBlur=3;
+  if(s.k!=null&&s.gs>30&&!stale){const fpa=Math.atan2(s.vs,s.gs*101.27)/BP_R,dr=Math.max(-20,Math.min(20,bpDA(s.h,s.k)));
+    c.save();c.translate(cx,cy);c.rotate(-s.b*BP_R);const x=dr*k,y=(s.p-fpa)*k;c.strokeStyle=BPC.grn;c.lineWidth=2.4;c.shadowColor="rgba(0,0,0,.6)";c.shadowBlur=3;
     c.beginPath();c.arc(x,y,8,0,Math.PI*2);c.moveTo(x-8,y);c.lineTo(x-20,y);c.moveTo(x+8,y);c.lineTo(x+20,y);c.moveTo(x,y-8);c.lineTo(x,y-15);c.stroke();c.restore()}
   /* aircraft symbol */
-  c.save();c.translate(cx,cy);c.fillStyle=BPC.yel;c.strokeStyle="#000";c.lineWidth=1.5;const ws=u*.22,wi=u*.08;
+  c.save();c.translate(cx,cy);c.fillStyle=BPC.yel;c.strokeStyle="#000";c.lineWidth=1.5;const ws=u*(small?.26:.22),wi=u*(small?.1:.08);
   for(const d of [-1,1]){c.beginPath();c.moveTo(d*ws,-3);c.lineTo(d*wi,-3);c.lineTo(d*wi,9);c.lineTo(d*(wi+6),9);c.lineTo(d*(wi+6),3);c.lineTo(d*ws,3);c.closePath();c.fill();c.stroke()}
   c.beginPath();c.moveTo(0,0);c.lineTo(-wi*.75,16);c.lineTo(-wi*.35,16);c.lineTo(0,7);c.lineTo(wi*.35,16);c.lineTo(wi*.75,16);c.closePath();c.fill();c.stroke();c.fillRect(-2.5,-2.5,5,5);c.restore();
-  /* speed tape */
-  const th=Math.min(H*.62,440),ty=cy-th/2,sw=phone?64:86,sx=phone?6:14;bpTape(c,sx,ty,sw,th,s.ias,"spd",f);
-  bpText(c,"GS "+Math.round(s.gs),sx+sw/2,ty+th+16,13*f,"center","#E6E6E6",600);bpText(c,"TAS "+Math.round(s.tas),sx+sw/2,ty+th+34,13*f,"center","#E6E6E6",600);if(s.m>=.4)bpText(c,"M "+s.m.toFixed(3).slice(1),sx+sw/2,ty-16,13*f,"center","#E6E6E6",600);
-  /* altitude tape and vertical speed */
-  const aw=phone?72:96,vw=phone?20:28,ax=W-(phone?6:14)-vw-aw;bpTape(c,ax,ty,aw,th,s.alt,"alt",f);bpVs(c,ax+aw+2,ty,vw,th,s.vs,f);
-  const q=s.qnh,stdB=Math.abs(q-1013.2)<.3;bpText(c,q?(stdB?"STD":Math.round(q)+" hPa"):"",ax+aw/2,ty+th+16,13*f,"center","#5AC8FA",700);if(q&&!stdB)bpText(c,(q*.0295300).toFixed(2)+" in",ax+aw/2,ty+th+34,12*f,"center","#5AC8FA",600);
-  if(Math.abs(s.vs)>=100)bpText(c,(s.vs>0?"+":"−")+Math.round(Math.abs(s.vs)/50)*50,ax+aw+vw/2,s.vs>0?ty-14:ty+th+14,12*f,"center","#fff",600);
-  /* heading tape */
-  bpHdg(c,cx,phone?8:12,Math.min(W*.62,520),phone?36:42,s.h,s.k,f);
+  /* speed tape, with V speeds and the overspeed band */
+  const ph=bpPhase(s),pf=ph?bpPerf():{},lim=bpLim(),vmax=Math.min(lim.vmo,s.m>.1?s.ias*lim.mmo/s.m:999);
+  const vb=ph==="to"?[["V1",pf.v1],["VR",pf.vr],["V2",pf.v2]]:ph==="ld"?[["VLS",pf.vls,"amb"],["VAPP",pf.vapp,"mag"]]:[];
+  bpTape(c,sx,ty,sw,th,s.ias,"spd",f,{vb:vb.filter(v=>v[1]>0),vmax});
+  if(!small){bpText(c,"GS "+Math.round(s.gs),sx+sw/2,ty+th+16,13*f,"center",BPC.sub,600);bpText(c,"TAS "+Math.round(s.tas),sx+sw/2,ty+th+34,13*f,"center",BPC.sub,600)}
+  if(s.m>=.4&&!small)bpText(c,"M "+s.m.toFixed(3).slice(1),sx+sw/2,ty-16*f,13*f,"center",BPC.sub,600);
+  /* altitude tape and vertical speed, with the target altitude and minimums */
+  const B=bpBug(),minAlt=B.min==null?null:B.minT==="radio"?(s.ra>0&&s.ra<2500?s.alt-s.ra+B.min:null):B.min;
+  bpTape(c,ax,ty,aw,th,s.alt,"alt",f,{tgt:B.alt,min:minAlt,minHit:BP.al.min==="done"});if(vw)bpVs(c,ax+aw+2,ty,vw,th,s.vs,f);
+  if(B.alt!=null&&!small)bpBox(c,ax+aw/2,ty-18*f,bpFt(B.alt),14*f,BP.al.st==="dev"?"#FF9F0A":BPC.cy);
+  const q=s.qnh,stdB=Math.abs(q-1013.2)<.3;
+  if(!small){bpText(c,q?(stdB?"STD":Math.round(q)+" hPa"):"",ax+aw/2,ty+th+16,13*f,"center",BPC.cy,700);if(q&&!stdB)bpText(c,(q*.02953).toFixed(2)+" in",ax+aw/2,ty+th+34,12*f,"center",BPC.cy,600);
+    if(B.min!=null)bpText(c,(B.minT==="radio"?"RA MIN ":"MIN ")+fmt(B.min),ax+aw/2,ty+th+52,12*f,"center",BP.al.min==="done"?"#FF9F0A":BPC.cy,700);
+    if(Math.abs(s.vs)>=100&&vw)bpText(c,(s.vs>0?"+":"−")+Math.round(Math.abs(s.vs)/50)*50,ax+aw+vw/2,s.vs>0?ty-14:ty+th+14,12*f,"center",BPC.fg,600)}
+  /* heading: the HSI, or a tape at the top when there is no room for one */
+  if(hsi){const hy=H-hr-(phone?40:30),bw=Math.min(150,cx-hr-sx-12),by=hy+(phone?26:20);bpHsi(c,cx,hy,hr,s,f);bpWind(c,s,cx-hr-10-bw,by,bw,f);bpNavBox(c,s,cx+hr+10,by,bw,f)}
+  else bpHdg(c,cx,small?4:phone?8:12,Math.min(W*(small?.56:.62),520),small?26:phone?36:42,s.h,s.k,f);
   /* radio altitude */
-  if(!s.g&&s.ra>0&&s.ra<2500)bpText(c,"RA "+Math.round(s.ra<200?s.ra:s.ra/10*10),cx,cy+u*.16,16*f,"center",BPC.grn,700);
+  if(!s.g&&s.ra>0&&s.ra<2500)bpText(c,"RA "+Math.round(s.ra<200?s.ra:Math.round(s.ra/10)*10),cx,cy+(small?rb*.62:u*.16),16*f,"center",BPC.grn,700);
+  /* annunciations (target altitude, minimums) and the last touchdown */
+  if(!stale)bpAnnDraw(c,cx,cy-rb+(small?20:30),f);
+  if(BP.ldShow&&Date.now()-BP.ldShow.t<30000&&!small){const L=BP.ldShow,col=bpLdCol(L.fpm),y=cy+u*.22*(hsi?.75:1),tx="TOUCHDOWN "+(L.fpm<0?"−":"")+Math.abs(Math.round(L.fpm))+" FPM · "+L.g.toFixed(2)+" G";
+    c.save();c.font=`700 ${15*f}px ${bpFont}`;const tw=c.measureText(tx).width+24;c.fillStyle="rgba(0,0,0,.78)";c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.roundRect?c.roundRect(cx-tw/2,y-15,tw,30,8):c.rect(cx-tw/2,y-15,tw,30);c.fill();c.stroke();bpText(c,tx,cx,y,15*f,"center",col,700);c.restore()}
   /* no data: red cross, as on a failed instrument */
-  if(stale){c.save();c.fillStyle="rgba(0,0,0,.45)";c.fillRect(0,0,W,H);c.strokeStyle="#FF3B30";c.lineWidth=4;c.beginPath();c.moveTo(cx-u*.3,cy-u*.3);c.lineTo(cx+u*.3,cy+u*.3);c.moveTo(cx+u*.3,cy-u*.3);c.lineTo(cx-u*.3,cy+u*.3);c.stroke();
-    c.fillStyle="#000";c.fillRect(cx-90,cy-18,180,36);c.strokeStyle="#FF3B30";c.lineWidth=2;c.strokeRect(cx-90,cy-18,180,36);bpText(c,BP.lastRx?"NO DATA":"WAITING",cx,cy,18,"center","#FF3B30",700);c.restore()}}
-/* a vertical tape: speed (10 kt labels) or altitude (100 ft ticks, 500 ft labels) */
-function bpTape(c,x,y,w,h,v,kind,f){const spd=kind==="spd",span=spd?84:1100,pp=h/span,cyT=y+h/2,step=spd?5:100,lab=spd?10:500;
-  c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle="#fff";c.lineWidth=1.4;
-  const lo=Math.floor((v-span/2)/step)*step,hi=v+span/2;for(let t=lo;t<=hi;t+=step){if(spd&&t<30)continue;const yy=cyT-(t-v)*pp,big=t%lab===0||(!spd&&t%(lab/5)===0&&false);
-    const L=t%lab===0?w*.22:w*.12;c.beginPath();if(spd){c.moveTo(x+w-L,yy);c.lineTo(x+w,yy)}else{c.moveTo(x,yy);c.lineTo(x+L,yy)}c.stroke();
-    if(t%lab===0||(!spd&&t%(lab/2.5)===0))bpText(c,String(t),spd?x+w*.42:x+w*.6,yy,(spd?14:13)*f,"center",big?"#fff":"#fff",600)}
-  if(spd&&BP.trend.ias){const tv=BP.trend.ias*6;if(Math.abs(tv)>1){c.strokeStyle=BPC.mag;c.lineWidth=3;c.beginPath();c.moveTo(x+w-3,cyT);c.lineTo(x+w-3,cyT-tv*pp);c.stroke()}}
+  if(stale){c.save();c.fillStyle="rgba(0,0,0,.45)";c.fillRect(0,0,W,H);c.strokeStyle="#FF3B30";c.lineWidth=small?3:4;const x0=u*(small?.36:.3);c.beginPath();c.moveTo(cx-x0,cy-x0);c.lineTo(cx+x0,cy+x0);c.moveTo(cx+x0,cy-x0);c.lineTo(cx-x0,cy+x0);c.stroke();
+    const bw=small?110:180,bh=small?26:36;c.fillStyle="#000";c.fillRect(cx-bw/2,cy-bh/2,bw,bh);c.strokeStyle="#FF3B30";c.lineWidth=2;c.strokeRect(cx-bw/2,cy-bh/2,bw,bh);bpText(c,BP.lastRx?"NO DATA":"WAITING",cx,cy,(small?13:18),"center","#FF3B30",700);c.restore()}}
+function bpBox(c,x,y,t,sz,col){c.save();c.font=`700 ${sz}px ${bpFont}`;const w=c.measureText(t).width+14;c.fillStyle="#000";c.strokeStyle=col;c.lineWidth=1.5;c.fillRect(x-w/2,y-sz*.75,w,sz*1.5);c.strokeRect(x-w/2,y-sz*.75,w,sz*1.5);bpText(c,t,x,y,sz,"center",col,700);c.restore()}
+function bpAnnDraw(c,cx,y,f){const now=Date.now();BP.ann=BP.ann.filter(a=>!a.until||a.until>now);let i=0;for(const a of BP.ann){const on=true;
+  if(on){c.save();c.font=`700 ${15*f}px ${bpFont}`;const w=c.measureText(a.t).width+22,yy=y+i*34;c.fillStyle="rgba(0,0,0,.8)";c.fillRect(cx-w/2,yy,w,28);c.strokeStyle=a.col;c.lineWidth=2;c.strokeRect(cx-w/2,yy,w,28);bpText(c,a.t,cx,yy+14,15*f,"center",a.col,700);c.restore()}i++}}
+/* a vertical tape: speed (10 kt labels) or altitude (100 ft ticks, 200 ft labels), with its bugs */
+function bpTape(c,x,y,w,h,v,kind,f,o){o=o||{};const spd=kind==="spd",span=spd?84:1100,pp=h/span,cyT=y+h/2,step=spd?5:100,lab=spd?10:200;
+  c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle=BPC.fg;c.lineWidth=1.4;
+  const lo=Math.floor((v-span/2)/step)*step,hi=v+span/2;for(let t=lo;t<=hi;t+=step){if(spd&&t<30)continue;const yy=cyT-(t-v)*pp,L=t%lab===0?w*.22:w*.12;
+    c.beginPath();if(spd){c.moveTo(x+w-L,yy);c.lineTo(x+w,yy)}else{c.moveTo(x,yy);c.lineTo(x+L,yy)}c.stroke();
+    if(t%lab===0)bpText(c,String(t),spd?x+w*.42:x+w*.6,yy,(spd?14:13)*f,"center",BPC.fg,600)}
+  if(spd){/* overspeed: red and black barber pole from VMO / MMO up */
+    if(o.vmax&&o.vmax<hi){const y0=Math.max(y,cyT-(o.vmax-v)*pp);c.save();c.beginPath();c.rect(x+w-8,y,8,y0-y);c.clip();for(let yy=y-8;yy<y0;yy+=12){c.fillStyle="#FF3B30";c.fillRect(x+w-8,yy,8,6);c.fillStyle="#000";c.fillRect(x+w-8,yy+6,8,6)}c.restore()}
+    for(const b of o.vb||[]){const yy=cyT-(b[1]-v)*pp;if(yy<y-10||yy>y+h+10)continue;const col=b[2]==="amb"?"#FF9F0A":b[2]==="mag"?BPC.mag:BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x+w-14,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,b[0],x+w-16,yy,11*f,"right",col,700)}
+    if(BP.trend.ias){const tv=BP.trend.ias*6;if(Math.abs(tv)>1){c.strokeStyle=BPC.mag;c.lineWidth=3;c.beginPath();c.moveTo(x+w-3,cyT);c.lineTo(x+w-3,cyT-tv*pp);c.stroke()}}}
+  else{if(o.min!=null){const yy=cyT-(o.min-v)*pp;if(yy>y&&yy<y+h){const col=o.minHit?"#FF9F0A":BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,"MIN",x+w-4,yy-8,10*f,"right",col,700)}}
+    if(o.tgt!=null){const yy=Math.max(y+6,Math.min(y+h-6,cyT-(o.tgt-v)*pp));c.fillStyle=BPC.cy;c.beginPath();c.moveTo(x,yy-9);c.lineTo(x+9,yy-9);c.lineTo(x+9,yy-4);c.lineTo(x+4,yy);c.lineTo(x+9,yy+4);c.lineTo(x+9,yy+9);c.lineTo(x,yy+9);c.closePath();c.fill()}}
   c.restore();
   /* the value box */
-  const bh=34*f,bw=w+(spd?4:6);c.save();c.fillStyle=BPC.box;c.strokeStyle="#fff";c.lineWidth=1.6;c.beginPath();
+  const bh=34*f,bw=w+(spd?4:6);c.save();c.fillStyle=BPC.box;c.strokeStyle=BPC.fg;c.lineWidth=1.6;c.beginPath();
   if(spd){c.moveTo(x,cyT-bh/2);c.lineTo(x+bw-8,cyT-bh/2);c.lineTo(x+bw,cyT);c.lineTo(x+bw-8,cyT+bh/2);c.lineTo(x,cyT+bh/2)}else{c.moveTo(x+w,cyT-bh/2);c.lineTo(x-2,cyT-bh/2);c.lineTo(x-10,cyT);c.lineTo(x-2,cyT+bh/2);c.lineTo(x+w,cyT+bh/2)}
-  c.closePath();c.fill();c.stroke();bpText(c,spd?String(Math.max(0,Math.round(v))):String(Math.round(v/10)*10),spd?x+bw/2-4:x+w/2-4,cyT,(spd?21:19)*f,"center","#fff",700);c.restore()}
+  c.closePath();c.fill();c.stroke();const over=spd&&o.vmax&&v>o.vmax;bpText(c,spd?String(Math.max(0,Math.round(v))):String(Math.round(v/10)*10),spd?x+bw/2-4:x+w/2-4,cyT,(spd?21:19)*f,"center",over?"#FF453A":BPC.fg,700);c.restore()}
 /* vertical speed: 500, 1000, 2000, 4000 fpm marks, squeezed towards the ends */
 function bpVs(c,x,y,w,h,vs,f){const cyV=y+h/2,half=h/2-6,Y=v=>cyV-Math.sign(v)*Math.pow(Math.min(1,Math.abs(v)/6000),.55)*half;
-  c.save();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle="#fff";c.lineWidth=1.2;
-  for(const m of [500,1000,2000,4000,-500,-1000,-2000,-4000]){const yy=Y(m);c.beginPath();c.moveTo(x,yy);c.lineTo(x+(Math.abs(m)>=1000?w*.45:w*.25),yy);c.stroke();if(Math.abs(m)>=1000)bpText(c,String(Math.abs(m)/1000),x+w*.72,yy,10*f,"center","#ddd",600)}
+  c.save();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle=BPC.fg;c.lineWidth=1.2;
+  for(const m of [500,1000,2000,4000,-500,-1000,-2000,-4000]){const yy=Y(m);c.beginPath();c.moveTo(x,yy);c.lineTo(x+(Math.abs(m)>=1000?w*.45:w*.25),yy);c.stroke();if(Math.abs(m)>=1000)bpText(c,String(Math.abs(m)/1000),x+w*.72,yy,10*f,"center",BPC.sub,600)}
   c.beginPath();c.moveTo(x,cyV);c.lineTo(x+w*.5,cyV);c.stroke();
   c.strokeStyle=BPC.grn;c.lineWidth=3;c.beginPath();c.moveTo(x+w,cyV);c.lineTo(x+2,Y(vs));c.stroke();c.restore()}
-/* heading tape, with the track as a magenta diamond */
-function bpHdg(c,cx,y,w,h,hdg,trk,f){const x=cx-w/2,span=60,pp=w/span;c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle="#fff";c.lineWidth=1.4;
+/* heading tape (Map inset, or no room for the HSI), with the track as a magenta diamond */
+function bpHdg(c,cx,y,w,h,hdg,trk,f){const x=cx-w/2,span=60,pp=w/span;c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=BPC.tape;c.fillRect(x,y,w,h);c.strokeStyle=BPC.fg;c.lineWidth=1.4;
   const lo=Math.floor((hdg-span/2)/5)*5;for(let t=lo;t<=hdg+span/2;t+=5){const xx=cx+bpDA(hdg,bpWrap(t))*pp,big=t%10===0;c.beginPath();c.moveTo(xx,y+h);c.lineTo(xx,y+h-(big?11:6));c.stroke();
-    if(t%30===0){const n=bpWrap(t)/10,nm={0:"N",9:"E",18:"S",27:"W"}[n];bpText(c,nm||String(n),xx,y+h*.36,(nm?15:13)*f,"center","#fff",700)}}
+    if(t%30===0){const n=bpWrap(t)/10,nm={0:"N",9:"E",18:"S",27:"W"}[n];bpText(c,nm||String(n),xx,y+h*.36,(nm?15:13)*f,"center",BPC.fg,700)}}
   if(trk!=null){const xx=cx+bpDA(hdg,trk)*pp;c.fillStyle=BPC.mag;c.beginPath();c.moveTo(xx,y+h-12);c.lineTo(xx+5,y+h-6);c.lineTo(xx,y+h);c.lineTo(xx-5,y+h-6);c.closePath();c.fill()}
-  c.restore();c.save();c.fillStyle=BPC.box;c.strokeStyle="#fff";c.lineWidth=1.6;const bw=58*f;c.beginPath();c.moveTo(cx-bw/2,y);c.lineTo(cx+bw/2,y);c.lineTo(cx+bw/2,y+h-10);c.lineTo(cx+5,y+h-10);c.lineTo(cx,y+h-3);c.lineTo(cx-5,y+h-10);c.lineTo(cx-bw/2,y+h-10);c.closePath();c.fill();c.stroke();
-  bpText(c,String(Math.round(hdg)%360||360).padStart(3,"0")+"°",cx,y+(h-10)/2,16*f,"center","#fff",700);c.restore()}
+  c.restore();c.save();c.fillStyle=BPC.box;c.strokeStyle=BPC.fg;c.lineWidth=1.6;const bw=58*f;c.beginPath();c.moveTo(cx-bw/2,y);c.lineTo(cx+bw/2,y);c.lineTo(cx+bw/2,y+h-10);c.lineTo(cx+5,y+h-10);c.lineTo(cx,y+h-3);c.lineTo(cx-5,y+h-10);c.lineTo(cx-bw/2,y+h-10);c.closePath();c.fill();c.stroke();
+  bpText(c,String(Math.round(hdg)%360||360).padStart(3,"0")+"°",cx,y+(h-10)/2,16*f,"center",BPC.fg,700);c.restore()}
+/* HSI: compass rose turning with the heading, the plan's course with the deviation bar, track, traffic */
+function bpHsi(c,cx,cy,r,s,f){const h=s.h;c.save();c.fillStyle=BPC.hsi;c.beginPath();c.arc(cx,cy,r+4,0,Math.PI*2);c.fill();
+  /* traffic, inside the rose (range ring at half the range) */
+  const rng=BP.set.tcas;if(rng){c.strokeStyle="rgba(255,255,255,.25)";c.setLineDash([3,5]);c.lineWidth=1;c.beginPath();c.arc(cx,cy,r*.5,0,Math.PI*2);c.stroke();c.setLineDash([]);
+    bpText(c,rng/2+"",cx+r*.5*Math.cos(-.8)+6,cy+r*.5*Math.sin(-.8)-4,9*f,"left","rgba(255,255,255,.55)",600);
+    for(const t of BP.tfc){const a=(t.brg-(s.h+(s.mv||0)))*BP_R,rr=Math.min(1,t.dist/rng)*(r-14),x=cx+Math.sin(a)*rr,y=cy-Math.cos(a)*rr,col=t.ta?"#FF9F0A":"#FFFFFF";
+      c.fillStyle=col;c.strokeStyle=col;c.lineWidth=1.5;c.beginPath();if(t.ta)c.arc(x,y,5,0,Math.PI*2);else{c.moveTo(x,y-6);c.lineTo(x+5,y);c.lineTo(x,y+6);c.lineTo(x-5,y);c.closePath()}t.ta||t.prox?c.fill():c.stroke();
+      bpText(c,(t.rel>=0?"+":"−")+String(Math.abs(t.rel)).padStart(2,"0"),x,t.rel>=0?y-12:y+12,10*f,"center",col,700);if(Math.abs(t.vs)>500)bpText(c,t.vs>0?"↑":"↓",x+10,y,11*f,"center",col,700)}}
+  /* rose */
+  c.translate(cx,cy);c.save();c.rotate(-h*BP_R);c.strokeStyle=BPC.fg;c.lineWidth=1.4;
+  for(let d=0;d<360;d+=5){const big=d%10===0;c.beginPath();c.moveTo(0,-r);c.lineTo(0,-r+(big?12:7));c.stroke();
+    if(d%30===0){const nm={0:"N",90:"E",180:"S",270:"W"}[d]||String(d/10);bpText(c,nm,0,-r+24*f,(d%90===0?16:13)*f,"center",d%90===0?BPC.fg:BPC.sub,700)}c.rotate(5*BP_R)}c.restore();
+  /* track */
+  if(s.k!=null&&s.gs>20){const a=bpDA(h,s.k)*BP_R;c.save();c.rotate(a);c.fillStyle=BPC.mag;c.beginPath();c.moveTo(0,-r+2);c.lineTo(5,-r+9);c.lineTo(0,-r+16);c.lineTo(-5,-r+9);c.closePath();c.fill();c.restore()}
+  /* course and deviation */
+  const n=BP.nav;if(n){c.save();c.rotate(bpDA(h,n.dtk)*BP_R);c.strokeStyle=BPC.mag;c.fillStyle=BPC.mag;c.lineWidth=3;const L=r*.78,dev=Math.max(-1,Math.min(1,-n.xtk/n.fsd))*r*.4;
+    c.beginPath();c.moveTo(0,-L);c.lineTo(0,-r*.42);c.moveTo(0,r*.42);c.lineTo(0,L);c.stroke();c.beginPath();c.moveTo(0,-L-12);c.lineTo(-8,-L+2);c.lineTo(8,-L+2);c.closePath();c.fill();
+    c.fillStyle=BPC.fg;for(const d of [-2,-1,1,2]){c.beginPath();c.arc(d*r*.2,0,3,0,Math.PI*2);c.fill()}
+    c.lineWidth=4;c.beginPath();c.moveTo(dev,-r*.38);c.lineTo(dev,r*.38);c.stroke();
+    c.fillStyle=BPC.mag;c.beginPath();c.moveTo(0,-r*.3);c.lineTo(-6,-r*.2);c.lineTo(6,-r*.2);c.closePath();c.fill();c.restore()}
+  /* own aircraft and the lubber line */
+  c.fillStyle=BPC.fg;c.strokeStyle=BPC.fg;c.lineWidth=2.5;c.beginPath();c.moveTo(0,-14);c.lineTo(0,12);c.moveTo(-12,-2);c.lineTo(12,-2);c.moveTo(-5,10);c.lineTo(5,10);c.stroke();
+  c.fillStyle=BPC.fg;c.beginPath();c.moveTo(0,-r+1);c.lineTo(-7,-r-11);c.lineTo(7,-r-11);c.closePath();c.fill();c.restore();
+  bpBox(c,cx,cy-r-24*f,String(Math.round(h)%360||360).padStart(3,"0")+"°",16*f,BPC.fg)}
+/* wind: an arrow the way the wind blows (relative to the heading), direction / speed, head and cross components, OAT */
+function bpWind(c,s,x,y,w,f){if(w<56||s.wsp==null)return;const cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
+  if(s.wsp>=2){const a=(s.wd+180-(s.h+(s.mv||0)))*BP_R;c.save();c.translate(cx,y-26);c.rotate(a);c.strokeStyle=BPC.fg;c.fillStyle=BPC.fg;c.lineWidth=2.5;c.beginPath();c.moveTo(0,16);c.lineTo(0,-10);c.stroke();c.beginPath();c.moveTo(0,-17);c.lineTo(-6,-8);c.lineTo(6,-8);c.closePath();c.fill();c.restore()}
+  const wdm=Math.round(bpWrap(s.wd-(s.mv||0)))||360,rel=(s.wd-(s.h+(s.mv||0)))*BP_R,hw=Math.round(s.wsp*Math.cos(rel)),xw=Math.round(s.wsp*Math.sin(rel));
+  bpText(c,s.wsp<2?"CALM":String(wdm).padStart(3,"0")+"°/"+s.wsp+(w>=100?" KT":""),cx,y+4,12*f,"center",BPC.fg,700);
+  if(s.wsp>=2)bpText(c,(hw>=0?"HD ":"TL ")+Math.abs(hw)+" · X "+Math.abs(xw)+(xw>0?"R":xw<0?"L":""),cx,y+22,11*f,"center",BPC.sub,600);
+  bpText(c,"OAT "+(s.oat<0?"−":"")+Math.abs(Math.round(s.oat))+"°C",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
+/* next waypoint: ident, course, distance, time, cross-track */
+function bpNavBox(c,s,x,y,w,f){if(w<56)return;const n=BP.nav,cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
+  if(!n){bpText(c,bpPlan()?"NO POSITION":"NO PLAN",cx,y,11*f,"center",BPC.sub,700);c.restore();return}
+  const ete=s.gs>40?n.dist/s.gs*60:null;bpText(c,n.to,cx,y-36,15*f,"center",BPC.mag,700);
+  bpText(c,"DTK "+String(Math.round(n.dtk)%360||360).padStart(3,"0")+"°",cx,y-16,12*f,"center",BPC.fg,600);
+  bpText(c,(n.dist<10?n.dist.toFixed(1):Math.round(n.dist))+" NM"+(ete!=null?" · "+(ete<60?Math.round(ete)+"m":Math.floor(ete/60)+"h"+pad(Math.round(ete%60))):""),cx,y+3,12*f,"center",BPC.fg,600);
+  bpText(c,"XTK "+(Math.abs(n.xtk)<.05?"0.0":(n.xtk>0?"R ":"L ")+Math.abs(n.xtk).toFixed(Math.abs(n.xtk)<10?1:0)),cx,y+22,11*f,"center",Math.abs(n.xtk)>n.fsd?"#FF9F0A":BPC.sub,600);
+  bpText(c,"DEST "+Math.round(n.rem)+" NM",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
 
 /* ---------- the app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="pfd")screenEl.dataset.layout="full";return r}}
@@ -11780,30 +11945,81 @@ function bpStatus(){const now=performance.now(),hz=bpRate(),live=BP.lastRx&&now-
   if(BP.pubThere===false&&!live)return{dot:"old",t:"Waiting for your simulator PC",lat:""};
   const lat=BP.rtt!=null?Math.round(BP.rtt/2+(BP.buf.length?BP.buf[BP.buf.length-1].l||0:0)+Math.max(90,1600/(hz||15))):null;
   return{dot:live?(lat&&lat>450?"old":"on"):"bad",t:live?`Simulator PC · ${Math.round(hz)} Hz`:"No data from the simulator PC",lat:live&&lat?`≈ ${lat} ms behind`:""}}
-function bpHud(){const el=$("#bpHud");if(!el)return;const S=bpStatus();const h=`<span class="bpf-dot ${S.dot}"></span><span>${esc(S.t)}</span>${S.lat?`<span class="bpf-lat">${S.lat}</span>`:""}`;if(el._h!==h){el._h=h;el.innerHTML=h}
+function bpHud(){const el=$("#bpHud");if(el){const S=bpStatus();const h=`<span class="bpf-dot ${S.dot}"></span><span>${esc(S.t)}</span>${S.lat?`<span class="bpf-lat">${S.lat}</span>`:""}`;if(el._h!==h){el._h=h;el.innerHTML=h}}
   const d=$("#bpDiag");if(d&&!d.hidden)d.innerHTML=bpDiagHtml()}
 function bpDiagHtml(){const f=BP.buf[BP.buf.length-1],r1=v=>v==null?"–":typeof v==="number"?(Math.round(v*10)/10).toString():esc(String(v));
-  const rows=[["Source",bpLocal()?"FSUIPC on this PC":"EFB server relay"],["Updates",Math.round(bpRate()*10)/10+" a second"],["To the server (PC)",f&&f.l!=null?f.l+" ms":BP.pubRtt!=null?Math.round(BP.pubRtt/2)+" ms":"–"],["From the server",BP.rtt!=null?Math.round(BP.rtt/2)+" ms":"–"],["Devices watching",bpLocal()?String(BP.subs):"–"]];
-  return `<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}${f?["p","b","h","k","ias","tas","gs","vs","alt","qnh","ra","ball","m","g"].map(k=>`<tr><td>${k}</td><td>${r1(f[k])}</td></tr>`).join(""):""}</table>
+  const rows=[["Source",bpLocal()?"FSUIPC on this PC":"EFB server relay"],["Updates",Math.round(bpRate()*10)/10+" a second"],["To the server (PC)",f&&f.l!=null?f.l+" ms":BP.pubRtt!=null?Math.round(BP.pubRtt/2)+" ms":"–"],["From the server",BP.rtt!=null?Math.round(BP.rtt/2)+" ms":"–"],["Devices watching",bpLocal()?String(BP.subs):"–"],["Traffic shown",String(BP.tfc.length)]];
+  return `<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}${f?["p","b","h","k","ias","tas","gs","vs","alt","qnh","ra","ball","m","g","la","lo","oat","wd","wsp","gf"].map(k=>`<tr><td>${k}</td><td>${r1(f[k])}</td></tr>`).join(""):""}</table>
     ${bpLocal()?`<div class="bpf-inv"><button data-bpinv="b">Invert bank</button><button data-bpinv="p">Invert pitch</button></div>`:""}`}
+/* the settings sheet: target altitude, minimums, V speeds (read from Performance), night, traffic, callouts, Map inset */
+function bpSheetHtml(){const B=bpBug(),P=bpPerf(),S=BP.set,seg=(k,opts,v)=>`<div class="bpf-seg">${opts.map(o=>`<button data-bpset="${k}:${o[0]}" aria-pressed="${String(v)===String(o[0])}">${o[1]}</button>`).join("")}</div>`;
+  const vs=bpPlan()?(P.v1||P.vls?`${P.v1?`V1 <b>${P.v1}</b> · VR <b>${P.vr}</b> · V2 <b>${P.v2}</b>`:""}${P.v1&&P.vls?"<br>":""}${P.vls?`VLS <b>${P.vls}</b> · VAPP <b>${P.vapp}</b>`:""}`:"Set up Takeoff and Landing in Performance"):"Load a flight plan first";
+  return `<div class="bpf-sh-h"><b>PFD settings</b><button data-bpsheet aria-label="Close">Done</button></div>
+    <label class="bpf-f"><span>Target altitude</span><input id="bpTgt" inputmode="text" placeholder="e.g. 12000 or FL350" value="${B.alt!=null?esc(bpFt(B.alt).replace(/,/g,"")):""}"${bpPlan()?"":" disabled"}></label>
+    <label class="bpf-f"><span>Minimums (ft)</span><input id="bpMin" inputmode="numeric" placeholder="DA / MDA from the chart" value="${B.min!=null?B.min:""}"${bpPlan()?"":" disabled"}></label>
+    ${seg("minT",[["baro","Baro (DA/MDA)"],["radio","Radio (DH)"]],B.minT)}
+    <div class="bpf-f"><span>V speeds · from Performance</span><p>${vs}</p>${bpPlan()&&APPS.perf?`<a href="#perf" class="bpf-a">Open Performance ›</a>`:""}</div>
+    <div class="bpf-f"><span>Night colours</span>${seg("night",[["auto","Auto"],["day","Day"],["night","Night"]],S.night)}</div>
+    <div class="bpf-f"><span>Traffic (VATSIM)</span>${seg("tcas",[[0,"Off"],[5,"5 NM"],[10,"10 NM"],[20,"20 NM"]],S.tcas)}</div>
+    <label class="bpf-sw"><input type="checkbox" data-bpsw="voice"${S.voice?" checked":""}><span></span>Spoken minimums callouts</label>
+    <label class="bpf-sw"><input type="checkbox" data-bpsw="inset"${S.inset?" checked":""}><span></span>Small PFD on the Map</label>
+    <p class="bpf-note">Target altitude and minimums are kept with this flight plan. Callouts and chimes play on the device showing the PFD (tap the PFD once so the browser allows sound).</p>`}
 V.pfd=()=>{queueMicrotask(()=>{bpReadSync();bpSubSync();bpLoop()});
-  return `<div class="bpf"><canvas id="bpCv" aria-label="Backup primary flight display"></canvas><div class="bpf-hud" id="bpHud"></div><button class="bpf-i" data-bpdiag aria-label="Details">i</button><div class="bpf-diag" id="bpDiag" hidden></div></div>`};
-function bpLoop(){if(BP.raf)return;let n=0;const tick=()=>{if(cur!=="pfd"){BP.raf=0;bpReadSync();bpSubSync();return}BP.raf=requestAnimationFrame(tick);const cv=$("#bpCv");if(cv)bpDraw(cv);if(++n%15===0)bpHud()};BP.raf=requestAnimationFrame(tick)}
-window.addEventListener("hashchange",()=>setTimeout(()=>{bpReadSync();bpSubSync()},0));
+  return `<div class="bpf"><canvas id="bpCv" aria-label="Backup primary flight display"></canvas><div class="bpf-hud" id="bpHud"></div>
+    <button class="bpf-i bpf-set" data-bpsheet aria-label="PFD settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button><button class="bpf-i" data-bpdiag aria-label="Details">i</button>
+    <div class="bpf-diag" id="bpDiag" hidden></div><div class="bpf-sheet" id="bpSheet" hidden></div></div>`};
+function bpLoop(){if(BP.raf)return;let n=0;const tick=()=>{if(!bpShown()){BP.raf=0;bpReadSync();bpSubSync();return}BP.raf=requestAnimationFrame(tick);
+  const cv=cur==="pfd"?$("#bpCv"):$("#bpCvI");if(cv)bpDraw(cv,cur!=="pfd");if(++n%15===0)bpHud();if(n%60===0){const f=BP.buf[BP.buf.length-1];bpTfcUpd(f)}};BP.raf=requestAnimationFrame(tick)}
+window.addEventListener("hashchange",()=>setTimeout(()=>{bpReadSync();bpSubSync();if(bpShown())bpLoop()},0));
 document.addEventListener("visibilitychange",()=>{bpSubSync()});
-document.addEventListener("click",e=>{const t=e.target.closest("[data-bpdiag],[data-bpinv]");if(!t)return;
+/* sound needs a touch first */
+document.addEventListener("pointerdown",e=>{if(!e.target.closest(".bpf,.bpf-inset"))return;try{bpAc=bpAc||new (window.AudioContext||window.webkitAudioContext)();if(bpAc.state==="suspended")bpAc.resume()}catch(er){}},true);
+function bpParseAlt(t){t=String(t||"").trim().toUpperCase().replace(/[, ]/g,"");if(!t)return null;const m=t.match(/^FL?(\d{2,3})$/);if(m)return +m[1]*100;const n=parseInt(t,10);return isFinite(n)&&n>=-1000&&n<=60000?Math.round(n):null}
+document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest(".bpf-sheet"))return;
+  if(t.id==="bpTgt"){const B=bpBug();B.alt=bpParseAlt(t.value);bpBugSave(B);t.value=B.alt!=null?bpFt(B.alt).replace(/,/g,""):"";return}
+  if(t.id==="bpMin"){const B=bpBug(),v=parseInt(String(t.value).replace(/\D/g,""),10);B.min=isFinite(v)&&v>0&&v<20000?v:null;bpBugSave(B);BP.al.min="arm";t.value=B.min!=null?B.min:"";return}
+  if(t.dataset.bpsw){BP.set[t.dataset.bpsw]=t.checked;bpSetSave();if(t.dataset.bpsw==="inset")toast(t.checked?"A small PFD shows on the Map":"Small PFD on the Map off")}});
+document.addEventListener("click",e=>{const t=e.target.closest("[data-bpdiag],[data-bpinv],[data-bpsheet],[data-bpset],[data-bpinset],[data-bpinsetx]");if(!t)return;
   if(t.dataset.bpinv){const k=t.dataset.bpinv==="b"?"bs":"ps";BP.cal[k]*=-1;store.set(k==="bs"?"bpBankSign":"bpPitchSign",BP.cal[k]);toast(t.dataset.bpinv==="b"?"Bank inverted":"Pitch inverted");return}
-  const d=$("#bpDiag");if(d){d.hidden=!d.hidden;if(!d.hidden)d.innerHTML=bpDiagHtml()}});
+  if(t.dataset.bpsheet!=null){const d=$("#bpSheet");if(d){d.hidden=!d.hidden;if(!d.hidden){d.innerHTML=bpSheetHtml();const dg=$("#bpDiag");if(dg)dg.hidden=true}}return}
+  if(t.dataset.bpset){const [k,v]=t.dataset.bpset.split(":");if(k==="minT"){const B=bpBug();B.minT=v;bpBugSave(B);BP.al.min="arm"}else{BP.set[k]=k==="tcas"?+v:v;bpSetSave();if(k==="tcas")bpTfcUpd(BP.buf[BP.buf.length-1])}
+    const d=$("#bpSheet");if(d)d.innerHTML=bpSheetHtml();return}
+  if(t.dataset.bpinset!=null||t.dataset.bpinsetx!=null){BP.set.inset=t.dataset.bpinsetx!=null?false:!BP.set.inset;bpSetSave();bpInsetPlace();bpReadSync();bpSubSync();if(bpShown())bpLoop();return}
+  const d=$("#bpDiag");if(d){d.hidden=!d.hidden;if(!d.hidden){d.innerHTML=bpDiagHtml();const sh=$("#bpSheet");if(sh)sh.hidden=true}}});
+/* the Map: a PFD button with the others, and the small PFD in the corner when it is on */
+function bpInsetPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)return;
+  const ctl=w.querySelector(".mapctl");if(ctl&&!ctl.querySelector("#bpBtn")){const fit=ctl.querySelector("#mapIn");const b=document.createElement("button");b.className="btn";b.id="bpBtn";b.dataset.bpinset="";b.setAttribute("aria-label","Small PFD");b.textContent="PFD";ctl.insertBefore(b,fit||null)}
+  const b=w.querySelector("#bpBtn");if(b)b.setAttribute("aria-pressed",String(!!BP.set.inset));
+  let el=w.querySelector(".bpf-inset");if(BP.set.inset&&!el){w.insertAdjacentHTML("beforeend",`<div class="bpf-inset"><canvas id="bpCvI"></canvas><a class="bpf-io" href="#pfd" aria-label="Open Backup PFD">⤢</a><button class="bpf-ix" data-bpinsetx aria-label="Close the small PFD">×</button></div>`)}
+  else if(!BP.set.inset&&el)el.remove()}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="map"){bpInsetPlace();if(BP.set.inset){bpReadSync();bpSubSync();bpLoop()}}return v}}
+/* Flight Plan › Block times: the touchdown rate goes into the logbook entry */
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="ofp"&&bpPlan()){const i=$("#ooFpm"),L=store.get("bpLand:"+O().id,null);if(i&&!i.value&&L)i.value=Math.round(L.fpm)}return v}}
 document.head.insertAdjacentHTML("beforeend",`<style>
 .bpf{position:relative;height:100%;background:#000;overflow:hidden;touch-action:none;user-select:none}
 .bpf canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.bpf-hud{position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;font:600 12.5px var(--f-os);color:#fff;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:10px;max-width:calc(100% - 70px)}
+.bpf-hud{position:absolute;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;font:600 12.5px var(--f-os);color:#fff;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:10px;max-width:calc(100% - 110px)}
 .bpf-hud span:nth-child(2){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bpf-lat{color:#bbb;font-weight:500;white-space:nowrap}
 .bpf-dot{width:9px;height:9px;border-radius:50%;flex:none;background:#8E8E93}.bpf-dot.on{background:#30D158}.bpf-dot.old{background:#FF9F0A}.bpf-dot.bad{background:#FF453A}
-.bpf-i{position:absolute;right:12px;bottom:10px;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);background:rgba(0,0,0,.55);color:#fff;font:700 14px Georgia,serif;cursor:pointer}
+.bpf-i{position:absolute;right:12px;bottom:10px;width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);background:rgba(0,0,0,.55);color:#fff;font:700 14px Georgia,serif;cursor:pointer;display:grid;place-items:center;padding:0}
+.bpf-i.bpf-set{right:50px}.bpf-i svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round}
 .bpf-diag{position:absolute;right:12px;bottom:48px;max-height:70%;overflow:auto;background:rgba(0,0,0,.82);color:#fff;border-radius:12px;padding:10px 12px;font:500 12px var(--f-mono);min-width:210px}
 .bpf-diag table{border-collapse:collapse;width:100%}.bpf-diag td{padding:2px 4px}.bpf-diag td:last-child{text-align:right;color:#9EE6B8}
 .bpf-inv{display:flex;gap:6px;margin-top:8px}.bpf-inv button{flex:1;border:0;border-radius:8px;padding:6px;background:#2C2C2E;color:#fff;font:600 12px var(--f-os);cursor:pointer}
+.bpf-sheet{position:absolute;right:12px;bottom:48px;width:min(340px,calc(100% - 24px));max-height:calc(100% - 70px);overflow:auto;background:rgba(28,28,30,.96);color:#fff;border-radius:16px;padding:14px;font-family:var(--f-os);box-shadow:0 10px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px}
+.bpf-sh-h{display:flex;justify-content:space-between;align-items:center}.bpf-sh-h b{font-size:17px}.bpf-sh-h button{border:0;background:none;color:#0A84FF;font:600 15px var(--f-os);cursor:pointer}
+.bpf-f{display:flex;flex-direction:column;gap:5px}.bpf-f>span{font:600 11.5px var(--f-os);letter-spacing:.04em;text-transform:uppercase;color:#98989F}
+.bpf-f input{height:38px;border-radius:10px;border:1px solid #3A3A3C;background:#000;color:#fff;padding:0 10px;font:500 16px var(--f-mono)}
+.bpf-f p{margin:0;font:400 14px/1.5 var(--f-os);color:#E5E5EA}.bpf-f p b{font-family:var(--f-mono);color:#5AC8FA}.bpf-a{color:#0A84FF;font:600 13.5px var(--f-os);text-decoration:none}
+.bpf-seg{display:flex;background:#2C2C2E;border-radius:9px;padding:2px;gap:2px}.bpf-seg button{flex:1;border:0;background:none;color:#fff;font:600 12.5px var(--f-os);padding:7px 4px;border-radius:7px;cursor:pointer}.bpf-seg button[aria-pressed="true"]{background:#636366}
+.bpf-sw{display:flex;align-items:center;gap:10px;font:500 14px var(--f-os);cursor:pointer}.bpf-sw input{position:absolute;opacity:0;pointer-events:none}
+.bpf-sw span{width:44px;height:26px;border-radius:13px;background:#3A3A3C;position:relative;flex:none;transition:background .2s}.bpf-sw span::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
+.bpf-sw input:checked+span{background:#30D158}.bpf-sw input:checked+span::after{transform:translateX(18px)}
+.bpf-note{margin:0;font:400 12px/1.45 var(--f-os);color:#8E8E93}
+.bpf-inset{position:absolute;left:12px;bottom:58px;width:min(300px,44%);aspect-ratio:1.3;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 6px 24px rgba(0,0,0,.45);z-index:6;border:1px solid rgba(255,255,255,.18)}
+.bpf-inset canvas{position:absolute;inset:0;width:100%;height:100%}
+.bpf-io,.bpf-ix{position:absolute;top:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:0;display:grid;place-items:center;font:600 14px var(--f-os);text-decoration:none;cursor:pointer;z-index:1}.bpf-io{right:34px}.bpf-ix{right:6px}
+@container screen (max-width:560px){.bpf-inset{width:min(220px,58%);bottom:96px}}
 </style>`);
 
 /* ===== Crew Mobile: the roaming welcome after landing in another country, delivered to Mail =====

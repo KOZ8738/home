@@ -25,7 +25,7 @@
     <!-- /shared:head -->
     <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css?v=f3a035b5">
-    <link rel="stylesheet" href="css/a320.css?v=e130daf6">
+    <link rel="stylesheet" href="css/a320.css?v=56b19f3e">
 </head>
 <body>
 
@@ -114,11 +114,39 @@
                     <p class="ck-hint caption-5">旋鈕：拖曳、滾輪或方向鍵轉動；點一下（或 Enter）＝推入，Shift＋點、右鍵、空白鍵或「拉」＝拉出。推入是「管理」，拉出是「選定」。</p>
                 </div>
 
-                <div class="ck-flight">
-                    <div class="ck-pfd-card ck-panel">
-                        <div class="ck-fma" id="fma" role="group" aria-label="飛行模式顯示 FMA"></div>
-                        <div class="ck-pfd" id="pfd"></div>
-                        <p class="ck-readout caption-5" id="readout" aria-live="off"></p>
+                <div class="ck-dus">
+                    <div class="ck-du">
+                        <div class="ck-du-scr ck-du-pfd">
+                            <div class="ck-fma" id="fma" role="group" aria-label="飛行模式顯示 FMA"></div>
+                            <div class="ck-pfd" id="pfd"></div>
+                        </div>
+                        <p class="ck-du-name caption-5">PFD</p>
+                    </div>
+                    <div class="ck-du">
+                        <div class="ck-du-scr">
+                            <div class="ck-nd" id="ckMap"></div>
+                        </div>
+                        <div class="ck-efis" role="group" aria-label="EFIS 控制：ND 模式和距離">
+                            <div class="ck-efis-g" id="ndModes">
+                                <button class="ck-efb caption-1" type="button" data-mode="NAV" aria-pressed="false">ROSE NAV</button>
+                                <button class="ck-efb caption-1" type="button" data-mode="ARC" aria-pressed="true">ARC</button>
+                                <button class="ck-efb caption-1" type="button" data-mode="PLAN" aria-pressed="false">PLAN</button>
+                            </div>
+                            <div class="ck-efis-g">
+                                <button class="ck-efb ck-efb-sq" id="mapIn" type="button" aria-label="ND 距離縮小">−</button>
+                                <span class="ck-efis-rng caption-1" id="ndRange" aria-live="polite">40 NM</span>
+                                <button class="ck-efb ck-efb-sq" id="mapOut" type="button" aria-label="ND 距離放大">＋</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="ck-readout caption-5" id="readout" aria-live="off"></p>
+
+                <div class="ck-ped">
+                    <div class="ck-mcdu-wrap">
+                        <h3 class="sr-only">MCDU</h3>
+                        <div class="ck-mcdu" id="mcdu"></div>
+                        <p class="ck-hint caption-5">先在鍵盤打字（或直接用電腦鍵盤，Backspace＝CLR），再按螢幕旁邊的行選鍵送進欄位。試試 PERF → APPR 輸入 DH，或 DIR 直飛航點。</p>
                     </div>
                     <div class="ck-side">
                         <div class="ck-card">
@@ -170,16 +198,6 @@
                                 </label>
                             </div>
                             <p class="caption-5 muted ck-wind" id="apWindTxt"></p>
-                        </div>
-                        <div class="ck-card ck-mapcard">
-                            <div class="ck-map-head">
-                                <h3 class="title-4">平面圖</h3>
-                                <div class="ck-zoom">
-                                    <button class="ck-mini2" id="mapIn" type="button" aria-label="放大地圖">＋</button>
-                                    <button class="ck-mini2" id="mapOut" type="button" aria-label="縮小地圖">−</button>
-                                </div>
-                            </div>
-                            <div class="ck-map" id="ckMap"></div>
                         </div>
                     </div>
                 </div>
@@ -248,7 +266,8 @@
     <script src="js/a320-sys.js?v=fea10b35"></script>
     <script src="js/a320-ecam.js?v=6b81b846"></script>
     <script src="js/a320-fault.js?v=675481cc"></script>
-    <script src="js/a320-fcu.js?v=e8178ebc"></script>
-    <script src="js/a320.js?v=74d6d44b"></script>
+    <script src="js/a320-mcdu.js?v=efce9d3b"></script>
+    <script src="js/a320-fcu.js?v=63cb8f2b"></script>
+    <script src="js/a320.js?v=d98ce656"></script>
 </body>
 </html>

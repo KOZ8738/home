@@ -20,6 +20,7 @@
         scenario = name;
         A.sys.apply(name);
         A.fcu.apply(name);
+        if (A.mcdu) A.mcdu.reset(name);
         A.sys.step(0.02);
         A.sys.refresh();
         A.ecam.render(true);
@@ -44,6 +45,7 @@
             slowAcc = 0;
             A.sys.refresh();
             A.fcu.renderSlow();
+            if (A.mcdu) A.mcdu.render();
             A.ecam.render();
             if (A.snd) A.snd.update(A.sys.state, A.fcu.state);
             A.fault.tick();
@@ -88,8 +90,10 @@
         A.ecam.build({ pages: $('ecamPages'), sd: $('sd'), ewd: $('ewd'), list: $('steps') });
         A.fcu.build({
             fcu: $('fcu'), fma: $('fma'), pfd: $('pfd'), map: $('ckMap'),
-            help: $('modeHelp'), readout: $('readout'), zoomIn: $('mapIn'), zoomOut: $('mapOut')
+            help: $('modeHelp'), readout: $('readout'), zoomIn: $('mapIn'), zoomOut: $('mapOut'),
+            ndModes: $('ndModes'), ndRange: $('ndRange')
         });
+        if (A.mcdu) A.mcdu.build($('mcdu'));
         setupTabs();
 
         const params = new URLSearchParams(location.search);

@@ -102,7 +102,7 @@
             expedite: false, locArm: false, apprArm: false,
             lat: '', vert: '', holdAlt: 0, thrust: 0, apOffWarn: false, gearDown: false,
             route: (ROUTES[name] || []).map((w) => Object.assign({}, w)), wp: 0, trail: [], scenario: name,
-            range: 40, touchdownMsg: '',
+            range: 40, touchdownMsg: '', dh: null, mda: null, vr: null, iasTr: 0, fdBank: 0, fdVs: 0,
             off: runway().hdg - 90, elev: runway().elev, apprType: cfg.type, ga: false, gaTrk: 90,
             locOK: true, gsOK: true, failAt: null, failWhat: '', minDone: false, hundredDone: false,
             handFly: false, noAutoland: false, windChk: false, gust: 0, gsKt: 0, vxKt: 0, vyKt: 0, trk: 90
@@ -120,9 +120,11 @@
             const a0 = Math.round((F.elev + 3000) / 100) * 100;
             Object.assign(F, {
                 phase: 'AIR', x: -14, y: -2.5, alt: a0, hdg: 60, ias: 180, ap1: true, athr: true, spdMgd: true,
-                spdSel: 180, altSel: a0, holdAlt: a0, lat: 'HDG', vert: 'ALT', thrust: 0.45, range: 15
+                spdSel: 180, altSel: a0, holdAlt: a0, lat: 'HDG', vert: 'ALT', thrust: 0.45, range: 20
             });
             F.hdgSel = Math.round(toReal(60)) || 360;
+            const rw = runway().rwy;
+            F.route = [{ x: -11, y: 0, n: 'CF' + rw }, { x: -6, y: 0, n: 'FF' + rw }];
         } else {
             F.range = 10;
             F.alt = F.elev;
@@ -130,6 +132,7 @@
             F.altSel = Math.round((F.elev + 5000) / 100) * 100;
         }
         setupFailure();
+        if (fcu.syncEfis) fcu.syncEfis();
         F.power = A.sys.power();
         F.trail = [];
         fcu.invalidate();
@@ -559,7 +562,14 @@
         return 'CAT 1';
     }
     fcu.capability = capability;
-    fcu.minimum = () => { const c = capability(); return c ? MINS[c] : null; };
+    // 最低高度（離地呎）：MCDU PERF APPR 輸入的 DH／MDA 優先
+    function minFor(cap) {
+        if (!cap) return null;
+        if (cap === 'RNAV') return F.mda !== null ? Math.max(0, F.mda - F.elev) : MINS.RNAV;
+        if (cap === 'CAT 3 DUAL') return typeof F.dh === 'number' ? F.dh : MINS[cap];
+        return typeof F.dh === 'number' ? Math.max(F.dh, MINS[cap]) : MINS[cap];
+    }
+    fcu.minimum = () => minFor(capability());
 
     function checkMinimums() {
         const active = LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert);
@@ -579,14 +589,15 @@
             }
         }
         if (!cap) return;
-        const m = MINS[cap];
-        if (!F.hundredDone && h <= m + 100 && cap !== 'CAT 3 DUAL') { F.hundredDone = true; A.toast('HUNDRED ABOVE：再一百呎到最低高度。'); }
+        const m = minFor(cap);
+        const noDh = cap === 'CAT 3 DUAL' && typeof F.dh !== 'number';
+        if (!F.hundredDone && h <= m + 100 && !noDh) { F.hundredDone = true; A.toast('HUNDRED ABOVE：再一百呎到最低高度。'); }
         if (h > m) return;
         F.minDone = true;
         const w = WX[cfg.wx] || WX.clear;
-        const see = cap === 'CAT 3 DUAL' || w.contact >= m;
+        const see = noDh || w.contact >= m;
         if (!see) {
-            fcu.goAround(`MINIMUM：${cap === 'RNAV' ? 'RNAV 最低高度 350 呎' : `${cap}，決斷高 ${m} 呎`}，${w.name}，看不到跑道。GO AROUND。`);
+            fcu.goAround(`MINIMUM：${cap === 'RNAV' ? `RNAV 最低高度 ${m} 呎（離地）` : `${cap}，決斷高 ${m} 呎`}，${w.name}，看不到跑道。GO AROUND。`);
             return;
         }
         if (cap === 'RNAV' || F.noAutoland) {
@@ -597,7 +608,7 @@
                 : 'MINIMUM：看到跑道。風超過自動降落限制，AP 斷開，機長手動落地（模擬）。');
             return;
         }
-        A.toast(cap === 'CAT 3 DUAL' ? 'ALERT HEIGHT 100 呎：雙自動駕駛正常，NO DH，繼續自動降落。' : `MINIMUM：看到跑道燈，繼續自動降落（${cap}，決斷高 ${m} 呎）。`);
+        A.toast(noDh ? 'ALERT HEIGHT 100 呎：雙自動駕駛正常，NO DH，繼續自動降落。' : `MINIMUM：看到跑道燈，繼續自動降落（${cap}，決斷高 ${m} 呎）。`);
     }
 
     // ---------- 飛行模型 ----------
@@ -612,7 +623,7 @@
             F.ias += 5.5 * dt;
             const v = tasFromIas(F.ias, 0);
             F.x += (Math.max(0, v + windVec().x) / 3600) * dt;
-            if (F.ias >= 150) { F.phase = 'AIR'; F.alt = F.elev + 1; F.gearDown = true; A.toast('V1、抬輪。'); }
+            if (F.ias >= (F.vr || 150)) { F.phase = 'AIR'; F.alt = F.elev + 1; F.gearDown = true; A.toast('V1、抬輪。'); }
             return;
         }
         if (F.phase === 'ROLL') {
@@ -689,6 +700,11 @@
         const V = tas * 0.5144;
         const bankMax = 25;
         const bankCmd = guided ? clamp(err * 1.1, -bankMax, bankMax) : 0;
+        F.fdBank = bankCmd;
+        F.fdVs = cmd;
+        const ip = F.iasPrev === undefined ? F.ias : F.iasPrev;
+        F.iasTr += ((F.ias - ip) / Math.max(dt, 1e-3) - F.iasTr) * Math.min(1, dt * 1.2);
+        F.iasPrev = F.ias;
         F.bank += (bankCmd - F.bank) * Math.min(1, dt / 1.2);
         const turn = Math.min(3, Math.abs(9.81 * Math.tan(F.bank * D2R) / V) * R2D) * Math.sign(F.bank);
         F.hdg = wrap360(F.hdg + turn * dt);
@@ -702,6 +718,13 @@
         F.x += (F.vxKt / 3600) * dt;
         F.y += (F.vyKt / 3600) * dt;
         F.alt = clamp(F.alt + (F.vs / 60) * dt, F.elev, 41000);
+        // 飛過的航點自動往下一個排（不管現在是不是 NAV 模式）
+        if (F.wp < F.route.length && F.lat !== 'NAV') {
+            const w = F.route[F.wp];
+            const dx = w.x - F.x, dy = w.y - F.y;
+            const ahead = dx * F.vxKt + dy * F.vyKt;
+            if (Math.hypot(dx, dy) < 1.6 || (ahead < 0 && Math.hypot(dx, dy) < 8)) F.wp++;
+        }
 
         // 姿態角（顯示用）
         const gamma = Math.atan2(F.vs, tas * 101.27) * R2D;
@@ -762,8 +785,9 @@
             const cap = capability();
             if (cap) {
                 const w = WX[cfg.wx] || WX.clear;
-                a.push(cap === 'RNAV' ? `進場能力：RNAV（GPS），最低高度 350 呎（離地）。天氣：${w.name}。`
-                    : `進場能力：${cap}，${cap === 'CAT 3 DUAL' ? 'NO DH（警戒高 100 呎）' : `決斷高 ${MINS[cap]} 呎`}。天氣：${w.name}。`);
+                const mm = minFor(cap);
+                a.push(cap === 'RNAV' ? `進場能力：RNAV（GPS），MDA ${Math.round(F.elev + mm)} 呎（離地 ${mm} 呎）。天氣：${w.name}。`
+                    : `進場能力：${cap}，${cap === 'CAT 3 DUAL' && typeof F.dh !== 'number' ? 'NO DH（警戒高 100 呎）' : `決斷高 ${mm} 呎`}。天氣：${w.name}。`);
             }
             if (!F.locOK || !F.gsOK) a.push(`ILS 故障：${!F.locOK ? 'LOC' : ''}${!F.locOK && !F.gsOK ? '、' : ''}${!F.gsOK ? 'G/S' : ''} 沒有訊號。`);
         }
@@ -919,33 +943,63 @@
         // 進場能力與最低高度
         const cap = capability();
         let c1 = '', c2 = '';
-        if (cap === 'CAT 3 DUAL') { c1 = 'CAT 3'; c2 = 'DUAL'; }
-        else if (cap === 'CAT 3 SINGLE') { c1 = 'CAT 3'; c2 = 'SINGLE'; }
-        else if (cap === 'CAT 2' || cap === 'CAT 1') { c1 = cap; c2 = 'DH ' + MINS[cap]; }
-        else if (cap === 'RNAV') { c1 = ''; c2 = 'MDA ' + Math.round(F.elev + MINS.RNAV); }
-        fmaSet(3, c1, 'w', c2, c2.startsWith('DH') || c2.startsWith('MDA') ? 'b' : 'w');
+        const mm = minFor(cap);
+        if (cap === 'CAT 3 DUAL') { c1 = 'CAT 3 DUAL'; c2 = typeof F.dh === 'number' ? 'DH ' + mm : 'NO DH'; }
+        else if (cap === 'CAT 3 SINGLE') { c1 = 'CAT 3 SINGLE'; c2 = 'DH ' + mm; }
+        else if (cap === 'CAT 2' || cap === 'CAT 1') { c1 = cap; c2 = 'DH ' + mm; }
+        else if (cap === 'RNAV') { c1 = ''; c2 = 'MDA ' + Math.round(F.elev + mm); }
+        fmaSet(3, c1, 'w', c2, 'b');
         // 自動駕駛
         const apTxt = F.ap1 && F.ap2 ? 'AP1+2' : F.ap1 ? 'AP1' : F.ap2 ? 'AP2' : '';
         fmaSet(4, apTxt, 'w', F.athr ? 'A/THR' : '', F.phase === 'AIR' ? 'w' : 'b');
     }
 
-    // ---------- 畫面：PFD ----------
+    // ---------- 畫面：PFD（照 A320 PFD 的符號）----------
+    // 灰色速度帶和高度帶、黃色參考線、鼓輪式高度讀數、V/S 指針、FD 指引桿、速度趨勢箭頭、VLS 和 VMAX。
     let pfd = null;
-    const PXD = 4.2;     // 每度俯仰的像素
-    const PXK = 3.2;     // 每節
-    const PXF = 0.32;    // 每呎
-    const PXH = 3.4;     // 每度航向
+    const CX = 200, CY = 160;
+    const PXD = 4.6;     // 每度俯仰的像素
+    const PXK = 2.2;     // 每節
+    const PXF = 0.16;    // 每呎
+    const PXH = 4.4;     // 每度航向
+    const TT = 70, TB = 250;   // 速度帶、高度帶的上下緣
+
+    // 速度限制（沒有模擬襟翼，進場、起飛和低速時當作襟翼已放）
+    function speedLimits() {
+        const conf = F.phase !== 'AIR' || F.gearDown || F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) ||
+            F.handFly || F.ga || F.vert === 'SRS' || (F.ias < 200 && agl() < 10000);
+        if (conf) return { vmax: F.gearDown ? 200 : 215, vls: 123, gd: null };
+        const hi = Math.max(0, (F.alt - 20000) / 1000);
+        return { vmax: Math.min(340, iasFromMach(0.82, F.alt)), vls: 178 + hi * 1.2, gd: 205 + hi };
+    }
+    // V/S 刻度：1000 呎／分以內比較疏，6000 封頂
+    const vsY = (v) => {
+        const a = Math.abs(v);
+        const y = a <= 1000 ? a * 0.045 : a <= 2000 ? 45 + (a - 1000) * 0.02 : 65 + Math.min(4000, a - 2000) * 0.00525;
+        return Math.sign(v) * Math.min(88, y);
+    };
 
     function buildPFD(host) {
         host.textContent = '';
-        const svg = svgEl('svg', { viewBox: '0 0 400 300', class: 'ck-pfd-svg', role: 'img', 'aria-label': '主飛行顯示器（PFD）精簡版' });
+        const svg = svgEl('svg', { viewBox: '0 0 420 330', class: 'ck-pfd-svg', role: 'img', 'aria-label': '主飛行顯示器（PFD）' });
         const defs = svgEl('defs', {}, svg);
-        const clip = (id, x, y, w, h) => { const c = svgEl('clipPath', { id }, defs); svgEl('rect', { x, y, width: w, height: h }, c); };
-        clip('cpAdi', 82, 20, 216, 200); clip('cpSpd', 6, 20, 64, 200); clip('cpAlt', 310, 20, 62, 200); clip('cpHdg', 82, 236, 216, 50);
-        svgEl('rect', { x: 0, y: 0, width: 400, height: 300, class: 'pf-bg' }, svg);
+        const clipD = (id, d) => { const c = svgEl('clipPath', { id }, defs); svgEl('path', { d }, c); };
+        clipD('cpAdi', 'M118,76 Q200,54 282,76 L282,244 Q200,266 118,244 Z');
+        clipD('cpSpd', `M30,${TT} H110 V${TB} H30 Z`);
+        clipD('cpAlt', `M300,${TT} H344 V${TB} H300 Z`);
+        clipD('cpHdg', 'M128,280 H272 V312 H128 Z');
+        clipD('cpDrum', `M353,${CY - 21} H381 V${CY + 21} H353 Z`);
+        const pat = (id, c1) => {
+            const p = svgEl('pattern', { id, width: 6, height: 8, patternUnits: 'userSpaceOnUse' }, defs);
+            svgEl('rect', { width: 6, height: 8, fill: '#000' }, p);
+            svgEl('rect', { width: 6, height: 4, fill: c1 }, p);
+        };
+        pat('pfVmax', '#ff2b2b');
+        pat('pfAprot', '#ffb224');
+        svgEl('rect', { x: 0, y: 0, width: 420, height: 330, class: 'pf-bg' }, svg);
         pfd = {};
 
-        // 姿態
+        // 姿態球
         const adiClip = svgEl('g', { 'clip-path': 'url(#cpAdi)' }, svg);
         pfd.adi = svgEl('g', {}, adiClip);
         svgEl('rect', { x: -400, y: -800, width: 800, height: 800, class: 'pf-sky' }, pfd.adi);
@@ -954,99 +1008,131 @@
         for (let p = -30; p <= 30; p += 2.5) {
             if (p === 0) continue;
             const big = p % 10 === 0, mid = p % 5 === 0;
-            const w = big ? 34 : mid ? 18 : 8;
+            const w = big ? 24 : mid ? 12 : 5;
             svgEl('line', { x1: -w, y1: -p * PXD, x2: w, y2: -p * PXD, class: 'pf-lad' }, pfd.adi);
             if (big) {
                 [-1, 1].forEach((s) => {
-                    const t = svgEl('text', { x: s * (w + 8), y: -p * PXD + 3.5, class: 'pf-t', 'text-anchor': 'middle' }, pfd.adi);
+                    const t = svgEl('text', { x: s * (w + 11), y: -p * PXD + 4, class: 'pf-t', 'text-anchor': 'middle' }, pfd.adi);
                     t.textContent = Math.abs(p);
                 });
             }
         }
-        pfd.roll = svgEl('g', {}, adiClip);   // 隨水平線轉動的橫滾指標
-        svgEl('polygon', { points: '0,-98 -6,-108 6,-108', class: 'pf-roll' }, pfd.roll);
-        const fix = svgEl('g', { transform: 'translate(190 120)' }, svg);
-        [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60].forEach((a) => {
-            const r1 = 98, r2 = Math.abs(a) % 30 === 0 || Math.abs(a) === 45 ? 108 : 103;
-            svgEl('line', { x1: Math.sin(a * D2R) * r1, y1: -Math.cos(a * D2R) * r1, x2: Math.sin(a * D2R) * r2, y2: -Math.cos(a * D2R) * r2, class: 'pf-tick' }, fix);
+        // 橫滾刻度（固定）與天空指標（跟著轉）
+        const rs = svgEl('g', { transform: `translate(${CX} ${CY})` }, svg);
+        const R = 96;
+        svgEl('path', { d: `M${-Math.sin(45 * D2R) * R},${-Math.cos(45 * D2R) * R} A${R},${R} 0 0 1 ${Math.sin(45 * D2R) * R},${-Math.cos(45 * D2R) * R}`, class: 'pf-arc' }, rs);
+        [-45, -30, -20, -10, 10, 20, 30, 45].forEach((a) => {
+            const r2 = Math.abs(a) === 30 || Math.abs(a) === 45 ? R + 10 : R + 6;
+            svgEl('line', { x1: Math.sin(a * D2R) * R, y1: -Math.cos(a * D2R) * R, x2: Math.sin(a * D2R) * r2, y2: -Math.cos(a * D2R) * r2, class: 'pf-tick' }, rs);
         });
-        svgEl('polygon', { points: '0,-98 -5,-90 5,-90', class: 'pf-idx' }, fix);
-        svgEl('path', { d: 'M-62 0 H-26 V8 M62 0 H26 V8', class: 'pf-ac' }, fix);
-        svgEl('rect', { x: -3, y: -3, width: 6, height: 6, class: 'pf-ac-dot' }, fix);
+        svgEl('polygon', { points: `0,${-R} -6,${-R - 10} 6,${-R - 10}`, class: 'pf-yel' }, rs);
+        pfd.sky = svgEl('g', {}, rs);
+        svgEl('polygon', { points: `0,${-R + 2} -6,${-R + 11} 6,${-R + 11}`, class: 'pf-yel' }, pfd.sky);
+        svgEl('rect', { x: -7, y: -R + 13, width: 14, height: 4, class: 'pf-yel' }, pfd.sky);
 
-        // LOC / G/S
-        pfd.ils = svgEl('g', { class: 'pf-ils' }, svg);
+        // 飛行指引桿（綠色）
+        pfd.fdH = svgEl('line', { x1: CX - 46, x2: CX + 46, y1: CY, y2: CY, class: 'pf-fd' }, svg);
+        pfd.fdV = svgEl('line', { x1: CX, x2: CX, y1: CY - 46, y2: CY + 46, class: 'pf-fd' }, svg);
+        // 飛機符號（黃色機翼，黑邊）
+        svgEl('path', { d: `M${CX - 80},${CY - 3} H${CX - 30} V${CY + 11} H${CX - 36} V${CY + 3} H${CX - 80} Z`, class: 'pf-acs' }, svg);
+        svgEl('path', { d: `M${CX + 80},${CY - 3} H${CX + 30} V${CY + 11} H${CX + 36} V${CY + 3} H${CX + 80} Z`, class: 'pf-acs' }, svg);
+        svgEl('rect', { x: CX - 4, y: CY - 4, width: 8, height: 8, class: 'pf-acc' }, svg);
+
+        // LOC / G/S 偏差
+        pfd.ils = svgEl('g', {}, svg);
         for (let i = -2; i <= 2; i++) {
-            if (i === 0) svgEl('line', { x1: 190, y1: 207, x2: 190, y2: 217, class: 'pf-ilsc' }, pfd.ils);
-            else svgEl('circle', { cx: 190 + i * 24, cy: 212, r: 2.6, class: 'pf-dot' }, pfd.ils);
-            if (i === 0) svgEl('line', { x1: 284, y1: 120, x2: 292, y2: 120, class: 'pf-ilsc' }, pfd.ils);
-            else svgEl('circle', { cx: 288, cy: 120 + i * 22, r: 2.6, class: 'pf-dot' }, pfd.ils);
+            if (i === 0) {
+                svgEl('line', { x1: CX, y1: 262, x2: CX, y2: 274, class: 'pf-ilsc' }, pfd.ils);
+                svgEl('line', { x1: 286, y1: CY, x2: 298, y2: CY, class: 'pf-ilsc' }, pfd.ils);
+            } else {
+                svgEl('circle', { cx: CX + i * 26, cy: 268, r: 3, class: 'pf-dot' }, pfd.ils);
+                svgEl('circle', { cx: 292, cy: CY + i * 22, r: 3, class: 'pf-dot' }, pfd.ils);
+            }
         }
-        pfd.locD = svgEl('polygon', { points: '0,-6 6,0 0,6 -6,0', class: 'pf-dia' }, pfd.ils);
-        pfd.gsD = svgEl('polygon', { points: '0,-6 6,0 0,6 -6,0', class: 'pf-dia' }, pfd.ils);
-        pfd.locF = svgEl('text', { x: 190, y: 216, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
+        pfd.locD = svgEl('polygon', { points: '0,-6 7,0 0,6 -7,0', class: 'pf-dia' }, pfd.ils);
+        pfd.gsD = svgEl('polygon', { points: '0,-7 6,0 0,7 -6,0', class: 'pf-dia' }, pfd.ils);
+        pfd.locF = svgEl('text', { x: CX, y: 272, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
         pfd.locF.textContent = 'LOC';
-        pfd.gsF = svgEl('text', { x: 288, y: 124, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
+        pfd.gsF = svgEl('text', { x: 292, y: CY + 4, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
         pfd.gsF.textContent = 'G/S';
-        pfd.ra = svgEl('text', { x: 190, y: 182, class: 'pf-big pf-ra', 'text-anchor': 'middle' }, svg);
-        pfd.mins = svgEl('text', { x: 190, y: 40, class: 'pf-t pf-mins', 'text-anchor': 'middle' }, svg);
+        pfd.ra = svgEl('text', { x: CX, y: 238, class: 'pf-ra', 'text-anchor': 'middle' }, svg);
 
         // 速度帶
-        svgEl('rect', { x: 6, y: 20, width: 64, height: 200, class: 'pf-tape' }, svg);
+        svgEl('rect', { x: 30, y: TT, width: 66, height: TB - TT, class: 'pf-tape' }, svg);
         const sg = svgEl('g', { 'clip-path': 'url(#cpSpd)' }, svg);
         pfd.spdTape = svgEl('g', {}, sg);
-        for (let v = 30; v <= 400; v += 10) {
+        for (let v = 30; v <= 420; v += 10) {
             const y = -v * PXK;
-            svgEl('line', { x1: 56, y1: y, x2: 70, y2: y, class: 'pf-tick' }, pfd.spdTape);
-            if (v % 20 === 0) { const t = svgEl('text', { x: 50, y: y + 4, class: 'pf-t', 'text-anchor': 'end' }, pfd.spdTape); t.textContent = v; }
+            svgEl('line', { x1: 86, y1: y, x2: 96, y2: y, class: 'pf-tick' }, pfd.spdTape);
+            if (v % 20 === 0) { const t = svgEl('text', { x: 82, y: y + 4.5, class: 'pf-tn', 'text-anchor': 'end' }, pfd.spdTape); t.textContent = v < 100 ? String(v) : String(v); }
         }
-        pfd.spdBug = svgEl('polygon', { points: '70,0 60,-6 60,6', class: 'pf-bug' }, svg);
-        svgEl('polygon', { points: '6,108 54,108 54,114 66,120 54,126 54,132 6,132', class: 'pf-box' }, svg);
-        pfd.spdTxt = svgEl('text', { x: 50, y: 126, class: 'pf-big', 'text-anchor': 'end' }, svg);
-        pfd.mach = svgEl('text', { x: 38, y: 232, class: 'pf-t pf-g', 'text-anchor': 'middle' }, svg);
-        pfd.spdSel = svgEl('text', { x: 38, y: 14, class: 'pf-t pf-c', 'text-anchor': 'middle' }, svg);
+        pfd.vmax = svgEl('rect', { x: 96, width: 7, fill: 'url(#pfVmax)' }, pfd.spdTape);
+        pfd.vls = svgEl('rect', { x: 96, width: 3, class: 'pf-vls' }, pfd.spdTape);
+        pfd.aprot = svgEl('rect', { x: 96, width: 7, fill: 'url(#pfAprot)' }, pfd.spdTape);
+        pfd.amax = svgEl('rect', { x: 96, width: 7, class: 'pf-amax' }, pfd.spdTape);
+        pfd.gd = svgEl('circle', { cx: 101, r: 3.5, class: 'pf-gd' }, pfd.spdTape);
+        pfd.spdTgt = svgEl('polygon', { points: '97,0 109,-7 109,7', class: 'pf-tgt' }, sg);
+        svgEl('line', { x1: 30, y1: TT, x2: 104, y2: TT, class: 'pf-edge' }, svg);
+        svgEl('line', { x1: 30, y1: TB, x2: 104, y2: TB, class: 'pf-edge' }, svg);
+        svgEl('line', { x1: 96, y1: TT, x2: 96, y2: TB, class: 'pf-edge' }, svg);
+        pfd.trend = svgEl('path', { class: 'pf-trend' }, svg);
+        svgEl('line', { x1: 22, y1: CY, x2: 112, y2: CY, class: 'pf-yref' }, svg);
+        svgEl('polygon', { points: `${96},${CY} ${108},${CY - 6} ${108},${CY + 6}`, class: 'pf-yel' }, svg);
+        pfd.spdTxt = svgEl('text', { x: 63, y: TT - 6, class: 'pf-tn', 'text-anchor': 'middle' }, svg);
+        pfd.mach = svgEl('text', { x: 63, y: TB + 18, class: 'pf-g pf-tn', 'text-anchor': 'middle' }, svg);
 
         // 高度帶
-        svgEl('rect', { x: 310, y: 20, width: 62, height: 200, class: 'pf-tape' }, svg);
+        svgEl('rect', { x: 300, y: TT, width: 40, height: TB - TT, class: 'pf-tape' }, svg);
         const ag = svgEl('g', { 'clip-path': 'url(#cpAlt)' }, svg);
-        pfd.altTape = svgEl('g', {}, ag);
+        pfd.gndRib = svgEl('rect', { x: 300, width: 40, class: 'pf-gndrib' }, ag);
         pfd.altPool = [];
-        for (let i = 0; i < 12; i++) {
-            const ln = svgEl('line', { x1: 310, x2: 322, class: 'pf-tick' }, pfd.altTape);
-            const tx = svgEl('text', { x: 328, class: 'pf-t' }, pfd.altTape);
+        for (let i = 0; i < 14; i++) {
+            const ln = svgEl('line', { x1: 300, x2: 308, class: 'pf-tick' }, ag);
+            const tx = svgEl('text', { x: 336, class: 'pf-tn', 'text-anchor': 'end' }, ag);
             pfd.altPool.push([ln, tx]);
         }
-        pfd.altBug = svgEl('polygon', { points: '310,0 320,-6 320,6', class: 'pf-bug pf-bug-c' }, svg);
-        svgEl('polygon', { points: '374,108 330,108 330,114 318,120 330,126 330,132 374,132', class: 'pf-box' }, svg);
-        pfd.altTxt = svgEl('text', { x: 371, y: 125, class: 'pf-big', 'text-anchor': 'end' }, svg);
-        pfd.altTxt.style.fontSize = '13px';
-        pfd.altSel = svgEl('text', { x: 341, y: 14, class: 'pf-t pf-c', 'text-anchor': 'middle' }, svg);
+        pfd.altSelBox = svgEl('g', {}, ag);
+        svgEl('rect', { x: 301, y: -9, width: 38, height: 18, class: 'pf-selbox' }, pfd.altSelBox);
+        pfd.altSelIn = svgEl('text', { x: 320, y: 4, class: 'pf-c pf-ts', 'text-anchor': 'middle' }, pfd.altSelBox);
+        svgEl('line', { x1: 300, y1: TT, x2: 344, y2: TT, class: 'pf-edge' }, svg);
+        svgEl('line', { x1: 300, y1: TB, x2: 344, y2: TB, class: 'pf-edge' }, svg);
+        svgEl('path', { d: `M296,${CY - 13} H353 V${CY - 22} H382 V${CY + 22} H353 V${CY + 13} H296 Z`, class: 'pf-altwin' }, svg);
+        pfd.altBig = svgEl('text', { x: 351, y: CY + 7, class: 'pf-altbig', 'text-anchor': 'end' }, svg);
+        const dg = svgEl('g', { 'clip-path': 'url(#cpDrum)' }, svg);
+        pfd.drum = [];
+        for (let k = 0; k < 5; k++) pfd.drum.push(svgEl('text', { x: 379, class: 'pf-drum', 'text-anchor': 'end' }, dg));
+        pfd.altSelTxt = svgEl('text', { x: 322, class: 'pf-c pf-tn', 'text-anchor': 'middle' }, svg);
+        pfd.baro = svgEl('text', { x: 322, y: TB + 32, class: 'pf-c pf-tn', 'text-anchor': 'middle' }, svg);
 
         // V/S
-        svgEl('rect', { x: 376, y: 20, width: 20, height: 200, class: 'pf-tape' }, svg);
-        [-2, -1, 0, 1, 2].forEach((m) => {
-            const y = 120 - m * 42;
-            svgEl('line', { x1: 378, y1: y, x2: 386, y2: y, class: 'pf-tick' }, svg);
-        });
-        pfd.vsPtr = svgEl('line', { x1: 376, y1: 120, x2: 395, y2: 120, class: 'pf-vs' }, svg);
-        pfd.vsTxt = svgEl('text', { x: 394, y: 232, class: 'pf-t pf-g', 'text-anchor': 'end' }, svg);
+        svgEl('path', { d: `M386,${CY - 92} H398 L412,${CY - 56} V${CY + 56} L398,${CY + 92} H386 Z`, class: 'pf-tape' }, svg);
+        [500, 1000, 1500, 2000, 6000].forEach((v) => [1, -1].forEach((s) => {
+            const y = CY - vsY(v * s);
+            const long = v === 1000 || v === 2000 || v === 6000;
+            svgEl('line', { x1: 386, y1: y, x2: long ? 393 : 390, y2: y, class: 'pf-tick' }, svg);
+            if (long) { const t = svgEl('text', { x: 397, y: y + 3.5, class: 'pf-ts' }, svg); t.textContent = String(v / 1000); }
+        }));
+        svgEl('line', { x1: 384, y1: CY, x2: 394, y2: CY, class: 'pf-yref' }, svg);
+        pfd.vsN = svgEl('line', { class: 'pf-vs' }, svg);
+        pfd.vsBox = svgEl('rect', { x: 389, width: 22, height: 13, class: 'pf-vsbox' }, svg);
+        pfd.vsTxt = svgEl('text', { x: 400, class: 'pf-g pf-ts', 'text-anchor': 'middle' }, svg);
 
         // 航向帶
-        svgEl('rect', { x: 82, y: 236, width: 216, height: 50, class: 'pf-tape' }, svg);
+        svgEl('rect', { x: 128, y: 280, width: 144, height: 30, class: 'pf-tape' }, svg);
         const hg = svgEl('g', { 'clip-path': 'url(#cpHdg)' }, svg);
         pfd.hdgPool = [];
-        for (let i = 0; i < 16; i++) {
-            const ln = svgEl('line', { y1: 236, class: 'pf-tick' }, hg);
-            const tx = svgEl('text', { y: 262, class: 'pf-t', 'text-anchor': 'middle' }, hg);
+        for (let i = 0; i < 12; i++) {
+            const ln = svgEl('line', { y1: 280, class: 'pf-tick' }, hg);
+            const tx = svgEl('text', { y: 305, class: 'pf-tn', 'text-anchor': 'middle' }, hg);
             pfd.hdgPool.push([ln, tx]);
         }
-        pfd.hdgBug = svgEl('polygon', { points: '0,236 -6,246 6,246', class: 'pf-bug pf-bug-c' }, svg);
-        svgEl('polygon', { points: '190,236 184,226 196,226', class: 'pf-idx' }, svg);
-        pfd.hdgTxt = svgEl('text', { x: 190, y: 222, class: 'pf-t pf-g', 'text-anchor': 'middle' }, svg);
-        pfd.hdgTxt.setAttribute('dy', '-1');
+        pfd.crs = svgEl('line', { y1: 280, y2: 296, class: 'pf-crs' }, hg);
+        pfd.trk = svgEl('polygon', { points: '0,281 4,286 0,291 -4,286', class: 'pf-trk' }, hg);
+        pfd.hdgBug = svgEl('polygon', { points: '0,280 -6,272 6,272', class: 'pf-hsel' }, svg);
+        pfd.hdgSelTxt = svgEl('text', { y: 300, class: 'pf-c pf-tn' }, svg);
+        svgEl('line', { x1: CX, y1: 270, x2: CX, y2: 292, class: 'pf-yref' }, svg);
 
-        // 旗標
-        pfd.flag = svgEl('text', { x: 190, y: 120, class: 'pf-flag', 'text-anchor': 'middle' }, svg);
+        pfd.flag = svgEl('text', { x: CX, y: CY - 20, class: 'pf-flag', 'text-anchor': 'middle' }, svg);
         host.append(svg);
         pfd.svg = svg;
         pfd.host = host;
@@ -1057,151 +1143,334 @@
         const on = F.power;
         pfd.host.classList.toggle('off', !on);
         if (!on) return;
+        const air = F.phase === 'AIR';
         const att = A.sys.attOK() > 0;
         pfd.flag.textContent = att ? '' : 'ATT';
         const bank = att ? F.bank : 0, pitch = att ? F.pitch : 0;
-        pfd.adi.setAttribute('transform', `translate(190 120) rotate(${(-bank).toFixed(2)}) translate(0 ${(pitch * PXD).toFixed(2)})`);
-        pfd.roll.setAttribute('transform', `translate(190 120) rotate(${(-bank).toFixed(2)})`);
+        pfd.adi.setAttribute('transform', `translate(${CX} ${CY}) rotate(${(-bank).toFixed(2)}) translate(0 ${(pitch * PXD).toFixed(2)})`);
+        pfd.sky.setAttribute('transform', `rotate(${(-bank).toFixed(2)})`);
         pfd.svg.classList.toggle('noatt', !att);
 
-        // 速度
-        const ias = Math.max(30, F.ias);
-        pfd.spdTape.setAttribute('transform', `translate(0 ${(120 + ias * PXK).toFixed(2)})`);
-        pfd.spdTxt.textContent = Math.round(F.ias);
-        const tgt = F.phase === 'AIR' ? targetIas() : null;
-        if (tgt !== null) {
-            const y = clamp(120 - (tgt - ias) * PXK, 28, 212);
-            pfd.spdBug.setAttribute('transform', `translate(0 ${y.toFixed(1)})`);
-            pfd.spdBug.setAttribute('class', 'pf-bug ' + (F.spdMgd ? 'pf-bug-m' : 'pf-bug-c'));
-            pfd.spdBug.style.display = '';
-        } else pfd.spdBug.style.display = 'none';
-        const m = machOf(Math.max(1, F.ias), F.alt);
-        pfd.mach.textContent = m >= 0.5 ? 'M ' + m.toFixed(2).replace(/^0/, '') : '';
-        pfd.spdSel.textContent = '';
+        // 飛行指引
+        const fd = att && air && (apOn() || F.vert === 'SRS' || F.lat === 'GA TRK' || F.handFly);
+        pfd.fdH.style.display = pfd.fdV.style.display = fd ? '' : 'none';
+        if (fd) {
+            const dy = clamp(((F.fdVs || 0) - F.vs) / 40, -40, 40);
+            const dx = clamp(((F.fdBank || 0) - F.bank) * 2.2, -40, 40);
+            pfd.fdH.setAttribute('transform', `translate(0 ${(-dy).toFixed(1)})`);
+            pfd.fdV.setAttribute('transform', `translate(${dx.toFixed(1)} 0)`);
+        }
 
-        // 高度
+        // 速度帶
+        const ias = Math.max(30, F.ias);
+        pfd.spdTape.setAttribute('transform', `translate(0 ${(CY + ias * PXK).toFixed(2)})`);
+        const lim = speedLimits();
+        const vis = (on2) => (on2 ? '' : 'none');
+        pfd.vmax.setAttribute('y', (-420 * PXK).toFixed(1));
+        pfd.vmax.setAttribute('height', ((420 - lim.vmax) * PXK).toFixed(1));
+        pfd.vmax.style.display = vis(air || F.phase === 'TO');
+        pfd.vls.setAttribute('y', (-lim.vls * PXK).toFixed(1));
+        pfd.vls.setAttribute('height', (8 * PXK).toFixed(1));
+        pfd.aprot.setAttribute('y', (-(lim.vls - 8) * PXK).toFixed(1));
+        pfd.aprot.setAttribute('height', (9 * PXK).toFixed(1));
+        pfd.amax.setAttribute('y', (-(lim.vls - 17) * PXK).toFixed(1));
+        pfd.amax.setAttribute('height', ((lim.vls - 47) * PXK).toFixed(1));
+        [pfd.vls, pfd.aprot, pfd.amax].forEach((n) => { n.style.display = vis(air); });
+        pfd.gd.style.display = vis(air && lim.gd !== null);
+        if (lim.gd !== null) pfd.gd.setAttribute('cy', (-lim.gd * PXK).toFixed(1));
+        // 目標速度：管理是洋紅色、選定是青色
+        const tgt = air || F.phase === 'TO' ? targetIas() : null;
+        const tcls = F.spdMgd && !F.spdPreset ? 'pf-tgt m' : 'pf-tgt c';
+        if (tgt !== null) {
+            const y = CY - (tgt - ias) * PXK;
+            const inside = y > TT + 4 && y < TB - 4;
+            pfd.spdTgt.setAttribute('transform', `translate(0 ${y.toFixed(1)})`);
+            pfd.spdTgt.setAttribute('class', tcls);
+            pfd.spdTgt.style.display = vis(inside);
+            pfd.spdTxt.textContent = inside ? '' : String(Math.round(tgt));
+            pfd.spdTxt.setAttribute('y', y <= TT + 4 ? TT - 6 : TB + 18);
+            pfd.spdTxt.setAttribute('class', 'pf-tn ' + (F.spdMgd && !F.spdPreset ? 'pf-m' : 'pf-c'));
+        } else { pfd.spdTgt.style.display = 'none'; pfd.spdTxt.textContent = ''; }
+        // 速度趨勢（10 秒後的速度）
+        const tr = (F.iasTr || 0) * 10;
+        if (air && Math.abs(tr) > 2) {
+            const y2 = CY - clamp(tr, -38, 38) * PXK;
+            const d = tr > 0 ? 1 : -1;
+            pfd.trend.setAttribute('d', `M90,${CY} V${y2.toFixed(1)} M85,${(y2 + d * 7).toFixed(1)} L90,${y2.toFixed(1)} L95,${(y2 + d * 7).toFixed(1)}`);
+            pfd.trend.style.display = '';
+        } else pfd.trend.style.display = 'none';
+        const m = machOf(Math.max(1, F.ias), F.alt);
+        pfd.mach.textContent = m >= 0.5 ? '.' + Math.round(m * 100) : '';
+        // 速度帶背景在 ias 低於 30 時不要動
+
+        // 高度帶（數字以百呎為單位，每 500 呎一個）
         const alt = F.alt;
-        const base = Math.floor(alt / 100) * 100 - 500;
+        const base = Math.floor(alt / 100) * 100 - 600;
         pfd.altPool.forEach(([ln, tx], i) => {
             const v = base + i * 100;
-            const y = 120 - (v - alt) * PXF;
+            const y = CY - (v - alt) * PXF;
             ln.setAttribute('y1', y.toFixed(1)); ln.setAttribute('y2', y.toFixed(1));
-            ln.style.display = v < 0 ? 'none' : '';
-            const lab = v >= 0 && v % 200 === 0;
+            ln.setAttribute('x2', v % 500 === 0 ? 310 : 306);
+            const lab = v % 500 === 0 && v >= 0;
             tx.style.display = lab ? '' : 'none';
-            if (lab) { tx.setAttribute('y', (y + 4).toFixed(1)); tx.textContent = v; }
+            if (lab) { tx.setAttribute('y', (y + 4.5).toFixed(1)); tx.textContent = String(v / 100); }
         });
-        pfd.altTxt.textContent = Math.round(alt / 20) * 20;
-        pfd.altBug.setAttribute('transform', `translate(0 ${clamp(120 - (F.altSel - alt) * PXF, 28, 212).toFixed(1)})`);
-        pfd.altSel.textContent = F.altSel;
-        const vs = F.vs;
-        const vy = Math.abs(vs) <= 2000 ? vs * 0.021 : Math.sign(vs) * (42 + Math.min(1, (Math.abs(vs) - 2000) / 4000) * 40);
-        pfd.vsPtr.setAttribute('y2', (120 - vy).toFixed(1));
-        pfd.vsTxt.textContent = Math.abs(vs) >= 100 ? (vs > 0 ? '+' : '−') + Math.round(Math.abs(vs) / 100) * 100 : '';
+        // 地面參考（紅色）
+        const gy = CY - (F.elev - alt) * PXF;
+        pfd.gndRib.setAttribute('y', Math.max(TT, gy).toFixed(1));
+        pfd.gndRib.setAttribute('height', Math.max(0, TB - Math.max(TT, gy)).toFixed(1));
+        // 讀數：大字是百呎，鼓輪是 20 呎一格
+        const a = Math.max(0, alt);
+        pfd.altBig.textContent = String(Math.floor(a / 100));
+        const b20 = Math.floor(a / 20) * 20;
+        const frac = (a - b20) / 20;
+        pfd.drum.forEach((t, k) => {
+            const off = k - 2;
+            const v = (((b20 + off * 20) % 100) + 100) % 100;
+            t.textContent = String(v).padStart(2, '0');
+            t.setAttribute('y', (CY + 5 + (-off + frac) * 15).toFixed(1));
+        });
+        // 選定高度
+        const std = alt >= 11000 || F.altSel >= 11000;
+        const sy = CY - (F.altSel - alt) * PXF;
+        const selIn = sy > TT + 8 && sy < TB - 8;
+        pfd.altSelBox.style.display = vis(selIn);
+        if (selIn) { pfd.altSelBox.setAttribute('transform', `translate(0 ${sy.toFixed(1)})`); pfd.altSelIn.textContent = String(Math.round(F.altSel / 100)); }
+        pfd.altSelTxt.textContent = selIn ? '' : (std && F.altSel >= 11000 ? 'FL' + Math.round(F.altSel / 100) : String(F.altSel));
+        pfd.altSelTxt.setAttribute('y', sy <= TT + 8 ? TT - 6 : TB + 18);
+        pfd.baro.textContent = alt >= 11000 ? 'STD' : 'QNH 1013';
 
-        // 航向
+        // V/S 指針
+        const vs = F.vs;
+        const yv = CY - vsY(vs);
+        const px = 430, py = CY;
+        const u = (412 - 388) / (px - 388);
+        pfd.vsN.setAttribute('x1', 388); pfd.vsN.setAttribute('y1', yv.toFixed(1));
+        pfd.vsN.setAttribute('x2', (388 + (px - 388) * u).toFixed(1)); pfd.vsN.setAttribute('y2', (yv + (py - yv) * u).toFixed(1));
+        const showVs = Math.abs(vs) >= 200;
+        pfd.vsTxt.textContent = showVs ? String(Math.round(Math.abs(vs) / 100)).padStart(2, '0') : '';
+        const ty = vs > 0 ? yv - 6 : yv + 16;
+        pfd.vsTxt.setAttribute('y', ty.toFixed(1));
+        pfd.vsBox.setAttribute('y', (ty - 10).toFixed(1));
+        pfd.vsBox.style.display = vis(showVs);
+        const vsWarn = Math.abs(vs) > 6000 || (air && agl() < 2500 && vs < -2000);
+        pfd.vsN.classList.toggle('warn', vsWarn);
+        pfd.vsTxt.classList.toggle('pf-a', vsWarn);
+
+        // 航向帶（數字是航向除以 10）
         const h = toReal(F.hdg);
-        const b0 = Math.floor(h / 5) * 5 - 40;
+        const b0 = Math.floor(h / 5) * 5 - 25;
         pfd.hdgPool.forEach(([ln, tx], i) => {
             const v = b0 + i * 5;
-            const x = 190 + wrap180(v - h) * PXH;
+            const x = CX + wrap180(v - h) * PXH;
             ln.setAttribute('x1', x.toFixed(1)); ln.setAttribute('x2', x.toFixed(1));
-            ln.setAttribute('y2', v % 10 === 0 ? 248 : 243);
+            ln.setAttribute('y2', v % 10 === 0 ? 290 : 286);
             const lab = ((v % 10) + 10) % 10 === 0;
             tx.style.display = lab ? '' : 'none';
-            if (lab) { tx.setAttribute('x', x.toFixed(1)); const hn = wrap360(v) / 10; tx.textContent = pad(hn === 0 ? 36 : hn, 2); }
+            if (lab) {
+                const hn = wrap360(v) / 10;
+                tx.setAttribute('x', x.toFixed(1));
+                tx.textContent = String(hn === 0 ? 0 : hn);
+                tx.setAttribute('class', 'pf-tn' + (hn % 3 === 0 ? ' pf-tb' : ''));
+            }
         });
-        pfd.hdgTxt.textContent = pad(wrap360(h), 3);
-        const hb = F.hdgMgd ? null : F.hdgSel;
-        if (hb !== null && F.phase === 'AIR') {
-            const x = clamp(190 + wrap180(hb - h) * PXH, 90, 290);
-            pfd.hdgBug.setAttribute('transform', `translate(${x.toFixed(1)} 0)`);
+        const trkX = CX + wrap180(toReal(F.trk) - h) * PXH;
+        pfd.trk.setAttribute('transform', `translate(${trkX.toFixed(1)} 0)`);
+        pfd.trk.style.display = vis(air);
+        const lsOn = air && !rnav() && (F.apprArm || F.locArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert)) && F.locOK;
+        const cx2 = CX + wrap180(runway().hdg - h) * PXH;
+        pfd.crs.setAttribute('x1', cx2.toFixed(1)); pfd.crs.setAttribute('x2', cx2.toFixed(1));
+        pfd.crs.style.display = vis(lsOn);
+        const showSel = air && !(F.hdgMgd && !F.hdgPreset);
+        const dh = wrap180(F.hdgSel - h);
+        if (showSel && Math.abs(dh) <= 16) {
+            pfd.hdgBug.setAttribute('transform', `translate(${(CX + dh * PXH).toFixed(1)} 0)`);
             pfd.hdgBug.style.display = '';
-        } else pfd.hdgBug.style.display = 'none';
-
-        // LOC / GS
-        const wantIls = F.phase === 'AIR' && (F.locArm || F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) || F.handFly);
-        const showIls = wantIls && ilsValid();
-        pfd.ils.style.display = showIls ? '' : 'none';
-        const ilsType = !rnav();
-        pfd.locF.style.display = wantIls && ilsType && !F.locOK ? '' : 'none';
-        pfd.gsF.style.display = wantIls && ilsType && !F.gsOK ? '' : 'none';
-        if (showIls) {
-            pfd.locD.style.display = ilsType && !F.locOK ? 'none' : '';
-            pfd.gsD.style.display = ilsType && !F.gsOK ? 'none' : '';
-            const ld = clamp(locDots(), -2.6, 2.6);
-            pfd.locD.setAttribute('transform', `translate(${(190 + ld * 24).toFixed(1)} 212)`);
-            const gd = clamp(gsDots(), -2.6, 2.6);
-            pfd.gsD.setAttribute('transform', `translate(288 ${(120 - gd * 22).toFixed(1)})`);
+            pfd.hdgSelTxt.textContent = '';
+        } else {
+            pfd.hdgBug.style.display = 'none';
+            pfd.hdgSelTxt.textContent = showSel ? pad(F.hdgSel, 3) : '';
+            pfd.hdgSelTxt.setAttribute('x', dh < 0 ? 124 : 276);
+            pfd.hdgSelTxt.setAttribute('text-anchor', dh < 0 ? 'end' : 'start');
         }
-        // 無線電高度與最低高度
+
+        // LOC / G/S（RNAV 時顯示 GPS 計算的偏差）
+        const wantIls = air && (F.locArm || F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) || F.handFly);
+        const showIls = wantIls && ilsValid();
+        pfd.ils.style.display = vis(showIls);
+        const ilsType = !rnav();
+        pfd.locF.style.display = vis(wantIls && ilsType && !F.locOK);
+        pfd.gsF.style.display = vis(wantIls && ilsType && !F.gsOK);
+        if (showIls) {
+            pfd.locD.style.display = vis(!(ilsType && !F.locOK));
+            pfd.gsD.style.display = vis(!(ilsType && !F.gsOK));
+            pfd.locD.setAttribute('transform', `translate(${(CX + clamp(locDots(), -2.4, 2.4) * 26).toFixed(1)} 268)`);
+            pfd.gsD.setAttribute('transform', `translate(292 ${(CY - clamp(gsDots(), -2.4, 2.4) * 22).toFixed(1)})`);
+        }
+        // 無線電高度：低於 2500 呎顯示，接近最低高度變琥珀色
         const ra = agl();
-        pfd.ra.textContent = F.phase === 'AIR' && ra < 2500 ? String(ra < 50 ? Math.round(ra) : Math.round(ra / 10) * 10) : '';
-        const mn = F.phase === 'AIR' && !F.minDone ? fcu.minimum() : null;
+        pfd.ra.textContent = air && ra < 2500 ? String(ra < 50 ? Math.max(0, Math.round(ra)) : ra < 100 ? Math.round(ra / 5) * 5 : Math.round(ra / 10) * 10) : '';
+        const mn = air && !F.minDone ? fcu.minimum() : null;
         pfd.ra.classList.toggle('below', mn !== null && ra <= mn + 100);
-        pfd.mins.textContent = mn !== null && ra <= mn ? 'MINIMUM' : '';
     }
 
-    // ---------- 畫面：平面地圖 ----------
-    let map = null;
-    const RANGES = [5, 10, 20, 40, 80, 160];
-    function buildMap(host) {
+    // ---------- 畫面：ND（導航顯示器）----------
+    // ARC：機頭朝上的 90° 扇形；ROSE NAV：機頭朝上的整圈羅盤；PLAN：北方朝上，以下一個航點為中心。
+    let nd = null;
+    const ND_RANGES = [10, 20, 40, 80, 160, 320];
+    fcu.ndMode = 'ARC';
+    const ND_GEOM = { ARC: { cx: 200, cy: 334, R: 272 }, NAV: { cx: 200, cy: 212, R: 152 }, PLAN: { cx: 200, cy: 212, R: 152 } };
+    function buildND(host) {
         host.textContent = '';
-        const svg = svgEl('svg', { viewBox: '-100 -100 200 200', class: 'ck-map-svg', role: 'img', 'aria-label': '平面地圖，北方朝上' });
-        map = { svg };
-        map.rings = svgEl('g', { class: 'mp-rings' }, svg);
-        map.world = svgEl('g', {}, svg);
-        map.loc = svgEl('line', { class: 'mp-loc' }, map.world);
-        map.rwy = svgEl('line', { class: 'mp-rwy' }, map.world);
-        map.route = svgEl('polyline', { class: 'mp-route', fill: 'none' }, map.world);
-        map.wps = svgEl('g', {}, map.world);
-        map.trail = svgEl('polyline', { class: 'mp-trail', fill: 'none' }, map.world);
-        map.ac = svgEl('g', {}, svg);
-        svgEl('polygon', { points: '0,-7 5,6 0,3 -5,6', class: 'mp-ac' }, map.ac);
-        map.scale = svgEl('text', { x: -96, y: 96, class: 'mp-t' }, svg);
-        map.gsTxt = svgEl('text', { x: -96, y: -88, class: 'mp-t' }, svg);
-        map.windTxt = svgEl('text', { x: -96, y: -78, class: 'mp-t' }, svg);
-        map.windArr = svgEl('g', { class: 'mp-wind' }, svg);
-        svgEl('path', { d: 'M0,-7 L0,7 M-3,3 L0,7 L3,3', class: 'mp-warr' }, map.windArr);
-        map.rwyTxt = svgEl('text', { x: 96, y: -88, class: 'mp-t', 'text-anchor': 'end' }, svg);
+        const svg = svgEl('svg', { viewBox: '0 0 400 400', class: 'ck-nd-svg', role: 'img', 'aria-label': '導航顯示器（ND）' });
+        nd = { svg, host, mode: '' };
+        const defs = svgEl('defs', {}, svg);
+        const cp = svgEl('clipPath', { id: 'cpNd' }, defs);
+        nd.clip = svgEl('circle', {}, cp);
+        svgEl('rect', { width: 400, height: 400, class: 'nd-bg' }, svg);
+        nd.fixed = svgEl('g', {}, svg);
+        const cg = svgEl('g', { 'clip-path': 'url(#cpNd)' }, svg);
+        nd.cl = svgEl('line', { class: 'nd-cl' }, cg);
+        nd.rwy = svgEl('polygon', { class: 'nd-rwy' }, cg);
+        nd.route = svgEl('polyline', { class: 'nd-route', fill: 'none' }, cg);
+        nd.wps = svgEl('g', {}, cg);
+        nd.rose = svgEl('g', {}, svg);
+        nd.hsel = svgEl('polygon', { points: '0,0 -6,-10 6,-10', class: 'nd-hsel' }, svg);
+        nd.trk = svgEl('polygon', { points: '0,-5 4,0 0,5 -4,0', class: 'nd-trk' }, svg);
+        nd.lubber = svgEl('line', { class: 'nd-lub' }, svg);
+        nd.ac = svgEl('path', { d: 'M0,-13 V24 M-19,0 H19 M-7,19 H7', class: 'nd-ac' }, svg);
+        const T = (x, y, cls, anchor) => svgEl('text', { x, y, class: cls, 'text-anchor': anchor || 'start' }, svg);
+        nd.gsL = T(8, 20, 'nd-w nd-s'); nd.gsL.textContent = 'GS';
+        nd.gsV = T(30, 20, 'nd-g');
+        nd.tasL = T(70, 20, 'nd-w nd-s'); nd.tasL.textContent = 'TAS';
+        nd.tasV = T(97, 20, 'nd-g');
+        nd.wind = T(8, 40, 'nd-g');
+        nd.warr = svgEl('path', { d: 'M0,-9 V9 M-4,4 L0,9 L4,4', class: 'nd-warr' }, svg);
+        nd.toN = T(316, 20, 'nd-w', 'end');
+        nd.toB = T(392, 20, 'nd-g', 'end');
+        nd.toD = T(372, 40, 'nd-g', 'end');
+        nd.toNM = T(392, 40, 'nd-c nd-s', 'end'); nd.toNM.textContent = 'NM';
+        nd.toE = T(392, 60, 'nd-g', 'end');
+        nd.msg = T(200, 392, 'nd-w nd-s', 'middle');
+        nd.appr = T(200, 20, 'nd-w', 'middle');
         host.append(svg);
     }
-    function renderMap() {
-        if (!map) return;
-        const R = F.range;
-        const s = 90 / R;
-        const P = (x, y) => [((x - F.x) * s).toFixed(1), (-(y - F.y) * s).toFixed(1)];
-        const key = 'map' + R;
-        if (cache[key] !== true) {
-            cache[key] = true;
-            map.rings.textContent = '';
-            [0.5, 1].forEach((f) => svgEl('circle', { cx: 0, cy: 0, r: 90 * f, class: 'mp-ring' }, map.rings));
-            map.scale.textContent = `${R} NM`;
-        }
-        const set2 = (ln, a, b) => { ln.setAttribute('x1', a[0]); ln.setAttribute('y1', a[1]); ln.setAttribute('x2', b[0]); ln.setAttribute('y2', b[1]); };
-        set2(map.rwy, P(0, 0), P(1.5, 0));
-        set2(map.loc, P(-26, 0), P(0, 0));
-        map.loc.style.display = F.scenario === 'ils' || F.locArm || F.apprArm ? '' : 'none';
-        map.route.setAttribute('points', F.route.length ? [[F.x, F.y]].concat(F.route.slice(F.wp).map((w) => [w.x, w.y])).map((p) => P(p[0], p[1]).join(',')).join(' ') : '');
-        map.wps.textContent = '';
-        F.route.forEach((w, i) => {
-            const p = P(w.x, w.y);
-            if (Math.abs(p[0]) > 98 || Math.abs(p[1]) > 98) return;
-            const c = svgEl('circle', { cx: p[0], cy: p[1], r: 2.6, class: 'mp-wp' + (i === F.wp ? ' act' : '') }, map.wps);
-            void c;
-            const t = svgEl('text', { x: Number(p[0]) + 5, y: Number(p[1]) + 3, class: 'mp-t' }, map.wps);
-            t.textContent = w.n;
+
+    function ndRebuild(mode, range) {
+        const g = ND_GEOM[mode];
+        nd.mode = mode; nd.range = range;
+        nd.clip.setAttribute('cx', g.cx); nd.clip.setAttribute('cy', g.cy); nd.clip.setAttribute('r', mode === 'PLAN' ? 400 : g.R);
+        nd.fixed.textContent = '';
+        nd.rose.textContent = '';
+        const fr = mode === 'ARC' ? [0.25, 0.5, 0.75] : [0.5];
+        fr.forEach((f) => {
+            const r = g.R * f;
+            svgEl('circle', { cx: g.cx, cy: g.cy, r, class: 'nd-ring' }, nd.fixed);
+            const a = mode === 'ARC' ? -42 : -45;
+            const t = svgEl('text', { x: g.cx + Math.sin(a * D2R) * r - 4, y: g.cy - Math.cos(a * D2R) * r - 4, class: 'nd-c nd-s', 'text-anchor': 'end' }, nd.fixed);
+            t.textContent = String(+(range * f).toFixed(1)).replace(/\.0$/, '');
         });
-        map.trail.setAttribute('points', F.trail.map((p) => P(p[0], p[1]).join(',')).join(' '));
-        map.world.setAttribute('transform', `rotate(${(F.off || 0).toFixed(1)})`);
-        map.ac.setAttribute('transform', `rotate(${toReal(F.hdg).toFixed(1)})`);
+        if (mode === 'PLAN') {
+            svgEl('circle', { cx: g.cx, cy: g.cy, r: g.R, class: 'nd-rose' }, nd.fixed);
+            [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([l, a]) => {
+                const t = svgEl('text', { x: g.cx + Math.sin(a * D2R) * (g.R - 14), y: g.cy - Math.cos(a * D2R) * (g.R - 14) + 5, class: 'nd-w nd-b', 'text-anchor': 'middle' }, nd.fixed);
+                t.textContent = l;
+            });
+            return;
+        }
+        // 羅盤刻度（跟著航向轉）
+        svgEl('circle', { cx: 0, cy: 0, r: g.R, class: 'nd-rose' }, nd.rose);
+        for (let a = 0; a < 360; a += 5) {
+            const r2 = a % 10 === 0 ? g.R + 11 : g.R + 6;
+            svgEl('line', { x1: Math.sin(a * D2R) * g.R, y1: -Math.cos(a * D2R) * g.R, x2: Math.sin(a * D2R) * r2, y2: -Math.cos(a * D2R) * r2, class: 'nd-tick' }, nd.rose);
+            if (a % 10 === 0) {
+                const rx = Math.sin(a * D2R) * (g.R + 22), ry = -Math.cos(a * D2R) * (g.R + 22) + 5;
+                const t = svgEl('text', { x: rx, y: ry, class: 'nd-w ' + (a % 30 === 0 ? 'nd-b' : 'nd-s'), 'text-anchor': 'middle', transform: `rotate(${a} ${rx} ${ry - 5})` }, nd.rose);
+                t.textContent = String(a / 10);
+            }
+        }
+    }
+
+    function renderND() {
+        if (!nd) return;
+        nd.host.classList.toggle('off', !F.power);
+        if (!F.power) return;
+        const mode = fcu.ndMode, range = F.range;
+        if (nd.mode !== mode || nd.range !== range) ndRebuild(mode, range);
+        const g = ND_GEOM[mode];
         const air = F.phase === 'AIR';
-        set1(map.gsTxt, air ? `GS ${Math.round(F.gsKt)}  TAS ${Math.round(tasFromIas(F.ias, F.alt))}` : '');
-        set1(map.windTxt, cfg.windSpd > 0 ? `${pad(cfg.windDir, 3)}° / ${cfg.windSpd}${cfg.gust ? ' G' + (cfg.windSpd + cfg.gust) : ''} 節` : '無風');
-        // 風向箭頭：指向風吹去的方向
-        map.windArr.setAttribute('transform', `translate(-30 -82) scale(0.8) rotate(${(cfg.windDir + 180) % 360})`);
-        map.windArr.style.display = cfg.windSpd > 0 ? '' : 'none';
-        set1(map.rwyTxt, `${runway().name}　${rnav() || (F.phase !== 'AIR' && cfg.type === 'rnav') ? 'RNAV' : 'ILS'}`);
+        const hReal = toReal(F.hdg);
+        const s = g.R / range;
+        // 中心點：PLAN 以下一個航點（沒有就用跑道）為中心
+        const plan = mode === 'PLAN';
+        const fp = fcu.api.plan();
+        const toWp = fp.find((p) => p.type === 'to') || fp.find((p) => p.type === 'dest');
+        const c0 = plan && toWp ? { x: toWp.x, y: toWp.y } : { x: F.x, y: F.y };
+        const rot = (plan ? (F.off || 0) : -F.hdg) * D2R;
+        const cs = Math.cos(rot), sn = Math.sin(rot);
+        const P = (x, y) => {
+            const dx = (x - c0.x) * s, dy = -(y - c0.y) * s;
+            return [g.cx + dx * cs - dy * sn, g.cy + dx * sn + dy * cs];
+        };
+        const fmt = (p) => p[0].toFixed(1) + ',' + p[1].toFixed(1);
+        // 羅盤
+        nd.rose.setAttribute('transform', `translate(${g.cx} ${g.cy}) rotate(${(-hReal).toFixed(1)})`);
+        nd.rose.style.display = plan ? 'none' : '';
+        nd.lubber.style.display = plan ? 'none' : '';
+        nd.lubber.setAttribute('x1', g.cx); nd.lubber.setAttribute('x2', g.cx);
+        nd.lubber.setAttribute('y1', g.cy - g.R - 18); nd.lubber.setAttribute('y2', g.cy - g.R + 8);
+        // 飛機符號
+        const acp = P(F.x, F.y);
+        const acRot = plan ? hReal : 0;
+        nd.ac.setAttribute('transform', `translate(${acp[0].toFixed(1)} ${acp[1].toFixed(1)}) rotate(${acRot.toFixed(1)})`);
+        // 航跡菱形與選定航向
+        const onRose = (deg, node, r) => {
+            const a = (deg - hReal) * D2R;
+            node.setAttribute('transform', `translate(${(g.cx + Math.sin(a) * r).toFixed(1)} ${(g.cy - Math.cos(a) * r).toFixed(1)}) rotate(${(deg - hReal).toFixed(1)})`);
+        };
+        nd.trk.style.display = !plan && air ? '' : 'none';
+        if (!plan && air) onRose(toReal(F.trk), nd.trk, g.R - 6);
+        const showSel = !plan && air && !(F.hdgMgd && !F.hdgPreset);
+        nd.hsel.style.display = showSel ? '' : 'none';
+        if (showSel) onRose(F.hdgSel, nd.hsel, g.R);
+        // 跑道與延伸中心線
+        const a1 = P(0, 0.025), a2 = P(1.5, 0.025), a3 = P(1.5, -0.025), a4 = P(0, -0.025);
+        nd.rwy.setAttribute('points', [a1, a2, a3, a4].map(fmt).join(' '));
+        const c1 = P(-12, 0), c2 = P(0, 0);
+        nd.cl.setAttribute('x1', c1[0].toFixed(1)); nd.cl.setAttribute('y1', c1[1].toFixed(1));
+        nd.cl.setAttribute('x2', c2[0].toFixed(1)); nd.cl.setAttribute('y2', c2[1].toFixed(1));
+        // 航路（綠色），下一個航點白色
+        const di = fp.findIndex((p) => p.type === 'disc');
+        const pts = [[F.x, F.y]].concat((di >= 0 ? fp.slice(0, di) : fp).filter((p) => p.type !== 'from').map((p) => [p.x, p.y]));
+        nd.route.setAttribute('points', pts.map((p) => fmt(P(p[0], p[1]))).join(' '));
+        nd.wps.textContent = '';
+        fp.forEach((p) => {
+            if (p.type === 'from' || p.type === 'dest' || p.type === 'disc') return;
+            const q = P(p.x, p.y);
+            const cls = p.type === 'to' ? 'nd-wpt to' : 'nd-wpt';
+            svgEl('polygon', { points: `${q[0]},${q[1] - 5} ${q[0] + 5},${q[1]} ${q[0]},${q[1] + 5} ${q[0] - 5},${q[1]}`, class: cls }, nd.wps);
+            const t = svgEl('text', { x: q[0] + 9, y: q[1] + 4, class: p.type === 'to' ? 'nd-w' : 'nd-g' }, nd.wps);
+            t.textContent = p.n;
+        });
+        // 左上：地速、真空速、風
+        set1(nd.gsV, air ? String(Math.round(F.gsKt)) : '0');
+        set1(nd.tasV, air ? String(Math.round(tasFromIas(F.ias, F.alt))) : '---');
+        const wOn = air && cfg.windSpd > 0;
+        set1(nd.wind, air ? (cfg.windSpd > 0 ? `${pad(cfg.windDir, 3)}/${cfg.windSpd}` : '---/---') : '');
+        nd.warr.style.display = wOn ? '' : 'none';
+        if (wOn) nd.warr.setAttribute('transform', `translate(18 62) rotate(${((cfg.windDir + 180 - (plan ? 0 : hReal)) % 360).toFixed(0)})`);
+        // 右上：下一個航點
+        const tw = fp.find((p) => p.type === 'to') || fp.find((p) => p.type === 'dest');
+        if (tw) {
+            set1(nd.toN, tw.n);
+            set1(nd.toB, pad(tw.brg, 3) + '°');
+            set1(nd.toD, tw.dist < 20 ? tw.dist.toFixed(1) : String(Math.round(tw.dist)));
+            set1(nd.toE, tw.eta);
+        }
+        [nd.toN, nd.toB, nd.toD, nd.toNM, nd.toE].forEach((n) => { n.style.display = tw ? '' : 'none'; });
+        const cap = capability();
+        set1(nd.appr, cap ? (cap === 'RNAV' ? 'RNAV' : 'ILS') + ' ' + runway().rwy : '');
+        set1(nd.msg, F.phase === 'GND' && A.sys.attOK() < 1 ? 'ALIGN IRS' : '');
     }
 
     // ---------- 總渲染 ----------
@@ -1210,14 +1479,31 @@
         buildFCU(h.fcu);
         buildFMA(h.fma);
         buildPFD(h.pfd);
-        buildMap(h.map);
+        buildND(h.map);
         help = h.help;
         readout = h.readout;
-        if (h.zoomIn) h.zoomIn.addEventListener('click', () => { const i = RANGES.indexOf(F.range); F.range = RANGES[clamp(i - 1, 0, RANGES.length - 1)]; delete cache['map' + F.range]; cache = {}; });
-        if (h.zoomOut) h.zoomOut.addEventListener('click', () => { const i = RANGES.indexOf(F.range); F.range = RANGES[clamp(i + 1, 0, RANGES.length - 1)]; cache = {}; });
+        const rngTxt = () => { if (h.ndRange) h.ndRange.textContent = F.range + ' NM'; };
+        const step = (d) => {
+            const i = ND_RANGES.indexOf(F.range);
+            F.range = ND_RANGES[clamp((i < 0 ? 2 : i) + d, 0, ND_RANGES.length - 1)];
+            rngTxt();
+            if (A.snd && A.snd.click) A.snd.click();
+        };
+        if (h.zoomIn) h.zoomIn.addEventListener('click', () => step(-1));
+        if (h.zoomOut) h.zoomOut.addEventListener('click', () => step(1));
+        fcu.syncEfis = () => {
+            rngTxt();
+            if (h.ndModes) h.ndModes.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === fcu.ndMode)));
+        };
+        if (h.ndModes) h.ndModes.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+            fcu.ndMode = b.dataset.mode;
+            fcu.syncEfis();
+            if (A.snd && A.snd.click) A.snd.click();
+        }));
+        fcu.syncEfis();
     };
 
-    fcu.renderFast = function () { renderPFD(); renderMap(); };
+    fcu.renderFast = function () { renderPFD(); renderND(); };
     fcu.renderSlow = function () {
         renderPanel();
         renderFMA();
@@ -1232,6 +1518,65 @@
         if (!node) return;
         if (node.textContent !== txt) node.textContent = txt;
     }
+
+    // ---------- 給 MCDU 和 ND 用的資料 ----------
+    const utc = (msAhead) => { const d = new Date(Date.now() + msAhead); return String(d.getUTCHours()).padStart(2, '0') + String(d.getUTCMinutes()).padStart(2, '0'); };
+    function phaseName() {
+        if (F.phase === 'GND') return F.touchdownMsg ? 'DONE' : 'PREFLIGHT';
+        if (F.phase === 'ROLL') return 'DONE';
+        if (F.phase === 'TO' || (F.vert === 'SRS' && !F.ga)) return 'TAKE OFF';
+        if (F.ga) return 'GO AROUND';
+        if (F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) || F.handFly) return 'APPR';
+        if (['CLB', 'OP CLB'].includes(F.vert) || F.vs > 500) return 'CLB';
+        if (['DES', 'OP DES'].includes(F.vert) || F.vs < -500) return 'DES';
+        return 'CRZ';
+    }
+    const altStr = (a) => (a >= 11000 ? 'FL' + String(Math.round(a / 100)).padStart(3, '0') : String(Math.round(a / 10) * 10));
+    fcu.api = {
+        runway, toReal, agl, capability, phase: phaseName, cfg,
+        icao: () => (runway().name.match(/[A-Z]{4}/) || ['ZZZZ'])[0],
+        // 飛行計畫：FROM（上一個航點）、TO、之後的航點、目的地跑道
+        plan() {
+            const r = F.route;
+            const gs = F.phase === 'AIR' ? Math.max(120, F.gsKt) : 250;
+            const out = [];
+            const rwName = 'RW' + runway().rwy;
+            out.push({ type: 'from', n: F.wp > 0 ? r[F.wp - 1].n : F.phase === 'AIR' ? 'PPOS' : rwName, x: F.x, y: F.y, dist: 0, brg: 0, eta: '', spd: '', alt: '' });
+            let px = F.x, py = F.y, cum = 0;
+            const legs = r.slice(F.wp).map((w, k) => ({ w, idx: F.wp + k })).concat([{ w: { x: 0, y: 0, n: rwName }, idx: -1 }]);
+            // 航路最後一點不是進場點時，和目的地之間是航路中斷（F-PLN DISCONTINUITY）
+            const disc = r.length > 0 && !/^(CF|FF)/.test(r[r.length - 1].n) && F.wp < r.length;
+            legs.forEach(({ w, idx }, k) => {
+                if (idx < 0 && disc) out.push({ type: 'disc', n: '', x: px, y: py });
+                const d = Math.hypot(w.x - px, w.y - py);
+                cum += d;
+                const brg = Math.round(toReal(Math.atan2(w.x - px, w.y - py) * R2D)) % 360 || 360;
+                const dest = idx < 0;
+                let alt, spd;
+                if (dest) { alt = String(Math.round(F.elev)); spd = '---'; }
+                else if (/^(CF|FF)/.test(w.n)) { alt = String(Math.round(gpAlt(w.x) / 10) * 10); spd = w.n.startsWith('FF') ? '160' : '180'; }
+                else { const a = F.phase === 'AIR' ? Math.max(F.alt, F.altSel) : F.altSel; alt = altStr(a); spd = a >= 26000 ? '.78' : '250'; }
+                out.push({ type: dest ? 'dest' : k === 0 ? 'to' : 'wpt', n: w.n, idx, x: w.x, y: w.y, dist: dest ? cum : d, legDist: d, cum, brg, eta: utc(cum / gs * 3600000), spd, alt });
+                px = w.x; py = w.y;
+            });
+            return out;
+        },
+        dirTo(i) {
+            if (i < 0 || i >= F.route.length) return false;
+            F.wp = i;
+            F.hdgMgd = true; F.hdgPreset = false;
+            if (F.phase === 'AIR' && apOn() && !LAT_APP.includes(F.lat) && !['GA TRK', 'RWY', 'ROLL OUT'].includes(F.lat)) F.lat = 'NAV';
+            A.toast(`DIR TO ${F.route[i].n}：直飛這個航點${F.lat === 'NAV' ? '，NAV 模式已接上' : '（按 HDG 旋鈕推入就會用 NAV 飛過去）'}。`);
+            fcu.invalidate();
+            return true;
+        },
+        getDH: () => F.dh, getMDA: () => F.mda, getVR: () => F.vr,
+        setDH(v) { F.dh = v; fcu.invalidate(); },
+        setMDA(v) { F.mda = v; fcu.invalidate(); },
+        setVR(v) { F.vr = v; },
+        vapp: () => 123 + 5 + Math.min(15, Math.round(Math.max(0, fcu.windComp().head) / 3)),
+        windComp: () => fcu.windComp()
+    };
 
     fcu.canTakeoff = () => F.phase === 'GND' && F.power && A.sys.enginesRunning() === 2;
 })(window);

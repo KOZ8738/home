@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1119.1103">
+<meta name="efb-build" content="1119.1115">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11272,13 +11272,17 @@ function gxConnect(){if(!GX.bridge||GX.ws)return;clearTimeout(GX.rt);GX.st="conn
   try{ws=new WebSocket(`ws://localhost:${String(GX.port).replace(/\D/g,"")||"2048"}/fsuipc/`,"fsuipc")}catch(e){GX.st="err";GX.err=String(e.message||e);gxRetry();return}
   GX.ws=ws;
   /* declared again every 5 s while FSUIPC has no simulator (the server is up before MSFS is) */
-  const declare=()=>{if(GX.ws!==ws||ws.readyState!==1)return;const b=gxBaseN();
-    ws.send(JSON.stringify({command:"offsets.declare",name:"pefbGsx",offsets:GX_L.map(r=>({name:r[0],address:b+r[2],type:"uint",size:r[3]})).concat(GX_SIMO)}))};
+  /* the server keeps a declared set for the connection, so a set that failed is declared again under a new name; a
+     read that failed (no simulator yet) is just asked for again */
+  let nm="";const read=()=>{if(GX.ws===ws&&ws.readyState===1&&nm)ws.send(JSON.stringify({command:"offsets.read",name:nm,interval:500}))};
+  const declare=()=>{if(GX.ws!==ws||ws.readyState!==1)return;const b=gxBaseN();nm="pefbGsx"+(GX.seq=(GX.seq||0)+1);
+    ws.send(JSON.stringify({command:"offsets.declare",name:nm,offsets:GX_L.map(r=>({name:r[0],address:b+r[2],type:"uint",size:r[3]})).concat(GX_SIMO)}))};
   ws.onopen=()=>{GX.st="on";GX.err="";declare();gxPaint()};
   ws.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(_){return}
-    if(j.success===false){GX.err=String(j.errorMessage||j.errorCode||"FSUIPC refused the request");GX.wait=true;gxPaint();clearTimeout(GX.dt);GX.dt=setTimeout(declare,5000);return}
+    if(j.success===false){GX.err=String(j.errorMessage||j.errorCode||"FSUIPC refused the request");GX.wait=true;gxPaint();clearTimeout(GX.dt);
+      GX.dt=setTimeout(j.command==="offsets.declare"&&!/already/i.test(GX.err)?declare:read,5000);return}
     if(GX.err||GX.wait){GX.err="";GX.wait=false;gxPaint()}
-    if(j.command==="offsets.declare"){ws.send(JSON.stringify({command:"offsets.read",name:"pefbGsx",interval:500}));return}
+    if(j.command==="offsets.declare"){read();return}
     if(j.command==="offsets.read"&&j.data&&typeof j.data==="object")gxRaw(j.data)};
   ws.onerror=()=>{GX.err="No FSUIPC WebSocket Server answered on localhost:"+(String(GX.port).replace(/\D/g,"")||"2048")};
   ws.onclose=()=>{if(GX.ws!==ws)return;GX.ws=null;GX.st=GX.st==="on"?"closed":"err";gxPaint();gxRetry()}}

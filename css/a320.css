@@ -547,6 +547,30 @@
 .ck-fb-light.on { background-color: var(--p-green); box-shadow: 0 0 8px var(--p-green); }
 .ck-note { margin: 0; color: var(--p-dim); text-align: center; max-width: 150px; }
 
+/* ---------- 進場設定 ---------- */
+.ck-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-150) var(--space-100); margin-top: var(--space-150); }
+.ck-form .ck-f-wide { grid-column: 1 / -1; }
+.ck-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.ck-num {
+    width: 100%;
+    padding: var(--space-75) var(--space-100);
+    border: var(--space-25) solid var(--line);
+    border-radius: var(--radius-lg);
+    background-color: var(--plate);
+    color: var(--ink);
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+}
+.ck-num:hover { border-color: var(--ink-muted); }
+.ck-num:focus-visible { outline: var(--space-25) solid var(--accent-strong); background-color: var(--surface); }
+.ck-wind { margin-top: var(--space-100); min-height: 1.2em; }
+.ck-actions { flex-wrap: wrap; }
+.pf-flag-s { font-size: 11px; }
+.pf-ra { font-size: 13px; }
+.pf-ra.below { fill: var(--p-amber); }
+.pf-mins { fill: var(--p-amber); font-size: 12px; font-weight: 800; }
+.mp-warr { stroke: #cdd2d8; stroke-width: 1.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
 /* ---------- FMA / PFD / 地圖 ---------- */
 .ck-flight {
     display: grid;

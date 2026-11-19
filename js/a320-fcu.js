@@ -1,6 +1,7 @@
 // FCU（飛行控制單元）、簡化的飛行模型、PFD 精簡版、平面地圖。
-// 座標：x 向東、y 向北（海里）。跑道 09 的入口在原點，跑道向東延伸 1.5 海里，航向 090。
-// 這是教學示意：沒有風、沒有襟翼和起落架的細節，物理量都是簡化的。
+// 座標：以「跑道座標」計算——跑道入口在原點，跑道沿 +x 延伸 1.5 海里，內部航向 090。
+// 選別的跑道時，只是把顯示的航向和地圖轉 (跑道航向 − 90) 度；機場標高加在高度上。
+// 這是教學示意：風在各高度都一樣、沒有風切，沒有襟翼和起落架的細節，物理量都是簡化的。
 (function (root) {
     'use strict';
 
@@ -20,6 +21,55 @@
     const GP_TAN = Math.tan(3 * D2R);
     const LOC_ANT = 1.9;   // 航向台天線位置（跑道盡頭，海里）
     const RWY_HDG = 90;
+
+    // ---------- 跑道、天氣、進場設定 ----------
+    // 跑道方向和機場標高是近似值，只用來示意，不能拿來導航。
+    const RUNWAYS = [
+        { id: 'TRN09', name: '教學跑道 09', rwy: '09', hdg: 90, elev: 0 },
+        { id: 'RCTP05L', name: '桃園 RCTP 05L', rwy: '05L', hdg: 53, elev: 106 },
+        { id: 'RCTP23R', name: '桃園 RCTP 23R', rwy: '23R', hdg: 233, elev: 106 },
+        { id: 'RCSS10', name: '松山 RCSS 10', rwy: '10', hdg: 97, elev: 18 },
+        { id: 'RCKH09', name: '高雄 RCKH 09', rwy: '09', hdg: 91, elev: 31 },
+        { id: 'VHHH07R', name: '香港 VHHH 07R', rwy: '07R', hdg: 73, elev: 28 },
+        { id: 'RJTT34R', name: '羽田 RJTT 34R', rwy: '34R', hdg: 337, elev: 21 }
+    ];
+    // contact：在離地多高時看得到跑道燈（呎）
+    const WX = {
+        clear: { name: '晴天，能見度 10 公里以上', contact: 1e9 },
+        low: { name: '低雲，雲底 300 呎', contact: 300 },
+        rvr350: { name: '霧，跑道視程 350 公尺', contact: 110 },
+        rvr200: { name: '濃霧，跑道視程 200 公尺', contact: 60 },
+        rvr75: { name: '極濃霧，跑道視程 75 公尺', contact: 15 }
+    };
+    // 各種進場能力的最低高度（離地呎）。CAT 3 DUAL 沒有決斷高，100 呎是警戒高。
+    const MINS = { 'CAT 1': 200, 'CAT 2': 100, 'CAT 3 SINGLE': 50, 'CAT 3 DUAL': 100, RNAV: 350 };
+    const AUTOLAND = { cross: 20, tail: 10, head: 30 };   // 自動降落風限（節）
+    const cfg = fcu.cfg = { rwy: 'TRN09', type: 'ils', wx: 'clear', windDir: 0, windSpd: 0, gust: 0, ilsFail: 'none' };
+    fcu.RUNWAYS = RUNWAYS;
+    fcu.WX = WX;
+    const runway = () => RUNWAYS.find((r) => r.id === cfg.rwy) || RUNWAYS[0];
+    const toReal = (h) => wrap360(h + (F.off || 0));
+    const toInt = (h) => wrap360(h - (F.off || 0));
+    const agl = () => F.alt - (F.elev || 0);
+    const LAT_APP = ['LOC*', 'LOC', 'LAND', 'APP NAV'];
+    const VERT_APP = ['G/S*', 'G/S', 'LAND', 'FLARE', 'FINAL'];
+    const rnav = () => F.apprType === 'rnav';
+    // 風：吹來的方向（真實航向）和風速 → 跑道座標下的風向量（節，x 向東、y 向北）
+    function windVec() {
+        const d = toInt(cfg.windDir) * D2R;
+        return { x: -cfg.windSpd * Math.sin(d), y: -cfg.windSpd * Math.cos(d) };
+    }
+    fcu.windComp = function () {
+        const w = windVec();
+        return { head: Math.round(-w.x), cross: Math.round(Math.abs(w.y)), from: w.y < 0 ? '左' : '右' };
+    };
+    // 要飛某個地面航跡時應該對準的航向（扣掉側風造成的偏流）
+    function headingForTrack(trk) {
+        const tas = Math.max(60, tasFromIas(F.ias, F.alt));
+        const w = windVec();
+        const cross = w.x * Math.cos(trk * D2R) - w.y * Math.sin(trk * D2R);
+        return wrap360(trk + Math.asin(clamp(-cross / tas, -0.5, 0.5)) * R2D);
+    }
 
     // ---------- 大氣 ----------
     function isa(alt) {
@@ -52,26 +102,34 @@
             expedite: false, locArm: false, apprArm: false,
             lat: '', vert: '', holdAlt: 0, thrust: 0, apOffWarn: false, gearDown: false,
             route: (ROUTES[name] || []).map((w) => Object.assign({}, w)), wp: 0, trail: [], scenario: name,
-            range: 40, touchdownMsg: ''
+            range: 40, touchdownMsg: '',
+            off: runway().hdg - 90, elev: runway().elev, apprType: cfg.type, ga: false, gaTrk: 90,
+            locOK: true, gsOK: true, failAt: null, failWhat: '', minDone: false, hundredDone: false,
+            handFly: false, noAutoland: false, windChk: false, gust: 0, gsKt: 0, vxKt: 0, vyKt: 0, trk: 90
         };
         Object.keys(F).forEach((k) => delete F[k]);
         Object.assign(F, base);
         if (name === 'cruise') {
             Object.assign(F, {
                 phase: 'AIR', x: -40, y: 0, alt: 35000, hdg: 74, ap1: true, athr: true,
-                spdMgd: true, hdgMgd: true, altSel: 35000, holdAlt: 35000, lat: 'NAV', vert: 'ALT', thrust: 0.78, range: 80, hdgSel: 74
+                spdMgd: true, hdgMgd: true, altSel: 35000, holdAlt: 35000, lat: 'NAV', vert: 'ALT', thrust: 0.78, range: 80
             });
+            F.hdgSel = Math.round(toReal(74));
             F.ias = iasFromMach(0.78, 35000);
         } else if (name === 'ils') {
+            const a0 = Math.round((F.elev + 3000) / 100) * 100;
             Object.assign(F, {
-                phase: 'AIR', x: -14, y: -2.5, alt: 3000, hdg: 60, ias: 180, ap1: true, athr: true,
-                spdSel: 180, hdgSel: 60, altSel: 3000, holdAlt: 3000, lat: 'HDG', vert: 'ALT', thrust: 0.45, range: 15
+                phase: 'AIR', x: -14, y: -2.5, alt: a0, hdg: 60, ias: 180, ap1: true, athr: true, spdMgd: true,
+                spdSel: 180, altSel: a0, holdAlt: a0, lat: 'HDG', vert: 'ALT', thrust: 0.45, range: 15
             });
+            F.hdgSel = Math.round(toReal(60)) || 360;
         } else {
             F.range = 10;
-            F.hdgSel = 90;
-            F.altSel = 5000;
+            F.alt = F.elev;
+            F.hdgSel = Math.round(toReal(90)) || 360;
+            F.altSel = Math.round((F.elev + 5000) / 100) * 100;
         }
+        setupFailure();
         F.power = A.sys.power();
         F.trail = [];
         fcu.invalidate();
@@ -79,9 +137,10 @@
 
     // ---------- 速度目標 ----------
     function managedIas() {
-        if (F.apprArm || F.lat === 'LOC*' || F.lat === 'LOC' || F.lat === 'LAND') {
-            if (F.alt < 1000) return 135;
-            if (F.alt < 4000) return 135 + ((F.alt - 1000) / 3000) * 55;
+        if (F.apprArm || LAT_APP.includes(F.lat) || F.handFly) {
+            const h = agl();
+            if (h < 1000) return 135;
+            if (h < 4000) return 135 + ((h - 1000) / 3000) * 55;
             return 190;
         }
         if (F.vert === 'SRS') return 150;
@@ -104,7 +163,7 @@
     fcu.targetIas = targetIas;
 
     // ---------- 進場幾何 ----------
-    const gpAlt = (x) => 50 + Math.max(0, -x) * 6076 * GP_TAN;
+    const gpAlt = (x) => (F.elev || 0) + 50 + Math.max(0, -x) * 6076 * GP_TAN;
     const locDots = () => (Math.atan2(F.y, LOC_ANT - F.x) * R2D) / 1.25;
     const gsDots = () => {
         const dist = Math.max(0.3, -F.x + 0.1) * 6076;
@@ -117,32 +176,31 @@
     const apOn = () => F.ap1 || F.ap2;
 
     function checkArmed() {
-        // LOC 截獲
-        if (F.locArm && F.lat !== 'LOC*' && F.lat !== 'LOC' && F.lat !== 'LAND' && ilsValid() && F.x < 0) {
-            const gs = tasFromIas(F.ias, F.alt);
-            const ydot = (gs / 3600) * Math.sin((F.hdg - RWY_HDG) * D2R);
-            const lead = 0.3 + 18 * Math.abs(ydot);
+        // LOC（或 RNAV 的 APP NAV）截獲
+        const latOK = rnav() || F.locOK;
+        if (F.locArm && !LAT_APP.includes(F.lat) && latOK && ilsValid() && F.x < 0) {
+            const lead = 0.3 + 18 * Math.abs(F.vyKt / 3600);
             if (Math.abs(F.y) < lead && Math.abs(wrap180(F.hdg - RWY_HDG)) < 75) {
-                F.lat = 'LOC*';
+                F.lat = rnav() ? 'APP NAV' : 'LOC*';
                 F.locArm = false;
                 F.hdgMgd = false;
-                A.toast('LOC*：截獲航向台');
+                A.toast(rnav() ? 'APP NAV：沿 GPS 算出的最後進場航道飛。' : 'LOC*：截獲航向台');
             }
         }
-        if (F.lat === 'LOC*' && Math.abs(F.y) < 0.12 && Math.abs(wrap180(F.hdg - RWY_HDG)) < 10) F.lat = 'LOC';
-        // G/S 截獲（只能由下往上）
-        if (F.apprArm && (F.lat === 'LOC*' || F.lat === 'LOC') && !['G/S*', 'G/S', 'LAND', 'FLARE'].includes(F.vert)) {
+        if (F.lat === 'LOC*' && Math.abs(F.y) < 0.12 && Math.abs(wrap180(F.trk - RWY_HDG)) < 10) F.lat = 'LOC';
+        // G/S（或 RNAV 的 FINAL）截獲：只能由下往上
+        if (F.apprArm && ['LOC*', 'LOC', 'APP NAV'].includes(F.lat) && !VERT_APP.includes(F.vert) && (rnav() || F.gsOK)) {
             const delta = F.alt - gpAlt(F.x);
             if (delta >= -35 && delta <= 110 && F.x < -0.5) {
-                F.vert = 'G/S*';
+                F.vert = rnav() ? 'FINAL' : 'G/S*';
                 F.apprArm = false;
-                A.toast('G/S*：截獲下滑道');
+                A.toast(rnav() ? 'FINAL APP：沿 GPS 計算的 3° 下降路徑下降。' : 'G/S*：截獲下滑道');
             }
         }
         if (F.vert === 'G/S*' && Math.abs(F.alt - gpAlt(F.x)) < 20) F.vert = 'G/S';
-        // LAND / FLARE
-        if ((F.vert === 'G/S' || F.vert === 'G/S*') && F.lat === 'LOC' && F.alt < 400) { F.lat = 'LAND'; F.vert = 'LAND'; }
-        if ((F.vert === 'LAND' || F.vert === 'G/S') && F.alt < 40) F.vert = 'FLARE';
+        // LAND / FLARE（只有 ILS 可以自動降落）
+        if ((F.vert === 'G/S' || F.vert === 'G/S*') && F.lat === 'LOC' && agl() < 400) { F.lat = 'LAND'; F.vert = 'LAND'; }
+        if ((F.vert === 'LAND' || F.vert === 'G/S') && agl() < 40) F.vert = 'FLARE';
         // 高度截獲
         if (['OP CLB', 'OP DES', 'CLB', 'DES', 'V/S'].includes(F.vert)) {
             const err = F.altSel - F.alt;
@@ -180,14 +238,17 @@
                 return -d;
             }
             case 'V/S': return F.vsSel;
-            case 'G/S*': case 'G/S': case 'LAND': {
-                const err = F.alt - gpAlt(F.x);
-                return -(gs * 5.3) - clamp(err * 2.5, -500, 500);
-            }
-            case 'FLARE': return -clamp(F.alt * 6, 120, 700);
+            case 'G/S*': case 'G/S': case 'LAND': case 'FINAL': return pathCmd(gs);
+            case 'FLARE': return flareCmd();
             default: return F.vs; // 沒有自動駕駛：維持目前的垂直速度
         }
     }
+
+    function pathCmd(gs) {
+        const err = F.alt - gpAlt(F.x);
+        return -(gs * 5.3) - clamp(err * 2.5, -500, 500);
+    }
+    const flareCmd = () => -clamp(agl() * 6, 120, 700);
 
     function navBearing() {
         const r = F.route;
@@ -202,11 +263,14 @@
         return wrap360(Math.atan2(dx, dy) * R2D);
     }
 
+    const locHeading = () => headingForTrack(RWY_HDG + clamp(F.y * 25, -40, 40));
+
     function latCmd() {
         switch (F.lat) {
-            case 'HDG': return F.hdgSel;
-            case 'NAV': return navBearing();
-            case 'LOC*': case 'LOC': case 'LAND': return RWY_HDG + clamp(F.y * 25, -40, 40);
+            case 'HDG': return toInt(F.hdgSel);
+            case 'NAV': return headingForTrack(navBearing());
+            case 'LOC*': case 'LOC': case 'LAND': case 'APP NAV': return locHeading();
+            case 'GA TRK': return headingForTrack(F.gaTrk);
             case 'RWY': case 'ROLL OUT': return RWY_HDG;
             default: return F.hdg;
         }
@@ -216,7 +280,7 @@
     function engageDefaults() {
         if (!F.lat) {
             if (F.hdgMgd && F.route.length && F.wp < F.route.length) F.lat = 'NAV';
-            else { F.lat = 'HDG'; F.hdgSel = Math.round(F.hdg) % 360 || 360; F.hdgMgd = false; F.hdgPreset = false; }
+            else { F.lat = 'HDG'; F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360; F.hdgMgd = false; F.hdgPreset = false; }
         }
         if (!F.vert) {
             if (Math.abs(F.vs) < 150) { F.vert = 'ALT'; F.holdAlt = Math.round(F.alt / 100) * 100; }
@@ -265,8 +329,9 @@
 
     function pressLOC() {
         if (!needAP('LOC 需要自動駕駛：先按 AP1。')) return;
+        if (cfg.type === 'rnav' && !['LOC*', 'LOC'].includes(F.lat)) { A.toast('現在設定的是 RNAV（GPS）進場，沒有航向台：直接按 APPR。'); return; }
         if (F.lat === 'LOC*' || F.lat === 'LOC') {
-            F.lat = 'HDG'; F.hdgSel = Math.round(F.hdg) % 360 || 360; F.hdgMgd = false; F.apprArm = false;
+            F.lat = 'HDG'; F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360; F.hdgMgd = false; F.apprArm = false;
             if (['G/S*', 'G/S'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = Math.round(F.vs / 100) * 100; }
         } else {
             F.locArm = !F.locArm;
@@ -277,15 +342,23 @@
 
     function pressAPPR() {
         if (!needAP('APPR 需要自動駕駛：先按 AP1。')) return;
-        const engaged = F.lat === 'LOC*' || F.lat === 'LOC' || ['G/S*', 'G/S'].includes(F.vert);
+        if (['LAND', 'FLARE'].includes(F.vert)) { A.toast('已經在自動降落最後階段，不能取消 APPR：要中止就按「重飛」。'); return; }
+        const engaged = ['LOC*', 'LOC', 'APP NAV'].includes(F.lat) || ['G/S*', 'G/S', 'FINAL'].includes(F.vert);
         if (F.apprArm || engaged) {
             F.apprArm = false;
             if (!engaged) F.locArm = false;
             else {
-                F.lat = 'HDG'; F.hdgSel = Math.round(F.hdg) % 360 || 360; F.hdgMgd = false;
-                if (['G/S*', 'G/S'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = Math.round(F.vs / 100) * 100; }
+                F.lat = 'HDG'; F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360; F.hdgMgd = false;
+                if (['G/S*', 'G/S', 'FINAL'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = Math.round(F.vs / 100) * 100; }
             }
-        } else { F.apprArm = true; F.locArm = F.lat !== 'LOC*' && F.lat !== 'LOC'; }
+        } else {
+            F.apprType = cfg.type;
+            F.apprArm = true;
+            F.locArm = !['LOC*', 'LOC', 'APP NAV'].includes(F.lat);
+            F.minDone = false; F.hundredDone = false; F.windChk = false; F.noAutoland = false;
+            if (!rnav() && !F.locOK) A.toast('注意：航向台（LOC）沒有訊號，APPR 會一直等不到截獲。改用 RNAV（GPS）進場比較好。');
+            else if (!rnav() && !F.gsOK) A.toast('注意：下滑道（G/S）沒有訊號，只會截獲 LOC，不會自動下降。');
+        }
         fcu.invalidate();
     }
 
@@ -324,17 +397,17 @@
         hdgPush() {
             if (!F.power) return;
             F.hdgMgd = true; F.hdgPreset = false;
-            if (F.phase === 'AIR' && apOn() && !['LOC*', 'LOC', 'LAND'].includes(F.lat)) {
+            if (F.phase === 'AIR' && apOn() && !LAT_APP.includes(F.lat) && F.lat !== 'GA TRK') {
                 if (F.route.length && F.wp < F.route.length) { F.lat = 'NAV'; A.toast('NAV：沿著航線飛。'); }
                 else { A.toast('這個情境沒有可飛的航線，維持目前航向。'); F.hdgMgd = false; }
             }
         },
         hdgPull() {
             if (!F.power) return;
-            if (F.hdgMgd && !F.hdgPreset) F.hdgSel = Math.round(F.hdg) % 360 || 360;
+            if (F.hdgMgd && !F.hdgPreset) F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360;
             F.hdgMgd = false; F.hdgPreset = false;
             if (F.phase === 'AIR' && apOn() && F.lat !== 'RWY') {
-                if (['LOC*', 'LOC'].includes(F.lat)) { F.locArm = F.apprArm = false; if (['G/S*', 'G/S'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = round100(F.vs); } }
+                if (['LOC*', 'LOC', 'APP NAV'].includes(F.lat)) { F.locArm = F.apprArm = false; if (['G/S*', 'G/S', 'FINAL'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = round100(F.vs); } }
                 if (F.lat !== 'LAND') F.lat = 'HDG';
             }
         },
@@ -343,7 +416,7 @@
         altGo(managed) {
             if (!F.power) return;
             if (!needAP('先接上 AP1，才能用高度旋鈕啟動爬升或下降。')) return;
-            if (['G/S*', 'G/S', 'LAND', 'FLARE', 'SRS'].includes(F.vert)) return;
+            if (VERT_APP.includes(F.vert) || F.vert === 'SRS') return;
             const err = F.altSel - F.alt;
             F.expedite = false;
             if (Math.abs(err) <= 60) { F.vert = 'ALT'; F.holdAlt = F.altSel; return; }
@@ -356,13 +429,13 @@
         },
         vsPull() {
             if (!F.power || !needAP('先接上 AP1，才能用 V/S。')) return;
-            if (['G/S*', 'G/S', 'LAND', 'FLARE', 'SRS'].includes(F.vert)) return;
+            if (VERT_APP.includes(F.vert) || F.vert === 'SRS') return;
             if (!F.vsPreset) F.vsSel = round100(F.vs);
             F.vsPreset = false; F.expedite = false; F.vert = 'V/S';
         },
         vsPush() {
             if (!F.power || !needAP('先接上 AP1，才能用 V/S。')) return;
-            if (['G/S*', 'G/S', 'LAND', 'FLARE', 'SRS'].includes(F.vert)) return;
+            if (VERT_APP.includes(F.vert) || F.vert === 'SRS') return;
             F.vsSel = 0; F.vsPreset = false; F.expedite = false; F.vert = 'V/S';
         }
     };
@@ -374,7 +447,8 @@
         if (!F.power) { A.toast('FCU 沒有電：先到頂板開電池。'); return; }
         if (A.sys.enginesRunning() < 2) { A.toast('兩具發動機都要在 AVAIL 才能起飛：先到頂板啟動發動機。'); return; }
         if (A.sys.attOK() < 1) { A.toast('ADIRS 還沒有姿態資料，等 ALIGN 燈熄滅。'); return; }
-        F.phase = 'TO'; F.x = 0.05; F.y = 0; F.hdg = RWY_HDG; F.lat = 'RWY'; F.vert = 'SRS'; F.vs = 0;
+        F.phase = 'TO'; F.x = 0.05; F.y = 0; F.hdg = RWY_HDG; F.lat = 'RWY'; F.vert = 'SRS'; F.vs = 0; F.alt = F.elev;
+        F.ga = false; F.minDone = false; F.handFly = false;
         F.touchdownMsg = '';
         F.athr = true;
         A.toast('起飛推力。到 150 節自動抬輪；離地後按 AP1，到 1500 呎會自動轉成爬升。');
@@ -384,12 +458,146 @@
     function land(vsAtTouch) {
         F.phase = 'ROLL';
         F.gearDown = true;
-        F.alt = 0; F.vs = 0; F.bank = 0; F.pitch = 0;
-        F.ap1 = F.ap2 = false; F.athr = false;
+        const auto = F.lat === 'LAND' || F.vert === 'FLARE';
+        F.alt = F.elev; F.vs = 0; F.bank = 0; F.pitch = 0;
+        F.ap1 = F.ap2 = false; F.athr = false; F.handFly = false;
         F.lat = 'ROLL OUT'; F.vert = ''; F.locArm = F.apprArm = false; F.expedite = false;
-        F.touchdownMsg = vsAtTouch < -900 ? '重落地（下降率 ' + Math.round(-vsAtTouch) + ' 呎／分）' : '接地，下降率 ' + Math.round(-vsAtTouch) + ' 呎／分';
+        const wc = fcu.windComp();
+        let msg = (vsAtTouch < -900 ? '重落地（下降率 ' : (auto ? '自動降落接地，下降率 ' : '接地，下降率 ')) + Math.round(-vsAtTouch) + ' 呎／分';
+        if (wc.cross >= 5) msg += `，${wc.from}側風 ${wc.cross} 節`;
+        if (wc.cross > 38) msg += '（超過 A320 示範過的最大側風 38 節）';
+        else if (auto && wc.cross > AUTOLAND.cross) msg += `（超過自動降落側風限制 ${AUTOLAND.cross} 節）`;
+        if (Math.abs(F.y) > 0.012) msg += `，偏離中心線約 ${Math.round(Math.abs(F.y) * 1852)} 公尺`;
+        F.touchdownMsg = msg;
         A.toast(F.touchdownMsg + '。減速滑行中。');
         if (A.snd) A.snd.touch(vsAtTouch);
+    }
+
+    // ---------- 重飛 ----------
+    fcu.goAround = function (why) {
+        if (F.phase !== 'AIR') { A.toast('只有在空中才能重飛。'); return; }
+        if (!F.power) return;
+        if (A.sys.enginesRunning() === 0) { A.toast('沒有推力，沒辦法重飛。'); return; }
+        F.ga = true;
+        F.handFly = false;
+        F.minDone = true;
+        F.gaTrk = F.trk;
+        F.vert = 'SRS';
+        F.lat = 'GA TRK';
+        F.locArm = F.apprArm = false; F.expedite = false;
+        F.athr = true;
+        F.hdgMgd = false; F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360;
+        F.spdMgd = true; F.spdPreset = false;
+        const maa = Math.round((F.elev + 3000) / 100) * 100;
+        if (F.altSel <= F.alt + 300) F.altSel = Math.max(maa, Math.ceil((F.alt + 1000) / 100) * 100);
+        F.gaCount = (F.gaCount || 0) + 1;
+        A.toast(why || `GO AROUND：推力推到 TOGA，SRS 拉起、收起落架，沿目前航跡爬升，目標 ${F.altSel} 呎。`);
+        fcu.invalidate();
+    };
+
+    // ---------- ILS 故障 ----------
+    function setupFailure() {
+        F.locOK = cfg.ilsFail !== 'loc';
+        F.gsOK = cfg.ilsFail !== 'gs';
+        F.failAt = cfg.ilsFail === 'random' ? F.elev + 500 + Math.random() * 1300 : null;
+        F.failWhat = Math.random() < 0.5 ? 'loc' : 'gs';
+    }
+    fcu.setCfg = function (key, val) {
+        cfg[key] = val;
+        if (key === 'ilsFail') {
+            const wasLoc = F.locOK, wasGs = F.gsOK;
+            setupFailure();
+            if (wasLoc && !F.locOK) loseSignal('loc');
+            if (wasGs && !F.gsOK) loseSignal('gs');
+        }
+        fcu.invalidate();
+    };
+    function loseSignal(what) {
+        if (what === 'loc') F.locOK = false; else F.gsOK = false;
+        if (rnav()) return;
+        const inApp = F.phase === 'AIR' && (F.apprArm || F.locArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert));
+        if (!inApp) { A.toast(what === 'loc' ? '航向台（LOC）訊號失效。' : '下滑道（G/S）訊號失效。'); return; }
+        const low = agl() < 1000;
+        if (what === 'loc') {
+            if (['LOC*', 'LOC', 'LAND'].includes(F.lat)) { F.lat = 'HDG'; F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360; F.hdgMgd = false; }
+            F.locArm = false;
+        }
+        if (['G/S*', 'G/S', 'LAND', 'FLARE'].includes(F.vert)) { F.vert = 'V/S'; F.vsSel = round100(F.vs); }
+        if (F.lat === 'LAND') F.lat = 'LOC';
+        F.apprArm = false;
+        if (low && apOn()) {
+            fcu.goAround(`${what === 'loc' ? 'LOC' : 'G/S'} 訊號失效，已經低於 1000 呎，進場不再穩定：GO AROUND。`);
+            return;
+        }
+        A.toast(what === 'loc'
+            ? 'LOC 訊號失效：PFD 出現紅色 LOC 旗標，模式退回 HDG 和 V/S。按「重飛」，或把進場方式改成 RNAV（GPS）再按 APPR。'
+            : 'G/S 訊號失效：PFD 出現紅色 G/S 旗標，垂直模式退回 V/S。按「重飛」，或改成 RNAV（GPS）再按 APPR。');
+    }
+    function checkFailure() {
+        if (F.failAt === null || F.apprType !== 'ils' || !(LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert))) return;
+        if (F.alt <= F.failAt && F.vs < 0) { F.failAt = null; loseSignal(F.failWhat); }
+    }
+
+    // ---------- 進場能力（CAT）與最低高度 ----------
+    // 簡化規則：CAT 3 DUAL 要雙 AP、A/THR、雙發、三套液壓、兩台 ELAC 和 FAC、兩條 AC 匯流排；
+    // CAT 3 SINGLE 要單 AP、A/THR、雙發、至少兩套液壓；只剩 AP 就是 CAT 2；沒有 AP 是 CAT 1。
+    function capability() {
+        if (!(F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert))) return '';
+        if (rnav()) return 'RNAV';
+        if (!F.locOK || !F.gsOK) return '';
+        if (!apOn()) return 'CAT 1';
+        const s = A.sys.state;
+        const pb = s.pb;
+        const hyd = [s.hyd.g, s.hyd.b, s.hyd.y].filter((v) => v > 1500).length;
+        const eng = A.sys.enginesRunning();
+        const elac = (pb.elac1 ? 1 : 0) + (pb.elac2 ? 1 : 0);
+        const fac = (pb.fac1 ? 1 : 0) + (pb.fac2 ? 1 : 0);
+        const ac = (s.buses.ac1 ? 1 : 0) + (s.buses.ac2 ? 1 : 0);
+        if (F.ap1 && F.ap2 && F.athr && eng === 2 && hyd === 3 && elac === 2 && fac === 2 && ac === 2) return 'CAT 3 DUAL';
+        if (F.athr && eng === 2 && hyd >= 2 && elac >= 1 && fac >= 1) return 'CAT 3 SINGLE';
+        if (elac >= 1 && fac >= 1) return 'CAT 2';
+        return 'CAT 1';
+    }
+    fcu.capability = capability;
+    fcu.minimum = () => { const c = capability(); return c ? MINS[c] : null; };
+
+    function checkMinimums() {
+        const active = LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert);
+        if (F.phase !== 'AIR' || F.minDone || F.ga || !active || F.vs >= 0) return;
+        const h = agl();
+        const cap = capability();
+        // 1000 呎：自動降落風限檢查
+        if (!F.windChk && h < 1000 && !rnav()) {
+            F.windChk = true;
+            const wc = fcu.windComp();
+            const over = wc.cross > AUTOLAND.cross ? `側風 ${wc.cross} 節（上限 ${AUTOLAND.cross}）`
+                : wc.head < -AUTOLAND.tail ? `順風 ${-wc.head} 節（上限 ${AUTOLAND.tail}）`
+                    : wc.head > AUTOLAND.head ? `逆風 ${wc.head} 節（上限 ${AUTOLAND.head}）` : '';
+            if (over) {
+                F.noAutoland = true;
+                A.toast(`1000 呎：${over}，超過自動降落限制。到最低高度時 AP 會斷開改手動落地，看不到跑道就重飛。`);
+            }
+        }
+        if (!cap) return;
+        const m = MINS[cap];
+        if (!F.hundredDone && h <= m + 100 && cap !== 'CAT 3 DUAL') { F.hundredDone = true; A.toast('HUNDRED ABOVE：再一百呎到最低高度。'); }
+        if (h > m) return;
+        F.minDone = true;
+        const w = WX[cfg.wx] || WX.clear;
+        const see = cap === 'CAT 3 DUAL' || w.contact >= m;
+        if (!see) {
+            fcu.goAround(`MINIMUM：${cap === 'RNAV' ? 'RNAV 最低高度 350 呎' : `${cap}，決斷高 ${m} 呎`}，${w.name}，看不到跑道。GO AROUND。`);
+            return;
+        }
+        if (cap === 'RNAV' || F.noAutoland) {
+            disengageAll(false);
+            F.handFly = true;
+            A.toast(cap === 'RNAV'
+                ? 'MINIMUM：看到跑道了。RNAV 進場不能自動降落，AP 斷開，機長目視手動落地（模擬）。'
+                : 'MINIMUM：看到跑道。風超過自動降落限制，AP 斷開，機長手動落地（模擬）。');
+            return;
+        }
+        A.toast(cap === 'CAT 3 DUAL' ? 'ALERT HEIGHT 100 呎：雙自動駕駛正常，NO DH，繼續自動降落。' : `MINIMUM：看到跑道燈，繼續自動降落（${cap}，決斷高 ${m} 呎）。`);
     }
 
     // ---------- 飛行模型 ----------
@@ -403,8 +611,8 @@
             F.thrust = approach(F.thrust, 1, 0.6, dt);
             F.ias += 5.5 * dt;
             const v = tasFromIas(F.ias, 0);
-            F.x += (v / 3600) * dt;
-            if (F.ias >= 150) { F.phase = 'AIR'; F.alt = 1; F.gearDown = true; A.toast('V1、抬輪。'); }
+            F.x += (Math.max(0, v + windVec().x) / 3600) * dt;
+            if (F.ias >= 150) { F.phase = 'AIR'; F.alt = F.elev + 1; F.gearDown = true; A.toast('V1、抬輪。'); }
             return;
         }
         if (F.phase === 'ROLL') {
@@ -420,30 +628,42 @@
         // ---- 空中 ----
         if (apOn() && A.sys.attOK() < 1) { disengageAll(true); A.toast('AP 斷開：姿態資料消失。'); }
         checkArmed();
+        checkFailure();
+        checkMinimums();
+        if (F.phase !== 'AIR') return;
 
-        // SRS 到 1500 呎後轉成爬升
-        if (F.vert === 'SRS' && F.alt >= 1500) {
+        // SRS 到離地 1500 呎後轉成爬升（起飛或重飛）
+        if (F.vert === 'SRS' && agl() >= 1500) {
             if (apOn()) {
-                F.lat = F.hdgMgd && F.route.length ? 'NAV' : 'HDG';
-                if (F.lat === 'HDG' && F.hdgMgd) F.hdgMgd = false;
+                const wasGa = F.ga;
+                F.lat = !wasGa && F.hdgMgd && F.route.length ? 'NAV' : 'HDG';
+                if (F.lat === 'HDG') { F.hdgMgd = false; if (wasGa) F.hdgSel = Math.round(toReal(F.hdg)) % 360 || 360; }
                 F.vert = F.altSel > F.alt + 100 ? (F.spdMgd ? 'CLB' : 'OP CLB') : 'ALT';
                 if (F.vert === 'ALT') F.holdAlt = F.altSel;
-                A.toast('1500 呎：轉成爬升模式。');
+                F.ga = false;
+                A.toast(wasGa ? '離地 1500 呎：加速高度，推力收回 CLB，轉成爬升到 FCU 高度。可以用 HDG 繞回來，再按 APPR 重新進場。' : '1500 呎：轉成爬升模式。');
             } else if (!F.warnedAp) {
                 F.warnedAp = true;
                 A.toast('1500 呎了還沒接 AP：按 AP1，不然飛機只會維持目前的爬升率。');
-                F.lat = ''; F.vert = '';
+                F.lat = ''; F.vert = ''; F.ga = false;
             }
         }
         if (!F.vert && !apOn()) F.warnedAp = false;
 
+        // 陣風：指示空速隨機起伏，A/THR 會去修正
+        if (cfg.gust > 0) {
+            const g0 = F.gust;
+            F.gust = clamp(F.gust + (-F.gust * 0.8 + (Math.random() * 2 - 1) * cfg.gust * 2.2) * dt, -cfg.gust, cfg.gust);
+            F.ias += F.gust - g0;
+        } else F.gust = 0;
+
         const tgt = targetIas();
         const tas = tasFromIas(F.ias, F.alt);
-        const gs = tas;
+        const gs = Math.max(40, F.gsKt || tas);
 
         // 垂直速度
-        const cmd = vertCmd(tgt, gs);
-        const manual = !apOn() && F.vert !== 'SRS';
+        const cmd = F.handFly ? (agl() < 40 ? flareCmd() : pathCmd(gs)) : vertCmd(tgt, gs);
+        const manual = !apOn() && F.vert !== 'SRS' && !F.handFly;
         if (!manual || F.vert === 'SRS') F.vs += (cmd - F.vs) * Math.min(1, dt / 1.4);
         // 只剩一具發動機：爬升率受限，高度超過 FL205 就會慢慢飄降
         if (engines === 1) { if (F.alt >= 20450 && F.vs > -700) F.vs = -700; else F.vs = Math.min(F.vs, 900); }
@@ -463,28 +683,34 @@
         if (F.vert === 'SRS' && F.alt > 1000) F.thrust = Math.min(F.thrust, 0.97);
 
         // 橫向
-        const hdgTarget = (apOn() || F.lat === 'RWY') ? latCmd() : F.hdg;
+        const guided = apOn() || F.lat === 'RWY' || F.lat === 'GA TRK' || F.handFly;
+        const hdgTarget = F.handFly ? locHeading() : guided ? latCmd() : F.hdg;
         const err = wrap180(hdgTarget - F.hdg);
         const V = tas * 0.5144;
         const bankMax = 25;
-        const bankCmd = apOn() || F.lat === 'RWY' ? clamp(err * 1.1, -bankMax, bankMax) : 0;
+        const bankCmd = guided ? clamp(err * 1.1, -bankMax, bankMax) : 0;
         F.bank += (bankCmd - F.bank) * Math.min(1, dt / 1.2);
         const turn = Math.min(3, Math.abs(9.81 * Math.tan(F.bank * D2R) / V) * R2D) * Math.sign(F.bank);
         F.hdg = wrap360(F.hdg + turn * dt);
 
         // 位置和高度
-        F.x += (gs / 3600) * Math.sin(F.hdg * D2R) * dt;
-        F.y += (gs / 3600) * Math.cos(F.hdg * D2R) * dt;
-        F.alt = clamp(F.alt + (F.vs / 60) * dt, 0, 41000);
+        const w = windVec();
+        F.vxKt = tas * Math.sin(F.hdg * D2R) + w.x;
+        F.vyKt = tas * Math.cos(F.hdg * D2R) + w.y;
+        F.gsKt = Math.hypot(F.vxKt, F.vyKt);
+        F.trk = wrap360(Math.atan2(F.vxKt, F.vyKt) * R2D);
+        F.x += (F.vxKt / 3600) * dt;
+        F.y += (F.vyKt / 3600) * dt;
+        F.alt = clamp(F.alt + (F.vs / 60) * dt, F.elev, 41000);
 
         // 姿態角（顯示用）
         const gamma = Math.atan2(F.vs, tas * 101.27) * R2D;
         const aoa = clamp(3 + (200 - F.ias) * 0.04, 1.5, 8);
         F.pitch = gamma + aoa;
 
-        F.gearDown = F.alt < 2300 && (['LOC*', 'LOC', 'LAND'].includes(F.lat) || ['G/S*', 'G/S', 'LAND', 'FLARE'].includes(F.vert) || F.vert === 'SRS');
+        F.gearDown = agl() < 2300 && !(F.ga && F.vs > 300) && (LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) || F.vert === 'SRS' || F.handFly);
 
-        if (F.alt <= 0 && F.vs <= 0) { land(F.vs); return; }
+        if (F.alt <= F.elev && F.vs <= 0) { land(F.vs); return; }
 
         // 軌跡
         F.trailT = (F.trailT || 0) + dt;
@@ -495,7 +721,8 @@
     function vertHelp() {
         const tgt = pad(F.altSel, 0);
         switch (F.vert) {
-            case 'SRS': return '起飛中：SRS 用俯仰維持起飛速度（V2＋10 節），到 1500 呎轉成爬升。';
+            case 'SRS': return F.ga ? `重飛 SRS：TOGA 推力，用俯仰維持速度爬升；離地 1500 呎轉成爬升到 ${tgt} 呎。` : '起飛中：SRS 用俯仰維持起飛速度（V2＋10 節），到 1500 呎轉成爬升。';
+            case 'FINAL': return 'FINAL APP：RNAV（GPS）進場，沿電腦算出的 3° 路徑下降。最低高度 350 呎時要看到跑道，AP 會斷開改目視落地。';
             case 'ALT': return `ALT：保持 ${Math.round(F.holdAlt)} 呎。`;
             case 'ALT*': return `ALT*：正在平順地截獲 ${Math.round(F.holdAlt)} 呎。`;
             case 'OP CLB': return `OP CLB（開放爬升）：用爬升推力，靠俯仰維持速度，一路爬到 FCU 高度 ${tgt} 呎。`;
@@ -507,7 +734,9 @@
             case 'G/S': return 'G/S：沿著 3° 下滑道下降，速度由推力控制。';
             case 'LAND': return 'LAND：自動進場最後階段，AP 沿著航向台和下滑道飛。';
             case 'FLARE': return 'FLARE：拉平，把下降率收小再接地。';
-            default: return apOn() || F.phase !== 'AIR' ? '' : 'AP 沒有接上：飛機維持目前的航向和垂直速度，不會自動修正。';
+            default:
+                if (F.handFly) return '目視手動落地（模擬）：AP 已斷開，機長沿跑道中心線和 3° 路徑落地。';
+                return apOn() || F.phase !== 'AIR' ? '' : 'AP 沒有接上：飛機維持目前的航向和垂直速度，不會自動修正。';
         }
     }
     function latHelp() {
@@ -515,7 +744,9 @@
             case 'HDG': return `HDG：飛選定航向 ${pad(F.hdgSel, 3)}°。`;
             case 'NAV': return F.wp < F.route.length ? `NAV：沿航線飛向 ${F.route[F.wp].n}。` : 'NAV：航線結束，維持最後的航向。';
             case 'LOC*': return 'LOC*：正在截獲航向台中心線。';
-            case 'LOC': return 'LOC：沿著航向台中心線（跑道 09，航向 090）。';
+            case 'LOC': return `LOC：沿著航向台中心線（${runway().name}，航向 ${pad(runway().hdg, 3)}）。`;
+            case 'APP NAV': return `APP NAV：沿 GPS 最後進場航道（${runway().name}）。`;
+            case 'GA TRK': return 'GA TRK：重飛時保持目前的地面航跡。';
             case 'LAND': return '';
             case 'RWY': return 'RWY：起飛滾行時保持跑道方向。';
             case 'ROLL OUT': return 'ROLL OUT：著陸滾行，沿跑道中心線減速。';
@@ -526,6 +757,15 @@
         const a = [vertHelp(), latHelp()].filter(Boolean);
         if (F.athr && F.phase === 'AIR') {
             a.push(['OP CLB', 'CLB'].includes(F.vert) ? 'A/THR：THR CLB，推力固定在爬升推力。' : ['OP DES', 'DES'].includes(F.vert) ? 'A/THR：THR IDLE，推力在慢車。' : `A/THR：${usingMach() ? 'MACH' : 'SPEED'}，推力自動調整來維持目標速度。`);
+        }
+        if (F.phase === 'AIR') {
+            const cap = capability();
+            if (cap) {
+                const w = WX[cfg.wx] || WX.clear;
+                a.push(cap === 'RNAV' ? `進場能力：RNAV（GPS），最低高度 350 呎（離地）。天氣：${w.name}。`
+                    : `進場能力：${cap}，${cap === 'CAT 3 DUAL' ? 'NO DH（警戒高 100 呎）' : `決斷高 ${MINS[cap]} 呎`}。天氣：${w.name}。`);
+            }
+            if (!F.locOK || !F.gsOK) a.push(`ILS 故障：${!F.locOK ? 'LOC' : ''}${!F.locOK && !F.gsOK ? '、' : ''}${!F.gsOK ? 'G/S' : ''} 沒有訊號。`);
         }
         if (F.touchdownMsg && F.phase !== 'AIR') a.unshift(F.touchdownMsg + '。');
         return a.join('\n');
@@ -626,8 +866,8 @@
         set('step', F.altStep, (v) => { ui.altLab.step.textContent = String(v); });
         const lit = {
             ap1: F.power && F.ap1, ap2: F.power && F.ap2, athr: F.power && F.athr,
-            loc: F.power && (F.locArm || F.lat === 'LOC*' || F.lat === 'LOC' || F.lat === 'LAND'),
-            appr: F.power && (F.apprArm || ['G/S*', 'G/S', 'LAND', 'FLARE'].includes(F.vert)),
+            loc: F.power && !rnav() && (F.locArm || F.lat === 'LOC*' || F.lat === 'LOC' || F.lat === 'LAND'),
+            appr: F.power && (F.apprArm || VERT_APP.includes(F.vert) || (rnav() && F.lat === 'APP NAV')),
             exped: F.power && F.expedite
         };
         for (const id in lit) set('b' + id, lit[id], (v) => ui.btn[id].set(v));
@@ -661,7 +901,7 @@
         if (!F.power) { for (let i = 0; i < 5; i++) fmaSet(i, '', '', '', ''); return; }
         // 推力
         let thr = '';
-        if (F.phase === 'TO') thr = 'MAN TOGA';
+        if (F.phase === 'TO' || (F.ga && F.vert === 'SRS')) thr = 'MAN TOGA';
         else if (F.athr && F.phase === 'AIR') thr = ['OP CLB', 'CLB'].includes(F.vert) ? 'THR CLB' : ['OP DES', 'DES'].includes(F.vert) ? 'THR IDLE' : usingMach() ? 'MACH' : 'SPEED';
         fmaSet(0, thr, thr === 'MAN TOGA' ? 'w' : 'g', '', '');
         // 垂直
@@ -669,14 +909,21 @@
         if (F.expedite && v1) v1 += ' ·EXPED';
         const heading = ['OP CLB', 'OP DES', 'CLB', 'DES', 'V/S'].includes(F.vert) && Math.abs(F.vs) > 50 && Math.sign(F.altSel - F.alt) === Math.sign(F.vs);
         if (heading) armedV = 'ALT';
-        if (F.apprArm && !['G/S*', 'G/S', 'LAND', 'FLARE'].includes(F.vert)) armedV = armedV ? armedV + ' G/S' : 'G/S';
+        if (F.apprArm && !VERT_APP.includes(F.vert)) { const g = rnav() ? 'FINAL' : 'G/S'; armedV = armedV ? armedV + ' ' + g : g; }
+        let lat1 = F.lat;
+        if (F.vert === 'FINAL' && F.lat === 'APP NAV') { v1 = 'FINAL APP'; lat1 = ''; }
         fmaSet(1, v1, 'g', armedV, armedC);
         // 橫向
-        const l2 = F.locArm ? 'LOC' : '';
-        fmaSet(2, F.lat, 'g', l2, 'b');
-        // 進場能力
-        const appr = (F.apprArm || ['LOC*', 'LOC', 'LAND'].includes(F.lat)) && apOn();
-        fmaSet(3, appr ? (F.ap1 && F.ap2 ? 'CAT3' : 'CAT2') : '', 'w', appr ? (F.ap1 && F.ap2 ? 'DUAL' : 'SINGLE') : '', 'w');
+        const l2 = F.locArm ? (rnav() ? 'APP NAV' : 'LOC') : '';
+        fmaSet(2, lat1, 'g', l2, 'b');
+        // 進場能力與最低高度
+        const cap = capability();
+        let c1 = '', c2 = '';
+        if (cap === 'CAT 3 DUAL') { c1 = 'CAT 3'; c2 = 'DUAL'; }
+        else if (cap === 'CAT 3 SINGLE') { c1 = 'CAT 3'; c2 = 'SINGLE'; }
+        else if (cap === 'CAT 2' || cap === 'CAT 1') { c1 = cap; c2 = 'DH ' + MINS[cap]; }
+        else if (cap === 'RNAV') { c1 = ''; c2 = 'MDA ' + Math.round(F.elev + MINS.RNAV); }
+        fmaSet(3, c1, 'w', c2, c2.startsWith('DH') || c2.startsWith('MDA') ? 'b' : 'w');
         // 自動駕駛
         const apTxt = F.ap1 && F.ap2 ? 'AP1+2' : F.ap1 ? 'AP1' : F.ap2 ? 'AP2' : '';
         fmaSet(4, apTxt, 'w', F.athr ? 'A/THR' : '', F.phase === 'AIR' ? 'w' : 'b');
@@ -737,6 +984,12 @@
         }
         pfd.locD = svgEl('polygon', { points: '0,-6 6,0 0,6 -6,0', class: 'pf-dia' }, pfd.ils);
         pfd.gsD = svgEl('polygon', { points: '0,-6 6,0 0,6 -6,0', class: 'pf-dia' }, pfd.ils);
+        pfd.locF = svgEl('text', { x: 190, y: 216, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
+        pfd.locF.textContent = 'LOC';
+        pfd.gsF = svgEl('text', { x: 288, y: 124, class: 'pf-flag pf-flag-s', 'text-anchor': 'middle' }, svg);
+        pfd.gsF.textContent = 'G/S';
+        pfd.ra = svgEl('text', { x: 190, y: 182, class: 'pf-big pf-ra', 'text-anchor': 'middle' }, svg);
+        pfd.mins = svgEl('text', { x: 190, y: 40, class: 'pf-t pf-mins', 'text-anchor': 'middle' }, svg);
 
         // 速度帶
         svgEl('rect', { x: 6, y: 20, width: 64, height: 200, class: 'pf-tape' }, svg);
@@ -847,7 +1100,7 @@
         pfd.vsTxt.textContent = Math.abs(vs) >= 100 ? (vs > 0 ? '+' : '−') + Math.round(Math.abs(vs) / 100) * 100 : '';
 
         // 航向
-        const h = F.hdg;
+        const h = toReal(F.hdg);
         const b0 = Math.floor(h / 5) * 5 - 40;
         pfd.hdgPool.forEach(([ln, tx], i) => {
             const v = b0 + i * 5;
@@ -867,14 +1120,26 @@
         } else pfd.hdgBug.style.display = 'none';
 
         // LOC / GS
-        const showIls = F.phase === 'AIR' && (F.locArm || F.apprArm || ['LOC*', 'LOC', 'LAND'].includes(F.lat)) && ilsValid();
+        const wantIls = F.phase === 'AIR' && (F.locArm || F.apprArm || LAT_APP.includes(F.lat) || VERT_APP.includes(F.vert) || F.handFly);
+        const showIls = wantIls && ilsValid();
         pfd.ils.style.display = showIls ? '' : 'none';
+        const ilsType = !rnav();
+        pfd.locF.style.display = wantIls && ilsType && !F.locOK ? '' : 'none';
+        pfd.gsF.style.display = wantIls && ilsType && !F.gsOK ? '' : 'none';
         if (showIls) {
+            pfd.locD.style.display = ilsType && !F.locOK ? 'none' : '';
+            pfd.gsD.style.display = ilsType && !F.gsOK ? 'none' : '';
             const ld = clamp(locDots(), -2.6, 2.6);
             pfd.locD.setAttribute('transform', `translate(${(190 + ld * 24).toFixed(1)} 212)`);
             const gd = clamp(gsDots(), -2.6, 2.6);
             pfd.gsD.setAttribute('transform', `translate(288 ${(120 - gd * 22).toFixed(1)})`);
         }
+        // 無線電高度與最低高度
+        const ra = agl();
+        pfd.ra.textContent = F.phase === 'AIR' && ra < 2500 ? String(ra < 50 ? Math.round(ra) : Math.round(ra / 10) * 10) : '';
+        const mn = F.phase === 'AIR' && !F.minDone ? fcu.minimum() : null;
+        pfd.ra.classList.toggle('below', mn !== null && ra <= mn + 100);
+        pfd.mins.textContent = mn !== null && ra <= mn ? 'MINIMUM' : '';
     }
 
     // ---------- 畫面：平面地圖 ----------
@@ -894,6 +1159,11 @@
         map.ac = svgEl('g', {}, svg);
         svgEl('polygon', { points: '0,-7 5,6 0,3 -5,6', class: 'mp-ac' }, map.ac);
         map.scale = svgEl('text', { x: -96, y: 96, class: 'mp-t' }, svg);
+        map.gsTxt = svgEl('text', { x: -96, y: -88, class: 'mp-t' }, svg);
+        map.windTxt = svgEl('text', { x: -96, y: -78, class: 'mp-t' }, svg);
+        map.windArr = svgEl('g', { class: 'mp-wind' }, svg);
+        svgEl('path', { d: 'M0,-7 L0,7 M-3,3 L0,7 L3,3', class: 'mp-warr' }, map.windArr);
+        map.rwyTxt = svgEl('text', { x: 96, y: -88, class: 'mp-t', 'text-anchor': 'end' }, svg);
         host.append(svg);
     }
     function renderMap() {
@@ -923,7 +1193,15 @@
             t.textContent = w.n;
         });
         map.trail.setAttribute('points', F.trail.map((p) => P(p[0], p[1]).join(',')).join(' '));
-        map.ac.setAttribute('transform', `rotate(${F.hdg.toFixed(1)})`);
+        map.world.setAttribute('transform', `rotate(${(F.off || 0).toFixed(1)})`);
+        map.ac.setAttribute('transform', `rotate(${toReal(F.hdg).toFixed(1)})`);
+        const air = F.phase === 'AIR';
+        set1(map.gsTxt, air ? `GS ${Math.round(F.gsKt)}  TAS ${Math.round(tasFromIas(F.ias, F.alt))}` : '');
+        set1(map.windTxt, cfg.windSpd > 0 ? `${pad(cfg.windDir, 3)}° / ${cfg.windSpd}${cfg.gust ? ' G' + (cfg.windSpd + cfg.gust) : ''} 節` : '無風');
+        // 風向箭頭：指向風吹去的方向
+        map.windArr.setAttribute('transform', `translate(-30 -82) scale(0.8) rotate(${(cfg.windDir + 180) % 360})`);
+        map.windArr.style.display = cfg.windSpd > 0 ? '' : 'none';
+        set1(map.rwyTxt, `${runway().name}　${rnav() || (F.phase !== 'AIR' && cfg.type === 'rnav') ? 'RNAV' : 'ILS'}`);
     }
 
     // ---------- 總渲染 ----------
@@ -946,14 +1224,13 @@
         const txt = F.power ? modeHelp() : 'FCU 沒有電：到頂板打開 BAT 1、BAT 2，或接上地面電源。';
         set1(help, txt);
         if (readout) {
-            const r = F.power && F.phase !== 'GND' ? `速度 ${Math.round(F.ias)} 節（M${machOf(Math.max(1, F.ias), F.alt).toFixed(2)}）　高度 ${Math.round(F.alt)} 呎　航向 ${pad(F.hdg, 3)}°　垂直速度 ${Math.round(F.vs / 10) * 10} 呎／分` : '';
+            const r = F.power && F.phase !== 'GND' ? `速度 ${Math.round(F.ias)} 節（M${machOf(Math.max(1, F.ias), F.alt).toFixed(2)}）　高度 ${Math.round(F.alt)} 呎（離地 ${Math.round(agl())}）　航向 ${pad(toReal(F.hdg), 3)}°　垂直速度 ${Math.round(F.vs / 10) * 10} 呎／分` : '';
             set1(readout, r);
         }
     };
     function set1(node, txt) {
         if (!node) return;
-        const key = 'txt' + (node.id || '');
-        if (cache[key] !== txt) { cache[key] = txt; node.textContent = txt; }
+        if (node.textContent !== txt) node.textContent = txt;
     }
 
     fcu.canTakeoff = () => F.phase === 'GND' && F.power && A.sys.enginesRunning() === 2;

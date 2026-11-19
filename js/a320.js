@@ -12,7 +12,7 @@
 
     const INTRO = {
         cruise: '巡航：FL350、M.78，AP1 和 A/THR 已接上，沿航線飛。試試把 ALT 轉到 10000，再拉出旋鈕。',
-        ils: '進場：高度 3000 呎、航向 060，在跑道 09 進場。按 LOC 和 APPR，讓飛機自己截獲航向台和下滑道。',
+        ils: '進場：離地約 3000 呎，正從側面切入最後進場航道。按 APPR（ILS 會同時武裝 LOC 和 G/S），讓飛機自己截獲。右邊可以換跑道、天氣、風和故障。',
         cold: '冷艙：電池關閉，所有燈都是暗的。照下方的流程表一步一步開，到「頂板」分頁操作。'
     };
 
@@ -105,9 +105,51 @@
         }));
         $('ckReset').addEventListener('click', () => applyScenario(scenario));
         $('btnTo').addEventListener('click', () => A.fcu.takeoff());
+        $('btnGa').addEventListener('click', () => A.fcu.goAround());
+        setupApproach();
 
         setupSound();
         root.requestAnimationFrame(frame);
+    }
+
+    // 進場設定：跑道、進場方式、天氣、風、ILS 故障
+    function setupApproach() {
+        const fcu = A.fcu;
+        const cfg = fcu.cfg;
+        const rw = $('apRwy'), wx = $('apWx');
+        fcu.RUNWAYS.forEach((r) => rw.append(new Option(`${r.name}（航向 ${String(r.hdg).padStart(3, '0')}，標高 ${r.elev} 呎）`, r.id)));
+        Object.keys(fcu.WX).forEach((k) => wx.append(new Option(fcu.WX[k].name, k)));
+        rw.value = cfg.rwy;
+        wx.value = cfg.wx;
+        const windTxt = () => {
+            const c = fcu.windComp();
+            const t = cfg.windSpd > 0
+                ? `對這條跑道：${c.head >= 0 ? '逆風' : '順風'} ${Math.abs(c.head)} 節，${c.cross ? `${c.from}側風 ${c.cross} 節` : '沒有側風'}。自動降落上限：側風 20、順風 10、逆風 30 節。`
+                : '無風。';
+            $('apWindTxt').textContent = t;
+        };
+        rw.addEventListener('change', () => { cfg.rwy = rw.value; applyScenario(scenario); windTxt(); });
+        wx.addEventListener('change', () => { fcu.setCfg('wx', wx.value); A.toast('天氣：' + fcu.WX[wx.value].name + '。'); });
+        document.querySelectorAll('input[name="apType"]').forEach((r) => r.addEventListener('change', () => {
+            if (!r.checked) return;
+            fcu.setCfg('type', r.value);
+            A.toast(r.value === 'rnav' ? 'RNAV（GPS）進場：按 APPR，截獲 APP NAV 和 FINAL。不能自動降落，最低高度 350 呎。' : 'ILS 進場：按 APPR，截獲 LOC 和 G/S，可以自動降落。');
+        }));
+        const num = (id, key, lo, hi) => {
+            const inp = $(id);
+            inp.addEventListener('change', () => {
+                let v = Math.round(Number(inp.value) || 0);
+                v = key === 'windDir' ? ((v % 360) + 360) % 360 : Math.max(lo, Math.min(hi, v));
+                inp.value = String(v);
+                fcu.setCfg(key, v);
+                windTxt();
+            });
+        };
+        num('apWdir', 'windDir', 0, 360);
+        num('apWspd', 'windSpd', 0, 60);
+        num('apGust', 'gust', 0, 25);
+        $('apFail').addEventListener('change', (e) => fcu.setCfg('ilsFail', e.target.value));
+        windTxt();
     }
 
     function setupSound() {

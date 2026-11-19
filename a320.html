@@ -25,7 +25,7 @@
     <!-- /shared:head -->
     <link rel="preload" href="fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css?v=f3a035b5">
-    <link rel="stylesheet" href="css/a320.css?v=97dc40bd">
+    <link rel="stylesheet" href="css/a320.css?v=e130daf6">
 </head>
 <body>
 
@@ -126,7 +126,50 @@
                             <p class="body-6 ck-help" id="modeHelp"></p>
                             <div class="ck-actions">
                                 <button class="btn btn-on-light caption-1" id="btnTo" type="button">起飛（TOGA）</button>
+                                <button class="btn btn-on-light caption-1" id="btnGa" type="button">重飛（GO AROUND）</button>
                             </div>
+                        </div>
+                        <div class="ck-card">
+                            <h3 class="title-4">進場設定</h3>
+                            <div class="ck-form">
+                                <label class="filter-field ck-f-wide">
+                                    <span class="caption-1">機場跑道（換跑道會重置情境）</span>
+                                    <span class="select-wrap"><select id="apRwy"></select><i class="ph ph-caret-down" aria-hidden="true"></i></span>
+                                </label>
+                                <fieldset class="filter-seg ck-f-wide">
+                                    <legend class="caption-1">進場方式</legend>
+                                    <div class="seg-row">
+                                        <label class="seg-opt"><input type="radio" name="apType" value="ils" checked><span class="chip caption-1">ILS</span></label>
+                                        <label class="seg-opt"><input type="radio" name="apType" value="rnav"><span class="chip caption-1">RNAV（GPS）</span></label>
+                                    </div>
+                                </fieldset>
+                                <label class="filter-field ck-f-wide">
+                                    <span class="caption-1">天氣</span>
+                                    <span class="select-wrap"><select id="apWx"></select><i class="ph ph-caret-down" aria-hidden="true"></i></span>
+                                </label>
+                                <label class="filter-field">
+                                    <span class="caption-1">風向（°）</span>
+                                    <input class="ck-num" id="apWdir" type="number" min="0" max="360" step="10" value="0" inputmode="numeric">
+                                </label>
+                                <label class="filter-field">
+                                    <span class="caption-1">風速（節）</span>
+                                    <input class="ck-num" id="apWspd" type="number" min="0" max="60" step="1" value="0" inputmode="numeric">
+                                </label>
+                                <label class="filter-field">
+                                    <span class="caption-1">陣風（節）</span>
+                                    <input class="ck-num" id="apGust" type="number" min="0" max="25" step="1" value="0" inputmode="numeric">
+                                </label>
+                                <label class="filter-field ck-f-wide">
+                                    <span class="caption-1">ILS 故障</span>
+                                    <span class="select-wrap"><select id="apFail">
+                                        <option value="none">無</option>
+                                        <option value="loc">航向台（LOC）失效</option>
+                                        <option value="gs">下滑道（G/S）失效</option>
+                                        <option value="random">進場途中隨機失效</option>
+                                    </select><i class="ph ph-caret-down" aria-hidden="true"></i></span>
+                                </label>
+                            </div>
+                            <p class="caption-5 muted ck-wind" id="apWindTxt"></p>
                         </div>
                         <div class="ck-card ck-mapcard">
                             <div class="ck-map-head">
@@ -175,7 +218,7 @@
                 </div>
             </section>
 
-            <p class="ck-disclaimer caption-5">這是依 A320 操作邏輯簡化的教學示意，不是真實飛機資料，也不能用於訓練。系統啟動時間已大幅縮短（ADIRS 對準 25 秒，實機約 10 分鐘），沒有風、襟翼和起落架的細節。故障和處置程序也是簡化版，和真實的 QRH、FCOM 不同。</p>
+            <p class="ck-disclaimer caption-5">這是依 A320 操作邏輯簡化的教學示意，不是真實飛機資料，也不能用於訓練。系統啟動時間已大幅縮短（ADIRS 對準 25 秒，實機約 10 分鐘），風在各高度都一樣、沒有風切，也沒有襟翼和起落架的細節。跑道方向和機場標高是近似值，進場能力（CAT）的判定和最低高度也簡化過，不能用來導航。故障和處置程序也是簡化版，和真實的 QRH、FCOM 不同。</p>
         </div>
     </main>
 
@@ -205,7 +248,7 @@
     <script src="js/a320-sys.js?v=fea10b35"></script>
     <script src="js/a320-ecam.js?v=6b81b846"></script>
     <script src="js/a320-fault.js?v=675481cc"></script>
-    <script src="js/a320-fcu.js?v=8fd016fd"></script>
-    <script src="js/a320.js?v=d2e67846"></script>
+    <script src="js/a320-fcu.js?v=e8178ebc"></script>
+    <script src="js/a320.js?v=74d6d44b"></script>
 </body>
 </html>

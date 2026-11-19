@@ -37,7 +37,7 @@
                 ir1: 'OFF', ir2: 'OFF', ir3: 'OFF', xbleed: 'AUTO', mode: 'NORM', m1: 'OFF', m2: 'OFF',
                 strobe: 'AUTO', beacon: 'OFF', wing: 'OFF', navlogo: 'OFF', rwyto: 'OFF', landl: 'OFF', landr: 'OFF', nose: 'OFF',
                 seat: 'OFF', nosmk: 'OFF', emer: 'ARM',
-                evacCapt: 'CAPT', cabVs: 'UP', cargoFwd: 'MED', cargoAft: 'MED', tempC: 'MED', tempF: 'MED', tempA: 'MED', flow: 'NORM', cabMode: 'AUTO', wipC: 'OFF', wipF: 'OFF', dome: 'OFF', ann: 'BRT'
+                evacCapt: 'CAPT', door: 'NORM', audioIntRad: 'INT', ldgElev: 'AUTO', ovhd: 'OFF', iceInd: 'OFF', cabVs: 'UP', cargoFwd: 'MED', cargoAft: 'MED', tempC: 'MED', tempF: 'MED', tempA: 'MED', flow: 'NORM', cabMode: 'AUTO', wipC: 'OFF', wipF: 'OFF', dome: 'OFF', ann: 'BRT'
             },
             flash: {},
             flt: {},
@@ -360,21 +360,21 @@
         const wrap = el('div', 'ck-dk');
         if (def.label) wrap.append(el('span', 'ck-pb-label', def.label));
         const area = el('div', 'ck-dk-a');
-        const ticks = U.svgEl('svg', { class: 'ck-dk-ticks', viewBox: '-29 -29 58 58', 'aria-hidden': 'true' });
+        const ticks = U.svgEl('svg', { class: 'ck-dk-ticks', viewBox: '-38 -38 76 76', 'aria-hidden': 'true' });
         ang.forEach((a) => {
             const r = a * Math.PI / 180;
-            U.svgEl('line', { x1: Math.sin(r) * 16, y1: -Math.cos(r) * 16, x2: Math.sin(r) * 20, y2: -Math.cos(r) * 20, class: 'ck-dk-tick' }, ticks);
+            U.svgEl('line', { x1: Math.sin(r) * 24, y1: -Math.cos(r) * 24, x2: Math.sin(r) * 28, y2: -Math.cos(r) * 28, class: 'ck-dk-tick' }, ticks);
         });
         area.append(ticks);
         const dial = el('button', 'ck-sel-dial ck-dk-dial');
         dial.type = 'button';
         dial.dataset.id = def.id;
         const sv = U.svgEl('svg', { viewBox: '-20 -20 40 40', 'aria-hidden': 'true' });
-        U.svgEl('circle', { cx: 0, cy: 1.5, r: 15.5, class: 'ck-dk-shadow' }, sv);
+        U.svgEl('circle', { cx: 0, cy: 1.5, r: 18, class: 'ck-dk-shadow' }, sv);
         const head = U.svgEl('g', { class: 'ck-dk-head' }, sv);
-        U.svgEl('path', { d: 'M-8,-15 Q0,-18 8,-15 L14,9 Q0,17 -14,9 Z', class: 'ck-dk-side' }, head);
-        U.svgEl('path', { d: 'M-7,-14 Q0,-16.5 7,-14 L12,7 Q0,14 -12,7 Z', class: 'ck-dk-top' }, head);
-        U.svgEl('rect', { x: -1.7, y: -13, width: 3.4, height: 18, rx: 1.2, class: 'ck-dk-slot' }, head);
+        U.svgEl('circle', { cx: 0, cy: 0, r: 18, class: 'ck-dk-side' }, head);
+        U.svgEl('circle', { cx: 0, cy: 0, r: 15, class: 'ck-dk-top' }, head);
+        U.svgEl('rect', { x: -1.5, y: -14, width: 3, height: 12, rx: 1.2, class: 'ck-dk-slot' }, head);
         dial.append(sv);
         area.append(dial);
         let cur = def.opts[0];
@@ -384,8 +384,8 @@
             bt.type = 'button';
             bt.dataset.v = o;
             const r = ang[k] * Math.PI / 180;
-            bt.style.left = 29 + Math.sin(r) * 26 + 'px';
-            bt.style.top = 29 - Math.cos(r) * 26 + 'px';
+            bt.style.left = 38 + Math.sin(r) * 34 + 'px';
+            bt.style.top = 38 - Math.cos(r) * 34 + 'px';
             bt.addEventListener('click', () => onSet(def.id, o));
             area.append(bt);
             return bt;
@@ -403,9 +403,12 @@
         };
     }
 
-    // ================= 頂板（照真機頂板的實際位置）=================
-    // 座標系統：928 × 930 的「舞台」，位置照真機頂板圖；畫面寬度不夠時整個縮小（最小 0.62 倍），再不夠就左右捲動。
-    const STAGE_W = 928, STAGE_H = 886;
+    // ================= 頂板（照真機頂板照片的位置）=================
+    // 座標：照片上的像素位置（照片約 1482 × 1403）乘上 K，換成「舞台」的像素。
+    // 每個控制件都以自己的中心點定位；畫面寬度不夠時整個舞台一起縮小（最小 0.62 倍），再不夠就左右捲動。
+    const K = 0.8;
+    const S = (v) => Math.round(v * K);
+    const STAGE_W = S(1456), STAGE_H = S(1405);
 
     function build(host) {
         host.textContent = '';
@@ -418,27 +421,44 @@
         wrap.append(box);
         host.append(wrap);
 
+        // 鉻色旋鈕用的漸層（整個舞台共用）
+        const defs = U.svgEl('svg', { class: 'ck-defs', width: 0, height: 0, 'aria-hidden': 'true' });
+        const dd = U.svgEl('defs', {}, defs);
+        const grad = (id, stops, x2, y2) => {
+            const g = U.svgEl('linearGradient', { id, x1: 0, y1: 0, x2, y2 }, dd);
+            stops.forEach(([o, c]) => U.svgEl('stop', { offset: o, 'stop-color': c }, g));
+        };
+        grad('ckChrome', [['0', '#7c8288'], ['0.3', '#eef0f1'], ['0.6', '#b9bec3'], ['1', '#6a7076']], 1, 0);
+        grad('ckChromeSide', [['0', '#3d4247'], ['0.5', '#9aa0a6'], ['1', '#30353a']], 1, 0);
+        stage.append(defs);
+
         const svg = U.svgEl('svg', { class: 'ck-lines', width: STAGE_W, height: STAGE_H, 'aria-hidden': 'true' });
         stage.append(svg);
-        const line = (pts) => U.svgEl('polyline', { points: pts, class: 'ck-ln', fill: 'none' }, svg);
+        const line = (pts) => U.svgEl('polyline', { points: pts.trim().split(/\s+/).map((q) => q.split(',').map((v) => S(Number(v))).join(',')).join(' '), class: 'ck-ln', fill: 'none' }, svg);
+        const lines = (arr) => arr.forEach(line);
 
         const at = (node, x, y, cls) => {
             node.classList.add('ck-at');
-            if (cls) node.classList.add(cls);
-            node.style.left = x + 'px';
-            node.style.top = y + 'px';
+            if (cls) node.classList.add(...cls.split(' '));
+            node.style.left = S(x) + 'px';
+            node.style.top = S(y) + 'px';
             stage.append(node);
             return node;
         };
-        const panel = (x, y, w, h, title, cls) => {
+        const panel = (x, y, w, h, cls) => {
             const d = el('div', 'ck-pn' + (cls ? ' ' + cls : ''));
-            d.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
-            if (title) d.append(el('span', 'ck-pn-t', title));
+            d.style.cssText = `left:${S(x)}px;top:${S(y)}px;width:${S(w)}px;height:${S(h)}px`;
             stage.append(d);
             return d;
         };
+        const ttl = (text, x, y, cls) => at(el('span', 'ck-pn-t' + (cls ? ' ' + cls : ''), text), x, y);
         const tag = (text, x, y, cls) => at(el('span', 'ck-tag' + (cls ? ' ' + cls : ''), text), x, y);
-        const vtag = (text, x, y) => { const t = el('span', 'ck-vt', text); t.style.left = x + 'px'; t.style.top = y + 'px'; stage.append(t); };
+        const box2 = (text, x, y) => tag(text, x, y, 'ck-tagbox');
+        const vtag = (text, x, y) => {
+            const t = el('span', 'ck-vt');
+            text.split('').forEach((ch) => t.append(el('i', '', ch === ' ' ? ' ' : ch)));
+            at(t, x, y);
+        };
         const F = ['FAULT', 'amber'], OFFL = ['OFF', 'white'], ONL = ['ON', 'blue'];
 
         // kind: 'off'（預設按下）或 'on'（預設放開）
@@ -448,12 +468,12 @@
             b.lt = lt;
             refs.pb[id] = b;
             at(b.el, x, y, cls);
-            if (/\b(red|ck-fire)\b/.test(cls || '') || /^ag(1a|1b|apu|2a|2b)$/.test(id)) addGuard(b, id, label);
+            if (/\b(red|ck-fire|ck-gk)\b/.test(cls || '') || /^ag(1a|1b|apu|2a|2b)$/.test(id)) addGuard(b, id, label, /ck-gk/.test(cls || ''));
             return b;
         };
         // 護蓋：先掀開才按得到；按下去的按鈕蓋子會保持掀開
-        const addGuard = (b, id, label) => {
-            const g = el('div', 'ck-gw');
+        const addGuard = (b, id, label, black) => {
+            const g = el('div', 'ck-gw' + (black ? ' gk' : ''));
             const cover = el('button', 'ck-gcover');
             cover.type = 'button';
             cover.dataset.for = id;
@@ -473,6 +493,12 @@
             refs.guard[id] = { setOpen, isOpen: () => g.classList.contains('open') };
             setOpen(false);
         };
+        const none = () => [false, false];
+        const plain = (id, label, x, y, kind, cls, top, bot) => {
+            const bo = bot || null;
+            return pb(id, label, top || null, bo, (s2) => [false, bo ? !!s2.pb[id] : false], x, y, kind, cls);
+        };
+        const round = (id, label, x, y, cls) => pb(id, label, null, null, none, x, y, 'on', 'ck-round' + (cls ? ' ' + cls : ''));
         const sw = (id, label, opts, x, y) => {
             const t = tgl({ id, label, opts });
             refs.tg[id] = t;
@@ -483,275 +509,283 @@
             refs.sel[id] = k;
             at(k.el, x, y, 'ck-at-knob');
         };
-        const plain = (id, label, x, y, kind, cls, top, bot) => {
-            const t = top || null, bo = bot || null;
-            return pb(id, label, t, bo, (s2) => [false, bo ? !!s2.pb[id] : false], x, y, kind, cls);
+        const lcd = (key, x, y, cls, text) => {
+            const d = el('div', 'ck-lcd ' + (cls || ''), text || '');
+            if (key) refs.live[key] = d;
+            return at(d, x, y);
         };
-        const flashLt = (id) => (s2) => (s2.flash[id] || 0) > s2.t;
 
-        // ---------------- 左欄（x 22–228）----------------
-        const L = 22, LW = 206, MX = 232, MW = 463, R = 698, RW = 210;
-        panel(L, 22, LW, 48, '', 'ck-blank');
+        // ================= 左欄 =================
+        panel(15, 0, 335, 93);
+        pb('doorVid', 'COCKPIT DOOR\nVIDEO', null, OFFL, off('doorVid'), 283, 62, 'off');
 
-        let T = 72;
-        panel(L, T, LW, 168, 'ADIRS');
-        const lcd = el('div', 'ck-lcd');
-        refs.live.adirs = lcd;
-        at(lcd, 88, T + 14);
+        // ADIRS
+        panel(15, 98, 335, 307);
+        ttl('ADIRS', 185, 114);
+        lcd('adirs', 185, 141, 'ck-lcd-dark');
         const onb = el('div', 'ck-box');
         refs.onbat = U.ann('ON BAT', 'white');
         onb.append(refs.onbat);
-        at(onb, 184, T + 14);
-        [[1, 60], [3, 125], [2, 190]].forEach(([n, x]) => {
-            const bx = el('div', 'ck-box ck-box-s');
-            const al = U.ann('ALIGN', 'green');
-            bx.append(al);
+        at(onb, 300, 141);
+        [[1, 88], [3, 185], [2, 278]].forEach(([n, x]) => {
+            const bx = el('div', 'ck-box ck-irbox');
+            const fl = U.ann('FAULT', 'amber');
+            const al = U.ann('ALIGN', 'white');
+            bx.append(fl, al);
+            bx.append(el('span', 'ck-pb-label', 'IR' + n));
             refs.ir[n - 1] = al;
-            at(bx, x, T + 56);
-            tag('IR ' + n, x, T + 44);
-            knob('ir' + n, '', ['OFF', 'NAV', 'ATT'], x, T + 84);
+            at(bx, x, 203);
+            knob('ir' + n, '', ['OFF', 'NAV', 'ATT'], x - 2, 283, [-62, 0, 62]);
         });
+        [[1, 88], [3, 185], [2, 278]].forEach(([n, x]) => pb('adr' + n, 'ADR' + n, null, OFFL, off('adr' + n), x, 360, 'off'));
 
-        T = 242;
-        panel(L, T, LW, 70, 'FLT CTL');
-        pb('elac1', 'ELAC 1', F, OFFL, off('elac1'), 62, T + 14, 'off');
-        pb('sec1', 'SEC 1', F, OFFL, off('sec1'), 125, T + 14, 'off');
-        pb('fac1', 'FAC 1', F, OFFL, off('fac1'), 188, T + 14, 'off');
+        panel(15, 408, 335, 82);
+        panel(15, 493, 335, 107);
+        ttl('FLT CTL', 218, 509);
+        pb('elac1', 'ELAC 1', F, OFFL, off('elac1'), 153, 557, 'off');
+        pb('sec1', 'SEC 1', F, OFFL, off('sec1'), 218, 557, 'off');
+        pb('fac1', 'FAC 1', F, OFFL, off('fac1'), 283, 557, 'off');
 
-        T = 314;
-        panel(L, T, LW, 70, 'EVAC');
-        plain('evacCmd', 'COMMAND', 56, T + 14, 'on', 'red', null, ['ON', 'white']);
-        plain('evacHorn', 'HORN SHUT OFF', 112, T + 14, 'on', '', null, ['OFF', 'white']);
-        sw('evacCapt', 'CAPT & PURS', ['C&P', 'CAPT'], 180, T + 16);
+        panel(15, 603, 335, 92);
+        ttl('EVAC', 218, 612);
+        plain('evacCmd', 'COMMAND', 144, 660, 'on', 'ck-gk', null, ['ON', 'white']);
+        round('evacHorn', 'HORN\nSHUT OFF', 219, 668);
+        sw('evacCapt', 'CAPT & PURS', ['C&P', 'CAPT'], 296, 660);
 
-        T = 386;
-        panel(L, T, LW, 70, 'EMER ELEC PWR');
-        pb('emerTest', 'EMER GEN TEST', null, ['TEST', 'white'], (s2) => [false, (s2.flash.emerTest || 0) > s2.t], 46, T + 14, 'on');
-        plain('gen1Line', 'GEN 1 LINE', 96, T + 14, 'on', '', ['SMOKE', 'amber'], ['ON', 'white']);
-        pb('ratEmer', 'RAT & EMER GEN', ['FAULT', 'amber'], null, () => [false, false], 146, T + 14, 'on');
-        plain('emerMan', 'MAN ON', 190, T + 14, 'on', 'red', ['FAULT', 'amber'], ONL);
+        panel(15, 697, 335, 128);
+        ttl('EMER ELEC PWR', 185, 710);
+        pb('emerTest', 'EMER GEN\nTEST', null, ['TEST', 'white'], (s2) => [false, (s2.flash.emerTest || 0) > s2.t], 70, 770, 'on', 'ck-gk');
+        plain('gen1Line', 'GEN 1 LINE', 145, 778, 'on', '', ['SMOKE', 'amber'], ['OFF', 'white']);
+        pb('ratEmer', 'RAT &\nEMER GEN', ['FAULT', 'amber'], null, none, 212, 778, 'on');
+        plain('emerMan', 'MAN ON', 272, 768, 'on', 'red', ['FAULT', 'amber'], ONL);
 
-        T = 458;
-        panel(L, T, LW, 70, 'GPWS');
-        pb('gpwsTerr', 'TERR', null, OFFL, off('gpwsTerr'), 40, T + 14, 'off');
-        pb('gpwsSys', 'SYS', F, OFFL, off('gpwsSys'), 81, T + 14, 'off');
-        pb('gpwsGs', 'G/S MODE', null, OFFL, off('gpwsGs'), 122, T + 14, 'off');
-        pb('gpwsFlap', 'FLAP MODE', null, OFFL, off('gpwsFlap'), 163, T + 14, 'off');
-        pb('gpwsLdg', 'LDG FLAP 3', null, ['ON', 'blue'], on('gpwsLdg'), 204, T + 14, 'on');
+        panel(15, 828, 335, 97);
+        ttl('GPWS', 183, 833);
+        pb('gpwsTerr', 'TERR', F, OFFL, off('gpwsTerr'), 66, 892, 'off');
+        pb('gpwsSys', 'SYS', null, OFFL, off('gpwsSys'), 130, 892, 'off');
+        pb('gpwsGs', 'G/S\nMODE', null, OFFL, off('gpwsGs'), 193, 892, 'off');
+        pb('gpwsFlap', 'FLAP\nMODE', null, OFFL, off('gpwsFlap'), 247, 892, 'off');
+        pb('gpwsLdg', 'LDG\nFLAP 3', null, ['ON', 'blue'], on('gpwsLdg'), 300, 892, 'on');
 
-        T = 530;
-        panel(L, T, LW, 66, 'RCDR');
-        pb('rcdr', 'GND CTL', null, ONL, on('rcdr'), 58, T + 12, 'on', 'ck-small');
-        pb('cvrErase', 'CVR ERASE', null, null, () => [false, false], 125, T + 12, 'on', 'ck-small');
-        pb('cvrTest', 'CVR TEST', null, null, () => [false, false], 190, T + 12, 'on', 'ck-small');
+        panel(15, 927, 335, 75);
+        ttl('RCDR', 217, 929);
+        pb('rcdr', 'GND CTL', null, ONL, on('rcdr'), 143, 976, 'on');
+        round('cvrErase', 'CVR ERASE', 218, 976);
+        round('cvrTest', 'CVR TEST', 295, 976);
 
-        T = 598;
-        panel(L, T, LW, 70, 'OXYGEN');
-        plain('hiAlt', 'HIGH ALT LANDING', 46, T + 14, 'on', 'red', null, ['ON', 'white']);
-        plain('maskMan', 'MASK MAN ON', 98, T + 14, 'on', 'red', null, ['ON', 'white']);
-        pb('paxOxy', 'PASSENGERS', null, ['ON', 'white'], on('paxOxy'), 150, T + 14, 'on');
-        pb('oxy', 'CREW SUPPLY', null, OFFL, off('oxy'), 202, T + 14, 'off');
+        panel(15, 1004, 335, 104);
+        ttl('OXYGEN', 217, 1013);
+        plain('hiAlt', 'HIGH ALT\nLANDING', 66, 1076, 'on', 'red', null, ['ON', 'white']);
+        plain('maskMan', 'MASK\nMAN ON', 140, 1068, 'on', 'red', null, ['ON', 'white']);
+        pb('paxOxy', 'PASSENGER', null, ['ON', 'white'], on('paxOxy'), 218, 1079, 'on');
+        pb('oxy', 'CREW SUPPLY', null, OFFL, off('oxy'), 294, 1079, 'off');
 
-        T = 670;
-        panel(L, T, LW, 70, 'CALLS');
-        [['callMech', 'MECH', 52], ['callFwd', 'FWD', 100], ['callAft', 'AFT', 148], ['callEmer', 'EMER', 196]].forEach(([id, l, x]) =>
-            pb(id, l, ['CALL', 'white'], null, (s2) => [(s2.flash[id] || 0) > s2.t, false], x, T + 14, 'on', 'ck-small'));
+        panel(15, 1110, 335, 87);
+        ttl('CALLS', 184, 1124);
+        [['callMech', 'MECH', 68], ['callAll', 'ALL', 126], ['callFwd', 'FWD', 184], ['callAft', 'AFT', 240]].forEach(([id, l, x]) => round(id, l, x, 1168));
+        pb('callEmer', 'EMER', ['CALL', 'white'], null, (s2) => [(s2.flash.callEmer || 0) > s2.t, false], 298, 1166, 'on');
 
-        T = 742;
-        panel(L, T, LW, 90, 'RAIN RPLNT   WIPER');
-        pb('rainRplnt', 'RAIN RPLNT', null, null, () => [false, false], 62, T + 16, 'on', 'ck-small');
-        knob('wipC', 'WIPER', ['OFF', 'SLOW', 'FAST'], 150, T + 14);
+        panel(15, 1200, 335, 205);
+        ttl('RAIN RPLNT', 160, 1213);
+        ttl('WIPER', 255, 1210);
+        round('rainRplnt', '', 143, 1252);
+        knob('wipC', '', ['OFF', 'SLOW', 'FAST'], 252, 1278, [0, 55, 100]);
 
-        // ---------------- 中欄（x 232–695）----------------
-        panel(MX, 22, MW, 48, '', 'ck-blank');
+        // ================= 中欄 =================
+        panel(355, 0, 730, 130);
+        sw('door', 'CKPT DOOR', ['NORM', 'BK UP', 'OFF'], 433, 58);
+        pb('doorCtl', 'CTL', null, null, none, 533, 82, 'on');
 
         // FIRE
-        T = 72;
-        panel(MX, T, MW, 124, '');
-        vtag('FIRE', MX + 6, T + 40); vtag('FIRE', MX + MW - 16, T + 40);
-        tag('ENG 1', 316, T + 3); tag('APU', 463, T + 3); tag('ENG 2', 610, T + 3);
-        const agent = (id, fid, x) => pb(id, 'AGENT', ['SQUIB', 'white'], ['DISCH', 'amber'], (s2) => [!!s2.pb[fid], !!s2.pb[id]], x, T + 14, 'on');
+        panel(355, 135, 730, 170);
+        vtag('FIRE', 370, 205); vtag('FIRE', 1070, 205);
+        ttl('ENG 1', 512, 158, 'ck-pn-big'); ttl('APU', 722, 148, 'ck-pn-big'); ttl('ENG 2', 933, 160, 'ck-pn-big');
+        const agent = (id, fid, x, y) => pb(id, id === 'agapu' ? 'AGENT' : id.endsWith('a') ? 'AGENT 1' : 'AGENT 2', ['SQUIB', 'white'], ['DISCH', 'amber'], (s2) => [!!s2.pb[fid], !!s2.pb[id]], x, y, 'on');
         const fireLt = (fid) => (s2) => [!!s2.pb[fid] || (s2.flash.fireTest || 0) > s2.t, false];
-        agent('ag1a', 'fire1', 268); pb('fire1', 'ENG 1 FIRE', ['FIRE', 'red'], null, fireLt('fire1'), 316, T + 14, 'on', 'ck-fire'); agent('ag1b', 'fire1', 364);
-        pb('fireapu', 'APU FIRE', ['FIRE', 'red'], null, fireLt('fireapu'), 440, T + 14, 'on', 'ck-fire'); agent('agapu', 'fireapu', 490);
-        agent('ag2a', 'fire2', 562); pb('fire2', 'ENG 2 FIRE', ['FIRE', 'red'], null, fireLt('fire2'), 610, T + 14, 'on', 'ck-fire'); agent('ag2b', 'fire2', 658);
-        pb('fireTest', 'ENG 1 TEST', null, null, () => [false, false], 316, T + 82, 'on', 'ck-small');
-        pb('fireTestB', 'APU TEST', null, null, () => [false, false], 463, T + 82, 'on', 'ck-small');
-        pb('fireTestC', 'ENG 2 TEST', null, null, () => [false, false], 610, T + 82, 'on', 'ck-small');
+        agent('ag1a', 'fire1', 409, 193); agent('ag1b', 'fire1', 611, 196);
+        pb('fire1', 'ENG 1 FIRE', ['FIRE', 'red'], null, fireLt('fire1'), 511, 232, 'on', 'ck-fire');
+        round('fireTest', 'TEST', 409, 247, 'ck-mini');
+        pb('fireapu', 'APU FIRE', ['FIRE', 'red'], null, fireLt('fireapu'), 722, 215, 'on', 'ck-fire');
+        agent('agapu', 'fireapu', 668, 280);
+        round('fireTestB', 'TEST', 775, 274, 'ck-mini');
+        agent('ag2a', 'fire2', 831, 193); agent('ag2b', 'fire2', 1033, 196);
+        pb('fire2', 'ENG 2 FIRE', ['FIRE', 'red'], null, fireLt('fire2'), 933, 237, 'on', 'ck-fire');
+        round('fireTestC', 'TEST', 1037, 254, 'ck-mini');
 
         // HYD
-        T = 198;
-        panel(MX, T, MW, 78, '');
-        vtag('HYD', MX + 6, T + 22); vtag('HYD', MX + MW - 16, T + 22);
-        line(`300,${T + 18} 625,${T + 18}`);
-        ['300', '456', '540', '625'].forEach((x) => line(`${x},${T + 12} ${x},${T + 22}`));
-        tag('GREEN', 300, T + 5, 'ck-tagbox'); tag('BLUE', 456, T + 5, 'ck-tagbox'); tag('PTU', 540, T + 5, 'ck-tagbox'); tag('YELLOW', 625, T + 5, 'ck-tagbox');
-        pb('hydEng1', 'ENG 1 PUMP', F, OFFL, off('hydEng1', (s2) => s2.eng[0].s === 'run' && s2.pb.hydEng1 && s2.hyd.g < 1500), 300, T + 24, 'off');
-        plain('ratMan', 'RAT MAN ON', 372, T + 24, 'on', 'red', null, ['ON', 'white']);
-        pb('hydBlue', 'BLUE PUMP', F, OFFL, off('hydBlue', (s2) => s2.pb.hydBlue && sys.enginesRunning() > 0 && s2.hyd.b < 1500), 456, T + 24, 'off');
-        pb('ptu', 'PTU', F, OFFL, off('ptu'), 540, T + 24, 'off');
-        pb('hydEng2', 'ENG 2 PUMP', F, OFFL, off('hydEng2', (s2) => s2.eng[1].s === 'run' && s2.pb.hydEng2 && s2.hyd.y < 1500), 600, T + 24, 'off');
-        pb('hydYel', 'YEL ELEC PUMP', F, ONL, on('hydYel'), 654, T + 24, 'on');
+        panel(355, 308, 730, 150);
+        vtag('HYD', 370, 385); vtag('HYD', 1070, 385);
+        box2('GREEN', 507, 318); box2('BLUE', 722, 320); box2('YELLOW', 938, 320); box2('PTU', 833, 342);
+        lines(['507,326 507,360', '507,360 938,360', '507,360 507,400', '722,328 722,400', '938,328 938,400', '613,360 613,380', '833,350 833,358']);
+        pb('hydEng1', 'ENG 1 PUMP', F, OFFL, off('hydEng1', (s2) => s2.eng[0].s === 'run' && s2.pb.hydEng1 && s2.hyd.g < 1500), 505, 426, 'off');
+        plain('ratMan', 'RAT MAN ON', 613, 396, 'on', 'red', null, ['ON', 'white']);
+        pb('hydBlue', 'ELEC PUMP', F, OFFL, off('hydBlue', (s2) => s2.pb.hydBlue && sys.enginesRunning() > 0 && s2.hyd.b < 1500), 720, 424, 'off');
+        pb('ptu', '', F, OFFL, off('ptu'), 830, 384, 'off');
+        pb('hydEng2', 'ENG 2 PUMP', F, OFFL, off('hydEng2', (s2) => s2.eng[1].s === 'run' && s2.pb.hydEng2 && s2.hyd.y < 1500), 937, 428, 'off');
+        pb('hydYel', 'ELEC PUMP', F, ONL, on('hydYel'), 1010, 414, 'on');
 
         // FUEL
-        T = 278;
-        panel(MX, T, MW, 94, '');
-        vtag('FUEL', MX + 6, T + 40); vtag('FUEL', MX + MW - 16, T + 40);
-        line(`311,${T + 20} 620,${T + 20}`);
-        ['311', '417', '613'].forEach((x) => line(`${x},${T + 12} ${x},${T + 20}`));
-        tag('ENG 1', 311, T + 5, 'ck-tagbox'); tag('APU', 417, T + 5, 'ck-tagbox'); tag('ENG 2', 613, T + 5, 'ck-tagbox');
-        const fp = (id, label, x) => pb(id, label, F, OFFL, off(id, (s2) => (id[1] === 'C' ? s2.pb[id] && s2.fuel.C <= 0 : false)), x, T + 40, 'off');
-        tag('L TK PUMPS', 311, T + 27); fp('fL1', '1', 292); fp('fL2', '2', 332);
-        tag('CTR TK PUMPS', 463, T + 27); fp('fC1', '1', 420); fp('fC2', '2', 506);
-        tag('R TK PUMPS', 613, T + 27); fp('fR1', '1', 594); fp('fR2', '2', 634);
-        pb('xfeed', 'X FEED', null, ['OPEN', 'green'], on('xfeed'), 463, T + 40, 'on');
-        pb('fuelMode', 'MODE SEL', ['MAN', 'amber'], null, on('fuelMode'), 380, T + 40, 'on');
+        panel(355, 460, 730, 143);
+        vtag('FUEL', 370, 520); vtag('FUEL', 1070, 520);
+        box2('ENG 1', 507, 475); box2('APU', 650, 476); box2('ENG 2', 936, 477);
+        lines(['507,483 507,505', '507,505 936,505', '650,484 650,505', '936,485 936,505', '720,505 720,520', '473,505 473,540', '535,505 535,540', '658,505 658,540', '783,505 783,540', '904,505 904,540', '966,505 966,540']);
+        pb('xfeed', 'X FEED', null, ONL, on('xfeed'), 720, 493, 'on');
+        const fp = (id, label, x, y) => pb(id, label, F, OFFL, off(id, (s2) => (id[1] === 'C' ? s2.pb[id] && s2.fuel.C <= 0 : false)), x, y, 'off');
+        tag('L TK PUMPS', 504, 514); tag('R TK PUMPS', 935, 514);
+        fp('fL1', '1', 473, 565); fp('fL2', '2', 535, 565);
+        fp('fC1', 'CTR TK\nL XFR', 658, 568);
+        pb('fuelMode', 'MODE SEL', ['FAULT', 'amber'], ['MAN', 'white'], on('fuelMode'), 718, 568, 'on');
+        fp('fC2', 'CTR TK\nR XFR', 783, 568);
+        fp('fR1', '1', 904, 567); fp('fR2', '2', 966, 567);
 
         // ELEC
-        T = 374;
-        panel(MX, T, MW, 150, '');
-        vtag('ELEC', MX + 6, T + 50); vtag('ELEC', MX + MW - 16, T + 50);
-        pb('commercial', 'COMMERCIAL', F, OFFL, off('commercial'), 272, T + 14, 'off');
-        pb('galy', 'GALLEY', F, OFFL, off('galy'), 318, T + 14, 'off');
-        tag('DC BUS 1', 388, T + 5, 'ck-tagbox'); tag('DC BUS 2', 540, T + 5, 'ck-tagbox');
-        const dc = (id, x) => { const d = el('div', 'ck-lcd ck-lcd-s'); refs.live[id] = d; at(d, x, T + 22); };
-        dc('bat1v', 388); dc('bat2v', 540);
-        pb('bat1', 'BAT 1', F, OFFL, (s2) => [s2.pb.bat1 && s2.bat[0] <= 0, !s2.pb.bat1], 448, T + 14, 'on');
-        pb('bat2', 'BAT 2', F, OFFL, (s2) => [s2.pb.bat2 && s2.bat[1] <= 0, !s2.pb.bat2], 486, T + 14, 'on');
-        pb('acess', 'AC ESS FEED', F, ['ALTN', 'white'], on('acess'), 620, T + 14, 'on');
-        line(`388,${T + 12} 388,${T + 4}`);
-        const busBox = (key, label, x) => { const d = el('div', 'ck-busbox', label); refs.live[key] = d; at(d, x, T + 72); };
-        line(`322,${T + 82} 610,${T + 82}`);
-        busBox('ac1', 'AC BUS 1', 322); busBox('acEss', 'AC ESS BUS', 463); busBox('ac2', 'AC BUS 2', 610);
-        const C = T + 96;
-        pb('idg1', 'IDG 1', F, null, (s2) => [!!s2.pb.idg1, false], 258, C, 'on', 'red');
-        pb('gen1', 'GEN 1', F, OFFL, off('gen1', (s2) => s2.pb.gen1 && s2.eng[0].s === 'run' && s2.eng[0].n2 < 50), 322, C, 'off');
-        pb('apugen', 'APU GEN', ['AVAIL', 'green'], OFFL, (s2) => [s2.apu.s === 'run' && s2.pb.apugen, !s2.pb.apugen], 396, C, 'off');
-        pb('bustie', 'BUS TIE', null, OFFL, off('bustie'), 463, C, 'off');
-        pb('ext', 'EXT PWR', ['AVAIL', 'green'], ONL, (s2) => [extAvailNow() && !s2.pb.ext, s2.pb.ext && extAvailNow()], 530, C, 'on');
-        pb('gen2', 'GEN 2', F, OFFL, off('gen2', (s2) => s2.pb.gen2 && s2.eng[1].s === 'run' && s2.eng[1].n2 < 50), 604, C, 'off');
-        pb('idg2', 'IDG 2', F, null, (s2) => [!!s2.pb.idg2, false], 664, C, 'on', 'red');
+        panel(355, 607, 730, 233);
+        vtag('ELEC', 370, 715); vtag('ELEC', 1070, 705);
+        box2('DC BUS 1', 507, 630); box2('DC BUS 2', 931, 631);
+        lines(['507,642 507,684', '545,692 688,692', '752,692 893,692', '931,643 931,685', '720,701 720,738', '507,700 507,768', '930,700 930,768', '720,775 720,792', '629,775 629,792']);
+        tag('BAT 1', 598, 616); tag('BAT', 694, 612); tag('BAT 2', 790, 616);
+        lcd('bat1v', 598, 655, 'ck-lcd-red');
+        lcd('bat2v', 790, 655, 'ck-lcd-red');
+        pb('bat1', '1', F, OFFL, (s2) => [s2.pb.bat1 && s2.bat[0] <= 0, !s2.pb.bat1], 672, 655, 'on');
+        pb('bat2', '2', F, OFFL, (s2) => [s2.pb.bat2 && s2.bat[1] <= 0, !s2.pb.bat2], 717, 655, 'on');
+        pb('commercial', 'COMMERCIAL', F, OFFL, off('commercial'), 432, 648, 'off');
+        pb('galy', 'GALLEY & CAB', F, OFFL, off('galy'), 432, 712, 'off');
+        pb('acess', 'AC ESS FEED', F, ['ALTN', 'white'], on('acess'), 864, 680, 'on');
+        const busBox = (key, label, x, y) => { const d = el('div', 'ck-busbox', label); refs.live[key] = d; at(d, x, y); };
+        busBox('ac1', 'AC BUS 1', 507, 692); busBox('acEss', 'AC ESS BUS', 720, 693); busBox('ac2', 'AC BUS 2', 932, 694);
+        pb('bustie', 'BUS TIE', null, OFFL, off('bustie'), 718, 756, 'off');
+        pb('ext', 'EXT PWR', ['AVAIL', 'green'], ONL, (s2) => [extAvailNow() && !s2.pb.ext, s2.pb.ext && extAvailNow()], 808, 791, 'on');
+        pb('idg1', 'IDG 1', F, null, (s2) => [!!s2.pb.idg1, false], 432, 791, 'on', 'red');
+        pb('gen1', 'GEN 1', F, OFFL, off('gen1', (s2) => s2.pb.gen1 && s2.eng[0].s === 'run' && s2.eng[0].n2 < 50), 507, 790, 'off');
+        pb('apugen', 'APU GEN', ['AVAIL', 'green'], OFFL, (s2) => [s2.apu.s === 'run' && s2.pb.apugen, !s2.pb.apugen], 629, 797, 'off');
+        pb('gen2', 'GEN 2', F, OFFL, off('gen2', (s2) => s2.pb.gen2 && s2.eng[1].s === 'run' && s2.eng[1].n2 < 50), 930, 792, 'off');
+        pb('idg2', 'IDG 2', F, null, (s2) => [!!s2.pb.idg2, false], 1005, 794, 'on', 'red');
 
         // AIR COND
-        T = 526;
-        panel(MX, T, MW, 128, '');
-        vtag('AIR COND', MX + 6, T + 40); vtag('AIR COND', MX + MW - 16, T + 40);
-        knob('flow', 'PACK FLOW', ['LO', 'NORM', 'HI'], 282, T + 6, [-65, -5, 60]);
-        knob('tempC', 'COCKPIT', ['COLD', 'MED', 'HOT'], 380, T + 6, [-115, 0, 115]);
-        knob('tempF', 'FWD CABIN', ['COLD', 'MED', 'HOT'], 462, T + 6, [-115, 0, 115]);
-        knob('tempA', 'AFT CABIN', ['COLD', 'MED', 'HOT'], 544, T + 6, [-115, 0, 115]);
-        pb('hotAir', 'HOT AIR', F, OFFL, off('hotAir'), 636, T + 10, 'off');
-        const Y = T + 74;
-        line(`270,${Y - 4} 658,${Y - 4}`);
-        pb('pack1', 'PACK 1', F, OFFL, off('pack1'), 270, Y, 'off');
-        pb('bleed1', 'ENG 1 BLEED', F, OFFL, off('bleed1'), 324, Y, 'off');
-        pb('ram', 'RAM AIR', null, ONL, on('ram'), 394, Y, 'on', 'red');
-        pb('apubleed', 'APU BLEED', F, ONL, on('apubleed'), 463, Y, 'on');
-        knob('xbleed', 'X BLEED', ['SHUT', 'AUTO', 'OPEN'], 538, Y - 4, [-65, 0, 65]);
-        pb('bleed2', 'ENG 2 BLEED', F, OFFL, off('bleed2'), 614, Y, 'off');
-        pb('pack2', 'PACK 2', F, OFFL, off('pack2'), 660, Y, 'off');
+        panel(355, 845, 730, 252);
+        vtag('AIR COND', 370, 960); vtag('AIR COND', 1070, 960);
+        lines(['606,950 606,962', '719,950 719,962', '832,950 832,962', '503,962 930,962', '503,962 503,978', '930,962 930,978', '423,1010 930,1010', '505,1010 505,1022', '617,1010 617,1022', '716,1010 716,1022', '928,1010 928,1022', '503,992 503,1010', '930,992 930,1010', '825,1000 825,1022']);
+        knob('flow', 'PACK FLOW', ['LO', 'NORM', 'HI'], 440, 908, [-68, -8, 52]);
+        box2('COCKPIT', 606, 851); box2('FWD CABIN', 719, 852); box2('AFT CABIN', 832, 852);
+        knob('tempC', '', ['COLD', 'MED', 'HOT'], 606, 910, [-115, 0, 115]);
+        knob('tempF', '', ['COLD', 'MED', 'HOT'], 719, 910, [-115, 0, 115]);
+        knob('tempA', '', ['COLD', 'MED', 'HOT'], 832, 910, [-115, 0, 115]);
+        pb('hotAir', 'HOT AIR', F, OFFL, off('hotAir'), 983, 906, 'off');
+        pb('pack1', 'PACK 1', F, OFFL, off('pack1'), 423, 982, 'off');
+        pb('pack2', 'PACK 2', F, OFFL, off('pack2'), 1011, 986, 'off');
+        box2('PACK 1', 503, 972); box2('PACK 2', 930, 973);
+        tag('X BLEED', 825, 970);
+        pb('bleed1', 'ENG 1 BLEED', F, OFFL, off('bleed1'), 505, 1050, 'off');
+        pb('ram', 'RAM AIR', null, ONL, on('ram'), 617, 1050, 'on', 'red');
+        pb('apubleed', 'APU BLEED', F, ONL, on('apubleed'), 716, 1052, 'on');
+        knob('xbleed', '', ['SHUT', 'AUTO', 'OPEN'], 825, 1056, [-68, 0, 68]);
+        pb('bleed2', 'ENG 2 BLEED', F, OFFL, off('bleed2'), 928, 1052, 'off');
 
-        // 下排：ANTI ICE / PROBE / CABIN PRESS
-        T = 656;
-        panel(MX, T, 186, 72, 'ANTI ICE');
-        pb('wai', 'WING', F, ONL, on('wai'), 270, T + 14, 'on');
-        pb('eai1', 'ENG 1', F, ONL, on('eai1'), 340, T + 14, 'on');
-        pb('eai2', 'ENG 2', F, ONL, on('eai2'), 388, T + 14, 'on');
-        panel(MX + 188, T, 76, 72, 'PROBE');
-        pb('probe', 'AUTO', null, ONL, on('probe'), 458, T + 14, 'on');
-        panel(MX + 266, T, 197, 72, 'CABIN PRESS');
-        sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 546, T + 14);
+        // ANTI ICE / PROBE / CABIN PRESS
+        panel(355, 1100, 300, 110);
+        ttl('ANTI ICE', 515, 1112);
+        pb('wai', 'WING', F, ONL, on('wai'), 407, 1168, 'on');
+        pb('eai1', 'ENG 1', F, ONL, on('eai1'), 553, 1170, 'on');
+        pb('eai2', 'ENG 2', F, ONL, on('eai2'), 621, 1168, 'on');
+        panel(658, 1100, 102, 110);
+        ttl('PROBE/WINDOW', 709, 1112, 'ck-pn-s'); ttl('HEAT', 709, 1126, 'ck-pn-s');
+        pb('probe', '', null, ONL, on('probe'), 713, 1168, 'on');
+        panel(763, 1100, 322, 110);
+        ttl('CABIN PRESS', 862, 1112); ttl('LDG ELEV', 950, 1115, 'ck-pn-s');
+        sw('cabVs', 'MAN V/S CTL', ['UP', 'DN'], 800, 1166);
         const cm = U.pushButton({ id: 'cabMode', label: 'MODE SEL', top: F, bot: ['MAN', 'white'] }, () => setSel('cabMode', st.sel.cabMode === 'MAN' ? 'AUTO' : 'MAN'));
-        at(cm.el, 606, T + 14);
+        at(cm.el, 866, 1166);
         refs.extra.push((pw2) => {
             cm.top.set(false, false);
             cm.bot.set(pw2 && st.sel.cabMode === 'MAN', false);
             cm.btn.setAttribute('aria-pressed', String(st.sel.cabMode === 'MAN'));
         });
-        pb('ditch', 'DITCHING', null, ONL, on('ditch'), 668, T + 14, 'on');
+        knob('ldgElev', '', ['AUTO', '0', '4', '8', '12'], 947, 1176, [0, 38, 76, 114, 152]);
+        pb('ditch', 'DITCHING', null, ONL, on('ditch'), 1022, 1166, 'on', 'red');
 
         // EXT LT / APU / INT LT / SIGNS
-        T = 730;
-        panel(MX, T, 204, 148, 'EXT LT');
-        sw('strobe', 'STROBE', ['ON', 'AUTO', 'OFF'], 268, T + 14);
-        sw('beacon', 'BEACON', ['ON', 'OFF'], 330, T + 14);
-        sw('wing', 'WING', ['ON', 'OFF'], 376, T + 14);
-        sw('navlogo', 'NAV&LOGO', ['2', 'OFF', '1'], 264, T + 58);
-        sw('rwyto', 'RWY TURN OFF', ['ON', 'OFF'], 328, T + 58);
-        sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 394, T + 58);
-        sw('landl', 'LAND L', ['ON', 'OFF', 'RETR'], 270, T + 102);
-        sw('landr', 'LAND R', ['ON', 'OFF', 'RETR'], 346, T + 102);
+        panel(355, 1213, 303, 192);
+        ttl('EXT LT', 508, 1217);
+        sw('strobe', 'STROBE', ['ON', 'AUTO', 'OFF'], 402, 1268);
+        sw('beacon', 'BEACON', ['ON', 'OFF'], 468, 1268);
+        sw('wing', 'WING', ['ON', 'OFF'], 546, 1268);
+        sw('navlogo', 'NAV & LOGO', ['2', 'OFF', '1'], 625, 1268);
+        sw('rwyto', 'RWY TURN\nOFF', ['ON', 'OFF'], 410, 1352);
+        sw('landl', 'LAND L', ['ON', 'OFF', 'RETR'], 475, 1352);
+        sw('landr', 'LAND R', ['ON', 'OFF', 'RETR'], 550, 1352);
+        sw('nose', 'NOSE', ['T.O', 'TAXI', 'OFF'], 625, 1352);
+        panel(660, 1213, 100, 192);
+        ttl('APU', 716, 1217);
+        pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 716, 1284, 'on');
+        pb('apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run'], 716, 1352, 'on');
+        panel(763, 1213, 322, 92);
+        ttl('INT LT', 930, 1217);
+        knob('ovhd', 'OVHD INTEG LT', ['OFF', 'BRT'], 797, 1268, [-60, 60]);
+        sw('iceInd', 'ICE IND &\nSTBY COMPASS', ['ON', 'OFF'], 868, 1262);
+        sw('dome', 'DOME', ['BRT', 'DIM', 'OFF'], 933, 1262);
+        sw('ann', 'ANN LT', ['TEST', 'BRT', 'DIM'], 1007, 1262);
+        panel(763, 1307, 322, 98);
+        ttl('SIGNS', 928, 1314);
+        sw('seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF'], 790, 1366);
+        sw('nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF'], 857, 1366);
+        pb('emerLt', 'EMER EXIT LT', null, ['OFF', 'amber'], off('emerLt'), 930, 1364, 'off');
+        sw('emer', '', ['ON', 'ARM', 'OFF'], 997, 1364);
 
-        panel(MX + 206, T, 58, 148, 'APU');
-        pb('apumaster', 'MASTER SW', F, ONL, on('apumaster'), 467, T + 18, 'on');
-        pb('apustart', 'START', ONL, ['AVAIL', 'green'], (s2) => [s2.apu.s === 'start', s2.apu.s === 'run'], 467, T + 76, 'on');
+        // ================= 右欄 =================
+        panel(1090, 0, 350, 165, 'ck-deco');
+        [1155, 1195, 1233, 1273, 1313, 1353, 1393].forEach((x) => { at(el('i', 'ck-pk'), x, 38); at(el('i', 'ck-pk'), x, 128); });
+        sw('audioIntRad', 'INT / RAD', ['INT', 'RAD'], 1150, 96);
+        round('audioVoice', 'VOICE', 1250, 96, 'ck-mini');
+        round('audioReset', 'RESET', 1295, 96, 'ck-mini');
+        panel(1090, 170, 350, 200, 'ck-deco');
+        tag('ACTIVE', 1182, 185); tag('STBY/CRS', 1346, 185);
+        lcd(null, 1182, 214, 'ck-lcd-red', 'dAtA');
+        lcd(null, 1346, 214, 'ck-lcd-red', '118.000');
+        at(el('span', 'ck-xfr', '⇄'), 1264, 214);
+        [['VHF1', 1143, 263], ['VHF2', 1183, 263], ['VHF3', 1225, 263], ['HF1', 1143, 298], ['HF2', 1222, 298], ['AM', 1263, 298],
+            ['NAV', 1143, 345], ['VOR', 1182, 345], ['LS', 1222, 345], ['GLS', 1263, 345], ['ADF', 1304, 345], ['BFO', 1344, 345]].forEach(([t, x, y]) => at(el('span', 'ck-rmp-b', t), x, y));
+        at(el('i', 'ck-silver'), 1337, 275);
+        panel(1090, 372, 350, 150, 'ck-blank');
 
-        panel(MX + 266, T, 197, 62, 'INT LT');
-        sw('dome', 'DOME', ['BRT', 'DIM', 'OFF'], 540, T + 14);
-        sw('ann', 'ANN LT', ['TEST', 'BRT', 'DIM'], 626, T + 14);
-        panel(MX + 266, T + 64, 197, 84, 'SIGNS');
-        sw('seat', 'SEAT BELTS', ['ON', 'AUTO', 'OFF'], 528, T + 81);
-        sw('nosmk', 'NO SMOKING', ['ON', 'AUTO', 'OFF'], 598, T + 81);
-        sw('emer', 'EMER EXIT', ['ON', 'ARM', 'OFF'], 666, T + 81);
+        panel(1090, 525, 350, 85);
+        ttl('FLT CTL', 1257, 543);
+        pb('elac2', 'ELAC 2', F, OFFL, off('elac2'), 1160, 588, 'off');
+        pb('sec2', 'SEC 2', F, OFFL, off('sec2'), 1224, 588, 'off');
+        pb('sec3', 'SEC 3', F, OFFL, off('sec3'), 1289, 588, 'off');
+        pb('fac2', 'FAC 2', F, OFFL, off('fac2'), 1357, 588, 'off');
 
-        // ---------------- 右欄（x 698–908）----------------
-        const ap = panel(R, 22, RW, 90, '');
-        ap.classList.add('ck-deco');
-        ap.append(el('p', 'ck-deco-t', 'AUDIO SWITCHING'));
-        const dots = el('div', 'ck-deco-dots');
-        ['VHF1', 'VHF2', 'VHF3', 'HF1', 'HF2', 'INT', 'CAB', 'PA'].forEach((t) => dots.append(el('span', '', t)));
-        ap.append(dots);
-        const rmp = panel(R, 114, RW, 110, '');
-        rmp.classList.add('ck-deco');
-        const disp = el('div', 'ck-freq');
-        disp.append(el('span', '', '128.175'), el('i', '', '↔'), el('span', '', '135.550'));
-        rmp.append(el('p', 'ck-deco-t', 'RMP 1'), disp);
-        const rb = el('div', 'ck-deco-btns');
-        ['VHF1', 'VHF2', 'VHF3', 'HF1', 'SEL', 'HF2', 'AM', 'NAV', 'VOR', 'ILS', 'ADF', 'BFO'].forEach((t) => rb.append(el('span', '', t)));
-        rmp.append(rb);
-        panel(R, 226, RW, 66, '', 'ck-blank');
+        panel(1090, 635, 350, 180);
+        ttl('CARGO HEAT', 1256, 645);
+        pb('cargoHot', 'HOT AIR', F, OFFL, off('cargoHot'), 1287, 692, 'off');
+        pb('aftIsol', 'AFT ISOL\nVALVE', F, OFFL, off('aftIsol'), 1370, 692, 'off');
+        knob('cargoAft', 'AFT', ['COLD', 'MED', 'HOT'], 1340, 772, [-115, 0, 115]);
 
-        T = 294;
-        panel(R, T, RW, 70, 'FLT CTL');
-        pb('elac2', 'ELAC 2', F, OFFL, off('elac2'), 736, T + 14, 'off');
-        pb('sec2', 'SEC 2', F, OFFL, off('sec2'), 786, T + 14, 'off');
-        pb('sec3', 'SEC 3', F, OFFL, off('sec3'), 836, T + 14, 'off');
-        pb('fac2', 'FAC 2', F, OFFL, off('fac2'), 884, T + 14, 'off');
+        panel(1090, 817, 350, 198);
+        ttl('CARGO SMOKE', 1253, 820);
+        pb('smokeFwd', 'FWD', ['SMOKE', 'amber'], null, none, 1160, 868, 'on');
+        round('smokeTest', 'TEST', 1257, 866);
+        pb('smokeAft', 'AFT', ['SMOKE', 'amber'], null, none, 1352, 868, 'on');
+        pb('smokeFwd2', '', null, null, none, 1252, 928, 'on');
+        plain('disch1', 'AGENT 1', 1145, 988, 'on', 'red', null, ['DISCH', 'amber']);
+        pb('smokeFwd3', '', null, null, none, 1252, 988, 'on');
+        plain('disch2', 'AGENT 2', 1363, 988, 'on', 'red', null, ['DISCH', 'amber']);
 
-        T = 366;
-        panel(R, T, RW, 138, 'CARGO HEAT');
-        pb('fwdIsol', 'FWD ISOL VLV', F, ['OFF', 'white'], off('fwdIsol'), 738, T + 14, 'off');
-        pb('cargoHot', 'HOT AIR', F, ['OFF', 'white'], off('cargoHot'), 803, T + 14, 'off');
-        pb('aftIsol', 'AFT ISOL VLV', F, ['OFF', 'white'], off('aftIsol'), 868, T + 14, 'off');
-        knob('cargoFwd', 'FWD', ['COLD', 'MED', 'HOT'], 756, T + 64, [-115, 0, 115]);
-        knob('cargoAft', 'AFT', ['COLD', 'MED', 'HOT'], 850, T + 64, [-115, 0, 115]);
+        panel(1090, 1018, 350, 87);
+        ttl('VENTILATION', 1252, 1024);
+        pb('blower', 'BLOWER', F, ['OVRD', 'white'], on('blower'), 1140, 1070, 'on');
+        pb('extract', 'EXTRACT', F, ['OVRD', 'white'], on('extract'), 1212, 1070, 'on');
+        pb('cabFans', 'CAB FANS', null, OFFL, off('cabFans'), 1362, 1072, 'off');
 
-        T = 506;
-        panel(R, T, RW, 70, 'CARGO SMOKE');
-        pb('disch1', 'DISCH', null, ['DISCH', 'amber'], on('disch1'), 726, T + 14, 'on', 'red');
-        pb('smokeFwd', 'FWD', null, null, () => [false, false], 772, T + 14, 'on', 'ck-small');
-        pb('smokeTest', 'TEST', null, null, () => [false, false], 803, T + 14, 'on', 'ck-small');
-        pb('smokeAft', 'AFT', null, null, () => [false, false], 834, T + 14, 'on', 'ck-small');
-        pb('disch2', 'DISCH', null, ['DISCH', 'amber'], on('disch2'), 880, T + 14, 'on', 'red');
+        panel(1090, 1108, 350, 102);
+        ttl('ENG', 1252, 1115);
+        tag('MAN START', 1170, 1128);
+        pb('manStart1', '1', null, ONL, on('manStart1'), 1140, 1172, 'on');
+        pb('manStart2', '2', null, ONL, on('manStart2'), 1210, 1172, 'on');
 
-        T = 578;
-        panel(R, T, RW, 70, 'VENTILATION');
-        pb('blower', 'BLOWER', F, ['OVRD', 'white'], on('blower'), 740, T + 14, 'on', 'ck-small');
-        pb('extract', 'EXTRACT', F, ['OVRD', 'white'], on('extract'), 803, T + 14, 'on', 'ck-small');
-        pb('cabFans', 'CAB FANS', null, OFFL, off('cabFans'), 868, T + 14, 'off', 'ck-small');
-
-        T = 650;
-        panel(R, T, RW, 70, 'ENG');
-        tag('MAN START', 762, T + 4); tag('N1 MODE', 850, T + 4);
-        pb('manStart1', '1', null, ONL, on('manStart1'), 726, T + 14, 'on');
-        pb('manStart2', '2', null, ONL, on('manStart2'), 770, T + 14, 'on');
-        pb('n1mode1', '1', F, ['MAN', 'white'], on('n1mode1'), 830, T + 14, 'on');
-        pb('n1mode2', '2', F, ['MAN', 'white'], on('n1mode2'), 874, T + 14, 'on');
-
-        T = 722;
-        panel(R, T, RW, 130, 'WIPER');
-        knob('wipF', 'WIPER', ['OFF', 'SLOW', 'FAST'], 764, T + 20);
-        pb('rainRplnt2', 'RAIN RPLNT', null, null, () => [false, false], 862, T + 24, 'on', 'ck-small');
+        panel(1090, 1213, 350, 192);
+        ttl('WIPER', 1180, 1218); ttl('RAIN RPLNT', 1290, 1220);
+        knob('wipF', '', ['OFF', 'SLOW', 'FAST'], 1180, 1284, [0, 55, 100]);
+        round('rainRplnt2', '', 1290, 1258);
 
         // ---------------- 下方狀態列與中央座 ----------------
         const info = el('div', 'ck-oh-info');

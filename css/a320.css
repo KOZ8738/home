@@ -193,76 +193,77 @@
 .ck-oh-wrap { overflow-x: auto; overflow-y: hidden; }
 .ck-oh-box { position: relative; margin: 0 auto; }
 .ck-stage {
-    --pl: #61788f;
-    --pl-line: #2b3846;
     position: relative;
     transform-origin: top left;
-    background-color: #4d6075;
-    border-radius: 10px;
-    color: #fff;
+    background: #0a0d0f;
+    border-radius: 8px;
+    color: #d3dae0;
     user-select: none;
 }
 
+.ck-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .ck-lines { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; }
-.ck-ln { stroke: #a9e9b4; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ck-ln { stroke: #35a85d; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 
-.ck-at { position: absolute; z-index: 2; transform: translateX(-50%); }
+.ck-at { position: absolute; z-index: 2; transform: translate(-50%, -50%); }
 .ck-pn {
     position: absolute;
     box-sizing: border-box;
-    background-color: var(--pl);
-    border: 1px solid var(--pl-line);
-    border-radius: 3px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    background: linear-gradient(180deg, #252d34, #1b2227);
+    border: 1px solid #0b0e10;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-.ck-pn-t {
+.ck-pn::before,
+.ck-pn::after {
+    content: "";
     position: absolute;
-    left: 6px;
-    top: 3px;
-    font-size: 8.5px;
-    line-height: 10px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: #fff;
-    white-space: nowrap;
+    top: 4px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #8d949a, #2b3136 70%);
 }
 
-.ck-blank { background-color: #566b81; }
-.ck-tag { font-size: 8px; line-height: 10px; font-weight: 800; color: #fff; white-space: nowrap; }
-.ck-tagbox { padding: 1px 5px; border: 1px solid #fff; background-color: var(--pl); z-index: 1; }
-.ck-vt {
-    position: absolute;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 9px;
-    line-height: 10px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: #fff;
-}
+.ck-pn::before { left: 4px; }
+.ck-pn::after { right: 4px; }
+
+.ck-pn-t { font-size: 11px; line-height: 13px; font-weight: 700; letter-spacing: 0.03em; color: #c9d1d7; white-space: nowrap; }
+.ck-pn-big { font-size: 16px; line-height: 18px; font-weight: 800; letter-spacing: 0.06em; }
+.ck-pn-s { font-size: 8px; line-height: 10px; }
+.ck-blank { background: linear-gradient(180deg, #1f262c, #181e23); }
+.ck-tag { font-size: 8.5px; line-height: 10px; font-weight: 700; color: #cfd6dc; white-space: nowrap; }
+.ck-tagbox { padding: 2px 6px; border: 1px solid #cfd6dc; background-color: #1c2328; z-index: 1; }
+.ck-vt { display: flex; flex-direction: column; align-items: center; font-size: 10px; line-height: 11px; font-weight: 700; color: #c9d1d7; }
+.ck-vt i { font-style: normal; }
 
 .ck-lcd {
-    min-width: 76px;
-    padding: 3px 6px;
-    background-color: #0c1013;
+    min-width: 62px;
+    padding: 3px 7px;
+    background-color: #07090a;
     border: 1px solid #000;
     border-radius: 2px;
+    box-shadow: inset 0 0 0 1px #2a3036;
     color: var(--p-green);
     font-size: 11px;
     line-height: 13px;
     font-weight: 700;
+    letter-spacing: 0.06em;
     text-align: center;
     white-space: nowrap;
 }
 
-.ck-lcd-s { min-width: 54px; font-size: 10px; }
-.ck-box { padding: 3px 5px; background-color: #14181c; border: 1px solid #000; border-radius: 2px; }
-.ck-box-s { padding: 2px 3px; }
+.ck-lcd-dark { min-width: 120px; }
+.ck-lcd-red { color: #ff3b2c; text-shadow: 0 0 5px rgba(255, 59, 44, 0.7); font-size: 14px; line-height: 16px; letter-spacing: 0.1em; }
+.ck-box { padding: 3px 5px; background-color: #0d1012; border: 1px solid #39414a; border-radius: 2px; }
+.ck-irbox { min-width: 46px; }
+.ck-box .ck-pb-label,
+.ck-stage .ck-box .ck-pb-label { position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%); width: max-content; font-size: 8px; line-height: 9px; color: #d9dfe4; }
 .ck-busbox {
-    padding: 3px 7px;
-    background-color: #14181c;
-    border: 1px solid #000;
+    padding: 4px 8px;
+    background-color: #0d1012;
+    border: 1px solid #39414a;
     border-radius: 2px;
     color: #4a525b;
     font-size: 8px;
@@ -274,48 +275,46 @@
 
 .ck-busbox.on { color: var(--p-green); }
 
-.ck-stage .ck-pb { width: 48px; gap: 2px; }
-.ck-stage .ck-pb-btn { width: 36px; height: 30px; gap: 2px; border-radius: 3px; }
-.ck-stage .ck-ann { font-size: 6px; line-height: 7px; }
-.ck-stage .ck-pb-label { max-width: 50px; font-size: 6px; line-height: 7px; color: #fff; }
-.ck-stage .ck-small .ck-pb-btn { width: 28px; height: 24px; gap: 0; }
-.ck-stage .ck-small { width: 38px; }
-.ck-stage .red .ck-pb-btn { background-color: #7c2323; border-color: #3a0d0d; }
-.ck-stage .ck-fire .ck-pb-btn { width: 42px; height: 38px; background-color: #8a1f1f; border-color: #3a0d0d; }
-.ck-stage .ck-fire .ck-pb-label { font-weight: 800; }
-.ck-stage .ck-hide { display: none; }
-
-.ck-stage .ck-sel { width: 62px; gap: 2px; }
-.ck-stage .ck-sel-dial { width: 30px; height: 30px; }
-.ck-stage .ck-sel .ck-sel-opts { gap: 1px; }
-.ck-stage .ck-sel .ck-opt,
-.ck-stage .ck-tgl .ck-opt { min-height: 0; padding: 2px 3px; font-size: 6.5px; line-height: 8px; }
-.ck-stage .ck-sel .ck-pb-label { max-width: 62px; }
-.ck-stage .ck-tgl { align-items: center; gap: 2px; }
-.ck-stage .ck-tgl .ck-pb-label { color: #fff; }
-.ck-stage .ck-sel > .ck-pb-label,
-.ck-stage .ck-sel > span:first-child { color: #fff; }
-
-.ck-deco { color: #e8eef4; }
-.ck-deco-t { position: absolute; left: 8px; top: 5px; margin: 0; font-size: 8.5px; font-weight: 800; }
-.ck-deco-dots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 6px; padding: 26px 10px 0; }
-.ck-deco-dots span,
-.ck-deco-btns span {
-    padding: 8px 0 3px;
-    background-color: #1b1d20;
-    border-radius: 2px;
-    color: #cfd6dc;
-    font-size: 7px;
-    line-height: 8px;
+/* 按鈕：標籤印在按鈕上方 */
+.ck-stage .ck-pb { position: absolute; width: 40px; gap: 0; }
+.ck-stage .ck-pb-btn { width: 40px; height: 40px; gap: 3px; border-radius: 4px; border-color: #3a4148; background-color: #0d0f11; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 0 #000; }
+.ck-stage .ck-pb-btn:hover { background-color: #14171a; }
+.ck-stage .ck-ann { height: 8px; font-size: 7px; line-height: 8px; }
+.ck-stage .ck-ann-dim { color: rgba(255, 255, 255, 0.14); }
+.ck-stage .ck-pb-label,
+.ck-stage .ck-tgl .ck-pb-label,
+.ck-stage .ck-dk .ck-pb-label {
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 78px;
+    font-size: 8px;
+    line-height: 9px;
     font-weight: 700;
+    color: #d9dfe4;
+    white-space: pre-line;
     text-align: center;
+    pointer-events: none;
 }
 
-.ck-freq { display: flex; justify-content: center; gap: 8px; padding: 22px 0 6px; align-items: center; }
-.ck-freq span { padding: 3px 6px; background-color: #0c1013; border-radius: 2px; color: #ffb224; font-size: 12px; font-weight: 700; }
-.ck-freq i { font-style: normal; color: #fff; }
-.ck-deco-btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 0 10px; }
-.ck-deco-btns span { padding: 6px 0 4px; }
+.ck-stage .red .ck-pb-btn { background-color: #4d1515; border-color: #2a0a0a; }
+.ck-stage .ck-fire .ck-pb-btn { width: 78px; height: 54px; background-color: #8f1f1f; border-color: #3a0d0d; }
+.ck-stage .ck-fire { width: 78px; }
+.ck-stage .ck-fire .ck-pb-label { font-weight: 800; color: #ff8d83; }
+
+.ck-stage .ck-round .ck-pb-btn { width: 34px; height: 34px; border-radius: 50%; border-color: #6a737b; background: radial-gradient(circle at 38% 32%, #4a5259, #171b1e 72%); }
+.ck-stage .ck-round .ck-pb-btn:hover { background: radial-gradient(circle at 38% 32%, #59626a, #1c2125 72%); }
+.ck-stage .ck-round { width: 34px; }
+.ck-stage .ck-mini .ck-pb-btn { width: 28px; height: 28px; }
+.ck-stage .ck-mini { width: 28px; }
+.ck-stage .ck-round .ck-ann { display: none; }
+
+.ck-pk { display: block; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #9a86d6, #4b3b86 70%); border: 1px solid #231a44; box-shadow: 0 1px 0 #000; }
+.ck-silver { display: block; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 36% 30%, #f1f3f4, #9aa0a6 55%, #5b6167); border: 1px solid #1c2024; box-shadow: 0 2px 0 #000; }
+.ck-rmp-b { display: block; min-width: 34px; padding: 5px 4px 4px; border: 1px solid #3a4148; border-radius: 3px; background-color: #0d0f11; color: #cfd6dc; font-size: 7px; line-height: 8px; font-weight: 700; text-align: center; }
+.ck-xfr { font-size: 20px; line-height: 20px; color: #3fcf6e; }
 
 .ck-oh-info { display: grid; gap: var(--space-50); margin-top: var(--space-200); }
 
@@ -365,35 +364,38 @@
 .ck-lev { width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }
 .ck-lev svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .ck-lev:focus-visible { outline: var(--space-25) solid var(--accent-strong); border-radius: 4px; }
-.ck-lev-nut { fill: #23272b; stroke: #07090b; stroke-width: 1; }
-.ck-lev-well { fill: #0c0e10; stroke: #3a3f45; stroke-width: 1; }
-.ck-lev-stem { stroke: #d3b36b; stroke-width: 3.6; stroke-linecap: round; }
-.ck-lev-ball { fill: #ead9a8; stroke: #8b7439; stroke-width: 0.8; }
+.ck-lev-nut { fill: #2a3036; stroke: #050607; stroke-width: 1; }
+.ck-lev-well { fill: #07090a; stroke: #4a5259; stroke-width: 1; }
+.ck-lev-stem { stroke: #c4c9ce; stroke-width: 3.6; stroke-linecap: round; }
+.ck-lev-ball { fill: #f0f2f3; stroke: #6d737a; stroke-width: 0.8; }
 .ck-tgl .ck-opt.ck-lopt { min-height: 0; padding: 0 2px; border: 0; border-radius: 2px; background: none; color: rgba(255, 255, 255, 0.6); text-align: left; }
 .ck-tgl .ck-opt.ck-lopt:hover { color: #fff; }
 .ck-tgl .ck-opt.ck-lopt.on { background: none; color: #fff; font-weight: 800; }
-.ck-stage .ck-tgl .ck-lopt { font-size: 6.5px; line-height: 9.5px; }
-.ck-stage .ck-lev { width: 22px; height: 28px; }
-.ck-stage .ck-tgl { gap: 1px; }
 .ck-oh-ped .ck-tgl .ck-lopt { color: var(--p-dim); font-size: 0.7rem; line-height: 1rem; padding: 0 4px; }
 .ck-oh-ped .ck-tgl .ck-lopt.on { color: var(--p-white); }
+.ck-stage .ck-tgl { position: absolute; display: block; width: 26px; height: 30px; }
+.ck-stage .ck-tgl .ck-tgl-body { display: block; }
+.ck-stage .ck-tgl .ck-tgl-row { position: absolute; left: calc(100% + 2px); top: 50%; transform: translateY(-50%); }
+.ck-stage .ck-tgl .ck-lopt { font-size: 7.5px; line-height: 9.5px; white-space: nowrap; }
 
-/* ---------- 旋鈕（鈕頭加指示線，選項排在四周）---------- */
+/* ---------- 旋鈕（銀色鈕頭加指示線，選項排在四周）---------- */
 .ck-dk { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.ck-dk-a { position: relative; width: 58px; height: 58px; }
+.ck-dk-a { position: relative; width: 76px; height: 76px; }
+.ck-stage .ck-dk { position: absolute; display: block; width: 76px; height: 76px; }
 .ck-dk-ticks { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ck-dk-tick { stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.4; stroke-linecap: round; }
-.ck-dk-dial { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; padding: 0; border: 0; background: none; transform: translate(-50%, -50%); cursor: pointer; }
+.ck-dk-tick { stroke: rgba(255, 255, 255, 0.5); stroke-width: 1.3; stroke-linecap: round; }
+.ck-dk-dial { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; padding: 0; border: 0; background: none; transform: translate(-50%, -50%); cursor: pointer; }
 .ck-dk-dial:focus-visible { outline: var(--space-25) solid var(--accent-strong); border-radius: 50%; }
 .ck-dk-dial svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.ck-dk-shadow { fill: rgba(0, 0, 0, 0.45); }
+.ck-dk-shadow { fill: rgba(0, 0, 0, 0.55); }
 .ck-dk-head { transition: transform 160ms var(--ease); }
-.ck-dk-side { fill: #6f6a62; stroke: #1b1a18; stroke-width: 0.8; stroke-linejoin: round; }
-.ck-dk-top { fill: #b7b0a4; }
-.ck-dk-slot { fill: #1d1f21; stroke: rgba(255, 255, 255, 0.5); stroke-width: 0.6; }
-.ck-dk .ck-opt.ck-dopt { position: absolute; min-height: 0; padding: 0 1px; border: 0; background: none; color: rgba(255, 255, 255, 0.62); font-size: 6.5px; line-height: 8px; font-weight: 700; white-space: nowrap; transform: translate(-50%, -50%); }
+.ck-dk-side { fill: url(#ckChromeSide); stroke: #0a0b0c; stroke-width: 0.8; }
+.ck-dk-top { fill: url(#ckChrome); stroke: #4b5157; stroke-width: 0.5; }
+.ck-dk-slot { fill: #15181a; stroke: none; }
+.ck-dk .ck-opt.ck-dopt { position: absolute; min-height: 0; padding: 0 1px; border: 0; background: none; color: rgba(255, 255, 255, 0.66); font-size: 7.5px; line-height: 9px; font-weight: 700; white-space: nowrap; transform: translate(-50%, -50%); }
 .ck-dk .ck-opt.ck-dopt:hover { color: #fff; }
 .ck-dk .ck-opt.ck-dopt.on { background: none; color: #fff; font-weight: 800; }
+.ck-stage .ck-at-knob { z-index: 2; }
 
 /* ---------- 護蓋 ---------- */
 .ck-gw { position: relative; display: block; }
@@ -403,13 +405,14 @@
     padding: 0;
     border: 1px solid rgba(255, 110, 110, 0.9);
     border-radius: 4px;
-    background: linear-gradient(180deg, rgba(235, 60, 60, 0.5), rgba(160, 25, 25, 0.62));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 3px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(180deg, rgba(220, 55, 55, 0.55), rgba(140, 22, 22, 0.7));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(0, 0, 0, 0.5);
     cursor: pointer;
     transform-origin: 50% 0;
     transition: transform 220ms var(--ease), opacity 220ms var(--ease);
 }
 
+.ck-gw.gk .ck-gcover { border-color: #8b939a; background: linear-gradient(180deg, rgba(80, 87, 94, 0.8), rgba(22, 26, 29, 0.9)); }
 .ck-gcover::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 40%; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.55); transform: translateX(-50%); }
 .ck-gcover:focus-visible { outline: var(--space-25) solid var(--accent-strong); outline-offset: 1px; }
 .ck-gw.open .ck-gcover { transform: translateY(-10px) scaleY(0.2); opacity: 1; }

@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1119.1115">
+<meta name="efb-build" content="1119.1230">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -10063,7 +10063,11 @@ const asHas=id=>!APPS[id]||id[0]==="_"||AS_CORE.includes(id)||asState().list.inc
 function asSet(list,fromServer,upd){const s=asState();s.list=[...new Set([...list.filter(id=>APPS[id]),...AS_CORE])];s.upd=fromServer?upd:Date.now();delete s.first;store.set("appsInst",s);const rc=store.get("recents",null);if(Array.isArray(rc))store.set("recents",rc.filter(id=>s.list.includes(id)||!APPS[id]));if(!fromServer)asSyncSoon()}
 
 /* the Home Screen shows only installed apps; an iPhone with few apps keeps them on one page */
-{const _a=hlApply;hlApply=function(){_a.apply(this,arguments);const keep=a=>a.splice(0,a.length,...a.filter(asHas));[DOCK,PAGE1,PAGE2,PAGE3].forEach(keep);
+/* every App Store app has a place on the Home Screen: one that no module placed itself (Ground, Fenix EFB, Admin…)
+   goes before Settings on the iPad's page and on the iPhone's last page; the pilot can move it from there */
+function asPlaceDef(){if(HL._placed)return;HL._placed=1;for(const id of Object.keys(AS_INFO)){if(!APPS[id])continue;
+  for(const m of ["pad","phone"]){const L=HL.def[m];if(!L||Object.values(L).some(a=>a.includes(id)))continue;const a=m==="pad"?L.p1:(L.p3||L.p2),i=a.indexOf("prefs");a.splice(i<0?a.length:i,0,id)}}}
+{const _a=hlApply;hlApply=function(){asPlaceDef();_a.apply(this,arguments);const keep=a=>a.splice(0,a.length,...a.filter(asHas));[DOCK,PAGE1,PAGE2,PAGE3].forEach(keep);
   /* a new pilot's few apps on one iPhone page (not once the pilot has arranged the pages) */
   if(HL.mode==="phone"&&!hlSaved().phone&&Object.keys(AS_INFO).some(id=>APPS[id]&&!asHas(id))&&PAGE2.length+PAGE3.length<=20&&PAGE3.length){PAGE2.push(...PAGE3.splice(0))}
   /* an empty Dock gets the Map */

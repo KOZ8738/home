@@ -51,6 +51,9 @@ async function unsign(env, kind, tok) {
   if (!ok) return null;
   try { const o = JSON.parse(dec.decode(unb64u(p[1]))); return o && o.exp && o.exp > Date.now() ? o : null; } catch (e) { return null; }
 }
+/** a ticket for one WebSocket connection (browsers cannot send the Authorization header with one): pilot u, 60 s */
+export async function wsTicket(env, u) { return sign(env, 'wt', { u, exp: Date.now() + 60_000 }); }
+export async function wsTicketUser(env, t) { const o = await unsign(env, 'wt', t); return o && o.u ? String(o.u) : null; }
 /** short signature for a link that must work without the sign-in header (a mail attachment opened in a new tab) */
 export async function linkSig(env, text) {
   return b64u(await crypto.subtle.sign('HMAC', await signKey(env), enc.encode('link.' + text))).slice(0, 32);

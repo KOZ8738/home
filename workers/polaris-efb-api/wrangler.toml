@@ -34,6 +34,11 @@ class_name = "Crew"
 name = "KB"
 class_name = "Kneeboard"
 
+# PFD  the backup PFD relay: the simulator PC's attitude and speeds to the pilot's iPad, one per pilot (src/pfd.js)
+[[durable_objects.bindings]]
+name = "PFD"
+class_name = "PfdRelay"
+
 [[migrations]]
 tag = "pm-v1"
 new_sqlite_classes = ["Mailbox"]
@@ -45,6 +50,10 @@ new_sqlite_classes = ["Crew"]
 [[migrations]]
 tag = "kb-v1"
 new_sqlite_classes = ["Kneeboard"]
+
+[[migrations]]
+tag = "pfd-v1"
+new_sqlite_classes = ["PfdRelay"]
 
 [triggers]
 crons = ["*/20 * * * *"]

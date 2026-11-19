@@ -43,6 +43,8 @@ import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack }
 export { Crew } from './crew.js';
 import { kbPublic, appsPublic, wxPrefsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
+export { PfdRelay } from './pfd.js';
+import { pfdRoute } from './pfd.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1323,6 +1325,8 @@ export default {
       const me = await sessionOf(req, env);
       return kbPublic(req, new URL(req.url), env, h, me);
     }
+    /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
+    if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */
     if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
       const me = await sessionOf(req, env, req.method === 'POST');

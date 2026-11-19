@@ -120,6 +120,8 @@ export class Crew {
       case 'checkout': return this.checkout(a.u);
       case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '' }; }) };
       case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
+      case 'gsxSet': { const r = this.gsxSet(a); if (r.sent) await this.wake(); return r; }
+      case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
       case 'alarmSync': { const r = this.alarmSync(String(a.u || ''), a.list); await this.wake(); return r; }
@@ -237,6 +239,26 @@ export class Crew {
     const title = parts.length ? `${who} ${icao}: ${parts.join(' · ')}` : `${who} ${icao}: back to ${a.cat}`;
     this.enqueue({ u }, 'brief', { title, body: String(a.raw || '').slice(0, 180) + fl, url: '#wx', tag: 'wx-' + icao });
     return { ok: true, sent: true };
+  }
+  /* GSX Pro's ground services, sent by the EFB open on the simulator PC (gsx.js): kept per pilot for the pilot's other
+     devices, and a push when a service the pilot may be waiting for away from the screen has finished */
+  gsxSet(a) {
+    const u = String(a.u || ''); if (!u || !a.v || typeof a.v !== 'object') return { ok: false };
+    const K = ['coua', 'board', 'deboard', 'cater', 'fuel', 'dep', 'deice', 'cargoB', 'cargoD', 'hose', 'paxB', 'paxD', 'pax'], v = {};
+    for (const k of K) { const n = Number(a.v[k]); if (Number.isFinite(n) && n >= 0 && n < 100000) v[k] = Math.round(n); }
+    const k = 'gsx:' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), prev = row ? JSON.parse(row.v) : null, p = (prev && prev.v) || {};
+    /* the OOOI times the simulator PC stamped, for the flight plan it has open (fid), so the pilot's iPad shows them too */
+    const oo = {}; if (a.oo && typeof a.oo === 'object') for (const x of ['OUT', 'OFF', 'ON', 'IN']) if (/^\d\d:\d\d$/.test(String(a.oo[x] || ''))) oo[x] = a.oo[x];
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ v, at: Date.now(), ac: String(a.ac || '').slice(0, 60), fid: String(a.fid || '').slice(0, 40), oo }));
+    /* only a change seen within the last 10 minutes counts (a bridge coming back online is not news) */
+    const fresh = prev && Date.now() - prev.at < 600000, done = (x) => fresh && p[x] !== 6 && v[x] === 6;
+    const msgs = [];
+    if (done('board')) msgs.push(['Boarding complete', (v.paxB ? v.paxB + ' passengers on board. ' : '') + 'Time for the final loadsheet.', 'gsx-board']);
+    if (done('fuel')) msgs.push(['Refuelling complete', 'The fuel truck is done.', 'gsx-fuel']);
+    if (done('cater')) msgs.push(['Catering complete', 'The catering truck is done.', 'gsx-cater']);
+    if (done('deboard')) msgs.push(['Deboarding complete', (v.paxD ? v.paxD + ' passengers off. ' : '') + 'Ready for the next flight.', 'gsx-deboard']);
+    for (const m of msgs) this.enqueue({ u }, 'brief', { title: 'GSX · ' + m[0], body: m[1], url: '#gsx', tag: m[2] });
+    return { ok: true, sent: msgs.length > 0 };
   }
   checkout(u, quiet) {
     this.sql.exec('DELETE FROM ci WHERE u = ?', u);
@@ -387,6 +409,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
     if (path === '/api/efb/push/key') return res(await crew(env, { op: 'key' }));
     if (!me) throw new CrewError(401, 'Sign in first');
     if (req.method === 'GET' && path === '/api/efb/crew') return res(await crew(env, { op: 'ciGet', u: me.u }));
+    if (req.method === 'GET' && path === '/api/efb/gsx') return res(await crew(env, { op: 'gsxGet', u: me.u }));
     if (req.method !== 'POST') throw new CrewError(405, 'Method not allowed');
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new CrewError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new CrewError(400, 'Bad body'); }
@@ -403,6 +426,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
         if (std && std - now > 12 * 3600_000) throw new CrewError(409, 'Check-in opens 12 hours before departure (' + new Date(std - 12 * 3600_000).toISOString().slice(11, 16) + 'Z).');
         return res(await crew(env, { op: 'checkin', u: me.u, booking: bk, altn: String(b.altn || '').toUpperCase() }));
       }
+      case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo }));
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));
     }

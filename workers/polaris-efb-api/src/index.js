@@ -164,12 +164,41 @@ async function pilotRoute(env, username) {
   };
 }
 
+/* The pilot's live bookings: booked or in progress, no PIREP yet, not cancelled (vAMSYS's "Live" view). The status
+   filter vAMSYS takes is asked first; if it gives nothing, the pilot's latest bookings are read without it and the
+   live ones picked here, so a filter value vAMSYS does not know never hides a booking. */
+const BK_DONE = /cancel|complet|delet|expir|reject|accept|filed|pirep|used|invalid/i;
+function bkLive(b, now) {
+  if (!b || b.pirep_id || b.pirep || b.deleted_at || b.cancelled_at || b.completed_at) return false;
+  if (b.status != null && BK_DONE.test(String(b.status))) return false;
+  if (b.cancelled === true || b.is_cancelled === true) return false;
+  const v = b.valid_to ? Date.parse(b.valid_to) : NaN; if (Number.isFinite(v) && v < now - 6 * 3600_000) return false;
+  return true;
+}
+async function liveBookings(env, pilotId) {
+  const now = Date.now();
+  let first = [];
+  try { first = ((await vget(env, '/bookings', { 'filter[pilot_id]': pilotId, 'filter[status]': 'current', sort: 'id', 'page[size]': 10 })).data || []).filter((b) => bkLive(b, now)); } catch (e) { first = []; }
+  if (first.length) return first;
+  const all = (await vget(env, '/bookings', { 'filter[pilot_id]': pilotId, sort: '-id', 'page[size]': 25 })).data || [];
+  return all.filter((b) => b.pilot_id != null && String(b.pilot_id) === String(pilotId) && bkLive(b, now)).sort((a, b) => (a.id > b.id ? 1 : -1));
+}
+/* staff diagnostics: the shape of a pilot's latest bookings as vAMSYS returns them (fields and status only) */
+async function bookingsProbe(env, username) {
+  const p = await findPilot(env, username), out = {};
+  for (const [k, q] of [['current', { 'filter[status]': 'current' }], ['any', {}]]) {
+    try { const j = await vget(env, '/bookings', { 'filter[pilot_id]': p.id, sort: '-id', 'page[size]': 10, ...q });
+      out[k] = (j.data || []).map((b) => ({ id: b.id, pilot_id: b.pilot_id, flight: b.flight_number || b.callsign, status: b.status ?? null, pirep_id: b.pirep_id ?? null, valid_to: b.valid_to ?? null, deleted_at: b.deleted_at ?? null, cancelled_at: b.cancelled_at ?? null, created_at: b.created_at ?? null, live: bkLive(b, Date.now()), keys: Object.keys(b) })); }
+    catch (e) { out[k] = { error: e.message }; }
+  }
+  return { pilot: { id: p.id, username: p.username }, ...out };
+}
 async function bookingsRoute(env, username) {
   const p = await findPilot(env, username);
   const [ap, ac, list] = await Promise.all([
     airports(env).catch(() => new Map()),
     aircraftIndex(env).catch(() => new Map()),
-    cached('bookings:' + p.id, TTL.bookings, () => vget(env, '/bookings', { 'filter[pilot_id]': p.id, 'filter[status]': 'current', sort: 'id', 'page[size]': 10 })).then((j) => j.data || []),
+    cached('bookings:' + p.id, TTL.bookings, () => liveBookings(env, p.id)),
   ]);
   return {
     bookings: list.map((b) => {
@@ -1340,7 +1369,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id) }); }
+    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u) }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

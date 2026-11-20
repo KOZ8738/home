@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1120.1554">
+<meta name="efb-build" content="1120.1600">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -13185,7 +13185,7 @@ function cbNight(ms){const {dec,eot}=sunPos(ms),d=new Date(ms),m=d.getUTCHours()
 /* places and times */
 const cbCC=cc=>{try{return new Intl.DisplayNames(["en"],{type:"region"}).of(cc)||cc}catch(e){return cc}};
 function cbApt(ic){if(typeof APTS==="undefined")return null;if(!APTS.a){try{aptsLoad("a")}catch(e){}return null}return APTS.a.find(q=>q[0]===ic)||null}
-function cbCity(a){const ic=S(a&&a.icao_code),r=cbApt(ic);if(r&&r[7])return r[7];return S(a&&a.name).replace(/\s+(Intl|International|Airport).*$/i,"")||ic}
+function cbCity(a){const ic=S(a&&a.icao_code),r=cbApt(ic);if(r&&r[7])return String(r[7]).replace(/^(.+?)\s*\(\1\)$/,"$1");return S(a&&a.name).replace(/\s+(Intl|International|Airport).*$/i,"")||ic}
 function cbCountry(a){const r=cbApt(S(a&&a.icao_code));return r&&r[6]?cbCC(r[6]):""}
 function cbTz(a,which){const t=ofp.times||{},z=N(which==="o"?t.orig_timezone:t.dest_timezone);let tz=typeof aptTz==="function"?aptTz(a):null;
   if(!tz&&z!=null&&Number.isInteger(z)&&Math.abs(z)<=14)tz="Etc/GMT"+(z<=0?"+":"-")+Math.abs(z);if(!tz){const h=Math.round((N(a&&a.pos_long)||0)/15);tz="Etc/GMT"+(h<=0?"+":"-")+Math.abs(h)}return tz}
@@ -13428,16 +13428,18 @@ function cbEye(m,s,mode){const t=cbTrk(s),k=s.g?.4:Math.max(.6,Math.min(1,(s.alt
   const c=bpDest({la:s.la,lo:s.lo},t,(14*k)/BP_NM);return{center:[c.lo,c.la],bearing:t,pitch:80,zoom:z}}
 /* the route, the part flown, the aircraft; the 3D views follow the aircraft */
 function cbData(force){const m=CB.map;if(!m||!CB.laid)return;const P=cbPlanD(),R=P?P.L:[],s=cbLive(),sp=cbSplit(R,s),x=O();
-  m.getSource("cbTodo").setData({type:"Feature",geometry:{type:"LineString",coordinates:sp.todo.length>1?sp.todo:[[0,0],[0,0]]}});
-  m.getSource("cbDone").setData({type:"Feature",geometry:{type:"LineString",coordinates:sp.done.length>1?sp.done:[[0,0],[0,0]]}});
+  const now=Date.now(),lk=R.length+"|"+(BP.leg||0)+"|"+(sp.lo!=null?sp.lo.toFixed(2):"")+"|"+(s?s.la.toFixed(2):"");
+  if(force||(lk!==CB.lineK&&now-(CB.lineAt||0)>1000)){CB.lineK=lk;CB.lineAt=now;
+    m.getSource("cbTodo").setData({type:"Feature",geometry:{type:"LineString",coordinates:sp.todo.length>1?sp.todo:[[0,0],[0,0]]}});
+    m.getSource("cbDone").setData({type:"Feature",geometry:{type:"LineString",coordinates:sp.done.length>1?sp.done:[[0,0],[0,0]]}})}
   if(force&&R.length)m.getSource("cbEnds").setData({type:"FeatureCollection",features:[[R[0],cbCity(x.o)],[R[R.length-1],cbCity(x.d)]].map(([c,n])=>({type:"Feature",properties:{n},geometry:{type:"Point",coordinates:c}}))});
   const three=CB_3D.includes(CB.mode);
-  if(s){const h=s.g&&s.gs<3?bpWrap((s.h||0)+(s.mv||0)):cbTrk(s),lo=sp.lo!=null?sp.lo:s.lo;m.getSource("cbAc").setData(three?{type:"FeatureCollection",features:[]}:{type:"Feature",properties:{h,sz:cbSz()},geometry:{type:"Point",coordinates:[lo,s.la]}});
+  if(s){const h=s.g&&s.gs<3?bpWrap((s.h||0)+(s.mv||0)):cbTrk(s),lo=sp.lo!=null?sp.lo:s.lo,ak=three?"3d":lo.toFixed(5)+","+s.la.toFixed(5)+","+Math.round(h);if(force||ak!==CB.acK){CB.acK=ak;m.getSource("cbAc").setData(three?{type:"FeatureCollection",features:[]}:{type:"Feature",properties:{h,sz:cbSz()},geometry:{type:"Point",coordinates:[lo,s.la]}})}
     if(CB.mode==="close")m.jumpTo({center:[lo,s.la]});
     if(s.g){const ic=cbTxIc(s);if(ic&&typeof TX!=="undefined"&&TX.data[ic]&&CB.txIc!==ic){CB.txIc=ic;const G=cbTxGeo(TX.data[ic]);m.getSource("cbTx").setData(G);m.getSource("cbTxL").setData(G)}}
     if(CB.mode==="tower"&&!m.isEasing()){const e=cbTwrEye(s),b=CB.brg==null?e.bearing:CB.brg+(((e.bearing-CB.brg)+540)%360-180)*.03,c=bpDest({la:s.la,lo},b,cbTwrAhead()/1852/BP_NM);CB.brg=b;m.jumpTo({center:[c.lo,c.la],bearing:b})}
     if(three&&!m.isEasing()){const e=cbEye(m,s,CB.mode),b=CB.brg==null?e.bearing:CB.brg+(((e.bearing-CB.brg)+540)%360-180)*.05;CB.brg=b;m.jumpTo({center:e.center,bearing:b})}}
-  else m.getSource("cbAc").setData({type:"FeatureCollection",features:[]});
+  else if(force||CB.acK!==""){CB.acK="";m.getSource("cbAc").setData({type:"FeatureCollection",features:[]})}
   if(Date.now()-(CB.nightAt||0)>60000){CB.nightAt=Date.now();m.getSource("cbNight").setData(cbNight(Date.now()))}}
 /* each view's camera; space around the globe, a sky and terrain only for the 3D views */
 const CB_SPACE={"sky-color":"#02050C","horizon-color":"#3D7BC4","fog-color":"#02050C","sky-horizon-blend":.6,"horizon-fog-blend":.8,"fog-ground-blend":.95,"atmosphere-blend":["interpolate",["linear"],["zoom"],0,1,5,1,7,0]};
@@ -13482,7 +13484,12 @@ function cbPaint(force){if(cur!=="cabin")return;const el=$("#cb");if(!el)return;
   cbTfcData(s);set("cbTl",ok?cbTimeline():"");set("cbPill",ok?cbPill():"");set("cbFl",ok?cbFlight():"");set("cbHud",M==="cockpit"?cbHud():"");
   set("cbWait",s?"":`<div class="cb-wait"><i></i>${ok?"Waiting for the aircraft":"Load a flight plan to show the journey"}</div>`)}
 /* the loop: the aircraft ~12 times a second, the panels each second, the views in turn for the part of the flight */
-function cbTick(t){if(cur!=="cabin"){CB.raf=0;cbAwake(false);return}CB.raf=requestAnimationFrame(cbTick);if(document.hidden||t-CB.last<80)return;const dt=Math.min(250,t-(CB.last||t));CB.last=t;cbData(false);
+function cbTick(t){if(cur!=="cabin"){CB.raf=0;cbAwake(false);return}CB.raf=requestAnimationFrame(cbTick);
+  /* a device that cannot keep up with the globe (a simulator taking the graphics card, an older tablet): long gaps between
+     frames, again and again, and Cabin turns to the flat map for the rest of the visit */
+  if(!document.hidden&&CB.rafT&&t-CB.rafT>400&&CB.globe&&CB.laid&&!CB.intro){const n=Date.now();CB.slow=(CB.slow||[]).filter(x=>n-x<6000);CB.slow.push(n);
+    if(CB.slow.length>=6){CB.globe=false;CB.slow=[];cbView(false);toast("The globe is too slow on this device just now · showing the flat map")}}CB.rafT=t;
+  if(document.hidden||t-CB.last<80)return;const dt=Math.min(250,t-(CB.last||t));CB.last=t;cbData(false);
   const now=Date.now();if(now-CB.info>1000){CB.info=now;cbPaint()}
   const ph=cbPhase(cbLive());if(ph!==CB.ph){CB.ph=ph;CB.step=-1;CB.next=0}
   if(CB.mode==="tower"&&!CB_GND.includes(ph)){CB.idle=0;CB.next=now+16000;cbSet("route",false)}

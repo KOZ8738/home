@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1120.1513">
+<meta name="efb-build" content="1120.1516">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11674,9 +11674,13 @@ if(typeof GX!=="undefined"){
   GX.onOpen.push(()=>{BP.reading=0;bpReadSync();bpPubSync()});
   GX.onClose.push(()=>{BP.reading=0;bpPubSync()});
   /* FSUIPC can stop sending without saying why (the link between FSUIPC7 and the simulator dropped, a flight reloaded):
-     once nothing has come for 1.5 s, the reading is asked for again under a new name, every second until data comes */
+     some FSUIPC set-ups answer a timed read once and then stay quiet. So while the stream is quiet the PFD asks for one
+     reading at a time itself, ~15 times a second (each answer brings the next question); only if even those get no
+     answer for 3 s is the reading set up again under a new name, every second until data comes */
+  setInterval(()=>{if(!bpLocal()||!BP.reading||!BP.nm)return;const now=performance.now(),last=Math.max(BP.lastRx||0,BP.readAt||0);
+    if(now-last>80&&now-(BP.askAt||0)>60){BP.askAt=now;try{gxSend({command:"offsets.read",name:BP.nm})}catch(e){}}},33);
   setInterval(()=>{if(!bpLocal()||!BP.reading)return;const now=performance.now(),since=now-Math.max(BP.lastRx||0,BP.readAt||0);
-    if(since<(BP.kicks?1000:1500))return;try{gxSend({command:"offsets.stop",name:BP.nm})}catch(e){}BP.kicks=(BP.kicks||0)+1;BP.reading=0;bpReadSync()},250)}
+    if(since<(BP.kicks?1000:3000))return;try{gxSend({command:"offsets.stop",name:BP.nm})}catch(e){}BP.kicks=(BP.kicks||0)+1;BP.reading=0;bpReadSync()},250)}
 /* the bank's sign, checked in flight: banked right, the heading goes up; flipped (and kept) if it keeps saying otherwise */
 function bpCal(f){const p=BP.calPrev;BP.calPrev=f;if(!p||f.g||f.gs<80||Math.abs(f.b)<8)return;const dt=(f.t-p.t)/1000;if(dt<=0||dt>1)return;
   const rate=bpDA(p.h,f.h)/dt;if(Math.abs(rate)<.4)return;BP.calAcc+=Math.sign(rate)===Math.sign(f.b)?1:-1;

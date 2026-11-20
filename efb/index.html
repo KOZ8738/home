@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1120.1547">
+<meta name="efb-build" content="1120.1554">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11639,7 +11639,7 @@ const BP={buf:[],src:"",rx:[],lastRx:0,pub:null,pubBusy:0,pubRtt:null,subs:0,sub
   set:Object.assign({night:"auto",voice:true,tcas:10,inset:false},store.get("bpSet",{})),nav:null,leg:null,tfc:[],tfcAt:0,lprev:null,liftAt:0,landAt:0,landPend:null,ldOut:null,ldShow:null,al:{},ann:[],pfC:null,onFrame:[]};
 const bpLocal=()=>typeof GX!=="undefined"&&GX.bridge&&GX.st==="on";
 const bpWrap=a=>((a%360)+360)%360;
-const bpDA=(a,b)=>{let d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return d};
+const bpDA=(a,b)=>{let d=b-a;if(!Number.isFinite(d))return 0;d=((d%360)+540)%360-180;return d};
 const bpPlan=()=>!!(ofp&&!ofp._sample);
 const bpSetSave=()=>store.set("bpSet",BP.set);
 const bpBug=()=>bpPlan()?Object.assign({alt:null,min:null,minT:"baro"},store.get("bpBug:"+O().id,{})):{alt:null,min:null,minT:"baro"};

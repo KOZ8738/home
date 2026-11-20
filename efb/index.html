@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1120.1526">
+<meta name="efb-build" content="1120.1530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11294,7 +11294,7 @@ function gxConnect(){if(!GX.bridge||GX.ws)return;clearTimeout(GX.rt);GX.st="conn
      read that failed (no simulator yet) is just asked for again */
   let nm="";const read=()=>{if(GX.ws===ws&&ws.readyState===1&&nm)ws.send(JSON.stringify({command:"offsets.read",name:nm,interval:500,changesOnly:false}))};
   const declare=()=>{if(GX.ws!==ws||ws.readyState!==1)return;const b=gxBaseN();nm="pefbGsx"+(GX.seq=(GX.seq||0)+1);
-    ws.send(JSON.stringify({command:"offsets.declare",name:nm,offsets:GX_L.map(r=>({name:r[0],address:b+r[2],type:"uint",size:r[3]})).concat(GX_SIMO)}))};
+    ws.send(JSON.stringify({command:"offsets.declare",name:nm,changesOnly:false,offsets:GX_L.map(r=>({name:r[0],address:b+r[2],type:"uint",size:r[3]})).concat(GX_SIMO)}))};
   ws.onopen=()=>{GX.st="on";GX.err="";declare();gxPaint();for(const f of GX.onOpen)try{f()}catch(er){}};
   ws.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(_){return}
     /* other modules' offset sets (the PFD app's), by the start of their name */
@@ -11660,7 +11660,7 @@ function bpDecode(r){const A=360/4294967296,mv=(Number(r.mv)||0)*360/65536,th=bp
 /* read 15 times a second only while someone looks (a PFD on this PC's screen, or a device of the pilot's) */
 const bpNeed=()=>bpLocal()&&(bpWant()||BP.subs>0);
 function bpReadSync(){const need=bpNeed();if(need===!!BP.reading)return;
-  if(need){bpDg().decl++;BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;BP.readAt=performance.now();gxSend({command:"offsets.declare",name:BP.nm,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
+  if(need){bpDg().decl++;BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;BP.readAt=performance.now();BP.nmAns=0;gxSend({command:"offsets.declare",name:BP.nm,changesOnly:false,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
   else{BP.reading=0;gxSend({command:"offsets.stop",name:BP.nm})}}
 if(typeof GX!=="undefined"){
   GX.ext.pefbPfd=j=>{const D=bpDg();D.last=(j.command||"?")+(j.success===false?" refused":" ok")+" · "+String(j.name||"").replace("pefbPfd","#");D.lastAt=performance.now();if(j.success===false){D.err=String(j.errorMessage||j.errorCode||"refused").slice(0,120);D.errs++}else if(j.command==="offsets.read"&&j.data)D.ans++;
@@ -11670,7 +11670,7 @@ if(typeof GX!=="undefined"){
       if(j.command==="offsets.declare"&&!/already/i.test(String(j.errorMessage||""))){BP.reading=0;setTimeout(bpReadSync,4000);return}
       setTimeout(()=>{if(BP.reading&&j.name===BP.nm)gxSend({command:"offsets.read",name:BP.nm,interval:66,changesOnly:false})},3000);return}
     if(j.command==="offsets.declare"){if(j.name===BP.nm&&BP.reading)gxSend({command:"offsets.read",name:j.name,interval:66,changesOnly:false});return}
-    if(j.command==="offsets.read"&&j.data&&j.name===BP.nm&&BP.reading){BP.raw=j.data;const f=bpDecode(j.data);bpCal(f);bpLandCheck(f);if(BP.ldOut&&f.t-BP.ldOut.t<60000)f.ld=BP.ldOut;bpIn(f,"pc");BP.kicks=0;BP.askWait=0;if(BP.askAt){const D=bpDg();D.rtt=Math.round(performance.now()-BP.askAt)}bpPubSend(f)}};
+    if(j.command==="offsets.read"&&j.data&&j.name===BP.nm&&BP.reading){BP.raw=j.data;const f=bpDecode(j.data);bpCal(f);bpLandCheck(f);if(BP.ldOut&&f.t-BP.ldOut.t<60000)f.ld=BP.ldOut;bpIn(f,"pc");BP.kicks=0;BP.askWait=0;BP.nmAns=(BP.nmAns||0)+1;if(BP.nmAns>1)BP.once=false;if(BP.once){clearTimeout(BP.onceT);BP.onceT=setTimeout(()=>{if(BP.reading&&BP.once&&performance.now()-BP.lastRx>=90)bpRedo()},100)}if(BP.askAt){const D=bpDg();D.rtt=Math.round(performance.now()-BP.askAt)}bpPubSend(f)}};
   GX.onOpen.push(()=>{bpDg().opens++;BP.reading=0;bpReadSync();bpPubSync()});
   GX.onClose.push(()=>{BP.reading=0;bpPubSync()});
   /* every read says changesOnly:false: newer FSUIPC WebSocket Servers otherwise send a reading only when something in it
@@ -11681,9 +11681,12 @@ if(typeof GX!=="undefined"){
      is not buried under them); only if even those get no
      answer for 3 s is the reading set up again under a new name, every second until data comes */
   setInterval(()=>{if(!bpLocal()||!BP.reading||!BP.nm)return;const now=performance.now(),last=Math.max(BP.lastRx||0,BP.readAt||0);
+    /* a server that answers each set-up exactly once, then never again: set the reading up afresh after every answer */
+    if(!BP.once&&BP.nmAns===1&&now-BP.lastRx>500){BP.once=true;bpRedo();return}if(BP.once)return;
     if(now-last>80&&now-(BP.askAt||0)>60&&(!BP.askWait||now-BP.askAt>1500)){BP.askAt=now;BP.askWait=1;bpDg().asks++;try{gxSend({command:"offsets.read",name:BP.nm,changesOnly:false})}catch(e){}}},33);
   setInterval(()=>{if(!bpLocal()||!BP.reading)return;const now=performance.now(),since=now-Math.max(BP.lastRx||0,BP.readAt||0);
     if(since<(BP.kicks?1000:3000))return;try{gxSend({command:"offsets.stop",name:BP.nm})}catch(e){}BP.kicks=(BP.kicks||0)+1;BP.reading=0;bpReadSync()},250)}
+function bpRedo(){try{gxSend({command:"offsets.stop",name:BP.nm})}catch(e){}BP.reading=0;bpReadSync()}
 /* counts for the details sheet, to see what FSUIPC does */
 function bpDg(){return BP.dg||(BP.dg={decl:0,asks:0,ans:0,errs:0,opens:0,err:"",last:"",lastAt:0})}
 /* the bank's sign, checked in flight: banked right, the heading goes up; flipped (and kept) if it keeps saying otherwise */
@@ -11970,7 +11973,7 @@ function bpHud(){const el=$("#bpHud");if(el){const S=bpStatus();const h=`<span c
   const d=$("#bpDiag");if(d&&!d.hidden)d.innerHTML=bpDiagHtml()}
 function bpDiagHtml(){const f=BP.buf[BP.buf.length-1],r1=v=>v==null?"–":typeof v==="number"?(Math.round(v*10)/10).toString():esc(String(v));
   const rows=[["Source",bpLocal()?"FSUIPC on this PC":"EFB server relay"],["Updates",Math.round(bpRate()*10)/10+" a second"],["To the server (PC)",f&&f.l!=null?f.l+" ms":BP.pubRtt!=null?Math.round(BP.pubRtt/2)+" ms":"–"],["From the server",BP.rtt!=null?Math.round(BP.rtt/2)+" ms":"–"],["Devices watching",bpLocal()?String(BP.subs):"–"],["Traffic shown",String(BP.tfc.length)]];
-  if(bpLocal()){const D=bpDg();rows.push(["FSUIPC link",`opened ${D.opens} · set up ${D.decl} · single asks ${D.asks}`],["FSUIPC answers",`${D.ans} readings · ${D.errs} refusals${D.rtt!=null?" · answer in "+D.rtt+" ms":""}`],["Last message",D.last?esc(D.last)+" · "+Math.round((performance.now()-D.lastAt)/100)/10+" s ago":"–"],["Last refusal",D.err?esc(D.err):"–"],["GSX link",esc(GX.st+(GX.wait?" · waiting":"")+(GX.err?" · "+GX.err:""))])}
+  if(bpLocal()){const D=bpDg();rows.push(["FSUIPC link",`opened ${D.opens} · set up ${D.decl} · single asks ${D.asks}`],["FSUIPC answers",`${D.ans} readings · ${D.errs} refusals${D.rtt!=null?" · answer in "+D.rtt+" ms":""}`],["Last message",D.last?esc(D.last)+" · "+Math.round((performance.now()-D.lastAt)/100)/10+" s ago":"–"],["Last refusal",D.err?esc(D.err):"–"],["Reading",BP.once?"one answer per set-up (worked around)":"stream"],["EFB build",esc(typeof EFB_BUILD!=="undefined"?EFB_BUILD:"–")],["GSX link",esc(GX.st+(GX.wait?" · waiting":"")+(GX.err?" · "+GX.err:""))])}
   return `<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}${f?["p","b","h","k","ias","tas","gs","vs","alt","qnh","ra","ball","m","g","la","lo","oat","wd","wsp","gf"].map(k=>`<tr><td>${k}</td><td>${r1(f[k])}</td></tr>`).join(""):""}</table>
     ${bpLocal()?`<div class="bpf-inv"><button data-bpinv="b">Invert bank</button><button data-bpinv="p">Invert pitch</button></div>`:""}`}
 /* the settings sheet: target altitude, minimums, V speeds (read from Performance), night, traffic, callouts, Map inset */

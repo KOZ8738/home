@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1120.1516">
+<meta name="efb-build" content="1120.1519">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -11660,10 +11660,10 @@ function bpDecode(r){const A=360/4294967296,mv=(Number(r.mv)||0)*360/65536,th=bp
 /* read 15 times a second only while someone looks (a PFD on this PC's screen, or a device of the pilot's) */
 const bpNeed=()=>bpLocal()&&(bpWant()||BP.subs>0);
 function bpReadSync(){const need=bpNeed();if(need===!!BP.reading)return;
-  if(need){BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;BP.readAt=performance.now();gxSend({command:"offsets.declare",name:BP.nm,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
+  if(need){bpDg().decl++;BP.nm="pefbPfd"+(++BP.seq);BP.reading=1;BP.readAt=performance.now();gxSend({command:"offsets.declare",name:BP.nm,offsets:BP_O.map(([name,address,type,size])=>({name,address,type,size}))})}
   else{BP.reading=0;gxSend({command:"offsets.stop",name:BP.nm})}}
 if(typeof GX!=="undefined"){
-  GX.ext.pefbPfd=j=>{
+  GX.ext.pefbPfd=j=>{const D=bpDg();D.last=(j.command||"?")+(j.success===false?" refused":" ok")+" · "+String(j.name||"").replace("pefbPfd","#");D.lastAt=performance.now();if(j.success===false){D.err=String(j.errorMessage||j.errorCode||"refused").slice(0,120);D.errs++}else if(j.command==="offsets.read"&&j.data)D.ans++;
     if(j.success===false){/* no simulator yet, or stop not known to this server version: try again / slow it right down */
       if(j.command==="offsets.stop"){gxSend({command:"offsets.read",name:j.name,interval:60000});return}
       if(j.name!==BP.nm||!BP.reading)return;
@@ -11671,16 +11671,18 @@ if(typeof GX!=="undefined"){
       setTimeout(()=>{if(BP.reading&&j.name===BP.nm)gxSend({command:"offsets.read",name:BP.nm,interval:66})},3000);return}
     if(j.command==="offsets.declare"){if(j.name===BP.nm&&BP.reading)gxSend({command:"offsets.read",name:j.name,interval:66});return}
     if(j.command==="offsets.read"&&j.data&&j.name===BP.nm&&BP.reading){BP.raw=j.data;const f=bpDecode(j.data);bpCal(f);bpLandCheck(f);if(BP.ldOut&&f.t-BP.ldOut.t<60000)f.ld=BP.ldOut;bpIn(f,"pc");BP.kicks=0;bpPubSend(f)}};
-  GX.onOpen.push(()=>{BP.reading=0;bpReadSync();bpPubSync()});
+  GX.onOpen.push(()=>{bpDg().opens++;BP.reading=0;bpReadSync();bpPubSync()});
   GX.onClose.push(()=>{BP.reading=0;bpPubSync()});
   /* FSUIPC can stop sending without saying why (the link between FSUIPC7 and the simulator dropped, a flight reloaded):
      some FSUIPC set-ups answer a timed read once and then stay quiet. So while the stream is quiet the PFD asks for one
      reading at a time itself, ~15 times a second (each answer brings the next question); only if even those get no
      answer for 3 s is the reading set up again under a new name, every second until data comes */
   setInterval(()=>{if(!bpLocal()||!BP.reading||!BP.nm)return;const now=performance.now(),last=Math.max(BP.lastRx||0,BP.readAt||0);
-    if(now-last>80&&now-(BP.askAt||0)>60){BP.askAt=now;try{gxSend({command:"offsets.read",name:BP.nm})}catch(e){}}},33);
+    if(now-last>80&&now-(BP.askAt||0)>60){BP.askAt=now;bpDg().asks++;try{gxSend({command:"offsets.read",name:BP.nm})}catch(e){}}},33);
   setInterval(()=>{if(!bpLocal()||!BP.reading)return;const now=performance.now(),since=now-Math.max(BP.lastRx||0,BP.readAt||0);
     if(since<(BP.kicks?1000:3000))return;try{gxSend({command:"offsets.stop",name:BP.nm})}catch(e){}BP.kicks=(BP.kicks||0)+1;BP.reading=0;bpReadSync()},250)}
+/* counts for the details sheet, to see what FSUIPC does */
+function bpDg(){return BP.dg||(BP.dg={decl:0,asks:0,ans:0,errs:0,opens:0,err:"",last:"",lastAt:0})}
 /* the bank's sign, checked in flight: banked right, the heading goes up; flipped (and kept) if it keeps saying otherwise */
 function bpCal(f){const p=BP.calPrev;BP.calPrev=f;if(!p||f.g||f.gs<80||Math.abs(f.b)<8)return;const dt=(f.t-p.t)/1000;if(dt<=0||dt>1)return;
   const rate=bpDA(p.h,f.h)/dt;if(Math.abs(rate)<.4)return;BP.calAcc+=Math.sign(rate)===Math.sign(f.b)?1:-1;
@@ -11965,6 +11967,7 @@ function bpHud(){const el=$("#bpHud");if(el){const S=bpStatus();const h=`<span c
   const d=$("#bpDiag");if(d&&!d.hidden)d.innerHTML=bpDiagHtml()}
 function bpDiagHtml(){const f=BP.buf[BP.buf.length-1],r1=v=>v==null?"–":typeof v==="number"?(Math.round(v*10)/10).toString():esc(String(v));
   const rows=[["Source",bpLocal()?"FSUIPC on this PC":"EFB server relay"],["Updates",Math.round(bpRate()*10)/10+" a second"],["To the server (PC)",f&&f.l!=null?f.l+" ms":BP.pubRtt!=null?Math.round(BP.pubRtt/2)+" ms":"–"],["From the server",BP.rtt!=null?Math.round(BP.rtt/2)+" ms":"–"],["Devices watching",bpLocal()?String(BP.subs):"–"],["Traffic shown",String(BP.tfc.length)]];
+  if(bpLocal()){const D=bpDg();rows.push(["FSUIPC link",`opened ${D.opens} · set up ${D.decl} · single asks ${D.asks}`],["FSUIPC answers",`${D.ans} readings · ${D.errs} refusals`],["Last message",D.last?esc(D.last)+" · "+Math.round((performance.now()-D.lastAt)/100)/10+" s ago":"–"],["Last refusal",D.err?esc(D.err):"–"],["GSX link",esc(GX.st+(GX.wait?" · waiting":"")+(GX.err?" · "+GX.err:""))])}
   return `<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}${f?["p","b","h","k","ias","tas","gs","vs","alt","qnh","ra","ball","m","g","la","lo","oat","wd","wsp","gf"].map(k=>`<tr><td>${k}</td><td>${r1(f[k])}</td></tr>`).join(""):""}</table>
     ${bpLocal()?`<div class="bpf-inv"><button data-bpinv="b">Invert bank</button><button data-bpinv="p">Invert pitch</button></div>`:""}`}
 /* the settings sheet: target altitude, minimums, V speeds (read from Performance), night, traffic, callouts, Map inset */

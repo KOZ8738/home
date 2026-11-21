@@ -8,6 +8,7 @@
             inside a SIGMET at its level; the destination IFR / LIFR or with thunderstorms, freezing precipitation,
             heavy snow or hail, within two hours of landing */
 import { liveFlights } from './live.js';
+import { prepArea, inArea } from './sigroute.js'; // point in a SIGMET, also across 180°
 
 const R = 3440.065, rad = Math.PI / 180;
 const nm = (a, b, c, d) => { const x = Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2; return 2 * R * Math.asin(Math.min(1, Math.sqrt(x))); };
@@ -33,15 +34,6 @@ export function holdingIn(trail) {
   if (Math.abs(turn) < 330 || pts.length < 6) return false;
   const lat = pts.reduce((s, p) => s + p[0], 0) / pts.length, lon = pts.reduce((s, p) => s + p[1], 0) / pts.length;
   return pts.every((p) => nm(lat, lon, p[0], p[1]) < 15);
-}
-/* point in polygon ([lat, lon] rings) */
-function inside(lat, lon, poly) {
-  let c = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [ya, xa] = poly[i], [yb, xb] = poly[j];
-    if ((ya > lat) !== (yb > lat) && lon < ((xb - xa) * (lat - ya)) / (yb - ya) + xa) c = !c;
-  }
-  return c;
 }
 const timeOf = (v) => (v == null || v === '' ? null : typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : Date.parse(v));
 const levelFt = (v) => (v == null || v === '' || !isFinite(+v) ? null : +v < 1000 ? +v * 100 : +v);
@@ -69,7 +61,7 @@ export async function flightWatch(deps, now = Date.now()) {
       if (air && holdingIn(f.trail)) add(f, 'hold', 'amber', 'Holding', 'The track circles' + (f.arr && f.remain != null && f.remain < 120 ? ' ' + Math.round(f.remain) + ' nm from ' + f.arr : ''));
     }
     if (air && f.alt > 1000 && isFinite(f.lat)) {
-      const s = sigNow.find((x) => (levelFt(x.base) == null || f.alt >= levelFt(x.base) - 1000) && (levelFt(x.top) == null || f.alt <= levelFt(x.top) + 1000) && inside(f.lat, f.lon, x.coords));
+      const s = sigNow.find((x) => (levelFt(x.base) == null || f.alt >= levelFt(x.base) - 1000) && (levelFt(x.top) == null || f.alt <= levelFt(x.top) + 1000) && inArea(prepArea(x.coords), f.lat, f.lon));
       if (s) add(f, 'sigmet', 'amber', 'Inside a SIGMET', [s.hazard, s.qualifier].filter(Boolean).join(' ') + (s.fir ? ' · ' + s.fir : '') + (levelFt(s.base) != null || levelFt(s.top) != null ? ' · ' + (levelFt(s.base) != null ? 'FL' + Math.round(levelFt(s.base) / 100) : 'SFC') + '–' + (levelFt(s.top) != null ? 'FL' + Math.round(levelFt(s.top) / 100) : '') : ''));
     }
     /* the destination's weather, once landing is under two hours away */

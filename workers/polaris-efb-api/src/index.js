@@ -51,10 +51,11 @@ import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './a
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover } from './docs.js';
 import { aocPublic, hoppiePeek } from './aoc.js';
-import { standWatch } from './stands.js';
+import { standWatch, autoPlan } from './stands.js';
 import { flightWatch } from './watch.js';
 import { calPublic } from './cal.js';
 import { oooWatch } from './ooo.js';
+import { sigRouteWatch } from './sigroute.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -351,7 +352,7 @@ async function radarRoute() {
 }
 
 async function sigmetRoute() {
-  return cached('sigmets3', 300_000, async () => {
+  return cached('sigmets4', 300_000, async () => {
     const opt = { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)', Accept: 'application/json' } };
     const get = (u) => fetch(u, opt).then((r) => (r.ok ? r.json() : [])).catch(() => []);
     const [intl, us, ga, cwa] = await Promise.all([get('https://aviationweather.gov/api/data/isigmet?format=json'), get('https://aviationweather.gov/api/data/airsigmet?format=json'),
@@ -360,7 +361,7 @@ async function sigmetRoute() {
     const out = [];
     for (const s of Array.isArray(intl) ? intl : []) {
       const c = coords(s.coords);
-      if (c.length >= 3) out.push({ kind: 'SIGMET', fir: s.firId || s.icaoId || '', hazard: s.hazard || '', qualifier: s.qualifier || '', base: s.base ?? null, top: s.top ?? null, from: s.validTimeFrom ?? null, to: s.validTimeTo ?? null, coords: c, raw: s.rawSigmet || '' });
+      if (c.length >= 3) out.push({ kind: 'SIGMET', fir: s.firId || s.icaoId || '', firName: s.firName || '', hazard: s.hazard || '', qualifier: s.qualifier || '', base: s.base ?? null, top: s.top ?? null, from: s.validTimeFrom ?? null, to: s.validTimeTo ?? null, mov: s.dir ? String(s.dir) + (s.spd ? ' ' + s.spd + 'KT' : '') : '', coords: c, raw: s.rawSigmet || '' });
     }
     for (const s of Array.isArray(us) ? us : []) {
       const c = coords(s.coords);
@@ -1005,12 +1006,15 @@ const vsExp = (d) => { const now = Date.now(), t = (Date.parse(d.upd) || now) + 
 /* what the automatic stand assignment reads (see stands.js): the Polaris flights in the air as the admin's Live tab
    shows them, the VATSIM pilots, and an airport's map (stands) as the EFB already keeps it; the map is never built here */
 const STAND_CRON = '*/2 * * * *';
-/* every 2 minutes: the gate assignment and the OOOI times, from one read of the flights in the air */
+/* every 2 minutes: the gate assignment and the OOOI times, from one read of the flights in the air; every 10, the
+   SIGMETs on the routes (see sigroute.js) */
 async function opsTick(env, ctx) {
   const d = standDeps(env, ctx); let lp = null; const live = () => (lp = lp || d.live());
+  const plan = await autoPlan(env).catch(() => null), sigTick = Math.floor(Date.now() / 60_000) % 10 === 0;
   await Promise.all([
-    standWatch(env, { ...d, live }).catch((e) => console.warn('[stands]', e && e.message)),
+    plan ? standWatch(env, { ...d, live, plan }).catch((e) => console.warn('[stands]', e && e.message)) : null,
     live().then((l) => oooWatch(env, l, { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [] })).catch((e) => console.warn('[ooo]', e && e.message)),
+    sigTick && plan && plan.sig ? live().then((l) => sigRouteWatch(env, l, { sigmets: () => sigmetRoute(), on: true })).catch((e) => console.warn('[sigroute]', e && e.message)) : null,
   ]);
 }
 function standDeps(env, ctx) {

@@ -55,7 +55,10 @@ const norm = (r) => String(r || '').toUpperCase().replace(/^(GATE|STAND|STAND NO
 const nmBetween = (a, b, c, d) => { const R = 3440.065, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.min(1, Math.sqrt(x))); };
 
 /* ---- storage ---- */
-async function readPlan(kv) { const v = await kv.get(PLAN, 'json'); return v && typeof v === 'object' ? { on: !!v.on, lead: v.lead || LEAD_DEF, miss: v.miss === 'ground' ? 'ground' : 'skip', apts: v.apts || {}, at: v.at || 0, by: v.by || '' } : { on: false, lead: LEAD_DEF, miss: 'skip', apts: {}, at: 0, by: '' }; }
+/* the plan also holds the other automatic AOC switches: dep (departure gate at check-in, off unless turned on),
+   ls (final loadsheet before departure) and sig (SIGMET on the route), both on unless turned off */
+async function readPlan(kv) { const v = await kv.get(PLAN, 'json'), o = v && typeof v === 'object' ? v : {}; return { on: !!o.on, dep: o.dep === true, ls: o.ls !== false, sig: o.sig !== false, lead: o.lead || LEAD_DEF, miss: o.miss === 'ground' ? 'ground' : 'skip', apts: o.apts || {}, at: o.at || 0, by: o.by || '' }; }
+export const autoPlan = (env) => (env && env.STORE ? readPlan(env.STORE) : Promise.resolve(null));
 async function readLog(kv) { const v = await kv.get(LOG, 'json'); return Array.isArray(v) ? v : []; }
 async function writeLog(kv, list) { const since = Date.now() - 2 * 86400_000; await kv.put(LOG, JSON.stringify(list.filter((x) => x.t > since).sort((a, b) => b.t - a.t).slice(0, 300))); }
 
@@ -105,7 +108,7 @@ const crewOf = (f) => ({ crew: 1, cs: f.cs, m: f.pilot || f.cid ? [{ pilot: f.pi
 /* every 2 minutes: deps = { live() -> liveFlights answer, vatsim() -> VATSIM rows, layout(icao) -> cached airport map } */
 export async function standWatch(env, deps) {
   const kv = env && env.STORE; if (!kv) return { off: true };
-  const plan = await readPlan(kv); if (!plan.on) return { off: true };
+  const plan = deps.plan || (await readPlan(kv)); if (!plan.on) return { off: true };
   const live = await deps.live(), now = Date.now(), log = await readLog(kv), sent = [];
   const apts = {}; for (const [k, v] of Object.entries((live && live.apts) || {})) apts[k] = v;
   for (const f of (live && live.flights) || []) {
@@ -140,7 +143,7 @@ function cleanPlan(b) {
     }
     if (R.length) apts[I] = R;
   }
-  return { on: !!b.on, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
+  return { on: !!b.on, dep: !!b.dep, ls: b.ls !== false, sig: b.sig !== false, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
 }
 export async function standsAdmin(req, url, path, env, who, deps) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);

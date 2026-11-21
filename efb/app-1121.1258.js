@@ -8012,14 +8012,14 @@ function kbSheet(){if(!KB.sheet)return"";
     ${ofp._sample?`<p class="kb-shn">No flight plan loaded: forms start empty.</p>`:`<p class="kb-shn">For ${esc(O().flight)} ${esc(S(O().o.icao_code))} → ${esc(S(O().d.icao_code))}</p>`}
     <div class="kb-tgrid">${KB_ORDER.map((t,i)=>`<button class="kb-tc" data-kbtpl="${t}" style="--i:${i}"><span class="kb-ri k-${t}">${kbG(t)}</span><b>${esc(KB_T[t].name)}</b><small>${esc(KB_T[t].d)}</small></button>`).join("")}</div></div>`}
 V.kneeboard=()=>{const p=KB.sel?KB.pages.get(KB.sel):null;if(p&&!kbMine(p))KB.sel=null;const pg=KB.sel?KB.pages.get(KB.sel):null,fx=reduced()?"":KB.fx;KB.fx="";
-  return `<div class="kb ${pg?"has-page":""}${fx?" fx-"+fx:""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
+  return `<div class="kb ${pg?"has-page":""}${fx?" kbfx-"+fx:""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
 
 /* the 640-px page is scaled to fit the width (so handwriting lands in the same place on every device) */
 function kbFit(){const sc=document.getElementById("kbScroll"),fit=document.getElementById("kbFit"),pp=document.getElementById("kbPaper");if(!sc||!fit||!pp)return;
   const W=sc.clientWidth-(innerWidth<700?16:40),k=Math.max(.4,Math.min(1.35,W/KB_W)),h=pp.offsetHeight;KB.k=k;
   pp.style.transform=`scale(${k})`;fit.style.width=KB_W*k+"px";fit.style.height=h*k+"px"}
 {const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="kneeboard"){kbFit();
-  const R=document.getElementById("kbRoot");if(R&&/\bfx-/.test(R.className)){const c=[...R.classList].filter(x=>x.startsWith("fx-"));setTimeout(()=>{if(R.isConnected)R.classList.remove(...c)},900)}if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
+  const R=document.getElementById("kbRoot");if(R&&/\bkbfx-/.test(R.className)){const c=[...R.classList].filter(x=>x.startsWith("kbfx-"));setTimeout(()=>{if(R.isConnected)R.classList.remove(...c)},900)}if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
   const sc=document.getElementById("kbScroll");if(sc&&kbFit._ro){kbFit._ro.disconnect();kbFit._ro.observe(sc)}}return v}}
 
 /* ---------- handwriting (the OFP's pens) ---------- */
@@ -8086,7 +8086,7 @@ document.addEventListener("click",e=>{if(cur!=="kneeboard")return;const t=e.targ
   if(KB.menu&&!t.closest(".kb-menu")&&!t.matches("[data-kbmenu]")){kbMenuClose();if(!t.dataset.kbt)return}
   if(t.matches("[data-kbnew]")){KB.sheet=true;KB.fx="sheet";render();return}
   if(t.matches("[data-kbshx]")){kbSheetClose();return}
-  if(t.dataset.kbtpl){const tp=t.dataset.kbtpl;kbSheetClose(()=>{kbNew(tp);KB.fx=kbNarrow()?"push":"new";if(tp==="fuel")KB.fx+=" fx-rows"});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTop=0},kbNarrow()?260:210);return}
+  if(t.dataset.kbtpl){const tp=t.dataset.kbtpl;kbSheetClose(()=>{kbNew(tp);KB.fx=kbNarrow()?"push":"new";if(tp==="fuel")KB.fx+=" kbfx-rows"});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTop=0},kbNarrow()?260:210);return}
   if(t.dataset.kbopen){if(KB.sel===t.dataset.kbopen&&!kbNarrow())return;KB.sel=t.dataset.kbopen;KB.undo=[];KB.redo=[];KB.menu=false;KB.armAll=false;KB.fx=kbNarrow()?"push":"swap";render();const s=document.getElementById("kbScroll");if(s)s.scrollTop=0;return}
   if(t.matches("[data-kbback]")){KB.menu=false;kbOut("popping",290,()=>{KB.sel=null});return}
   if(t.matches("[data-kbdelall]")){const L=[...KB.pages.values()].filter(kbMine);if(!KB.armAll){KB.armAll=true;render();setTimeout(()=>{if(KB.armAll){KB.armAll=false;if(cur==="kneeboard")render()}},4000);return}
@@ -8242,15 +8242,15 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-flash{animation:kbFlash 1s ease-out both}
 /* opening the app: the list and the page come in */
 @keyframes kbRowUp{from{opacity:0;transform:translateY(10px)}}
-.kb.fx-open .kb-swr,.kb.fx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
-.kb.fx-open .kb-empty,.kb.fx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
+.kb.kbfx-open .kb-swr,.kb.kbfx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
+.kb.kbfx-open .kb-empty,.kb.kbfx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
 @keyframes kbPaperIn{from{opacity:0;transform:translateY(16px) scale(.985)}}
-.kb.fx-open .kb-fit,.kb.fx-swap .kb-fit,.kb.fx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
-.kb.fx-swap .kb-bar,.kb.fx-new .kb-bar{animation:kbFade .3s ease-out both}
+.kb.kbfx-open .kb-fit,.kb.kbfx-swap .kb-fit,.kb.kbfx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
+.kb.kbfx-swap .kb-bar,.kb.kbfx-new .kb-bar{animation:kbFade .3s ease-out both}
 @keyframes kbRowNew{0%{opacity:0;transform:translateX(-18px) scale(.95)}60%{opacity:1}}
-.kb.fx-new .kb-swr:has(.kb-row.on){animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
+.kb.kbfx-new .kb-swr:has(.kb-row.on){animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
 @keyframes kbRowIn{from{opacity:0;transform:translateY(6px)}}
-.kb.fx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
+.kb.kbfx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
 /* leaving: a deleted page and its row */
 @keyframes kbPaperOut{to{opacity:0;transform:scale(.94) translateY(12px)}}
 @keyframes kbRowOut{to{opacity:0;transform:translateX(-26px)}}
@@ -8259,32 +8259,32 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb.out-all .kb-swr,.kb.out-all .kb-sec{animation:kbRowOut .28s cubic-bezier(.4,0,1,1) forwards;animation-delay:calc(var(--i,0)*25ms)}
 /* the New Page sheet */
 @keyframes kbShadeIn{from{opacity:0}}@keyframes kbShadeOut{to{opacity:0}}
-.kb.fx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}
+.kb.kbfx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}
 @keyframes kbSheetIn{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}}@keyframes kbSheetOut{to{opacity:0;transform:translate(-50%,-50%) scale(.94)}}
-.kb.fx-sheet .kb-sheet{animation:kbSheetIn .42s cubic-bezier(.2,1.2,.35,1) both}.kb-sheet.closing{animation:kbSheetOut .2s ease-in forwards}
+.kb.kbfx-sheet .kb-sheet{animation:kbSheetIn .42s cubic-bezier(.2,1.2,.35,1) both}.kb-sheet.closing{animation:kbSheetOut .2s ease-in forwards}
 @keyframes kbCard{from{opacity:0;transform:translateY(14px) scale(.96)}}
-.kb.fx-sheet .kb-tc{animation:kbCard .42s cubic-bezier(.2,1.1,.3,1) both;animation-delay:calc(70ms + var(--i,0)*30ms)}
-.kb.fx-sheet .kb-shn{animation:kbFade .35s .05s ease-out both}
+.kb.kbfx-sheet .kb-tc{animation:kbCard .42s cubic-bezier(.2,1.1,.3,1) both;animation-delay:calc(70ms + var(--i,0)*30ms)}
+.kb.kbfx-sheet .kb-shn{animation:kbFade .35s .05s ease-out both}
 /* the ⋯ menu */
 @keyframes kbMenuIn{from{opacity:0;transform:scale(.6)}}@keyframes kbMenuOut{to{opacity:0;transform:scale(.85)}}
-.kb.fx-menu .kb-menu{animation:kbMenuIn .3s cubic-bezier(.2,1.25,.4,1) both}.kb-menu.closing{animation:kbMenuOut .14s ease-in forwards}
-.kb.fx-menu .kb-menu button{animation:kbFade .25s ease-out both}
-.kb.fx-menu .kb-menu button:nth-child(2){animation-delay:30ms}.kb.fx-menu .kb-menu button:nth-child(3){animation-delay:60ms}.kb.fx-menu .kb-menu button:nth-child(4){animation-delay:90ms}.kb.fx-menu .kb-menu button:nth-child(5){animation-delay:120ms}
+.kb.kbfx-menu .kb-menu{animation:kbMenuIn .3s cubic-bezier(.2,1.25,.4,1) both}.kb-menu.closing{animation:kbMenuOut .14s ease-in forwards}
+.kb.kbfx-menu .kb-menu button{animation:kbFade .25s ease-out both}
+.kb.kbfx-menu .kb-menu button:nth-child(2){animation-delay:30ms}.kb.kbfx-menu .kb-menu button:nth-child(3){animation-delay:60ms}.kb.kbfx-menu .kb-menu button:nth-child(4){animation-delay:90ms}.kb.kbfx-menu .kb-menu button:nth-child(5){animation-delay:120ms}
 @media (max-width:820px){.kb{grid-template-columns:1fr}.kb.has-page .kb-side{display:none}.kb:not(.has-page) .kb-main{display:none}
   .kb-back{display:flex}.kb-ti{font-size:18px}.kb-bar{padding:8px 10px 2px;flex-wrap:wrap}.kb-tools{padding:2px 10px 6px}.kb-hint{display:none}
   .kb-pill{font-size:13px;padding:7px 11px}.kb-tgrid{grid-template-columns:1fr}.kb-sheet{top:auto;bottom:0;transform:none;left:0;width:100%;border-radius:14px 14px 0 0;max-height:88%;padding-bottom:env(safe-area-inset-bottom)}
   .kb-grabber{display:block}.kb-shh{touch-action:none}
   @keyframes kbSheetUp{from{transform:translateY(100%)}}@keyframes kbSheetDown{to{transform:translateY(105%)}}
-  .kb.fx-sheet .kb-sheet{animation:kbSheetUp .48s cubic-bezier(.16,1,.3,1) both}.kb-sheet.closing{animation:kbSheetDown .25s cubic-bezier(.5,0,.9,.6) forwards}
-  .kb.fx-sheet .kb-tc{animation-delay:calc(120ms + var(--i,0)*28ms)}
+  .kb.kbfx-sheet .kb-sheet{animation:kbSheetUp .48s cubic-bezier(.16,1,.3,1) both}.kb-sheet.closing{animation:kbSheetDown .25s cubic-bezier(.5,0,.9,.6) forwards}
+  .kb.kbfx-sheet .kb-tc{animation-delay:calc(120ms + var(--i,0)*28ms)}
   @keyframes kbMainIn{from{transform:translateX(100%)}}@keyframes kbSideAway{to{transform:translateX(-28%);opacity:.5}}
   @keyframes kbMainOut{to{transform:translateX(100%)}}@keyframes kbSideBack{from{transform:translateX(-28%);opacity:.5}}
-  .kb.fx-push .kb-side,.kb.popping .kb-side{display:flex;position:absolute;inset:0;z-index:0}
-  .kb.fx-push .kb-side{animation:kbSideAway .42s cubic-bezier(.2,.8,.2,1) forwards}
-  .kb.fx-push .kb-main{position:relative;z-index:1;animation:kbMainIn .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
+  .kb.kbfx-push .kb-side,.kb.popping .kb-side{display:flex;position:absolute;inset:0;z-index:0}
+  .kb.kbfx-push .kb-side{animation:kbSideAway .42s cubic-bezier(.2,.8,.2,1) forwards}
+  .kb.kbfx-push .kb-main{position:relative;z-index:1;animation:kbMainIn .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
   .kb.popping .kb-side{animation:kbSideBack .29s cubic-bezier(.2,.8,.2,1) both}
   .kb.popping .kb-main{position:relative;z-index:1;animation:kbMainOut .29s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
-  .kb.fx-push .kb-fit{animation:none}
+  .kb.kbfx-push .kb-fit{animation:none}
   .kb.out-del .kb-side{display:flex;position:absolute;inset:0;z-index:0;animation:kbSideBack .26s cubic-bezier(.2,.8,.2,1) both}
   .kb.out-del .kb-main{position:relative;z-index:1;animation:kbMainOut .26s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}.kb.out-del .kb-fit{animation:none}}
 @media (prefers-reduced-motion:reduce){.kb,.kb *{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
@@ -8465,7 +8465,7 @@ function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const st=w.querySele
   let min=12;if(st&&!st.hidden&&st.offsetHeight)min=st.offsetTop+st.offsetHeight+10;
   const t=Math.round(Math.max(min,(w.clientHeight-ctl.offsetHeight)/2))+"px";if(w.style.getPropertyValue("--tbc")!==t)w.style.setProperty("--tbc",t)}
 function mcMenu(on){const w=$("#view .mapwrap"),b=$("#mcMore");let m=$("#mcMenu");
-  if(!on){if(m)m.remove();if(b)b.setAttribute("aria-expanded","false");return}
+  if(!on){if(m){if(motionOff())m.remove();else{m.id="";m.classList.add("out");setTimeout(()=>m.remove(),160)}}if(b)b.setAttribute("aria-expanded","false");return}
   if(!w||!b)return;const ctl=w.querySelector(".mapctl");if(!m){m=document.createElement("div");m.id="mcMenu";m.className="mcmenu";m.setAttribute("role","menu");m.setAttribute("aria-label","More map tools");w.appendChild(m)}
   m.innerHTML=MC_MORE.map(([id,t])=>{const r=ctl&&ctl.querySelector("#"+id);if(!r)return"";const on=r.getAttribute("aria-pressed")==="true";
       const ic=r.querySelector("svg")?r.innerHTML:`<span class="mc-tx">${esc(r.textContent.trim())}</span>`;
@@ -8588,6 +8588,86 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:calc(var(--mt) + 64px)!important}}
 @container screen (min-width:561px) and (max-width:640px){.screen[data-app="map"] .mapwrap .nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}}
 @container screen (max-width:640px){.screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:8px!important;right:8px!important;top:112px!important}}
+</style>`);
+
+/* ---------- Motion for every switch (Nov 2026) ----------
+   Flight's tabs slide in from the side of the tab they come from (a page inside the same tab slides in from the right,
+   back to the tab's first page from the left); any other change of app inside the open window fades up; the tab bar's
+   light slides to the new tab and its icon pops; panels on the Map slide in from the left (from below on a phone) and
+   NRST and the ⋯ menu slide back out; the airport sheet cross-fades its content, and so do the sections and tabs inside
+   apps (flight plan pages, logbook, checklists, Settings, mail boxes…). All of it is off with Reduce motion (the iPad's
+   or the EFB's own in Settings). */
+const FT_ORDER={dl:0,map:1,apt:2,charts:3,docs:4,msg:5,pad:6,more:7};
+const FT_ROOT={docs:"docs",more:"more"};
+const motionOff=()=>reduced()||document.documentElement.classList.contains("a11y-rm");
+let ftView=null;
+function vwAnim(cls){const v=$("#view");if(!v||motionOff())return;v.classList.remove("vw-r","vw-l","vw-up");void v.offsetWidth;v.classList.add(cls)}
+document.addEventListener("animationend",e=>{const t=e.target;if(!t||!t.classList)return;
+  if(t.id==="view")t.classList.remove("vw-r","vw-l","vw-up");else if(t.classList.contains("vw-swap"))t.classList.remove("vw-swap")});
+{const _ac=appChrome;appChrome=function(id){const from=ftView,open=screenEl.classList.contains("in-app");ftView=id;const r=_ac.apply(this,arguments);
+  /* only while the window is already open (opening from the Home Screen has its own zoom) */
+  if(open&&from&&from!==id){
+    if(isFl(from)&&isFl(id)){const a=FT_ORDER[FLV[from][1]],b=FT_ORDER[FLV[id][1]];
+      vwAnim(b>a?"vw-r":b<a?"vw-l":FT_ROOT[FLV[id][1]]===from?"vw-r":FT_ROOT[FLV[id][1]]===id?"vw-l":"vw-up")}
+    else vwAnim("vw-up")}
+  return r}}
+/* going Home forgets the view, so the next opening zooms without a slide on top */
+window.addEventListener("hashchange",()=>{if(!cur)ftView=null});
+
+/* the tab bar's light: one bar that slides to the lit tab */
+function ftInd(){const b=$("#ftabs");if(!b||!b.offsetParent)return;let i=b.querySelector(".ft-ind");
+  if(!i){i=document.createElement("span");i.className="ft-ind";i.setAttribute("aria-hidden","true");b.appendChild(i)}
+  const t=b.querySelector('.ft-tab[aria-current="page"]');if(!t||!t.offsetParent){i.style.opacity="0";return}
+  const x=Math.round(t.offsetLeft+t.offsetWidth*.24),w=Math.round(t.offsetWidth*.52);
+  if(i._x===x&&i._w===w&&i.style.opacity==="1")return;
+  const jump=!i._x||motionOff();if(jump)i.style.transition="none";
+  i.style.transform=`translateX(${x}px)`;i.style.width=w+"px";i.style.opacity="1";i._x=x;i._w=w;
+  if(jump){void i.offsetWidth;i.style.transition=""}}
+{const _f=ftSync;ftSync=function(){const r=_f.apply(this,arguments);try{ftInd()}catch(e){}return r}}
+window.addEventListener("resize",()=>{const i=$("#ftabs .ft-ind");if(i)i._x=0;ftInd()});
+
+/* sections and tabs inside an app: the content cross-fades after the render the tap causes */
+let vwSwap=0;
+document.addEventListener("click",e=>{if(motionOff()||!e.target.closest)return;
+  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-wxsel],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
+  if(t&&t.closest("#view"))vwSwap=Date.now()},true);
+{const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);
+  if(vwSwap&&Date.now()-vwSwap<400){vwSwap=0;const el=$("#view .detail>.dwrap")||$("#view .detail")||($("#view")&&$("#view").firstElementChild);
+    if(el){el.classList.remove("vw-swap");void el.offsetWidth;el.classList.add("vw-swap")}}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+@keyframes vwR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes vwL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes vwUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes vwFade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes lpIn{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes lpOut{to{opacity:0;transform:translateX(-22px)}}
+@keyframes lpUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes lpDown{to{opacity:0;transform:translateY(28px)}}
+@keyframes popIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes mcOut{to{opacity:0;transform:translateX(-6px)}}
+@keyframes ftPop{0%{transform:scale(1)}45%{transform:scale(1.16)}100%{transform:scale(1)}}
+#view.vw-r{animation:vwR .28s cubic-bezier(.2,.85,.25,1)}
+#view.vw-l{animation:vwL .28s cubic-bezier(.2,.85,.25,1)}
+#view.vw-up{animation:vwUp .26s cubic-bezier(.2,.85,.25,1)}
+.vw-swap{animation:vwFade .22s ease-out}
+.ftabs .ft-tab[aria-current="page"]::before{display:none}
+.ft-ind{position:absolute;top:-1px;left:0;width:0;height:3px;border-radius:0 0 3px 3px;background:var(--ft-on);opacity:0;pointer-events:none;
+  transition:transform .34s cubic-bezier(.3,.9,.3,1),width .34s cubic-bezier(.3,.9,.3,1),opacity .2s}
+.ft-tab[aria-current="page"] .ft-ic{animation:ftPop .34s cubic-bezier(.3,1.5,.5,1)}
+.assheet .as-body{animation:vwFade .2s ease-out}
+.screen[data-app="map"] .mapwrap .nr-panel{animation:lpIn .3s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap .nr-panel.lp-out{animation:lpOut .2s ease-in forwards;pointer-events:none}
+.bpf .nr-panel.lp-out{animation:mcOut .2s ease-in forwards;pointer-events:none}
+.screen[data-app="map"] .mapwrap .mapinfo:not([hidden]),.screen[data-app="map"] .fppanel:not([hidden]){animation:lpIn .3s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap :is(.maplayers,.ovbar):not([hidden]),.screen[data-app="map"] .mapwrap :is(.mspanel,.repanel){animation:popIn .2s ease-out}
+.mcmenu.out{animation:mcOut .15s ease-in forwards;pointer-events:none}
+@container screen (max-width:640px){
+  .screen[data-app="map"] .mapwrap .nr-panel,.screen[data-app="map"] .mapwrap .mapinfo:not([hidden]),.screen[data-app="map"] .fppanel:not([hidden]){animation-name:lpUp}
+  .screen[data-app="map"] .mapwrap .nr-panel.lp-out{animation-name:lpDown}}
+@media (prefers-reduced-motion:reduce){#view.vw-r,#view.vw-l,#view.vw-up,.vw-swap,.assheet .as-body,.ft-tab[aria-current="page"] .ft-ic,
+  .screen[data-app="map"] .mapwrap .nr-panel,.screen[data-app="map"] .mapwrap .mapinfo,.screen[data-app="map"] .fppanel,.screen[data-app="map"] .mapwrap :is(.maplayers,.ovbar,.mspanel,.repanel){animation:none}
+  .ft-ind{transition:none}}
 </style>`);
 
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
@@ -11000,7 +11080,9 @@ function nrPlace(){const host=cur==="map"?$("#view .mapwrap"):cur==="pfd"?$("#vi
   if(cur==="map"){const ctl=host.querySelector(".mapctl");if(ctl&&!ctl.querySelector("#nrBtn")){const b=document.createElement("button");b.className="btn";b.id="nrBtn";b.dataset.nr="";b.setAttribute("aria-label","Nearest airports");b.textContent="NRST";ctl.insertBefore(b,ctl.querySelector("#bpBtn")||ctl.querySelector("#mapIn"))}
     const b=host.querySelector("#nrBtn");if(b)b.setAttribute("aria-pressed",String(NR.open))}
   if(cur==="pfd"&&!host.querySelector(".bpf-nr"))host.insertAdjacentHTML("beforeend",`<button class="bpf-i bpf-nr" data-nr aria-label="Nearest airports">NRST</button>`);
-  let p=host.querySelector(".nr-panel");if(NR.open&&!p){host.insertAdjacentHTML("beforeend",`<aside class="nr-panel"></aside>`);nrPaint()}else if(!NR.open&&p)p.remove()}
+  let p=host.querySelector(".nr-panel");if(NR.open&&p&&p.classList.contains("lp-out")){p.remove();p=null}
+  if(NR.open&&!p){host.insertAdjacentHTML("beforeend",`<aside class="nr-panel"></aside>`);nrPaint()}
+  else if(!NR.open&&p&&!p.classList.contains("lp-out")){if(motionOff())p.remove();else{p.classList.add("lp-out");setTimeout(()=>p.remove(),210)}}}
 {const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="map"||cur==="pfd")nrPlace();return v}}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-nr],[data-nrx],[data-nrgo],[data-nrcancel]");if(!t)return;
   if(t.dataset.nrgo){const a=NR.list.find(x=>x.icao===t.dataset.nrgo),p=nrPos();if(!a||!p)return;NR.div={icao:a.icao,name:a.name,la:a.la,lo:a.lo,from:{la:p.la,lo:p.lo},at:Date.now()};store.set("bpDiv",NR.div);if(typeof BP!=="undefined")BP.leg=null;

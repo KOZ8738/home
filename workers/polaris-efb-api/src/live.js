@@ -27,6 +27,12 @@ export const PAW_APTS = {
   EGLL: [51.47, -0.4543, 'LHR', 'London Heathrow'],
   LSZH: [47.4647, 8.5492, 'ZRH', 'Zurich'],
   ENGM: [60.1976, 11.1004, 'OSL', 'Oslo Gardermoen'],
+  /* in the company gate assignments too */
+  KATL: [33.6407, -84.4277, 'ATL', 'Atlanta'],
+  KDEN: [39.8561, -104.6737, 'DEN', 'Denver'],
+  KLAS: [36.084, -115.1537, 'LAS', 'Las Vegas'],
+  KDCA: [38.8512, -77.0402, 'DCA', 'Washington National'],
+  KSAN: [32.7338, -117.1933, 'SAN', 'San Diego'],
 };
 
 const PAW_CS = /^PAW\d{1,4}[A-Z]{0,2}$/;

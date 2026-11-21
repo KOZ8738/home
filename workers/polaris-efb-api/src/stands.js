@@ -1,15 +1,17 @@
 /* ---------- Automatic stand assignment (AOC) ----------
-   About half an hour before a Polaris flight lands, Polaris operations sends its crew the arrival stand as an AOC
-   message (EFB › Flight › Messages; see aoc.js). Staff keep a stand plan per airport on /admin (Stands tab): rules in
-   order, each a set of stands written as ranges ("D1-D10, C5, 201-215"), for narrowbodies, widebodies or both, with a
-   terminal. The first stand of the first rule that fits the aircraft and is free is taken. A stand is not free while
+   About half an hour before a Polaris flight lands, Polaris operations sends its crew the arrival gate as an AOC
+   message (EFB › Flight › Messages; see aoc.js). Staff keep a gate plan per airport on /admin (Gates tab): rules in
+   order, each a set of gates written as ranges ("D1-D10, C5, 201-215"), for domestic or international flights (or
+   both), narrowbodies, widebodies or both, with a terminal. A flight is domestic when both airports are in the same
+   country (the United States with Hawaii, Alaska and its territories). The first gate of the first rule that fits the
+   flight and is free is taken. A stand is not free while
    a pilot on VATSIM sits on it (within 45 m of the stand on the OpenStreetMap airport map, at walking speed), or while
    another Polaris arrival has it within 45 minutes either side. Every 2 minutes (a cron) the Worker reads the Polaris
    flights in the air (vAMSYS ACARS, and PAW flights seen only on VATSIM, as the admin's Live tab), and sends one
    message per flight once the time to go falls under the lead time. Off until staff turn it on.
 
-   KV (STORE):  stands:v1:plan -> { on, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, ac: 'all'|'narrow'|'wide', term }] }, at, by }
-                stands:v1:log  -> [{ k, t, cs, dep, arr, ac, wide, eta, stand, term, by, aoc, pilot, cid, name }] (two days) */
+   KV (STORE):  stands:v1:plan -> { on, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, fl: 'all'|'dom'|'intl', ac: 'all'|'narrow'|'wide', term }] }, at, by }
+                stands:v1:log  -> [{ k, t, cs, dep, arr, ac, wide, fl, eta, stand, term, by, aoc, pilot, cid, name }] (two days) */
 import { aocSend } from './aoc.js';
 import { PAW_APTS } from './live.js';
 
@@ -38,6 +40,16 @@ export function expandStands(text) {
 }
 /* a widebody needs a widebody stand; everything else Polaris flies (A320 family) is a narrowbody */
 export const isWide = (ac) => /(A30\d|A310|A33\d|A34\d|A35\d|A38\d|B74\d|B76\d|B77\d|B78\d|B74|B76|B77|B78|74[78]|767|77[7W]|78[789]|MD11|DC10|IL96)/.test(String(ac || '').toUpperCase().replace(/[\s-]+/g, ''));
+/* the country an airport is in, from its ICAO code: enough to tell a domestic flight from an international one */
+const US = /^(K|P[AHGFJKMOPW]|TJ|TI)/, RU = /^U[EHILNORSUW]/, BR = /^S[BDNSW]/, IN = /^V[AEIO]/, ID = /^W[AIQR]/, CN = /^Z[BGHJLPSUWY]/;
+export function countryOf(icao) {
+  const s = String(icao || '').toUpperCase(); if (!/^[A-Z][A-Z0-9]{3}$/.test(s)) return '';
+  if (US.test(s)) return 'US'; if (s[0] === 'C') return 'CA'; if (s[0] === 'Y') return 'AU'; if (RU.test(s)) return 'RU'; if (BR.test(s)) return 'BR';
+  if (IN.test(s)) return 'IN'; if (ID.test(s)) return 'ID'; if (CN.test(s)) return 'CN'; if (/^R[JO]/.test(s)) return 'JP';
+  return s.slice(0, 2);
+}
+/* 'dom' | 'intl' | '' (a flight with no departure airport known) */
+export function flightType(dep, arr) { const a = countryOf(dep), b = countryOf(arr); return a && b ? (a === b ? 'dom' : 'intl') : ''; }
 const norm = (r) => String(r || '').toUpperCase().replace(/^(GATE|STAND|STAND NO\.?|GATE NO\.?)\s*/, '').replace(/\s+/g, '').replace(/(^|[A-Z])0+(\d)/g, '$1$2');
 const nmBetween = (a, b, c, d) => { const R = 3440.065, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.min(1, Math.sqrt(x))); };
 
@@ -73,14 +85,14 @@ async function takenAt(icao, etaMs, log, deps, skipKey) {
   return taken;
 }
 /* the stand for an aircraft at icao: { stand, term } | { none: 'noplan' | 'full' } */
-export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey) {
-  const rules = (plan.apts[icao] || []).filter((r) => r.ac === 'all' || (r.ac === 'wide') === isWide(ac));
+export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl) {
+  const rules = (plan.apts[icao] || []).filter((r) => (r.ac === 'all' || !r.ac || (r.ac === 'wide') === isWide(ac)) && (!fl || !r.fl || r.fl === 'all' || r.fl === fl));
   if (!rules.length) return { none: 'noplan' };
   const taken = await takenAt(icao, etaMs, log, deps, skipKey);
   for (const r of rules) for (const s of expandStands(r.stands).stands) if (!taken.has(norm(s))) return { stand: s, term: r.term || '' };
   return { none: 'full' };
 }
-const standText = (f, eta, p) => [`${f.cs} ${f.dep || '----'}-${f.arr} ETA ${z(eta)}`, p.stand ? `STAND ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'STAND: CONTACT GROUND ON ARRIVAL', 'IF ATC ASSIGNS ANOTHER STAND, FOLLOW ATC'].join('\n');
+const standText = (f, eta, p) => [`${f.cs} ${f.dep || '----'}-${f.arr} ETA ${z(eta)}`, p.stand ? `GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'GATE: CONTACT GROUND ON ARRIVAL', 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC'].join('\n');
 const crewOf = (f) => ({ crew: 1, cs: f.cs, m: f.pilot || f.cid ? [{ pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name && f.name !== f.pilot ? f.name : '' }] : [] });
 
 /* every 2 minutes: deps = { live() -> liveFlights answer, vatsim() -> VATSIM rows, layout(icao) -> cached airport map } */
@@ -94,11 +106,11 @@ export async function standWatch(env, deps) {
     const k = f.cs + ':' + f.arr;
     if (log.some((x) => x.k === k && now - x.t < 12 * 3600_000)) continue; // once a flight (a diversion is a new arrival airport)
     const ttg = minutesToGo(f, apts, now); if (ttg == null || ttg > plan.lead) continue;
-    const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || '';
-    const p = await pickStand(plan, f.arr, ac, eta, log, deps);
+    const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || '', fl = flightType(f.dep, f.arr);
+    const p = await pickStand(plan, f.arr, ac, eta, log, deps, null, fl);
     if (p.none === 'noplan' && plan.miss !== 'ground') continue;
-    const m = await aocSend(env, { title: 'STAND ASSIGNMENT', body: standText(f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
-    const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: isWide(ac), eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
+    const m = await aocSend(env, { title: 'GATE ASSIGNMENT', body: standText(f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
+    const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: isWide(ac), fl, eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
     log.unshift(rec); sent.push(rec);
   }
   if (sent.length) await writeLog(kv, log);
@@ -116,8 +128,8 @@ function cleanPlan(b) {
     const R = [];
     for (const r of rules.slice(0, RULES_MAX)) {
       const stands = line(r && r.stands, 600); if (!stands) continue;
-      const e = expandStands(stands); if (e.bad.length) throw new StandError(400, I + ': cannot read "' + e.bad[0] + '" (write stands like D1-D10, C5)');
-      R.push({ stands, ac: ['narrow', 'wide'].includes(r.ac) ? r.ac : 'all', term: line(r.term, 20).toUpperCase() });
+      const e = expandStands(stands); if (e.bad.length) throw new StandError(400, I + ': cannot read "' + e.bad[0] + '" (write gates like D1-D10, C5)');
+      R.push({ stands, fl: ['dom', 'intl'].includes(r.fl) ? r.fl : 'all', ac: ['narrow', 'wide'].includes(r.ac) ? r.ac : 'all', term: line(r.term, 20).toUpperCase() });
     }
     if (R.length) apts[I] = R;
   }
@@ -136,15 +148,15 @@ export async function standsAdmin(req, url, path, env, who, deps) {
     if (path === '/admin/api/stands/try') {
       const I = String(b.icao || '').toUpperCase(); if (!okIcao(I)) throw new StandError(400, 'Pick an airport');
       const plan = b.apts ? { ...cleanPlan({ ...b, lead: LEAD_DEF }) } : await readPlan(kv);
-      return jsonRes(await pickStand(plan, I, b.wide ? 'A359' : 'A21N', Date.now() + 30 * 60_000, await readLog(kv), deps));
+      return jsonRes(await pickStand(plan, I, b.wide ? 'A359' : 'A21N', Date.now() + 30 * 60_000, await readLog(kv), deps, null, ['dom', 'intl'].includes(b.fl) ? b.fl : ''));
     }
     /* staff move an assignment to another stand: the crew get a STAND CHANGE */
     if (path === '/admin/api/stands/change') {
       const log = await readLog(kv), x = log.find((r) => r.k === b.k && r.t === +b.t); if (!x) throw new StandError(404, 'That assignment is no longer listed');
-      const stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the new stand');
+      const stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the new gate');
       const term = b.term != null ? line(b.term, 20).toUpperCase() : x.term;
       const f = { cs: x.cs, dep: x.dep, arr: x.arr, pilot: x.pilot, cid: x.cid, name: x.name };
-      const m = await aocSend(env, { title: 'STAND CHANGE', body: standText(f, x.eta, { stand, term }), to: crewOf(f), push: true, by: who });
+      const m = await aocSend(env, { title: 'GATE CHANGE', body: standText(f, x.eta, { stand, term }), to: crewOf(f), push: true, by: who });
       Object.assign(x, { stand, term, by: who, aoc: m.id, changed: Date.now() }); await writeLog(kv, log);
       return jsonRes({ ok: true, rec: x });
     }

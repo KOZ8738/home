@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1121.0012">
+<meta name="efb-build" content="1121.0104">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6691,18 +6691,22 @@ setInterval(()=>{if(!npOk()||!npBridgeOn()||document.hidden)return;const x=O();f
 
 /* ---- rows: one per procedure, runway and transition ---- */
 function npRows(kind,d,R){if(!d)return{from:[],other:[]};const L=kind==="sid"?d.dep:d.arr,from=[],other=[];
-  for(const p of L){const rk=Object.keys(p.rt||{}),ek=Object.keys(p.et||{});const tr=ek.length?ek:[""];
+  for(const p of L){const rk=Object.keys(p.rt||{}),ek=Object.keys(p.et||{});const tr=ek.length?ek:[""];if(!ek.length&&p.nf==null)p.nf=npNamedFix(kind,p);
     const all=!rk.length||rk.includes("ALL"),mine=all||rk.includes(R);
     for(const t of tr){if(mine)from.push({p,t,r:R&&(all||rk.includes(R))?R:rk[0]||""});else for(const r of rk)other.push({p,t,r})}}
   const by=(a,b)=>a.p.n.localeCompare(b.p.n)||a.t.localeCompare(b.t)||a.r.localeCompare(b.r);from.sort(by);other.sort(by);
   from.forEach((r,i)=>{r.k="f"+i;r.col=NP_COL[i%NP_COL.length]});other.forEach((r,i)=>{r.k="o"+i;r.col=NP_COL[(i+from.length)%NP_COL.length]});return{from,other}}
-const npLab=r=>r.p.n+(r.t?"."+r.t:"");
+const npLab=r=>r.p.n+((r.t||r.p.nf)?"."+(r.t||r.p.nf):"");
+/* a procedure with no en-route transitions is named after its last fix (a SID) or its first (a STAR): CHAL1A ends at CHALI */
+function npNamedFix(kind,p){const base=String(p.n).replace(/\d.*$/,"");if(base.length<3)return"";const legs=[...(p.c||[]),...Object.values(p.rt||{}).flat()].filter(g=>g.f&&!/^(RW|DE|TP)\d/.test(g.f));
+  const f=kind==="sid"?legs.reverse().find(g=>g.f.startsWith(base)):legs.find(g=>g.f.startsWith(base));return f?f.f:""}
 /* the legs of a row, in flying order */
 function npLegs(kind,r){const p=r.p,rt=(p.rt&&(p.rt[r.r]||p.rt.ALL))||[],et=(p.et&&p.et[r.t])||[];return kind==="sid"?[...rt,...(p.c||[]),...et]:[...et,...(p.c||[]),...rt]}
 /* ...and its shape: fixes where there are fixes; heading and course legs drawn a short way along their course */
 function npDest(a,brg,nm){const R=Math.PI/180,d=nm/3440.065,la=a.la*R,lo=a.lo*R,t=brg*R,la2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(t));
   return{la:la2/R,lo:(lo+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(la2)))/R}}
-function npPath(kind,r,d){const legs=npLegs(kind,r),P=[];let prev=null;const mv=+d.mv||0;
+function npMv(d){if(+d.mv)return +d.mv;if(d._wmm==null){try{d._wmm=typeof wmmDecl==="function"?wmmDecl(d.la,d.lo,0,new Date().getFullYear()+new Date().getMonth()/12):0}catch(e){d._wmm=0}}return d._wmm||0}
+function npPath(kind,r,d){const legs=npLegs(kind,r),P=[];let prev=null;const mv=npMv(d);
   if(kind==="sid"){const rw=(d.rw||[]).find(x=>x.n===r.r);prev=rw?{la:rw.la,lo:rw.lo,n:"RW"+rw.n,rw:1}:{la:d.la,lo:d.lo,n:d.icao,apt:1};P.push(prev)}
   const push=q=>{const l=P[P.length-1];if(l&&Math.abs(l.la-q.la)<1e-6&&Math.abs(l.lo-q.lo)<1e-6){if(q.n&&!l.n)Object.assign(l,q);return}P.push(q);prev=q};
   for(const g of legs){const fix=g.la!=null?{la:g.la,lo:g.lo,n:g.f,g}:null;const crs=g.c!=null?(g.tc?g.c:g.c+mv):null;
@@ -6719,7 +6723,7 @@ function npGd(a,b){const R=Math.PI/180,x=Math.sin((b.la-a.la)*R/2)**2+Math.cos(a
 function bpBrgN(a,b){const R=Math.PI/180,y=Math.sin((b.lo-a.lo)*R)*Math.cos(b.la*R),x=Math.cos(a.la*R)*Math.sin(b.la*R)-Math.sin(a.la*R)*Math.cos(b.la*R)*Math.cos((b.lo-a.lo)*R);return((Math.atan2(y,x)/R)+360)%360}
 /* altitude and speed limits as the charts write them */
 function npCon(g){let a="";if(g.ad&&g.a1){const f=v=>v>=18000?"FL"+Math.round(v/100):fmt(Math.round(v/10)*10);a=g.ad===1?f(g.a1):g.ad===2?f(g.a1)+"+":g.ad===3?f(g.a1)+"−":g.ad===4&&g.a2?f(g.a2)+"–"+f(g.a1):f(g.a1)}
-  return[a,g.sp?g.sp+" kt":""].filter(Boolean).join(" · ")}
+  return[a,g.sp>0?g.sp+" kt":""].filter(Boolean).join(" · ")}
 const NP_LEG={VA:"Heading to altitude",CA:"Course to altitude",FA:"From fix to altitude",VI:"Heading to intercept",CI:"Course to intercept",VM:"Heading, vectors",FM:"From fix, vectors",DF:"Direct",TF:"Track",CF:"Course",IF:"Start",RF:"Arc",AF:"DME arc",HM:"Hold",HA:"Hold to altitude",HF:"Hold",PI:"Procedure turn",VD:"Heading to DME",CD:"Course to DME",FD:"From fix to DME",VR:"Heading to radial",CR:"Course to radial"};
 
 /* ---- the panel (in the Flight panel's place) ---- */
@@ -6736,10 +6740,10 @@ function npHtml(){const kind=NP.kind,ic=npIcao(kind),d=NP.data[ic]||(NP.data[ic]
   const rws=(d.rw||[]).map(r=>r.n).sort();
   const sel=`<label class="np-rw"><select data-nprw aria-label="Runway">${rws.map(n=>`<option value="${n}"${n===R?" selected":""}>RW${n}</option>`).join("")}${R&&!rws.includes(R)?`<option value="${esc(R)}" selected>RW${esc(R)}</option>`:""}</select></label>`;
   const top=`<div class="np-top"><span class="np-cnt"><b>${from.length}</b> ${kind==="sid"?(from.length===1?"departure":"departures"):(from.length===1?"arrival":"arrivals")}${con?` · ${con} ${kind==="sid"?(con===1?"joins":"join"):(con===1?"starts on":"start on")} your route`:""}</span>${sel}</div>`;
-  const cur=rpGet(),row=(r)=>{const on=cur[kind]===r.p.n&&(cur[kind+"T"]||"")===r.t&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r),hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
+  const cur=rpGet(),row=(r)=>{const on=cur[kind]===r.p.n&&(cur[kind+"T"]||"")===(r.t||r.p.nf||"")&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r),hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
     return `<div class="np-row${hot?" hot":""}${on?" cur":""}" data-npk="${r.k}" style="--c:${r.col}"><div class="np-rh"><i class="np-dot"></i><b>${esc(r.p.n)}</b>${on?'<em class="np-on">In route</em>':route.has(npEnd(kind,r))?'<em class="np-join">Joins route</em>':""}
       <span class="np-bt">${ch?`<button data-npch="${r.k}" aria-label="Chart">${npI("chart")}</button>`:""}<button data-npinfo="${r.k}" aria-label="Legs" aria-expanded="${open}">${npI("info")}</button></span></div>
-      <div class="np-rd"><div><small>Transition</small><span>${esc(r.t||"–")}</span></div><div><small>Runway</small><span>${r.r&&r.r!=="ALL"?"RW"+esc(r.r):"All"}</span></div><button class="np-add" data-npadd="${r.k}">${on?"Added":"+ Add to route"}</button></div>
+      <div class="np-rd"><div><small>Transition</small><span>${esc(r.t||r.p.nf||"–")}</span></div><div><small>Runway</small><span>${r.r&&r.r!=="ALL"?"RW"+esc(r.r):"All"}</span></div><button class="np-add" data-npadd="${r.k}">${on?"Added":"+ Add to route"}</button></div>
       ${open?npLegHtml(kind,r,d):""}</div>`};
   const src=d.src==="sim"?`From ${esc(NP.simName||"your simulator")}`:d.src==="server"?"From your simulator (kept on the EFB server)":"From your simulator (on this device)";
   return head+`<div class="fp-body np-body">${top}<h4>${kind==="sid"?"From":"To"} RW${esc(R||"–")}</h4>${from.length?from.map(row).join(""):`<p class="np-none">No ${kind==="sid"?"departures from":"arrivals to"} this runway.</p>`}
@@ -6804,7 +6808,7 @@ function npApply(kind,r){const d=NP.data[npIcao(kind)];if(!d)return;const x=O(),
   const inN=new Set(fx.map(q=>q.n));
   if(kind==="sid"){w.splice(1,0,...fx);const k=fx.length;let cut=-1;for(let j=w.length-2;j>k;j--)if(inN.has(w[j].n)&&!w[j].pk){cut=j;break}if(cut>0)w.splice(k+1,cut-k)}
   else{const at=w.length-1;w.splice(at,0,...fx);let cut=-1;for(let j=1;j<at;j++)if(inN.has(w[j].n)&&!w[j].pk){cut=j;break}if(cut>0)w.splice(cut,at-cut)}
-  reSave(w);o[kind]=r.p.n;o[kind+"T"]=r.t||"";o[kind+"Rwy"]=r.r&&r.r!=="ALL"?r.r:"";store.set(rpKey(),o);
+  reSave(w);o[kind]=r.p.n;o[kind+"T"]=r.t||r.p.nf||"";o[kind+"Rwy"]=r.r&&r.r!=="ALL"?r.r:"";store.set(rpKey(),o);
   toast((kind==="sid"?"Departure ":"Arrival ")+npLab(r)+(r.r&&r.r!=="ALL"?" · RW"+r.r:"")+" is in the route");
   NP.kind=null;NP.sel=null;NP.hov=null;if(typeof mapFit==="function")try{mapFit()}catch(e){}npRefresh()}
 /* back to what the flight plan had */

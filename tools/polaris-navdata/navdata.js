@@ -134,7 +134,7 @@ function leg(v) {
   if (v.TURN_DIRECTION === 1) o.tn = 'L'; else if (v.TURN_DIRECTION === 2) o.tn = 'R';
   if (v.FLY_OVER) o.fo = 1;
   if (v.APPROACH_ALT_DESC) { o.ad = v.APPROACH_ALT_DESC; if (v.ALTITUDE1) o.a1 = Math.round(v.ALTITUDE1 * M2FT); if (v.ALTITUDE2) o.a2 = Math.round(v.ALTITUDE2 * M2FT); }
-  if (v.SPEED_LIMIT) o.sp = Math.round(v.SPEED_LIMIT);
+  if (v.SPEED_LIMIT > 0) o.sp = Math.round(v.SPEED_LIMIT);
   if (v.ARC_CENTER_FIX_LATITUDE || v.ARC_CENTER_FIX_LONGITUDE) o.ac = [+v.ARC_CENTER_FIX_LATITUDE.toFixed(6), +v.ARC_CENTER_FIX_LONGITUDE.toFixed(6)];
   return o;
 }

@@ -1,7 +1,8 @@
 /* ---------- AOC messages and Hoppie ACARS, for the EFB's Messages ----------
    AOC: Polaris operations (staff) send a short company message to the flight deck from /admin (behind
    Cloudflare Access; the Messages tab, sent as AOC, or the AOC button on a Live flight): to all pilots, or to one pilot
-   by pilot ID or VATSIM CID, as Mail does. Pilots read them in the
+   by pilot ID or VATSIM CID, as Mail does, or to a flight's crew: the pilots listed (both seats of a two-pilot crew) and
+   every EFB flying that callsign for 18 hours after it was sent. Pilots read them in the
    EFB under Flight › Messages, beside what reaches their aircraft on Hoppie's ACARS. Pilots cannot answer an AOC
    message: there is no route for it, on purpose.
 
@@ -10,11 +11,11 @@
    reads messages without taking them off the network, so the aircraft's own ACARS still gets every one of them; it
    never sends anything. The pilot's Hoppie logon code comes in the request body and is not kept here.
 
-   KV (STORE):  aoc:v1:index -> [{ id, t, title, body, to: { pilot, cid, cs, name } | null, by }] */
+   KV (STORE):  aoc:v1:index -> [{ id, t, title, body, to: { pilot, cid, cs, name } | { crew: 1, cs, m: [{ pilot, cid, name }] } | null, by }] */
 import { crew, mailTo } from './crew.js';
 
 class AocError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30;
+const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30, CREW_CS_MS = 18 * 3600_000, CREW_MAX = 4;
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 const line = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
@@ -22,17 +23,24 @@ const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replac
 let mem = null; // { at, list } a short cache for the pilots' side
 async function readIndex(kv) { const v = await kv.get(IDX, 'json'); return Array.isArray(v) ? v : []; }
 async function writeIndex(kv, list) { list.sort((a, b) => b.t - a.t); await kv.put(IDX, JSON.stringify(list.slice(0, AOC_MAX))); mem = null; }
-const pub = (m) => ({ id: m.id, t: m.t, title: m.title, body: m.body, to: m.to ? { cs: m.to.cs || '' } : null });
+const pub = (m) => ({ id: m.id, t: m.t, title: m.title, body: m.body, to: m.to ? { cs: m.to.cs || '', crew: m.to.crew ? 1 : 0 } : null });
+/* is this message for the signed-in pilot (whose EFB flies callsign cs)? */
+export function aocFor(m, sess, cs, now) {
+  if (!m.to) return true;
+  const me = (p, c) => (p && p === sess.u) || (c && sess.c && String(c) === String(sess.c));
+  if (m.to.crew) return (m.to.m || []).some((x) => me(x.pilot, x.cid)) || (!!cs && cs === m.to.cs && now - m.t < CREW_CS_MS);
+  return me(m.to.pilot, m.to.cid);
+}
 
 /* GET /api/efb/aoc: the AOC messages for the signed-in pilot (the last 30 days) */
 export async function aocPublic(req, env, h, sess) {
+  const cs = String(new URL(req.url).searchParams.get('cs') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503, h);
   if (!sess) return jsonRes({ error: 'Sign in to read AOC messages' }, 401, h);
   try { if (!mem || Date.now() - mem.at > 20000) mem = { at: Date.now(), list: await readIndex(kv) }; }
   catch (e) { return jsonRes({ error: 'AOC messages are not available right now' }, 503, h); }
   const since = Date.now() - SHOW_DAYS * 86400_000;
-  const mine = (m) => !m.to || (m.to.pilot && m.to.pilot === sess.u) || (m.to.cid && sess.c && m.to.cid === sess.c);
-  const list = mem.list.filter((m) => m.t >= since && mine(m)).slice(0, 100).map(pub);
+  const now = Date.now(), list = mem.list.filter((m) => m.t >= since && aocFor(m, sess, cs, now)).slice(0, 100).map(pub);
   let hsh = 2166136261; const raw = JSON.stringify(list); for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
   const tag = '"a-' + hsh.toString(36) + '"';
   if ((req.headers.get('If-None-Match') || '') === tag) return new Response(null, { status: 304, headers: { ...h, ETag: tag, 'Cache-Control': 'no-cache' } });
@@ -100,8 +108,18 @@ export async function aocAdmin(req, url, env, who) {
       const title = line(b.title, 40).toUpperCase() || 'CREW MESSAGE', body = text(b.body, BODY_MAX).toUpperCase();
       if (!body) throw new AocError(400, 'Write the message');
       let to = null;
-      if (b.to) {
-        const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+      const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+      if (b.to && b.to.crew) {
+        /* a flight's crew: its callsign, and the pilots in it (one, or both seats) */
+        const cs = up(b.to.cs, 8); if (!/^[A-Z0-9]{2,8}$/.test(cs)) throw new AocError(400, "Add the flight's callsign (for example PAW123)");
+        const m = [], seen = new Set();
+        for (const x of Array.isArray(b.to.m) ? b.to.m : []) {
+          const p = up(x && x.pilot, 12), c = String((x && x.cid) || '').replace(/\D/g, '').slice(0, 9), k = p || 'c' + c;
+          if ((!p && !c) || seen.has(k)) continue; seen.add(k); m.push({ pilot: p, cid: c, name: line(x.name, 60) });
+        }
+        if (m.length > CREW_MAX) throw new AocError(400, 'At most ' + CREW_MAX + ' pilots in a crew');
+        to = { crew: 1, cs, m };
+      } else if (b.to) {
         const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
         if (!tp && !tcid) throw new AocError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
         to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: line(b.to.name, 60) };
@@ -109,8 +127,10 @@ export async function aocAdmin(req, url, env, who) {
       const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title, body, to, by: who };
       await writeIndex(kv, [m, ...(await readIndex(kv))]);
       if (b.push !== false) {
-        try { await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: { title: 'AOC · ' + title, body: body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id } }); }
-        catch (e) { console.warn('[aoc push]', e && e.message); }
+        const payload = { title: 'AOC · ' + title, body: body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
+        /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
+        const tos = to && to.crew ? to.m.map((x) => (x.pilot ? { u: x.pilot } : { cid: x.cid })) : [mailTo(m)];
+        for (const t of tos) { try { await crew(env, { op: 'notify', to: t, cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); } }
       }
       return jsonRes({ ok: true, msg: m });
     }

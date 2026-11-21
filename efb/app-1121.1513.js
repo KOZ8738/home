@@ -6152,7 +6152,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs|aoc|hoppie)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -8932,12 +8932,183 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 }
 </style>`);
 
-/* ---------- Messages: ACARS, coming ---------- */
-V.messages=()=>`<div class="fd"><section class="card fm"><span class="fm-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${FT_I.msg}</svg></span>
-  <span class="eyebrow">Coming soon</span><h2>ACARS messages</h2>
-  <p>Telex for your flight will arrive here as it does on the flight deck: the loadsheet, the pre-departure clearance, ATIS and messages from Polaris dispatch, by ACARS (Hoppie) on VATSIM.</p>
-  <p class="fm-note">Company notices, the Crew Mobile welcome after landing and your messages to and from staff stay in Mail.</p>
-  <a class="btn" href="#mail">Open Mail</a></section></div>`;
+/* ---------- Messages: AOC messages from Polaris operations, and Hoppie's ACARS (Nov 2026) ----------
+   Left, MESSAGES: everything that reached the flight deck, newest first. Right, the message on the AOC MSG DISPLAY.
+   AOC messages are written by Polaris operations on the admin's AOC tab (to every pilot, or to one pilot). Hoppie:
+   with the pilot's own Hoppie logon code, the EFB reads what waits for the callsign on Hoppie's ACARS, through the
+   EFB server (type=peek, so the aircraft's own ACARS still gets every message). Nothing here sends or replies: answers
+   to ATC or dispatch are given in the aircraft. The Hoppie logon code stays on this device. */
+const MSG={aoc:store.get("msgAoc",null),hop:store.get("msgHop",null)||[],seen:store.get("msgSeen",null),sel:"",setup:false,det:false,fx:"",
+  err:{aoc:"",hop:""},at:{aoc:0,hop:0},busy:{aoc:false,hop:false},etag:"",hopAt:store.get("msgHopAt",0)||0,seeded:store.get("msgSeeded",null)||{}};
+if(!MSG.seen)MSG.seen={};
+const msLogon=()=>String(store.get("hopLogon","")||"");
+const msCsOfp=()=>{try{if(ofp._sample)return"";return (S((ofp.atc||{}).callsign)||O().flight||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}catch(e){return""}};
+const msCs=()=>String(store.get("hopCs","")||"")||msCsOfp();
+const msZ=t=>{const d=new Date(t);return pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"};
+const msDay=t=>{const d=new Date(t);return pad(d.getUTCDate())+["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]};
+const MS_TYPE={telex:"TELEX",cpdlc:"CPDLC",progress:"PROGRESS",position:"POSITION",inforeq:"INFO",info:"INFO","ads-c":"ADS-C",datareq:"DATA"};
+/* a CPDLC uplink is "/data2/<min>/<mrn>/<answer>/<text>"; @ marks the fields the aircraft fills in */
+function msCpdlc(p){const m=String(p||"").match(/^\/data2\/(\d*)\/(\d*)\/([A-Z]*)\/([\s\S]*)$/i);if(!m)return{text:p,ra:""};return{text:m[4].replace(/@/g,""),ra:m[3].toUpperCase()}}
+/* every message, newest first: { k, src, t, title, body, from, ra } */
+function msAll(){const L=[];
+  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null});
+  for(const m of MSG.hop){const ty=MS_TYPE[m.type]||String(m.type||"").toUpperCase(),c=m.type==="cpdlc"?msCpdlc(m.packet):{text:m.packet,ra:""};
+    L.push({k:"h:"+m.k,src:"hop",t:m.t,title:ty+" "+m.from,body:c.text||"",from:m.from,ra:c.ra,type:m.type,id:m.id})}
+  return L.sort((a,b)=>b.t-a.t)}
+const msUnseen=m=>!!MSG.seeded[m.src]&&!MSG.seen[m.k];
+const msNew=()=>msAll().filter(msUnseen).length;
+function msSeen(keys){let ch=false;for(const k of keys)if(!MSG.seen[k]){MSG.seen[k]=1;ch=true}
+  if(ch){const live=new Set(msAll().map(m=>m.k));for(const k of Object.keys(MSG.seen))if(!live.has(k))delete MSG.seen[k];store.set("msgSeen",MSG.seen);msBadge();
+    keys.forEach(k=>document.querySelectorAll(`.ms-row[data-msk="${CSS.escape(k)}"]`).forEach(r=>r.classList.remove("new")))}}
+/* the first list from a source: what is already there counts as read */
+function msAfter(src){if(!MSG.seeded[src]){for(const m of msAll())if(m.src===src)MSG.seen[m.k]=1;MSG.seeded[src]=1;store.set("msgSeeded",MSG.seeded);store.set("msgSeen",MSG.seen)}msBadge()}
+const msNarrow=()=>{try{return screenEl.clientWidth<=640}catch(e){return false}};
+/* which message the display shows when nothing was picked: the oldest unread, else the newest (on a phone, none) */
+function msPick(){if(MSG.setup||MSG.det||MSG.sel||msNarrow())return;const L=msAll(),un=L.filter(msUnseen),u=un.length?un[un.length-1]:L[0];if(u){MSG.sel=u.k;setTimeout(()=>msSeen([u.k]),0)}}
+
+/* ---- loading ---- */
+const msOff=()=>{try{return typeof apmOn==="function"&&apmOn()}catch(e){return false}};
+function msAocLoad(force){if(typeof authOn!=="function"||!authOn()||!authSrv()||MSG.busy.aoc||msOff())return;
+  if(!force&&Date.now()-MSG.at.aoc<(cur==="messages"?45000:120000))return;MSG.busy.aoc=true;
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000),hd={Accept:"application/json"};if(MSG.etag&&MSG.aoc)hd["If-None-Match"]=MSG.etag;
+  const cs=msCs();if(cs!==MSG.aocCs){MSG.aocCs=cs;delete hd["If-None-Match"]}
+  /* the callsign: AOC messages to this flight's crew reach every EFB flying it */
+  fetch(authSrv()+"/api/efb/aoc"+(cs?"?cs="+encodeURIComponent(cs):""),{cache:"no-cache",signal:ac.signal,headers:hd}).then(r=>{if(r.status===304)return null;
+    return r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);MSG.etag=r.headers.get("ETag")||"";return j})})
+    .then(j=>{MSG.err.aoc="";if(j){MSG.aoc={msgs:j.msgs||[],at:j.at};store.set("msgAoc",MSG.aoc);msAfter("aoc")}})
+    .catch(e=>{MSG.err.aoc=e.name==="AbortError"?"The EFB server did not answer in time":e.message})
+    .finally(()=>{clearTimeout(tm);MSG.busy.aoc=false;MSG.at.aoc=Date.now();msUpd()})}
+function msHopLoad(force){const logon=msLogon(),cs=msCs();if(!logon||!cs||typeof authOn!=="function"||!authOn()||!authSrv()||MSG.busy.hop||msOff())return;
+  if(!force&&Date.now()-MSG.at.hop<(cur==="messages"?60000:120000))return;MSG.busy.hop=true;
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),20000);
+  fetch(authSrv()+"/api/efb/hoppie",{method:"POST",cache:"no-store",signal:ac.signal,headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({logon,cs})})
+    .then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);return j}))
+    .then(j=>{MSG.err.hop="";const now=Date.now(),have=new Map(MSG.hop.map(m=>[m.k,m]));
+      for(const m of j.msgs||[]){const k=(j.cs||cs)+":"+(m.id||(m.from+"|"+m.type+"|"+m.packet).slice(0,200));if(!have.has(k))have.set(k,{k,id:m.id||"",from:m.from,type:m.type,packet:m.packet,t:now,cs:j.cs||cs})}
+      /* kept here for two days, the last hundred */
+      MSG.hop=[...have.values()].filter(m=>now-m.t<2*86400000).sort((a,b)=>b.t-a.t).slice(0,100);MSG.hopAt=now;store.set("msgHop",MSG.hop);store.set("msgHopAt",now);msAfter("hop")})
+    .catch(e=>{MSG.err.hop=e.name==="AbortError"?"Hoppie’s ACARS did not answer in time":e.message})
+    .finally(()=>{clearTimeout(tm);MSG.busy.hop=false;MSG.at.hop=Date.now();msUpd()})}
+function msLoad(force){msAocLoad(force);msHopLoad(force)}
+
+/* ---- the view ---- */
+const MS_I={gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>'};
+const msIco=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${MS_I[k]}</svg>`;
+function msRow(m){const on=!MSG.setup&&MSG.sel===m.k;
+  return `<button type="button" class="ms-row${on?" on":""}${msUnseen(m)?" new":""}" data-msk="${esc(m.k)}"${on?' aria-current="true"':""}><b>${esc(m.title)} ${msZ(m.t)}</b><span>${esc(m.body.replace(/\s+/g," ").trim()||"—")}</span></button>`}
+function msFoot(){const lg=msLogon(),cs=msCs();let st;
+  if(!lg)st="HOPPIE OFF";else if(!cs)st="HOPPIE · NO CALLSIGN";else if(MSG.err.hop)st="HOPPIE · "+cs+" · NO LINK";else st="HOPPIE · "+cs+(MSG.hopAt?" · "+msZ(MSG.hopAt):"");
+  return `<button type="button" class="ms-foot${MSG.setup?" on":""}" data-ms="setup"><span class="ms-dot${lg&&cs&&!MSG.err.hop&&MSG.hopAt?" ok":""}"></span><span>${esc(st)}</span>${msIco("gear")}</button>`}
+function msList(){const L=msAll();if(MSG.sel&&!L.some(m=>m.k===MSG.sel))MSG.sel="";
+  const signed=typeof authOn==="function"&&authOn();
+  const body=L.length?L.map(msRow).join(""):`<p class="ms-none">${signed?"NO MESSAGES":"SIGN IN FOR AOC MESSAGES"}</p>`;
+  return `<aside class="ms-side"><h2 class="ms-h">MESSAGES</h2><div class="ms-list" id="msList">${body}</div>${msFoot()}</aside>`}
+function msBox(){if(MSG.setup)return msSetup();const L=msAll(),m=L.find(x=>x.k===MSG.sel);
+  if(!m){const signed=typeof authOn==="function"&&authOn();
+    return `<div class="ms-dh"><span class="ms-dt">AOC MSG DISPLAY</span></div><div class="ms-box ms-empty">${L.length?"SELECT A MESSAGE":"NO MESSAGES"}<small>${signed?(MSG.err.aoc?esc(MSG.err.aoc.toUpperCase()):"MESSAGES FROM POLARIS OPERATIONS AND HOPPIE ACARS ARRIVE HERE"):`<button type="button" class="ms-btn" data-ms="signin">SIGN IN</button>`}</small></div>`}
+  const ra=m.ra&&!/^(N|NE)$/.test(m.ra)?`<p class="ms-ra">RESPONSE REQUIRED (${esc(m.ra)}): ANSWER IN THE AIRCRAFT</p>`:"";
+  const meta=m.src==="aoc"?"POLARIS AOC"+(m.crew!=null?" · TO CREW "+m.crew:"")+" · "+msDay(m.t)+" "+msZ(m.t)+" · READ ONLY":"HOPPIE ACARS · FROM "+m.from+" · "+msDay(m.t)+" "+msZ(m.t)+(m.id?" · MSG "+m.id:"");
+  return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">${m.src==="aoc"?"AOC MSG DISPLAY":"ACARS MSG DISPLAY"}</span></div>
+    <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb">${esc(m.body)}</div>${ra}<p class="ms-meta">${esc(meta)}</p></div>`}
+function msSetup(){const lg=msLogon(),ofc=msCsOfp();
+  return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">ACARS SETUP</span></div>
+    <div class="ms-box ms-set"><b class="ms-mh">HOPPIE ACARS</b>
+      <label class="ms-f"><span>LOGON CODE</span><input type="password" id="msLogon" autocomplete="off" spellcheck="false" maxlength="32" value="${esc(lg)}" placeholder="FROM HOPPIE.NL"></label>
+      <label class="ms-f"><span>CALLSIGN</span><input type="text" id="msCs" autocomplete="off" spellcheck="false" maxlength="8" value="${esc(String(store.get("hopCs","")||""))}" placeholder="${esc(ofc||"PAW123")}"></label>
+      <p class="ms-note">${ofc?"EMPTY: THE CALLSIGN OF THE FLIGHT PLAN ("+esc(ofc)+")":"EMPTY: THE CALLSIGN OF THE FLIGHT PLAN, ONCE ONE IS LOADED"}</p>
+      ${MSG.err.hop&&lg?`<p class="ms-err">${esc(MSG.err.hop.toUpperCase())}</p>`:""}
+      <div class="ms-acts"><button type="button" class="ms-btn pri" data-ms="save">SAVE</button>${lg?`<button type="button" class="ms-btn" data-ms="off">TURN OFF</button>`:""}</div>
+      <p class="ms-meta">READ ONLY: THE EFB LOOKS AT THE MESSAGES WAITING FOR YOUR CALLSIGN AND NEVER SENDS OR TAKES ONE, SO YOUR AIRCRAFT STILL GETS THEM ALL. ANSWER ATC AND DISPATCH IN THE AIRCRAFT. THE LOGON CODE STAYS ON THIS DEVICE.</p></div>`}
+V.messages=()=>{const fx=reduced()?"":MSG.fx;MSG.fx="";msLoad();msPick();
+  if(MSG.sel&&!MSG.setup&&(MSG.det||!msNarrow()))setTimeout(()=>msSeen([MSG.sel]),0);
+  return `<div class="ms${MSG.det?" det":""}${fx?" msfx-"+fx:""}" id="msRoot">${msList()}<section class="ms-main" id="msMain">${msBox()}</section></div>`};
+/* new messages while the view is open: only the list, the box and the footer change */
+function msUpd(){msBadge();if(cur!=="messages")return;const r=$("#msRoot");if(!r)return;msPick();
+  const l=$("#msList"),y=l?l.scrollTop:0,tmp=document.createElement("div");tmp.innerHTML=msList();r.querySelector(".ms-side").replaceWith(tmp.firstElementChild);
+  const nl=$("#msList");if(nl)nl.scrollTop=y;
+  /* the setup form keeps what is being typed */
+  const a=document.activeElement;if(!(MSG.setup&&a&&a.closest&&a.closest(".ms-set")))$("#msMain").innerHTML=msBox()}
+/* the tab's badge: messages not read yet */
+function msBadge(){const b=document.getElementById("ftabs");if(!b)return;const t=b.querySelector('[data-ft="msg"]');if(!t)return;const bd=t.querySelector(".ft-b");if(!bd)return;
+  const n=msNew();bd.hidden=!n;bd.textContent=n?String(n):"";t.setAttribute("aria-label",n?`Messages, ${n} new`:"Messages")}
+{const _s=ftSync;ftSync=function(){const r=_s.apply(this,arguments);try{msBadge()}catch(e){}return r}}
+document.addEventListener("click",e=>{if(cur!=="messages")return;const t=e.target.closest&&e.target.closest("[data-msk],[data-ms]");if(!t)return;const a=t.dataset;
+  if(a.msk){MSG.sel=a.msk;MSG.setup=false;MSG.det=true;msSeen([a.msk]);MSG.fx="fwd";render();return}
+  const k=a.ms;
+  if(k==="back"){MSG.det=false;MSG.fx="back";render();return}
+  if(k==="setup"){MSG.setup=!MSG.setup;MSG.det=MSG.setup;MSG.fx=MSG.setup?"fwd":"back";render();if(MSG.setup)setTimeout(()=>{const i=$("#msLogon");if(i&&!i.value)i.focus()},50);return}
+  if(k==="save"){const lg=($("#msLogon")||{}).value||"",cs=(($("#msCs")||{}).value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(lg&&!/^[A-Za-z0-9]{4,32}$/.test(lg.trim())){toast("That doesn’t look like a Hoppie logon code");return}
+    const ch=lg.trim()!==msLogon()||cs!==String(store.get("hopCs","")||"");store.set("hopLogon",lg.trim());store.set("hopCs",cs);
+    if(ch){MSG.err.hop="";MSG.hopAt=0;store.set("msgHopAt",0)}MSG.setup=false;MSG.det=false;MSG.fx="back";render();if(lg.trim())msHopLoad(true);toast(lg.trim()?"Hoppie ACARS on":"Saved");return}
+  if(k==="off"){store.set("hopLogon","");MSG.hop=[];store.set("msgHop",[]);delete MSG.seeded.hop;store.set("msgSeeded",MSG.seeded);MSG.err.hop="";MSG.hopAt=0;store.set("msgHopAt",0);MSG.setup=false;MSG.det=false;render();msBadge();toast("Hoppie ACARS off");return}
+  if(k==="signin"&&typeof authShow==="function")authShow()});
+document.addEventListener("keydown",e=>{if(cur==="messages"&&e.key==="Enter"&&e.target.closest&&e.target.closest(".ms-set")){e.preventDefault();const b=document.querySelector('[data-ms="save"]');if(b)b.click()}});
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="messages"){screenEl.dataset.layout="full";if(!MSG.fx)MSG.fx="open";MSG.det=false}return r}}
+/* signed out: the AOC messages and the Hoppie messages go (the logon code is the pilot's, and stays) */
+{const _f=authForget;authForget=function(){const r=_f.apply(this,arguments);MSG.aoc=null;MSG.hop=[];MSG.seen={};MSG.seeded={};MSG.sel="";MSG.etag="";MSG.hopAt=0;
+  ["msgAoc","msgHop","msgSeen","msgHopAt","msgSeeded"].forEach(k=>store.set(k,null));msBadge();return r}}
+setTimeout(()=>msLoad(true),3000);
+setInterval(()=>{if(!document.hidden)msLoad()},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)msLoad()});
+window.addEventListener("online",()=>msLoad(true));
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* ---------- Messages: an ACARS display, dark by day and by night ---------- */
+.screen[data-app="messages"] .appwin>main{position:relative}
+.ms{--ms-bg:#1C1C1E;--ms-side:#161618;--ms-line:#3A3A3C;--ms-box:#5A5A5E;--ms-ink:#F2F2F2;--ms-sub:#A1A1A6;--ms-pink:#D98AB4;--ms-dim:#6E6E73;
+  position:relative;display:grid;grid-template-columns:320px minmax(0,1fr);height:100%;min-height:0;overflow:hidden;background:var(--ms-bg);color:var(--ms-ink);
+  font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;text-transform:uppercase;letter-spacing:.02em;-webkit-font-smoothing:antialiased}
+.ms button{-webkit-tap-highlight-color:transparent;font-family:inherit;text-transform:inherit;letter-spacing:inherit;color:inherit}
+.ms svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* left: the list */
+.ms-side{display:flex;flex-direction:column;min-height:0;background:var(--ms-side);border-right:1px solid var(--ms-line)}
+.ms-h{margin:0;padding:22px 20px 14px;font-weight:600;font-size:17px;line-height:1.2;letter-spacing:.12em;color:var(--ms-ink);border-bottom:1px solid var(--ms-line)}
+.ms-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+.ms.ms .ms-row{display:block;width:100%;height:auto;min-height:0;margin:0;text-align:left;border:0;border-radius:0;box-shadow:none;border-bottom:1px solid var(--ms-line);border-right:4px solid transparent;background:transparent;padding:13px 16px 13px 20px;cursor:pointer;transition:background-color .15s}
+.ms.ms .ms-row:active{background:#232326}.ms.ms .ms-row.on{background:#232326;border-right-color:var(--ms-pink)}
+.ms.ms .ms-row b{display:block;font-family:inherit;font-weight:600;font-size:14px;color:var(--ms-pink);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms.ms .ms-row span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:4px;font-size:13px;line-height:1.4;color:var(--ms-ink);word-break:break-word}
+.ms-row.new b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ms-pink);margin-right:8px;vertical-align:1px}
+.ms-none{margin:0;padding:28px 20px;color:var(--ms-dim);font-size:13px;letter-spacing:.08em}
+.ms.ms .ms-foot{display:flex;height:auto;margin:0;border-radius:0;box-shadow:none;align-items:center;gap:10px;width:100%;border:0;border-top:1px solid var(--ms-line);background:transparent;padding:12px 16px 12px 20px;font-size:12px;letter-spacing:.08em;color:var(--ms-sub);cursor:pointer;text-align:left}
+.ms-foot span:nth-child(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ms-foot svg{width:18px;height:18px;flex:none}.ms-foot.on{color:var(--ms-pink)}
+.ms-dot{width:8px;height:8px;border-radius:50%;background:var(--ms-dim);flex:none}.ms-dot.ok{background:#5FC27E}
+/* right: the display */
+.ms-main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;padding:18px 28px 28px}
+.ms-dh{position:relative;display:flex;align-items:center;justify-content:center;min-height:40px;margin-bottom:14px}
+.ms-dt{font-weight:600;font-size:16px;letter-spacing:.14em;color:var(--ms-ink)}
+.ms.ms .ms-back{display:none;padding:0;position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:transparent;align-items:center;justify-content:center;cursor:pointer}.ms-back svg{width:24px;height:24px}
+.ms-box{border:1px solid var(--ms-box);padding:18px 20px 20px;max-width:900px;width:100%;margin:0 auto;font-size:15px;line-height:1.55}
+.ms-mh{display:block;color:var(--ms-pink);font-weight:600;letter-spacing:.06em;margin-bottom:10px}
+.ms-mb{white-space:pre-wrap;word-break:break-word;color:var(--ms-ink)}
+.ms-ra{margin:14px 0 0;color:#F2C94C;font-size:13px;letter-spacing:.06em}
+.ms-meta{margin:18px 0 0;color:var(--ms-dim);font-size:11.5px;letter-spacing:.08em;line-height:1.5}
+.ms-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:220px;color:var(--ms-sub);letter-spacing:.1em;text-align:center}
+.ms-empty small{font-size:11.5px;color:var(--ms-dim);max-width:420px;line-height:1.5}
+.ms-set .ms-f{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:12px;margin:12px 0 0;font-size:13px;color:var(--ms-sub);letter-spacing:.08em}
+.ms.ms .ms-set input{width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--ms-box);border-radius:0;background:#0E0E10;color:var(--ms-ink);font:500 15px/1 ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;outline:none}
+.ms.ms .ms-set input#msLogon{text-transform:none}.ms.ms .ms-set input:focus{border-color:var(--ms-pink);box-shadow:none}.ms.ms .ms-set input::placeholder{color:var(--ms-dim)}
+.ms-note{margin:8px 0 0 152px;font-size:11px;color:var(--ms-dim);letter-spacing:.06em}
+.ms-err{margin:12px 0 0;color:#FF6B6B;font-size:12.5px;letter-spacing:.04em;text-transform:none}
+.ms-acts{display:flex;gap:10px;margin-top:18px}
+.ms.ms .ms-btn{height:38px;box-shadow:none;padding:0 18px;border:1px solid var(--ms-box);border-radius:0;background:transparent;font-weight:600;font-size:13px;letter-spacing:.12em;cursor:pointer}
+.ms.ms .ms-btn.pri{border-color:var(--ms-pink);color:var(--ms-pink)}.ms-btn:active{background:#2A2A2D}
+/* motion */
+.msfx-open .ms-side,.msfx-open .ms-main{animation:msIn .32s cubic-bezier(.2,.8,.2,1) both}.msfx-open .ms-main{animation-delay:.04s}
+.msfx-fwd .ms-box,.msfx-back .ms-box{animation:msBox .22s ease-out both}
+@keyframes msIn{from{opacity:0;transform:translateY(8px)}}@keyframes msBox{from{opacity:.25}}
+/* a phone, or a narrow window: the list, then the message */
+@container screen (max-width:640px){
+  .ms{grid-template-columns:1fr}.ms-side{border-right:0}.ms-main{display:none;padding:10px 16px 22px}
+  .ms.det .ms-side{display:none}.ms.det .ms-main{display:flex}.ms.ms .ms-back{display:flex}
+  .ms.ms .ms-row.on{background:transparent;border-right-color:transparent}
+  .ms-box{padding:14px 14px 16px;font-size:14px}.ms-set .ms-f{grid-template-columns:1fr;gap:6px}.ms-note{margin-left:0}
+  .msfx-fwd .ms-main{animation:msSl .26s cubic-bezier(.2,.8,.2,1) both}.msfx-back .ms-side{animation:msSlb .26s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes msSl{from{transform:translateX(24px);opacity:.3}}@keyframes msSlb{from{transform:translateX(-24px);opacity:.3}}}
+@container screen (min-width:641px) and (max-width:960px){.ms{grid-template-columns:260px minmax(0,1fr)}.ms-main{padding:14px 18px 22px}}
+@media(prefers-reduced-motion:reduce){.ms *{animation:none!important}}
+</style>`);
 
 /* ---------- More ---------- */
 V.more=()=>`<div class="fd">

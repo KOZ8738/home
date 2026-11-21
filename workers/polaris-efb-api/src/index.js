@@ -278,6 +278,15 @@ async function pirepRoute(env, me, idRaw) {
   return { pirep, track: track || null };
 }
 /* for staff: what vAMSYS answers for a PIREP's position reports (to see which path and field names it uses) */
+/* staff diagnostics: the shape of the latest PIREPs, bookings and live flights as vAMSYS returns them (for OOOI / on-time) */
+async function opsProbe(env) {
+  const out = {};
+  for (const [k, p, q] of [['pireps', '/pireps', { sort: '-id', 'page[size]': 2 }], ['bookings', '/bookings', { sort: '-id', 'page[size]': 2 }], ['flightMap', '/flight-map', {}]]) {
+    try { const j = await vget(env, p, q), arr = Array.isArray(j) ? j : j.data; out[k] = { keys: Object.keys(j || {}), first: Array.isArray(arr) ? arr[0] : arr, n: Array.isArray(arr) ? arr.length : null }; }
+    catch (e) { out[k] = { error: e.message }; }
+  }
+  return out;
+}
 async function pirepProbe(env, id) {
   id = String(id || '').replace(/\D/g, ''); const out = { id, paths: {} };
   for (const p of POSREP_PATHS) {
@@ -1553,7 +1562,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
+    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

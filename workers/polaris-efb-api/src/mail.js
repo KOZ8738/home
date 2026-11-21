@@ -132,6 +132,8 @@ export async function mailAdmin(req, url, env, opts) {
   /* staff diagnostics: what vAMSYS returns for a PIREP's position reports */
   if (path === '/admin/api/pirep-probe' && opts && opts.probe) { try { return jsonRes(await opts.probe(url.searchParams.get('id'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* staff diagnostics: a pilot's latest bookings as vAMSYS returns them (?pilot=PAW0006) */
+  /* staff diagnostics: the latest PIREP, booking and live flight as vAMSYS returns them */
+  if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   if (path === '/admin/api/bookings-probe' && opts && opts.bkProbe) { try { return jsonRes(await opts.bkProbe(url.searchParams.get('pilot'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);

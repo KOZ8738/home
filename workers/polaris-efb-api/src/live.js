@@ -62,7 +62,7 @@ export function liveFlights(d, va) {
       sq: v ? v[8] : '', logon: v && v[9] ? v[9] * 1000 : 0, ac: f.aircraft || '', dep: (f.dep && f.dep.icao) || '', arr: (f.arr && f.arr.icao) || '',
       cruise: v ? cruiseFt(v[13]) : null, fl: v ? v[13] || '' : '', rules: v ? v[14] || '' : '', altn: '', tas: '', dt: '', ete: '', route: f.route || '',
       src: 'vAMSYS', vphase: f.phase || '', pilot: f.pilot || '', rank: f.pilotRank || '', reg: f.registration || '', acName: f.aircraftName || '', net: f.network || '',
-      departed: f.departedAt || '', eta: f.eta || '', remain: f.distanceRemaining ?? null, trail: (f.trail || []).map((p) => [p[0], p[1]]),
+      departed: f.departedAt || '', eta: f.eta || '', std: f.std || '', sta: f.sta || '', remain: f.distanceRemaining ?? null, trail: (f.trail || []).map((p) => [p[0], p[1]]),
     });
   }
   for (const r of (d && d.rows) || []) {

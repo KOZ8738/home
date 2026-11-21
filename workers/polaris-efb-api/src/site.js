@@ -59,6 +59,7 @@ async function live(vget) {
       routeDistance: num(progress.routeDistance),
       distanceRemaining: num(progress.distanceRemaining),
       departedAt: str(progress.atd) || str(progress.departureTime),
+      std: str(booking.departureTime) || str(booking.departure_time) || '', sta: str(booking.arrivalTime) || str(booking.arrival_time) || str(booking.estimated_arrival_time) || '',
       eta: str(progress.estimatedArrivalTime) || str(progress.eta),
       trail: downsample(trail, TRAIL_POINTS),
     }];

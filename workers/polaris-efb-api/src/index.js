@@ -31,6 +31,7 @@
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   /admin/api/stands(/try|/change)      -> the admin's Stands tab: the stand plan for the automatic stand assignment (see stands.js)
+ *   /admin/api/ooo, /admin/api/ooo/reason -> the admin's On-time tab: OOOI times and on-time performance (see ooo.js)
  *   GET /admin/api/watch                -> Flight Watch on the Live tab: alerts for the Polaris flights in the air (see watch.js)
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
@@ -53,6 +54,7 @@ import { aocPublic, hoppiePeek } from './aoc.js';
 import { standWatch } from './stands.js';
 import { flightWatch } from './watch.js';
 import { calPublic } from './cal.js';
+import { oooWatch } from './ooo.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -1003,6 +1005,14 @@ const vsExp = (d) => { const now = Date.now(), t = (Date.parse(d.upd) || now) + 
 /* what the automatic stand assignment reads (see stands.js): the Polaris flights in the air as the admin's Live tab
    shows them, the VATSIM pilots, and an airport's map (stands) as the EFB already keeps it; the map is never built here */
 const STAND_CRON = '*/2 * * * *';
+/* every 2 minutes: the gate assignment and the OOOI times, from one read of the flights in the air */
+async function opsTick(env, ctx) {
+  const d = standDeps(env, ctx); let lp = null; const live = () => (lp = lp || d.live());
+  await Promise.all([
+    standWatch(env, { ...d, live }).catch((e) => console.warn('[stands]', e && e.message)),
+    live().then((l) => oooWatch(env, l, { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [] })).catch((e) => console.warn('[ooo]', e && e.message)),
+  ]);
+}
 function standDeps(env, ctx) {
   const siteDeps = { vget: (p, q) => vget(env, p, q), all: (p) => all(env, p), cached, edgeCache, configured: Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) };
   return {
@@ -1453,7 +1463,7 @@ async function aptsRoute(url, env, ctx, h) {
 export default {
   async scheduled(event, env, ctx) {
     /* every 2 minutes: the automatic stand assignment (see stands.js); every 20: the airport maps and weather watch */
-    if (event.cron === STAND_CRON) { ctx.waitUntil(standWatch(env, standDeps(env, ctx)).catch((e) => console.warn('[stands]', e && e.message))); return; }
+    if (event.cron === STAND_CRON) { ctx.waitUntil(opsTick(env, ctx)); return; }
     ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
   },
   async fetch(req, env, ctx) {

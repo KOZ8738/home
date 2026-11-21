@@ -19,6 +19,7 @@ import { docsAdmin } from './docs.js';
 import { aocAdmin } from './aoc.js';
 import { standsAdmin } from './stands.js';
 import { calAdmin } from './cal.js';
+import { oooAdmin } from './ooo.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -139,6 +140,8 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
   if (path === '/admin/api/docs' || path.startsWith('/admin/api/docs/')) return docsAdmin(req, url, path, env, who, opts && opts.ctx);
+  /* On-time tab: OOOI times and on-time performance (see ooo.js) */
+  if (path === '/admin/api/ooo' || path.startsWith('/admin/api/ooo/')) return oooAdmin(req, url, path, env, who);
   /* Calendar tab: the company calendar, with the vAMSYS events (see cal.js) */
   if (path === '/admin/api/cal' || path.startsWith('/admin/api/cal/')) return calAdmin(req, url, path, env, who, opts && opts.events);
   /* Flight Watch on the Live tab: what operations should look at now (see watch.js) */

@@ -308,6 +308,17 @@ export class Crew {
       if (!m) return;
       const at = m.sendAt || m.t; if (at > Date.now() + 1000) { this.job(j.id, at, 'mail', '', d); return; }
       this.enqueue(mailTo(m), 'mail', mailPayload(m));
+    } else if (j.kind === 'cal') {
+      /* a calendar reminder: the entry may have been moved, changed or deleted since */
+      const list = (await this.env.STORE.get('cal:v1:index', 'json').catch(() => null)) || [], v = list.find((x) => x.id === d.id);
+      if (!v || !v.efb || !(+v.remind > 0) || calOccNear(v, d.occ) !== d.occ) return;
+      if (Math.abs(Date.now() - (d.occ - v.remind * 60_000)) < 10 * 60_000) {
+        const hm = new Date(d.occ).toISOString().slice(11, 16).replace(':', '') + 'Z', inMin = Math.round((d.occ - Date.now()) / 60_000);
+        const when = v.allDay ? 'Today' : 'Starts ' + hm + (inMin >= 90 ? ' (in ' + Math.round(inMin / 60) + ' h)' : inMin > 0 ? ' (in ' + inMin + ' min)' : '');
+        const to = !v.to ? { all: true } : mailTo({ to: v.to });
+        if (to.all || (to.many && to.many.length)) this.enqueue(to, 'mail', { title: 'Polaris · ' + String(v.title || 'Calendar').slice(0, 80), body: [when, v.loc].filter(Boolean).join(' · '), url: '#calendar', tag: 'cal-' + v.id + '-' + d.occ });
+      }
+      const nx = calNext(v, d.occ + 60_000); if (nx) this.job(j.id, nx - v.remind * 60_000, 'cal', '', { id: v.id, occ: nx });
     } else if (j.kind === 'alarm') {
       const t = d.kind === 'timer';
       this.enqueue({ u: j.u }, 'alarm', { title: t ? 'Timer' : 'Alarm · ' + (d.hm || hhmmTz(j.at, d.tz)), body: d.label || (t ? 'Your timer is done.' : 'Polaris EFB alarm'), url: '#timer', tag: 'alarm-' + d.id, ttl: 900 });
@@ -376,7 +387,7 @@ export class Crew {
 /* who a notice goes to, and what the notification says */
 export function mailTo(m) {
   if (!m.to) return { all: true };
-  if (m.to.crew) return { many: (m.to.m || []).map((x) => (x.pilot ? { u: x.pilot } : { cid: x.cid })) };
+  if (m.to.crew || m.to.list) return { many: (m.to.m || []).map((x) => (x.pilot ? { u: x.pilot } : { cid: x.cid })) };
   return { u: m.to.pilot || '', cid: m.to.cid || '' };
 }
 /* a message (Mail or AOC) to a flight's crew: its callsign and the pilots in it, one or both seats of a two-pilot crew.
@@ -395,6 +406,31 @@ export function crewTo(raw) {
   }
   if (m.length > CREW_MAX) throw bad('At most ' + CREW_MAX + ' pilots in a crew');
   return { crew: 1, cs, m };
+}
+/* ---- the company calendar (cal.js): an entry, once or every week; its audience is everyone, some pilots (to.list) or a
+   flight's crew (to.crew) ---- */
+const WEEK = 7 * 86400_000;
+/* the start of the entry's first occurrence whose reminder (remind minutes before) is still to come after "after" */
+export function calNext(v, after) {
+  const s0 = +v.s, lead = (+v.remind || 0) * 60_000; if (!s0) return null;
+  if (v.rep !== 'weekly') return s0 - lead > after ? s0 : null;
+  const k = Math.max(0, Math.ceil((after + lead - s0 + 1) / WEEK)), t = s0 + k * WEEK;
+  return v.until && t > +v.until ? null : t;
+}
+/* the occurrence of an entry nearest to "at" (for a weekly entry), and whether "at" is one of its occurrences */
+export function calOccNear(v, at) {
+  const s0 = +v.s; if (v.rep !== 'weekly') return s0;
+  const k = Math.max(0, Math.round((at - s0) / WEEK)), t = s0 + k * WEEK;
+  return v.until && t > +v.until ? s0 + Math.max(0, Math.floor((+v.until - s0) / WEEK)) * WEEK : t;
+}
+/* is a calendar entry for the signed-in pilot (whose EFB flies callsign cs)? A crew's entry also reaches any EFB flying its
+   callsign from a day before an occurrence to six hours after it ends */
+export function calFor(v, sess, cs, now) {
+  const to = v.to; if (!to) return true;
+  const me = (x) => (x.pilot && x.pilot === sess.u) || (x.cid && sess.c && String(x.cid) === String(sess.c));
+  if ((to.m || []).some(me)) return true;
+  if (to.crew && cs && cs === to.cs) { const t = calOccNear(v, now), dur = Math.max(0, (+v.e || +v.s) - +v.s); return now >= t - 86400_000 && now <= t + dur + 6 * 3600_000; }
+  return false;
 }
 /* is a message to "to", sent at "at", for the signed-in pilot (sess) whose EFB flies callsign cs? */
 export function toMatch(to, at, sess, cs, now) {

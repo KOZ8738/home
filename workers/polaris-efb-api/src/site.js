@@ -126,6 +126,10 @@ async function events(vget, all, cached) {
 
 const stamp = async (p) => ({ ...(await p), updatedAt: new Date().toISOString() });
 /** Polaris flights from vAMSYS, the same cached answer the website gets (the admin's Live tab reads it too). */
+/* the vAMSYS events (current and recent), as the website's Events page shows them; the company calendar reads them too */
+export function siteEvents(deps) {
+  return deps.cached('site:events', 300_000, () => deps.edgeCache('site/events/v1', 300, () => stamp(events(deps.vget, deps.all, deps.cached))));
+}
 export function siteLive(deps) {
   return deps.cached('site:live', 15_000, () => deps.edgeCache('site/live/v1', 15, () => stamp(live(deps.vget))));
 }
@@ -141,7 +145,7 @@ export async function siteRoute(req, url, deps) {
   try {
     const body = route === 'live'
       ? await siteLive(deps)
-      : await deps.cached('site:events', 300_000, () => deps.edgeCache('site/events/v1', 300, () => stamp(events(deps.vget, deps.all, deps.cached))));
+      : await siteEvents(deps);
     return send(200, body, route === 'live' ? 10 : 120);
   } catch (e) {
     console.warn('[site]', e && e.message);

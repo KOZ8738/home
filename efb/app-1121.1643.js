@@ -5310,7 +5310,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
     <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("sent","sent","Sent",0,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
     <div class="pm-nf">${mlIco("mail")}<span>${pm?`${left} of ${pm.limit} messages left today`:"Polaris Mail"}${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
   const q=String(MAIL.q||"").trim().toLowerCase();let qn=0;
-  const rows=list.map(m=>{const u=!rd.has(m.id),key=(m.from+" "+m.subject+" "+mailPlain(m.body)).toLowerCase();if(!q||key.includes(q))qn++;return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" data-q="${esc(key.slice(0,400))}" aria-pressed="${MAIL.sel===m.id}"${q&&!key.includes(q)?" hidden":""}><i class="pm-dot" aria-label="${u?"Unread":""}"></i>${mlAv(m.from)}<span class="pm-rb"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}${mlIco("chev")}</time></span><span class="pm-sub">${m.conv?`<i class="pm-to pm-cv${m.staff?"":" p"}">${m.staff?"Staff":"Pilot"}</i>`:m.to?'<i class="pm-to">To you</i>':""}${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></span></button>`}).join("");
+  const rows=list.map(m=>{const u=!rd.has(m.id),key=(m.from+" "+m.subject+" "+mailPlain(m.body)).toLowerCase();if(!q||key.includes(q))qn++;return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" data-q="${esc(key.slice(0,400))}" aria-pressed="${MAIL.sel===m.id}"${q&&!key.includes(q)?" hidden":""}><i class="pm-dot" aria-label="${u?"Unread":""}"></i>${mlAv(m.from)}<span class="pm-rb"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}${mlIco("chev")}</time></span><span class="pm-sub">${m.conv?`<i class="pm-to pm-cv${m.staff?"":" p"}">${m.staff?"Staff":"Pilot"}</i>`:m.to?'<i class="pm-to">'+(m.to.crew?"To your crew":"To you")+'</i>':""}${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></span></button>`}).join("");
   const upd=!vam.url?"":MAIL.loading?"Checking for Mail…":MAIL.at?"Updated "+(Date.now()-MAIL.at<6e4?"Just Now":mailWhen(MAIL.at)):"";
   const col=`<section class="pm-col" aria-label="${boxName}"><header class="pm-ch"><div><h3>${boxName}</h3></div></header>
     <label class="pm-search">${mlIco("search")}<input data-mailq type="search" placeholder="Search" value="${esc(MAIL.q||"")}" autocomplete="off" aria-label="Search mail"></label>
@@ -5325,7 +5325,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
     rdr=`<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${boxName}">${mlIco("back")}<span>${boxName}</span></button><span class="pm-sp"></span>
         <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
         <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
-      <article class="pm-mail"><div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>To: ${sel.to?"You"+(sel.to.cs?" · "+esc(sel.to.cs):""):"All Polaris pilots"}</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailWhen(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
+      <article class="pm-mail"><div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>To: ${sel.to?(sel.to.crew?"The "+esc(sel.to.cs)+" crew":"You"+(sel.to.cs?" · "+esc(sel.to.cs):"")):"All Polaris pilots"}</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailWhen(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
       <div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div><p class="pm-date">${esc(mailFull(sel.t))}</p>
       <div class="pm-body">${mailMd(sel.body)}</div>
       ${sel.att&&sel.att.length?`<div class="pm-att"><h4>${sel.att.length} attachment${sel.att.length>1?"s":""}</h4><div>${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}&e=${a.e||0}&k=${encodeURIComponent(a.k||"")}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}<small>${esc(mailKB(a.size))}</small></span></a>`).join("")}</div></div>`:""}</article>`}
@@ -5534,7 +5534,7 @@ function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
   const nt=typeof notiGet==="function"?notiGet():{mail:true};if(!nt.mail)return;if(typeof dndActive==="function"&&dndActive()){dndHold(nw);return}if(nt.sound)try{stChime()}catch(e){}
   if(window.__islOn&&window.__islOn()&&window.islAlert){
     const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
-    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.conv||m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.conv?m.msgs[m.msgs.length-1].body:m.body).slice(0,90),ms:7000,tap:open});
+    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.to&&m.to.crew?"Message for your crew":m.conv||m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.conv?m.msgs[m.msgs.length-1].body:m.body).slice(0,90),ms:7000,tap:open});
     const pill=document.querySelector("#isl .isl");if(pill){pill.classList.remove("pm-n");void pill.offsetWidth;pill.classList.add("pm-n");clearTimeout(mailNotify._t);mailNotify._t=setTimeout(()=>pill.classList.remove("pm-n"),7200)}
     try{navigator.vibrate&&navigator.vibrate([30,60,30])}catch(e){}
   }else toast((more?nw.length+" new messages · ":"New mail · ")+m.subject)}
@@ -6152,7 +6152,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs|aoc|hoppie)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -8990,6 +8990,8 @@ function msHopLoad(force){const logon=msLogon(),cs=msCs();if(!logon||!cs||typeof
     .catch(e=>{MSG.err.hop=e.name==="AbortError"?"Hoppie’s ACARS did not answer in time":e.message})
     .finally(()=>{clearTimeout(tm);MSG.busy.hop=false;MSG.at.hop=Date.now();msUpd()})}
 function msLoad(force){msAocLoad(force);msHopLoad(force)}
+/* Mail too: the callsign this EFB flies, for mail to a flight's crew */
+mailQuery=function(){const cs=msCs();return cs?"?cs="+encodeURIComponent(cs):""};
 
 /* ---- the view ---- */
 const MS_I={gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
@@ -10408,9 +10410,35 @@ const CAL={view:store.get("calView","month"),d:null,q:"",sel:null,add:null,src:O
 const CAL_SRC=[["roster","Roster","#30B0C7"],["plan","Flight Plan","#5E5CE6"],["events","Polaris Events","#AF52DE"],["personal","Personal","#FF9F0A"]];
 /* Polaris's group events from vAMSYS (the same list as the website's Events page), read every 30 minutes while the
    Calendar is open. An event over several days shows on each of its days. */
-const CALEV={list:null,at:0,busy:false};
-function calEvLoad(){const srv=(typeof vam!=="undefined"&&vam.url)||(typeof EFB_HOST_SERVER!=="undefined"&&EFB_HOST_SERVER)||"";if(!srv||CALEV.busy||Date.now()-CALEV.at<30*60000)return;CALEV.busy=true;
-  fetch(srv.replace(/\/+$/,"")+"/api/site/events").then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{CALEV.list=[].concat(j.current||[],j.past||[]);CALEV.at=Date.now()})
+const CALEV={list:null,at:0,busy:false,pol:store.get("calPol",null)};
+/* ---------- the company calendar in Calendar (Nov 2026): Polaris's own entries for this pilot, and the vAMSYS events
+   as staff show them (some hidden, some with a Polaris note), from /api/efb/cal; signed out, the public events list ---------- */
+const CAL_TYPES={group:"Group flight",training:"Training",meeting:"Meeting",event:"Event",notice:"Notice",maint:"Maintenance"};
+const CAL_REM={15:"15 minutes",30:"30 minutes",60:"1 hour",120:"2 hours",1440:"1 day"};
+/* Polaris's entries, each time they happen (a weekly one: from 200 days back to 400 ahead) */
+function calPol(out){const L=CALEV.pol||[],lo=Date.now()-200*864e5,hi=Date.now()+400*864e5,W=7*864e5;
+  for(const v of L){const s0=+v.s;if(!s0)continue;const dur=Math.max(6e4,(+v.e||s0+36e5)-s0),occ=[];
+    if(v.rep==="weekly"){const until=+v.until||hi;let k=Math.max(0,Math.ceil((lo-s0)/W));for(let t=s0+k*W;t<=Math.min(until,hi)&&occ.length<90;t+=W,k++)occ.push([t,k])}else occ.push([s0,0]);
+    const base={src:"events",title:v.title||"Polaris",sub:[CAL_TYPES[v.type]||"",v.loc||""].filter(Boolean).join(" · "),desc:"",pol:v};
+    for(const [t,k] of occ){if(v.allDay){const d0=Date.UTC(new Date(t).getUTCFullYear(),new Date(t).getUTCMonth(),new Date(t).getUTCDate()),days=Math.max(1,Math.round(dur/864e5));
+        for(let d=0;d<days&&d<31;d++)out.push({...base,id:"pc"+v.id+"-"+k+"-"+d,s:d0+d*864e5,e:d0+(d+1)*864e5-6e4,allDay:true,evs:days>1?d0:0,eve:days>1?d0+days*864e5:0})}
+      else out.push({...base,id:"pc"+v.id+"-"+k,s:t,e:t+dur})}}}
+/* what the event sheet adds for these: a Polaris entry's place, repeat, reminder and details; a vAMSYS event's Polaris note */
+function calExtra(v){let h="";const p=v.pol;
+  if(p){if(p.loc)h+=`<p class="dim">📍 ${esc(p.loc)}</p>`;
+    if(p.rep==="weekly")h+=`<p class="dim">Every week${p.until?" until "+esc(new Date(+p.until).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})):""}</p>`;
+    if(p.to)h+=`<p class="dim">${p.to.crew?"For the "+esc(p.to.cs)+" crew":"For you and other pilots"}</p>`;
+    if(CAL_REM[p.remind])h+=`<p class="dim">Reminder ${CAL_REM[p.remind]} before, by notification</p>`;
+    if(p.body)h+=`<p class="cal-desc" style="white-space:pre-line">${esc(p.body)}</p>`;
+    h+=`<p class="dim">From Polaris Flight Operations</p>`}
+  if(v.note)h+=`<p class="cal-desc" style="white-space:pre-line"><b>Polaris note</b><br>${esc(v.note)}</p>`;
+  return h}
+{const _f=authForget;authForget=function(){const r=_f.apply(this,arguments);CALEV.pol=null;CALEV.list=null;CALEV.at=0;store.set("calPol",null);return r}}
+function calEvLoad(){const srv=(typeof vam!=="undefined"&&vam.url)||(typeof EFB_HOST_SERVER!=="undefined"&&EFB_HOST_SERVER)||"";
+  const signed=typeof authOn==="function"&&authOn()&&!!authSrv();if(!srv||CALEV.busy||Date.now()-CALEV.at<(signed?10:30)*60000)return;CALEV.busy=true;
+  /* signed in: the company calendar for this pilot (and the callsign this EFB flies, for a crew's entries); signed out: the public events */
+  const cs=typeof msCs==="function"?msCs():"",url=signed?authSrv()+"/api/efb/cal"+(cs?"?cs="+encodeURIComponent(cs):""):srv.replace(/\/+$/,"")+"/api/site/events";
+  fetch(url,{cache:"no-cache"}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{if(signed){CALEV.list=j.vamsys||[];CALEV.pol=j.items||[]}else{CALEV.list=[].concat(j.current||[],j.past||[]);CALEV.pol=null}CALEV.at=Date.now();store.set("calPol",CALEV.pol)})
     .catch(()=>{CALEV.at=Date.now()-25*60000}).finally(()=>{CALEV.busy=false;if(cur==="calendar")render()})}
 const calTxt=h=>{const d=document.createElement("div");d.innerHTML=String(h||"");return(d.textContent||"").replace(/\s+/g," ").trim()};
 const CAL_MON=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -10436,10 +10464,11 @@ function calEvents(){const out=[],T=v=>Date.parse(v||"")||0;
   if(CAL.src.events){calEvLoad();(CALEV.list||[]).forEach(v=>{const s=Date.parse(v.start||""),e=Date.parse(v.end||"")||s+3600e3;if(!s)return;
       const ap=v.airports?[...(v.airports.departures||[]),...(v.airports.arrivals||[])]:[],rt=(v.routes||[]).map(r=>(r.from||"…")+"–"+(r.to||"…"));
       const sub=[v.subtype&&v.subtype!=="routes"&&v.subtype!=="airports"?v.subtype:"",rt.slice(0,3).join(", "),ap.slice(0,6).join(" "),v.points?v.points+(v.pointsAsPercentage?"% ":" ")+"points":""].filter(Boolean).join(" · ");
-      const base={src:"events",title:v.name||"Event",sub,desc:calTxt(v.description).slice(0,600),reg:v.registrationRequired,aircraft:(v.aircraft||[]).join(", ")};
+      const base={src:"events",title:v.name||"Event",sub,desc:calTxt(v.description).slice(0,600),reg:v.registrationRequired,aircraft:(v.aircraft||[]).join(", "),note:v.note||""};
       /* a long event: one all-day entry on each day (up to a month) */
       if(e-s>=20*36e5){const d0=Date.UTC(new Date(s).getUTCFullYear(),new Date(s).getUTCMonth(),new Date(s).getUTCDate());for(let d=d0,k=0;d<e&&k<31;d+=864e5,k++)out.push({...base,id:"ev"+v.id+"-"+k,s:Math.max(s,d),e:Math.min(e,d+864e5-6e4),allDay:true,evs:s,eve:e})}
       else out.push({...base,id:"ev"+v.id,s,e})})}
+  if(CAL.src.events)calPol(out);
   if(CAL.src.personal)calPersonal().forEach(v=>out.push({id:v.id,src:"personal",title:v.t||"New Event",sub:v.n||"",s:v.s,e:v.e||v.s+3600e3,allDay:!!v.ad}));
   return out.sort((a,b)=>a.s-b.s)}
 const calOn=(E,day)=>E.filter(v=>v.allDay?calDay(v.s)<=day&&calDay(v.e-1)>=day:v.s<day+864e5&&v.e>day);
@@ -10489,7 +10518,7 @@ function calDetail(E){const v=E.find(x=>x.id===CAL.sel);if(!v)return "";const sr
   const dur=v.allDay?"All day":`${calZ(v.s)} – ${calZ(v.e)} · ${Math.floor((v.e-v.s)/36e5)}:${String(Math.round((v.e-v.s)/6e4)%60).padStart(2,"0")}`;
   const act=v.src==="events"?"":v.src==="roster"?`<a class="cal-btn" href="#roster">${v.ci?"Open briefing in Roster":"Open in Roster"}</a>`:v.src==="plan"?`<a class="cal-btn" href="#ofp">Open Flight Plan</a>`:`<button class="cal-btn del" data-caldel="${esc(v.id)}">${CAL.armDel===v.id?"Tap again to delete":"Delete Event"}</button>`;
   return `<div class="cal-sheetw" data-calx><div class="cal-sheet" role="dialog" aria-label="${esc(v.title)}"><div class="cal-sh1"><i style="background:${calColor(v.src)}"></i><b>${esc(v.title)}</b><button class="cal-x" data-calx aria-label="Close">✕</button></div>
-    <p>${new Date(v.s).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})}<br>${dur}</p>${v.sub?`<p class="dim">${esc(v.sub)}</p>`:""}${v.evs?`<p class="dim">Event runs ${esc(new Date(v.evs).toISOString().slice(0,16).replace("T"," "))}Z – ${esc(new Date(v.eve).toISOString().slice(0,16).replace("T"," "))}Z</p>`:""}${v.aircraft?`<p class="dim">Aircraft: ${esc(v.aircraft)}</p>`:""}${v.reg?`<p class="dim">Registration required</p>`:""}${v.desc?`<p class="cal-desc">${esc(v.desc)}</p>`:""}
+    <p>${new Date(v.s).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})}<br>${dur}</p>${v.sub?`<p class="dim">${esc(v.sub)}</p>`:""}${v.evs?`<p class="dim">Event runs ${esc(new Date(v.evs).toISOString().slice(0,16).replace("T"," "))}Z – ${esc(new Date(v.eve).toISOString().slice(0,16).replace("T"," "))}Z</p>`:""}${v.aircraft?`<p class="dim">Aircraft: ${esc(v.aircraft)}</p>`:""}${v.reg?`<p class="dim">Registration required</p>`:""}${calExtra(v)}${v.desc?`<p class="cal-desc">${esc(v.desc)}</p>`:""}
     ${v.from?`<div class="cal-rt"><b>${esc(v.from)}</b><svg viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></svg><b>${esc(v.to||"")}</b>${typeof ftTag==="function"?ftTag(v.flight,v.from,v.to):""}</div>`:""}
     <p class="dim">Calendar: ${esc(src?src[1]:"")}${v.ci?" · Checked in":""}</p>${act}</div></div>`}
 function calAddSheet(){const a=CAL.add,d=new Date(a.d).toISOString().slice(0,10);

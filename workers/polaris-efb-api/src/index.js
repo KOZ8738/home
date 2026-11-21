@@ -22,6 +22,7 @@
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
  *                                          staff put them on /admin, Documents tab (see docs.js)
+ *   GET /api/efb/cal?cs=                -> the signed-in pilot's company calendar: Polaris entries for them and the vAMSYS events (see cal.js)
  *   GET /api/efb/aoc                    -> AOC messages from Polaris operations for the EFB's Messages (read only; staff send them
  *                                          on /admin, Messages tab, see aoc.js)
  *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
@@ -43,7 +44,7 @@
  * Vars (wrangler.toml): VAMSYS_SCOPE (default "ops:read"), ALLOWED_ORIGINS (comma list, or "*")
  */
 import { liveFlights } from './live.js';
-import { siteRoute, siteLive } from './site.js';
+import { siteRoute, siteLive, siteEvents } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
@@ -51,6 +52,7 @@ import { docsPublic, docFile, docCover } from './docs.js';
 import { aocPublic, hoppiePeek } from './aoc.js';
 import { standWatch } from './stands.js';
 import { flightWatch } from './watch.js';
+import { calPublic } from './cal.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -1551,7 +1553,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
+    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1588,6 +1590,7 @@ export default {
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
+        case '/api/efb/cal': return await calPublic(req, env, h, await sessionOf(req, env), () => siteEvents(siteDeps));
         case '/api/efb/aoc': return await aocPublic(req, env, h, await sessionOf(req, env));
         case '/api/efb/docs': return await docsPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/doc-file': return await docFile(url, env, h, linkSig);

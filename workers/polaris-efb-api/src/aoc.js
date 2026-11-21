@@ -91,6 +91,19 @@ export async function hoppiePeek(req, env, h, sess) {
   return jsonRes(v, 200, h);
 }
 
+/* keep an AOC message and tell its pilots' devices (staff on /admin, or the automatic stand assignment, see stands.js) */
+export async function aocSend(env, { title, body, to, push, by }) {
+  const kv = env.STORE;
+  const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '' };
+  await writeIndex(kv, [m, ...(await readIndex(kv))]);
+  if (push !== false) {
+    const payload = { title: 'AOC · ' + m.title, body: m.body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
+    /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
+    try { await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
+  }
+  return m;
+}
+
 /* ---- /admin, Messages tab (sent as AOC) ---- */
 export async function aocAdmin(req, url, env, who) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
@@ -110,14 +123,7 @@ export async function aocAdmin(req, url, env, who) {
         if (!tp && !tcid) throw new AocError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
         to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: line(b.to.name, 60) };
       }
-      const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title, body, to, by: who };
-      await writeIndex(kv, [m, ...(await readIndex(kv))]);
-      if (b.push !== false) {
-        const payload = { title: 'AOC · ' + title, body: body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
-        /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
-        try { await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
-      }
-      return jsonRes({ ok: true, msg: m });
+      return jsonRes({ ok: true, msg: await aocSend(env, { title, body, to, push: b.push !== false, by: who }) });
     }
     if (req.method === 'DELETE') {
       const id = String(url.searchParams.get('id') || ''), list = await readIndex(kv);

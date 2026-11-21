@@ -29,6 +29,7 @@
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
+ *   /admin/api/stands(/try|/change)      -> the admin's Stands tab: the stand plan for the automatic stand assignment (see stands.js)
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
@@ -47,6 +48,7 @@ import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './a
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover } from './docs.js';
 import { aocPublic, hoppiePeek } from './aoc.js';
+import { standWatch } from './stands.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -985,6 +987,21 @@ async function pirepCellRoute(cellIn, ctx, h) {
    carries an ETag, so an EFB that already has this update gets a 304. */
 let vsMem = null; // { exp, d } in this isolate
 const vsExp = (d) => { const now = Date.now(), t = (Date.parse(d.upd) || now) + 16000; return t > now ? Math.min(t, now + 20000) : now + 5000; };
+/* what the automatic stand assignment reads (see stands.js): the Polaris flights in the air as the admin's Live tab
+   shows them, the VATSIM pilots, and an airport's map (stands) as the EFB already keeps it; the map is never built here */
+const STAND_CRON = '*/2 * * * *';
+function standDeps(env, ctx) {
+  const siteDeps = { vget: (p, q) => vget(env, p, q), all: (p) => all(env, p), cached, edgeCache, configured: Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) };
+  return {
+    live: async () => {
+      const [vs, va] = await Promise.all([vatsimFeed(ctx).catch(() => null), siteDeps.configured ? siteLive(siteDeps).catch(() => null) : Promise.resolve(null)]);
+      if (!vs && !va) throw new Error('neither vAMSYS nor VATSIM answered');
+      return liveFlights(vs, va);
+    },
+    vatsim: () => vatsimFeed(ctx),
+    layout: async (icao) => { const l = env.STORE ? await env.STORE.get('layout:v11:' + icao, 'json').catch(() => null) : null; return l && l.v; },
+  };
+}
 async function vatsimFeed(ctx) {
   if (vsMem && Date.now() < vsMem.exp) return vsMem.d;
   const cache = caches.default, ck = new Request('https://vatsim-feed-cache.local/v1');
@@ -1421,7 +1438,11 @@ async function aptsRoute(url, env, ctx, h) {
   return new Response(body, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
 }
 export default {
-  async scheduled(event, env, ctx) { ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message))); },
+  async scheduled(event, env, ctx) {
+    /* every 2 minutes: the automatic stand assignment (see stands.js); every 20: the airport maps and weather watch */
+    if (event.cron === STAND_CRON) { ctx.waitUntil(standWatch(env, standDeps(env, ctx)).catch((e) => console.warn('[stands]', e && e.message))); return; }
+    ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
+  },
   async fetch(req, env, ctx) {
     /* the EFB privacy policy (linked from the "Login with vAMSYS" consent screen) */
     if (/^\/privacy\/?$/.test(new URL(req.url).pathname)) return new Response(PRIVACY_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' } });
@@ -1528,7 +1549,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
+    }, stands: standDeps(env, ctx), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

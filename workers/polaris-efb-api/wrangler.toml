@@ -56,7 +56,7 @@ tag = "pfd-v1"
 new_sqlite_classes = ["PfdRelay"]
 
 [triggers]
-crons = ["*/20 * * * *"]
+crons = ["*/20 * * * *", "*/2 * * * *"]   # */2: automatic stand assignment (src/stands.js)
 
 [vars]
 # EFB 只需要唯讀權限

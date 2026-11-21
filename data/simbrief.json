@@ -75,6 +75,25 @@
     121.232222,
     "Taiwan Taoyuan Intl"
    ]
+  },
+  {
+   "gen": 1795217949,
+   "callsign": "OVO75A",
+   "from": "RCTP",
+   "to": "ZGHA",
+   "type": "A320",
+   "reg": "B-26AH",
+   "out": 1795220100,
+   "fromPos": [
+    25.080278,
+    121.232222,
+    "Taiwan Taoyuan Intl"
+   ],
+   "toPos": [
+    28.19,
+    113.218333,
+    "Huanghua"
+   ]
   }
  ]
 }

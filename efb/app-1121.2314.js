@@ -2880,8 +2880,10 @@ function vamBookHtml(){if(!vamOn())return "";vamLoad("bookings");const s=vamStat
    Like the "download flight" page of an airline EFB: on the left the flight folder the plan brings (the route, the
    times, the numbers the crew look for first, and what in the EFB it fills in, each a tap away), on the right where it
    comes from (SimBrief, or a pasted or uploaded plan) and the vAMSYS bookings. With no plan loaded, one column: the
-   welcome and the download box. The ids and data attributes of the old page stay (sbUser, sbFetch, sbMsg, sbMan,
-   sbPaste, sbLoad, sbFile, sbOpen, data-sbman, data-sbhide, data-sbauto, ofpClear), so its handlers still work. */
+   welcome and the download box. The download box holds only the download button: the SimBrief username or pilot ID,
+   downloading when the EFB opens and pasting or uploading a plan are in Settings › Flight Operations (the paste card
+   still opens here when a download fails). The ids and data attributes of the old page stay (sbFetch, sbMsg, sbMan,
+   sbPaste, sbLoad, sbFile, sbOpen, data-sbhide, ofpClear), so its handlers still work. */
 const DL_I={dl:'<path d="M12 3.5v11M7 10l5 5 5-5M4.5 19.5h15"/>',plan:'<path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4h4M9 11.5h7M9 15h7M9 18.5h4.5"/>',
   wx:'<path d="M7.5 18.5a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.6 3.7 3.7 0 0 1-.8 7.4z"/>',chart:'<path d="M5 3.5h10l4 4v13H5z"/><path d="M8.5 16l2.6-5 2.4 3.4 1.6-2.4 1.9 4"/>',
   docs:'<path d="M4 6.5h6l2 2h8v11H4z"/><path d="M4 9.5h16"/>',ck:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
@@ -2892,14 +2894,21 @@ function dlAgo(t){const m=Math.round((Date.now()-t)/6e4);return m<1?"just now":m
 const dlZ=sec=>sec?utcHM(sec):"—";
 const dlDur=sec=>{if(!(sec>0))return"";const m=Math.round(sec/60);return Math.floor(m/60)+"h "+pad(m%60)+"m"};
 const dlHas=id=>{try{return typeof asHas!=="function"||asHas(id)}catch(e){return true}};
-/* the download box: SimBrief, and the way to paste or upload a plan */
-function dlGet(none){const u=store.get("sbUser",""),auto=store.get("sbAuto",false)===true;
-  return `<section class="dl2-card dl2-get"><div class="dl2-gh"><span class="dl2-gi">${dlIc("dl")}</span><div><b>${none?"Download your plan":"Download a newer plan"}</b><small>From your SimBrief account</small></div></div>
-    <label class="dl2-f"><span>SimBrief username or pilot ID</span><input type="text" id="sbUser" placeholder="polaris214" value="${esc(u)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+/* "PAW203 RCTP–RJAA", for Settings › Flight Operations (inside Settings, S is the section, not this file's S) */
+function dlPlanName(){const x=O();return x.flight+" "+S(x.o.icao_code)+"–"+S(x.d.icao_code)}
+/* the SimBrief account is set in Settings › Flight Operations: open it there (on a phone, the section itself) */
+function sbSetGo(){psec="ops";store.set("psec","ops");stOpen=true;goApp("prefs");
+  let n=0;const f=()=>{const i=$("#stSb");if(i){if(!i.value.trim())i.focus();return}if(++n<15)setTimeout(f,80)};setTimeout(f,120)}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-sbset],[data-sbpaste]");if(!t)return;e.preventDefault();
+  if(t.dataset.sbpaste==null){sbSetGo();return}
+  /* Paste or upload a plan (Settings): the paste card in Download */
+  SBMAN.on=true;SBMAN.anim=false;goApp("simbrief");
+  let n=0;const f=()=>{const c=$("#sbPaste");if(c){const m=$("#sbMan");if(m&&m.scrollIntoView)m.scrollIntoView({block:"nearest"});c.focus({preventScroll:true});return}if(++n<15)setTimeout(f,80)};setTimeout(f,120)});
+/* the download box: only the download button, with the account it downloads from (tap it to change it in Settings) */
+function dlGet(none){const u=String(store.get("sbUser","")).trim();
+  return `<section class="dl2-card dl2-get"><div class="dl2-gh"><span class="dl2-gi">${dlIc("dl")}</span><div><b>${none?"Download your plan":"Download a newer plan"}</b>${u?`<button type="button" class="dl2-acct" data-sbset aria-label="SimBrief account ${esc(u)}. Change it in Settings">SimBrief · ${esc(u)}${dlIc("chev")}</button>`:`<button type="button" class="dl2-acct add" data-sbset>Add your SimBrief account${dlIc("chev")}</button>`}</div></div>
     <button class="dl2-go" id="sbFetch" type="button">${dlIc("dl")}<span>Download latest plan</span></button>
-    <p class="dl2-msg" id="sbMsg">${none?"Loads the newest plan in your SimBrief account.":"Your plan stays until a newer one is downloaded."}</p>
-    <div class="dl2-row"><span><b>Download when the EFB opens</b><small>Fetches your newest plan each time</small></span><button class="dl2-sw" type="button" role="switch" aria-checked="${auto}" aria-label="Download when the EFB opens" data-sbauto="${auto?0:1}"><i></i></button></div>
-    <div class="dl2-links"><a href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">${dlIc("ext")}Plan a new flight on SimBrief</a>${SBMAN.on?"":`<button type="button" data-sbman>${dlIc("paste")}Paste or upload a plan</button>`}</div></section>
+    <p class="dl2-msg" id="sbMsg">${!u?"Your SimBrief username or pilot ID goes in Settings › Flight Operations.":none?"Loads the newest plan in your SimBrief account.":"Your plan stays until a newer one is downloaded."}</p></section>
   ${SBMAN.on?`<section class="dl2-card dl2-man${SBMAN.anim?" in":""}" id="sbMan"><div class="dl2-gh"><span class="dl2-gi alt">${dlIc("paste")}</span><div><b>Paste or upload</b><small>A SimBrief JSON plan</small></div><button class="dl2-x" type="button" data-sbhide aria-label="Hide">×</button></div>
     <p class="dl2-note">Open your SimBrief data, copy everything on that page and paste it here, or upload a SimBrief .json file.</p>
     <a class="dl2-b" id="sbOpen" href="${esc(sbHref(u))}" target="_blank" rel="noopener">Open SimBrief data ↗</a>
@@ -2968,7 +2977,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dl2-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
 .dl2-li{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;min-width:0}
 .dl2-li-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);flex:none}
-.dl2-li-ic svg,.dl2-gi svg,.dl2-go svg,.dl2-links svg{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+.dl2-li-ic svg,.dl2-gi svg,.dl2-go svg,.dl2-acct svg{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
 .dl2-li-ic svg{width:19px;height:19px;stroke-width:1.7}
 .dl2-li-t{flex:1;min-width:0}.dl2-li-t b{display:block;font:600 14px var(--f-ui)}.dl2-li-t small{display:block;font:500 12px var(--f-ui);color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .dl2-tick{width:19px;height:19px;border-radius:50%;background:#34C759;color:#fff;font:700 11px/19px var(--f-ui);text-align:center;flex:none}
@@ -2980,23 +2989,20 @@ a.dl2-li:active{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .dl2-gi.alt{background:var(--bronze)}
 .dl2-gi svg{width:22px;height:22px;stroke-width:1.9}
 .dl2-gh b{display:block;font:600 16px var(--f-ui);color:var(--ink)}.dl2-gh small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:1px}
+.dl2-gh>div{min-width:0}
+.dl2-acct{display:flex;align-items:center;gap:3px;max-width:100%;height:auto;min-height:0;margin:2px 0 0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--label);font:500 12.5px/1.35 var(--f-ui);text-align:left;cursor:pointer}
+.dl2-acct svg{width:12px;height:12px;stroke-width:2.4;flex:none;opacity:.8}
+.dl2-acct.add{color:var(--accent);font-weight:600}
+.dl2-acct:hover{color:var(--accent)}
 .dl2-x{margin-left:auto;width:32px;height:32px;border-radius:50%;border:0;background:color-mix(in srgb,var(--label) 14%,transparent);color:var(--label);font:400 20px/1 var(--f-ui);cursor:pointer;padding:0}
 .dl2-f{display:grid;gap:6px;margin:0 0 12px}
 .dl2-f span{font:600 10.5px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
-.dl2-f input,.dl2-f textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:500 15px var(--f-mono);padding:10px 12px;margin:0}
-.dl2-f textarea{font-size:13px;resize:vertical}
+.dl2-f textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:500 13px var(--f-mono);padding:10px 12px;margin:0;resize:vertical}
 .dl2-go{width:100%;height:46px;border:0;border-radius:11px;background:var(--accent);color:var(--panel);font:600 15px var(--f-ui);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin:0}
 .dl2-go svg{width:20px;height:20px;stroke-width:2}
 .dl2-go:active{filter:brightness(.92)}
 .dl2-msg{margin:10px 0 0;font:500 12.5px/1.45 var(--f-ui);color:var(--label)}
-.dl2-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
-.dl2-row b{display:block;font:600 13.5px var(--f-ui);color:var(--ink)}.dl2-row small{display:block;font:500 12px var(--f-ui);color:var(--label);margin-top:1px}
-.dl2-sw{position:relative;width:51px;height:31px;border-radius:16px;border:0;background:color-mix(in srgb,var(--label) 32%,transparent);flex:none;cursor:pointer;padding:0;margin:0;transition:background .2s}
-.dl2-sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
-.dl2-sw[aria-checked="true"]{background:#34C759}.dl2-sw[aria-checked="true"] i{transform:translateX(20px)}
-.dl2-links{display:grid;margin-top:10px;padding-top:6px;border-top:1px solid var(--line)}
-.dl2-links a,.dl2-links button{display:flex;align-items:center;gap:9px;padding:9px 0;border:0;background:none;color:var(--accent);font:600 13.5px var(--f-ui);text-decoration:none;cursor:pointer;text-align:left;margin:0;box-shadow:none}
-.dl2-links svg{width:17px;height:17px;stroke-width:1.8}
+.dl2-a{display:inline;height:auto;min-height:0;margin:0;padding:0;border:0;background:none;box-shadow:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .dl2-note{margin:0 0 12px;font:500 13px/1.45 var(--f-ui);color:var(--label)}
 .dl2-man>.dl2-b{margin-bottom:12px}
 .dl2-man.in{animation:dl2In .35s ease-out both}@keyframes dl2In{from{opacity:0;transform:translateY(-6px)}}
@@ -3006,7 +3012,9 @@ a.dl2-li:active{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .dl2-hello p{margin:0;font:500 15px/1.5 var(--f-ui);color:var(--label);max-width:520px}
 @container screen (max-width:700px){.dl2-list{grid-template-columns:minmax(0,1fr)}}
 @container screen (max-width:560px){.dl2{padding:14px;gap:12px}.dl2-card{padding:16px}.dl2-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.dl2-route{grid-template-columns:minmax(0,1fr) 80px minmax(0,1fr);gap:8px}.dl2-ap b{font-size:34px}.dl2-ap em .rw{display:block}.dl2-ap em .rw::before{content:none}.dl2-bt{font-size:11px}.dl2-b.ghost{margin-left:0}}
-@media (prefers-reduced-motion:reduce){.dl2-man.in{animation:none}.dl2-sw,.dl2-sw i{transition:none}}
+@media (prefers-reduced-motion:reduce){.dl2-man.in{animation:none}}
+/* Settings › Flight Operations: a link row like the action rows */
+.st-g a.st-act{text-decoration:none}
 </style>`);
 
 /* ===== Settings ===== */
@@ -3037,7 +3045,7 @@ const ST_SECS=[["general","gear","#8E8E93","General","Software updates and what�
   ["a11y","access","#0A84FF","Accessibility","Make the EFB easier to read and calmer to use.","accessibility text size larger bold contrast motion animation"],
   ["display","sun","#0A84FF","Display & Brightness","Theme, dimming for night flights, and what stays on screen.","display brightness dim night light red warm theme day night dark light airline polaris colours wallpaper dynamic island screen awake sleep appearance"],
   ["home","apps","#5856D6","Home Screen","Arrange the apps on the Home Screen and in the Dock.","home screen apps dock arrange move reorder layout edit jiggle drag reset"],
-  ["ops","clock","#FF9F0A","Flight Operations","Your SimBrief account, plan fetching and the aircraft used for checklists.","flight operations simbrief username fetch plan ofp aircraft checklist a320 a350 base"],
+  ["ops","clock","#FF9F0A","Flight Operations","Your SimBrief account, plan fetching and the aircraft used for checklists.","flight operations simbrief username pilot id fetch download plan ofp paste upload json aircraft checklist a320 a350 base"],
   ["cl","check","#FF9F0A","Checklists","The EFB can open the right checklist as your live vAMSYS flight moves from boarding to arrival.","checklist push phase notification live"],
   ["conn","wifi","#0A84FF","Connection","Whether the EFB can reach the internet and each service it uses.","connection network internet wifi server online offline status latency"],
   ["vatsim","radar","#1E9E8F","VATSIM","See whether you are connected to the VATSIM network, and where.","vatsim cid network online callsign sim connection"],
@@ -3133,9 +3141,9 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
       +grp("Vision",[r("Bold text","",sw("data-boldtext",store.get("boldText",false)===true,"Bold text")),r("Increase contrast","Darker secondary text and lines",sw("data-hicontrast",store.get("hiContrast",false)===true,"Increase contrast"))])
       +grp("Motion",[r("Reduce motion","Turns off animations and transitions in the EFB",sw("data-lessmotion",store.get("lessMotion",false)===true,"Reduce motion"))],"If your device is already set to reduce motion, the EFB follows it.")}
   else if(psec==="ops"){const ct=clType(),sel=store.get("clTypeSel","auto"),u=store.get("sbUser","");
-    main+=grp("SimBrief",[`<label class="st-r st-in"><span class="st-l">Username or pilot ID</span><input type="text" id="stSb" placeholder="polaris214" value="${esc(u)}" autocomplete="off" spellcheck="false"></label>`,
-        r("Fetch the latest plan when the EFB opens","Loads it quietly if it’s newer than the one you have",sw("data-sbauto",store.get("sbAuto",false)===true,"Fetch the latest plan when the EFB opens")),act("data-sbnow","Fetch latest plan now",false,!u)],
-        ofp._sample?"No plan loaded yet.":`Loaded: ${esc(O().flight)} ${esc(S(O().o.icao_code))}–${esc(S(O().d.icao_code))}. Dispatch also takes a pasted or uploaded plan.`)
+    main+=grp("SimBrief",[`<label class="st-r st-in"><span class="st-l">Username or pilot ID</span><input type="text" id="stSb" placeholder="Not set" value="${esc(u)}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="SimBrief username or pilot ID"></label>`,
+        r("Fetch the latest plan when the EFB opens","Loads it quietly if it’s newer than the one you have",sw("data-sbauto",store.get("sbAuto",false)===true,"Fetch the latest plan when the EFB opens")),act("data-sbnow","Fetch latest plan now",false,!u),act("data-sbpaste","Paste or upload a plan"),`<a class="st-r st-act" href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">Plan a new flight on SimBrief ↗</a>`],
+        (ofp._sample?"No plan loaded yet.":"Loaded: "+esc(dlPlanName())+".")+" Flight › Download downloads your newest plan from this account.")
       +grp("Checklist aircraft",[pick("data-cltype","auto",sel==="auto","Automatic",ct.known?`Now ${esc(ct.name)}, from ${esc(ct.src)}`:"From your vAMSYS flight, booking or flight plan"),pick("data-cltype","A320",sel==="A320","A320 family","A321neo"),pick("data-cltype","A350",sel==="A350","A350","A350-900")])
       +grp("Polaris",[r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo domestic · A350-900 international"))])}
   else main+=grp("Brightness",[`<div class="st-r"><span class="st-l">Brightness<small>Below 100% the EFB goes darker than the iPad’s own lowest brightness</small></span><span class="st-range">${stI("sunsm")}<input type="range" id="stDimR" min="30" max="100" step="1" value="${100-dimLv()}" aria-label="Brightness"><output id="stDimV">${100-dimLv()}%</output></span></div>`],"")
@@ -5927,7 +5935,7 @@ async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim(
     const id=j.params&&(j.params.request_id||j.params.time_generated),curId=!ofp._sample&&ofp.params&&(ofp.params.request_id||ofp.params.time_generated);
     if(id&&curId&&String(id)===String(curId)){if(manual)toast("You already have your latest plan");return}
     ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
-  catch(e){if(manual)toast("SimBrief can’t be reached from here. Use Dispatch to paste the plan.")}}
+  catch(e){if(manual){SBMAN.on=true;toast("SimBrief can’t be reached from here. Paste or upload the plan in Flight › Download.")}}}
 setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
 document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-sbauto],[data-sbnow]");if(!b)return;if(b.dataset.sbnow!=null){sbFetchQuiet(true);return}store.set("sbAuto",b.dataset.sbauto==="1");render()});
@@ -6741,7 +6749,7 @@ function rsBriefHtml(ci){const now=Date.now(),x=O(),match=!ofp._sample&&S(x.o.ic
   return `<section class="card feat">${cardH("Checked in","Briefing · "+esc(ci.callsign||ci.flight),`<button class="btn sm" data-rsco style="color:#fff;border-color:rgba(255,255,255,.4)">Cancel check-in</button>`)}
      <ol class="rs-tl">${tl}</ol>${push}</section>
    <section class="card">${cardH("Flight plan","SimBrief")}<div class="card-b" style="display:grid;gap:12px">${sbCard}
-     <div class="row">${sb?`<button class="btn${match?"":" pri"}" data-rssb>Fetch latest from SimBrief</button>`:`<a class="btn" href="#simbrief">Set up SimBrief</a>`}<a class="btn${match?"":" pri"}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>${match?`<a class="btn" href="#ofp">Open Flight Plan</a>`:""}</div></div></section>
+     <div class="row">${sb?`<button class="btn${match?"":" pri"}" data-rssb>Fetch latest from SimBrief</button>`:`<button class="btn" type="button" data-sbset>Set up SimBrief</button>`}<a class="btn${match?"":" pri"}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>${match?`<a class="btn" href="#ofp">Open Flight Plan</a>`:""}</div></div></section>
    <section class="card">${cardH("Datalink","DCL / PDC and CPDLC on VATSIM")}${dlHtml(ci)}</section>
    <section class="card">${cardH("Weather","Departure and arrival",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(ci.from,"Departure")}${rsWxHtml(ci.to,"Arrival")}</div></section>`}
 V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now();
@@ -7268,8 +7276,8 @@ win.addEventListener("animationend",()=>{if(win.classList.contains("closing")){w
 function goApp(id){if(location.hash==="#"+id)route();else location.hash=id}
 function goHome(){if(cur)location.hash="home";else goPage(0)}
 function loadOfp(obj){
+  if(obj&&typeof obj==="object"&&obj.fetch&&S(obj.fetch.status)&&S(obj.fetch.status)!=="Success"){toast("SimBrief: "+S(obj.fetch.status));return false}
   if(!obj||typeof obj!=="object"||!obj.origin||!obj.destination){toast("That doesn’t look like a SimBrief JSON plan");return false}
-  if(obj.fetch&&S(obj.fetch.status)&&S(obj.fetch.status)!=="Success"){toast("SimBrief: "+S(obj.fetch.status));return false}
   ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
 
 window.addEventListener("hashchange",route);
@@ -7539,8 +7547,8 @@ document.addEventListener("click",async e=>{
   if(t.id==="ooSave"){const o=store.get("oooi:"+x.id,{});const m=s=>{const[a,b]=s.split(":").map(Number);return a*60+b};const d=(a,b)=>((m(b)-m(a))+1440)%1440;const now=new Date();
     const e2={id:Date.now(),date:now.getUTCFullYear()+"-"+pad(now.getUTCMonth()+1)+"-"+pad(now.getUTCDate()),flight:x.flight,dep:S(x.o.icao_code),arr:S(x.d.icao_code),ac:S(x.ac.icaocode),block:d(o.OUT,o.IN),air:d(o.OFF,o.ON),fpm:parseFloat($("#ooFpm").value)||null,notes:$("#ooRmk").value.trim()};
     const log=store.get("log",[]);log.push(e2);store.set("log",log);store.set("oooi:"+x.id,{});toast("Saved to logbook");goApp("logbook");return}
-  if(t.id==="sbFetch"){const u=$("#sbUser").value.trim();if(!u){toast("Enter your SimBrief username first");return}store.set("sbUser",u);$("#sbMsg").textContent="Fetching…";
-    try{const r=await fetch(sbHref(u));const j=await r.json();if(!loadOfp(j)){sbManShow();$("#sbMsg").textContent="SimBrief didn’t return a plan for that account. Check the username, or paste the plan below."}}catch(err){sbManShow();$("#sbMsg").innerHTML="Couldn’t reach SimBrief from here. Paste or upload the plan below."}return}
+  if(t.id==="sbFetch"){const u=String(store.get("sbUser","")).trim();if(!u){toast("Add your SimBrief username or pilot ID in Settings");sbSetGo();return}$("#sbMsg").textContent="Fetching…";
+    try{const r=await fetch(sbHref(u));const j=await r.json();if(!loadOfp(j)){sbManShow();$("#sbMsg").innerHTML='SimBrief didn’t return a plan for '+esc(u)+'. Check the account in <button type="button" class="dl2-a" data-sbset>Settings</button>, or paste the plan below.'}}catch(err){sbManShow();$("#sbMsg").innerHTML="Couldn’t reach SimBrief from here. Paste or upload the plan below."}return}
   if(t.id==="sbLoad"){try{loadOfp(JSON.parse($("#sbPaste").value))}catch(err){toast("Couldn’t read that text. Paste the whole JSON page.")}return}
   if(t.id==="mtGo"){const raw=$("#mtIn").value.trim(),m=decodeMetar(raw);$("#mtOut").innerHTML=m?`<div class="dwrap" style="display:flex;flex-direction:column;gap:16px">${wxDetail("DEC","Decoded",{icao_code:raw.split(/\s+/)[0],plan_rwy:$("#mtRwy").value.trim().toUpperCase(),name:raw.split(/\s+/)[0]},raw,"")}</div>`:`<div class="notice"><b>Nothing to decode</b><span>Paste a METAR first.</span></div>`;return}
   if(t.id==="chGo"){const i=$("#chIcao").value.trim().toUpperCase();if(!/^[A-Z0-9]{4}$/.test(i)){toast("Enter a 4-letter ICAO code");return}$("#chOut").style.borderTop="1px solid var(--line)";$("#chOut").innerHTML=chartLinks(i);return}
@@ -11325,7 +11333,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .gx-chip.s4{background:rgba(10,132,255,.16);color:#0A84FF}.gx-chip.s5{background:rgba(255,159,10,.2);color:#E08600;animation:gxBlink 1.6s infinite}.gx-chip.s6{background:rgba(48,209,88,.18);color:#1FA347}.gx-chip.s2,.gx-chip.s3{opacity:.7}
 @keyframes gxBlink{50%{opacity:.55}}
 .gx-big{font:700 30px/1 var(--f-os);color:var(--ink);font-variant-numeric:tabular-nums}.gx-big span{font-weight:500;color:var(--label);font-size:20px}.gx-big em{font:400 13px var(--f-os);font-style:normal;color:var(--label);margin-left:6px}
-.gx-bar{display:block;height:6px;border-radius:3px;background:rgba(127,127,127,.18);overflow:hidden;flex:1;min-width:40px}.gx-bar i{display:block;height:100%;background:linear-gradient(90deg,#FFB020,#FF8A00);border-radius:3px;transition:width .6s}
+.gx-bar{display:block;height:6px;border-radius:3px;background:rgba(127,127,127,.18);overflow:hidden;flex:1;min-width:40px}.gx-t>.gx-bar{flex:none;width:100%}.gx-bar i{display:block;height:100%;background:linear-gradient(90deg,#FFB020,#FF8A00);border-radius:3px;transition:width .6s}
 .gx-sub{display:flex;align-items:center;gap:10px;font:400 13px var(--f-os);color:var(--label)}.gx-sub span:first-child{white-space:nowrap}
 .gx-led{width:9px;height:9px;border-radius:50%;background:rgba(127,127,127,.3)}.gx-led.on{background:#30D158}
 .gx-note{font:400 12.5px var(--f-os);color:var(--label)}.gx-diff{color:#E08600;font-weight:600}
@@ -11648,7 +11656,7 @@ function bpDraw(cv,small){const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientW
   BPC=bpNight(s)?BPC_N:BPC_D;
   const stale=!BP.lastRx||now-BP.lastRx>1500,u=Math.min(W,H),phone=small||W<560,f=small?.72:phone?.85:1;
   /* layout: an HSI under the attitude when there is room for one */
-  const hr=small?0:Math.min(H*.165,W/2-(phone?80:122),175),hsi=hr>=72,cx=W/2,cy=hsi?H*(phone?.37:.4):H*.5,k=(hsi?H*.86:H)/46;
+  const hr=small?0:Math.min(H*.165,W/2-(phone?98:122),175),hsi=hr>=72,cx=W/2,cy=hsi?H*(phone?.37:.4):H*.5,k=(hsi?H*.86:H)/46;
   const th=small?H*.72:hsi?Math.min(H*(phone?.44:.5),430):Math.min(H*.62,440),ty=cy-th/2,sw=small?48:phone?64:86,sx=small?4:phone?6:14,aw=small?54:phone?72:96,vw=small?0:phone?20:28,ax=W-(small?4:phone?6:14)-vw-aw;
   const rb=Math.max(small?34:60,Math.min(u*(small?.34:.36),(hsi?H*.33:H*.36),W/2-(small?56:phone?80:110)));
   /* sky and ground */
@@ -11718,7 +11726,7 @@ function bpTape(c,x,y,w,h,v,kind,f,o){o=o||{};const spd=kind==="spd",span=spd?84
     if(t%lab===0)bpText(c,String(t),spd?x+w*.42:x+w*.6,yy,(spd?14:13)*f,"center",BPC.fg,600)}
   if(spd){/* overspeed: red and black barber pole from VMO / MMO up */
     if(o.vmax&&o.vmax<hi){const y0=Math.max(y,cyT-(o.vmax-v)*pp);c.save();c.beginPath();c.rect(x+w-8,y,8,y0-y);c.clip();for(let yy=y-8;yy<y0;yy+=12){c.fillStyle="#FF3B30";c.fillRect(x+w-8,yy,8,6);c.fillStyle="#000";c.fillRect(x+w-8,yy+6,8,6)}c.restore()}
-    for(const b of o.vb||[]){const yy=cyT-(b[1]-v)*pp;if(yy<y-10||yy>y+h+10)continue;const col=b[2]==="amb"?"#FF9F0A":b[2]==="mag"?BPC.mag:BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x+w-14,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,b[0],x+w-16,yy,11*f,"right",col,700)}
+    for(const b of o.vb||[]){const yy=cyT-(b[1]-v)*pp;if(yy<y-10||yy>y+h+10)continue;const col=b[2]==="amb"?"#FF9F0A":b[2]==="mag"?BPC.mag:BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x+w-14,yy);c.lineTo(x+w,yy);c.stroke();c.font=`700 ${11*f}px ${bpFont||"ui-monospace,monospace"}`;{const tw=c.measureText(b[0]).width;c.fillStyle="rgba(0,0,0,.8)";c.fillRect(x+w-19-tw,yy-7*f,tw+6,14*f)}bpText(c,b[0],x+w-16,yy,11*f,"right",col,700)}
     if(BP.trend.ias){const tv=BP.trend.ias*6;if(Math.abs(tv)>1){c.strokeStyle=BPC.mag;c.lineWidth=3;c.beginPath();c.moveTo(x+w-3,cyT);c.lineTo(x+w-3,cyT-tv*pp);c.stroke()}}}
   else{if(o.min!=null){const yy=cyT-(o.min-v)*pp;if(yy>y&&yy<y+h){const col=o.minHit?"#FF9F0A":BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,"MIN",x+w-4,yy-8,10*f,"right",col,700)}}
     if(o.tgt!=null){const yy=Math.max(y+6,Math.min(y+h-6,cyT-(o.tgt-v)*pp));c.fillStyle=BPC.cy;c.beginPath();c.moveTo(x,yy-9);c.lineTo(x+9,yy-9);c.lineTo(x+9,yy-4);c.lineTo(x+4,yy);c.lineTo(x+9,yy+4);c.lineTo(x+9,yy+9);c.lineTo(x,yy+9);c.closePath();c.fill()}}
@@ -11765,20 +11773,22 @@ function bpHsi(c,cx,cy,r,s,f){const h=s.h;c.save();c.fillStyle=BPC.hsi;c.beginPa
   c.fillStyle=BPC.fg;c.beginPath();c.moveTo(0,-r+1);c.lineTo(-7,-r-11);c.lineTo(7,-r-11);c.closePath();c.fill();c.restore();
   bpBox(c,cx,cy-r-24*f,String(Math.round(h)%360||360).padStart(3,"0")+"°",16*f,BPC.fg)}
 /* wind: an arrow the way the wind blows (relative to the heading), direction / speed, head and cross components, OAT */
+/* a line that fits its box: a little smaller when the box is narrow (a phone) */
+function bpTextFit(mw,c,t,x,y,sz,al,col,wt){if(!bpFont)bpFont=(getComputedStyle(document.body).getPropertyValue("--f-mono")||"").trim()||"ui-monospace,monospace";c.font=`${wt||600} ${sz}px ${bpFont}`;const tw=c.measureText(t).width;bpText(c,t,x,y,tw>mw&&mw>0?Math.max(7,sz*mw/tw):sz,al,col,wt)}
 function bpWind(c,s,x,y,w,f){if(w<56||s.wsp==null)return;const cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
   if(s.wsp>=2){const a=(s.wd+180-(s.h+(s.mv||0)))*BP_R;c.save();c.translate(cx,y-26);c.rotate(a);c.strokeStyle=BPC.fg;c.fillStyle=BPC.fg;c.lineWidth=2.5;c.beginPath();c.moveTo(0,16);c.lineTo(0,-10);c.stroke();c.beginPath();c.moveTo(0,-17);c.lineTo(-6,-8);c.lineTo(6,-8);c.closePath();c.fill();c.restore()}
   const wdm=Math.round(bpWrap(s.wd-(s.mv||0)))||360,rel=(s.wd-(s.h+(s.mv||0)))*BP_R,hw=Math.round(s.wsp*Math.cos(rel)),xw=Math.round(s.wsp*Math.sin(rel));
-  bpText(c,s.wsp<2?"CALM":String(wdm).padStart(3,"0")+"°/"+s.wsp+(w>=100?" KT":""),cx,y+4,12*f,"center",BPC.fg,700);
-  if(s.wsp>=2)bpText(c,(hw>=0?"HD ":"TL ")+Math.abs(hw)+" · X "+Math.abs(xw)+(xw>0?"R":xw<0?"L":""),cx,y+22,11*f,"center",BPC.sub,600);
-  bpText(c,"OAT "+(s.oat<0?"−":"")+Math.abs(Math.round(s.oat))+"°C",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
+  bpTextFit(w-8,c,s.wsp<2?"CALM":String(wdm).padStart(3,"0")+"°/"+s.wsp+(w>=100?" KT":""),cx,y+4,12*f,"center",BPC.fg,700);
+  if(s.wsp>=2)bpTextFit(w-8,c,(hw>=0?"HD ":"TL ")+Math.abs(hw)+" · X "+Math.abs(xw)+(xw>0?"R":xw<0?"L":""),cx,y+22,11*f,"center",BPC.sub,600);
+  bpTextFit(w-8,c,"OAT "+(s.oat<0?"−":"")+Math.abs(Math.round(s.oat))+"°C",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
 /* next waypoint: ident, course, distance, time, cross-track */
 function bpNavBox(c,s,x,y,w,f){if(w<56)return;const n=BP.nav,cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
-  if(!n){bpText(c,bpPlan()?"NO POSITION":"NO PLAN",cx,y,11*f,"center",BPC.sub,700);c.restore();return}
-  const ete=s.gs>40?n.dist/s.gs*60:null;bpText(c,n.to,cx,y-36,15*f,"center",BPC.mag,700);
-  bpText(c,"DTK "+String(Math.round(n.dtk)%360||360).padStart(3,"0")+"°",cx,y-16,12*f,"center",BPC.fg,600);
-  bpText(c,(n.dist<10?n.dist.toFixed(1):Math.round(n.dist))+" NM"+(ete!=null?" · "+(Math.round(ete)<60?Math.round(ete)+"m":Math.floor(Math.round(ete)/60)+"h"+pad(Math.round(ete)%60)):""),cx,y+3,12*f,"center",BPC.fg,600);
-  bpText(c,"XTK "+(Math.abs(n.xtk)<.05?"0.0":(n.xtk>0?"R ":"L ")+Math.abs(n.xtk).toFixed(Math.abs(n.xtk)<10?1:0)),cx,y+22,11*f,"center",Math.abs(n.xtk)>n.fsd?"#FF9F0A":BPC.sub,600);
-  bpText(c,"DEST "+Math.round(n.rem)+" NM",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
+  if(!n){bpTextFit(w-8,c,bpPlan()?"NO POSITION":"NO PLAN",cx,y,11*f,"center",BPC.sub,700);c.restore();return}
+  const ete=s.gs>40?n.dist/s.gs*60:null;bpTextFit(w-8,c,n.to,cx,y-36,15*f,"center",BPC.mag,700);
+  bpTextFit(w-8,c,"DTK "+String(Math.round(n.dtk)%360||360).padStart(3,"0")+"°",cx,y-16,12*f,"center",BPC.fg,600);
+  bpTextFit(w-8,c,(n.dist<10?n.dist.toFixed(1):Math.round(n.dist))+" NM"+(ete!=null?" · "+(Math.round(ete)<60?Math.round(ete)+"m":Math.floor(Math.round(ete)/60)+"h"+pad(Math.round(ete)%60)):""),cx,y+3,12*f,"center",BPC.fg,600);
+  bpTextFit(w-8,c,"XTK "+(Math.abs(n.xtk)<.05?"0.0":(n.xtk>0?"R ":"L ")+Math.abs(n.xtk).toFixed(Math.abs(n.xtk)<10?1:0)),cx,y+22,11*f,"center",Math.abs(n.xtk)>n.fsd?"#FF9F0A":BPC.sub,600);
+  bpTextFit(w-8,c,"DEST "+Math.round(n.rem)+" NM",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
 
 /* ---------- the app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="pfd")screenEl.dataset.layout="full";return r}}

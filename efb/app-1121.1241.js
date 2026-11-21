@@ -8448,13 +8448,15 @@ html.pwa-ios .screen.ft-on .appwin{background:linear-gradient(var(--bg),var(--bg
    Layers, Weather, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
    Edit route, 3D, Small PFD and zoom are behind ⋯. Their own buttons stay in the column, hidden, so every module that
    adds or updates one keeps working; a row in the ⋯ menu presses the hidden button. The column sits halfway down the
-   screen's left edge (never over the route strip); on an iPad it moves to the right edge of the airport sheet or the
-   Flight panel while one is open, and the panels it opens (layers, weather, measure, route edit) appear beside it. */
+   screen's left edge (never over the route strip); on an iPad it moves to the right edge of the panel open on the left
+   (airport sheet, Flight, NRST, an aircraft's card), and the panels it opens (layers, weather, measure, route edit) appear beside it. */
 const MC_MORE=[["asBtn","Airport & charts"],["msBtn","Measure"],["reBtn","Edit route"],["m3Btn","3D view"],["bpBtn","Small PFD"]];
 const MC_DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>';
 function mcPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)return;const ctl=w.querySelector(".mapctl");if(!ctl)return;
   if(!ctl.querySelector("#mcMore")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="mcMore";b.setAttribute("aria-label","More map tools");b.setAttribute("aria-haspopup","menu");b.setAttribute("aria-expanded","false");b.innerHTML=MC_DOTS;ctl.appendChild(b)}
   w.classList.toggle("tb-as",typeof AS!=="undefined"&&!!AS.open);w.classList.toggle("tb-fp",typeof FP!=="undefined"&&!!FP.open&&!(typeof AS!=="undefined"&&AS.open))
+  /* NRST and a picked aircraft's card share the place on the left too (see "Everything that opened on the right") */
+  w.classList.toggle("tb-nr",!!NR.open);w.classList.toggle("tb-sel",!!(MAP.sel&&lpCard()))
   mcCenter(w,ctl);
   /* and again whenever the map or the column changes size (a turned iPad, a button added later) */
   if(!w._mcro&&typeof ResizeObserver==="function"){try{w._mcro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));w._mcro.observe(w);w._mcro.observe(ctl)}catch(e){}}}
@@ -8463,7 +8465,7 @@ function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const st=w.querySele
   let min=12;if(st&&!st.hidden&&st.offsetHeight)min=st.offsetTop+st.offsetHeight+10;
   const t=Math.round(Math.max(min,(w.clientHeight-ctl.offsetHeight)/2))+"px";if(w.style.getPropertyValue("--tbc")!==t)w.style.setProperty("--tbc",t)}
 function mcMenu(on){const w=$("#view .mapwrap"),b=$("#mcMore");let m=$("#mcMenu");
-  if(!on){if(m)m.remove();if(b)b.setAttribute("aria-expanded","false");return}
+  if(!on){if(m){if(motionOff())m.remove();else{m.id="";m.classList.add("out");setTimeout(()=>m.remove(),160)}}if(b)b.setAttribute("aria-expanded","false");return}
   if(!w||!b)return;const ctl=w.querySelector(".mapctl");if(!m){m=document.createElement("div");m.id="mcMenu";m.className="mcmenu";m.setAttribute("role","menu");m.setAttribute("aria-label","More map tools");w.appendChild(m)}
   m.innerHTML=MC_MORE.map(([id,t])=>{const r=ctl&&ctl.querySelector("#"+id);if(!r)return"";const on=r.getAttribute("aria-pressed")==="true";
       const ic=r.querySelector("svg")?r.innerHTML:`<span class="mc-tx">${esc(r.textContent.trim())}</span>`;
@@ -8502,9 +8504,6 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="map"] .mapwrap .maplayers{max-height:calc(100% - var(--tbc,var(--tbt)) - 12px)!important}
 .screen[data-app="map"] .mapwrap .ovpanel{left:calc(var(--tbx) + var(--tbw) + 8px)!important}
 .screen[data-app="map"] .mapwrap .bpf-inset{left:calc(var(--tbx) + var(--tbw) + 8px)}
-.screen[data-app="map"] .mapwrap .ovbar{right:max(12px,env(safe-area-inset-right,0px))!important}
-.screen[data-app="map"] .mapwrap .nr-panel{right:12px}
-.screen[data-app="map"] .mapwrap .mapinfo.vsx{right:12px}
 .mcmenu{position:absolute;z-index:8;min-width:230px;padding:6px;display:grid;gap:1px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 44px -16px var(--shadow);font-family:var(--f-ui);animation:mcIn .16s ease-out}
 @keyframes mcIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 .mc-row{display:flex;align-items:center;gap:11px;width:100%;min-height:44px;padding:6px 10px;border:0;border-radius:7px;background:transparent;color:inherit;font:500 14px var(--f-ui);text-align:left;cursor:pointer}
@@ -8557,10 +8556,118 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="map"] .mapwrap .cx-strip{top:var(--mt)!important;left:calc(var(--sx0) + (100% - var(--sx0)) / 2)!important;transform:translateX(-50%);max-width:calc(100% - var(--sx0) - 24px)!important;transition:left .34s cubic-bezier(.2,.9,.25,1)}
 .screen[data-app="map"] .mapwrap .cx-strip.cx-under:not([hidden]){display:flex!important}
 @container screen (max-width:640px){.screen[data-app="map"] .mapwrap .cx-strip{top:52px!important;max-width:calc(100% - 16px)!important}}
-/* what sat at the top right moves below the strip */
-.screen.ft-on.ft-on[data-app="map"] .mapwrap.cx-strip-on .ovbar{top:calc(var(--mt) + 64px)!important}
-.screen[data-app="map"] .mapwrap.cx-strip-on .nr-panel{top:calc(var(--mt) + 64px)}
 @media (prefers-reduced-motion:reduce){.screen[data-app="map"] .mapwrap .cx-strip{transition:none}}
+</style>`);
+
+/* ---------- Everything that opened on the right of the Map opens on the left (Nov 2026) ----------
+   The airport sheet, the Flight / procedure panel, NRST and the card of a picked aircraft (Polaris or VATSIM) share
+   one place on the left: one at a time, the newest wins, and the tool column sits on its right edge. The chart
+   overlay's control bar moves to the left too, below the route strip. A phone keeps its bottom sheets. */
+let lpSelWas="",lpNrWas=false;
+const lpCard=()=>{const b=$("#mapInfo");return !!(b&&!b.hidden)};
+function lpOnly(k){
+  if(k!=="as"&&AS.open){AS.open=false;try{asUi()}catch(e){}}
+  if(k!=="fp"&&FP.open){FP.open=false;try{fpUi()}catch(e){}}
+  if(k!=="nr"&&NR.open){NR.open=false;lpNrWas=false;try{nrPlace()}catch(e){}}
+  if(k!=="sel"&&MAP.sel&&lpCard()){MAP.sel=null;lpSelWas="";try{mapInfo()}catch(e){}}
+  try{drawMap()}catch(e){}mcPlace()}
+{const _o=asOpen;asOpen=function(){const r=_o.apply(this,arguments);if(cur==="map")lpOnly("as");return r}}
+{const _s=fpSet;fpSet=function(on){const r=_s.apply(this,arguments);if(on&&cur==="map")lpOnly("fp");return r}}
+{const _n=npOpen;npOpen=function(){const r=_n.apply(this,arguments);if(FP.open&&cur==="map")lpOnly("fp");return r}}
+{const _p=nrPlace;nrPlace=function(){const r=_p.apply(this,arguments);
+  if(cur==="map"){if(NR.open&&!lpNrWas){lpNrWas=true;lpOnly("nr")}else{if(!NR.open)lpNrWas=false;mcPlace()}}return r}}
+{const _m=mapInfo;mapInfo=function(){const r=_m.apply(this,arguments);
+  if(cur==="map"){const s=MAP.sel,k=s&&lpCard()?s.t+":"+(s.id!=null?s.id:s.i):"";if(k&&k!==lpSelWas){lpSelWas=k;lpOnly("sel")}else{if(!k)lpSelWas="";mcPlace()}}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+@container screen (min-width:641px){
+  .screen[data-app="map"] .mapwrap:is(.tb-nr,.tb-sel){--tbx:calc(var(--mg) + 380px);--sx0:calc(var(--tbx) + var(--tbw))}
+  .screen[data-app="map"] .mapwrap .nr-panel{left:var(--mg);right:auto;top:var(--mt);bottom:26px;width:380px;max-height:none;border-radius:10px}
+  .screen[data-app="map"] .mapwrap .mapinfo{left:var(--mg)!important;right:auto!important;top:var(--mt)!important;bottom:auto!important;width:380px!important;max-height:calc(100% - var(--mt) - 26px)!important;overflow-y:auto}
+  .screen[data-app="map"] .mapwrap .mapinfo.vsx{bottom:26px!important;max-height:none!important}
+  .screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:calc(var(--mt) + 64px)!important}}
+@container screen (min-width:561px) and (max-width:640px){.screen[data-app="map"] .mapwrap .nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}}
+@container screen (max-width:640px){.screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:8px!important;right:8px!important;top:112px!important}}
+</style>`);
+
+/* ---------- Motion for every switch (Nov 2026) ----------
+   Flight's tabs slide in from the side of the tab they come from (a page inside the same tab slides in from the right,
+   back to the tab's first page from the left); any other change of app inside the open window fades up; the tab bar's
+   light slides to the new tab and its icon pops; panels on the Map slide in from the left (from below on a phone) and
+   NRST and the ⋯ menu slide back out; the airport sheet cross-fades its content, and so do the sections and tabs inside
+   apps (flight plan pages, logbook, checklists, Settings, mail boxes…). All of it is off with Reduce motion (the iPad's
+   or the EFB's own in Settings). */
+const FT_ORDER={dl:0,map:1,apt:2,charts:3,docs:4,msg:5,pad:6,more:7};
+const FT_ROOT={docs:"docs",more:"more"};
+const motionOff=()=>reduced()||document.documentElement.classList.contains("a11y-rm");
+let ftView=null;
+function vwAnim(cls){const v=$("#view");if(!v||motionOff())return;v.classList.remove("vw-r","vw-l","vw-up");void v.offsetWidth;v.classList.add(cls)}
+document.addEventListener("animationend",e=>{const t=e.target;if(!t||!t.classList)return;
+  if(t.id==="view")t.classList.remove("vw-r","vw-l","vw-up");else if(t.classList.contains("vw-swap"))t.classList.remove("vw-swap")});
+{const _ac=appChrome;appChrome=function(id){const from=ftView,open=screenEl.classList.contains("in-app");ftView=id;const r=_ac.apply(this,arguments);
+  /* only while the window is already open (opening from the Home Screen has its own zoom) */
+  if(open&&from&&from!==id){
+    if(isFl(from)&&isFl(id)){const a=FT_ORDER[FLV[from][1]],b=FT_ORDER[FLV[id][1]];
+      vwAnim(b>a?"vw-r":b<a?"vw-l":FT_ROOT[FLV[id][1]]===from?"vw-r":FT_ROOT[FLV[id][1]]===id?"vw-l":"vw-up")}
+    else vwAnim("vw-up")}
+  return r}}
+/* going Home forgets the view, so the next opening zooms without a slide on top */
+window.addEventListener("hashchange",()=>{if(!cur)ftView=null});
+
+/* the tab bar's light: one bar that slides to the lit tab */
+function ftInd(){const b=$("#ftabs");if(!b||!b.offsetParent)return;let i=b.querySelector(".ft-ind");
+  if(!i){i=document.createElement("span");i.className="ft-ind";i.setAttribute("aria-hidden","true");b.appendChild(i)}
+  const t=b.querySelector('.ft-tab[aria-current="page"]');if(!t||!t.offsetParent){i.style.opacity="0";return}
+  const x=Math.round(t.offsetLeft+t.offsetWidth*.24),w=Math.round(t.offsetWidth*.52);
+  if(i._x===x&&i._w===w&&i.style.opacity==="1")return;
+  const jump=!i._x||motionOff();if(jump)i.style.transition="none";
+  i.style.transform=`translateX(${x}px)`;i.style.width=w+"px";i.style.opacity="1";i._x=x;i._w=w;
+  if(jump){void i.offsetWidth;i.style.transition=""}}
+{const _f=ftSync;ftSync=function(){const r=_f.apply(this,arguments);try{ftInd()}catch(e){}return r}}
+window.addEventListener("resize",()=>{const i=$("#ftabs .ft-ind");if(i)i._x=0;ftInd()});
+
+/* sections and tabs inside an app: the content cross-fades after the render the tap causes */
+let vwSwap=0;
+document.addEventListener("click",e=>{if(motionOff()||!e.target.closest)return;
+  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-wxsel],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
+  if(t&&t.closest("#view"))vwSwap=Date.now()},true);
+{const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);
+  if(vwSwap&&Date.now()-vwSwap<400){vwSwap=0;const el=$("#view .detail>.dwrap")||$("#view .detail")||($("#view")&&$("#view").firstElementChild);
+    if(el){el.classList.remove("vw-swap");void el.offsetWidth;el.classList.add("vw-swap")}}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+@keyframes vwR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes vwL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes vwUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes vwFade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes lpIn{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes lpOut{to{opacity:0;transform:translateX(-22px)}}
+@keyframes lpUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes lpDown{to{opacity:0;transform:translateY(28px)}}
+@keyframes popIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes mcOut{to{opacity:0;transform:translateX(-6px)}}
+@keyframes ftPop{0%{transform:scale(1)}45%{transform:scale(1.16)}100%{transform:scale(1)}}
+#view.vw-r{animation:vwR .28s cubic-bezier(.2,.85,.25,1)}
+#view.vw-l{animation:vwL .28s cubic-bezier(.2,.85,.25,1)}
+#view.vw-up{animation:vwUp .26s cubic-bezier(.2,.85,.25,1)}
+.vw-swap{animation:vwFade .22s ease-out}
+.ftabs .ft-tab[aria-current="page"]::before{display:none}
+.ft-ind{position:absolute;top:-1px;left:0;width:0;height:3px;border-radius:0 0 3px 3px;background:var(--ft-on);opacity:0;pointer-events:none;
+  transition:transform .34s cubic-bezier(.3,.9,.3,1),width .34s cubic-bezier(.3,.9,.3,1),opacity .2s}
+.ft-tab[aria-current="page"] .ft-ic{animation:ftPop .34s cubic-bezier(.3,1.5,.5,1)}
+.assheet .as-body{animation:vwFade .2s ease-out}
+.screen[data-app="map"] .mapwrap .nr-panel{animation:lpIn .3s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap .nr-panel.lp-out{animation:lpOut .2s ease-in forwards;pointer-events:none}
+.bpf .nr-panel.lp-out{animation:mcOut .2s ease-in forwards;pointer-events:none}
+.screen[data-app="map"] .mapwrap .mapinfo:not([hidden]),.screen[data-app="map"] .fppanel:not([hidden]){animation:lpIn .3s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap :is(.maplayers,.ovbar):not([hidden]),.screen[data-app="map"] .mapwrap :is(.mspanel,.repanel){animation:popIn .2s ease-out}
+.mcmenu.out{animation:mcOut .15s ease-in forwards;pointer-events:none}
+@container screen (max-width:640px){
+  .screen[data-app="map"] .mapwrap .nr-panel,.screen[data-app="map"] .mapwrap .mapinfo:not([hidden]),.screen[data-app="map"] .fppanel:not([hidden]){animation-name:lpUp}
+  .screen[data-app="map"] .mapwrap .nr-panel.lp-out{animation-name:lpDown}}
+@media (prefers-reduced-motion:reduce){#view.vw-r,#view.vw-l,#view.vw-up,.vw-swap,.assheet .as-body,.ft-tab[aria-current="page"] .ft-ic,
+  .screen[data-app="map"] .mapwrap .nr-panel,.screen[data-app="map"] .mapwrap .mapinfo,.screen[data-app="map"] .fppanel,.screen[data-app="map"] .mapwrap :is(.maplayers,.ovbar,.mspanel,.repanel){animation:none}
+  .ft-ind{transition:none}}
 </style>`);
 
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
@@ -10973,7 +11080,9 @@ function nrPlace(){const host=cur==="map"?$("#view .mapwrap"):cur==="pfd"?$("#vi
   if(cur==="map"){const ctl=host.querySelector(".mapctl");if(ctl&&!ctl.querySelector("#nrBtn")){const b=document.createElement("button");b.className="btn";b.id="nrBtn";b.dataset.nr="";b.setAttribute("aria-label","Nearest airports");b.textContent="NRST";ctl.insertBefore(b,ctl.querySelector("#bpBtn")||ctl.querySelector("#mapIn"))}
     const b=host.querySelector("#nrBtn");if(b)b.setAttribute("aria-pressed",String(NR.open))}
   if(cur==="pfd"&&!host.querySelector(".bpf-nr"))host.insertAdjacentHTML("beforeend",`<button class="bpf-i bpf-nr" data-nr aria-label="Nearest airports">NRST</button>`);
-  let p=host.querySelector(".nr-panel");if(NR.open&&!p){host.insertAdjacentHTML("beforeend",`<aside class="nr-panel"></aside>`);nrPaint()}else if(!NR.open&&p)p.remove()}
+  let p=host.querySelector(".nr-panel");if(NR.open&&p&&p.classList.contains("lp-out")){p.remove();p=null}
+  if(NR.open&&!p){host.insertAdjacentHTML("beforeend",`<aside class="nr-panel"></aside>`);nrPaint()}
+  else if(!NR.open&&p&&!p.classList.contains("lp-out")){if(motionOff())p.remove();else{p.classList.add("lp-out");setTimeout(()=>p.remove(),210)}}}
 {const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="map"||cur==="pfd")nrPlace();return v}}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-nr],[data-nrx],[data-nrgo],[data-nrcancel]");if(!t)return;
   if(t.dataset.nrgo){const a=NR.list.find(x=>x.icao===t.dataset.nrgo),p=nrPos();if(!a||!p)return;NR.div={icao:a.icao,name:a.name,la:a.la,lo:a.lo,from:{la:p.la,lo:p.lo},at:Date.now()};store.set("bpDiv",NR.div);if(typeof BP!=="undefined")BP.leg=null;

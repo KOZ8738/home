@@ -1961,8 +1961,8 @@ document.addEventListener("click",e=>{const a=e.target.closest("[data-rp]");if(a
 try{window.__efbAwy={RE,AWY,awyInsert,awyFind,reRoute:()=>reRoute(),reWork,rePts:()=>rePts(),rpGet:()=>rpGet()}}catch(e){}
 
 /* ---------- Airport sheet (Map) ----------
-   One sheet per airport, opened from the airport chips, the ICAO box, a tap on an airport marker or the
-   charts button: Info, Charts (STAR / APP / TAXI / SID / REF) and Weather. Picking a chart lays it over
+   One sheet per airport, opened from the Airports tab (with a search field and the flight's airports at the top),
+   a tap on an airport marker, the route strip or the charts button: Info, Charts (STAR / APP / TAXI / SID / REF) and Weather. Picking a chart lays it over
    the map and tucks the sheet away. A bottom sheet on a phone, a side panel on a tablet. */
 const AS={open:false,icao:null,tab:store.get("asTab","charts"),cat:store.get("asCat","APP"),view:"apt",full:false,data:{},loading:{},err:{},html:""};
 const AS_CATS=[["STAR","Arrivals"],["APP","Approaches"],["TAXI","Airport diagram,Hot spots,LAHSO"],["SID","Departures"],["REF","Minimums,Other"]];
@@ -2027,7 +2027,7 @@ function asUi(){const el=$("#asSheet");if(!el)return;
   clearTimeout(AS.tm);AS.tm=0;
   const icao=AS.icao,j=AS.data[icao],a=j&&j.airport,d=CH.data[icao];
   const head=AS.view==="list"?`<div class="as-top"><button class="btn sm" data-as="back">Back</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div><h2 class="as-t">Airports</h2>`
-    :`<div class="as-top"><button class="btn sm" data-as="list">Airports</button><span class="as-grab" aria-hidden="true"></span><button class="btn sm" data-as="hide">Hide</button></div>
+    :`<span class="as-grab" aria-hidden="true"></span><div class="as-top as-qrow"><button type="button" class="as-q" data-as="list" aria-label="Search airports"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span>Search code, city or airport</span></button><button class="btn sm" data-as="hide">Hide</button></div>${asFlChips(icao)}
      <h2 class="as-t">${esc(icao)}${a&&a.iata?" / "+esc(a.iata):""}</h2><p class="as-n">${esc(a?asNames(a).name:asTitle((d&&d.airport&&d.airport.name)||""))}${a?`<small>${esc(asNames(a).loc)}</small>`:""}</p>
      <div class="as-tabs" role="tablist">${[["info","Info"],["rwy","Runways"],["charts","Charts"],["wx","Weather"]].map(t=>`<button role="tab" data-astab="${t[0]}" aria-selected="${AS.tab===t[0]}">${t[1]}</button>`).join("")}</div>`;
   const body=AS.view==="list"?asList():AS.tab==="info"?asInfo(icao):AS.tab==="wx"?asWx(icao):AS.tab==="rwy"?asRwy(icao):asCharts(icao);
@@ -4890,15 +4890,17 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    their flight category (from the METAR), the planned runway with head/tail- and crosswind and the ATIS letter, the
    SID and STAR with their transitions, how many arrival and approach charts there are (FAA airports), and buttons to
    centre the map on an airport, open its sheet (info, runways, charts), change the SID or STAR, edit the route or
-   open the OFP. Opened from the plane button in the map's tool column. */
+   open the OFP. Opened from the route strip: its SID, STAR and APP chips set up the procedures in this panel's place,
+   and closing a picker shows the flight. (Nov 2026: the plane button in the map's tool column is gone; the Airports
+   tab covers the airports.) */
 const FP={open:false};
 const FP_I={plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>',
   map:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   swap:'<path d="M4 8h14l-3-3M20 16H6l3 3"/>',more:'<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
   route:'<circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 17c5-1 3-9 10-10"/>',doc:'<path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>'};
 const fpI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${FP_I[k]}</svg>`;
-/* the button, put in the map's tool column whenever the map is drawn */
-{let _vm;const wrap=f=>function(){const h=f.apply(this,arguments);const AB='<button class="btn ic" id="as'+'Btn"';return h.replace(AB,`<button class="btn ic" id="fpBtn" aria-pressed="${FP.open}" aria-label="Flight">${fpI("plane")}</button>`+AB)+`<aside class="fppanel" id="fpPanel"${FP.open?"":" hidden"}></aside>`};
+/* the panel, put beside the map whenever the map is drawn */
+{let _vm;const wrap=f=>function(){const h=f.apply(this,arguments);return h+`<aside class="fppanel" id="fpPanel"${FP.open?"":" hidden"}></aside>`};
   if(V.map)_vm=wrap(V.map);Object.defineProperty(V,"map",{get(){return _vm},set(f){_vm=wrap(f)},configurable:true,enumerable:true})}
 const FP_CAT={VFR:"#30D158",MVFR:"#0A84FF",IFR:"#FF453A",LIFR:"#BF5AF2"};
 /* the procedure's end point: last fix of the SID, first fix of the STAR */
@@ -4928,8 +4930,7 @@ function fpHtml(){const x=O();if(ofp._sample)return `<div class="fp-h"><b>Flight
    <div class="fp-foot"><button data-fp="route">${fpI("route")}Edit route</button><button data-fp="ofp">${fpI("doc")}Flight plan</button></div></div>`}
 function fpUi(){const el=$("#fpPanel"),b=$("#fpBtn");if(b)b.setAttribute("aria-pressed",String(FP.open));if(!el)return;el.hidden=!FP.open;if(FP.open){const sc=el.querySelector(".fp-body");const t=sc?sc.scrollTop:0;el.innerHTML=fpHtml();const n=el.querySelector(".fp-body");if(n)n.scrollTop=t}}
 function fpSet(on){FP.open=on;if(on&&typeof AS!=="undefined"&&AS.open){AS.open=false;try{asUi()}catch(e){}}fpUi()}
-document.addEventListener("click",e=>{if(e.target.closest("#fpBtn")){fpSet(!FP.open);return}
-  const b=e.target.closest("[data-fp]");if(!b)return;const a=b.dataset.fp,ic=b.dataset.icao;
+document.addEventListener("click",e=>{  const b=e.target.closest("[data-fp]");if(!b)return;const a=b.dataset.fp,ic=b.dataset.icao;
   if(a==="close")fpSet(false);
   else if(a==="map"){mapGoApt(ic)}
   else if(a==="info"||a==="rwy"||a==="wx"||a==="cat"){if(a==="cat"){AS.cat=b.dataset.cat;store.set("asCat",AS.cat)}FP.open=false;fpUi();asOpen(ic,{info:"info",rwy:"rwy",wx:"wx",cat:"charts"}[a])}
@@ -7055,7 +7056,6 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;n.hidden=true;mlStatus(
 V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="sigCv" class="mapcv sigcv" aria-hidden="true"></canvas><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="wxBtn" aria-label="Weather" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.5v1.3M3.9 6.2l.9.9M2.5 10.3h1.3M12.1 6.2l-.9.9"/><path d="M5.3 12.6A3.6 3.6 0 1 1 11.4 9"/><path d="M8.5 20h9a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.3A2.9 2.9 0 0 0 8.5 20Z"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
-   <div class="mapapt">${chApts().map(a=>`<button class="btn" data-goapt="${esc(a[1])}" title="${a[0]}">${esc(a[1])}</button>`).join("")}<form id="mapForm"><input type="text" id="mapIcao" placeholder="ICAO" maxlength="4" aria-label="Go to airport" enterkeyhint="go" autocomplete="off" autocapitalize="characters"></form></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
    <div class="maplayers" id="mlPanel" role="group" aria-label="Map layers" hidden><span class="ml-h">Base map</span><div class="ml-base" role="group" aria-label="Base map">${[["map","Map"],["sat","Satellite"],["ifrh","IFR High"],["ifrl","IFR Low"],["vfr","VFR"],["faah","FAA High"],["faal","FAA Low"],["faav","FAA VFR"]].map(b=>`<button data-mlbase="${b[0]}" aria-pressed="${(ML.base||"map")===b[0]}">${b[1]}</button>`).join("")}</div><button class="ml-row ml-auto" data-mlauto aria-pressed="${!!ML.ifrAuto}"><span>Automatic IFR High/Low<small class="ml-s" data-mls="ifrauto"></small></span><i></i></button><span class="ml-h">Map layers</span>${L.filter(l=>!["apt","wx","radar","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}</div><div class="maplayers wxpanel" id="wxPanel" role="group" aria-label="Weather" hidden><span class="ml-h">Weather</span>${L.filter(l=>["radar","wx","sig"].includes(l[0])).map(l=>`<button class="ml-row" data-ml="${l[0]}" aria-pressed="${!!ML[l[0]]}"><span>${l[1]}<small class="ml-s" data-mls="${l[0]}"></small></span><i></i></button>`).join("")}<span class="ml-h">Winds aloft <small class="ml-s" data-mls="wind"></small></span><div class="ml-base ml-wind" role="group" aria-label="Winds aloft level">${[["off","Off"],["auto","Plan"],["100","FL100"],["180","FL180"],["240","FL240"],["300","FL300"],["340","FL340"],["390","FL390"]].map(b=>`<button data-mlwind="${b[0]}" aria-pressed="${String(ML.wind==null||ML.wind===false?"off":ML.wind)===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">PIREPs <small class="ml-s" data-mls="pirep"></small></span><div class="ml-base ml-pr" role="group" aria-label="PIREPs">${[["off","Off"],["all","All"],["rte","Near route"]].map(b=>`<button data-mlpr="${b[0]}" aria-pressed="${(ML.pirep||"off")===b[0]}">${b[1]}</button>`).join("")}</div><span class="ml-h">Model weather <small class="ml-s" data-mls="gwx"></small></span><div class="ml-base ml-gwx" role="group" aria-label="Weather layer">${GWX_FIELDS.map(b=>`<button data-mlgwx="${b[0]}" aria-pressed="${(ML.gwx||"off")===b[0]}">${b[1]}</button>`).join("")}</div><div class="ml-base ml-gwxlv" role="group" aria-label="Level"${ML.gwx==="isa"||ML.gwx==="vv"?"":" hidden"}>${GWX_LVS.map(b=>`<button data-mlgwxlv="${b[0]}" aria-pressed="${(+ML.gwxLv||250)===b[0]}">${b[1]}</button>`).join("")}</div></div>
    <div class="radarbar" id="radarBar" hidden></div><div class="mapnote" id="mapNote" hidden></div><section class="panel mapinfo" id="mapInfo" hidden></section><button class="mapattr-i" id="mapAttrI" type="button" aria-label="Map credits" aria-expanded="false">i</button><div class="mapattr" id="mapAttr"></div></div>`};
@@ -7464,7 +7464,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="mapIn"||t.id==="mapOut"){mapZoomSmooth(t.id==="mapIn"?1:-1);return}
   if(t.id==="mapFit"){MAP.c=null;MAP.follow=false;mapFit();drawMap();const b=$("#mapMe");if(b)b.setAttribute("aria-pressed","false");return}
   if(t.id==="mapMe"){const me=mapMine();if(!me)return;mapFollowSet(!MAP.follow);if(MAP.follow){MAP.z=Math.max(MAP.z,me.groundspeed<60?15:9);mapFollow()}drawMap();updMapNote();return}
-  if(t.dataset.goapt){mapGoApt(t.dataset.goapt);asOpen(t.dataset.goapt,null);return}
+  
   if(t.dataset.ml){const k=t.dataset.ml;ML[k]=!ML[k];store.set("mapL",ML);if(k==="tiles")MAP.tileFail=false;t.setAttribute("aria-pressed",String(ML[k]));if(MAP.sel&&((k==="traffic"&&MAP.sel.t==="ac")||(k==="sig"&&MAP.sel.t==="sig"))){MAP.sel=null;mapInfo()}mapLoadAll();drawMap();updMapNote();return}
   if(t.id==="mapX"){MAP.sel=null;mapInfo();drawMap();return}
   if(t.id==="vamSave"){const u=$("#vamUrl").value.trim(),n=$("#vamUser").value.trim();if(!/^https:\/\//i.test(u)){toast("Enter the server address starting with https://");return}if(!n){toast("Enter your vAMSYS username");return}
@@ -7481,8 +7481,8 @@ document.addEventListener("click",async e=>{
     if(k==="log"){store.set("log",[]);toast("Logbook cleared")}
     pendingReset=null;render();return}
 });
-document.addEventListener("submit",async e=>{const f=e.target;if(f.id!=="chForm"&&f.id!=="mapForm")return;e.preventDefault();const inp=f.querySelector("input");const v=inp.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
-  const ic=await aptResolve(v);if(!ic)return;if(f.id==="chForm"){CH.icao=ic;CH.sel=null;CH.doc=null;render()}else{inp.value="";inp.blur();mapGoApt(ic);asOpen(ic,null)}});
+document.addEventListener("submit",async e=>{const f=e.target;if(f.id!=="chForm")return;e.preventDefault();const inp=f.querySelector("input");const v=inp.value.trim().toUpperCase();if(!/^[A-Z0-9]{3,4}$/.test(v)){toast("Enter an airport code like KLAX");return}
+  const ic=await aptResolve(v);if(!ic)return;CH.icao=ic;CH.sel=null;CH.doc=null;render()});
 document.addEventListener("input",e=>{const t=e.target;
   if(t.id==="chQ"){CH.q=t.value;const q=t.value.trim().toUpperCase();document.querySelectorAll(".chitem").forEach(b=>{b.hidden=!!q&&!b.dataset.chname.toUpperCase().includes(q)});return}
   if(t.dataset.fl!==undefined){const x=O(),key="fuel:"+x.id,l=store.get(key,{});const i=+t.dataset.fl;const val=parseFloat(t.value);if(isFinite(val))l[i]=val;else delete l[i];store.set(key,l);
@@ -8445,27 +8445,22 @@ html.pwa-ios .screen.ft-on .appwin{background:linear-gradient(var(--bg),var(--bg
 </style>`);
 
 /* ---------- the Map's tool column: on the left edge, the tools used most, the rest behind ⋯ (Nov 2026) ----------
-   Layers, Weather, Flight, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
+   Layers, Weather, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
    Edit route, 3D, Small PFD and zoom are behind ⋯. Their own buttons stay in the column, hidden, so every module that
    adds or updates one keeps working; a row in the ⋯ menu presses the hidden button. The column sits halfway down the
-   screen's left edge (never over the ICAO box or the route strip); on an iPad it moves to the right edge of the airport sheet or the
+   screen's left edge (never over the route strip); on an iPad it moves to the right edge of the airport sheet or the
    Flight panel while one is open, and the panels it opens (layers, weather, measure, route edit) appear beside it. */
 const MC_MORE=[["asBtn","Airport & charts"],["msBtn","Measure"],["reBtn","Edit route"],["m3Btn","3D view"],["bpBtn","Small PFD"]];
 const MC_DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>';
 function mcPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)return;const ctl=w.querySelector(".mapctl");if(!ctl)return;
   if(!ctl.querySelector("#mcMore")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="mcMore";b.setAttribute("aria-label","More map tools");b.setAttribute("aria-haspopup","menu");b.setAttribute("aria-expanded","false");b.innerHTML=MC_DOTS;ctl.appendChild(b)}
-  /* the route strip sits under the ICAO box: measure again, as the box moves with the layout (on a phone it used to
-     stay where a wider layout had put it, over the box) */
-  try{if(typeof cxGeom==="function")cxGeom()}catch(e){}
-  /* the column may go no higher than just below the ICAO box (the route strip, when shown, adds its own height) */
-  const ap=w.querySelector(".mapapt");if(ap&&ap.offsetHeight){const t=Math.round(ap.offsetTop+ap.offsetHeight+10)+"px";if(w.style.getPropertyValue("--tbt0")!==t)w.style.setProperty("--tbt0",t)}
   w.classList.toggle("tb-as",typeof AS!=="undefined"&&!!AS.open);w.classList.toggle("tb-fp",typeof FP!=="undefined"&&!!FP.open&&!(typeof AS!=="undefined"&&AS.open))
   mcCenter(w,ctl);
   /* and again whenever the map or the column changes size (a turned iPad, a button added later) */
   if(!w._mcro&&typeof ResizeObserver==="function"){try{w._mcro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));w._mcro.observe(w);w._mcro.observe(ctl)}catch(e){}}}
-/* the column sits halfway down the left edge, never higher than just below the ICAO box and the route strip */
-function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const ap=w.querySelector(".mapapt");
-  let min=ap&&ap.offsetHeight?ap.offsetTop+ap.offsetHeight+10:68;if(w.classList.contains("cx-strip-on"))min+=54;
+/* the column sits halfway down the left edge, never higher than just below the route strip */
+function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const st=w.querySelector("#cxStrip");
+  let min=12;if(st&&!st.hidden&&st.offsetHeight)min=st.offsetTop+st.offsetHeight+10;
   const t=Math.round(Math.max(min,(w.clientHeight-ctl.offsetHeight)/2))+"px";if(w.style.getPropertyValue("--tbc")!==t)w.style.setProperty("--tbc",t)}
 function mcMenu(on){const w=$("#view .mapwrap"),b=$("#mcMore");let m=$("#mcMenu");
   if(!on){if(m)m.remove();if(b)b.setAttribute("aria-expanded","false");return}
@@ -8491,8 +8486,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#mcMenu"))mcMenu
 {const _f=fpUi;fpUi=function(){const r=_f.apply(this,arguments);mcPlace();return r}}
 
 document.head.insertAdjacentHTML("beforeend",`<style>
-.screen[data-app="map"] .mapwrap{--tbw:47px;--tbx:env(safe-area-inset-left,0px);--tbt:var(--tbt0,calc(var(--mt) + 56px))}
-.screen[data-app="map"] .mapwrap.cx-strip-on{--tbt:calc(var(--tbt0,calc(var(--mt) + 56px)) + 54px)}
+.screen[data-app="map"] .mapwrap{--tbw:47px;--tbx:env(safe-area-inset-left,0px);--tbt:calc(var(--mt) + 66px)}
 @container screen (min-width:641px){
   .screen[data-app="map"] .mapwrap.tb-as{--tbx:calc(var(--mg) + 380px)}
   .screen[data-app="map"] .mapwrap.tb-fp{--tbx:calc(var(--mg) + 360px)}}
@@ -8528,6 +8522,45 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .mc-zoom button{width:44px;height:36px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--ink);font:500 20px/1 var(--f-ui);cursor:pointer}
 .mc-zoom button:active{transform:scale(.95)}
 @media (prefers-reduced-motion:reduce){.mcmenu{animation:none}.screen[data-app="map"] .mapwrap .mapctl,.screen[data-app="map"] .mapwrap :is(.maplayers,.mspanel,.repanel,.mtchip){transition:none}}
+</style>`);
+
+/* ---------- Airports: search and this flight's airports at the top of the airport sheet (Nov 2026) ----------
+   The ICAO box that sat on the Map (the flight's airport buttons and a code field) is gone. The sheet that the
+   Airports tab opens starts with a search field, which opens the airport list with the keyboard up (code, city or
+   name; Enter goes to any ICAO or IATA code), and with the flight's departure, destination and alternate, one tap
+   each. The route strip moves to the top middle of the Map, beside an open side panel the middle of what is left. */
+function asFlChips(icao){const A=chApts().filter(a=>a[1]);if(!A.length)return"";const R={DEP:"DEP",DEST:"ARR",ALTN:"ALTN",BASE:"BASE"};
+  return `<div class="as-fla" role="group" aria-label="This flight's airports">${A.map(a=>{const on=a[1]===icao;return `<button type="button" class="as-flb${on?" on":""}" data-asapt="${esc(a[1])}" aria-pressed="${on}"><small>${esc(R[a[0]]||a[0])}</small><b>${esc(a[1])}</b></button>`}).join("")}</div>`}
+/* the search field opens the list with the keyboard up */
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest(".as-q"))AS.qf=true},true);
+{const _u=asUi;asUi=function(){const r=_u.apply(this,arguments);
+  if(AS.qf&&AS.open&&AS.view==="list"){AS.qf=false;const i=$("#asIcao");if(i){try{i.focus({preventScroll:true})}catch(x){i.focus()}}}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.as-qrow{grid-template-columns:minmax(0,1fr) auto!important;margin-top:2px}
+.as-q{display:flex;align-items:center;gap:8px;min-width:0;min-height:38px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);color:var(--label);font:500 14px var(--f-ui);text-align:left;cursor:text}
+.as-q:hover{border-color:color-mix(in srgb,var(--ink) 25%,var(--line))}
+.as-q svg{flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.as-q span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-fla{display:flex;gap:6px;margin:10px 0 0}
+.as-flb{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 4px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer}
+.as-flb:hover{background:var(--panel-2)}
+.as-flb small{font:600 9.5px var(--f-mono);letter-spacing:.08em;color:var(--label)}
+.as-flb b{font:600 13.5px var(--f-mono);letter-spacing:.03em}
+.as-flb.on{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,transparent)}
+:root[data-theme="dark"] .as-flb.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+/* with the ICAO box gone the side sheet starts at the top of the Map (iPad) */
+@container screen (min-width:641px){.screen[data-app="map"] .mapwrap .assheet{top:var(--mt)}}
+/* the route strip: top middle of the Map; beside an open side panel, the middle of what is left */
+.screen[data-app="map"] .mapwrap{--sx0:0px}
+@container screen (min-width:641px){.screen[data-app="map"] .mapwrap:is(.tb-as,.tb-fp){--sx0:calc(var(--tbx) + var(--tbw))}}
+.screen[data-app="map"] .mapwrap .cx-strip{top:var(--mt)!important;left:calc(var(--sx0) + (100% - var(--sx0)) / 2)!important;transform:translateX(-50%);max-width:calc(100% - var(--sx0) - 24px)!important;transition:left .34s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap .cx-strip.cx-under:not([hidden]){display:flex!important}
+@container screen (max-width:640px){.screen[data-app="map"] .mapwrap .cx-strip{top:52px!important;max-width:calc(100% - 16px)!important}}
+/* what sat at the top right moves below the strip */
+.screen.ft-on.ft-on[data-app="map"] .mapwrap.cx-strip-on .ovbar{top:calc(var(--mt) + 64px)!important}
+.screen[data-app="map"] .mapwrap.cx-strip-on .nr-panel{top:calc(var(--mt) + 64px)}
+@media (prefers-reduced-motion:reduce){.screen[data-app="map"] .mapwrap .cx-strip{transition:none}}
 </style>`);
 
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====

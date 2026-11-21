@@ -264,7 +264,7 @@ function render(): void {
 }
 
 /* ---------- tabs ---------- */
-function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' | 'docs' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : location.hash === '#docs' ? 'docs' : 'mail'; }
+function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' | 'docs' | 'aoc' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : location.hash === '#docs' ? 'docs' : location.hash === '#aoc' ? 'aoc' : 'mail'; }
 function showTab(): void {
   if (document.querySelector('.deny')) return;
   const t = currentTab();
@@ -275,6 +275,7 @@ function showTab(): void {
   if (pilots) pilots.hidden = t !== 'pilots';
   if (inbox) inbox.hidden = t !== 'inbox';
   const docs = $('#docs'); if (docs) docs.hidden = t !== 'docs';
+  const aoc = $('#aoc'); if (aoc) aoc.hidden = t !== 'aoc';
   document.body.classList.toggle('on-live', t === 'live');
   if (t === 'live') {
     if (!S.globe) {

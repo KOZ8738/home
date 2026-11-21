@@ -22,6 +22,9 @@
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
  *                                          staff put them on /admin, Documents tab (see docs.js)
+ *   GET /api/efb/aoc                    -> AOC messages from Polaris operations for the EFB's Messages (read only; staff send them
+ *                                          on /admin, AOC tab, see aoc.js)
+ *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
@@ -43,6 +46,7 @@ import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover } from './docs.js';
+import { aocPublic, hoppiePeek } from './aoc.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -1444,6 +1448,8 @@ export default {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }
+    /* Messages: what reaches the flight deck on Hoppie's ACARS, read only (see aoc.js) */
+    if (/^\/api\/efb\/hoppie\/?$/.test(new URL(req.url).pathname)) return await hoppiePeek(req, env, h, await sessionOf(req, env));
     /* the apps each pilot installed from the EFB's App Store (see kb.js) */
     if (/^\/api\/efb\/apps\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
@@ -1559,6 +1565,7 @@ export default {
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
+        case '/api/efb/aoc': return await aocPublic(req, env, h, await sessionOf(req, env));
         case '/api/efb/docs': return await docsPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/doc-file': return await docFile(url, env, h, linkSig);
         case '/api/efb/doc-cover': return await docCover(url, env, h, linkSig);

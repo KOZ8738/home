@@ -10,6 +10,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - 飛行員登入（Login with vAMSYS）
 - Polaris Mail 和給部門的訊息
 - Polaris 公司文件（手冊、SOP、通告）：工作人員在後台上傳，飛行員在 EFB 的 Flight › Documents 看
+- AOC 訊息：工作人員在後台 AOC 分頁發給全部或單一飛行員，飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送
 
 完整的端點清單寫在 `src/index.js` 開頭的註解裡。
@@ -68,7 +69,7 @@ repo 裡另外有一個 GitHub Actions 的部署流程（`.github/workflows/depl
 
 | 綁定 | 類型 | 存什麼 |
 |---|---|---|
-| `STORE` | Workers KV | 航圖清單、機場滑行道圖、Polaris Mail 和附件、Polaris 公司文件、共享的航圖對位、FIR 邊界快取 |
+| `STORE` | Workers KV | 航圖清單、機場滑行道圖、Polaris Mail 和附件、Polaris 公司文件、AOC 訊息、共享的航圖對位、FIR 邊界快取 |
 | `PM` | Durable Object（`Mailbox`，`src/pm.js`） | 飛行員寫給部門的訊息，以及工作人員的回覆 |
 | `CREW` | Durable Object（`Crew`，`src/crew.js`） | 推播訂閱和 VAPID 金鑰、報到、提示通知、飛行中的航跡 |
 | `KB` | Durable Object（`Kneeboard`，`src/kb.js`） | 每個飛行員的 Kneeboard 頁面，在他自己的裝置之間同步；只有飛行員本人讀得到 |

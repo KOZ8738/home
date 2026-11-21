@@ -15,6 +15,7 @@ import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
 import { crew, mailTo, mailPayload } from './crew.js';
 import { docsAdmin } from './docs.js';
+import { aocAdmin } from './aoc.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -132,6 +133,8 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
   if (path === '/admin/api/docs' || path.startsWith('/admin/api/docs/')) return docsAdmin(req, url, path, env, who, opts && opts.ctx);
+  /* AOC tab: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */
+  if (path === '/admin/api/aoc') return aocAdmin(req, url, env, who);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });

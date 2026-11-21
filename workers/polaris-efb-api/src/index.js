@@ -20,6 +20,8 @@
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
+ *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
+ *                                          staff put them on /admin, Documents tab (see docs.js)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
@@ -40,6 +42,7 @@ import { siteRoute, siteLive } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
+import { docsPublic, docFile, docCover } from './docs.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -1519,7 +1522,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u) }); }
+    }, signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1556,6 +1559,9 @@ export default {
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
+        case '/api/efb/docs': return await docsPublic(req, env, h, await sessionOf(req, env), linkSig);
+        case '/api/efb/doc-file': return await docFile(url, env, h, linkSig);
+        case '/api/efb/doc-cover': return await docCover(url, env, h, linkSig);
         case '/api/efb/sigmets': return json({ ...(await sigmetRoute()), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/pirep': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your PIREPs' }, 401, h); return json({ ...(await pirepRoute(env, me, url.searchParams.get('id'))), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/datalink': return json({ ...(await datalinkRoute(ctx)), updatedAt: new Date().toISOString() }, 200, h);

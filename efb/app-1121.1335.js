@@ -6152,7 +6152,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -8012,14 +8012,14 @@ function kbSheet(){if(!KB.sheet)return"";
     ${ofp._sample?`<p class="kb-shn">No flight plan loaded: forms start empty.</p>`:`<p class="kb-shn">For ${esc(O().flight)} ${esc(S(O().o.icao_code))} → ${esc(S(O().d.icao_code))}</p>`}
     <div class="kb-tgrid">${KB_ORDER.map((t,i)=>`<button class="kb-tc" data-kbtpl="${t}" style="--i:${i}"><span class="kb-ri k-${t}">${kbG(t)}</span><b>${esc(KB_T[t].name)}</b><small>${esc(KB_T[t].d)}</small></button>`).join("")}</div></div>`}
 V.kneeboard=()=>{const p=KB.sel?KB.pages.get(KB.sel):null;if(p&&!kbMine(p))KB.sel=null;const pg=KB.sel?KB.pages.get(KB.sel):null,fx=reduced()?"":KB.fx;KB.fx="";
-  return `<div class="kb ${pg?"has-page":""}${fx?" fx-"+fx:""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
+  return `<div class="kb ${pg?"has-page":""}${fx?" kbfx-"+fx:""}" id="kbRoot">${kbSide()}${kbMain(pg)}${kbSheet()}</div>`};
 
 /* the 640-px page is scaled to fit the width (so handwriting lands in the same place on every device) */
 function kbFit(){const sc=document.getElementById("kbScroll"),fit=document.getElementById("kbFit"),pp=document.getElementById("kbPaper");if(!sc||!fit||!pp)return;
   const W=sc.clientWidth-(innerWidth<700?16:40),k=Math.max(.4,Math.min(1.35,W/KB_W)),h=pp.offsetHeight;KB.k=k;
   pp.style.transform=`scale(${k})`;fit.style.width=KB_W*k+"px";fit.style.height=h*k+"px"}
 {const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="kneeboard"){kbFit();
-  const R=document.getElementById("kbRoot");if(R&&/\bfx-/.test(R.className)){const c=[...R.classList].filter(x=>x.startsWith("fx-"));setTimeout(()=>{if(R.isConnected)R.classList.remove(...c)},900)}if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
+  const R=document.getElementById("kbRoot");if(R&&/\bkbfx-/.test(R.className)){const c=[...R.classList].filter(x=>x.startsWith("kbfx-"));setTimeout(()=>{if(R.isConnected)R.classList.remove(...c)},900)}if(!kbFit._ro&&window.ResizeObserver){kbFit._ro=new ResizeObserver(()=>{if(cur==="kneeboard")kbFit()})}
   const sc=document.getElementById("kbScroll");if(sc&&kbFit._ro){kbFit._ro.disconnect();kbFit._ro.observe(sc)}}return v}}
 
 /* ---------- handwriting (the OFP's pens) ---------- */
@@ -8086,7 +8086,7 @@ document.addEventListener("click",e=>{if(cur!=="kneeboard")return;const t=e.targ
   if(KB.menu&&!t.closest(".kb-menu")&&!t.matches("[data-kbmenu]")){kbMenuClose();if(!t.dataset.kbt)return}
   if(t.matches("[data-kbnew]")){KB.sheet=true;KB.fx="sheet";render();return}
   if(t.matches("[data-kbshx]")){kbSheetClose();return}
-  if(t.dataset.kbtpl){const tp=t.dataset.kbtpl;kbSheetClose(()=>{kbNew(tp);KB.fx=kbNarrow()?"push":"new";if(tp==="fuel")KB.fx+=" fx-rows"});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTop=0},kbNarrow()?260:210);return}
+  if(t.dataset.kbtpl){const tp=t.dataset.kbtpl;kbSheetClose(()=>{kbNew(tp);KB.fx=kbNarrow()?"push":"new";if(tp==="fuel")KB.fx+=" kbfx-rows"});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTop=0},kbNarrow()?260:210);return}
   if(t.dataset.kbopen){if(KB.sel===t.dataset.kbopen&&!kbNarrow())return;KB.sel=t.dataset.kbopen;KB.undo=[];KB.redo=[];KB.menu=false;KB.armAll=false;KB.fx=kbNarrow()?"push":"swap";render();const s=document.getElementById("kbScroll");if(s)s.scrollTop=0;return}
   if(t.matches("[data-kbback]")){KB.menu=false;kbOut("popping",290,()=>{KB.sel=null});return}
   if(t.matches("[data-kbdelall]")){const L=[...KB.pages.values()].filter(kbMine);if(!KB.armAll){KB.armAll=true;render();setTimeout(()=>{if(KB.armAll){KB.armAll=false;if(cur==="kneeboard")render()}},4000);return}
@@ -8242,15 +8242,15 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb-flash{animation:kbFlash 1s ease-out both}
 /* opening the app: the list and the page come in */
 @keyframes kbRowUp{from{opacity:0;transform:translateY(10px)}}
-.kb.fx-open .kb-swr,.kb.fx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
-.kb.fx-open .kb-empty,.kb.fx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
+.kb.kbfx-open .kb-swr,.kb.kbfx-open .kb-sec{animation:kbRowUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*32ms)}
+.kb.kbfx-open .kb-empty,.kb.kbfx-open .kb-none{animation:kbRowUp .45s cubic-bezier(.2,.8,.2,1) both}
 @keyframes kbPaperIn{from{opacity:0;transform:translateY(16px) scale(.985)}}
-.kb.fx-open .kb-fit,.kb.fx-swap .kb-fit,.kb.fx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
-.kb.fx-swap .kb-bar,.kb.fx-new .kb-bar{animation:kbFade .3s ease-out both}
+.kb.kbfx-open .kb-fit,.kb.kbfx-swap .kb-fit,.kb.kbfx-new .kb-fit{animation:kbPaperIn .4s cubic-bezier(.2,.8,.2,1) both}
+.kb.kbfx-swap .kb-bar,.kb.kbfx-new .kb-bar{animation:kbFade .3s ease-out both}
 @keyframes kbRowNew{0%{opacity:0;transform:translateX(-18px) scale(.95)}60%{opacity:1}}
-.kb.fx-new .kb-swr:has(.kb-row.on){animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
+.kb.kbfx-new .kb-swr:has(.kb-row.on){animation:kbRowNew .5s cubic-bezier(.2,1.2,.35,1) both}
 @keyframes kbRowIn{from{opacity:0;transform:translateY(6px)}}
-.kb.fx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
+.kb.kbfx-rows .kb-tr{animation:kbRowIn .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*22ms)}
 /* leaving: a deleted page and its row */
 @keyframes kbPaperOut{to{opacity:0;transform:scale(.94) translateY(12px)}}
 @keyframes kbRowOut{to{opacity:0;transform:translateX(-26px)}}
@@ -8259,32 +8259,32 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .kb.out-all .kb-swr,.kb.out-all .kb-sec{animation:kbRowOut .28s cubic-bezier(.4,0,1,1) forwards;animation-delay:calc(var(--i,0)*25ms)}
 /* the New Page sheet */
 @keyframes kbShadeIn{from{opacity:0}}@keyframes kbShadeOut{to{opacity:0}}
-.kb.fx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}
+.kb.kbfx-sheet .kb-shade{animation:kbShadeIn .28s ease-out both}.kb-shade.closing{animation:kbShadeOut .2s ease-in forwards}
 @keyframes kbSheetIn{from{opacity:0;transform:translate(-50%,-50%) scale(.88)}}@keyframes kbSheetOut{to{opacity:0;transform:translate(-50%,-50%) scale(.94)}}
-.kb.fx-sheet .kb-sheet{animation:kbSheetIn .42s cubic-bezier(.2,1.2,.35,1) both}.kb-sheet.closing{animation:kbSheetOut .2s ease-in forwards}
+.kb.kbfx-sheet .kb-sheet{animation:kbSheetIn .42s cubic-bezier(.2,1.2,.35,1) both}.kb-sheet.closing{animation:kbSheetOut .2s ease-in forwards}
 @keyframes kbCard{from{opacity:0;transform:translateY(14px) scale(.96)}}
-.kb.fx-sheet .kb-tc{animation:kbCard .42s cubic-bezier(.2,1.1,.3,1) both;animation-delay:calc(70ms + var(--i,0)*30ms)}
-.kb.fx-sheet .kb-shn{animation:kbFade .35s .05s ease-out both}
+.kb.kbfx-sheet .kb-tc{animation:kbCard .42s cubic-bezier(.2,1.1,.3,1) both;animation-delay:calc(70ms + var(--i,0)*30ms)}
+.kb.kbfx-sheet .kb-shn{animation:kbFade .35s .05s ease-out both}
 /* the ⋯ menu */
 @keyframes kbMenuIn{from{opacity:0;transform:scale(.6)}}@keyframes kbMenuOut{to{opacity:0;transform:scale(.85)}}
-.kb.fx-menu .kb-menu{animation:kbMenuIn .3s cubic-bezier(.2,1.25,.4,1) both}.kb-menu.closing{animation:kbMenuOut .14s ease-in forwards}
-.kb.fx-menu .kb-menu button{animation:kbFade .25s ease-out both}
-.kb.fx-menu .kb-menu button:nth-child(2){animation-delay:30ms}.kb.fx-menu .kb-menu button:nth-child(3){animation-delay:60ms}.kb.fx-menu .kb-menu button:nth-child(4){animation-delay:90ms}.kb.fx-menu .kb-menu button:nth-child(5){animation-delay:120ms}
+.kb.kbfx-menu .kb-menu{animation:kbMenuIn .3s cubic-bezier(.2,1.25,.4,1) both}.kb-menu.closing{animation:kbMenuOut .14s ease-in forwards}
+.kb.kbfx-menu .kb-menu button{animation:kbFade .25s ease-out both}
+.kb.kbfx-menu .kb-menu button:nth-child(2){animation-delay:30ms}.kb.kbfx-menu .kb-menu button:nth-child(3){animation-delay:60ms}.kb.kbfx-menu .kb-menu button:nth-child(4){animation-delay:90ms}.kb.kbfx-menu .kb-menu button:nth-child(5){animation-delay:120ms}
 @media (max-width:820px){.kb{grid-template-columns:1fr}.kb.has-page .kb-side{display:none}.kb:not(.has-page) .kb-main{display:none}
   .kb-back{display:flex}.kb-ti{font-size:18px}.kb-bar{padding:8px 10px 2px;flex-wrap:wrap}.kb-tools{padding:2px 10px 6px}.kb-hint{display:none}
   .kb-pill{font-size:13px;padding:7px 11px}.kb-tgrid{grid-template-columns:1fr}.kb-sheet{top:auto;bottom:0;transform:none;left:0;width:100%;border-radius:14px 14px 0 0;max-height:88%;padding-bottom:env(safe-area-inset-bottom)}
   .kb-grabber{display:block}.kb-shh{touch-action:none}
   @keyframes kbSheetUp{from{transform:translateY(100%)}}@keyframes kbSheetDown{to{transform:translateY(105%)}}
-  .kb.fx-sheet .kb-sheet{animation:kbSheetUp .48s cubic-bezier(.16,1,.3,1) both}.kb-sheet.closing{animation:kbSheetDown .25s cubic-bezier(.5,0,.9,.6) forwards}
-  .kb.fx-sheet .kb-tc{animation-delay:calc(120ms + var(--i,0)*28ms)}
+  .kb.kbfx-sheet .kb-sheet{animation:kbSheetUp .48s cubic-bezier(.16,1,.3,1) both}.kb-sheet.closing{animation:kbSheetDown .25s cubic-bezier(.5,0,.9,.6) forwards}
+  .kb.kbfx-sheet .kb-tc{animation-delay:calc(120ms + var(--i,0)*28ms)}
   @keyframes kbMainIn{from{transform:translateX(100%)}}@keyframes kbSideAway{to{transform:translateX(-28%);opacity:.5}}
   @keyframes kbMainOut{to{transform:translateX(100%)}}@keyframes kbSideBack{from{transform:translateX(-28%);opacity:.5}}
-  .kb.fx-push .kb-side,.kb.popping .kb-side{display:flex;position:absolute;inset:0;z-index:0}
-  .kb.fx-push .kb-side{animation:kbSideAway .42s cubic-bezier(.2,.8,.2,1) forwards}
-  .kb.fx-push .kb-main{position:relative;z-index:1;animation:kbMainIn .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
+  .kb.kbfx-push .kb-side,.kb.popping .kb-side{display:flex;position:absolute;inset:0;z-index:0}
+  .kb.kbfx-push .kb-side{animation:kbSideAway .42s cubic-bezier(.2,.8,.2,1) forwards}
+  .kb.kbfx-push .kb-main{position:relative;z-index:1;animation:kbMainIn .42s cubic-bezier(.2,.8,.2,1) both;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
   .kb.popping .kb-side{animation:kbSideBack .29s cubic-bezier(.2,.8,.2,1) both}
   .kb.popping .kb-main{position:relative;z-index:1;animation:kbMainOut .29s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}
-  .kb.fx-push .kb-fit{animation:none}
+  .kb.kbfx-push .kb-fit{animation:none}
   .kb.out-del .kb-side{display:flex;position:absolute;inset:0;z-index:0;animation:kbSideBack .26s cubic-bezier(.2,.8,.2,1) both}
   .kb.out-del .kb-main{position:relative;z-index:1;animation:kbMainOut .26s cubic-bezier(.4,0,.7,1) forwards;box-shadow:-10px 0 30px rgba(0,0,0,.14)}.kb.out-del .kb-fit{animation:none}}
 @media (prefers-reduced-motion:reduce){.kb,.kb *{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}}
@@ -8368,11 +8368,545 @@ const FD_I={ofpdoc:FT_I.docs,sum:'<rect x="4" y="4" width="16" height="16" rx="2
 const FD=[["ofpdoc","OFP","The operational flight plan as SimBrief prints it, with the pens"],["sum","Overview","Route, fuel, weights and times at a glance"],["brief","Briefing","The whole route on one page, with the weather"],
   ["fuel","Fuel","Planned fuel, burn and reserves"],["route","Route","The route string and the airways"],["navlog","Nav Log","Waypoint by waypoint"],["oooi","Block Times","Out, off, on and in (OOOI)"],["notam","NOTAMs","For the airports of the flight"]];
 const fdRow=(attr,ic,t,sub)=>`<button type="button" class="fd-row" ${attr}><span class="fd-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg></span><span class="fd-t"><b>${t}</b><small>${sub}</small></span><svg class="fd-ch" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>`;
-V.docs=()=>{const x=O(),s=ofp._sample,gen=N(ofp.params&&ofp.params.time_generated);
-  const head=s?"No flight plan loaded":`${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}`;
-  const sub=s?"Fetch your SimBrief plan in Download and its documents appear here.":`${esc(S(x.ac.name)||S(x.ac.icaocode))}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}${gen?" · SimBrief OFP of "+new Date(gen*1000).toISOString().slice(0,16).replace("T"," ")+" UTC":""}`;
-  return `<div class="fd"><section class="card">${cardH("Flight documents",head)}<p class="fd-sub">${sub}</p>
-    ${s?`<div class="fd-empty"><button type="button" class="btn pri" data-ftgo="simbrief">Go to Download</button></div>`:`<div class="fd-list">${FD.map(([k,t,d])=>fdRow(`data-fdoc="${k}"`,FD_I[k],t,d)).join("")}</div>`}</section></div>`};
+/* ---------- Documents, laid out like ForeFlight's (Nov 2026) ----------
+   Left, where documents come from. This Flight: the papers of the SimBrief plan (OFP, Overview, Briefing, Fuel, Route,
+   Nav Log, Block Times, NOTAMs), always on the iPad. Polaris Airways: the company's drive, with the manuals, SOPs and
+   notices that staff publish on the admin's Documents tab, in folders. Right, their covers in a grid (or a list), a
+   search, and a green tick for what is on this device. A Polaris document comes down the first time it is opened (or
+   with Download All) and is kept in the browser's Cache Storage, so it opens offline; when staff replace it, the newer
+   version comes down by itself, and a withdrawn one goes. Documents open in the reader below, inside Flight, so the
+   tab bar stays and the page you were on is still there when you come back. */
+const DOC={src:store.get("docSrc","flight")==="polaris"?"polaris":"flight",dir:"",view:store.get("docView","grid")==="list"?"list":"grid",q:"",edit:false,
+  list:store.get("docList",null),at:0,loading:null,err:"",dl:new Map(),queue:[],pumping:false,cov:new Map(),covBusy:new Set(),covFail:new Map(),have:new Set(),mem:new Map(),
+  seen:store.get("docSeen",null),visit:store.get("docVisit",0)||0,fx:"",persist:false,warned:false};
+const DOC_CACHE="pefb-docs-v1",DOC_FL=["ofpdoc","sum","brief","fuel","route","navlog","oooi","notam"];
+const docList=()=>(DOC.list&&Array.isArray(DOC.list.docs))?DOC.list.docs:[];
+const docFind=id=>docList().find(d=>d.id===id)||null;
+const docKey=(id,v,ext)=>location.origin+"/__pefb-docs/"+encodeURIComponent(id)+"/"+v+"."+(ext||"pdf");
+const docKeyOf=url=>{const m=new URL(url).pathname.match(/\/__pefb-docs\/([^/]+)\/(\d+)\.(pdf|jpg)$/);return m?{id:decodeURIComponent(m[1]),v:+m[2],ext:m[3]}:null};
+const docHas=d=>!!d&&(DOC.have.has(d.id+":"+d.v)||DOC.mem.has(d.id+":"+d.v));
+const docOld=d=>!!d&&!docHas(d)&&[...DOC.have].some(k=>k.startsWith(d.id+":"));
+const docUnseen=d=>!!DOC.seen&&DOC.seen[d.id]!==d.v;
+const docFmt=n=>n>=1048576?(n/1048576).toFixed(n>=10485760?0:1)+" MB":Math.max(1,Math.round((n||0)/1024))+" KB";
+const docCaches=()=>typeof caches!=="undefined"&&window.isSecureContext!==false;
+function docLink(d,kind){if(!d||!d.k||!(+d.e>Date.now()+120000))return"";const s=authSrv();return s?`${s}/api/efb/doc-${kind}?id=${encodeURIComponent(d.id)}&v=${d.v}&e=${d.e}&k=${encodeURIComponent(d.k)}`:""}
+
+/* ---- what is kept on this device ---- */
+async function docScan(){if(!docCaches())return;try{const c=await caches.open(DOC_CACHE),h=new Set();for(const r of await c.keys()){const k=docKeyOf(r.url);if(k&&k.ext==="pdf")h.add(k.id+":"+k.v)}DOC.have=h}catch(e){}docRefresh()}
+async function docPut(d,blob){const k=d.id+":"+d.v;
+  if(docCaches()){try{const c=await caches.open(DOC_CACHE);await c.put(docKey(d.id,d.v),new Response(blob,{headers:{"Content-Type":"application/pdf","Content-Length":String(blob.size)}}));DOC.have.add(k);
+      /* the version it replaces goes */
+      for(const r of await c.keys()){const x=docKeyOf(r.url);if(x&&x.id===d.id&&x.v!==d.v){await c.delete(r);DOC.have.delete(x.id+":"+x.v)}}
+      if(!DOC.persist){DOC.persist=true;try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(e){}}
+      return true}catch(e){if(!DOC.warned){DOC.warned=true;toast("There isn’t room to keep documents on this device; they open while the EFB stays open")}}}
+  DOC.mem.set(k,blob);return false}
+async function docBlob(d){const k=d.id+":"+d.v;if(DOC.mem.has(k))return DOC.mem.get(k);
+  if(docCaches()){try{const c=await caches.open(DOC_CACHE),r=await c.match(docKey(d.id,d.v));if(r)return await r.blob()}catch(e){}}return null}
+/* off this device: the files (and the cover too, unless keepCover) */
+async function docDrop(id,keepCover){[...DOC.have].forEach(k=>{if(k.startsWith(id+":"))DOC.have.delete(k)});[...DOC.mem.keys()].forEach(k=>{if(k.startsWith(id+":"))DOC.mem.delete(k)});
+  if(!docCaches())return;try{const c=await caches.open(DOC_CACHE);for(const r of await c.keys()){const x=docKeyOf(r.url);if(x&&x.id===id&&(!keepCover||x.ext==="pdf"))await c.delete(r)}}catch(e){}}
+/* tidy up after a fresh list: withdrawn documents and old covers go */
+async function docGc(){const L=docList(),cur=new Map(L.map(d=>[d.id,d.v]));
+  [...DOC.have].forEach(k=>{if(!cur.has(k.split(":")[0]))DOC.have.delete(k)});
+  if(!docCaches())return;try{const c=await caches.open(DOC_CACHE);for(const r of await c.keys()){const x=docKeyOf(r.url);if(!x)continue;
+    if(!cur.has(x.id)||(x.ext==="jpg"&&cur.get(x.id)!==x.v))await c.delete(r)}}catch(e){}}
+
+/* ---- the list from the EFB server ---- */
+function docsLoad(force){if(typeof authOn!=="function"||!authOn()||!authSrv())return Promise.resolve();if(DOC.loading)return DOC.loading;
+  if(!force&&DOC.list&&Date.now()-DOC.at<120000)return Promise.resolve();
+  const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),20000);
+  DOC.loading=fetch(authSrv()+"/api/efb/docs",{cache:"no-cache",signal:ac.signal}).then(r=>r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);return j}))
+    .then(j=>{DOC.list={docs:(Array.isArray(j.docs)?j.docs:[]).filter(d=>d&&d.id&&d.v),at:Date.now()};DOC.err="";store.set("docList",DOC.list);docAfter()})
+    .catch(e=>{DOC.err=e&&e.name==="AbortError"?"The EFB server didn’t answer in time":/fetch|network|load/i.test((e&&e.message)||"")?"Can’t reach the EFB server":(e&&e.message)||"Couldn’t load documents"})
+    .finally(()=>{clearTimeout(tm);DOC.loading=null;DOC.at=Date.now();docRefresh()});
+  docRefresh();return DOC.loading}
+function docAfter(){const L=docList(),ids=new Set(L.map(d=>d.id));
+  /* the first list on this device is what there is; later ones bring "New" and "Updated" */
+  if(!DOC.seen){DOC.seen={};L.forEach(d=>DOC.seen[d.id]=d.v);store.set("docSeen",DOC.seen);docVisit()}
+  let ch=false;Object.keys(DOC.seen).forEach(id=>{if(!ids.has(id)){delete DOC.seen[id];ch=true}});if(ch)store.set("docSeen",DOC.seen);
+  docGc();
+  /* a newer version of one kept here comes down by itself */
+  L.forEach(d=>{if(docOld(d))docQueue(d)})}
+/* seen the drive: the tab's badge counts what came after this */
+function docVisit(){const t=docList().reduce((m,d)=>Math.max(m,+d.up||0),0);if(t>DOC.visit){DOC.visit=t;store.set("docVisit",t)}}
+const docNewCount=()=>DOC.seen?docList().filter(d=>(+d.up||0)>DOC.visit&&docUnseen(d)).length:0;
+function docSeenSet(d){if(!DOC.seen)DOC.seen={};if(DOC.seen[d.id]!==d.v){DOC.seen[d.id]=d.v;store.set("docSeen",DOC.seen)}}
+
+/* ---- downloads ---- */
+function docQueue(d){if(!d||DOC.queue.includes(d.id)||DOC.dl.has(d.id))return;DOC.queue.push(d.id);docPump()}
+async function docPump(){if(DOC.pumping)return;DOC.pumping=true;
+  try{while(DOC.queue.length){const d=docFind(DOC.queue[0]);if(d&&!docHas(d)&&navigator.onLine)await docDownload(d,false,true);DOC.queue.shift();docProg(d&&d.id)}}
+  finally{DOC.pumping=false}}
+async function docFetch(d,onp){let x=d;
+  for(let a=0;a<2;a++){let url=docLink(x,"file");
+    if(!url){await docsLoad(true);x=docFind(d.id);if(!x)throw new Error("“"+d.title+"” is no longer on the server");url=docLink(x,"file");if(!url)throw new Error(DOC.err||"Couldn’t get the document from the EFB server")}
+    const r=await fetch(url,{cache:"no-store"});
+    if((r.status===401||r.status===410)&&a===0){await docsLoad(true);x=docFind(d.id);if(!x)throw new Error("“"+d.title+"” is no longer on the server");continue}
+    if(!r.ok){let m="";try{m=(await r.json()).error}catch(e){}throw new Error(m||"The EFB server answered HTTP "+r.status)}
+    const total=+x.size||+r.headers.get("Content-Length")||0;
+    if(!r.body||!r.body.getReader){const b=await r.blob();onp(b.size,b.size);return{blob:b,d:x}}
+    const rd=r.body.getReader(),parts=[];let got=0;
+    for(;;){const{done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;onp(got,total)}
+    if(total&&got!==total)throw new Error("The download of “"+d.title+"” was cut short. Try again.");
+    return{blob:new Blob(parts,{type:"application/pdf"}),d:x}}
+  throw new Error("Couldn’t download “"+d.title+"”")}
+function docDownload(d,open,quiet){const was=DOC.dl.get(d.id);if(was){if(open)was.open=true;return was.p}
+  const st={got:0,size:+d.size||0,open:!!open};
+  st.p=(async()=>{try{if(!navigator.onLine)throw new Error("You’re offline. Connect to the internet to download “"+d.title+"”.");
+      const r=await docFetch(d,(g,t)=>{st.got=g;if(t)st.size=t;docProg(d.id)});
+      await docPut(r.d,r.blob);if(st.open&&cur==="docs")drOpen(docFind(r.d.id)||r.d)}
+    catch(e){if(!quiet||st.open)toast((e&&e.message)||"Couldn’t download “"+d.title+"”")}
+    finally{DOC.dl.delete(d.id);docRefresh()}})();
+  DOC.dl.set(d.id,st);docProg(d.id);return st.p}
+/* a tap on a Polaris document: open it, fetch it, or (in Edit) take it off this device */
+function docTap(d){
+  if(DOC.edit){if(docHas(d)||docOld(d))docDrop(d.id,true).then(()=>{toast("“"+d.title+"” removed from this device");if(!docList().some(docHas))DOC.edit=false;docRender()});return}
+  if(docHas(d)){drOpen(d);return}
+  if(DOC.dl.has(d.id)){DOC.dl.get(d.id).open=true;return}
+  if(!navigator.onLine){const k=[...DOC.have].find(x=>x.startsWith(d.id+":"));if(k){toast("Offline: the version kept on this device");drOpen({...d,v:+k.split(":")[1]});return}
+    toast("You’re offline. “"+d.title+"” isn’t on this device yet.");return}
+  DOC.queue=DOC.queue.filter(id=>id!==d.id);docDownload(d,true)}
+
+/* ---- covers: the first page, made by the admin page; kept with the files ---- */
+function docCov(d){const k=d.id+":"+d.v;if(DOC.cov.has(k))return DOC.cov.get(k);if(d.cover&&!DOC.covBusy.has(k)&&!(Date.now()-(DOC.covFail.get(k)||0)<60000))docCovLoad(d);return""}
+async function docCovLoad(d){const k=d.id+":"+d.v;DOC.covBusy.add(k);let ok=false;
+  try{let blob=null;const key=docKey(d.id,d.v,"jpg");
+    if(docCaches()){try{const c=await caches.open(DOC_CACHE),r=await c.match(key);if(r)blob=await r.blob()}catch(e){}}
+    if(!blob){const url=docLink(d,"cover");if(!url)return;const r=await fetch(url);if(!r.ok)return;blob=await r.blob();
+      if(docCaches())try{const c=await caches.open(DOC_CACHE);await c.put(key,new Response(blob,{headers:{"Content-Type":"image/jpeg"}}))}catch(e){}}
+    const u=URL.createObjectURL(blob);DOC.cov.set(k,u);ok=true;
+    document.querySelectorAll(`img[data-dkcov="${CSS.escape(k)}"]`).forEach(i=>{i.src=u;i.classList.add("on")})}
+  catch(e){}finally{DOC.covBusy.delete(k);if(!ok)DOC.covFail.set(k,Date.now())}}
+
+/* ---- drawing the page ---- */
+const DK_I={
+  binder:'<path d="M6.5 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5h-11z"/><path d="M6.5 3.5v17M10 3.5v17M13 8.5h3.5M13 11.5h3.5"/>',
+  drive:'<rect x="3" y="6" width="18" height="12" rx="2.2"/><path d="M3 13.5h18M6.5 16h.01M9.5 16h.01"/>',
+  grid:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/>',
+  list:'<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="5" cy="6.5" r=".9"/><circle cx="5" cy="12" r=".9"/><circle cx="5" cy="17.5" r=".9"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
+  check:'<path d="M7 12.5l3.2 3.2L17 8.8"/>',
+  cloud:'<path d="M7.5 18.5h9.5a3.6 3.6 0 0 0 .5-7.2 5.2 5.2 0 0 0-10-1.1A4 4 0 0 0 7.5 18.5z"/><path d="M12 10.5v6M9.6 14.2 12 16.6l2.4-2.4"/>',
+  folder:'<path d="M3 6.8A1.8 1.8 0 0 1 4.8 5h4.4l2.1 2.2h7.9A1.8 1.8 0 0 1 21 9v9.2a1.8 1.8 0 0 1-1.8 1.8H4.8A1.8 1.8 0 0 1 3 18.2z"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  refresh:'<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/>',
+  star:'<path d="M12 1.8l2.3 7.9L22.2 12l-7.9 2.3L12 22.2l-2.3-7.9L1.8 12l7.9-2.3z"/>',
+  minus:'<path d="M7 12h10"/>',
+  toc:'<path d="M4 6h16M8 10.5h12M8 15h12M4 19.5h16"/>',
+  moon:'<path d="M19.5 14.6A7.6 7.6 0 0 1 9.4 4.5a7.6 7.6 0 1 0 10.1 10.1z"/>'};
+const dkSvg=(k,cls)=>`<svg${cls?` class="${cls}"`:""} viewBox="0 0 24 24" aria-hidden="true">${DK_I[k]}</svg>`;
+const DKF={ofpdoc:["Operational Flight Plan","OFP"],sum:["Flight Summary","Overview"],brief:["Route Briefing","Briefing"],fuel:["Fuel Plan","Fuel"],
+  route:["Route and Airways","Route"],navlog:["Navigation Log","Nav Log"],oooi:["Block Times","OOOI"],notam:["Notices to Airmen","NOTAMs"]};
+const DK_MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+/* a printed cover for each of the flight's papers */
+function dkPaper(k,x){const f=DKF[k]||["",k],t=N(ofp.times&&ofp.times.sched_out)||N(ofp.params&&ofp.params.time_generated),dt=t?new Date(t*1000):null,ac=S(x.ac.icaocode)||S(x.ac.name);
+  const day=dt?pad(dt.getUTCDate())+" "+DK_MON[dt.getUTCMonth()]+" "+dt.getUTCFullYear():"";
+  return `<span class="dk-paper k-${k}"><span class="dk-ph">${dkSvg("star","dk-mk")}<b>POLARIS AIRWAYS</b></span><span class="dk-pk">${esc(f[0])}</span><span class="dk-pt">${esc(f[1])}</span>
+    <span class="dk-pi"><svg viewBox="0 0 24 24" aria-hidden="true">${FD_I[k]||""}</svg></span><span class="dk-pf"><b>${esc(x.flight)}</b><i>${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</i></span><span class="dk-pd">${esc([ac,day].filter(Boolean).join(" · "))}</span></span>`}
+/* a Polaris document: its first page once it has come; a plain cover until then */
+function dkCover(d){const u=docCov(d),k=d.id+":"+d.v;
+  return `<span class="dk-paper dk-gen"><span class="dk-ph">${dkSvg("star","dk-mk")}<b>POLARIS AIRWAYS</b></span><span class="dk-pk">${esc(d.folder||"Document")}</span><span class="dk-pt dk-pts">${esc(d.title)}</span>${d.rev?`<span class="dk-pd">${esc(d.rev)}</span>`:""}</span>`
+    +(d.cover?`<img class="dk-img${u?" on":""}" data-dkcov="${esc(k)}"${u?` src="${u}"`:""} alt="" decoding="async">`:"")}
+const dkNewTag=(d,big)=>docUnseen(d)?`<span class="dk-new${big?" big":""}">${DOC.seen&&DOC.seen[d.id]!=null?"Updated":"New"}</span>`:"";
+function docStHtml(d){if(!d)return"";const st=DOC.dl.get(d.id);
+  if(st){const p=st.size?Math.min(100,Math.round(st.got/st.size*100)):0;return `<span class="dk-st dl" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="Downloading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" class="t"/><circle cx="12" cy="12" r="9" class="p" pathLength="100" style="stroke-dashoffset:${100-p}"/></svg></span>`}
+  if(docHas(d))return `<span class="dk-st ok" title="On this device">${dkSvg("check")}</span>`;
+  if(DOC.queue.includes(d.id)||docOld(d))return `<span class="dk-st wait" title="${docOld(d)?"A new version is coming":"Waiting to download"}">${dkSvg("cloud")}</span>`;
+  return `<span class="dk-st no" title="Not on this device yet">${dkSvg("cloud")}</span>`}
+const dkEmpty=(ic,t,s,btn)=>`<div class="dk-empty"><span class="dk-ei">${ic}</span><b>${t}</b><p>${s}</p>${btn||""}</div>`;
+const dkNone=()=>dkEmpty(dkSvg("search"),"No results","Nothing here matches “"+esc(DOC.q.trim())+"”.","");
+function dkDriveSub(){if(!authOn())return"Sign in to see";const L=docList();if(!DOC.list)return DOC.loading?"Checking…":DOC.err?"Not available right now":"";
+  const need=L.filter(d=>!docHas(d)).length;return L.length+" item"+(L.length===1?"":"s")+(DOC.dl.size?" · downloading":need&&L.length?" · "+need+" to download":"")}
+function dkDriveMark(){const L=docList();if(!L.length||!authOn())return"";if(DOC.dl.size)return `<span class="dk-rm spin" aria-hidden="true"></span>`;return L.every(docHas)?`<span class="dk-rm ok" title="All on this device">${dkSvg("check")}</span>`:""}
+function dkFoot(){const at=DOC.list&&DOC.list.at,t=!authOn()?"":DOC.loading?"Checking for updates…":DOC.err?DOC.err:at?"Updated "+new Date(at).toISOString().slice(11,16)+"Z":"";
+  return `<span>${esc(t)}</span><button type="button" class="dk-ib" data-dk="refresh" aria-label="Check for new documents"${authOn()?"":" disabled"}>${dkSvg("refresh")}</button>`}
+function dkSide(){const x=O(),s=ofp._sample;
+  return `<aside class="dk-side"><div class="dk-sh"><h2>Documents</h2></div><div class="dk-sl">
+    <div class="dk-sec">This Flight</div><button type="button" class="dk-row${DOC.src==="flight"?" on":""}" data-dksrc="flight"><span class="dk-ri">${dkSvg("binder")}</span><span class="dk-rt"><b>${s?"No flight plan":esc(x.flight)}</b><small>${s?"Fetch one in Download":esc(S(x.o.icao_code))+" → "+esc(S(x.d.icao_code))+" · "+DOC_FL.length+" items"}</small></span>${s?"":`<span class="dk-rm ok" title="On this device">${dkSvg("check")}</span>`}</button>
+    <div class="dk-sec">Drives</div><button type="button" class="dk-row${DOC.src==="polaris"?" on":""}" data-dksrc="polaris"><span class="dk-ri">${dkSvg("drive")}</span><span class="dk-rt"><b>Polaris Airways</b><small>${dkDriveSub()}</small></span>${dkDriveMark()}</button>
+  </div><div class="dk-foot" id="dkFoot">${dkFoot()}</div></aside>`}
+const dkSrcs=()=>`<div class="dk-srcs" role="tablist" aria-label="Documents from"><button type="button" role="tab" data-dksrc="flight" aria-selected="${DOC.src==="flight"}">This Flight</button><button type="button" role="tab" data-dksrc="polaris" aria-selected="${DOC.src==="polaris"}">Polaris Airways</button></div>`;
+/* what Download All and the tick are about: the folder you are in, or the whole drive */
+const dkScope=()=>{const L=docList();return DOC.dir&&!DOC.q.trim()?L.filter(d=>(d.folder||"")===DOC.dir):L};
+function dkBar(){const pol=DOC.src==="polaris",L=dkScope(),x=O(),need=L.filter(d=>!docHas(d));
+  const title=pol?(DOC.q.trim()?"Search":DOC.dir||"Polaris Airways"):ofp._sample?"This Flight":`${x.flight} · ${S(x.o.icao_code)} → ${S(x.d.icao_code)}`;
+  const left=(pol&&DOC.dir&&!DOC.q.trim()?`<button type="button" class="dk-back" data-dkdir="">${dkSvg("back")}<span>Polaris Airways</span></button>`:"")
+    +`<div class="dk-seg" role="group" aria-label="Show as"><button type="button" data-dkview="grid" aria-pressed="${DOC.view==="grid"}" aria-label="Covers">${dkSvg("grid")}</button><button type="button" data-dkview="list" aria-pressed="${DOC.view==="list"}" aria-label="List">${dkSvg("list")}</button></div>`;
+  let right=`<label class="dk-q">${dkSvg("search")}<input type="search" data-dkq placeholder="Search" value="${esc(DOC.q)}" autocomplete="off" spellcheck="false" aria-label="Search documents"></label>`;
+  if(pol&&authOn()&&L.length){
+    if(need.length&&!DOC.edit){const all=need.every(d=>DOC.dl.has(d.id)||DOC.queue.includes(d.id)),mb=need.reduce((s,d)=>s+(+d.size||0),0);
+      right+=`<button type="button" class="dk-tb pri" data-dk="dlall" title="${need.length} document${need.length===1?"":"s"} · ${docFmt(mb)}"${all?" disabled":""}>${dkSvg("cloud")}<span>${all?"Downloading…":"Download All"}</span></button>`}
+    if(docList().some(d=>docHas(d)||docOld(d)))right+=`<button type="button" class="dk-tb" data-dk="edit" aria-pressed="${DOC.edit}">${DOC.edit?"Done":"Edit"}</button>`}
+  const tick=pol?(authOn()&&L.length&&!need.length?`<span class="dk-allok" title="All on this device">${dkSvg("check")}</span>`:""):ofp._sample?"":`<span class="dk-allok" title="On this device">${dkSvg("check")}</span>`;
+  return `<div class="dk-bar"><div class="dk-bl">${left}</div><h2 class="dk-t"><span>${esc(title)}</span>${tick}</h2><div class="dk-br">${right}</div></div>`}
+function dkFlight(){if(ofp._sample)return dkEmpty(dkSvg("binder"),"No flight plan loaded","Fetch your SimBrief plan in Download and its papers appear here: the OFP, the briefing, the nav log and the rest.",`<button type="button" class="dk-btn" data-ftgo="simbrief">Go to Download</button>`);
+  const q=DOC.q.trim().toLowerCase(),x=O(),L=FD.filter(([k,t,dd])=>!q||(t+" "+dd+" "+(DKF[k]||[""])[0]).toLowerCase().includes(q));if(!L.length)return dkNone();
+  const ok=`<span class="dk-st ok" title="On this device">${dkSvg("check")}</span>`;
+  return DOC.view==="list"?`<div class="dk-list">${L.map(([k,t,dd],i)=>`<button type="button" class="dk-li" data-fdoc="${k}" style="--i:${i}"><span class="dk-lc">${dkPaper(k,x)}</span><span class="dk-lt"><b>${esc(t)}</b><small>${esc(dd)}</small></span>${ok}</button>`).join("")}</div>`
+    :`<div class="dk-grid">${L.map(([k,t],i)=>`<button type="button" class="dk-tile" data-fdoc="${k}" style="--i:${i}"><span class="dk-cv">${dkPaper(k,x)}${ok}</span><span class="dk-cap"><b>${esc(t)}</b><small>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</small></span></button>`).join("")}</div>`}
+function dkPolaris(){if(!authOn())return dkEmpty(dkSvg("drive"),"Sign in to see Polaris documents","Manuals, SOPs and notices from Polaris Airways appear here once you’re signed in with vAMSYS.",`<button type="button" class="dk-btn" data-dk="signin">Sign In</button>`);
+  if(!DOC.list)return DOC.err&&!DOC.loading?dkEmpty(dkSvg("drive"),"Documents couldn’t load",esc(DOC.err),`<button type="button" class="dk-btn" data-dk="refresh">Try Again</button>`):`<div class="dk-wait"><span class="dk-spin" aria-hidden="true"></span>Loading documents…</div>`;
+  const L=docList();if(!L.length)return dkEmpty(dkSvg("drive"),"No documents yet","Polaris staff publish manuals, SOPs and notices here. Each one comes to this device the first time you open it.","");
+  const q=DOC.q.trim().toLowerCase();
+  if(q){const hit=L.filter(d=>(d.title+" "+d.folder+" "+d.rev+" "+d.name).toLowerCase().includes(q));return hit.length?dkDocs(hit,true,[]):dkNone()}
+  if(DOC.dir&&!L.some(d=>(d.folder||"")===DOC.dir))DOC.dir="";
+  return dkDocs(L.filter(d=>(d.folder||"")===DOC.dir),false,DOC.dir?[]:[...new Set(L.map(d=>d.folder||"").filter(Boolean))])}
+function dkDocs(items,withFolder,folders){const L=docList();let i=0;const cnt=f=>L.filter(d=>(d.folder||"")===f).length;
+  const fnew=(f,big)=>{const n=L.filter(d=>(d.folder||"")===f&&docUnseen(d)).length;return n?`<span class="dk-new${big?" big":""}">${n} new</span>`:""};
+  const sub=d=>[withFolder?d.folder:"",d.rev,d.pages?d.pages+" pages":"",docFmt(d.size)].filter(Boolean).join(" · ");
+  const ed=d=>DOC.edit&&(docHas(d)||docOld(d));
+  if(DOC.view==="list")return `<div class="dk-list">${folders.map(f=>`<button type="button" class="dk-li dk-fli" data-dkdir="${esc(f)}" style="--i:${i++}"><span class="dk-lc dk-lf">${dkSvg("folder")}</span><span class="dk-lt"><b>${esc(f)}${fnew(f)}</b><small>${cnt(f)} item${cnt(f)===1?"":"s"}</small></span><svg class="dk-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>`).join("")}`
+    +items.map(d=>`<button type="button" class="dk-li${ed(d)?" ed":""}" data-dkopen="${esc(d.id)}" style="--i:${i++}"><span class="dk-lc">${dkCover(d)}</span><span class="dk-lt"><b>${esc(d.title)}${dkNewTag(d)}</b><small>${esc(sub(d))}</small></span>${ed(d)?`<span class="dk-del">Remove</span>`:docStHtml(d)}</button>`).join("")+`</div>`;
+  return `<div class="dk-grid">${folders.map(f=>`<button type="button" class="dk-tile dk-ftile" data-dkdir="${esc(f)}" style="--i:${i++}"><span class="dk-cv dk-fcv">${dkSvg("folder","dk-fi")}<span class="dk-fn">${cnt(f)}</span>${fnew(f,true)}</span><span class="dk-cap"><b>${esc(f)}</b><small>${cnt(f)} item${cnt(f)===1?"":"s"}</small></span></button>`).join("")}`
+    +items.map(d=>`<button type="button" class="dk-tile${ed(d)?" ed":""}" data-dkopen="${esc(d.id)}" style="--i:${i++}"><span class="dk-cv">${dkCover(d)}${dkNewTag(d,true)}${ed(d)?`<span class="dk-x" aria-label="Remove from this device">${dkSvg("minus")}</span>`:docStHtml(d)}</span><span class="dk-cap"><b>${esc(d.title)}</b><small>${esc([withFolder?d.folder:"",d.rev||(d.pages?d.pages+" pages":"")].filter(Boolean).join(" · "))}</small></span></button>`).join("")+`</div>`}
+const dkBody=()=>DOC.src==="polaris"?dkPolaris():dkFlight();
+V.docs=()=>{const fx=reduced()?"":DOC.fx;DOC.fx="";if(DOC.src==="polaris"&&DOC.list)docVisit();
+  return `<div class="dk${fx?" dkfx-"+fx:""}${DOC.edit?" editing":""}" id="dkRoot">${dkSide()}<section class="dk-main">${dkSrcs()}${dkBar()}<div class="dk-body" id="dkBody">${dkBody()}</div></section></div>`};
+/* redraw without losing the place in the list, or the search box while typing */
+function docRender(){if(cur!=="docs")return;const b=$("#dkBody"),y=b?b.scrollTop:0,sl=document.querySelector(".dk-sl"),sy=sl?sl.scrollTop:0;render();const nb=$("#dkBody");if(nb)nb.scrollTop=y;const ns=document.querySelector(".dk-sl");if(ns)ns.scrollTop=sy}
+function docBody(){const b=$("#dkBody");if(b)b.innerHTML=dkBody();const t=document.querySelector(".dk-t span");if(t){const pol=DOC.src==="polaris";if(pol)t.textContent=DOC.q.trim()?"Search":DOC.dir||"Polaris Airways"}
+  const bk=document.querySelector(".dk-back");if(bk)bk.hidden=!!DOC.q.trim()}
+function docSideUpd(){const r=document.querySelector('.dk-row[data-dksrc="polaris"]');if(r){const sm=r.querySelector("small");if(sm)sm.textContent=dkDriveSub();const o=r.querySelector(".dk-rm"),m=dkDriveMark();if(o)o.outerHTML=m;else if(m)r.insertAdjacentHTML("beforeend",m)}
+  const f=$("#dkFoot");if(f)f.innerHTML=dkFoot()}
+function docRefresh(){if(cur!=="docs"){try{if(cur&&isFl(cur))ftSync()}catch(e){}return}const a=document.activeElement;
+  if(a&&a.matches&&a.matches("[data-dkq]")){docBody();docSideUpd();return}docRender()}
+/* a download moving: only its badge and the drive's line change, once a frame */
+const DOCP=new Set();let docPRaf=0;
+function docProg(id){if(id)DOCP.add(id);if(docPRaf)return;docPRaf=requestAnimationFrame(()=>{docPRaf=0;if(cur==="docs"){DOCP.forEach(i=>{const d=docFind(i);document.querySelectorAll(`[data-dkopen="${CSS.escape(i)}"] .dk-st`).forEach(el=>{el.outerHTML=docStHtml(d)})});docSideUpd()}DOCP.clear()})}
+/* the tab's badge: documents that came since the drive was last looked at */
+function docBadge(){const b=document.getElementById("ftabs");if(!b)return;const t=b.querySelector('[data-ft="docs"]');if(!t)return;const bd=t.querySelector(".ft-b");if(!bd)return;
+  const n=authOn()?docNewCount():0;bd.hidden=!n;bd.textContent=n?String(n):"";t.setAttribute("aria-label",n?`Documents, ${n} new`:"Documents")}
+{const _s=ftSync;ftSync=function(){const r=_s.apply(this,arguments);try{docBadge()}catch(e){}return r}}
+
+document.addEventListener("click",e=>{if(cur!=="docs")return;const t=e.target.closest&&e.target.closest("[data-dksrc],[data-dkdir],[data-dkview],[data-dkopen],[data-dk]");if(!t)return;const a=t.dataset;
+  if(a.dksrc){if(DOC.src!==a.dksrc){DOC.src=a.dksrc;DOC.dir="";DOC.edit=false;DOC.q="";store.set("docSrc",DOC.src);DOC.fx="src";render();if(DOC.src==="polaris")docsLoad();ftSync()}return}
+  if(a.dkdir!=null){DOC.fx=a.dkdir?"fwd":"back";DOC.dir=a.dkdir;DOC.q="";render();return}
+  if(a.dkview){if(DOC.view!==a.dkview){DOC.view=a.dkview;store.set("docView",DOC.view);DOC.fx="view";docRender()}return}
+  if(a.dkopen){const d=docFind(a.dkopen);if(d)docTap(d);return}
+  const k=a.dk;
+  if(k==="refresh")docsLoad(true);
+  else if(k==="dlall"){if(!navigator.onLine){toast("You’re offline. Connect to the internet to download documents.");return}dkScope().filter(d=>!docHas(d)).forEach(docQueue);docRender()}
+  else if(k==="edit"){DOC.edit=!DOC.edit;docRender()}
+  else if(k==="signin"&&typeof authShow==="function")authShow()});
+document.addEventListener("input",e=>{if(cur!=="docs"||!e.target.matches||!e.target.matches("[data-dkq]"))return;DOC.q=e.target.value;docBody()});
+/* the lit tab again: out of the reader, or out of a folder */
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest('[data-ft="docs"]');if(!t||cur!=="docs")return;
+  if(DR.open)drClose();else if(DOC.src==="polaris"&&DOC.dir){DOC.dir="";DOC.fx="back";render()}},true);
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);
+  if(id==="docs"){screenEl.dataset.layout="full";if(!DOC.fx)DOC.fx="open";docsLoad();if(DR.open)setTimeout(drBack,0)}else if(DR.open&&!DR.away)drAway();return r}}
+/* signed out: the company's documents leave this device */
+{const _f=authForget;authForget=function(){const r=_f.apply(this,arguments);DOC.list=null;DOC.seen=null;DOC.visit=0;DOC.queue=[];DOC.err="";DOC.edit=false;
+  ["docList","docSeen","docVisit"].forEach(k=>store.set(k,null));DOC.have=new Set();DOC.mem.clear();DOC.cov.forEach(u=>URL.revokeObjectURL(u));DOC.cov.clear();
+  try{if(typeof caches!=="undefined")caches.delete(DOC_CACHE).catch(()=>{})}catch(e){}if(DR.open)drClose(true);return r}}
+setTimeout(()=>{docScan();docsLoad()},2500);
+setInterval(()=>{if(!document.hidden)docsLoad()},30*60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)docsLoad()});
+window.addEventListener("online",()=>{docsLoad();docPump()});
+
+/* ---------- the reader: pages one under another, as in Books or ForeFlight ----------
+   Inside Flight's page, so the tab bar stays. Only the pages near the screen are drawn (pdf.js, at the screen's pixel
+   density, a few at a time), so a 300-page manual stays light. Pinch, Ctrl/⌘ + wheel or − + to zoom; Contents when
+   the PDF has bookmarks; tap the page number to go to a page; Night darkens the pages. The page you were on is kept. */
+const DR={open:false,d:null,doc:null,task:null,n:0,ratio:1.294,sizes:[],pos:[],W:0,zoom:Math.max(.5,Math.min(4,+store.get("drZoom",1)||1)),drawn:new Map(),rtask:new Map(),
+  inv:store.get("drInv",null),toc:null,tocFlat:[],tocOn:false,page:1,gen:0,raf:0,saveT:0,zt:0,rz:0,away:false};
+const drDark=()=>DR.inv!=null?DR.inv:isDark();
+const DR_PX=6e6;
+function drEl(){let el=document.getElementById("drWrap");if(el)return el;const m=document.getElementById("main");if(!m)return null;
+  el=document.createElement("div");el.id="drWrap";el.className="drwrap";el.hidden=true;el.setAttribute("role","dialog");el.setAttribute("aria-label","Document");
+  el.innerHTML=`<div class="dr-top"><button type="button" class="dr-back" data-dr="close">${dkSvg("back")}<span>Documents</span></button>
+    <div class="dr-t"><b id="drName"></b><small id="drSub"></small></div>
+    <div class="dr-btns"><button type="button" class="dr-b" data-dr="toc" aria-pressed="false" aria-label="Contents" hidden>${dkSvg("toc")}<span>Contents</span></button><span class="dr-zm"><button type="button" class="dr-b" data-dr="out" aria-label="Zoom out">−</button><button type="button" class="dr-b" data-dr="fit" aria-label="Fit the width">Fit</button><button type="button" class="dr-b" data-dr="in" aria-label="Zoom in">+</button></span><button type="button" class="dr-b" data-dr="inv" aria-pressed="false" aria-label="Night">${dkSvg("moon")}<span>Night</span></button></div></div>
+    <div class="dr-body"><aside class="dr-toc" id="drToc" hidden></aside><div class="dr-scroll" id="drScroll" tabindex="-1"><div class="dr-pages" id="drPages"></div></div>
+      <div class="dr-pgn" id="drPgn" role="button" tabindex="0" data-dr="goto" aria-label="Go to page" hidden></div><p class="dr-msg" id="drMsg" hidden></p></div>`;
+  m.appendChild(el);drGestures(el.querySelector("#drScroll"));return el}
+function drUi(){const el=document.getElementById("drWrap");if(!el)return;el.hidden=!DR.open;if(!DR.open)return;const d=DR.d;
+  el.querySelector("#drName").textContent=d?d.title:"";el.querySelector("#drSub").textContent=d?[d.folder,d.rev,DR.n?DR.n+" page"+(DR.n===1?"":"s"):""].filter(Boolean).join(" · "):"";
+  const tb=el.querySelector('[data-dr="toc"]');tb.hidden=!DR.toc;tb.setAttribute("aria-pressed",String(!!DR.tocOn));
+  el.querySelector('[data-dr="inv"]').setAttribute("aria-pressed",String(drDark()));el.classList.toggle("inv",drDark());
+  const toc=el.querySelector("#drToc");toc.hidden=!(DR.toc&&DR.tocOn);
+  if(!toc.hidden&&!toc.dataset.on){toc.dataset.on="1";toc.innerHTML=`<div class="dr-tch">Contents</div>`+DR.tocFlat.map((it,i)=>`<button type="button" class="dr-ti" data-drt="${i}" style="--l:${it.l}">${esc(it.title||"—")}</button>`).join("")}
+  drPgn()}
+function drPgn(){const b=document.getElementById("drPgn");if(!b||b.querySelector("input"))return;b.hidden=!DR.n;b.textContent=DR.n?DR.page+" / "+DR.n:""}
+function drMsg(t){const m=document.getElementById("drMsg");if(m){m.hidden=!t;m.textContent=t||""}}
+async function drOpen(d){const el=drEl();if(!el||!d)return;drClose(true);const gen=++DR.gen;
+  Object.assign(DR,{open:true,d,doc:null,task:null,n:0,sizes:[],pos:[],drawn:new Map(),toc:null,tocFlat:[],tocOn:false,page:1,away:false});
+  const toc=el.querySelector("#drToc");toc.innerHTML="";delete toc.dataset.on;el.querySelector("#drPages").innerHTML="";
+  docSeenSet(d);el.hidden=false;el.classList.remove("out");if(!reduced()){el.classList.remove("in");void el.offsetWidth;el.classList.add("in")}
+  drUi();drMsg("Opening…");docRefresh();
+  try{const blob=await docBlob(d);if(gen!==DR.gen)return;if(!blob)throw new Error("“"+d.title+"” isn’t on this device. Connect to the internet to download it.");
+    const lib=await loadPdfJs();if(gen!==DR.gen)return;const task=lib.getDocument({data:await blob.arrayBuffer(),isEvalSupported:false});DR.task=task;
+    const doc=await task.promise;if(gen!==DR.gen){try{task.destroy()}catch(e){}return}
+    DR.doc=doc;DR.n=doc.numPages;const v=(await doc.getPage(1)).getViewport({scale:1});if(gen!==DR.gen)return;
+    DR.ratio=v.height/v.width;DR.sizes=new Array(DR.n).fill(null);DR.sizes[0]=[v.width,v.height];
+    drMsg("");drBuild();const last=Math.min(DR.n,Math.max(1,+store.get("drPg:"+d.id,1)||1));if(last>1)drGo(last,true);drUi();drVis();
+    doc.getOutline().then(o=>{if(gen!==DR.gen||!Array.isArray(o)||!o.length)return;const flat=[],walk=(L,l)=>L.forEach(it=>{flat.push({title:it.title,dest:it.dest,l});if(l<2&&it.items&&it.items.length)walk(it.items,l+1)});walk(o,0);
+      DR.toc=o;DR.tocFlat=flat;drUi()}).catch(()=>{})}
+  catch(e){if(gen!==DR.gen)return;drMsg((e&&e.message)||"This document couldn’t be opened")}}
+function drBuild(){const box=document.getElementById("drPages");if(!box)return;let h="";for(let i=1;i<=DR.n;i++)h+=`<div class="dr-pg" data-n="${i}"><span class="dr-pn">${i}</span></div>`;box.innerHTML=h;drLayout()}
+function drLayout(){const box=document.getElementById("drPages"),sc=document.getElementById("drScroll");if(!box||!sc)return;
+  const avail=Math.max(160,sc.clientWidth-(sc.clientWidth<700?16:56));DR.W=Math.round(Math.min(avail,1100)*DR.zoom);box.style.width=DR.W+"px";
+  const pgs=box.children;for(let i=0;i<pgs.length;i++){const s=DR.sizes[i];pgs[i].style.height=Math.round(DR.W*(s?s[1]/s[0]:DR.ratio))+"px"}
+  DR.pos=Array.from(pgs,p=>p.offsetTop)}
+function drIdx(y){const P=DR.pos;let lo=0,hi=P.length-1;if(hi<0)return 0;while(lo<hi){const m=(lo+hi+1)>>1;if(P[m]<=y)lo=m;else hi=m-1}return lo}
+/* the spot under a screen point, as page and fraction, so a new layout can put it back */
+function drAnchor(cy,cx){const sc=document.getElementById("drScroll"),y=sc.scrollTop+cy,x=sc.scrollLeft+cx,i=drIdx(y),p=document.getElementById("drPages").children[i];
+  return{i,cy,cx,fy:p?(y-DR.pos[i])/Math.max(1,p.offsetHeight):0,fx:p?(x-p.offsetLeft)/Math.max(1,p.offsetWidth):.5}}
+function drRestore(a){const sc=document.getElementById("drScroll"),p=document.getElementById("drPages").children[a.i];if(!sc||!p)return;sc.scrollTop=DR.pos[a.i]+a.fy*p.offsetHeight-a.cy;sc.scrollLeft=p.offsetLeft+a.fx*p.offsetWidth-a.cx}
+function drRelayout(){const sc=document.getElementById("drScroll");if(!sc||!DR.n)return;const a=drAnchor(sc.clientHeight*.35,sc.clientWidth/2);drLayout();drRestore(a)}
+/* the pages on screen and either side are drawn; the others let go of their pictures */
+function drVis(){const sc=document.getElementById("drScroll");if(!sc||!DR.doc||DR.away)return;const top=drIdx(sc.scrollTop-300)+1,bot=Math.min(DR.n,drIdx(sc.scrollTop+sc.clientHeight+500)+1);
+  for(let n=top;n<=bot;n++)drDraw(n);
+  const keep=Math.max(6,bot-top+3);if(DR.drawn.size>keep){const far=[...DR.drawn.keys()].filter(n=>n<top||n>bot).sort((a,b)=>Math.abs(b-DR.page)-Math.abs(a-DR.page));
+    while(DR.drawn.size>keep&&far.length){const n=far.shift(),c=document.querySelector(`#drPages .dr-pg[data-n="${n}"] canvas`);if(c){c.width=c.height=0;c.remove()}DR.drawn.delete(n)}}}
+async function drDraw(n){if(!DR.doc||DR.away)return;const pg=document.querySelector(`#drPages .dr-pg[data-n="${n}"]`);if(!pg)return;const W=DR.W,was=DR.drawn.get(n);if(was&&was.W===W)return;
+  const gen=DR.gen;DR.drawn.set(n,{W,busy:true});
+  try{const page=await DR.doc.getPage(n);if(gen!==DR.gen||DR.W!==W){if(DR.drawn.get(n)&&DR.drawn.get(n).busy)DR.drawn.delete(n);return}
+    const v=page.getViewport({scale:1}),s=DR.sizes[n-1];DR.sizes[n-1]=[v.width,v.height];
+    if(Math.abs((s?s[1]/s[0]:DR.ratio)-v.height/v.width)>.005)drRelayout();
+    const dpr=Math.min(2.5,window.devicePixelRatio||1);let k=W*dpr/v.width;const px=v.width*v.height*k*k;if(px>DR_PX)k*=Math.sqrt(DR_PX/px);
+    const vp=page.getViewport({scale:k}),c=document.createElement("canvas");c.width=Math.max(1,Math.floor(vp.width));c.height=Math.max(1,Math.floor(vp.height));
+    const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);
+    const t=page.render({canvasContext:g,viewport:vp});DR.rtask.set(n,t);try{await t.promise}finally{if(DR.rtask.get(n)===t)DR.rtask.delete(n)}
+    if(gen!==DR.gen||DR.W!==W||DR.away){c.width=c.height=0;if(DR.drawn.get(n)&&DR.drawn.get(n).W===W)DR.drawn.delete(n);return}
+    const old=pg.querySelector("canvas");if(old){old.replaceWith(c);old.width=old.height=0}else pg.prepend(c);DR.drawn.set(n,{W})}
+  catch(e){if(DR.drawn.get(n)&&DR.drawn.get(n).busy)DR.drawn.delete(n)}}
+function drScrollUpd(){const sc=document.getElementById("drScroll");if(!sc||!DR.pos.length)return;const p=drIdx(sc.scrollTop+sc.clientHeight*.35)+1;
+  if(p!==DR.page){DR.page=p;drPgn();clearTimeout(DR.saveT);const id=DR.d&&DR.d.id;DR.saveT=setTimeout(()=>{if(id)store.set("drPg:"+id,p)},700)}drVis()}
+function drGo(n,instant){const sc=document.getElementById("drScroll");if(!sc||!DR.pos.length)return;const y=Math.max(0,DR.pos[Math.max(0,Math.min(DR.n,n)-1)]-12);
+  if(instant||reduced())sc.scrollTop=y;else sc.scrollTo({top:y,behavior:"smooth"});DR.page=n;drPgn()}
+function drZoom(f,cx,cy){const sc=document.getElementById("drScroll");if(!sc||!DR.doc)return;const nz=Math.max(.5,Math.min(4,f==="fit"?1:DR.zoom*f));if(Math.abs(nz-DR.zoom)<.001)return;
+  if(cx==null){cx=sc.clientWidth/2;cy=sc.clientHeight*.35}const a=drAnchor(cy,cx);DR.zoom=nz;store.set("drZoom",nz);drLayout();drRestore(a);
+  clearTimeout(DR.zt);DR.zt=setTimeout(drVis,140)}
+function drGestures(sc){let g=null;const box=()=>document.getElementById("drPages");
+  sc.addEventListener("touchstart",e=>{if(e.touches.length!==2||!DR.doc)return;const[a,b]=e.touches,r=sc.getBoundingClientRect(),cx=(a.clientX+b.clientX)/2-r.left,cy=(a.clientY+b.clientY)/2-r.top,bx=box();
+    g={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)||1,cx,cy,s:1};bx.style.transformOrigin=`${sc.scrollLeft+cx-bx.offsetLeft}px ${sc.scrollTop+cy-bx.offsetTop}px`},{passive:true});
+  sc.addEventListener("touchmove",e=>{if(!g||e.touches.length<2)return;e.preventDefault();const[a,b]=e.touches;
+    g.s=Math.max(.5/DR.zoom,Math.min(4/DR.zoom,Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)/g.d));box().style.transform=`scale(${g.s})`},{passive:false});
+  const end=e=>{if(!g||(e.touches&&e.touches.length>=2))return;const x=g;g=null;const bx=box();bx.style.transform="";bx.style.transformOrigin="";if(Math.abs(x.s-1)>.03)drZoom(x.s,x.cx,x.cy)};
+  sc.addEventListener("touchend",end);sc.addEventListener("touchcancel",end);
+  sc.addEventListener("wheel",e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();const r=sc.getBoundingClientRect();drZoom(Math.exp(-e.deltaY*.01),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+  sc.addEventListener("scroll",()=>{if(DR.raf)return;DR.raf=requestAnimationFrame(()=>{DR.raf=0;drScrollUpd()})},{passive:true});
+  /* Safari's own pinch would zoom the whole EFB */
+  sc.addEventListener("gesturestart",e=>e.preventDefault());sc.addEventListener("gesturechange",e=>e.preventDefault())}
+function drClose(silent){const el=document.getElementById("drWrap");const was=DR.open,g=++DR.gen;DR.open=false;
+  if(DR.d&&DR.n)store.set("drPg:"+DR.d.id,DR.page);DR.rtask.forEach(t=>{try{t.cancel()}catch(e){}});DR.rtask.clear();
+  if(DR.task)try{DR.task.destroy()}catch(e){}Object.assign(DR,{task:null,doc:null,d:null,n:0,pos:[],drawn:new Map(),toc:null,tocFlat:[],tocOn:false});
+  if(!el)return;const clear=()=>{if(DR.gen!==g)return;el.querySelectorAll("#drPages canvas").forEach(c=>{c.width=c.height=0});el.querySelector("#drPages").innerHTML="";el.hidden=true;el.classList.remove("out","in")};
+  if(was&&!silent&&!reduced()&&cur==="docs"){el.classList.remove("in");el.classList.add("out");setTimeout(clear,220)}else clear()}
+/* away to another tab: the pictures go (the map wants the memory); back: drawn again where you were */
+function drAway(){DR.away=true;document.querySelectorAll("#drPages canvas").forEach(c=>{c.width=c.height=0;c.remove()});DR.drawn=new Map()}
+function drBack(){DR.away=false;if(!DR.open||!DR.doc)return;drRelayout();drVis()}
+function drGoto(){const b=document.getElementById("drPgn");if(!b||!DR.n||b.querySelector("input"))return;
+  b.innerHTML=`<input type="number" min="1" max="${DR.n}" value="${DR.page}" inputmode="numeric" enterkeyhint="go" aria-label="Page"><span> / ${DR.n}</span>`;
+  const i=b.querySelector("input");i.focus();i.select();
+  const done=go=>{if(!b.contains(i))return;const n=Math.max(1,Math.min(DR.n,Math.round(+i.value)||DR.page));b.textContent="";drPgn();if(go)drGo(n)};
+  i.addEventListener("keydown",ev=>{if(ev.key==="Enter"){ev.preventDefault();done(true)}else if(ev.key==="Escape"){ev.preventDefault();done(false)}});i.addEventListener("blur",()=>done(false))}
+async function drTocGo(i){const it=DR.tocFlat[i];if(!it||!DR.doc)return;
+  try{let dest=it.dest;if(typeof dest==="string")dest=await DR.doc.getDestination(dest);if(!Array.isArray(dest)||dest[0]==null)return;const r=dest[0],idx=typeof r==="number"?r:await DR.doc.getPageIndex(r);
+    const sc=document.getElementById("drScroll");if(sc&&sc.clientWidth<720){DR.tocOn=false;drUi();drRelayout()}drGo(idx+1)}catch(e){}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dr],[data-drt]");if(!t||!DR.open)return;
+  if(t.dataset.drt!=null){drTocGo(+t.dataset.drt);return}const a=t.dataset.dr;
+  if(a==="close")drClose();else if(a==="in")drZoom(1.25);else if(a==="out")drZoom(1/1.25);else if(a==="fit")drZoom("fit");
+  else if(a==="inv"){DR.inv=!drDark();store.set("drInv",DR.inv);drUi()}
+  else if(a==="toc"){DR.tocOn=!DR.tocOn;drUi();drRelayout();drVis()}
+  else if(a==="goto")drGoto()});
+document.addEventListener("keydown",e=>{if(!DR.open||cur!=="docs"||(e.target.closest&&e.target.closest("input,textarea")))return;
+  if(e.key==="Escape"){e.preventDefault();drClose();return}
+  if((e.metaKey||e.ctrlKey)&&(e.key==="="||e.key==="+")){e.preventDefault();drZoom(1.25)}else if((e.metaKey||e.ctrlKey)&&e.key==="-"){e.preventDefault();drZoom(1/1.25)}});
+window.addEventListener("resize",()=>{if(DR.open&&!DR.away&&cur==="docs"){clearTimeout(DR.rz);DR.rz=setTimeout(()=>{drRelayout();drVis()},120)}});
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* ---------- Documents ---------- */
+.screen[data-app="docs"] .appwin>main{position:relative}
+.dk{--dk-side:var(--ios-bg);--dk-main:#E6E9EC;--dk-cap:#FFFFFF;--dk-ink:var(--ink);--dk-sub:var(--ios-lbl2);--dk-sep:var(--ios-sep);--dk-ok:#34C759;--dk-paper-ink:#0F2A2E;
+  position:relative;display:grid;grid-template-columns:300px minmax(0,1fr);height:100%;min-height:0;font-family:var(--f-os);color:var(--dk-ink);-webkit-font-smoothing:antialiased;overflow:hidden}
+:root[data-theme="dark"] .dk{--dk-main:#121214;--dk-cap:#232326;--dk-ok:#30D158}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dk{--dk-main:#121214;--dk-cap:#232326;--dk-ok:#30D158}}
+.dk button{-webkit-tap-highlight-color:transparent}
+/* the sidebar */
+.dk-side{display:flex;flex-direction:column;min-height:0;background:var(--dk-side);border-right:.5px solid var(--dk-sep)}
+.dk-sh{padding:14px 16px 2px}.dk-sh h2{margin:0;font:700 28px/1.1 var(--f-os);letter-spacing:.2px}
+.dk-sl{flex:1;overflow-y:auto;padding:0 10px 10px}
+.dk-sec{font:600 13px var(--f-os);text-transform:uppercase;letter-spacing:.4px;color:var(--dk-sub);padding:18px 8px 6px}
+.dk-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center;width:100%;text-align:left;border:0;background:none;color:inherit;padding:9px 10px 9px 8px;border-radius:11px;cursor:pointer;font:inherit;transition:background-color .22s,transform .15s}
+.dk-row:active{transform:scale(.98);background:var(--ios-grp2)}
+.dk-row.on,.dk-row.on:active{background:var(--ios-tint);color:#fff}
+.dk-ri{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;background:var(--ios-grp2);color:var(--brand)}
+.dk-ri svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dk-row.on .dk-ri{background:rgba(255,255,255,.22);color:#fff}
+.dk-rt{min-width:0;display:flex;flex-direction:column;gap:1px}
+.dk-rt b{font:600 16px/1.25 var(--f-os);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-rt small{font:400 13.5px/1.3 var(--f-os);color:var(--dk-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-row.on small{color:rgba(255,255,255,.82)}
+.dk-rm{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.dk-rm.ok{background:var(--dk-ok);color:#fff}.dk-rm.ok svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.dk-row.on .dk-rm.ok{background:#fff;color:var(--ios-tint)}
+.dk-rm.spin,.dk-spin{border:2px solid color-mix(in srgb,currentColor 22%,transparent);border-top-color:currentColor;border-radius:50%;box-sizing:border-box;animation:dkSpin .8s linear infinite}
+.dk-rm.spin{width:18px;height:18px;color:var(--dk-sub)}.dk-row.on .dk-rm.spin{color:#fff}
+.dk-spin{width:20px;height:20px;display:inline-block;color:var(--dk-sub)}
+.dk-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 6px 16px;border-top:.5px solid var(--dk-sep);font:400 13px var(--f-os);color:var(--dk-sub);min-height:46px}
+.dk-foot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-ib{flex:none;width:36px;height:36px;border-radius:50%;border:0;background:none;color:var(--ios-tint);display:grid;place-items:center;cursor:pointer}
+.dk-ib svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.dk-ib:disabled{opacity:.35}
+/* the documents */
+.dk-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--dk-main);container-type:inline-size;container-name:dkmain}
+.dk-srcs{display:none}
+.dk-bar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:10px 16px;min-height:60px;box-sizing:border-box;border-bottom:.5px solid var(--dk-sep);background:var(--dk-side)}
+.dk-bl,.dk-br{display:flex;align-items:center;gap:8px;min-width:0}.dk-br{justify-content:flex-end}
+.dk-t{margin:0;font:600 19px/1.2 var(--f-os);display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;max-width:40cqw}
+.dk-t span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-allok{flex:none;width:24px;height:24px;border-radius:50%;background:var(--dk-ok);color:#fff;display:grid;place-items:center}
+.dk-allok svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.dk-back{display:flex;align-items:center;gap:1px;border:0;background:none;color:var(--ios-tint);font:400 17px var(--f-os);padding:6px 4px 6px 0;cursor:pointer;min-width:0}
+.dk-back span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dk-back[hidden]{display:none}
+.dk-back svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dk-seg{display:inline-flex;background:var(--ios-fill);border-radius:9px;padding:2px;flex:none}
+.dk-seg button{width:40px;height:32px;border:0;border-radius:7px;background:none;color:var(--dk-ink);display:grid;place-items:center;cursor:pointer;transition:background-color .2s,box-shadow .2s}
+.dk-seg button[aria-pressed="true"]{background:var(--dk-cap);box-shadow:0 1px 3px rgba(0,0,0,.16)}
+.dk-seg svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dk-q{position:relative;display:block;flex:0 1 220px;min-width:110px}
+.dk-q svg{position:absolute;left:9px;top:50%;width:16px;height:16px;margin-top:-8px;fill:none;stroke:var(--dk-sub);stroke-width:2;stroke-linecap:round;pointer-events:none}
+.dk-q input{width:100%;box-sizing:border-box;height:36px;border:0;border-radius:10px;background:var(--ios-fill);padding:0 10px 0 31px;font:400 16px var(--f-os);color:var(--dk-ink);outline:none}
+.dk-q input:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--ios-tint) 55%,transparent)}
+.dk-tb{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:0;border-radius:10px;background:var(--ios-fill);color:var(--ios-tint);font:600 15px var(--f-os);cursor:pointer;white-space:nowrap;transition:background-color .2s,color .2s,opacity .2s}
+.dk-tb.pri{background:var(--ios-tint);color:#fff}.dk-tb:disabled{opacity:.5;cursor:default}
+.dk-tb[aria-pressed="true"]{background:var(--ios-tint);color:#fff}
+.dk-tb svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dk-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* covers */
+.dk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(140px,18cqw,228px),1fr));gap:clamp(20px,3.2cqw,36px) clamp(16px,2.8cqw,34px);padding:clamp(18px,3cqw,30px) clamp(16px,3cqw,36px) 44px}
+.dk-tile{display:flex;flex-direction:column;border:0;padding:0;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;border-radius:4px;transition:transform .18s cubic-bezier(.2,.8,.2,1)}
+.dk-tile:active{transform:scale(.97)}
+.dk-cv{position:relative;display:block;aspect-ratio:8.5/11;background:#fff;border-radius:3px 3px 0 0;overflow:hidden;container-type:inline-size;box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 6px 18px -10px rgba(0,0,0,.45)}
+.dk-cap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:58px;padding:9px 11px;box-sizing:border-box;background:var(--dk-cap);border-radius:0 0 3px 3px;box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 8px 18px -12px rgba(0,0,0,.4)}
+.dk-cap b{font:600 14.5px/1.25 var(--f-os);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:center}
+.dk-cap small{font:400 12.5px/1.25 var(--f-os);color:var(--dk-sub);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;background:#fff;opacity:0;transition:opacity .25s}.dk-img.on{opacity:1}
+/* a printed cover */
+.dk-paper{position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;color:var(--dk-paper-ink);padding:7.5cqw 8cqw 7cqw;box-sizing:border-box;overflow:hidden;font-family:var(--f-os);text-align:left}
+.dk-ph{display:flex;align-items:center;gap:2.6cqw;padding-bottom:3.4cqw;border-bottom:1.3cqw solid #1A6772}
+.dk-mk{width:7.5cqw;height:7.5cqw;flex:none;fill:#1A6772;stroke:none}
+.dk-ph b{font:700 5.2cqw/1 var(--f-os);letter-spacing:.16em;color:#1A6772;white-space:nowrap}
+.dk-pk{margin-top:8cqw;font:600 4.9cqw/1.25 var(--f-os);letter-spacing:.08em;text-transform:uppercase;color:#A78970}
+.dk-pt{margin-top:2cqw;font:800 13.5cqw/1.02 var(--f-os);letter-spacing:-.01em;color:#0F2A2E}
+.dk-pts{font-size:9.6cqw;line-height:1.08;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.dk-pi{flex:1;display:grid;place-items:center;min-height:0}
+.dk-pi svg{width:40cqw;height:40cqw;fill:none;stroke:#1A6772;stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round;opacity:.24}
+.dk-pi svg text{fill:#1A6772}
+.dk-pf{display:flex;flex-direction:column;gap:1.2cqw;padding-top:3.4cqw;border-top:.5cqw solid #D5DEDE}
+.dk-pf b{font:700 8.4cqw/1.1 var(--f-mono);color:#0F2A2E;white-space:nowrap}.dk-pf i{font:500 6.2cqw/1.2 var(--f-mono);font-style:normal;color:#51696C;white-space:nowrap}
+.dk-pd{margin-top:2.6cqw;font:500 4.7cqw/1.3 var(--f-os);letter-spacing:.04em;color:#7A8C8F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-gen .dk-pd{margin-top:auto;padding-top:4cqw;border-top:.5cqw solid #D5DEDE}
+/* on this device, coming, new */
+.dk-st{position:absolute;top:7px;right:7px;z-index:2;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-sizing:border-box}
+.dk-st svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.dk-st.ok{background:var(--dk-ok);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.dk-st.no,.dk-st.wait,.dk-st.dl{background:rgba(255,255,255,.95);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.dk-st.no{color:var(--ios-tint)}.dk-st.wait{color:#8E8E93}
+.dk-st.no svg,.dk-st.wait svg{width:19px;height:19px;stroke-width:1.8}
+.dk-st.dl svg{width:22px;height:22px;transform:rotate(-90deg)}
+.dk-st.dl .t{fill:none;stroke:rgba(0,122,255,.2);stroke-width:3}
+.dk-st.dl .p{fill:none;stroke:var(--ios-tint);stroke-width:3;stroke-dasharray:100;stroke-linecap:round;transition:stroke-dashoffset .25s linear}
+.dk-new{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:5px;background:var(--ios-tint);color:#fff;font:700 10.5px/1.25 var(--f-os);letter-spacing:.05em;text-transform:uppercase;vertical-align:2px}
+.dk-new.big{position:absolute;left:7px;top:9px;z-index:2;margin:0;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+/* Edit: take documents off this device */
+.dk-x{position:absolute;top:6px;right:6px;z-index:3;width:26px;height:26px;border-radius:50%;background:var(--ios-red);color:#fff;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.dk-x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
+.dk-tile.ed{animation:dkJig .3s ease-in-out infinite alternate}.dk-tile.ed:nth-child(2n){animation-delay:-.15s}
+.dk.editing .dk-tile:not(.ed):not(.dk-ftile),.dk.editing .dk-li:not(.ed):not(.dk-fli){opacity:.45}
+@keyframes dkJig{from{transform:rotate(-.8deg)}to{transform:rotate(.8deg)}}
+/* folders */
+.dk-fcv{display:grid;place-items:center;background:color-mix(in srgb,var(--ios-tint) 9%,var(--dk-cap));border-radius:6px 6px 0 0;box-shadow:0 0 0 .5px rgba(0,0,0,.08)}
+.dk-fi{width:62%;height:auto;aspect-ratio:1;fill:color-mix(in srgb,var(--ios-tint) 62%,#fff);stroke:none;filter:drop-shadow(0 3px 6px rgba(0,60,140,.22))}
+.dk-fn{position:absolute;top:56%;left:50%;transform:translate(-50%,-50%);font:700 17px var(--f-os);color:#fff}
+/* the list */
+.dk-list{display:flex;flex-direction:column;margin:16px clamp(12px,3cqw,30px) 44px;background:var(--dk-cap);border-radius:12px;overflow:hidden;box-shadow:0 0 0 .5px rgba(0,0,0,.06)}
+.dk-li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;text-align:left;border:0;background:none;color:inherit;padding:10px 14px;cursor:pointer;font:inherit;position:relative;transition:background-color .2s}
+.dk-li+.dk-li::before{content:"";position:absolute;left:72px;right:0;top:0;border-top:.5px solid var(--dk-sep)}
+.dk-li:active{background:var(--ios-fill)}
+.dk-lc{position:relative;display:block;width:44px;aspect-ratio:8.5/11;background:#fff;border-radius:2px;overflow:hidden;container-type:inline-size;box-shadow:0 0 0 .5px rgba(0,0,0,.2),0 1px 3px rgba(0,0,0,.15)}
+.dk-lf{display:grid;place-items:center;background:none;box-shadow:none;aspect-ratio:auto;height:44px}
+.dk-lf svg{width:38px;height:38px;fill:color-mix(in srgb,var(--ios-tint) 62%,#fff);stroke:none}
+.dk-lt{min-width:0;display:flex;flex-direction:column;gap:2px}.dk-lt b{font:600 16px/1.3 var(--f-os)}
+.dk-lt small{font:400 13.5px/1.3 var(--f-os);color:var(--dk-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk-li .dk-st{position:static;box-shadow:none}.dk-li .dk-st.no,.dk-li .dk-st.wait,.dk-li .dk-st.dl{background:none;box-shadow:none}
+.dk-chev{width:14px;height:14px;fill:none;stroke:var(--dk-sub);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dk-del{font:600 14px var(--f-os);color:#fff;background:var(--ios-red);border-radius:8px;padding:6px 10px}
+/* empty and waiting */
+.dk-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;min-height:100%;padding:40px 24px;box-sizing:border-box;color:var(--dk-sub)}
+.dk-ei{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;background:var(--ios-fill);color:var(--dk-sub);margin-bottom:8px}
+.dk-ei svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.dk-empty b{font:600 20px/1.25 var(--f-os);color:var(--dk-ink)}.dk-empty p{margin:0;max-width:430px;font:400 15px/1.45 var(--f-os)}
+.dk-btn{margin-top:14px;border:0;border-radius:12px;background:var(--ios-tint);color:#fff;font:600 16px var(--f-os);padding:11px 22px;cursor:pointer}
+.dk-wait{display:flex;align-items:center;justify-content:center;gap:10px;min-height:100%;color:var(--dk-sub);font:400 15px var(--f-os)}
+@keyframes dkSpin{to{transform:rotate(360deg)}}
+/* motion */
+.dk.dkfx-open .dk-tile,.dk.dkfx-open .dk-li,.dk.dkfx-src .dk-tile,.dk.dkfx-src .dk-li,.dk.dkfx-view .dk-tile,.dk.dkfx-view .dk-li{animation:dkUp .42s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(min(var(--i,0),14)*26ms)}
+.dk.dkfx-fwd .dk-body>*{animation:dkFwd .34s cubic-bezier(.2,.8,.2,1) both}.dk.dkfx-back .dk-body>*{animation:dkBack .34s cubic-bezier(.2,.8,.2,1) both}
+.dk.dkfx-src .dk-t,.dk.dkfx-fwd .dk-t,.dk.dkfx-back .dk-t{animation:dkFade .3s ease-out both}
+.dk.dkfx-open .dk-empty,.dk.dkfx-src .dk-empty{animation:dkFade .35s ease-out both}
+@keyframes dkUp{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes dkFwd{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes dkBack{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}
+@keyframes dkFade{from{opacity:0}to{opacity:1}}
+@container screen (max-width:960px){.dk{grid-template-columns:250px minmax(0,1fr)}.dk-sh h2{font-size:24px}}
+@container dkmain (max-width:700px){
+  .dk-bar{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"l t" "q q";padding:8px 12px 10px;row-gap:8px}
+  .dk-bl{grid-area:l}.dk-t{grid-area:t;justify-content:flex-end;max-width:none;font-size:17px}.dk-br{grid-area:q}.dk-q{flex:1 1 auto}
+}
+@container screen (max-width:640px){
+  .dk{grid-template-columns:minmax(0,1fr)}.dk-side{display:none}
+  .dk-srcs{display:flex;gap:2px;margin:10px 12px 0;padding:2px;background:var(--ios-fill);border-radius:9px;flex:none}
+  .dk-srcs button{flex:1;height:32px;border:0;border-radius:7px;background:none;color:var(--dk-ink);font:600 14px var(--f-os);cursor:pointer}
+  .dk-srcs button[aria-selected="true"]{background:var(--dk-cap);box-shadow:0 1px 3px rgba(0,0,0,.16)}
+  .dk-bar{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"l t" "q q";padding:8px 12px 10px;row-gap:8px;background:var(--dk-main);border-bottom:0}
+  .dk-bl{grid-area:l}.dk-t{grid-area:t;justify-content:flex-end;max-width:none;font-size:16px}.dk-br{grid-area:q}.dk-q{flex:1 1 auto}
+  .dk-tb span{display:none}.dk-tb{padding:0 10px}
+  .dk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px;padding:12px 14px 40px}
+  .dk-cap{min-height:52px;padding:8px}.dk-cap b{font-size:13.5px}
+}
+/* ---------- the reader ---------- */
+.drwrap{--dr-bg:#D5DADE;position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--dr-bg);font-family:var(--f-os);color:var(--ink)}
+:root[data-theme="dark"] .drwrap{--dr-bg:#0C0C0E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .drwrap{--dr-bg:#0C0C0E}}
+.drwrap[hidden],.screen:not([data-app="docs"]) .drwrap{display:none!important}
+.drwrap.in{animation:drIn .34s cubic-bezier(.2,.8,.2,1) both}.drwrap.out{animation:drOut .22s cubic-bezier(.4,0,1,1) both;pointer-events:none}
+@keyframes drIn{from{opacity:0;transform:translateY(22px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes drOut{to{opacity:0;transform:translateY(14px) scale(.99)}}
+.dr-top{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:8px 14px;min-height:60px;box-sizing:border-box;background:var(--ios-bg);border-bottom:.5px solid var(--ios-sep);position:relative;z-index:5}
+.dr-back{justify-self:start;display:flex;align-items:center;gap:1px;border:0;background:none;color:var(--ios-tint);font:400 17px var(--f-os);padding:6px 6px 6px 0;cursor:pointer}
+.dr-back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dr-t{display:flex;flex-direction:column;align-items:center;min-width:0;max-width:44cqw;text-align:center}
+.dr-t b{font:600 17px/1.2 var(--f-os);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-t small{font:400 12.5px/1.3 var(--f-os);color:var(--ios-lbl2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dr-btns{justify-self:end;display:flex;align-items:center;gap:6px}
+.dr-zm{display:inline-flex;background:var(--ios-fill);border-radius:9px;padding:2px}.dr-zm .dr-b{background:none;min-width:38px;height:30px;padding:0 8px}
+.dr-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;min-width:34px;padding:0 11px;border:0;border-radius:8px;background:var(--ios-fill);color:var(--ios-tint);font:600 15px var(--f-os);cursor:pointer}
+.dr-b svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.dr-b[aria-pressed="true"]{background:var(--ios-tint);color:#fff}.dr-b[hidden]{display:none}
+.dr-body{position:relative;flex:1;min-height:0;display:flex}
+.dr-scroll{position:relative;flex:1;min-width:0;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain;outline:none}
+.dr-pages{margin:0 auto;padding:22px 0 90px;transform-origin:0 0}
+.dr-pg{position:relative;width:100%;margin:0 0 16px;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 10px 24px -14px rgba(0,0,0,.5)}
+.dr-pg canvas{position:absolute;inset:0;z-index:1;width:100%;height:100%;display:block}
+.dr-pn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 15px var(--f-os);color:#A8AFB4}
+.drwrap.inv .dr-pg{background:#141414;box-shadow:0 0 0 .5px rgba(255,255,255,.08)}.drwrap.inv .dr-pg canvas{filter:invert(.92) hue-rotate(180deg)}
+.dr-pgn{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:2px;padding:8px 15px;border-radius:999px;background:rgba(28,28,30,.8);color:#fff;font:600 14px/1 var(--f-os);font-variant-numeric:tabular-nums;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px -8px rgba(0,0,0,.5)}
+.dr-pgn[hidden]{display:none}
+.dr-pgn input{width:4.4em;border:0;border-radius:6px;padding:3px 6px;font:600 14px var(--f-os);text-align:center;background:#fff;color:#000;outline:none}
+.dr-msg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);margin:0;padding:13px 20px;border-radius:12px;background:var(--ios-grp);color:var(--ink);font:500 15px/1.4 var(--f-os);box-shadow:0 10px 30px -12px rgba(0,0,0,.45);max-width:min(80%,440px);text-align:center;z-index:4}
+.dr-msg[hidden]{display:none}
+.dr-toc{flex:none;width:300px;max-width:80%;overflow-y:auto;background:var(--ios-bg);border-right:.5px solid var(--ios-sep);padding:4px 0 24px;animation:drToc .26s cubic-bezier(.2,.8,.2,1) both}
+.dr-toc[hidden]{display:none}
+@keyframes drToc{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+.dr-tch{font:600 13px var(--f-os);text-transform:uppercase;letter-spacing:.4px;color:var(--ios-lbl2);padding:14px 16px 6px}
+.dr-ti{display:block;width:100%;text-align:left;border:0;background:none;color:var(--ink);font:400 15px/1.35 var(--f-os);padding:9px 16px 9px calc(16px + var(--l,0)*16px);cursor:pointer}
+.dr-ti[style*="--l:0"]{font-weight:600}.dr-ti:active{background:var(--ios-fill)}
+@container screen (max-width:640px){
+  .dr-toc{position:absolute;inset:0 auto 0 0;z-index:6;box-shadow:12px 0 30px -12px rgba(0,0,0,.5)}
+  .dr-top{grid-template-columns:auto minmax(0,1fr) auto;padding:6px 10px}.dr-t{align-items:flex-start;text-align:left;max-width:none}
+  .dr-zm{display:none}.dr-b span{display:none}.dr-b{padding:0 9px}.dr-back span{display:none}
+}
+</style>`);
 
 /* ---------- Messages: ACARS, coming ---------- */
 V.messages=()=>`<div class="fd"><section class="card fm"><span class="fm-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${FT_I.msg}</svg></span>
@@ -8383,7 +8917,7 @@ V.messages=()=>`<div class="fd"><section class="card fm"><span class="fm-ic"><sv
 
 /* ---------- More ---------- */
 V.more=()=>`<div class="fd">
-  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","The OFP, the flight plan, nav log and block times")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
+  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","The flight\u2019s papers and the Polaris manuals")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
   <section class="card">${cardH("Flight","Instruments and settings")}<div class="fd-list">${fdRow('data-ftgo="pfd"','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>',"Backup PFD","Standby flight display, live from the simulator")}${fdRow("data-ftset",ST_I.gear||'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',"Settings","Base map and layers, your SimBrief account (opens Settings)")}</div></section>
   <p class="fd-foot">© Polaris Airways EFB Beta${EFB_BUILD?" · build "+esc(EFB_BUILD):""}</p></div>`;
 

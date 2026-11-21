@@ -264,7 +264,7 @@ function render(): void {
 }
 
 /* ---------- tabs ---------- */
-function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : 'mail'; }
+function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' | 'docs' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : location.hash === '#docs' ? 'docs' : 'mail'; }
 function showTab(): void {
   if (document.querySelector('.deny')) return;
   const t = currentTab();
@@ -274,6 +274,7 @@ function showTab(): void {
   if (live) live.hidden = t !== 'live';
   if (pilots) pilots.hidden = t !== 'pilots';
   if (inbox) inbox.hidden = t !== 'inbox';
+  const docs = $('#docs'); if (docs) docs.hidden = t !== 'docs';
   document.body.classList.toggle('on-live', t === 'live');
   if (t === 'live') {
     if (!S.globe) {

@@ -9,6 +9,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - vAMSYS 的飛行員資料、預訂、機隊和在空中的航班
 - 飛行員登入（Login with vAMSYS）
 - Polaris Mail 和給部門的訊息
+- Polaris 公司文件（手冊、SOP、通告）：工作人員在後台上傳，飛行員在 EFB 的 Flight › Documents 看
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送
 
 完整的端點清單寫在 `src/index.js` 開頭的註解裡。
@@ -67,7 +68,7 @@ repo 裡另外有一個 GitHub Actions 的部署流程（`.github/workflows/depl
 
 | 綁定 | 類型 | 存什麼 |
 |---|---|---|
-| `STORE` | Workers KV | 航圖清單、機場滑行道圖、Polaris Mail 和附件、共享的航圖對位、FIR 邊界快取 |
+| `STORE` | Workers KV | 航圖清單、機場滑行道圖、Polaris Mail 和附件、Polaris 公司文件、共享的航圖對位、FIR 邊界快取 |
 | `PM` | Durable Object（`Mailbox`，`src/pm.js`） | 飛行員寫給部門的訊息，以及工作人員的回覆 |
 | `CREW` | Durable Object（`Crew`，`src/crew.js`） | 推播訂閱和 VAPID 金鑰、報到、提示通知、飛行中的航跡 |
 | `KB` | Durable Object（`Kneeboard`，`src/kb.js`） | 每個飛行員的 Kneeboard 頁面，在他自己的裝置之間同步；只有飛行員本人讀得到 |
@@ -76,6 +77,16 @@ repo 裡另外有一個 GitHub Actions 的部署流程（`.github/workflows/depl
 - 這 4 個 Durable Object 在 Workers Free 方案就能用，部署時會依照 `wrangler.toml` 的 `[[migrations]]` 自動建立，不用到後台手動設定。
 - 已經有的 `[[migrations]]` 不要改、也不要刪，否則部署會失敗，甚至可能弄丟資料。要加新的 Durable Object 時，另外加一段新的 `[[migrations]]`，並取一個新的 `tag`。
 
+## Polaris 公司文件（`src/docs.js`）
+
+工作人員在後台的 **Documents** 分頁（`/admin#docs`）上傳 PDF，填標題、資料夾和版次；登入的飛行員在 EFB 的 Flight › Documents › Polaris Airways 看到，依資料夾分組，打開一次就存在裝置上，可以離線看。
+
+- 檔案存在 KV（`STORE`）：每 8 MB 一塊（`docs:v1:f:<id>:<版本>:<第幾塊>`），封面是後台用 pdf.js 從第一頁做的小 JPEG（`docs:v1:c:<id>:<版本>`），清單在 `docs:v1:index`。
+- 上限：每個檔案 100 MB，全部加起來 700 MB，最多 300 份。KV 免費方案總共 1 GB、每天 1,000 次寫入；上傳一份 100 MB 的檔案大約用 15 次寫入。
+- 換檔案（Replace file）會變成新版本，舊版本的檔案在新版本上傳完成後刪掉。EFB 發現新版本時會自己下載換掉，刪掉的文件也會從飛行員的裝置上移除。
+- 給飛行員的檔案和封面連結帶簽章，6 到 12 小時後失效，跟 Mail 附件一樣；EFB 會自己重新拿清單。
+- 上傳到一半中斷留下的碎片，一天後會在工作人員打開 Documents 分頁時清掉。
+
 ## 定時工作（每 20 分鐘）
 
 - 補抓美國大型機場的滑行道圖和本期 AIRAC 的航圖清單：只抓缺的或最舊的，每次最多 3 座。
@@ -83,7 +94,7 @@ repo 裡另外有一個 GitHub Actions 的部署流程（`.github/workflows/depl
 
 ## 後台的 Live 分頁（`admin-live/`）
 
-`admin-live/` 裡的程式會打包成 `src/live-bundle.js`。改了 `admin-live/` 裡的東西之後要重新打包，再 push：
+`admin-live/` 裡的程式會打包成 `src/live-bundle.js`。分頁切換（Mail、Live、Inbox、Documents、Pilots）也在 `live.ts` 裡。改了 `admin-live/` 裡的東西之後要重新打包，再 push：
 
 ```
 cd workers/polaris-efb-api/admin-live

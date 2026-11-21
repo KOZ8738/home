@@ -18,6 +18,9 @@
    above 2,500 ft and faster than 120 kt), as the EFB does. When it ends, the device gets one notification:
    "N messages arrived during your flight". Flight briefings are not held, like checklist alerts in the EFB. */
 
+import { aocSend } from './aoc.js';
+import { loadsheetMsg, cleanWeights } from './loadsheet.js';
+
 const DAY = 86_400_000, MIN = 60_000;
 const BATCH = 35;                 // pushes per alarm run (each is one outgoing request)
 const TRAIL_EVERY = 3 * MIN, TRAIL_MAX = 2000;
@@ -118,6 +121,7 @@ export class Crew {
       case 'unjob': this.sql.exec('DELETE FROM jobs WHERE id = ?', String(a.id || '')); return { ok: true };
       case 'checkin': { const r = this.checkin(a); await this.wake(); return r; }
       case 'checkout': return this.checkout(a.u);
+      case 'ciOfp': { const r = this.ciOfp(a); await this.wake(); return r; }
       case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '' }; }) };
       case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
       case 'gsxSet': { const r = this.gsxSet(a); if (r.sent) await this.wake(); return r; }
@@ -268,9 +272,23 @@ export class Crew {
   checkout(u, quiet) {
     this.sql.exec('DELETE FROM ci WHERE u = ?', u);
     this.sql.exec('DELETE FROM kv WHERE k LIKE ?', 'wxw:' + u + ':%');
-    this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'brief'", u);
+    this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind IN ('brief', 'ls')", u);
     if (!quiet) this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'trail'", u);
     return { ok: true };
+  }
+  /* the weights of the plan for the checked-in flight (from the EFB): the final loadsheet goes 15 minutes before STD */
+  ciOfp(a) {
+    const u = String(a.u || ''); if (!u) throw new CrewError(400, 'No pilot');
+    if (!a.w) throw new CrewError(400, 'The plan has no weights');
+    const row = this.one('SELECT bid, data FROM ci WHERE u = ?', u);
+    if (!row || String(row.bid) !== String(a.bookingId || '')) throw new CrewError(409, 'Check in to this flight first');
+    const d = JSON.parse(row.data), now = Date.now();
+    d.w = a.w; d.wAt = now; this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(d), u);
+    if (d.lsSent) return { ok: true, sent: d.lsSent };
+    if (d.std && now > d.std + 60 * MIN) return { ok: true, late: true };
+    const at = Math.max(now + MIN, d.std ? d.std - 15 * MIN : now + 15 * MIN);
+    this.job('ls:' + u, at, 'ls', u, { bid: d.bookingId });
+    return { ok: true, at };
   }
   trkFind(a) {
     let r = a.bid ? this.one('SELECT * FROM trk WHERE bid = ?', String(a.bid)) : null;
@@ -325,6 +343,15 @@ export class Crew {
       if (!t && Array.isArray(d.rep) && d.rep.length) { const nx = alarmNext(d, Date.now() + 60_000); if (nx) this.job(j.id, nx, 'alarm', j.u, d); }
     } else if (j.kind === 'trail') {
       await this.trail(j.u, d);
+    } else if (j.kind === 'ls') {
+      /* the final loadsheet, as an AOC message to the crew (staff can turn it off on /admin) */
+      const row = this.one('SELECT bid, data FROM ci WHERE u = ?', j.u); if (!row || String(row.bid) !== String(d.bid)) return;
+      const ci = JSON.parse(row.data); if (!ci.w || ci.lsSent) return;
+      const plan = await this.env.STORE.get('stands:v1:plan', 'json').catch(() => null); if (plan && plan.ls === false) return;
+      const { title, body } = loadsheetMsg(ci, ci.w), cs = String(ci.callsign || ci.flight || '').replace(/\s+/g, '').toUpperCase();
+      const to = /^[A-Z0-9]{2,10}$/.test(cs) ? { crew: 1, cs, m: [{ pilot: j.u, cid: '', name: '' }] } : { pilot: j.u, cid: '', name: '' };
+      await aocSend(this.env, { title, body, to, push: true, by: 'AUTO' }, (t, c, p) => this.enqueue(t, c, p));
+      ci.lsSent = Date.now(); this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(ci), j.u);
     }
   }
   /* the alarms and running timer of one pilot, as the EFB last sent them (it sends the whole list each time) */
@@ -493,9 +520,12 @@ export async function crewPublic(req, url, env, h, me, deps) {
         if (!bk) throw new CrewError(404, 'That booking is no longer in your vAMSYS bookings');
         const std = Date.parse(bk.departureTime || ''), now = Date.now();
         if (std && std - now > 12 * 3600_000) throw new CrewError(409, 'Check-in opens 12 hours before departure (' + new Date(std - 12 * 3600_000).toISOString().slice(11, 16) + 'Z).');
-        return res(await crew(env, { op: 'checkin', u: me.u, booking: bk, altn: String(b.altn || '').toUpperCase() }));
+        const r = await crew(env, { op: 'checkin', u: me.u, booking: bk, altn: String(b.altn || '').toUpperCase() });
+        if (deps.checkedIn) deps.checkedIn(me, bk); // the departure gate, when staff have it on (stands.js)
+        return res(r);
       }
       case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo, log: b.log }));
+      case '/api/efb/crew/ofp': return res(await crew(env, { op: 'ciOfp', u: me.u, bookingId: String(b.bookingId || ''), w: cleanWeights(b.w) }));
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));
     }

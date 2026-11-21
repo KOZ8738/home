@@ -71,10 +71,11 @@ export function minutesToGo(f, apts, now) {
   return (nmBetween(f.lat, f.lon, a[0], a[1]) / f.gs) * 60 + 8; // VATSIM only: a straight line is short of the real route
 }
 
-/* stands at icao that are taken now: a pilot on VATSIM on it, or another Polaris arrival around the same time */
+/* stands at icao that are taken now: a pilot on VATSIM on it, or another Polaris arrival or departure around the
+   same time (a departure's time is its STD) */
 async function takenAt(icao, etaMs, log, deps, skipKey) {
   const taken = new Set();
-  for (const x of log) if (x.arr === icao && x.k !== skipKey && x.stand && Math.abs((x.eta || x.t) - etaMs) < GAP_MS) taken.add(norm(x.stand));
+  for (const x of log) if ((x.kind === 'dep' ? x.dep : x.arr) === icao && x.k !== skipKey && x.stand && Math.abs((x.eta || x.t) - etaMs) < GAP_MS) taken.add(norm(x.stand));
   try {
     const lay = deps.layout ? await deps.layout(icao) : null, vs = deps.vatsim ? await deps.vatsim() : null;
     if (lay && Array.isArray(lay.stands) && vs && Array.isArray(vs.rows)) {
@@ -103,6 +104,7 @@ export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl) {
   return { none: 'full' };
 }
 const standText = (f, eta, p) => [`${f.cs} ${f.dep || '----'}-${f.arr} ETA ${z(eta)}`, p.stand ? `GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'GATE: CONTACT GROUND ON ARRIVAL', 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC'].join('\n');
+const depText = (f, std, p, ac) => [`${f.cs} ${f.dep}-${f.arr || '----'}${std ? ' STD ' + z(std) : ''}${ac ? '  ' + ac : ''}`, p.stand ? `DEPARTURE GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'NO PLANNED GATE IS FREE AROUND YOUR DEPARTURE: USE ANY FREE GATE', 'IF THE GATE IS TAKEN WHEN YOU SET UP, USE A FREE GATE NEARBY AND TELL GROUND'].join('\n');
 const crewOf = (f) => ({ crew: 1, cs: f.cs, m: f.pilot || f.cid ? [{ pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name && f.name !== f.pilot ? f.name : '' }] : [] });
 
 /* every 2 minutes: deps = { live() -> liveFlights answer, vatsim() -> VATSIM rows, layout(icao) -> cached airport map } */
@@ -125,6 +127,25 @@ export async function standWatch(env, deps) {
   }
   if (sent.length) await writeLog(kv, log);
   return { sent };
+}
+
+/* when a pilot checks in for a flight in the EFB: a gate at the departure airport from the plan, as an AOC to the
+   crew (staff turn this on on /admin). b = { cs, dep, arr, ac, std, pilot, name } */
+export async function departureGate(env, b, deps, now = Date.now()) {
+  const kv = env && env.STORE; if (!kv) return null;
+  const plan = await readPlan(kv); if (!plan.dep) return { off: true };
+  const cs = String(b.cs || '').replace(/\s+/g, '').toUpperCase(), dep = String(b.dep || '').toUpperCase(), arr = String(b.arr || '').toUpperCase();
+  if (!/^[A-Z0-9]{2,10}$/.test(cs) || !okIcao(dep)) return null;
+  const std = b.std && b.std > now - 3600_000 ? b.std : now + 3600_000, k = 'dep:' + cs + ':' + dep, log = await readLog(kv);
+  if (log.some((x) => x.k === k && Math.abs((x.eta || x.t) - std) < 6 * 3600_000)) return { dup: true }; // once a departure
+  const ac = String(b.ac || '').toUpperCase(), fl = flightType(dep, arr);
+  const p = await pickStand(plan, dep, ac, std, log, deps || {}, null, fl);
+  if (p.none === 'noplan') return { none: 'noplan' };
+  const f = { cs, dep, arr, pilot: b.pilot || '', cid: b.cid ? String(b.cid) : '', name: b.name || '' };
+  const m = await aocSend(env, { title: 'DEPARTURE GATE', body: depText(f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO' });
+  const rec = { k, kind: 'dep', t: now, cs, dep, arr, ac, wide: isWide(ac), fl, eta: std, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
+  log.unshift(rec); await writeLog(kv, log);
+  return rec;
 }
 
 /* ---- /admin, Stands tab ---- */
@@ -166,7 +187,8 @@ export async function standsAdmin(req, url, path, env, who, deps) {
       const stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the new gate');
       const term = b.term != null ? line(b.term, 20).toUpperCase() : x.term;
       const f = { cs: x.cs, dep: x.dep, arr: x.arr, pilot: x.pilot, cid: x.cid, name: x.name };
-      const m = await aocSend(env, { title: 'GATE CHANGE', body: standText(f, x.eta, { stand, term }), to: crewOf(f), push: true, by: who });
+      const m = x.kind === 'dep' ? await aocSend(env, { title: 'DEPARTURE GATE CHANGE', body: depText(f, x.eta, { stand, term }, x.ac), to: crewOf(f), push: true, by: who })
+        : await aocSend(env, { title: 'GATE CHANGE', body: standText(f, x.eta, { stand, term }), to: crewOf(f), push: true, by: who });
       Object.assign(x, { stand, term, by: who, aoc: m.id, changed: Date.now() }); await writeLog(kv, log);
       return jsonRes({ ok: true, rec: x });
     }

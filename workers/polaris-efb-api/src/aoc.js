@@ -92,14 +92,15 @@ export async function hoppiePeek(req, env, h, sess) {
 }
 
 /* keep an AOC message and tell its pilots' devices (staff on /admin, or the automatic stand assignment, see stands.js) */
-export async function aocSend(env, { title, body, to, push, by }) {
+/* notify(to, cat, payload): how to push it (the crew object passes its own outbox; by default a call to the object) */
+export async function aocSend(env, { title, body, to, push, by }, notify) {
   const kv = env.STORE;
   const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '' };
   await writeIndex(kv, [m, ...(await readIndex(kv))]);
   if (push !== false) {
     const payload = { title: 'AOC · ' + m.title, body: m.body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
     /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
-    try { await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
+    try { if (notify) await notify(mailTo(m), 'mail', payload); else await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
   }
   return m;
 }

@@ -51,7 +51,7 @@ import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './a
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover } from './docs.js';
 import { aocPublic, hoppiePeek } from './aoc.js';
-import { standWatch, autoPlan } from './stands.js';
+import { standWatch, autoPlan, departureGate } from './stands.js';
 import { flightWatch } from './watch.js';
 import { calPublic } from './cal.js';
 import { oooWatch } from './ooo.js';
@@ -1564,9 +1564,11 @@ export default {
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
     if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */
-    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
+    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms|ofp))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
       const me = await sessionOf(req, env, req.method === 'POST');
-      return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u) });
+      return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u),
+        /* the departure gate, sent after the answer (see stands.js) */
+        checkedIn: (who, bk) => ctx.waitUntil(departureGate(env, { cs: bk.callsign || bk.flight, dep: bk.from, arr: bk.to, ac: bk.type, std: Date.parse(bk.departureTime || '') || 0, pilot: who.u, cid: who.c || '', name: who.n || '' }, standDeps(env, ctx)).catch((e) => console.warn('[depgate]', e && e.message))) });
     }
     /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
     { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {

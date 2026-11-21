@@ -11,6 +11,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - Polaris Mail 和給部門的訊息（Mail 和 AOC 都可以寄給全部、單一飛行員或整個機組，機組規則見 `crewTo` / `toMatch`，在 `src/crew.js`）
 - Polaris 公司文件（手冊、SOP、通告）：工作人員在後台上傳，飛行員在 EFB 的 Flight › Documents 看
 - AOC 訊息：工作人員在後台 Messages 分頁選「AOC」（或從 Live 航班卡片的 AOC 按鈕）發給全部、單一飛行員或整個機組（呼號加上機組成員，雙人機組兩位都收得到；正在飛這個呼號的 EFB 在 18 小時內也收得到），飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
+- Flight Watch：後台 Live 分頁上方列出需要注意的航班（緊急應答機 7700/7600/7500、超過 ETA 20 分鐘還在飛、VATSIM 飛行計畫目的地和訂位不同、訂 VATSIM 卻沒連線、ACARS 位置停住、等待航線、在 SIGMET 內、落地前 2 小時目的地 IFR/LIFR 或雷雨凍雨大雪冰雹），可以一鍵看航班或發 AOC（見 `src/watch.js`）
 - 自動停機位（AOC）：後台 Stands 分頁設定每個機場的停機位範圍（例如 `C1-C10, D5`，分窄體／寬體、航廈）；開啟後每 2 分鐘檢查一次 Polaris 航班，落地前 30 分鐘（可調）用 AOC 發停機位給機組，避開 VATSIM 上停著飛機的位置和前後 45 分鐘派給其他 Polaris 班機的位置（見 `src/stands.js`，cron `*/2 * * * *`）。預設關閉
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送
 

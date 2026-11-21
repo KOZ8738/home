@@ -136,6 +136,10 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
   if (path === '/admin/api/docs' || path.startsWith('/admin/api/docs/')) return docsAdmin(req, url, path, env, who, opts && opts.ctx);
+  /* Flight Watch on the Live tab: what operations should look at now (see watch.js) */
+  if (path === '/admin/api/watch' && req.method === 'GET') {
+    try { return jsonRes(opts && opts.watch ? await opts.watch() : { alerts: [] }); } catch (e) { return jsonRes({ error: 'Flight Watch is not available right now: ' + e.message }, 502); }
+  }
   /* Stands tab: the stand plan for the automatic stand assignment, and what it sent (see stands.js) */
   if (path === '/admin/api/stands' || path.startsWith('/admin/api/stands/')) return standsAdmin(req, url, path, env, who, opts && opts.stands);
   /* Messages tab, sent as AOC: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */

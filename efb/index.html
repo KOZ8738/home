@@ -8,9 +8,12 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1121.0432">
+<meta name="efb-build" content="1121.0455">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://efb-api.koz8738.com" crossorigin>
+<link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
 <meta name="robots" content="noindex,nofollow">
 </head><body>
@@ -591,9 +594,9 @@ svg.lrchart{display:block;width:100%;height:150px}
 /* home screen: one page on iPad, two swipeable pages on a phone */
 .p2,.dots{display:none}
 @media (max-width:1099px),(pointer:coarse),(max-height:759px){
-body:has(.screen:not(.in-app)){background:var(--wp4)}
-body:has(.screen:not(.in-app))::before{background:var(--wp1)}
-body:has(.screen.in-app){background:var(--bg)}
+html:not(.x-in) body{background:var(--wp4)}
+html:not(.x-in) body::before{background:var(--wp1)}
+html.x-in body{background:var(--bg)}
 }
 @container screen (max-width:560px){
   .home .p2{display:block}
@@ -830,15 +833,15 @@ html.pwa-ios .appwin{padding-bottom:var(--sab,0px);background:linear-gradient(va
    right above it, and under a tab bar the strip takes the tab bar's colour so it reads as one bar. */
 html.pwa-chin .home .dockwrap{padding-bottom:4px}
 @media (max-width:640px){
-  html.pwa-chin body:has(.screen.in-app .tabbar){background:var(--panel)}
+  html.pwa-chin.x-in.x-tab body{background:var(--panel)}
   html.pwa-chin .tabbar{background:var(--panel)}
-  html.pwa-chin body:has(.screen.in-app .clk){background:var(--ck-bg)}
+  html.pwa-chin.x-in.x-clk body{background:var(--ck-bg)}
 }
 /* inside the home-screen app the page already ends above the home indicator */
 html.pwa-ios .maplayers{bottom:10px!important}
 /* iPadOS home-screen app: below the page iOS can leave a strip (about one status bar tall) that only
    ever shows the page background, so give it the colour of what sits at the bottom edge. */
-html.pwa-ios body:has(.screen.in-app[data-app="map"]){background:var(--map-water,var(--map-sea))}
+html.pwa-ios.x-in[data-xapp="map"] body{background:var(--map-water,var(--map-sea))}
 /* Map app: the chart runs to the bottom edge under the home indicator (like iPadOS Maps) instead
    of stopping above a solid strip. The indicator floats over the map and the bottom controls are
    lifted by --mb so they stay clear of it. */
@@ -7347,8 +7350,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @media (prefers-reduced-motion:reduce){.pm-dot{animation:none!important}}
 /* the status bar, the strip under the Dynamic Island and the home indicator follow the columns */
 .screen[data-app="mail"] .appwin,.screen[data-app="mail"] .appwin>.nav,.screen[data-app="mail"] .sbspace,.screen[data-app="mail"] .homeind{background:linear-gradient(90deg,var(--ml-side) 0 212px,var(--ios-sep) 212px 212.5px,var(--ml-bg) 212.5px 572px,var(--ios-sep) 572px 572.5px,var(--ml-bg) 572.5px)!important}
-body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail"])::before,html:has(.screen.in-app[data-app="mail"]){background:var(--ml-bg) linear-gradient(90deg,var(--ml-side) 0 212px,var(--ios-sep) 212px 212.5px,var(--ml-bg) 212.5px 572px,var(--ios-sep) 572px 572.5px,var(--ml-bg) 572.5px)!important}
-@media (max-width:1000px){body:has(.screen.in-app[data-app="mail"]),body:has(.screen.in-app[data-app="mail"])::before,html:has(.screen.in-app[data-app="mail"]){background:var(--ml-bg)!important}}
+html.x-in[data-xapp="mail"] body,html.x-in[data-xapp="mail"] body::before,html.x-in[data-xapp="mail"]{background:var(--ml-bg) linear-gradient(90deg,var(--ml-side) 0 212px,var(--ios-sep) 212px 212.5px,var(--ml-bg) 212.5px 572px,var(--ios-sep) 572px 572.5px,var(--ml-bg) 572.5px)!important}
+@media (max-width:1000px){html.x-in[data-xapp="mail"] body,html.x-in[data-xapp="mail"] body::before,html.x-in[data-xapp="mail"]{background:var(--ml-bg)!important}}
 .screen.in-app[data-app="mail"] .statusbar{color:var(--ml-ink)}.screen[data-app="mail"] .statusbar svg,.screen[data-app="mail"] .statusbar svg.sbx{fill:currentColor}
 @container screen (max-width:1000px){
   .pm3 .pm-search{margin-bottom:8px}
@@ -8126,7 +8129,7 @@ button.st-n[aria-pressed="true"]{background:var(--ios-tint);color:#fff;border-ra
 .screen[data-app="prefs"] .appwin,.screen[data-app="prefs"] .appwin>.nav,.screen[data-app="prefs"] .sbspace,.screen[data-app="prefs"] .homeind{background:var(--ios-bg)!important}
 /* light Settings: the status bar text goes black on the grey */
 .screen.in-app[data-app="prefs"] .statusbar{color:var(--ink)}.screen[data-app="prefs"] .statusbar svg,.screen[data-app="prefs"] .statusbar svg.sbx{fill:currentColor}
-body:has(.screen.in-app[data-app="prefs"]),body:has(.screen.in-app[data-app="prefs"])::before,html:has(.screen.in-app[data-app="prefs"]){background:var(--ios-bg)!important}
+html.x-in[data-xapp="prefs"] body,html.x-in[data-xapp="prefs"] body::before,html.x-in[data-xapp="prefs"]{background:var(--ios-bg)!important}
 </style>`);
 /* iOS back swipe in Settings (iPhone-size screens): a section opened from the list gets its own history step, so the
    system's edge swipe (and the browser's back) returns to the Settings list instead of leaving Settings */
@@ -8536,7 +8539,10 @@ function routePts0(){const x=O(),pts=[];let prev=null;const unwrap=lo=>{if(prev!
   const o=ap(x.o,"dep");if(o)pts.push(o);
   x.fixes.forEach(f=>{const la=N(f.pos_lat),lo=N(f.pos_long);if(la!=null&&lo!=null&&S(f.ident)!==S(x.d.icao_code))pts.push({n:S(f.ident),lat:la,lon:unwrap(lo),toc:/^TO[CD]$/.test(S(f.ident))})});
   const d=ap(x.d,"arr");if(d)pts.push(d);const al=ap(x.a,"altn");return{pts,altn:al}}
-const mapSize=()=>{const el=$("#mapSvg");return el?{w:el.clientWidth,h:el.clientHeight}:{w:0,h:0}};
+const MSZ={el:null,w:0,h:0,ro:null};
+const mapSize=()=>{let el=MSZ.el;if(!el||!el.isConnected){el=$("#mapSvg");if(!el){MSZ.el=null;return{w:0,h:0}}MSZ.el=el;MSZ.w=el.clientWidth;MSZ.h=el.clientHeight;
+  try{if(!MSZ.ro)MSZ.ro=new ResizeObserver(es=>{for(const e of es)if(e.target===MSZ.el){MSZ.w=MSZ.el.clientWidth;MSZ.h=MSZ.el.clientHeight}});else MSZ.ro.disconnect();MSZ.ro.observe(el)}catch(e){MSZ.el=null;return{w:el.clientWidth,h:el.clientHeight}}}
+  return{w:MSZ.w,h:MSZ.h}};
 function mapFit(){const {w,h}=mapSize();const {pts,altn}=routePts();const all=pts.concat(altn?[altn]:[]);
   if(!all.length||!w||!h){MAP.c={lat:37.62,lon:-122.38};MAP.z=6;return}
   let la1=90,la2=-90,lo1=1e9,lo2=-1e9;all.forEach(q=>{la1=Math.min(la1,q.lat);la2=Math.max(la2,q.lat);lo1=Math.min(lo1,q.lon);lo2=Math.max(lo2,q.lon)});
@@ -8646,8 +8652,8 @@ function mapFast(){const el=$("#mapSvg"),d=mapDrawn;const {w,h}=mapSize();mapCla
   if(!el||!d||!MAP.c||d.w!==w||d.h!==h||(d.z===MAP.z&&d.lat===MAP.c.lat&&d.lon===MAP.c.lon)){drawMap();return}
   const k=Math.pow(2,MAP.z-d.z),c1=mpx(MAP.c.lat,MAP.c.lon,d.z),world=TS*Math.pow(2,d.z);let dx=c1[0]-d.cx;while(dx>world/2)dx-=world;while(dx<-world/2)dx+=world;const dy=c1[1]-d.cy;
   if((k>2.6||k<.45||Math.abs(dx)>w*.55||Math.abs(dy)>h*.55)&&performance.now()-d.at>260){drawMap();return}
-  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130);el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;const sc=$("#sigCv");if(sc)sc.style.transform=tf;
-  try{mapCanvas()}catch(e){MAP.lastErr="canvas: "+((e&&e.message)||e);try{localStorage.setItem("efb:maperr",MAP.lastErr)}catch(x){}}try{vecSync()}catch(e){}}
+  const tf=`translate(${(w/2-(dx+w/2)*k).toFixed(1)}px,${(h/2-(dy+h/2)*k).toFixed(1)}px) scale(${k.toFixed(4)})`;clearTimeout(mapIdle);mapIdle=setTimeout(()=>{if(cur==="map")drawMap()},130);try{mapCanvas()}catch(e){MAP.lastErr="canvas: "+((e&&e.message)||e);try{localStorage.setItem("efb:maperr",MAP.lastErr)}catch(x){}}
+  el.style.transform=tf;const bs=$("#mapBase");if(bs)bs.style.transform=tf;const sc=$("#sigCv");if(sc)sc.style.transform=tf;try{vecSync()}catch(e){}}
 function mapZoomAt(dz,sx,sy){const {w,h}=mapSize();if(!MAP.c||!w)return;if(sx==null){sx=w/2;sy=h/2}
   const z0=MAP.z,z1=Math.max(2,Math.min(ZMAX,z0+dz));const c=mpx(MAP.c.lat,MAP.c.lon,z0);const ll=munpx(c[0]-w/2+sx,c[1]-h/2+sy,z0);const q=mpx(ll[0],ll[1],z1);const nc=munpx(q[0]-sx+w/2,q[1]-sy+h/2,z1);MAP.z=z1;MAP.c={lat:nc[0],lon:nc[1]};mapSched()}
 function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bound)return;wrap._bound=1;const pts=new Map();let st=null;
@@ -9252,10 +9258,11 @@ document.addEventListener("paste",e=>{if(e.target.id!=="sbPaste")return;setTimeo
    reload once onto that build. */
 const EFB_BUILD=(document.querySelector('meta[name="efb-build"]')||{}).content||"";
 (function(){if(!/^https?:$/.test(location.protocol)||!EFB_BUILD)return;
-  const check=()=>fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(t=>{const m=t.match(/name="efb-build" content="([^"]+)"/);if(!m||m[1]===EFB_BUILD)return;
+  const head=async r=>{if(!r.body||!r.body.getReader)return r.text();const rd=r.body.getReader(),dec=new TextDecoder();let t="";for(;;){const {done,value}=await rd.read();if(done)break;t+=dec.decode(value,{stream:true});if(/name="efb-build" content="[^"]+"/.test(t)||t.length>262144){try{rd.cancel()}catch(e){}break}}return t};
+  const check=()=>fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"}).then(r=>r.ok?head(r):"").then(t=>{const m=t.match(/name="efb-build" content="([^"]+)"/);if(!m||m[1]===EFB_BUILD)return;
     let tried="";try{tried=sessionStorage.getItem("efbUpd")||""}catch(e){}if(tried===m[1])return;try{sessionStorage.setItem("efbUpd",m[1])}catch(e){}
     const u=new URL(location.href);u.searchParams.set("b",m[1]);location.replace(u.toString())}).catch(()=>{});
-  check();document.addEventListener("visibilitychange",()=>{if(!document.hidden)check()})})();
+  setTimeout(check,6000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)check()})})();
 
 /* ===== Dynamic Island: live activities (flight, timer, music, stopwatch) and checklist alerts ===== */
 (function(){
@@ -12667,7 +12674,7 @@ function trPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)retur
   if(!w.querySelector(".tr-pbtn"))w.insertAdjacentHTML("beforeend",`<button class="tr-pbtn" data-trpf aria-pressed="${TR.pf.open}">Profile</button>`);
   let L=w.querySelector(".tr-leg");if(TR.on&&!L){w.insertAdjacentHTML("beforeend",`<div class="tr-leg"></div>`);L=w.querySelector(".tr-leg")}else if(!TR.on&&L){L.remove();L=null}
   let P=w.querySelector(".tr-prof");if(TR.pf.open&&!P)w.insertAdjacentHTML("beforeend",`<div class="tr-prof"><div class="tr-ph"><b>Profile</b><div class="tr-seg"><button data-trpm="route" aria-pressed="${TR.pf.mode==="route"}">Route</button><button data-trpm="ahead" aria-pressed="${TR.pf.mode==="ahead"}">Ahead 80 NM</button></div><span class="tr-pn" id="trPn"></span><button class="tr-px" data-trpf aria-label="Close">×</button></div><canvas id="trPf"></canvas></div>`);
-  else if(!TR.pf.open&&P)P.remove();const pb=w.querySelector(".tr-pbtn");if(pb){pb.setAttribute("aria-pressed",String(TR.pf.open));pb.hidden=TR.pf.open}
+  else if(!TR.pf.open&&P)P.remove();if(w.classList.contains("tr-prof-on")!==!!TR.pf.open)w.classList.toggle("tr-prof-on",!!TR.pf.open);const pb=w.querySelector(".tr-pbtn");if(pb){pb.setAttribute("aria-pressed",String(TR.pf.open));pb.hidden=TR.pf.open}
   /* the layer switch, in Map › layers */
   const ml=w.querySelector("#mlPanel");if(ml&&!ml.querySelector("[data-trl]")){const rows=ml.querySelectorAll(".ml-row"),last=rows[rows.length-1];
     if(last)last.insertAdjacentHTML("afterend",`<button class="ml-row" data-trl aria-pressed="${TR.on}"><span>Terrain hazard<small class="ml-s">Red: at or above you · yellow: within 1,000 ft below</small></span><i></i></button>`)}
@@ -12746,14 +12753,14 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .tr-lh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tr-lh b{font-size:13px}.tr-lh span{display:flex;align-items:center;gap:4px;color:var(--label)}.tr-lh i{width:12px;height:12px;border-radius:3px}.tr-lh i.r{background:rgba(228,38,38,.75)}.tr-lh i.y{background:rgba(246,196,18,.75)}
 .tr-la{display:flex;align-items:center;gap:8px}.tr-la b{font-family:var(--f-mono)}.tr-la button{width:28px;height:28px;border-radius:8px;border:0;background:rgba(127,127,127,.18);color:var(--ink);font:600 16px var(--f-os);cursor:pointer}
 .tr-leg small{font-size:10px;color:var(--label)}
-.mapwrap:has(.tr-prof) .tr-leg{bottom:234px}
+.mapwrap.tr-prof-on .tr-leg{bottom:234px}
 .tr-pbtn{position:absolute;left:50%;transform:translateX(-50%);bottom:22px;z-index:5;border:0;border-radius:99px;padding:7px 16px;background:var(--panel,#fff);color:var(--ink);font:600 13px var(--f-os);box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer}
 .tr-prof{position:absolute;left:12px;right:72px;bottom:12px;height:210px;z-index:6;background:var(--panel,#fff);color:var(--ink);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
 .tr-ph{display:flex;align-items:center;gap:10px;padding:8px 10px 4px 14px}.tr-ph b{font:700 14px var(--f-os)}.tr-pn{flex:1;min-width:0;font:400 12px var(--f-os);color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tr-seg{display:flex;background:rgba(127,127,127,.15);border-radius:8px;padding:2px}.tr-seg button{border:0;background:none;color:var(--ink);font:600 12px var(--f-os);padding:4px 9px;border-radius:6px;cursor:pointer}.tr-seg button[aria-pressed="true"]{background:var(--panel,#fff);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .tr-px{border:0;background:rgba(127,127,127,.18);color:inherit;width:26px;height:26px;border-radius:50%;font:600 15px var(--f-os);cursor:pointer}
 .tr-prof canvas{flex:1;width:100%;min-height:0;display:block}
-@container screen (max-width:560px){.tr-prof{right:8px;left:8px;height:190px}.tr-ph{flex-wrap:wrap}.tr-pn{flex-basis:100%;order:3}.tr-leg{bottom:96px}.mapwrap:has(.tr-prof) .tr-leg{bottom:210px}.tr-pbtn{bottom:64px}}
+@container screen (max-width:560px){.tr-prof{right:8px;left:8px;height:190px}.tr-ph{flex-wrap:wrap}.tr-pn{flex-basis:100%;order:3}.tr-leg{bottom:96px}.mapwrap.tr-prof-on .tr-leg{bottom:210px}.tr-pbtn{bottom:64px}}
 </style>`);
 
 /* ===== Logbook: play the flight back =====
@@ -14168,6 +14175,15 @@ setTimeout(mwTick,8000);setInterval(mwTick,60000);
 /* a plan just loaded: its airports first, straight away */
 {const _l=loadOfp;loadOfp=function(){const r=_l.apply(this,arguments);if(r!==false)setTimeout(mwTick,1200);return r}}
 
+/* the states the page background follows, on <html> (see the CSS: html.x-in, [data-xapp], .x-tab, .x-clk) */
+(function(){const sc=document.querySelector(".screen");if(!sc)return;const R=document.documentElement;
+  const sync=()=>{const inApp=sc.classList.contains("in-app"),app=sc.dataset.app||"";R.classList.toggle("x-in",inApp);if((R.dataset.xapp||"")!==app)R.dataset.xapp=app;
+    R.classList.toggle("x-tab",inApp&&!!sc.querySelector(".tabbar"));R.classList.toggle("x-clk",inApp&&!!sc.querySelector(".clk"))};
+  sync();try{new MutationObserver(sync).observe(sc,{attributes:true,attributeFilter:["class","data-app"]})}catch(e){}
+  const _r=render;render=function(){const v=_r.apply(this,arguments);try{sync()}catch(e){}return v}})();
+/* the Clock icon's hands turn by CSS animation, on the main thread at every frame, also while an app covers the home
+   screen; they wait there (the home screen draws them afresh, at the right time, when it shows again) */
+document.head.insertAdjacentHTML("beforeend","<style>.screen.in-app #home .ck-h{animation-play-state:paused}</style>");
 /* ===== Map performance probe (developer tool) =====
    Off unless the EFB is opened with ?mapperf in the address (or localStorage "pefb:mapPerf" is "1"); then nothing on
    the map changes, but its drawing steps are timed and window.__mapPerf can run a scripted pan or pinch with a chosen
@@ -14225,7 +14241,7 @@ if(MPF.on){
    8. Split view on an iPad held sideways: the chart on the right, the Map on the left. */
 const CX={F:[],flOpen:store.get("cxFlOpen",true)!==false,phase:store.get("cxPhase",true)!==false,strip:store.get("cxStrip",true)!==false,split:store.get("cvSplit",false)===true,
   geo:null,geoSrc:"",geoBy:"",geoFor:"",pw:0,ph:0,tf:null,tfWant:null,verUntil:0,verList:[],pen:false,tool:"pen",col:store.get("cxPenCol","#E5197E"),cur:null,undo:[],notes:{},pushT:{},
-  raf:0,ownWas:false,sug:null,now:null,phAt:0,menu:false};
+  raf:0,ownWas:false,sug:null,now:null,phAt:0,menu:false,scrolled:{},ro:null,apTop:null};
 const cxOk=()=>typeof npOk==="function"&&npOk();
 const cxApts=()=>{const x=O();return[S(x.o.icao_code).toUpperCase(),S(x.d.icao_code).toUpperCase()]};
 const cxR1=v=>Math.round(v*10)/10;
@@ -14270,16 +14286,23 @@ function cxTab(p,attr,i,active,close){const on=!!(active&&active.icao===p.icao&&
 function cxBar(active){const F=CX.F,fk=new Set(F.map(p=>p.icao+"|"+p.pdf)),man=PINS.map((p,i)=>fk.has(p.icao+"|"+p.pdf)?"":cxTab(p,"pin",i,active,true)).join("");
   const fl=F.length?`<span class="pin-fl"><button type="button" class="pin-flb" data-cxfl aria-expanded="${CX.menu}" aria-label="Charts for flight ${esc(O().flight||"")}" title="Charts for this flight">${CX_FL_SVG}<b>${esc(O().flight||"Flight")}</b></button>${CX.flOpen?F.map((p,i)=>cxTab(p,"cxf",i,active,false)).join(""):`<span class="pin-flc">${F.length} charts</span>`}</span>`:"";
   return{html:fl+(man?`${F.length?'<span class="pin-sep"></span>':""}<span class="pin-ic">${PIN_SVG}</span>${man}`:"")+pinUndoHtml(),empty:!F.length&&!man&&!PIN_UNDO}}
-function cxBarSet(bar,b){bar.hidden=b.empty;if(bar.dataset.cxh!==b.html){bar.dataset.cxh=b.html;const sl=bar.scrollLeft;bar.innerHTML=b.html;bar.scrollLeft=sl;const t=bar.querySelector(".pin-tab.now")||bar.querySelector(".pin-tab.on");if(t&&t.scrollIntoView)try{t.scrollIntoView({block:"nearest",inline:"nearest"})}catch(e){}}}
+function cxBarSet(bar,b){if(bar.hidden!==b.empty)bar.hidden=b.empty;if(bar.dataset.cxh===b.html)return;const fresh=bar.dataset.cxh==null,sl=fresh?0:bar.scrollLeft;bar.dataset.cxh=b.html;bar.innerHTML=b.html;if(sl)bar.scrollLeft=sl;
+  /* bring the chart in use into view, only when it changes (reading positions forces a layout) */
+  const t=bar.querySelector(".pin-tab.now")||bar.querySelector(".pin-tab.on"),k=bar.id+"|"+(t?t.textContent:"");if(!t||CX.scrolled[bar.id]===k&&!fresh)return;CX.scrolled[bar.id]=k;
+  requestAnimationFrame(()=>{try{if(t.isConnected&&(t.offsetLeft<bar.scrollLeft||t.offsetLeft+t.offsetWidth>bar.scrollLeft+bar.clientWidth))bar.scrollLeft=Math.max(0,t.offsetLeft-12)}catch(e){}})}
 pinUi=function(){CX.F=cxFlight();
   const wrap=document.querySelector(".mapwrap");
-  if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}cxBarSet(bar,cxBar(null))}
+  if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}cxBarSet(bar,cxBar(null));cxWatch(bar)}
   const cv=document.getElementById("cvWrap");
   if(cv){let bar=cv.querySelector("#cvPins");if(!bar){bar=document.createElement("div");bar.id="cvPins";bar.className="cv-pins";cv.appendChild(bar)}cxBarSet(bar,cxBar(CV.sel));
     const b=cv.querySelector('[data-cv="pin"]');if(b&&CV.sel){const on=pinHas(CV.sel.icao,CV.sel.pdf);b.setAttribute("aria-pressed",String(on));b.textContent=on?"Pinned":"Pin"}}
-  cxPillUi();cxMenuUi()};
-/* the Map's Profile button sits above the pin bar */
-function cxPillUi(){const w=document.querySelector(".mapwrap"),pb=w&&w.querySelector(".tr-pbtn"),bar=w&&w.querySelector("#pinBar");if(!pb)return;if(!bar||bar.hidden){pb.style.bottom="";return}const r=bar.getBoundingClientRect(),wr=w.getBoundingClientRect();if(r.height)pb.style.bottom=Math.round(wr.bottom-r.top+8)+"px"}
+  cxMenuUi()};
+/* geometry is read only inside a ResizeObserver, where the layout is already done: the pin bar (for the Profile button
+   above it) and the airport chips (for the route strip under them) */
+function cxWatch(el){if(!el||el._cxw)return;el._cxw=1;try{if(!CX.ro)CX.ro=new ResizeObserver(cxGeom);CX.ro.observe(el)}catch(e){}}
+function cxGeom(){const w=document.querySelector(".mapwrap");if(!w)return;
+  const bar=w.querySelector("#pinBar");if(bar){const h=bar.hidden?0:bar.offsetHeight;if(h)w.style.setProperty("--cxpill",Math.round(w.clientHeight-bar.offsetTop+8)+"px");w.classList.toggle("cx-pill",!!h)}
+  const ap=w.querySelector(".mapapt");if(ap&&ap.offsetHeight){CX.apTop=[ap.offsetTop+ap.offsetHeight+8,ap.offsetLeft];const el=w.querySelector("#cxStrip");if(el){el.style.top=CX.apTop[0]+"px";el.style.left=CX.apTop[1]+"px"}}}
 /* the flight chip's menu: show the flight's charts, charts that follow the flight, the route strip */
 function cxMenuUi(){let m=document.getElementById("cxFlMenu");if(!CX.menu){if(m)m.hidden=true;return}
   const host=CV.open?document.getElementById("cvWrap"):document.querySelector(".mapwrap");const chip=host&&host.querySelector("[data-cxfl]");if(!chip){CX.menu=false;if(m)m.hidden=true;return}
@@ -14337,13 +14360,13 @@ function cxStripHtml(){const x=O(),o=rpGet(),[oi,di]=cxApts(),B=bpBug();let sid=
     +chip("d","apt",esc(di),arw?"RW"+esc(arw):"—","","Destination airport and runway")}
 function cxStripUi(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;let el=wrap.querySelector("#cxStrip");
   const show=cur==="map"&&CX.strip&&cxOk()&&!(typeof RE!=="undefined"&&RE.on);
-  if(!show){if(el)el.hidden=true;return}
+  if(!show){if(el)el.hidden=true;wrap.classList.remove("cx-strip-on");return}
   if(!el){el=document.createElement("div");el.id="cxStrip";el.className="cx-strip";el.setAttribute("role","navigation");el.setAttribute("aria-label","Route");wrap.appendChild(el)}
-  const h=cxStripHtml();if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h}el.hidden=false;
-  const ap=wrap.querySelector(".mapapt");if(ap&&ap.offsetHeight){el.style.top=(ap.offsetTop+ap.offsetHeight+8)+"px";el.style.left=ap.offsetLeft+"px"}
-  /* under a side panel (Flight, Set arrival, the airport sheet) it would only peek out: it waits until the panel closes */
-  const r=el.getBoundingClientRect();let hide=false;for(const p of document.querySelectorAll("#fpPanel,#asSheet")){if(p.hidden||!p.offsetWidth)continue;const q=p.getBoundingClientRect();if(q.left<r.right&&q.right>r.left&&q.top<r.bottom&&q.bottom>r.top){hide=true;break}}
-  el.classList.toggle("cx-under",hide)}
+  const h=cxStripHtml();if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h}if(el.hidden)el.hidden=false;
+  if(CX.apTop&&!el.style.top){el.style.top=CX.apTop[0]+"px";el.style.left=CX.apTop[1]+"px"}const ap=wrap.querySelector(".mapapt");if(ap)cxWatch(ap);
+  /* under a side panel (Flight, Set arrival, the airport sheet) on a wide screen it would only peek out: it waits */
+  const wide=(mapSize().w||window.innerWidth)>640,under=wide&&((typeof FP!=="undefined"&&FP.open)||(typeof AS!=="undefined"&&AS.open));
+  if(el.classList.contains("cx-under")!==under)el.classList.toggle("cx-under",under);if(!wrap.classList.contains("cx-strip-on"))wrap.classList.add("cx-strip-on")}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-cxs]");if(!b)return;const k=b.dataset.cxs,[oi,di]=cxApts();
   if(k==="o"||k==="d"){asOpen(k==="o"?oi:di,"info")}
   else if(k==="sid"||k==="star"||k==="app")npOpen(k);
@@ -14642,7 +14665,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .as-fl,.chc-fl{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:4px;background:var(--accent);color:var(--panel);font:700 10px/1.5 var(--f-ui);font-style:normal;letter-spacing:.02em;vertical-align:1px}
 .cx-strip{position:absolute;z-index:3;left:12px;top:66px;display:flex;align-items:stretch;max-width:calc(100% - 100px);overflow-x:auto;scrollbar-width:none;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow)}
 .cx-strip::-webkit-scrollbar{display:none}.cx-strip[hidden],.cx-strip.cx-under{display:none}
-.mapwrap:has(#cxStrip:not([hidden]):not(.cx-under)) #rePanel:has(>.re-badge){display:none}
+.mapwrap.cx-strip-on .repanel.badge,.mapwrap.cx-strip-on #rePanel .re-badge{display:none}
+.mapwrap.cx-pill .tr-pbtn{bottom:var(--cxpill)}
 .cx-c{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:38px;border:0;border-radius:6px;background:transparent;color:var(--ink);padding:3px 9px;cursor:pointer;text-align:left}
 .cx-c:hover{background:var(--panel-2)}
 .cx-c small{font:700 9.5px var(--f-mono);letter-spacing:.06em;color:var(--label)}.cx-c b{font:700 12.5px var(--f-mono);white-space:nowrap}.cx-c em{font:600 10.5px var(--f-mono);font-style:normal;color:var(--label);white-space:nowrap}

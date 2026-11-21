@@ -4770,7 +4770,7 @@ document.addEventListener("click",e=>{if(!e.target.closest('[data-ml="vatsim"]')
 /* status in the layers panel, the warning dot when the feed can't be read, and the credit line */
 {const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="vatsim"]');
   const bad=vsOn()&&!!VS.err&&!VS.list;
-  if(el){el.textContent=!vsOn()?"Every pilot on the network":VS.err?VS.err+(VS.list?" · showing the last update":", trying again soon"):VS.list?VS.list.length.toLocaleString("en-US")+" pilots online"+(VS.upd?" · "+VS.upd.slice(11,16).replace(":","")+"Z":""):"Loading…";el.classList.toggle("err",!!(vsOn()&&VS.err))}
+  if(el){el.textContent=!vsOn()?"Every pilot on the network":VS.err?VS.err+(VS.list?" · showing the last update":", trying again soon"):VS.list?VS.list.length.toLocaleString("en-US")+" pilots online"+(VS.upd?" · "+VS.upd.slice(11,16).replace(":","")+"Z":""):(()=>{try{if(apmOn())return "Paused: Airplane Mode is on (Settings)"}catch(e){}return VS.loading?"Loading…":"Starting…"})();el.classList.toggle("err",!!(vsOn()&&VS.err))}
   const b=$("#mlBtn");if(b&&bad)b.classList.add("warn");return r}}
 {const _un=updMapNote;updMapNote=function(){const r=_un.apply(this,arguments);const a=$("#mapAttr");if(a&&vsOn()&&VS.list&&!/vatsim\.net/.test(a.innerHTML))a.innerHTML+=' · Traffic <a href="https://vatsim.net" target="_blank" rel="noopener">VATSIM</a>';return r}}
 
@@ -9146,6 +9146,11 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:calc(var(--mt) + 64px)!important}}
 @container screen (min-width:561px) and (max-width:640px){.screen[data-app="map"] .mapwrap .nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}}
 @container screen (max-width:640px){.screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:8px!important;right:8px!important;top:112px!important}}
+@container screen (min-width:641px){
+  .screen.screen[data-app="map"] .mapwrap .mapinfo{bottom:26px!important;max-height:none!important;display:flex;flex-direction:column;overflow:hidden;border-radius:10px;border:1px solid var(--line);box-shadow:0 18px 44px -18px var(--shadow)}
+  .screen.screen[data-app="map"] .mapwrap .mapinfo:not(.vsx)>.raw{flex:1;min-height:0;max-height:none!important;overflow:auto}
+  .screen.screen[data-app="map"] .mapwrap.mapwrap.mapwrap:is(.tb-as,.tb-nr,.tb-sel){--tbx:calc(var(--mg) + 388px)}
+  .screen.screen[data-app="map"] .mapwrap.mapwrap.mapwrap.tb-fp{--tbx:calc(var(--mg) + 368px)}}
 </style>`);
 
 /* ---------- Motion for every switch (Nov 2026) ----------

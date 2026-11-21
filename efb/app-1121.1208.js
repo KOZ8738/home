@@ -8444,6 +8444,92 @@ html.pwa-ios .screen.ft-on .appwin{background:linear-gradient(var(--bg),var(--bg
 @media (prefers-reduced-motion:reduce){.ft-tab,.ft-ic{transition:none}}
 </style>`);
 
+/* ---------- the Map's tool column: on the left edge, the tools used most, the rest behind ⋯ (Nov 2026) ----------
+   Layers, Weather, Flight, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
+   Edit route, 3D, Small PFD and zoom are behind ⋯. Their own buttons stay in the column, hidden, so every module that
+   adds or updates one keeps working; a row in the ⋯ menu presses the hidden button. The column sits halfway down the
+   screen's left edge (never over the ICAO box or the route strip); on an iPad it moves to the right edge of the airport sheet or the
+   Flight panel while one is open, and the panels it opens (layers, weather, measure, route edit) appear beside it. */
+const MC_MORE=[["asBtn","Airport & charts"],["msBtn","Measure"],["reBtn","Edit route"],["m3Btn","3D view"],["bpBtn","Small PFD"]];
+const MC_DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>';
+function mcPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)return;const ctl=w.querySelector(".mapctl");if(!ctl)return;
+  if(!ctl.querySelector("#mcMore")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="mcMore";b.setAttribute("aria-label","More map tools");b.setAttribute("aria-haspopup","menu");b.setAttribute("aria-expanded","false");b.innerHTML=MC_DOTS;ctl.appendChild(b)}
+  /* the route strip sits under the ICAO box: measure again, as the box moves with the layout (on a phone it used to
+     stay where a wider layout had put it, over the box) */
+  try{if(typeof cxGeom==="function")cxGeom()}catch(e){}
+  /* the column may go no higher than just below the ICAO box (the route strip, when shown, adds its own height) */
+  const ap=w.querySelector(".mapapt");if(ap&&ap.offsetHeight){const t=Math.round(ap.offsetTop+ap.offsetHeight+10)+"px";if(w.style.getPropertyValue("--tbt0")!==t)w.style.setProperty("--tbt0",t)}
+  w.classList.toggle("tb-as",typeof AS!=="undefined"&&!!AS.open);w.classList.toggle("tb-fp",typeof FP!=="undefined"&&!!FP.open&&!(typeof AS!=="undefined"&&AS.open))
+  mcCenter(w,ctl);
+  /* and again whenever the map or the column changes size (a turned iPad, a button added later) */
+  if(!w._mcro&&typeof ResizeObserver==="function"){try{w._mcro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));w._mcro.observe(w);w._mcro.observe(ctl)}catch(e){}}}
+/* the column sits halfway down the left edge, never higher than just below the ICAO box and the route strip */
+function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const ap=w.querySelector(".mapapt");
+  let min=ap&&ap.offsetHeight?ap.offsetTop+ap.offsetHeight+10:68;if(w.classList.contains("cx-strip-on"))min+=54;
+  const t=Math.round(Math.max(min,(w.clientHeight-ctl.offsetHeight)/2))+"px";if(w.style.getPropertyValue("--tbc")!==t)w.style.setProperty("--tbc",t)}
+function mcMenu(on){const w=$("#view .mapwrap"),b=$("#mcMore");let m=$("#mcMenu");
+  if(!on){if(m)m.remove();if(b)b.setAttribute("aria-expanded","false");return}
+  if(!w||!b)return;const ctl=w.querySelector(".mapctl");if(!m){m=document.createElement("div");m.id="mcMenu";m.className="mcmenu";m.setAttribute("role","menu");m.setAttribute("aria-label","More map tools");w.appendChild(m)}
+  m.innerHTML=MC_MORE.map(([id,t])=>{const r=ctl&&ctl.querySelector("#"+id);if(!r)return"";const on=r.getAttribute("aria-pressed")==="true";
+      const ic=r.querySelector("svg")?r.innerHTML:`<span class="mc-tx">${esc(r.textContent.trim())}</span>`;
+      return `<button type="button" class="mc-row${on?" on":""}" role="menuitem" data-mc="${id}"${r.disabled?" disabled":""}><span class="mc-ic">${ic}</span><span class="mc-t">${t}</span>${on?'<i class="mc-on">On</i>':""}</button>`}).join("")
+    +`<div class="mc-zoom"><span>Zoom</span><button type="button" data-mc="mapOut" aria-label="Zoom out">−</button><button type="button" data-mc="mapIn" aria-label="Zoom in">+</button></div>`;
+  b.setAttribute("aria-expanded","true");
+  /* beside the column, its bottom level with the ⋯ button, kept inside the map */
+  const wr=w.getBoundingClientRect(),br=b.getBoundingClientRect(),cr=(ctl||b).getBoundingClientRect();
+  m.style.left=Math.round(cr.right-wr.left+8)+"px";m.style.top=Math.round(Math.max(8,Math.min(br.bottom-wr.top-m.offsetHeight,w.clientHeight-m.offsetHeight-8)))+"px"}
+document.addEventListener("click",e=>{if(cur!=="map")return;const t=e.target.closest&&e.target.closest("#mcMore,[data-mc]");if(!t)return;
+  if(t.id==="mcMore"){mcMenu(!$("#mcMenu"));return}
+  const id=t.dataset.mc,r=$("#view .mapctl #"+id);if(!r||r.disabled)return;
+  /* zoom keeps the menu open for the next step */
+  if(id==="mapIn"||id==="mapOut"){r.click();return}
+  mcMenu(false);r.click()});
+document.addEventListener("pointerdown",e=>{const m=$("#mcMenu");if(!m)return;if(e.target.closest&&e.target.closest("#mcMenu,#mcMore"))return;mcMenu(false)},true);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#mcMenu"))mcMenu(false)});
+{const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);mcPlace();return r}}
+{const _u=asUi;asUi=function(){const r=_u.apply(this,arguments);mcPlace();return r}}
+{const _f=fpUi;fpUi=function(){const r=_f.apply(this,arguments);mcPlace();return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.screen[data-app="map"] .mapwrap{--tbw:47px;--tbx:env(safe-area-inset-left,0px);--tbt:var(--tbt0,calc(var(--mt) + 56px))}
+.screen[data-app="map"] .mapwrap.cx-strip-on{--tbt:calc(var(--tbt0,calc(var(--mt) + 56px)) + 54px)}
+@container screen (min-width:641px){
+  .screen[data-app="map"] .mapwrap.tb-as{--tbx:calc(var(--mg) + 380px)}
+  .screen[data-app="map"] .mapwrap.tb-fp{--tbx:calc(var(--mg) + 360px)}}
+.screen[data-app="map"] .mapwrap .mapctl{left:var(--tbx)!important;right:auto!important;top:var(--tbc,var(--tbt))!important;bottom:auto!important;border-left:0!important;border-radius:0 9px 9px 0!important;
+  transition:left .34s cubic-bezier(.2,.9,.25,1),top .2s ease;max-height:calc(100% - var(--tbc,var(--tbt)) - 12px);overflow-y:auto!important;scrollbar-width:none}
+.screen[data-app="map"] .mapwrap .mapctl::-webkit-scrollbar{display:none}
+.screen[data-app="map"] .mapctl>:is(#asBtn,#msBtn,#reBtn,#m3Btn,#bpBtn,#mapIn,#mapOut){display:none!important}
+.screen[data-app="map"] .mapctl>#mcMore{order:99;position:relative;border-top:3px solid var(--line)!important}
+.screen[data-app="map"] .mapctl>#mcMore[aria-expanded="true"]{background:var(--brand)!important;color:var(--brand-ink)!important}
+.screen[data-app="map"] .mapctl:has(>:is(#msBtn,#reBtn,#m3Btn,#bpBtn)[aria-pressed="true"])>#mcMore::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+/* what used to open beside a column on the right opens beside this one */
+.screen[data-app="map"] .mapwrap :is(.maplayers,.mspanel,.repanel,.mtchip){left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:var(--tbc,var(--tbt))!important;bottom:auto!important;transition:left .34s cubic-bezier(.2,.9,.25,1)}
+.screen[data-app="map"] .mapwrap .maplayers{max-height:calc(100% - var(--tbc,var(--tbt)) - 12px)!important}
+.screen[data-app="map"] .mapwrap .ovpanel{left:calc(var(--tbx) + var(--tbw) + 8px)!important}
+.screen[data-app="map"] .mapwrap .bpf-inset{left:calc(var(--tbx) + var(--tbw) + 8px)}
+.screen[data-app="map"] .mapwrap .ovbar{right:max(12px,env(safe-area-inset-right,0px))!important}
+.screen[data-app="map"] .mapwrap .nr-panel{right:12px}
+.screen[data-app="map"] .mapwrap .mapinfo.vsx{right:12px}
+.mcmenu{position:absolute;z-index:8;min-width:230px;padding:6px;display:grid;gap:1px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 44px -16px var(--shadow);font-family:var(--f-ui);animation:mcIn .16s ease-out}
+@keyframes mcIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.mc-row{display:flex;align-items:center;gap:11px;width:100%;min-height:44px;padding:6px 10px;border:0;border-radius:7px;background:transparent;color:inherit;font:500 14px var(--f-ui);text-align:left;cursor:pointer}
+.mc-row:hover{background:var(--panel-2)}
+.mc-row:disabled{opacity:.4;cursor:default}
+.mc-row.on{color:var(--brand)}
+:root[data-theme="dark"] .mc-row.on{color:var(--accent)}
+.mc-ic{flex:none;display:grid;place-items:center;width:28px;height:28px}
+.mc-ic svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.mc-tx{font:700 12px var(--f-mono);letter-spacing:.02em}
+.mc-t{flex:1}
+.mc-on{font:600 11px var(--f-ui);font-style:normal;letter-spacing:.04em;text-transform:uppercase}
+.mc-zoom{display:flex;align-items:center;gap:6px;margin-top:4px;padding:8px 10px 4px;border-top:1px solid var(--line)}
+.mc-zoom span{flex:1;font:500 14px var(--f-ui)}
+.mc-zoom button{width:44px;height:36px;border:1px solid var(--line);border-radius:7px;background:var(--panel-2);color:var(--ink);font:500 20px/1 var(--f-ui);cursor:pointer}
+.mc-zoom button:active{transform:scale(.95)}
+@media (prefers-reduced-motion:reduce){.mcmenu{animation:none}.screen[data-app="map"] .mapwrap .mapctl,.screen[data-app="map"] .mapwrap :is(.maplayers,.mspanel,.repanel,.mtchip){transition:none}}
+</style>`);
+
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
    Touch and hold an app for its menu (Edit Home Screen), or hold and move it, or hold an empty spot: the icons jiggle and
    any app can be dragged within the page, between pages (iPhone: hold it at the screen edge) and into or out of the Dock.

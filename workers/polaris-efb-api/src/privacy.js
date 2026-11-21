@@ -86,6 +86,8 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <p>Pages you write in the Kneeboard app (typed notes and handwriting) are kept on your device. While you are signed in, they are also stored on the EFB server (a Cloudflare Durable Object of your own) so they appear on all your devices. Only you can read them: Polaris staff and the Polaris admin cannot see them. The server also keeps the previous version of each page, in case a change needs undoing.</p>
  <p>A page you delete is removed from the server after 30 days (the record that it was deleted is kept that long so your other devices remove it too). You can keep up to 300 pages and 20 MB. Signing out leaves your pages on the server for when you sign in again. To remove them everywhere, delete them in the Kneeboard (it has a Delete All Pages button).</p>
 </section>
+<section id="navdata"><h2>SIDs and STARs from your simulator</h2>
+ <p>If you run Polaris Navdata on your simulator PC, the EFB there reads the departure and arrival procedures of your flight plan's airports from your own simulator's navigation data and keeps a copy on the EFB server under your Pilot ID, so your other devices can show them. Only you can read it; it is never shared with other pilots and is deleted after 90 days.</p></section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
  <div class="wrap-t"><table><thead><tr><th>Item</th><th>Why</th><th>Kept until</th></tr></thead><tbody>

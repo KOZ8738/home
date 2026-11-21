@@ -25,6 +25,7 @@
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
+ *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
  *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
@@ -1343,6 +1344,27 @@ export default {
     if (/^\/api\/efb\/apps\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
       const me = await sessionOf(req, env);
       return appsPublic(req, env, h, me);
+    }
+    /* each pilot's SIDs and STARs, read from their own simulator by Polaris Navdata on the simulator PC and kept here
+       for their other devices (an iPad): per pilot only, never shared, gone after 90 days */
+    if (/^\/api\/efb\/navproc\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env), u = new URL(req.url);
+      const res = (b, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      if (!me) return res({ error: 'Sign in first' }, 401);
+      if (!env.STORE) return res({ error: 'Not set up on the server' }, 503);
+      if (req.method === 'GET') {
+        const ic = String(u.searchParams.get('icao') || '').toUpperCase();
+        if (!/^[A-Z0-9]{3,4}$/.test(ic)) return res({ error: 'icao is required' }, 400);
+        const v = await env.STORE.get('np:' + me.u + ':' + ic);
+        return v ? new Response(v, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }) : res({ error: 'Not read from your simulator yet' }, 404);
+      }
+      if (req.method !== 'POST') return res({ error: 'Method not allowed' }, 405);
+      const t = await req.text(); if (t.length > 3_000_000) return res({ error: 'Too large' }, 413);
+      let b; try { b = JSON.parse(t); } catch (e) { return res({ error: 'Bad body' }, 400); }
+      const d = b && b.data, ic = String((d && d.icao) || '').toUpperCase();
+      if (!d || !/^[A-Z0-9]{3,4}$/.test(ic) || !Array.isArray(d.dep) || !Array.isArray(d.arr) || !Array.isArray(d.rw)) return res({ error: 'Not procedure data' }, 400);
+      await env.STORE.put('np:' + me.u + ':' + ic, JSON.stringify({ ...d, icao: ic, up: Date.now() }), { expirationTtl: 90 * 86400 });
+      return res({ ok: true, icao: ic });
     }
     /* each pilot's Weather settings (see kb.js): saved airports and units, on every device */
     if (/^\/api\/efb\/wx\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {

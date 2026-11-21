@@ -43,7 +43,7 @@ for (const e of FIR_LIST.split(/\s+(?=[A-Z]{4}\|)/)) { const [c, n] = e.trim().s
 /* other spellings openAIP and the AIPs use */
 [['TAIBEI', 'RCAA'], ['TAIPEI', 'RCAA'], ['HONGKONG', 'VHHK'], ['MUENCHEN', 'EDMM'], ['MUNICH', 'EDMM'], ['COPENHAGEN', 'EKDK'], ['WARSAW', 'EPWW'], ['VIENNA', 'LOVV'],
  ['ROME', 'LIRR'], ['MILAN', 'LIMM'], ['PRAGUE', 'LKAA'], ['LISBON', 'LPPC'], ['BUCHAREST', 'LRBB'], ['BELGRADE', 'LYBA'], ['ALGIERS', 'DAAA'], ['SEOUL', 'RKRR'], ['ULAN BATOR', 'ZMUB'],
- ['SAINT PETERSBURG', 'ULLL'], ['ST PETERSBURG', 'ULLL'], ['BRUXELLES', 'EBBU'], ['HO CHI MINH CITY', 'VVHM'], ['MALE', 'VRMF'], ['NEW ZEALAND', 'NZZC'], ['BODO OCEANIC', 'ENOB']]
+ ['SAINT PETERSBURG', 'ULLL'], ['ST PETERSBURG', 'ULLL'], ['BRUXELLES', 'EBBU'], ['HO CHI MINH CITY', 'VVHM'], ['MALE', 'VRMF'], ['NEW ZEALAND', 'NZZC'], ['BODO OCEANIC', 'ENOB'], ['IRELAND', 'EISN'], ['SWISS', 'LSAS'], ['COMODORO', 'SAVF']]
   .forEach(([n, c]) => BYNAME.set(NORM(n), c));
 
 function firCode(name) {
@@ -105,6 +105,8 @@ export async function officialFirs(env) {
   try { items = await oaipFirs(env); } catch (e) { stat.err = String(e.message || e); }
   for (const it of items) {
     const name = String(it.name || '').trim(), code = firCode(name), oc = /OCEANIC/i.test(name);
+    /* not FIRs, though filed as such (Denmark's local ATS areas) */
+    if (!code && /LOCAL ATS/i.test(name)) continue;
     for (const poly of polysOf(it.geometry)) {
       const ring = simplify(poly[0] || [], 0.01); if (ring.length < 4) continue;
       const lp = labelPt(ring); shapes.push({ r: ring, b: bbox(ring) });

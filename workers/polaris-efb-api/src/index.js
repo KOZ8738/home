@@ -301,7 +301,7 @@ async function liveRoute(env) {
 /* FIR boundaries: v=2 the official FIRs (fir.js: openAIP, gaps filled from VATSpy for real ICAO FIRs only);
    without v=2 the VATSpy outlines as before (older EFB builds) */
 async function firRoute(env, ctx, v2) {
-  if (v2) return cached('fir2', 6 * 3600_000, () => kvStore(env, ctx, 'fir:v2', 7 * 86400_000, () => officialFirs(env), (v) => v && !v.stat.err && v.stat.oaip > 50));
+  if (v2) return cached('fir2b', 6 * 3600_000, () => kvStore(env, ctx, 'fir:v2b', 7 * 86400_000, () => officialFirs(env), (v) => v && !v.stat.err && v.stat.oaip > 50));
   return cached('fir', 24 * 3600_000, () => edgeCache('fir/v1', 7 * 86400, async () => {
     const r = await fetch('https://raw.githubusercontent.com/vatsimnetwork/vatspy-data-project/master/Boundaries.geojson', { headers: { 'User-Agent': 'PolarisEFB/1.0' } });
     if (!r.ok) throw new Error('Boundary data unavailable (HTTP ' + r.status + ')');

@@ -4890,15 +4890,17 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    their flight category (from the METAR), the planned runway with head/tail- and crosswind and the ATIS letter, the
    SID and STAR with their transitions, how many arrival and approach charts there are (FAA airports), and buttons to
    centre the map on an airport, open its sheet (info, runways, charts), change the SID or STAR, edit the route or
-   open the OFP. Opened from the plane button in the map's tool column. */
+   open the OFP. Opened from the route strip: its SID, STAR and APP chips set up the procedures in this panel's place,
+   and closing a picker shows the flight. (Nov 2026: the plane button in the map's tool column is gone; the Airports
+   tab covers the airports.) */
 const FP={open:false};
 const FP_I={plane:'<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/>',
   map:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   swap:'<path d="M4 8h14l-3-3M20 16H6l3 3"/>',more:'<circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/>',
   route:'<circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 17c5-1 3-9 10-10"/>',doc:'<path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/>',x:'<path d="M6 6l12 12M18 6L6 18"/>'};
 const fpI=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${FP_I[k]}</svg>`;
-/* the button, put in the map's tool column whenever the map is drawn */
-{let _vm;const wrap=f=>function(){const h=f.apply(this,arguments);const AB='<button class="btn ic" id="as'+'Btn"';return h.replace(AB,`<button class="btn ic" id="fpBtn" aria-pressed="${FP.open}" aria-label="Flight">${fpI("plane")}</button>`+AB)+`<aside class="fppanel" id="fpPanel"${FP.open?"":" hidden"}></aside>`};
+/* the panel, put beside the map whenever the map is drawn */
+{let _vm;const wrap=f=>function(){const h=f.apply(this,arguments);return h+`<aside class="fppanel" id="fpPanel"${FP.open?"":" hidden"}></aside>`};
   if(V.map)_vm=wrap(V.map);Object.defineProperty(V,"map",{get(){return _vm},set(f){_vm=wrap(f)},configurable:true,enumerable:true})}
 const FP_CAT={VFR:"#30D158",MVFR:"#0A84FF",IFR:"#FF453A",LIFR:"#BF5AF2"};
 /* the procedure's end point: last fix of the SID, first fix of the STAR */
@@ -4928,8 +4930,7 @@ function fpHtml(){const x=O();if(ofp._sample)return `<div class="fp-h"><b>Flight
    <div class="fp-foot"><button data-fp="route">${fpI("route")}Edit route</button><button data-fp="ofp">${fpI("doc")}Flight plan</button></div></div>`}
 function fpUi(){const el=$("#fpPanel"),b=$("#fpBtn");if(b)b.setAttribute("aria-pressed",String(FP.open));if(!el)return;el.hidden=!FP.open;if(FP.open){const sc=el.querySelector(".fp-body");const t=sc?sc.scrollTop:0;el.innerHTML=fpHtml();const n=el.querySelector(".fp-body");if(n)n.scrollTop=t}}
 function fpSet(on){FP.open=on;if(on&&typeof AS!=="undefined"&&AS.open){AS.open=false;try{asUi()}catch(e){}}fpUi()}
-document.addEventListener("click",e=>{if(e.target.closest("#fpBtn")){fpSet(!FP.open);return}
-  const b=e.target.closest("[data-fp]");if(!b)return;const a=b.dataset.fp,ic=b.dataset.icao;
+document.addEventListener("click",e=>{  const b=e.target.closest("[data-fp]");if(!b)return;const a=b.dataset.fp,ic=b.dataset.icao;
   if(a==="close")fpSet(false);
   else if(a==="map"){mapGoApt(ic)}
   else if(a==="info"||a==="rwy"||a==="wx"||a==="cat"){if(a==="cat"){AS.cat=b.dataset.cat;store.set("asCat",AS.cat)}FP.open=false;fpUi();asOpen(ic,{info:"info",rwy:"rwy",wx:"wx",cat:"charts"}[a])}
@@ -8444,16 +8445,18 @@ html.pwa-ios .screen.ft-on .appwin{background:linear-gradient(var(--bg),var(--bg
 </style>`);
 
 /* ---------- the Map's tool column: on the left edge, the tools used most, the rest behind ⋯ (Nov 2026) ----------
-   Layers, Weather, Flight, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
+   Layers, Weather, NRST, FIT and ME stay in the column; Airport & charts (also the Airports tab), Measure,
    Edit route, 3D, Small PFD and zoom are behind ⋯. Their own buttons stay in the column, hidden, so every module that
    adds or updates one keeps working; a row in the ⋯ menu presses the hidden button. The column sits halfway down the
-   screen's left edge (never over the route strip); on an iPad it moves to the right edge of the airport sheet or the
-   Flight panel while one is open, and the panels it opens (layers, weather, measure, route edit) appear beside it. */
+   screen's left edge (never over the route strip); on an iPad it moves to the right edge of the panel open on the left
+   (airport sheet, Flight, NRST, an aircraft's card), and the panels it opens (layers, weather, measure, route edit) appear beside it. */
 const MC_MORE=[["asBtn","Airport & charts"],["msBtn","Measure"],["reBtn","Edit route"],["m3Btn","3D view"],["bpBtn","Small PFD"]];
 const MC_DOTS='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>';
 function mcPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)return;const ctl=w.querySelector(".mapctl");if(!ctl)return;
   if(!ctl.querySelector("#mcMore")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="mcMore";b.setAttribute("aria-label","More map tools");b.setAttribute("aria-haspopup","menu");b.setAttribute("aria-expanded","false");b.innerHTML=MC_DOTS;ctl.appendChild(b)}
   w.classList.toggle("tb-as",typeof AS!=="undefined"&&!!AS.open);w.classList.toggle("tb-fp",typeof FP!=="undefined"&&!!FP.open&&!(typeof AS!=="undefined"&&AS.open))
+  /* NRST and a picked aircraft's card share the place on the left too (see "Everything that opened on the right") */
+  w.classList.toggle("tb-nr",!!NR.open);w.classList.toggle("tb-sel",!!(MAP.sel&&lpCard()))
   mcCenter(w,ctl);
   /* and again whenever the map or the column changes size (a turned iPad, a button added later) */
   if(!w._mcro&&typeof ResizeObserver==="function"){try{w._mcro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));w._mcro.observe(w);w._mcro.observe(ctl)}catch(e){}}}
@@ -8501,9 +8504,6 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="map"] .mapwrap .maplayers{max-height:calc(100% - var(--tbc,var(--tbt)) - 12px)!important}
 .screen[data-app="map"] .mapwrap .ovpanel{left:calc(var(--tbx) + var(--tbw) + 8px)!important}
 .screen[data-app="map"] .mapwrap .bpf-inset{left:calc(var(--tbx) + var(--tbw) + 8px)}
-.screen[data-app="map"] .mapwrap .ovbar{right:max(12px,env(safe-area-inset-right,0px))!important}
-.screen[data-app="map"] .mapwrap .nr-panel{right:12px}
-.screen[data-app="map"] .mapwrap .mapinfo.vsx{right:12px}
 .mcmenu{position:absolute;z-index:8;min-width:230px;padding:6px;display:grid;gap:1px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 44px -16px var(--shadow);font-family:var(--f-ui);animation:mcIn .16s ease-out}
 @keyframes mcIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 .mc-row{display:flex;align-items:center;gap:11px;width:100%;min-height:44px;padding:6px 10px;border:0;border-radius:7px;background:transparent;color:inherit;font:500 14px var(--f-ui);text-align:left;cursor:pointer}
@@ -8556,10 +8556,38 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="map"] .mapwrap .cx-strip{top:var(--mt)!important;left:calc(var(--sx0) + (100% - var(--sx0)) / 2)!important;transform:translateX(-50%);max-width:calc(100% - var(--sx0) - 24px)!important;transition:left .34s cubic-bezier(.2,.9,.25,1)}
 .screen[data-app="map"] .mapwrap .cx-strip.cx-under:not([hidden]){display:flex!important}
 @container screen (max-width:640px){.screen[data-app="map"] .mapwrap .cx-strip{top:52px!important;max-width:calc(100% - 16px)!important}}
-/* what sat at the top right moves below the strip */
-.screen.ft-on.ft-on[data-app="map"] .mapwrap.cx-strip-on .ovbar{top:calc(var(--mt) + 64px)!important}
-.screen[data-app="map"] .mapwrap.cx-strip-on .nr-panel{top:calc(var(--mt) + 64px)}
 @media (prefers-reduced-motion:reduce){.screen[data-app="map"] .mapwrap .cx-strip{transition:none}}
+</style>`);
+
+/* ---------- Everything that opened on the right of the Map opens on the left (Nov 2026) ----------
+   The airport sheet, the Flight / procedure panel, NRST and the card of a picked aircraft (Polaris or VATSIM) share
+   one place on the left: one at a time, the newest wins, and the tool column sits on its right edge. The chart
+   overlay's control bar moves to the left too, below the route strip. A phone keeps its bottom sheets. */
+let lpSelWas="",lpNrWas=false;
+const lpCard=()=>{const b=$("#mapInfo");return !!(b&&!b.hidden)};
+function lpOnly(k){
+  if(k!=="as"&&AS.open){AS.open=false;try{asUi()}catch(e){}}
+  if(k!=="fp"&&FP.open){FP.open=false;try{fpUi()}catch(e){}}
+  if(k!=="nr"&&NR.open){NR.open=false;lpNrWas=false;try{nrPlace()}catch(e){}}
+  if(k!=="sel"&&MAP.sel&&lpCard()){MAP.sel=null;lpSelWas="";try{mapInfo()}catch(e){}}
+  try{drawMap()}catch(e){}mcPlace()}
+{const _o=asOpen;asOpen=function(){const r=_o.apply(this,arguments);if(cur==="map")lpOnly("as");return r}}
+{const _s=fpSet;fpSet=function(on){const r=_s.apply(this,arguments);if(on&&cur==="map")lpOnly("fp");return r}}
+{const _n=npOpen;npOpen=function(){const r=_n.apply(this,arguments);if(FP.open&&cur==="map")lpOnly("fp");return r}}
+{const _p=nrPlace;nrPlace=function(){const r=_p.apply(this,arguments);
+  if(cur==="map"){if(NR.open&&!lpNrWas){lpNrWas=true;lpOnly("nr")}else{if(!NR.open)lpNrWas=false;mcPlace()}}return r}}
+{const _m=mapInfo;mapInfo=function(){const r=_m.apply(this,arguments);
+  if(cur==="map"){const s=MAP.sel,k=s&&lpCard()?s.t+":"+(s.id!=null?s.id:s.i):"";if(k&&k!==lpSelWas){lpSelWas=k;lpOnly("sel")}else{if(!k)lpSelWas="";mcPlace()}}return r}}
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+@container screen (min-width:641px){
+  .screen[data-app="map"] .mapwrap:is(.tb-nr,.tb-sel){--tbx:calc(var(--mg) + 380px);--sx0:calc(var(--tbx) + var(--tbw))}
+  .screen[data-app="map"] .mapwrap .nr-panel{left:var(--mg);right:auto;top:var(--mt);bottom:26px;width:380px;max-height:none;border-radius:10px}
+  .screen[data-app="map"] .mapwrap .mapinfo{left:var(--mg)!important;right:auto!important;top:var(--mt)!important;bottom:auto!important;width:380px!important;max-height:calc(100% - var(--mt) - 26px)!important;overflow-y:auto}
+  .screen[data-app="map"] .mapwrap .mapinfo.vsx{bottom:26px!important;max-height:none!important}
+  .screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:calc(var(--mt) + 64px)!important}}
+@container screen (min-width:561px) and (max-width:640px){.screen[data-app="map"] .mapwrap .nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}}
+@container screen (max-width:640px){.screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:8px!important;right:8px!important;top:112px!important}}
 </style>`);
 
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====

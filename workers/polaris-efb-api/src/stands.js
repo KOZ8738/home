@@ -4,7 +4,8 @@
    order, each a set of gates written as ranges ("D1-D10, C5, 201-215"), for domestic or international flights (or
    both), narrowbodies, widebodies or both, with a terminal. A flight is domestic when both airports are in the same
    country (the United States with Hawaii, Alaska and its territories). The first gate of the first rule that fits the
-   flight and is free is taken. A stand is not free while
+   flight and is free is taken; when the airport's map (OpenStreetMap) is at hand, only gates on it are given, so a range
+   that covers a number the airport does not have never sends a crew there. A stand is not free while
    a pilot on VATSIM sits on it (within 45 m of the stand on the OpenStreetMap airport map, at walking speed), or while
    another Polaris arrival has it within 45 minutes either side. Every 2 minutes (a cron) the Worker reads the Polaris
    flights in the air (vAMSYS ACARS, and PAW flights seen only on VATSIM, as the admin's Live tab), and sends one
@@ -89,7 +90,13 @@ export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl) {
   const rules = (plan.apts[icao] || []).filter((r) => (r.ac === 'all' || !r.ac || (r.ac === 'wide') === isWide(ac)) && (!fl || !r.fl || r.fl === 'all' || r.fl === fl));
   if (!rules.length) return { none: 'noplan' };
   const taken = await takenAt(icao, etaMs, log, deps, skipKey);
-  for (const r of rules) for (const s of expandStands(r.stands).stands) if (!taken.has(norm(s))) return { stand: s, term: r.term || '' };
+  /* a range may cover numbers the airport does not have (D1-D14 without D13): with the airport map, only the gates on it */
+  let onMap = null; try { const lay = deps && deps.layout ? await deps.layout(icao) : null; if (lay && Array.isArray(lay.stands) && lay.stands.length) onMap = new Set(lay.stands.map((x) => norm(x.ref)).filter(Boolean)); } catch (e) { /* no map: the list as written */ }
+  for (const r of rules) {
+    let L = expandStands(r.stands).stands;
+    if (onMap && L.some((x) => onMap.has(norm(x)))) L = L.filter((x) => onMap.has(norm(x)));
+    for (const s of L) if (!taken.has(norm(s))) return { stand: s, term: r.term || '' };
+  }
   return { none: 'full' };
 }
 const standText = (f, eta, p) => [`${f.cs} ${f.dep || '----'}-${f.arr} ETA ${z(eta)}`, p.stand ? `GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'GATE: CONTACT GROUND ON ARRIVAL', 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC'].join('\n');

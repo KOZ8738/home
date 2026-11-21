@@ -48,7 +48,7 @@ import { kbPublic, appsPublic, wxPrefsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
 import { pfdRoute } from './pfd.js';
-import { officialFirs } from './fir.js';
+import { officialFirs, trimShared } from './fir.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -300,7 +300,8 @@ async function liveRoute(env) {
 /* FIR / ARTCC boundaries from the VATSpy Data Project, with coordinates rounded to keep the payload small. */
 /* FIR boundaries: v=2 the official FIRs (fir.js: openAIP, gaps filled from VATSpy for real ICAO FIRs only);
    without v=2 the VATSpy outlines as before (older EFB builds) */
-async function firRoute(env, ctx, v2) {
+async function firRoute(env, ctx, v2, v3) {
+  if (v3) return cached('fir3', 6 * 3600_000, async () => trimShared(await firRoute(env, ctx, true)));
   if (v2) return cached('fir2b', 6 * 3600_000, () => kvStore(env, ctx, 'fir:v2b', 7 * 86400_000, () => officialFirs(env), (v) => v && !v.stat.err && v.stat.oaip > 50));
   return cached('fir', 24 * 3600_000, () => edgeCache('fir/v1', 7 * 86400, async () => {
     const r = await fetch('https://raw.githubusercontent.com/vatsimnetwork/vatspy-data-project/master/Boundaries.geojson', { headers: { 'User-Agent': 'PolarisEFB/1.0' } });
@@ -1549,7 +1550,7 @@ export default {
         case '/api/efb/tz': return await tzRoute(url, ctx, h);
         case '/api/efb/atis': return await atisRoute(url.searchParams.get('icao'), ctx, h);
         case '/api/efb/pireps': return await pirepCellRoute(url.searchParams.get('cell'), ctx, h);
-        case '/api/efb/fir': return json(await firRoute(env, ctx, url.searchParams.get('v') === '2'), 200, h);
+        case '/api/efb/fir': return json(await firRoute(env, ctx, url.searchParams.get('v') === '2', url.searchParams.get('v') === '3'), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);

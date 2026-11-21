@@ -134,3 +134,31 @@ export async function officialFirs(env) {
   }
   return { type: 'FeatureCollection', features: feats, stat, generated: new Date().toISOString() };
 }
+
+/* v=3: the same FIRs, with the stretches of a VATSpy-filled outline that run along an openAIP FIR's edge (within about
+   6 km) left out, so a shared border is drawn once (openAIP's) instead of as two lines a little apart. Those
+   outlines come as MultiLineString (open lines); everything else stays a Polygon. */
+export function trimShared(fc, tol = 0.06) {
+  const O = fc.features.filter((f) => f.properties.src === 'openaip').map((f) => { const r = f.geometry.coordinates[0]; return { r, b: bbox(r) }; });
+  const dseg = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy; let t = L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  const near = (p) => { for (const o of O) { if (p[0] < o.b[0] - tol || p[0] > o.b[2] + tol || p[1] < o.b[1] - tol || p[1] > o.b[3] + tol) continue; const r = o.r; for (let i = 1; i < r.length; i++) if (dseg(p, r[i - 1], r[i]) < tol) return true; } return false; };
+  const out = [];
+  for (const f of fc.features) {
+    if (f.properties.src !== 'vatspy') { out.push(f); continue; }
+    const r = f.geometry.coordinates[0], n = r.length, shared = r.map(near), lines = []; let cur = [];
+    for (let i = 1; i < n; i++) {
+      const a = r[i - 1], b = r[i], dup = shared[i - 1] && shared[i] && near([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+      if (dup) { if (cur.length > 1) lines.push(cur); cur = []; continue; }
+      if (!cur.length) cur.push(a); cur.push(b);
+    }
+    if (cur.length > 1) lines.push(cur);
+    /* nothing left of its own (all along openAIP edges): no line, but its label stays */
+    /* an outline that is closed and untouched stays a polygon */
+    if (lines.length === 1 && lines[0].length === n) { out.push(f); continue; }
+    /* the ring's start may fall inside a kept stretch: join the last line to the first */
+    const first = lines[0], last = lines[lines.length - 1];
+    if (lines.length > 1 && first[0] === r[0] && last[last.length - 1] === r[n - 1]) { lines[0] = last.concat(first.slice(1)); lines.pop(); }
+    out.push({ ...f, properties: { ...f.properties, open: '1' }, geometry: { type: 'MultiLineString', coordinates: lines } });
+  }
+  return { ...fc, features: out, trimmed: true };
+}

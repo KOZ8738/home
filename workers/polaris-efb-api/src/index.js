@@ -285,6 +285,7 @@ async function liveRoute(env) {
       if (lat == null || lon == null) return [];
       return [{
         callsign: b.callsign || b.flightNumber || `#${f.bookingId ?? '?'}`, flight: b.flightNumber || '',
+        bookingId: f.bookingId != null ? String(f.bookingId) : null,
         pilot: f.pilot?.username || '', network: b.network || null,
         type: ac.code || ac.type || ac.name || '', registration: ac.registration || '',
         from: icao(f.departureAirport), to: icao(f.arrivalAirport),

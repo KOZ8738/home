@@ -8,7 +8,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - VATSIM 即時航班
 - vAMSYS 的飛行員資料、預訂、機隊和在空中的航班
 - 飛行員登入（Login with vAMSYS）
-- Polaris Mail 和給部門的訊息
+- Polaris Mail 和給部門的訊息（Mail 和 AOC 都可以寄給全部、單一飛行員或整個機組，機組規則見 `crewTo` / `toMatch`，在 `src/crew.js`）
 - Polaris 公司文件（手冊、SOP、通告）：工作人員在後台上傳，飛行員在 EFB 的 Flight › Documents 看
 - AOC 訊息：工作人員在後台 Messages 分頁選「AOC」（或從 Live 航班卡片的 AOC 按鈕）發給全部、單一飛行員或整個機組（呼號加上機組成員，雙人機組兩位都收得到；正在飛這個呼號的 EFB 在 18 小時內也收得到），飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送

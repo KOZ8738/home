@@ -12,10 +12,10 @@
    never sends anything. The pilot's Hoppie logon code comes in the request body and is not kept here.
 
    KV (STORE):  aoc:v1:index -> [{ id, t, title, body, to: { pilot, cid, cs, name } | { crew: 1, cs, m: [{ pilot, cid, name }] } | null, by }] */
-import { crew, mailTo } from './crew.js';
+import { crew, mailTo, crewTo, toMatch } from './crew.js';
 
 class AocError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30, CREW_CS_MS = 18 * 3600_000, CREW_MAX = 4;
+const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30;
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 const line = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
@@ -25,12 +25,7 @@ async function readIndex(kv) { const v = await kv.get(IDX, 'json'); return Array
 async function writeIndex(kv, list) { list.sort((a, b) => b.t - a.t); await kv.put(IDX, JSON.stringify(list.slice(0, AOC_MAX))); mem = null; }
 const pub = (m) => ({ id: m.id, t: m.t, title: m.title, body: m.body, to: m.to ? { cs: m.to.cs || '', crew: m.to.crew ? 1 : 0 } : null });
 /* is this message for the signed-in pilot (whose EFB flies callsign cs)? */
-export function aocFor(m, sess, cs, now) {
-  if (!m.to) return true;
-  const me = (p, c) => (p && p === sess.u) || (c && sess.c && String(c) === String(sess.c));
-  if (m.to.crew) return (m.to.m || []).some((x) => me(x.pilot, x.cid)) || (!!cs && cs === m.to.cs && now - m.t < CREW_CS_MS);
-  return me(m.to.pilot, m.to.cid);
-}
+export const aocFor = (m, sess, cs, now) => toMatch(m.to, m.t, sess, cs, now);
 
 /* GET /api/efb/aoc: the AOC messages for the signed-in pilot (the last 30 days) */
 export async function aocPublic(req, env, h, sess) {
@@ -109,17 +104,8 @@ export async function aocAdmin(req, url, env, who) {
       if (!body) throw new AocError(400, 'Write the message');
       let to = null;
       const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
-      if (b.to && b.to.crew) {
-        /* a flight's crew: its callsign, and the pilots in it (one, or both seats) */
-        const cs = up(b.to.cs, 8); if (!/^[A-Z0-9]{2,8}$/.test(cs)) throw new AocError(400, "Add the flight's callsign (for example PAW123)");
-        const m = [], seen = new Set();
-        for (const x of Array.isArray(b.to.m) ? b.to.m : []) {
-          const p = up(x && x.pilot, 12), c = String((x && x.cid) || '').replace(/\D/g, '').slice(0, 9), k = p || 'c' + c;
-          if ((!p && !c) || seen.has(k)) continue; seen.add(k); m.push({ pilot: p, cid: c, name: line(x.name, 60) });
-        }
-        if (m.length > CREW_MAX) throw new AocError(400, 'At most ' + CREW_MAX + ' pilots in a crew');
-        to = { crew: 1, cs, m };
-      } else if (b.to) {
+      if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew (see crew.js)
+      else if (b.to) {
         const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
         if (!tp && !tcid) throw new AocError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
         to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: line(b.to.name, 60) };
@@ -129,8 +115,7 @@ export async function aocAdmin(req, url, env, who) {
       if (b.push !== false) {
         const payload = { title: 'AOC · ' + title, body: body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
         /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
-        const tos = to && to.crew ? to.m.map((x) => (x.pilot ? { u: x.pilot } : { cid: x.cid })) : [mailTo(m)];
-        for (const t of tos) { try { await crew(env, { op: 'notify', to: t, cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); } }
+        try { await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
       }
       return jsonRes({ ok: true, msg: m });
     }

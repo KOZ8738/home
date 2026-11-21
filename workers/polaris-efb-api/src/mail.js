@@ -2,7 +2,8 @@
    Notices from Polaris staff to the pilots' EFB Mail app. Staff write them on /admin, which Cloudflare Access protects
    (email one-time PIN); every admin request is checked again here against Access's signed token, so the admin stays
    shut if Access is missing or set up wrongly. A mail goes to all pilots, or to one pilot (to: { pilot, cid, cs, name },
-   picked on the Live tab or typed in). Pilots read mail signed in (Login with vAMSYS, auth.js): everyone gets the
+   picked on the Live tab or typed in), or to a flight's crew (to: { crew: 1, cs, m: [{ pilot, cid, name }] }, see crewTo in
+   crew.js). Pilots read mail signed in (Login with vAMSYS, auth.js): everyone gets the
    mails to all pilots; a mail to one pilot goes only to the session whose pilot ID or VATSIM CID matches. Attachment
    links carry a short signature that lasts 6 to 12 hours, because a link opened in a new tab cannot send the sign-in.
 
@@ -13,7 +14,7 @@
 import { ADMIN_HTML } from './admin.js';
 import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
-import { crew, mailTo, mailPayload } from './crew.js';
+import { crew, mailTo, mailPayload, crewTo, toMatch } from './crew.js';
 import { docsAdmin } from './docs.js';
 import { aocAdmin } from './aoc.js';
 
@@ -61,7 +62,7 @@ export async function accessUser(req, env) {
 let memIdx = null; // { at, list } short cache for the public list
 async function readIndex(kv) { const v = await kv.get('mail:v1:index', 'json').catch(() => null); return Array.isArray(v) ? v : []; }
 async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
-const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? { cs: m.to.cs || '', pilot: m.to.pilot || '' } : null, edited: m.edited || 0 });
+const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? (m.to.crew ? { cs: m.to.cs || '', crew: 1 } : { cs: m.to.cs || '', pilot: m.to.pilot || '' }) : null, edited: m.edited || 0 });
 const LINK_MS = 6 * 3600_000;
 
 /* GET /api/efb/mail: what the pilots' Mail app shows (sent, not scheduled for later) */
@@ -69,8 +70,9 @@ export async function mailPublic(req, env, h, sess, linkSig) {
   const kv = env && env.STORE; if (!kv) throw new MailError(503, 'Storage is not set up');
   if (!sess) throw new MailError(401, 'Sign in to read Polaris Mail');
   if (!memIdx || Date.now() - memIdx.at > 20000) memIdx = { at: Date.now(), list: await readIndex(kv) };
-  const mine = (m) => !m.to || (m.to.pilot && m.to.pilot === sess.u) || (m.to.cid && sess.c && m.to.cid === sess.c);
-  const now = Date.now(), list = memIdx.list.filter((m) => (m.sendAt || m.t) <= now && mine(m)).slice(0, 100).map(pub);
+  /* ?cs=: the callsign this EFB flies, for mail to a flight's crew */
+  const cs = String(new URL(req.url).searchParams.get('cs') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  const now = Date.now(), list = memIdx.list.filter((m) => (m.sendAt || m.t) <= now && toMatch(m.to, m.sendAt || m.t, sess, cs, now)).slice(0, 100).map(pub);
   /* attachment links: good until the end of the next 6-hour block, so they stay the same between checks */
   const e = (Math.floor(now / LINK_MS) + 2) * LINK_MS;
   for (const m of list) for (const a of m.att) { a.e = e; a.k = await linkSig(env, m.id + ':' + a.n + ':' + e); }
@@ -149,7 +151,8 @@ export async function mailAdmin(req, url, env, opts) {
       if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
       /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
       let to = null;
-      if (b.to) {
+      if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew: its callsign and the pilots in it
+      else if (b.to) {
         const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
         const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
         if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");

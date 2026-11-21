@@ -5310,7 +5310,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
     <nav>${boxBtn("inbox","inbox","Inbox",unread,"pm-nb")}${boxBtn("sent","sent","Sent",0,"pm-nb")}${boxBtn("trash","trash","Trash",0,"pm-nb")}</nav>
     <div class="pm-nf">${mlIco("mail")}<span>${pm?`${left} of ${pm.limit} messages left today`:"Polaris Mail"}${vam.user?`<small>${esc(vam.user)}</small>`:""}</span></div></aside>`;
   const q=String(MAIL.q||"").trim().toLowerCase();let qn=0;
-  const rows=list.map(m=>{const u=!rd.has(m.id),key=(m.from+" "+m.subject+" "+mailPlain(m.body)).toLowerCase();if(!q||key.includes(q))qn++;return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" data-q="${esc(key.slice(0,400))}" aria-pressed="${MAIL.sel===m.id}"${q&&!key.includes(q)?" hidden":""}><i class="pm-dot" aria-label="${u?"Unread":""}"></i>${mlAv(m.from)}<span class="pm-rb"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}${mlIco("chev")}</time></span><span class="pm-sub">${m.conv?`<i class="pm-to pm-cv${m.staff?"":" p"}">${m.staff?"Staff":"Pilot"}</i>`:m.to?'<i class="pm-to">To you</i>':""}${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></span></button>`}).join("");
+  const rows=list.map(m=>{const u=!rd.has(m.id),key=(m.from+" "+m.subject+" "+mailPlain(m.body)).toLowerCase();if(!q||key.includes(q))qn++;return `<button class="pm-row${u?" unread":""}${an&&an.id===m.id?" pm-"+an.k:""}" data-mailid="${esc(m.id)}" data-q="${esc(key.slice(0,400))}" aria-pressed="${MAIL.sel===m.id}"${q&&!key.includes(q)?" hidden":""}><i class="pm-dot" aria-label="${u?"Unread":""}"></i>${mlAv(m.from)}<span class="pm-rb"><span class="pm-top"><b>${esc(m.from)}</b><time>${esc(mailWhen(m.t))}${mlIco("chev")}</time></span><span class="pm-sub">${m.conv?`<i class="pm-to pm-cv${m.staff?"":" p"}">${m.staff?"Staff":"Pilot"}</i>`:m.to?'<i class="pm-to">'+(m.to.crew?"To your crew":"To you")+'</i>':""}${m.att&&m.att.length?mlIco("clip"):""}<span>${esc(m.subject)}</span></span><span class="pm-pre">${esc(mailPlain(m.body).slice(0,140))}</span></span></button>`}).join("");
   const upd=!vam.url?"":MAIL.loading?"Checking for Mail…":MAIL.at?"Updated "+(Date.now()-MAIL.at<6e4?"Just Now":mailWhen(MAIL.at)):"";
   const col=`<section class="pm-col" aria-label="${boxName}"><header class="pm-ch"><div><h3>${boxName}</h3></div></header>
     <label class="pm-search">${mlIco("search")}<input data-mailq type="search" placeholder="Search" value="${esc(MAIL.q||"")}" autocomplete="off" aria-label="Search mail"></label>
@@ -5325,7 +5325,7 @@ V.mail=()=>{if(Date.now()-MAIL.at>30000)setTimeout(()=>mailLoad(true),0);
     rdr=`<div class="pm-tb"><button class="pm-ib pm-back" data-mailback aria-label="Back to ${boxName}">${mlIco("back")}<span>${boxName}</span></button><span class="pm-sp"></span>
         <button class="pm-ib" data-mailact="unread" title="Mark as unread" aria-label="Mark as unread">${mlIco("unread")}</button>
         <button class="pm-ib" data-mailact="${inTr?"restore":"trash"}" title="${inTr?"Move to Inbox":"Move to Trash"}" aria-label="${inTr?"Move to Inbox":"Move to Trash"}">${mlIco(inTr?"restore":"trash")}</button></div>
-      <article class="pm-mail"><div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>To: ${sel.to?"You"+(sel.to.cs?" · "+esc(sel.to.cs):""):"All Polaris pilots"}</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailWhen(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
+      <article class="pm-mail"><div class="pm-from">${mlAv(sel.from)}<div><b>${esc(sel.from)}</b><span>To: ${sel.to?(sel.to.crew?"The "+esc(sel.to.cs)+" crew":"You"+(sel.to.cs?" · "+esc(sel.to.cs):"")):"All Polaris pilots"}</span></div><time title="${esc(mailFull(sel.t))}">${esc(mailWhen(sel.t))}${sel.edited?`<small>Updated ${esc(mailWhen(sel.edited))}</small>`:""}</time></div>
       <div class="pm-h" role="heading" aria-level="2">${esc(sel.subject)}</div><p class="pm-date">${esc(mailFull(sel.t))}</p>
       <div class="pm-body">${mailMd(sel.body)}</div>
       ${sel.att&&sel.att.length?`<div class="pm-att"><h4>${sel.att.length} attachment${sel.att.length>1?"s":""}</h4><div>${sel.att.map(a=>`<a href="${esc(f)}/api/efb/mail-att?id=${encodeURIComponent(sel.id)}&n=${a.n}&e=${a.e||0}&k=${encodeURIComponent(a.k||"")}" target="_blank" rel="noopener">${mlIco("clip")}<span>${esc(a.name)}<small>${esc(mailKB(a.size))}</small></span></a>`).join("")}</div></div>`:""}</article>`}
@@ -5534,7 +5534,7 @@ function mailNotify(){const L=MAIL.list;if(!L||document.hidden)return;
   const nt=typeof notiGet==="function"?notiGet():{mail:true};if(!nt.mail)return;if(typeof dndActive==="function"&&dndActive()){dndHold(nw);return}if(nt.sound)try{stChime()}catch(e){}
   if(window.__islOn&&window.__islOn()&&window.islAlert){
     const ic=`<span class="pm-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect class="pm-ib" x="3" y="5.5" width="18" height="13" rx="2.2"/><rect class="pm-il" x="6" y="7.5" width="12" height="8" rx="1"/><path class="pm-if" d="M3.9 7l8.1 6.3L20.1 7"/></svg><i class="pm-ibd">${nw.length>9?"9+":nw.length}</i></span>`;
-    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.conv||m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.conv?m.msgs[m.msgs.length-1].body:m.body).slice(0,90),ms:7000,tap:open});
+    islAlert({app:"Mail · "+m.from,short:more?nw.length+" new messages":m.to&&m.to.crew?"Message for your crew":m.conv||m.to?"Message for you":"New mail",icon:ic,title:m.subject,sub:more?"and "+more+" more from Polaris Airways":mailPlain(m.conv?m.msgs[m.msgs.length-1].body:m.body).slice(0,90),ms:7000,tap:open});
     const pill=document.querySelector("#isl .isl");if(pill){pill.classList.remove("pm-n");void pill.offsetWidth;pill.classList.add("pm-n");clearTimeout(mailNotify._t);mailNotify._t=setTimeout(()=>pill.classList.remove("pm-n"),7200)}
     try{navigator.vibrate&&navigator.vibrate([30,60,30])}catch(e){}
   }else toast((more?nw.length+" new messages · ":"New mail · ")+m.subject)}
@@ -8951,7 +8951,7 @@ const MS_TYPE={telex:"TELEX",cpdlc:"CPDLC",progress:"PROGRESS",position:"POSITIO
 function msCpdlc(p){const m=String(p||"").match(/^\/data2\/(\d*)\/(\d*)\/([A-Z]*)\/([\s\S]*)$/i);if(!m)return{text:p,ra:""};return{text:m[4].replace(/@/g,""),ra:m[3].toUpperCase()}}
 /* every message, newest first: { k, src, t, title, body, from, ra } */
 function msAll(){const L=[];
-  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC"});
+  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null});
   for(const m of MSG.hop){const ty=MS_TYPE[m.type]||String(m.type||"").toUpperCase(),c=m.type==="cpdlc"?msCpdlc(m.packet):{text:m.packet,ra:""};
     L.push({k:"h:"+m.k,src:"hop",t:m.t,title:ty+" "+m.from,body:c.text||"",from:m.from,ra:c.ra,type:m.type,id:m.id})}
   return L.sort((a,b)=>b.t-a.t)}
@@ -8971,7 +8971,9 @@ const msOff=()=>{try{return typeof apmOn==="function"&&apmOn()}catch(e){return f
 function msAocLoad(force){if(typeof authOn!=="function"||!authOn()||!authSrv()||MSG.busy.aoc||msOff())return;
   if(!force&&Date.now()-MSG.at.aoc<(cur==="messages"?45000:120000))return;MSG.busy.aoc=true;
   const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000),hd={Accept:"application/json"};if(MSG.etag&&MSG.aoc)hd["If-None-Match"]=MSG.etag;
-  fetch(authSrv()+"/api/efb/aoc",{cache:"no-cache",signal:ac.signal,headers:hd}).then(r=>{if(r.status===304)return null;
+  const cs=msCs();if(cs!==MSG.aocCs){MSG.aocCs=cs;delete hd["If-None-Match"]}
+  /* the callsign: AOC messages to this flight's crew reach every EFB flying it */
+  fetch(authSrv()+"/api/efb/aoc"+(cs?"?cs="+encodeURIComponent(cs):""),{cache:"no-cache",signal:ac.signal,headers:hd}).then(r=>{if(r.status===304)return null;
     return r.json().catch(()=>({})).then(j=>{if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);MSG.etag=r.headers.get("ETag")||"";return j})})
     .then(j=>{MSG.err.aoc="";if(j){MSG.aoc={msgs:j.msgs||[],at:j.at};store.set("msgAoc",MSG.aoc);msAfter("aoc")}})
     .catch(e=>{MSG.err.aoc=e.name==="AbortError"?"The EFB server did not answer in time":e.message})
@@ -8988,6 +8990,8 @@ function msHopLoad(force){const logon=msLogon(),cs=msCs();if(!logon||!cs||typeof
     .catch(e=>{MSG.err.hop=e.name==="AbortError"?"Hoppie’s ACARS did not answer in time":e.message})
     .finally(()=>{clearTimeout(tm);MSG.busy.hop=false;MSG.at.hop=Date.now();msUpd()})}
 function msLoad(force){msAocLoad(force);msHopLoad(force)}
+/* Mail too: the callsign this EFB flies, for mail to a flight's crew */
+mailQuery=function(){const cs=msCs();return cs?"?cs="+encodeURIComponent(cs):""};
 
 /* ---- the view ---- */
 const MS_I={gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
@@ -9006,7 +9010,7 @@ function msBox(){if(MSG.setup)return msSetup();const L=msAll(),m=L.find(x=>x.k==
   if(!m){const signed=typeof authOn==="function"&&authOn();
     return `<div class="ms-dh"><span class="ms-dt">AOC MSG DISPLAY</span></div><div class="ms-box ms-empty">${L.length?"SELECT A MESSAGE":"NO MESSAGES"}<small>${signed?(MSG.err.aoc?esc(MSG.err.aoc.toUpperCase()):"MESSAGES FROM POLARIS OPERATIONS AND HOPPIE ACARS ARRIVE HERE"):`<button type="button" class="ms-btn" data-ms="signin">SIGN IN</button>`}</small></div>`}
   const ra=m.ra&&!/^(N|NE)$/.test(m.ra)?`<p class="ms-ra">RESPONSE REQUIRED (${esc(m.ra)}): ANSWER IN THE AIRCRAFT</p>`:"";
-  const meta=m.src==="aoc"?"POLARIS AOC · "+msDay(m.t)+" "+msZ(m.t)+" · READ ONLY":"HOPPIE ACARS · FROM "+m.from+" · "+msDay(m.t)+" "+msZ(m.t)+(m.id?" · MSG "+m.id:"");
+  const meta=m.src==="aoc"?"POLARIS AOC"+(m.crew!=null?" · TO CREW "+m.crew:"")+" · "+msDay(m.t)+" "+msZ(m.t)+" · READ ONLY":"HOPPIE ACARS · FROM "+m.from+" · "+msDay(m.t)+" "+msZ(m.t)+(m.id?" · MSG "+m.id:"");
   return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">${m.src==="aoc"?"AOC MSG DISPLAY":"ACARS MSG DISPLAY"}</span></div>
     <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb">${esc(m.body)}</div>${ra}<p class="ms-meta">${esc(meta)}</p></div>`}
 function msSetup(){const lg=msLogon(),ofc=msCsOfp();

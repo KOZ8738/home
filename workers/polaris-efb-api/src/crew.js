@@ -187,8 +187,10 @@ export class Crew {
   /* queue one payload for every matching device; returns how many */
   enqueue(to, c, payload) {
     let L;
+    const who = (t) => this.rows("SELECT ep, cats FROM subs WHERE (? != '' AND u = ?) OR (? != '' AND cid = ?)", t.u || '', t.u || '', t.cid ? String(t.cid) : '', t.cid ? String(t.cid) : '');
     if (to.all) L = this.rows('SELECT ep, cats FROM subs');
-    else L = this.rows("SELECT ep, cats FROM subs WHERE (? != '' AND u = ?) OR (? != '' AND cid = ?)", to.u || '', to.u || '', to.cid ? String(to.cid) : '', to.cid ? String(to.cid) : '');
+    else if (Array.isArray(to.many)) { const by = new Map(); for (const t of to.many) for (const s of who(t || {})) by.set(s.ep, s); L = [...by.values()]; } // a crew: each device once
+    else L = who(to);
     L = L.filter((s) => c === 'alarm' || s.cats.split(',').includes(c));   // an alarm reaches every device with push on
     const body = JSON.stringify({ title: String(payload.title || 'Polaris EFB').slice(0, 120), body: String(payload.body || '').slice(0, 600), url: String(payload.url || '#mail').slice(0, 120), tag: String(payload.tag || '').slice(0, 64), cat: c });
     for (const s of L) this.sql.exec('INSERT INTO outbox (ep, payload, ttl, tries, at) VALUES (?, ?, ?, 0, ?)', s.ep, body, payload.ttl || 4 * 3600, Date.now());
@@ -372,7 +374,35 @@ export class Crew {
 }
 
 /* who a notice goes to, and what the notification says */
-export function mailTo(m) { return m.to ? { u: m.to.pilot || '', cid: m.to.cid || '' } : { all: true }; }
+export function mailTo(m) {
+  if (!m.to) return { all: true };
+  if (m.to.crew) return { many: (m.to.m || []).map((x) => (x.pilot ? { u: x.pilot } : { cid: x.cid })) };
+  return { u: m.to.pilot || '', cid: m.to.cid || '' };
+}
+/* a message (Mail or AOC) to a flight's crew: its callsign and the pilots in it, one or both seats of a two-pilot crew.
+   It reaches every pilot listed, and any EFB flying that callsign for 18 hours after it went out (so a second pilot
+   nobody listed still sees it, but whoever flies the callsign next week does not). */
+export const CREW_CS_MS = 18 * 3600_000, CREW_MAX = 4;
+export function crewTo(raw) {
+  const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+  const bad = (msg) => Object.assign(new Error(msg), { status: 400 });
+  const cs = up(raw && raw.cs, 8); if (!/^[A-Z0-9]{2,8}$/.test(cs)) throw bad("Add the flight's callsign (for example PAW123)");
+  const m = [], seen = new Set();
+  for (const x of Array.isArray(raw.m) ? raw.m : []) {
+    const p = up(x && x.pilot, 12), c = String((x && x.cid) || '').replace(/\D/g, '').slice(0, 9), k = p || 'c' + c;
+    if ((!p && !c) || seen.has(k)) continue; seen.add(k);
+    m.push({ pilot: p, cid: c, name: String((x && x.name) || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 60) });
+  }
+  if (m.length > CREW_MAX) throw bad('At most ' + CREW_MAX + ' pilots in a crew');
+  return { crew: 1, cs, m };
+}
+/* is a message to "to", sent at "at", for the signed-in pilot (sess) whose EFB flies callsign cs? */
+export function toMatch(to, at, sess, cs, now) {
+  if (!to) return true;
+  const me = (p, c) => (p && p === sess.u) || (c && sess.c && String(c) === String(sess.c));
+  if (to.crew) return (to.m || []).some((x) => me(x.pilot, x.cid)) || (!!cs && cs === to.cs && now - at < CREW_CS_MS && now >= at);
+  return me(to.pilot, to.cid);
+}
 export function mailPayload(m) {
   const plain = String(m.body || '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[*#•]|^\s*-\s+/gm, '').replace(/\s+/g, ' ').trim();
   return { title: (m.from || 'Polaris Airways') + ' · ' + (m.subject || ''), body: plain.slice(0, 180), url: '#mail', tag: 'mail-' + m.id };

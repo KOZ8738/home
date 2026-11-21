@@ -1,6 +1,7 @@
 /* ---------- AOC messages and Hoppie ACARS, for the EFB's Messages ----------
    AOC: Polaris operations (staff) send a short company message to the flight deck from /admin (AOC tab, behind
-   Cloudflare Access): to all pilots, or to one pilot by pilot ID or VATSIM CID, as Mail does. Pilots read them in the
+   Cloudflare Access; the Messages tab, sent as AOC, or the AOC button on a Live flight): to all pilots, or to one pilot
+   by pilot ID or VATSIM CID, as Mail does. Pilots read them in the
    EFB under Flight › Messages, beside what reaches their aircraft on Hoppie's ACARS. Pilots cannot answer an AOC
    message: there is no route for it, on purpose.
 
@@ -87,7 +88,7 @@ export async function hoppiePeek(req, env, h, sess) {
   return jsonRes(v, 200, h);
 }
 
-/* ---- /admin, AOC tab ---- */
+/* ---- /admin, Messages tab (sent as AOC) ---- */
 export async function aocAdmin(req, url, env, who) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {

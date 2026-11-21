@@ -23,7 +23,7 @@
  *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
  *                                          staff put them on /admin, Documents tab (see docs.js)
  *   GET /api/efb/aoc                    -> AOC messages from Polaris operations for the EFB's Messages (read only; staff send them
- *                                          on /admin, AOC tab, see aoc.js)
+ *                                          on /admin, Messages tab, see aoc.js)
  *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)

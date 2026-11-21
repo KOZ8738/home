@@ -241,7 +241,7 @@ function render(): void {
   const eta = etaV && isFinite(etaV.getTime()) ? etaV : f.dArr != null && r.gs > 80 ? new Date(Date.now() + (f.dArr / r.gs) * 3600e3) : null;
   det.innerHTML = `
     <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${r.pilot ? esc(r.pilot) + (r.rank ? ' · ' + esc(r.rank) : '') + (r.name ? ' · ' + esc(r.name) : '') : esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small><span class="lv-srcb ${r.src === 'vAMSYS' ? 'va' : 'vs'}">${r.sample ? 'Sample' : r.src === 'vAMSYS' ? 'vAMSYS ACARS' + (r.net ? ' · ' + esc(r.net) : '') : 'VATSIM only'}</span></div>
-      <div class="lv-dbtn"><button class="msg" data-lv="msg"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Write a Polaris Mail message to this pilot"'}><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>Message</button><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
+      <div class="lv-dbtn"><button class="msg" data-lv="msg"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Write a Polaris Mail message to this pilot"'}><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>Message</button><button class="aoc" data-lv="aoc"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Send an AOC message to this flight deck (no reply)"'}><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>AOC</button><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
     <div class="lv-od">
       <div><b>${esc(aptCode(r.dep))}</b><small>${esc(f.dep?.city || (r.dep ? '' : 'No flight plan'))}</small></div>
       <div class="lv-bar"><span style="width:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"></span><i style="left:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"><svg viewBox="-10 -10 20 20"><path d="M0,-10 L1.5,-6.5 L1.5,-2.2 L9,2.2 L9,4 L1.5,2 L1.2,6.6 L4,8.6 L4,10 L0,9 L-4,10 L-4,8.6 L-1.2,6.6 L-1.5,2 L-9,4 L-9,2.2 L-1.5,-2.2 L-1.5,-6.5Z"/></svg></i></div>
@@ -313,11 +313,11 @@ document.addEventListener('click', (e) => {
   else if (k === 'all') { S.follow = false; pick(null); }
   else if (k === 'close') { S.follow = false; pick(null); }
   else if (k === 'follow') { S.follow = !S.follow; const f = sel(); if (S.follow && f) S.globe?.frameFlight(f); render(); }
-  else if (k === 'msg') {
+  else if (k === 'msg' || k === 'aoc') {
     const f = sel();
-    const compose = (window as unknown as { pmCompose?: (t: { pilot: string; cid: string; cs: string; name: string }) => void }).pmCompose;
+    const compose = (window as unknown as { pmCompose?: (t: { pilot: string; cid: string; cs: string; name: string }, kind?: string) => void }).pmCompose;
     // the pilot ID (vAMSYS flights) and VATSIM CID decide who gets it; callsign and name are labels for staff
-    if (f && !f.raw.sample && compose) compose({ pilot: f.raw.pilot || '', cid: f.raw.cid ? String(f.raw.cid) : '', cs: f.raw.cs, name: f.raw.name || f.raw.pilot || '' });
+    if (f && !f.raw.sample && compose) compose({ pilot: f.raw.pilot || '', cid: f.raw.cid ? String(f.raw.cid) : '', cs: f.raw.cs, name: f.raw.name || f.raw.pilot || '' }, k === 'aoc' ? 'aoc' : 'mail');
   }
   else if (k === 'sample') { S.sample = true; S.flights = build(samples(), Date.now()); pick('PAW806'); }
   else if (k === 'nosample') { S.sample = false; S.sel = null; S.flights = []; S.globe?.overview(); void poll(true); }

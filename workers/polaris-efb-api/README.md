@@ -10,7 +10,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - 飛行員登入（Login with vAMSYS）
 - Polaris Mail 和給部門的訊息
 - Polaris 公司文件（手冊、SOP、通告）：工作人員在後台上傳，飛行員在 EFB 的 Flight › Documents 看
-- AOC 訊息：工作人員在後台 AOC 分頁發給全部或單一飛行員，飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
+- AOC 訊息：工作人員在後台 Messages 分頁選「AOC」（或從 Live 航班卡片的 AOC 按鈕）發給全部或單一飛行員，飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送
 
 完整的端點清單寫在 `src/index.js` 開頭的註解裡。

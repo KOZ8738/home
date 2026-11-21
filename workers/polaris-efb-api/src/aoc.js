@@ -1,5 +1,5 @@
 /* ---------- AOC messages and Hoppie ACARS, for the EFB's Messages ----------
-   AOC: Polaris operations (staff) send a short company message to the flight deck from /admin (AOC tab, behind
+   AOC: Polaris operations (staff) send a short company message to the flight deck from /admin (behind
    Cloudflare Access; the Messages tab, sent as AOC, or the AOC button on a Live flight): to all pilots, or to one pilot
    by pilot ID or VATSIM CID, as Mail does. Pilots read them in the
    EFB under Flight › Messages, beside what reaches their aircraft on Hoppie's ACARS. Pilots cannot answer an AOC

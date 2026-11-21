@@ -156,7 +156,7 @@ main#docs{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}main#docs[hidden]
 .dc-d .btns button{padding:4px 10px;font-size:12.5px}
 .btnl{font:500 12.5px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;border-radius:4px;border:1px solid var(--line);background:var(--field);color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;padding:4px 10px}
 @media(max-width:700px){.dc-d{grid-template-columns:44px minmax(0,1fr)}.dc-d .btns{grid-row:auto;grid-column:1/3;justify-content:flex-start;max-width:none;margin-top:6px}}
-/* ---------- AOC tab ---------- */
+/* ---------- AOC messages (the Messages tab, sent as AOC) ---------- */
 #acBody{text-transform:uppercase;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;min-height:150px}#acTitle{text-transform:uppercase}
 .ac-box{margin-top:6px;background:#1C1C1E;color:#F2F2F2;border-radius:4px;padding:18px 18px 22px;font:500 13.5px/1.5 -apple-system,"Helvetica Neue",Arial,sans-serif;text-transform:uppercase;letter-spacing:.02em}
 .ac-box .h{text-align:center;font-weight:600;letter-spacing:.08em;margin-bottom:12px}

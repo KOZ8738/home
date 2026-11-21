@@ -26,6 +26,7 @@
  *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
+ *   GET/POST /api/efb/chartnotes?k=     -> the signed-in pilot's pen marks on a chart (ICAO|chart name|page)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
  *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
@@ -1365,6 +1366,33 @@ export default {
       if (!d || !/^[A-Z0-9]{3,4}$/.test(ic) || !Array.isArray(d.dep) || !Array.isArray(d.arr) || !Array.isArray(d.rw)) return res({ error: 'Not procedure data' }, 400);
       await env.STORE.put('np:' + me.u + ':' + ic, JSON.stringify({ ...d, icao: ic, up: Date.now() }), { expirationTtl: 90 * 86400 });
       return res({ ok: true, icao: ic });
+    }
+    /* each pilot's pen marks on charts (see chartsx.js), one record per chart page "ICAO|CHART NAME|page": per pilot
+       only, never shared, gone a year after the last change. An empty set of strokes deletes the record. */
+    if (/^\/api\/efb\/chartnotes\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env), u = new URL(req.url);
+      const res = (b, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      if (!me) return res({ error: 'Sign in first' }, 401);
+      if (!env.STORE) return res({ error: 'Not set up on the server' }, 503);
+      const okK = k => typeof k === 'string' && k.length <= 160 && /^[A-Z0-9]{3,4}\|[^|\n]{1,120}\|\d{1,3}$/.test(k);
+      if (req.method === 'GET') {
+        const k = String(u.searchParams.get('k') || '');
+        if (!okK(k)) return res({ error: 'k is required' }, 400);
+        const v = await env.STORE.get('cn:' + me.u + ':' + k);
+        return v ? new Response(v, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }) : res({ error: 'No marks on this chart' }, 404);
+      }
+      if (req.method !== 'POST') return res({ error: 'Method not allowed' }, 405);
+      const t = await req.text(); if (t.length > 600_000) return res({ error: 'Too large' }, 413);
+      let b; try { b = JSON.parse(t); } catch (e) { return res({ error: 'Bad body' }, 400); }
+      const k = b && b.k, n = b && b.n;
+      if (!okK(k)) return res({ error: 'Bad chart key' }, 400);
+      if (!n || !Array.isArray(n.s) || !n.s.length) { await env.STORE.delete('cn:' + me.u + ':' + k); return res({ ok: true, k, gone: true }); }
+      if (n.s.length > 500 || !(+n.pw > 0) || !(+n.ph > 0)) return res({ error: 'Not chart marks' }, 400);
+      const clean = { pw: +n.pw, ph: +n.ph, t: Number.isFinite(+n.t) && +n.t > 0 ? +n.t : Date.now(),
+        s: n.s.map(x => ({ c: /^#[0-9A-Fa-f]{6}$/.test(String(x && x.c)) ? x.c : '#E5197E', w: Math.max(.02, Math.min(60, +(x && x.w) || 2)), h: x && x.h ? 1 : 0,
+          p: (Array.isArray(x && x.p) ? x.p.slice(0, 6000) : []).map(Number).filter(Number.isFinite).map(v => Math.round(v * 10) / 10) })).filter(x => x.p.length >= 2 && x.p.length % 2 === 0) };
+      await env.STORE.put('cn:' + me.u + ':' + k, JSON.stringify({ k, n: clean, t: clean.t }), { expirationTtl: 365 * 86400 });
+      return res({ ok: true, k, t: clean.t });
     }
     /* each pilot's Weather settings (see kb.js): saved airports and units, on every device */
     if (/^\/api\/efb\/wx\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {

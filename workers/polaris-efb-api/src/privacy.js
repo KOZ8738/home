@@ -88,6 +88,8 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
 </section>
 <section id="navdata"><h2>SIDs and STARs from your simulator</h2>
  <p>If you run Polaris Navdata on your simulator PC, the EFB there reads the departure and arrival procedures of your flight plan's airports from your own simulator's navigation data and keeps a copy on the EFB server under your Pilot ID, so your other devices can show them. Only you can read it; it is never shared with other pilots and is deleted after 90 days.</p></section>
+<section id="chartnotes"><h2>Your marks on charts</h2>
+ <p>What you draw on a chart with the pen in the chart viewer is kept on the EFB server under your Pilot ID, so it appears on your other devices. Only you can read it; it is never shared with other pilots, and it is deleted a year after you last change it, or when you clear the chart's marks.</p></section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
  <div class="wrap-t"><table><thead><tr><th>Item</th><th>Why</th><th>Kept until</th></tr></thead><tbody>

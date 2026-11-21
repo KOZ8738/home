@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1121.0122">
+<meta name="efb-build" content="1121.0356">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -14208,6 +14208,455 @@ if(MPF.on){
   async function suite(list){const P=window.__mapPerf;P.out=[];P.busy=true;try{for(const o of list){try{P.out.push(await bench(o))}catch(e){P.out.push({err:String(e&&e.message||e),o})}}}finally{P.busy=false}return P.out}
   window.__mapPerf={bench,suite,reset,times:()=>times(1),out:[],busy:false,info:()=>({dpr:window.devicePixelRatio,size:mapSize(),vec:!!VEC.map,ua:navigator.userAgent})};
 }
+
+/* ===== Charts for the flight (after the charts apps) =====
+   1. The flight's charts pinned by themselves: the origin's taxi diagram and SID, the STAR, the approach and the
+      destination's taxi diagram, at the front of the pin bar (Map and chart viewer), following the plan as it changes.
+   2. The procedures that join the route first in Set departure / arrival / approach; the plan's charts marked first in
+      the airport sheet and the Charts app.
+   3. Line up a chart on two fixes you can read on it (tap the fix, pick its name), shared with Polaris pilots; with a
+      georeference the aircraft is drawn on the full-screen chart too.
+   4. A route strip along the top of the Map: origin and runway, SID, route, STAR, approach, destination.
+   5. Minimums set with the approach: the PFD's minimums (one value for both), written on the Map's final segment.
+   6. Charts that follow the flight: the approach chart offered on descent, the taxi diagram after landing.
+   7. A pen on the full-screen chart (a finger in Draw, an Apple Pencil any time), kept on the EFB server for the pilot.
+   8. Split view on an iPad held sideways: the chart on the right, the Map on the left. */
+const CX={F:[],flOpen:store.get("cxFlOpen",true)!==false,phase:store.get("cxPhase",true)!==false,strip:store.get("cxStrip",true)!==false,split:store.get("cvSplit",false)===true,
+  geo:null,geoSrc:"",geoBy:"",geoFor:"",pw:0,ph:0,tf:null,tfWant:null,verUntil:0,verList:[],pen:false,tool:"pen",col:store.get("cxPenCol","#E5197E"),cur:null,undo:[],notes:{},pushT:{},
+  raf:0,ownWas:false,sug:null,now:null,phAt:0,menu:false};
+const cxOk=()=>typeof npOk==="function"&&npOk();
+const cxApts=()=>{const x=O();return[S(x.o.icao_code).toUpperCase(),S(x.d.icao_code).toUpperCase()]};
+const cxR1=v=>Math.round(v*10)/10;
+
+/* ---------- the flight's charts ---------- */
+/* an approach in the simulator's words: "ILS RW24R", "RNAV Y RW24R", "LOC BC RW25" */
+function cxApParse(n){const s=String(n||"").toUpperCase(),m=s.match(/RW(\d{1,2}[LRC]?)/),t=s.replace(/RW\S*/g,"").trim().split(/\s+/).filter(Boolean);const sfx=t.length>1&&/^[A-Z]$/.test(t[t.length-1])?t.pop():"";return{ty:t.join(" "),rw:m?npRwyN(m[1]):"",sfx}}
+/* an FAA approach chart's name: "RNAV (GPS) Y RWY 24R", "ILS RWY 24R (CAT II - III)" */
+function cxApChart(name){const n=String(name||"").toUpperCase(),m=n.match(/\bRWY\s*(\d{1,2}[LRC]?)\b/);if(!m)return null;let pre=n.slice(0,m.index).trim();const post=n.slice(m.index+m[0].length),s=pre.match(/\s([W-Z])$/);if(s)pre=pre.slice(0,-2).trim();
+  return{rw:npRwyN(m[1]),pre,sfx:s?s[1]:"",cat:/CAT\s*I/.test(post)}}
+/* how well a chart fits an approach (−1: not this one); a.sfx undefined: any suffix */
+function cxApScore(c,a){const k=cxApChart(c.name);if(!k||!a||k.rw!==a.rw)return -1;if(a.sfx!==undefined&&(k.sfx||"")!==(a.sfx||""))return -1;const p=k.pre,t=String(a.ty||"").toUpperCase(),has=w=>new RegExp("(^|[^A-Z])"+w+"([^A-Z]|$)").test(p);let s;
+  if(t==="ILS"||t==="GLS")s=has(t)?(/OR LOC/.test(p)?4:3):-1;
+  else if(t==="LOC"||t==="LOC BC")s=has("LOC")?(/^LOC/.test(p)?4:2):-1;
+  else if(t==="RNAV"||t==="GPS")s=/RNAV|GPS/.test(p)?(/GPS/.test(p)?4:3):-1;
+  else if(/^VOR/.test(t))s=/VOR|TACAN/.test(p)?3:-1;
+  else if(/^NDB/.test(t))s=has("NDB")?3:-1;
+  else if(t==="LDA"||t==="SDF")s=has(t)?3:-1;
+  else s=1;
+  return s>0&&k.cat?s-1.5:s}
+function cxApFind(icao,a){const d=CH.data[icao];if(!d||!Array.isArray(d.charts)||!a||!a.rw)return null;let best=null,bs=0;for(const c of d.charts){if(c.group!=="Approaches")continue;const s=cxApScore(c,a);if(s>bs){bs=s;best=c}}return best}
+/* the approach the flight will fly: the one chosen in Set approach, otherwise an ILS (or the best there is) to the planned runway */
+function cxApChartFor(){const o=rpGet(),x=O(),di=cxApts()[1];
+  if(o.app){const a=cxApParse(o.appN||o.app);if(!a.rw&&o.appRwy)a.rw=npRwyN(o.appRwy);const c=a.rw?cxApFind(di,a):null;if(c)return c}
+  const rw=npRwyN(o.appRwy||o.starRwy||S(x.d.plan_rwy));if(!rw)return null;for(const ty of ["ILS","LOC","RNAV","VOR","NDB"]){const c=cxApFind(di,{ty,rw});if(c)return c}return null}
+function cxFlight(){if(!cxOk())return[];const [oi,di]=cxApts(),out=[];
+  CX.chTry=CX.chTry||{};for(const ic of [oi,di])if(ic&&!CH.data[ic]&&!CH.loading[ic]&&vam.url&&Date.now()-(CX.chTry[ic]||0)>60000){CX.chTry[ic]=Date.now();try{chLoad(ic)}catch(e){}}
+  if(CH.loading[oi]||CH.loading[di]){clearTimeout(CX.flT);CX.flT=setTimeout(()=>{try{pinUi();if(AS.open)asUi()}catch(e){}},1200)}
+  const add=(ic,c,role)=>{const d=CH.data[ic];if(c&&!out.some(p=>p.icao===ic&&p.pdf===c.pdf))out.push({icao:ic,name:c.name,pdf:c.pdf,group:c.group||"",cycle:d.cycle||"",role,auto:1})};
+  const ok=ic=>!!(CH.data[ic]&&Array.isArray(CH.data[ic].charts));
+  const dg=ic=>CH.data[ic].charts.find(c=>c.group==="Airport diagram");
+  const proc=(ic,kind)=>{let code="";try{code=rpCur(kind)}catch(e){}if(!code)return null;const L=rpList(ic,kind),p=L&&L.find(q=>q.code===code);return p?p.c:null};
+  if(oi&&ok(oi)){add(oi,dg(oi),"DEP");add(oi,proc(oi,"sid"),"DEP")}
+  if(di&&ok(di)){add(di,proc(di,"star"),"ARR");add(di,cxApChartFor(),"APP");add(di,dg(di),"ARR")}
+  return out}
+const cxInFlight=(icao,pdf)=>CX.F.some(p=>p.icao===icao&&p.pdf===pdf);
+
+/* ---------- 1. the pin bar: the flight's charts first ---------- */
+const CX_FL_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
+function cxTab(p,attr,i,active,close){const on=!!(active&&active.icao===p.icao&&active.pdf===p.pdf),cat=(typeof asCatOf==="function"&&asCatOf(p.group))||"REF",om=pinOnMap(p),now=!!(CX.now&&CX.now.icao===p.icao&&CX.now.pdf===p.pdf);
+  return`<span class="pin-tab c-${cat.toLowerCase()}${on?" on":""}${p.auto?" fl":""}${now?" now":""}"><button type="button" data-${attr}open="${i}" title="${esc(p.icao+" · "+p.name)}"><b>${esc(p.icao)} · ${cat}</b> ${esc(pinShort(p.name))}</button><button type="button" class="pin-map" data-${attr}map="${i}" aria-pressed="${om}" aria-label="${om?"Remove":"Lay"} ${esc(p.name)} ${om?"from":"on"} the map">${PIN_MAP_SVG}</button>${close?`<button type="button" class="pin-x" data-pinx="${i}" aria-label="Unpin ${esc(p.name)}">×</button>`:""}</span>`}
+function cxBar(active){const F=CX.F,fk=new Set(F.map(p=>p.icao+"|"+p.pdf)),man=PINS.map((p,i)=>fk.has(p.icao+"|"+p.pdf)?"":cxTab(p,"pin",i,active,true)).join("");
+  const fl=F.length?`<span class="pin-fl"><button type="button" class="pin-flb" data-cxfl aria-expanded="${CX.menu}" aria-label="Charts for flight ${esc(O().flight||"")}" title="Charts for this flight">${CX_FL_SVG}<b>${esc(O().flight||"Flight")}</b></button>${CX.flOpen?F.map((p,i)=>cxTab(p,"cxf",i,active,false)).join(""):`<span class="pin-flc">${F.length} charts</span>`}</span>`:"";
+  return{html:fl+(man?`${F.length?'<span class="pin-sep"></span>':""}<span class="pin-ic">${PIN_SVG}</span>${man}`:"")+pinUndoHtml(),empty:!F.length&&!man&&!PIN_UNDO}}
+function cxBarSet(bar,b){bar.hidden=b.empty;if(bar.dataset.cxh!==b.html){bar.dataset.cxh=b.html;const sl=bar.scrollLeft;bar.innerHTML=b.html;bar.scrollLeft=sl;const t=bar.querySelector(".pin-tab.now")||bar.querySelector(".pin-tab.on");if(t&&t.scrollIntoView)try{t.scrollIntoView({block:"nearest",inline:"nearest"})}catch(e){}}}
+pinUi=function(){CX.F=cxFlight();
+  const wrap=document.querySelector(".mapwrap");
+  if(wrap){let bar=wrap.querySelector("#pinBar");if(!bar){bar=document.createElement("div");bar.id="pinBar";bar.className="pinbar";wrap.appendChild(bar)}cxBarSet(bar,cxBar(null))}
+  const cv=document.getElementById("cvWrap");
+  if(cv){let bar=cv.querySelector("#cvPins");if(!bar){bar=document.createElement("div");bar.id="cvPins";bar.className="cv-pins";cv.appendChild(bar)}cxBarSet(bar,cxBar(CV.sel));
+    const b=cv.querySelector('[data-cv="pin"]');if(b&&CV.sel){const on=pinHas(CV.sel.icao,CV.sel.pdf);b.setAttribute("aria-pressed",String(on));b.textContent=on?"Pinned":"Pin"}}
+  cxPillUi();cxMenuUi()};
+/* the Map's Profile button sits above the pin bar */
+function cxPillUi(){const w=document.querySelector(".mapwrap"),pb=w&&w.querySelector(".tr-pbtn"),bar=w&&w.querySelector("#pinBar");if(!pb)return;if(!bar||bar.hidden){pb.style.bottom="";return}const r=bar.getBoundingClientRect(),wr=w.getBoundingClientRect();if(r.height)pb.style.bottom=Math.round(wr.bottom-r.top+8)+"px"}
+/* the flight chip's menu: show the flight's charts, charts that follow the flight, the route strip */
+function cxMenuUi(){let m=document.getElementById("cxFlMenu");if(!CX.menu){if(m)m.hidden=true;return}
+  const host=CV.open?document.getElementById("cvWrap"):document.querySelector(".mapwrap");const chip=host&&host.querySelector("[data-cxfl]");if(!chip){CX.menu=false;if(m)m.hidden=true;return}
+  if(!m||m.parentNode!==host){if(m)m.remove();m=document.createElement("div");m.id="cxFlMenu";m.className="cx-menu";m.setAttribute("role","dialog");m.setAttribute("aria-label","Flight charts");host.appendChild(m)}
+  const sw=(k,on,t,s)=>`<div class="cx-mrow"><div><b>${t}</b><small>${s}</small></div><button class="st-sw" role="switch" aria-checked="${on}" aria-label="${t}" data-cxsw="${k}"><i></i></button></div>`;
+  const x=O();m.innerHTML=`<div class="cx-mh"><b>${esc(x.flight||"Flight")}</b><span>${esc(cxApts().join(" → "))}</span></div>`
+    +sw("flOpen",CX.flOpen,"Charts for this flight","Taxi diagrams, SID, STAR and approach, pinned by themselves")
+    +sw("phase",CX.phase,"Follow the flight","The approach chart on descent, the taxi diagram after landing")
+    +sw("strip",CX.strip,"Route strip","Along the top of the Map");
+  m.hidden=false;const r=chip.getBoundingClientRect(),hr=host.getBoundingClientRect();m.style.left=Math.max(8,Math.min(hr.width-m.offsetWidth-8,r.left-hr.left))+"px";m.style.bottom=Math.max(8,hr.bottom-r.top+8)+"px"}
+document.addEventListener("click",e=>{const t=e.target;
+  const fl=t.closest("[data-cxfl]");if(fl){CX.menu=!CX.menu;pinUi();return}
+  const sw=t.closest("[data-cxsw]");if(sw){const k=sw.dataset.cxsw;CX[k]=!CX[k];store.set({flOpen:"cxFlOpen",phase:"cxPhase",strip:"cxStrip"}[k],CX[k]);pinUi();cxStripUi();return}
+  if(CX.menu&&!t.closest("#cxFlMenu")){CX.menu=false;cxMenuUi()}
+  const o=t.closest("[data-cxfopen]");if(o){const p=CX.F[+o.dataset.cxfopen];if(p)pinOpen(p);return}
+  const mp=t.closest("[data-cxfmap]");if(mp){const p=CX.F[+mp.dataset.cxfmap];if(p)pinMap(p);return}},true);
+
+/* ---------- 2. what joins the route first; the plan's charts marked ---------- */
+{const _r=npRows;npRows=function(kind,d,R){const o=_r.apply(this,arguments);if(!d||!cxOk())return o;let route;try{route=new Set(rePts().map(q=>q.n))}catch(e){route=new Set()}
+  const cur=rpGet(),orig=kind!=="app"&&cur[kind]==null?rpOrig(kind):"";
+  const rank=r=>{if(cur[kind]!=null?cur[kind]===(kind==="app"?r.p.id:r.p.n)&&(cur[kind+"T"]||"")===(r.t||r.p.nf||""):orig&&orig===r.p.n)return 0;let e="";try{e=npEnd(kind,r)}catch(x){}return e&&route.has(e)?1:2};
+  for(const L of [o.from,o.other]){const ix=new Map(L.map((r,i)=>[r,i])),rk=new Map(L.map(r=>[r,rank(r)]));L.sort((a,b)=>rk.get(a)-rk.get(b)||ix.get(a)-ix.get(b))}
+  o.from.forEach((r,i)=>{r.k="f"+i;r.col=NP_COL[i%NP_COL.length]});o.other.forEach((r,i)=>{r.k="o"+i;r.col=NP_COL[(i+o.from.length)%NP_COL.length]});return o}}
+/* the airport sheet: this flight's charts first in their category, marked */
+{const _ac=asCharts;asCharts=function(icao){const h=_ac.apply(this,arguments);CX.F=cxFlight();if(!CX.F.some(p=>p.icao===icao))return h;
+  const i=h.indexOf('<div class="as-list">');if(i<0)return h;const j=h.lastIndexOf("</div>");const head=h.slice(0,i+21),body=h.slice(i+21,j),tail=h.slice(j);
+  const rows=body.match(/<div class="as-chrow">[\s\S]*?<\/div>/g);if(!rows||rows.join("").length!==body.length)return h;
+  const mine=r=>{const m=r.match(/data-aspdf="([^"]*)"/);return!!(m&&cxInFlight(icao,m[1].replace(/&amp;/g,"&")))};
+  const out=rows.map(r=>mine(r)?r.replace(/(<button class="as-ch"[^>]*>)<span>/,'$1<span><i class="as-fl">This flight</i>'):r);
+  return head+out.filter(mine).concat(out.filter(r=>!mine(r))).join("")+tail}}
+/* the Charts app: the same marks on the cards */
+if(typeof chCards==="function"){const _cc=chCards;chCards=function(d,icao){const h=_cc.apply(this,arguments);CX.F=cxFlight();if(!CX.F.some(p=>p.icao===icao))return h;
+  const cards=[];const re=/<button class="chitem chc"[\s\S]*?<\/button>/g;let m;while((m=re.exec(h)))cards.push({s:m[0],i:m.index});if(!cards.length)return h;
+  const mine=c=>{const q=c.match(/data-chpdf="([^"]*)"/);return!!(q&&cxInFlight(icao,q[1].replace(/&amp;/g,"&")))};
+  const a=cards[0].i,b=cards[cards.length-1].i+cards[cards.length-1].s.length;if(h.slice(a,b)!==cards.map(c=>c.s).join(""))return h;
+  const L=cards.map(c=>mine(c.s)?c.s.replace("<small>",'<small><em class="chc-fl">This flight</em> '):c.s);
+  return h.slice(0,a)+L.filter(mine).concat(L.filter(c=>!mine(c))).join("")+h.slice(b)}}
+
+/* ---------- 4. the route strip ---------- */
+/* the en-route part of the ATC route: after the SID and its transition, before the STAR's transition and the STAR */
+function cxRouteMid(sid,star,sT,aT){let t=[];try{t=String(reRoute()||"").trim().split(/\s+/).filter(w=>w&&w!=="DCT")}catch(e){}
+  const i=sid?t.indexOf(sid):-1,j=star?t.indexOf(star):-1;t=t.slice(i+1,j>i?j:t.length);if(sid&&sT&&t[0]===sT)t.shift();if(star&&aT&&t[t.length-1]===aT)t.pop();return t}
+function cxStripHtml(){const x=O(),o=rpGet(),[oi,di]=cxApts(),B=bpBug();let sid="",star="";try{sid=rpCur("sid");star=rpCur("star")}catch(e){}
+  const sT=sid?(o.sidT!=null&&o.sid!=null?o.sidT:fpTrans("sid",sid)):"",aT=star?(o.starT!=null&&o.star!=null?o.starT:fpTrans("star",star)):"";
+  const drw=npRwyN(o.sidRwy||S(x.o.plan_rwy)),arw=npRwyN(o.appRwy||o.starRwy||S(x.d.plan_rwy));
+  const mid=cxRouteMid(sid,star,sT,aT),midT=mid.length<=4?mid.join(" "):mid.slice(0,2).join(" ")+" … "+mid.slice(-1)[0],app=o.app?String(o.appN||o.app).replace(/\bRW(?=\d)/,""):"";
+  const ar='<i class="cx-ar" aria-hidden="true"></i>',chip=(k,cls,lab,val,sub,title)=>`<button type="button" class="cx-c ${cls.split(" ").map(c=>"cx-"+c).join(" ")}" data-cxs="${k}" title="${esc(title)}"><small>${lab}</small><b>${val}</b>${sub?`<em>${sub}</em>`:""}</button>`;
+  let modT="";try{const inf=reInfo();if(inf)modT="Modified "+esc(reSign(inf.dd,v=>Math.round(v)+" NM"))}catch(e){}
+  const minT=B.min!=null?(B.minT==="radio"?"DH ":cxMinLab(cxApParse(o.appN||"").ty)+" ")+fmt(B.min):"";
+  return chip("o","apt",esc(oi),drw?"RW"+esc(drw):"—","","Departure airport and runway")+ar
+    +(sid?chip("sid","sid","SID",esc(sid),sT&&sT!==sid?esc(sT):"","Change the departure"):chip("sid","sid add","SID","+ Add","","Choose a departure"))+ar
+    +chip("rte","rte","Route",mid.length?esc(midT):"Direct",modT||(mid.length>4?mid.length+" points":""),"Edit the route")+ar
+    +(star?chip("star","star","STAR",esc(star),aT&&aT!==star?esc(aT):"","Change the arrival"):chip("star","star add","STAR","+ Add","","Choose an arrival"))+ar
+    +(app?chip("app","app","APP",esc(app),minT?esc(minT):"","Change the approach"):chip("app","app add","APP","+ Add",minT?esc(minT):"","Choose an approach"))+ar
+    +chip("d","apt",esc(di),arw?"RW"+esc(arw):"—","","Destination airport and runway")}
+function cxStripUi(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;let el=wrap.querySelector("#cxStrip");
+  const show=cur==="map"&&CX.strip&&cxOk()&&!(typeof RE!=="undefined"&&RE.on);
+  if(!show){if(el)el.hidden=true;return}
+  if(!el){el=document.createElement("div");el.id="cxStrip";el.className="cx-strip";el.setAttribute("role","navigation");el.setAttribute("aria-label","Route");wrap.appendChild(el)}
+  const h=cxStripHtml();if(el.dataset.h!==h){el.dataset.h=h;el.innerHTML=h}el.hidden=false;
+  const ap=wrap.querySelector(".mapapt");if(ap&&ap.offsetHeight){el.style.top=(ap.offsetTop+ap.offsetHeight+8)+"px";el.style.left=ap.offsetLeft+"px"}
+  /* under a side panel (Flight, Set arrival, the airport sheet) it would only peek out: it waits until the panel closes */
+  const r=el.getBoundingClientRect();let hide=false;for(const p of document.querySelectorAll("#fpPanel,#asSheet")){if(p.hidden||!p.offsetWidth)continue;const q=p.getBoundingClientRect();if(q.left<r.right&&q.right>r.left&&q.top<r.bottom&&q.bottom>r.top){hide=true;break}}
+  el.classList.toggle("cx-under",hide)}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-cxs]");if(!b)return;const k=b.dataset.cxs,[oi,di]=cxApts();
+  if(k==="o"||k==="d"){asOpen(k==="o"?oi:di,"info")}
+  else if(k==="sid"||k==="star"||k==="app")npOpen(k);
+  else if(k==="rte"){if(typeof FP!=="undefined"&&FP.open){FP.open=false;fpUi()}reToggle(true)}
+  setTimeout(cxStripUi,50)});
+
+/* ---------- 5. minimums with the approach ---------- */
+const cxMinLab=ty=>/^(LOC|VOR|NDB|LDA|SDF)/.test(String(ty||"").toUpperCase())?"MDA":"DA";
+function cxMinHtml(){const B=bpBug(),o=rpGet(),lab=cxMinLab(cxApParse(o.appN||"").ty);
+  return`<div class="cx-min"><span class="cx-mk">Minimums</span><label class="cx-mv"><input id="cxMin" type="text" inputmode="numeric" enterkeyhint="done" maxlength="5" autocomplete="off" value="${B.min!=null?B.min:""}" placeholder="—" aria-label="Minimums in feet"><i>ft</i></label>
+    <div class="cx-seg" role="radiogroup" aria-label="Minimums type"><button type="button" role="radio" data-cxmint="baro" aria-checked="${B.minT!=="radio"}" title="Barometric: the altitude on the chart">${lab}</button><button type="button" role="radio" data-cxmint="radio" aria-checked="${B.minT==="radio"}" title="Radio altitude: decision height">DH</button></div></div>`}
+function cxMinSet(v,typ){const B=bpBug();if(v!==undefined){const n=parseInt(String(v).replace(/\D/g,""),10);B.min=isFinite(n)&&n>0&&n<20000?n:null}if(typ)B.minT=typ;bpBugSave(B);try{BP.al.min="arm"}catch(e){}cxStripUi();if(cur==="map")try{reRedraw()}catch(e){}}
+{const _p=fpProc;fpProc=function(kind){let h=_p.apply(this,arguments);if(kind==="star")h+=`<div class="fp-row cx-fpmin">${cxMinHtml()}</div>`;return h}}
+{const _h=npHtml;npHtml=function(){const h=_h.apply(this,arguments);if(NP.kind!=="app")return h;const i=h.indexOf("<h4>");return i<0?h:h.slice(0,i)+cxMinHtml()+h.slice(i)}}
+/* the Flight panel redraws itself every 4 s: not while the minimums are being typed */
+{const _u=fpUi;fpUi=function(){const a=document.activeElement,el=$("#fpPanel");if(a&&a.id==="cxMin"&&el&&el.contains(a))return;const v=_u.apply(this,arguments);try{cxStripUi()}catch(e){}return v}}
+{const _a=asUi;asUi=function(){const v=_a.apply(this,arguments);try{cxStripUi()}catch(e){}return v}}
+document.addEventListener("change",e=>{if(e.target&&e.target.id==="cxMin"){cxMinSet(e.target.value);const B=bpBug();e.target.value=B.min!=null?B.min:""}});
+document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="cxMin"&&e.key==="Enter"){e.preventDefault();e.target.blur()}});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-cxmint]");if(!b)return;cxMinSet(undefined,b.dataset.cxmint);document.querySelectorAll("[data-cxmint]").forEach(x=>x.setAttribute("aria-checked",String(x.dataset.cxmint===b.dataset.cxmint)))});
+/* on the Map: the minimums beside the final approach segment */
+function cxMinSvg(P){if(cur!=="map"||!cxOk()||!MAP.c||MAP.z<7.5)return"";const B=bpBug(),o=rpGet();if(B.min==null||!o.app)return"";const A=(reGet()||[]).filter(q=>q.pk==="app");if(!A.length)return"";
+  const last=A[A.length-1],di=cxApts()[1],d=NP.data[di]||npLocal(di),rw=d&&(d.rw||[]).find(r=>r.n===npRwyN(o.appRwy||"")),x=O(),T=rw?{la:rw.la,lo:rw.lo}:{la:N(x.d.pos_lat),lo:N(x.d.pos_long)};
+  const c0=MAP.c.lon,xy=(la,lo)=>{while(lo-c0>180)lo-=360;while(lo-c0<-180)lo+=360;return P(la,lo)},a=xy(last.lat,last.lon),b=xy(T.la,T.lo),dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<30)return"";
+  const X=a[0]+dx*.55,Y=a[1]+dy*.55,nx=-dy/L,ny=dx/L,s=ny>0?-1:1,lab=(B.minT==="radio"?"DH ":cxMinLab(cxApParse(o.appN||"").ty)+" ")+fmt(B.min),tw=lab.length*7.4+12,bx=X+nx*s*16-(nx*s<0?tw:0),by=Y+ny*s*16-9;
+  return`<g class="cxm"><line x1="${(X-nx*7).toFixed(1)}" y1="${(Y-ny*7).toFixed(1)}" x2="${(X+nx*7).toFixed(1)}" y2="${(Y+ny*7).toFixed(1)}"/><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${tw.toFixed(1)}" height="18" rx="4"/><text x="${(bx+tw/2).toFixed(1)}" y="${(by+13).toFixed(1)}">${esc(lab)}</text></g>`}
+{const _r=reSvg;reSvg=function(P,w,h){let m="";try{m=cxMinSvg(P)}catch(e){}return _r.apply(this,arguments)+m}}
+
+/* ---------- 3. a chart's georeference in the viewer, two-fix line-up, the aircraft ---------- */
+async function cxDiagRef(pg,icao){try{if(!icao||(pg.rotate||0)%360!==0)return null;if(!TX.data[icao]){txLoad(icao);for(let i=0;i<16&&!TX.data[icao];i++)await new Promise(r=>setTimeout(r,250))}
+    const d=TX.data[icao];if(!d||!d.runways||!d.runways.length)return null;const tc=await pg.getTextContent();const g=dgRef(tc.items,pg.view,d.runways,(lat,lon)=>{const q=mpx(lat,lon,0);return[q[0]/TS,q[1]/TS]});if(!g)return null;
+    const ll=munpx(g.c[0]*TS,g.c[1]*TS,0),hM=g.h*40075016.7*Math.cos(ll[0]*Math.PI/180);if(!isFinite(ll[0])||!(hM>500&&hM<30000))return null;return{lat:ll[0],lon:((ll[1]+540)%360)-180,h:hM,rot:g.rot}}catch(e){return null}}
+/* the same order as on the Map: your own alignment, the chart's own coordinates, a Polaris pilot's, the runway numbers */
+async function cxGeoLoad(){const sel=CV.sel,pg=CV.pg,page=CV.page;CX.geo=null;CX.geoSrc="";CX.geoBy="";if(!sel||!pg)return;const mine=sel.pdf+"|"+page+"|"+Math.random();CX.geoFor=mine;
+  const v=pg.getViewport({scale:1});CX.pw=v.width;CX.ph=v.height;
+  const done=(g,src,by)=>{if(CX.geoFor!==mine||CV.sel!==sel)return false;CX.geo=g?{lat:+g.lat,lon:+g.lon,h:+g.h,rot:+g.rot||0}:null;CX.geoSrc=g?src:"";CX.geoBy=by||"";cxViewUi();cxLayers();return true};
+  const saved=store.get("ovgeo:"+sel.icao+":"+sel.pdf+":"+page,null);let auto=null;
+  try{const raw=new TextDecoder("latin1").decode(await CV.doc.getData());auto=ovGeoref(raw,pg.view,pg.rotate,page,CV.pages)}catch(e){}
+  if(auto){done(saved||auto,saved?"saved":"pdf");return}
+  if(saved)done(saved,"saved");
+  if(vam.url){try{const j=await vamGet("/api/efb/ovgeo?"+ovShQ(sel,page),10000),g=j&&j.geo;if(g&&!saved){done(g,"shared",g.by);return}}catch(e){}}
+  if(saved)return;if(/diagram/i.test((sel.group||"")+" "+(sel.name||""))){const g=await cxDiagRef(pg,sel.icao);if(g)done(g,"rwy")}else done(null,"")}
+function cxGeoM(g,pw,ph){const q=mpx(g.lat,g.lon,0),r=g.rot*Math.PI/180;return{cx:q[0],cy:q[1],s:g.h*TS/(40075016.7*Math.cos(g.lat*Math.PI/180)*ph),c:Math.cos(r),n:Math.sin(r),pw,ph}}
+function cxW2P(M,la,lo){const q=mpx(la,lo,0);let ex=q[0]-M.cx;while(ex>TS/2)ex-=TS;while(ex<-TS/2)ex+=TS;const ey=q[1]-M.cy;return[(M.c*ex+M.n*ey)/M.s+M.pw/2,(-M.n*ex+M.c*ey)/M.s+M.ph/2]}
+function cxP2W(M,px,py){const dx=px-M.pw/2,dy=py-M.ph/2,ll=munpx(M.cx+M.s*(M.c*dx-M.n*dy),M.cy+M.s*(M.n*dx+M.c*dy),0);return{la:ll[0],lo:((ll[1]+540)%360)-180}}
+/* two chart points and the fixes they are: position, size and turn of the chart (a similarity on the Mercator plane) */
+function cxFit2(a,b,pw,ph){const q1=mpx(a.la,a.lo,0),q2=mpx(b.la,b.lo,0);let Dx=q2[0]-q1[0];while(Dx>TS/2)Dx-=TS;while(Dx<-TS/2)Dx+=TS;const Dy=q2[1]-q1[1];
+  const d1=[a.px-pw/2,a.py-ph/2],dx=b.px-a.px,dy=b.py-a.py,dd=Math.hypot(dx,dy),DD=Math.hypot(Dx,Dy);if(dd<25||!(DD>0))return null;
+  const s=DD/dd,r=Math.atan2(Dy,Dx)-Math.atan2(dy,dx),c=Math.cos(r),n=Math.sin(r),cx=q1[0]-s*(c*d1[0]-n*d1[1]),cy=q1[1]-s*(n*d1[0]+c*d1[1]),ll=munpx(cx,cy,0);
+  const h=s*ph*40075016.7*Math.cos(ll[0]*Math.PI/180)/TS;if(!isFinite(ll[0])||!(h>=200&&h<=4e6))return null;
+  let rot=+(((r*180/Math.PI)%360+360)%360).toFixed(2);if(rot>=360)rot=0;return{lat:+ll[0].toFixed(6),lon:+(((ll[1]+540)%360)-180).toFixed(6),h:Math.round(h),rot}}
+/* fixes that could be on this chart: the simulator's procedures at the airport, the route, the runway thresholds */
+function cxLegs(p){return(p.f?[p.f,p.m||[],...Object.values(p.tr||{})]:[p.c||[],...Object.values(p.rt||{}),...Object.values(p.et||{})]).flat()}
+function cxProcOf(icao,sel){const d=(typeof NP!=="undefined"&&(NP.data[icao]||npLocal(icao)))||null,out=new Set();if(!d||!sel)return out;
+  if(sel.group==="Departures"||sel.group==="Arrivals"){const code=rpCode(sel.name),L=sel.group==="Departures"?d.dep:d.arr;(L||[]).filter(p=>p.n===code).forEach(p=>cxLegs(p).forEach(g=>g.f&&out.add(g.f)))}
+  else if(sel.group==="Approaches"){for(const p of d.apr||[])if(cxApScore({name:sel.name},{ty:p.ty,rw:npRwyN(p.rw),sfx:p.sfx})>0)cxLegs(p).forEach(g=>g.f&&out.add(g.f))}
+  return out}
+function cxCands(icao){const out=new Map(),add=(n,la,lo,k)=>{if(!n||la==null||lo==null||!isFinite(+la)||!isFinite(+lo)||out.has(n))return;out.set(n,{n,la:+la,lo:+lo,k})};
+  const d=(typeof NP!=="undefined"&&(NP.data[icao]||npLocal(icao)))||null;
+  if(d){for(const p of [...(d.dep||[]),...(d.arr||[]),...(d.apr||[])])for(const g of cxLegs(p))if(g.f&&!/^RW\d/.test(g.f))add(g.f,g.la,g.lo,"fix");(d.rw||[]).forEach(r=>add("RW"+r.n,r.la,r.lo,"rwy"));add(icao,d.la,d.lo,"apt")}
+  if(cxOk())try{const[oi,di]=cxApts();if(icao===oi||icao===di)rePts().forEach(q=>{if(!q.apt&&!/^TO[CD]$/.test(q.n))add(q.n,q.lat,((q.lon+540)%360)-180,"route")})}catch(e){}
+  const t=TX.data[icao];if(t&&t.airport&&t.airport.lat!=null)add(icao,t.airport.lat,t.airport.lon,"apt");
+  return[...out.values()]}
+const CX_KIND={fix:"Procedure fix",rwy:"Runway threshold",route:"Route point",apt:"Airport reference point",mine:"On this chart’s procedure"};
+/* the line-up bar, the picker and the viewer's notes */
+function cxViewUi(){const el=document.getElementById("cvWrap");if(!el||!CV.open)return;
+  const n=el.querySelector("#cxGeoNote");if(n){const s=CX.geoSrc;n.textContent=!CV.pg?"":s==="pdf"?"Positioned from the chart’s own coordinates":s==="shared"?(CX.geoBy?"Lined up by "+CX.geoBy:"Lined up by a Polaris pilot"):s==="saved"?"Your alignment":s==="rwy"?"Lined up with the runways":"Not lined up · Line up shows your aircraft on it";n.dataset.s=s||"none"}
+  const tb=el.querySelector('[data-cx="tf"]');if(tb){tb.hidden=!CV.pg||CX.geoSrc==="pdf";tb.setAttribute("aria-pressed",String(!!CX.tf))}
+  const pb=el.querySelector('[data-cx="pen"]');if(pb)pb.setAttribute("aria-pressed",String(CX.pen));
+  const sb=el.querySelector('[data-cx="split"]');if(sb){sb.hidden=!cxSplitOk();sb.setAttribute("aria-pressed",String(cxSplitOn()))}
+  const bar=el.querySelector("#cxTf");if(bar){const T=CX.tf;let h="";
+    if(T){const st=T.pts.length;h=`<span class="cx-tfn">${st+1}<i>/2</i></span><p><b>Line up: tap fix ${st+1} of 2 on the chart</b><span>${st?"Pick another fix far from "+esc(T.pts[0].n)+", across the chart.":"Zoom in and tap the centre of a fix, a navaid or a runway end whose name you can read."}</span></p><button class="btn sm" data-cx="tfx">Cancel</button>`}
+    else if(CX.tfDone){h=`<span class="cx-tfn ok">✓</span><p><b>Lined up on ${esc(CX.tfDone.a)} and ${esc(CX.tfDone.b)}</b><span>The other fixes are shown in cyan for a moment: they should sit on the chart’s own.${CX.tfDone.sh?" Shared with Polaris pilots.":""}</span></p>${CX.tfDone.map?`<button class="btn sm" data-cx="tfmap2">Back to the map</button>`:""}<button class="btn sm" data-cx="tfok">Done</button>`}
+    if(bar.dataset.h!==h){bar.dataset.h=h;bar.innerHTML=h}const hid=!h;if(bar.hidden!==hid){bar.hidden=hid;cvSharp()}}
+  const pbar=el.querySelector("#cxPenBar");if(pbar){const hid=!CX.pen;if(pbar.hidden!==hid){pbar.hidden=hid;cvSharp()}if(CX.pen)cxPenBarUi(pbar)}}
+function cxTfStart(){if(!CV.pg){CX.tfWant={page:CV.page};return}CX.tf={pts:[]};CX.tfDone=null;CX.pen=false;cxPickClose();cxViewUi();cxLayers()}
+function cxTfStop(){CX.tf=null;cxPickClose();cxViewUi();cxLayers()}
+function cxPickClose(){const p=document.getElementById("cxPick");if(p){p.remove();if(!CX.pick)try{cxOwnDraw()}catch(e){}}}
+function cxTfTap(x,y){if(!CX.tf||!CV.pg)return;const p=cvApply(cvInv(cvM(CV)),[x,y]);if(p[0]<0||p[1]<0||p[0]>CX.pw||p[1]>CX.ph){toast("Tap on the chart itself");return}
+  const icao=CV.sel.icao,mineSet=cxProcOf(icao,CV.sel),C=cxCands(icao).filter(c=>!CX.tf.pts.some(q=>q.n===c.n));
+  if(!C.length){toast("No fixes known at "+icao+" yet: load a flight plan through it, or read its procedures with Polaris Navdata");return}
+  let at=null;if(CX.geo)try{at=cxP2W(cxGeoM(CX.geo,CX.pw,CX.ph),p[0],p[1])}catch(e){}
+  const dist=c=>at?npGd({la:at.la,lo:at.lo},{la:c.la,lo:c.lo}):0;
+  C.forEach(c=>{c.mine=mineSet.has(c.n);c.dd=dist(c)});C.sort((a,b)=>(b.mine-a.mine)||(at?a.dd-b.dd:0)||a.n.localeCompare(b.n));
+  CX.pick={px:p[0],py:p[1],x,y,C};cxPickUi("");cxOwnDraw()}
+function cxPickUi(q){cxPickClose();const P=CX.pick,el=document.getElementById("cvWrap"),st=document.getElementById("cvStage");if(!P||!el||!st)return;const Q=String(q||"").trim().toUpperCase();
+  const L=P.C.filter(c=>!Q||c.n.startsWith(Q)).slice(0,60),sr=st.getBoundingClientRect(),wr=el.getBoundingClientRect();
+  const d=document.createElement("div");d.id="cxPick";d.className="cx-pick";d.setAttribute("role","dialog");d.setAttribute("aria-label","Which fix is this?");
+  d.innerHTML=`<div class="cx-pkh"><b>Fix ${CX.tf.pts.length+1} of 2</b><span>Which fix did you tap?</span></div><input type="text" id="cxPickQ" placeholder="Type its name" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" value="${esc(Q)}" aria-label="Fix name">
+    <div class="cx-pkl">${L.length?L.map(c=>`<button type="button" data-cxpick="${esc(c.n)}"><b>${esc(c.n)}</b><small>${c.mine?CX_KIND.mine:CX_KIND[c.k]||""}${c.dd&&c.dd<300?" · "+(c.dd<10?c.dd.toFixed(1):Math.round(c.dd))+" nm":""}</small></button>`).join(""):`<p>No fix called ${esc(Q)} here.</p>`}</div><button type="button" class="cx-pkx" data-cxpickx>Cancel</button>`;
+  el.appendChild(d);const W=d.offsetWidth,H=d.offsetHeight,X=sr.left-wr.left+P.x,Y=sr.top-wr.top+P.y;
+  d.style.left=Math.max(8,Math.min(wr.width-W-8,X+18))+"px";d.style.top=Math.max(8,Math.min(wr.height-H-8,Y-H/2))+"px";
+  const i=d.querySelector("#cxPickQ");if(i&&matchMedia("(pointer:fine)").matches)try{i.focus();i.setSelectionRange(i.value.length,i.value.length)}catch(e){}}
+function cxPickChoose(n){const P=CX.pick;if(!P||!CX.tf)return;const c=P.C.find(x=>x.n===n);if(!c)return;CX.tf.pts.push({px:P.px,py:P.py,n:c.n,la:c.la,lo:c.lo});CX.pick=null;cxPickClose();
+  if(CX.tf.pts.length<2){cxViewUi();cxLayers();return}
+  const [a,b]=CX.tf.pts,g=cxFit2(a,b,CX.pw,CX.ph);
+  if(!g){CX.tf.pts.pop();toast("Those two are too close on the chart, or the names don’t match: pick a second fix farther away");cxViewUi();cxLayers();return}
+  const sel=CV.sel,page=CV.page;store.set("ovgeo:"+sel.icao+":"+sel.pdf+":"+page,g);CX.geo=g;CX.geoSrc="saved";CX.geoBy="";
+  const sh=typeof vamOn==="function"&&vamOn();if(sh)ovSharedPut({icao:sel.icao,name:sel.name},page,g);
+  if(OV.sel&&OV.sel.icao===sel.icao&&OV.sel.pdf===sel.pdf&&OV.page===page){OV.geo={...g};OV.src="saved";try{ovUi();ovSched()}catch(e){}}
+  CX.tfDone={a:a.n,b:b.n,sh,map:!!CX.tfFromMap};CX.tf=null;CX.tfFromMap=false;
+  const M=cxGeoM(g,CX.pw,CX.ph);CX.verList=cxCands(sel.icao).filter(c=>c.n!==a.n&&c.n!==b.n).map(c=>({c,p:cxW2P(M,c.la,c.lo)})).filter(o=>o.p[0]>=0&&o.p[1]>=0&&o.p[0]<=CX.pw&&o.p[1]<=CX.ph).slice(0,40);CX.verUntil=Date.now()+15000;
+  toast("Chart lined up"+(sh?" and shared with Polaris pilots":""));cxViewUi();cxLayers();cxLoop()}
+document.addEventListener("click",e=>{const t=e.target;
+  const pk=t.closest("[data-cxpick]");if(pk){cxPickChoose(pk.dataset.cxpick);return}
+  if(t.closest("[data-cxpickx]")){CX.pick=null;cxPickClose();return}
+  const b=t.closest("[data-cx]");if(!b)return;const a=b.dataset.cx;
+  if(a==="tf"){if(CX.tf)cxTfStop();else cxTfStart()}
+  else if(a==="tfx")cxTfStop();
+  else if(a==="tfok"){CX.tfDone=null;CX.verUntil=0;cxViewUi();cxLayers()}
+  else if(a==="tfmap2"&&CV.sel){CX.tfDone=null;const s=CV.sel;cvClose();const go=()=>{if(!(OV.sel&&OV.sel.pdf===s.pdf))ovOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle);else{ovUi();ovSched();try{ovFly()}catch(x){}}};if(cur!=="map"){location.hash="map";setTimeout(go,400)}else go()}
+  else if(a==="pen"){CX.pen=!CX.pen;if(CX.pen&&CX.tf)cxTfStop();CX.cur=null;cxViewUi()}
+  else if(a==="split"){CX.split=!cxSplitOn();store.set("cvSplit",CX.split);cxSplitApply(true)}
+  else if(a==="tfmap"&&OV.sel){const s=OV.sel;OV.edit=false;try{ovUi();ovSched()}catch(x){}CX.tfFromMap=true;CX.tfWant={page:OV.page};cvOpen({name:s.name,pdf:s.pdf,group:s.group},s.icao,s.cycle)}});
+document.addEventListener("input",e=>{if(e.target&&e.target.id==="cxPickQ"){const v=e.target.value;cxPickUi(v);const i=document.getElementById("cxPickQ");if(i){i.focus();try{i.setSelectionRange(i.value.length,i.value.length)}catch(x){}}}});
+document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="cxPickQ"&&e.key==="Enter"){e.preventDefault();const f=document.querySelector("#cxPick [data-cxpick]");if(f)cxPickChoose(f.dataset.cxpick)}
+  else if(e.key==="Escape"&&document.getElementById("cxPick")){e.stopImmediatePropagation();CX.pick=null;cxPickClose()}},true);
+/* the Map's Adjust bar: line the chart up on two fixes in the full-screen viewer */
+{const _ou=ovUi;ovUi=function(){const v=_ou.apply(this,arguments);try{const bar=$("#ovBar");if(bar&&OV.edit&&OV.img&&OV.autoKind!=="pdf"){const row=bar.querySelector(".ov-row");if(row&&!row.querySelector('[data-cx="tfmap"]')){const d=row.querySelector('[data-ov="edit"]');d.insertAdjacentHTML("beforebegin",'<button class="btn sm" data-cx="tfmap" title="Tap two fixes on the full-screen chart">Two fixes</button>')}}}catch(e){}return v}}
+
+/* the viewer's own layers: pen marks (cxInk), line-up marks and the aircraft (cxOwn) */
+function cxLayersEl(){const st=document.getElementById("cvStage");if(!st)return null;let ink=st.querySelector("#cxInk");if(!ink){st.insertAdjacentHTML("beforeend",'<canvas id="cxInk" class="cx-l" aria-hidden="true"></canvas><canvas id="cxOwn" class="cx-l" aria-hidden="true"></canvas>');ink=st.querySelector("#cxInk");cxStageBind(st)}
+  return{st,ink,own:st.querySelector("#cxOwn")}}
+function cxCtx(cv,st){const dpr=Math.min(3,devicePixelRatio||1),W=st.clientWidth,H=st.clientHeight,w=Math.round(W*dpr),h=Math.round(H*dpr);if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;cv.style.width=W+"px";cv.style.height=H+"px"}const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);return{g,W,H}}
+function cxLayers(){cxInkDraw();cxOwnDraw()}
+{const _p=cvPlace;cvPlace=function(){const v=_p.apply(this,arguments);try{cxLayers()}catch(e){}return v}}
+const CX_GLYPH=()=>typeof VS_GLYPH!=="undefined"&&VS_GLYPH?VS_GLYPH:new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");
+function cxOwnDraw(){const L=cxLayersEl();if(!L)return;const {g,W,H}=cxCtx(L.own,L.st);if(!CV.open||!CV.pg)return;const m=cvM(CV),scr=p=>cvApply(m,p);
+  const mark=(x,y,t,col)=>{g.save();g.strokeStyle="#fff";g.lineWidth=4;g.beginPath();g.arc(x,y,9,0,7);g.moveTo(x-15,y);g.lineTo(x+15,y);g.moveTo(x,y-15);g.lineTo(x,y+15);g.stroke();g.strokeStyle=col;g.lineWidth=2;g.stroke();
+    g.font="700 13px "+(typeof bpFont!=="undefined"&&bpFont||"ui-monospace,monospace");const tw=g.measureText(t).width+10;g.fillStyle=col;g.beginPath();g.roundRect?g.roundRect(x+14,y-24,tw,18,4):g.rect(x+14,y-24,tw,18);g.fill();g.fillStyle="#fff";g.textBaseline="middle";g.fillText(t,x+19,y-15);g.restore()};
+  if(CX.tf)CX.tf.pts.forEach((a,i)=>{const [x,y]=scr([a.px,a.py]);mark(x,y,(i+1)+" · "+a.n,"#D63AF9")});
+  if(CX.pick){const [x,y]=scr([CX.pick.px,CX.pick.py]);mark(x,y,"?","#D63AF9")}
+  if(!CX.geo||!CX.pw)return;const M=cxGeoM(CX.geo,CX.pw,CX.ph);
+  if(Date.now()<CX.verUntil){g.save();g.font="700 12px ui-monospace,monospace";g.lineWidth=2;for(const o of CX.verList){const [x,y]=scr(o.p);if(x<-20||y<-20||x>W+20||y>H+20)continue;g.strokeStyle="rgba(0,0,0,.55)";g.fillStyle="#22D3EE";g.beginPath();g.moveTo(x,y-7);g.lineTo(x+6,y+4.5);g.lineTo(x-6,y+4.5);g.closePath();g.stroke();g.fill();g.strokeText(o.c.n,x+8,y+4);g.fillText(o.c.n,x+8,y+4)}g.restore()}
+  const s=typeof owPos==="function"?owPos():null;CX.ownWas=!!s;if(!s)return;const p=cxW2P(M,s.la,s.lo),[X,Y]=scr(p);if(X<-60||Y<-60||X>W+60||Y>H+60)return;
+  const hdg=bpWrap(s.h+(s.mv||0)),fa=npDest({la:s.la,lo:s.lo},hdg,.4),pa=scr(cxW2P(M,fa.la,fa.lo)),ang=Math.atan2(pa[0]-X,-(pa[1]-Y));
+  if(s.gs>=5){const trk=bpWrap((s.k!=null?s.k:s.h)+(s.mv||0)),b=npDest({la:s.la,lo:s.lo},trk,s.gs*(s.g?30:60)/3600),[ex,ey]=scr(cxW2P(M,b.la,b.lo));g.save();g.lineCap="round";g.strokeStyle="rgba(255,255,255,.9)";g.lineWidth=5;g.beginPath();g.moveTo(X,Y);g.lineTo(ex,ey);g.stroke();g.strokeStyle="#D63AF9";g.lineWidth=2.5;g.stroke();g.fillStyle="#D63AF9";g.beginPath();g.arc(ex,ey,3.5,0,7);g.fill();g.restore()}
+  const k=24/20;g.save();g.translate(X,Y);g.rotate(ang);g.scale(k,k);const gl=CX_GLYPH();g.shadowColor="rgba(0,0,0,.45)";g.shadowBlur=6/k;g.lineJoin="round";g.strokeStyle="#fff";g.lineWidth=3/k;g.stroke(gl);g.shadowBlur=0;g.fillStyle="#0A84FF";g.fill(gl);g.restore()}
+function cxLoop(){if(CX.raf)return;const t=()=>{if(!CV.open){CX.raf=0;return}CX.raf=requestAnimationFrame(t);let s=null;try{s=CX.geo&&typeof owPos==="function"?owPos():null}catch(e){}if(s||CX.ownWas||CX.tf||CX.verUntil)try{cxOwnDraw();if(CX.verUntil&&Date.now()>CX.verUntil){CX.verUntil=0;cxOwnDraw()}}catch(e){}};CX.raf=requestAnimationFrame(t)}
+try{(BP.wantX=BP.wantX||[]).push(()=>CV.open&&!!CX.geo)}catch(e){}
+/* after each page opens: the georeference, the marks, a line-up asked for from the Map */
+{const _pg=cvPage;cvPage=async function(n){const run=()=>_pg.call(this,n),q=(CX.pgQ||Promise.resolve()).then(run,run);CX.pgQ=q.catch(()=>{});const v=await q;try{const key=cxCurKey();if(key!==CX.pgKey){CX.pgKey=key;CX.cur=null;CX.undo=[];await cxGeoLoad();cxNotesPull()}cxLayers();cxLoop();
+    if(CX.tfWant){const w=CX.tfWant;CX.tfWant=null;if(w.page&&w.page!==CV.page&&w.page<=CV.pages)await cvPage(w.page);cxTfStart()}}catch(e){}return v}}
+{const _o=cvOpen;cvOpen=function(){CX.pgKey="";CX.geo=null;CX.geoSrc="";CX.tf=null;CX.tfDone=null;CX.verUntil=0;cxPickClose();return _o.apply(this,arguments)}}
+{const _c=cvClose;cvClose=function(){const v=_c.apply(this,arguments);CX.tf=null;CX.pen=false;CX.pick=null;cxPickClose();CX.geo=null;cxSplitApply();return v}}
+/* the viewer's buttons: Draw, Line up, Split; the note under the chart's name; the pen and line-up bars */
+{const _el=cvEl;cvEl=function(){const had=!!document.getElementById("cvWrap"),el=_el();if(!had){const c=el.querySelector('[data-cv="close"]');if(c)c.insertAdjacentHTML("beforebegin",'<button class="btn sm" data-cx="pen" aria-pressed="false">Draw</button><button class="btn sm" data-cx="tf" aria-pressed="false" hidden>Line up</button><button class="btn sm" data-cx="split" aria-pressed="false" hidden>Split</button>');
+    const t=el.querySelector(".cv-t");if(t)t.insertAdjacentHTML("beforeend",'<small class="cx-geo" id="cxGeoNote"></small>');
+    const top=el.querySelector(".cv-top");if(top)top.insertAdjacentHTML("afterend",'<div class="cx-bar cx-penbar" id="cxPenBar" hidden></div><div class="cx-bar cx-tfbar" id="cxTf" hidden></div>');}return el}}
+{const _u=cvUi;cvUi=function(){const v=_u.apply(this,arguments);try{cxViewUi();cxSplitApply()}catch(e){}return v}}
+
+/* ---------- 7. the pen ---------- */
+const CX_COL=[["#E5197E","Magenta"],["#1E6FFF","Blue"],["#13A35B","Green"],["#111111","Black"]];
+const cxNKey=(sel,page)=>sel.icao+"|"+String(sel.name||"").replace(/[|\n]/g,"/").slice(0,120)+"|"+page;
+function cxNotes(key){if(!key)return null;if(!(key in CX.notes))CX.notes[key]=store.get("cn:"+key,null);return CX.notes[key]}
+const cxCurKey=()=>CV.sel&&CV.pg?cxNKey(CV.sel,CV.page):"";
+function cxNotesSave(key,n){n.t=Date.now();n.d=1;CX.notes[key]=n;try{store.set("cn:"+key,n)}catch(e){}clearTimeout(CX.pushT[key]);CX.pushT[key]=setTimeout(()=>cxNotesPush(key),1200);if(cur==="map"&&OV.sel)ovSched()}
+function cxNotesPush(key){const n=CX.notes[key];if(!n||typeof authOn!=="function"||!authOn())return;
+  fetch(authSrv()+"/api/efb/chartnotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k:key,n:{pw:n.pw,ph:n.ph,t:n.t,s:n.s}})}).then(r=>{if(r.ok&&CX.notes[key]===n){n.d=0;try{store.set("cn:"+key,n)}catch(e){}}}).catch(()=>{})}
+/* the newer of this device's marks and the server's */
+function cxNotesPull(key){key=key||cxCurKey();if(!key||typeof authOn!=="function"||!authOn())return;CX.pulled=CX.pulled||{};if(Date.now()-(CX.pulled[key]||0)<30000)return;CX.pulled[key]=Date.now();
+  fetch(authSrv()+"/api/efb/chartnotes?k="+encodeURIComponent(key)).then(r=>r.status===404?{none:1}:r.ok?r.json():null).then(j=>{if(!j)return;const mine=cxNotes(key);
+    if(j.none){if(mine&&mine.d&&mine.s.length)cxNotesPush(key);return}
+    const n=j.n;if(n&&Array.isArray(n.s)&&(!mine||(+j.t||0)>(mine.t||0))){CX.notes[key]={pw:n.pw,ph:n.ph,t:+j.t||n.t||0,s:n.s,d:0};try{store.set("cn:"+key,CX.notes[key])}catch(e){}if(cxCurKey()===key)cxInkDraw();if(cur==="map")ovSched()}
+    else if(mine&&mine.d)cxNotesPush(key)}).catch(()=>{})}
+function cxStroke(g,s,dark){if(!s.p||s.p.length<2)return;g.globalAlpha=s.h?.36:1;g.strokeStyle=s.h?"#FFD60A":s.c==="#111111"&&dark?"#F2F2F2":s.c;g.lineWidth=s.w;g.beginPath();g.moveTo(s.p[0],s.p[1]);if(s.p.length===2)g.lineTo(s.p[0]+.01,s.p[1]+.01);for(let i=2;i<s.p.length;i+=2)g.lineTo(s.p[i],s.p[i+1]);g.stroke();g.globalAlpha=1}
+function cxInkDraw(){const L=cxLayersEl();if(!L)return;const {g}=cxCtx(L.ink,L.st);if(!CV.open||!CV.pg)return;const n=cxNotes(cxCurKey()),S2=(n?n.s:[]).concat(CX.cur?[CX.cur]:[]);if(!S2.length)return;
+  const m=cvM(CV),k=n&&n.pw&&CX.pw?CX.pw/n.pw:1;g.save();g.transform(m[0],m[1],m[2],m[3],m[4],m[5]);if(k!==1)g.scale(k,k);g.lineCap="round";g.lineJoin="round";const dk=typeof cvDark==="function"&&cvDark();S2.forEach(s=>cxStroke(g,s,dk));g.restore()}
+function cxPenBarUi(bar){const h=`${CX_COL.map(([c,t])=>`<button type="button" class="cx-pc" style="--pc:${c}" data-cxcol="${c}" aria-pressed="${CX.tool==="pen"&&CX.col===c}" aria-label="${t} pen"><i></i></button>`).join("")}
+  <button type="button" class="cx-pt" data-cxtool="hl" aria-pressed="${CX.tool==="hl"}">Highlighter</button><button type="button" class="cx-pt" data-cxtool="erase" aria-pressed="${CX.tool==="erase"}">Eraser</button>
+  <span class="cx-ps"></span><button type="button" class="cx-pt" data-cxink="undo"${CX.undo.length?"":" disabled"}>Undo</button><button type="button" class="cx-pt" data-cxink="clear"${(cxNotes(cxCurKey())||{s:[]}).s.length?"":" disabled"}>${CX.clearAsk?"Tap again to clear":"Clear"}</button>
+  <span class="cx-phint">One finger draws, two move the chart${CX.pencil?"":" · An Apple Pencil draws any time"}</span><button type="button" class="btn sm primary" data-cx="pen">Done</button>`;if(bar.dataset.h!==h){bar.dataset.h=h;bar.innerHTML=h}}
+document.addEventListener("click",e=>{const t=e.target;
+  const c=t.closest("[data-cxcol]");if(c){CX.col=c.dataset.cxcol;CX.tool="pen";store.set("cxPenCol",CX.col);cxViewUi();return}
+  const tl=t.closest("[data-cxtool]");if(tl){CX.tool=CX.tool===tl.dataset.cxtool?"pen":tl.dataset.cxtool;cxViewUi();return}
+  const k=t.closest("[data-cxink]");if(!k)return;const key=cxCurKey(),n=cxNotes(key);
+  if(k.dataset.cxink==="undo"){const u=CX.undo.pop();if(!u||!n)return cxViewUi();if(u.add){const i=n.s.indexOf(u.add);if(i>=0)n.s.splice(i,1)}else if(u.del)u.del.sort((a,b)=>a.i-b.i).forEach(d=>n.s.splice(Math.min(d.i,n.s.length),0,d.s));else if(u.all)n.s=u.all.slice();cxNotesSave(key,n);cxInkDraw();cxViewUi()}
+  else if(k.dataset.cxink==="clear"){if(!n||!n.s.length)return;if(!CX.clearAsk){CX.clearAsk=1;cxViewUi();clearTimeout(CX.clearT);CX.clearT=setTimeout(()=>{CX.clearAsk=0;cxViewUi()},3000);return}CX.clearAsk=0;CX.undo.push({all:n.s.slice()});n.s=[];cxNotesSave(key,n);cxInkDraw();cxViewUi()}});
+/* Draw: one finger draws, two pinch and move the chart; an Apple Pencil draws without Draw. In Line up, a tap asks which fix it is. */
+function cxStageBind(st){if(st._cx)return;st._cx=1;const P=new Map();let pin=null,tap=null,erasing=false;
+  const loc=e=>{const r=st.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+  const toPage=(x,y)=>cvApply(cvInv(cvM(CV)),[x,y]);
+  const erase=(x,y)=>{const key=cxCurKey(),n=cxNotes(key);if(!n||!n.s.length)return;const [px,py]=toPage(x,y),tol=12/CV.s,k=n.pw&&CX.pw?CX.pw/n.pw:1,del=[];
+    for(let i=n.s.length-1;i>=0;i--){const s=n.s[i];for(let j=0;j<s.p.length;j+=2){if(Math.hypot(s.p[j]*k-px,s.p[j+1]*k-py)<tol+s.w/2){del.push({i,s});n.s.splice(i,1);break}}}
+    if(del.length){CX.undo.push({del});cxNotesSave(key,n);cxInkDraw();cxViewUi()}};
+  const pinSnap=()=>{const a=[...P.values()];const cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2;return{s:CV.s,cx,cy,d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),p:toPage(cx,cy)}};
+  st.addEventListener("pointerdown",e=>{if(!CV.pg)return;const drawing=CX.pen||e.pointerType==="pen";if(e.pointerType==="pen")CX.pencil=1;
+    if(drawing){e.stopImmediatePropagation();try{st.setPointerCapture(e.pointerId)}catch(_){}const p=loc(e);P.set(e.pointerId,p);
+      if(P.size===1){CX.clearAsk=0;if(CX.tool==="erase"){erasing=true;erase(p.x,p.y)}else{const q=toPage(p.x,p.y),hl=CX.tool==="hl";CX.cur={c:CX.col,w:Math.max(.02,Math.round((hl?16:2.6)/CV.s*100)/100),h:hl?1:0,p:[cxR1(q[0]),cxR1(q[1])],_x:p.x,_y:p.y,_pt:e.pointerType};cxInkDraw()}}
+      else if(P.size===2&&e.pointerType!=="pen"){if(CX.cur&&CX.cur._pt!=="pen")CX.cur=null;erasing=false;pin=pinSnap();cxInkDraw()}
+      return}
+    if(CX.tf){clearTimeout(CX.tapT);const p=loc(e);tap=P.size||tap?null:{id:e.pointerId,x:p.x,y:p.y,t:Date.now()};if(document.getElementById("cxPick")){CX.pick=null;cxPickClose();tap=null}}},true);
+  st.addEventListener("pointermove",e=>{if(P.has(e.pointerId)){e.stopImmediatePropagation();const p=loc(e);P.set(e.pointerId,p);
+      if(P.size===1){if(erasing)erase(p.x,p.y);else if(CX.cur&&Math.hypot(p.x-CX.cur._x,p.y-CX.cur._y)>=1.5){const q=toPage(p.x,p.y);CX.cur.p.push(cxR1(q[0]),cxR1(q[1]));CX.cur._x=p.x;CX.cur._y=p.y;if(CX.cur.p.length<12000)cxInkDraw()}}
+      else if(P.size>=2&&pin){const a=[...P.values()],cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),ns=cvClampS(pin.s*d/pin.d),m=cvM({s:ns,rot:CV.rot,tx:0,ty:0}),q=cvApply(m,pin.p);CV.s=ns;CV.tx=cx-q[0];CV.ty=cy-q[1];cvPlace();cvSharp()}
+      return}
+    if(tap&&tap.id===e.pointerId){const p=loc(e);if(Math.hypot(p.x-tap.x,p.y-tap.y)>8)tap=null}},true);
+  const end=e=>{if(P.has(e.pointerId)){e.stopImmediatePropagation();P.delete(e.pointerId);
+      if(!P.size){erasing=false;pin=null;const s=CX.cur;CX.cur=null;if(s&&s.p.length>=2&&e.type==="pointerup"){const key=cxCurKey();let n=cxNotes(key);if(!n)n={pw:CX.pw,ph:CX.ph,t:0,s:[]};delete s._x;delete s._y;delete s._pt;if(n.s.length>=500)n.s.shift();n.s.push(s);CX.undo.push({add:s});if(CX.undo.length>60)CX.undo.shift();cxNotesSave(key,n);cxViewUi()}cxInkDraw()}
+      else if(P.size===1){pin=null}
+      return}
+    if(tap&&tap.id===e.pointerId){const t0=tap;tap=null;if(e.type==="pointerup"&&Date.now()-t0.t<500&&CX.tf)CX.tapT=setTimeout(()=>cxTfTap(t0.x,t0.y),300)}};
+  st.addEventListener("pointerup",end,true);st.addEventListener("pointercancel",end,true)}
+/* the marks on the Map too, wherever the chart is laid over it */
+{const _d=ovDraw;ovDraw=function(g,w,h){const v=_d.apply(this,arguments);try{cxInkOnMap(g,w,h)}catch(e){}return v}}
+function cxInkOnMap(g,w,h){if(!OV.img||!OV.geo||!MAP.c||!OV.sel)return;const key=cxNKey(OV.sel,OV.page);if(CX.mapPulled!==key){CX.mapPulled=key;cxNotesPull(key)}const n=cxNotes(key);if(!n||!n.s||!n.s.length)return;
+  const z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);let lo=OV.geo.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;
+  const p=mpx(OV.geo.lat,lo,z),x=p[0]-c[0]+w/2,y=p[1]-c[1]+h/2,k=Math.pow(2,z)*TS/(40075016.7*Math.cos(OV.geo.lat*Math.PI/180)),H=OV.geo.h*k,W=H*OV.img.width/OV.img.height;if(H<24)return;
+  const cr=OV.cropOn&&OV.crop?OV.crop:[0,0,1,1];g.save();g.translate(x,y);g.rotate(OV.geo.rot*Math.PI/180);g.beginPath();g.rect(-W/2+cr[0]*W,-H/2+cr[1]*H,(cr[2]-cr[0])*W,(cr[3]-cr[1])*H);g.clip();
+  g.translate(-W/2,-H/2);g.scale(W/n.pw,H/n.ph);g.lineCap="round";g.lineJoin="round";g.globalAlpha=Math.max(.5,OV.op);const dk=isDark(),a0=g.globalAlpha;n.s.forEach(s=>{cxStroke(g,s,dk);g.globalAlpha=a0});g.restore()}
+
+/* ---------- 8. split view: the chart beside the Map on an iPad held sideways ---------- */
+const cxSplitOk=()=>window.innerWidth>=1000&&window.innerWidth>window.innerHeight;
+const cxSplitOn=()=>document.body.classList.contains("cx-split");
+function cxSplitApply(user){const on=!!(CV.open&&CX.split&&cxSplitOk());if(on===cxSplitOn())return;document.body.classList.toggle("cx-split",on);
+  if(on&&cur!=="map")location.hash="map";
+  setTimeout(()=>{try{window.dispatchEvent(new Event("resize"))}catch(e){}if(cur==="map")try{drawMap()}catch(e){}},60);
+  if(user)toast(on?"Chart beside the Map":"Chart full screen")}
+window.addEventListener("resize",()=>{clearTimeout(CX.rsT);CX.rsT=setTimeout(()=>{if(CV.open)cxSplitApply()},150)});
+
+/* ---------- 6. charts that follow the flight ---------- */
+function cxSugUi(){let el=document.getElementById("cxSug");const S0=CX.sug;if(!S0||Date.now()>S0.until){if(el)el.hidden=true;CX.sug=null;return}
+  if(!el){el=document.createElement("div");el.id="cxSug";el.className="cx-sug";el.setAttribute("role","status");document.body.appendChild(el)}
+  const cat=(typeof asCatOf==="function"&&asCatOf(S0.p.group))||"REF";
+  el.innerHTML=`<span class="cx-sgi c-${cat.toLowerCase()}">${cat}</span><div><small>${esc(S0.t)}</small><b>${esc(S0.p.name)}</b></div><button class="btn sm" data-cxsug="view">View</button><button class="btn sm" data-cxsug="map">On map</button><button class="cx-sgx" data-cxsug="x" aria-label="Dismiss">×</button>`;el.hidden=false}
+function cxSuggest(kind){const F=cxFlight();CX.F=F;const [oi,di]=cxApts();let p=null,t="";
+  if(kind==="app"){p=F.find(q=>q.role==="APP")||F.find(q=>q.role==="ARR"&&q.group==="Arrivals");t="Descending into "+di}
+  else if(kind==="taxi-d"){p=F.find(q=>q.icao===di&&q.group==="Airport diagram");t="Landed at "+di}
+  else if(kind==="taxi-o"){p=F.find(q=>q.icao===oi&&q.group==="Airport diagram");t="Taxi at "+oi}
+  if(!p)return false;CX.sug={p,t,until:Date.now()+150000};CX.now=p;cxSugUi();pinUi();return true}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-cxsug]");if(!b||!CX.sug)return;const p=CX.sug.p,a=b.dataset.cxsug;CX.sug=null;cxSugUi();if(a==="view")pinOpen(p);else if(a==="map")pinMap(p)});
+function cxAfterLanding(){const F=cxFlight(),di=cxApts()[1],p=F.find(q=>q.icao===di&&q.group==="Airport diagram");if(!p)return;CX.now=p;CX.sug=null;cxSugUi();
+  if(CV.open){pinOpen(p);toast("Taxi diagram for "+di);return}
+  if(cur==="map"&&(!OV.sel||(OV.sel.icao===di&&OV.sel.group!=="Airport diagram"))){pinMap(p);toast("Taxi diagram for "+di+" on the map");pinUi();return}
+  cxSuggest("taxi-d")}
+function cxPhaseTick(f){if(!CX.phase||!f||f.la==null||!cxOk())return;const now=Date.now();if(now-CX.phAt<1000)return;CX.phAt=now;if(CX.sug&&now>CX.sug.until)cxSugUi();
+  const x=O(),k="cxPh:"+x.id,st=store.get(k,{}),to=(la,lo)=>npGd({la:f.la,lo:f.lo},{la,lo}),dd=to(N(x.d.pos_lat),N(x.d.pos_long)),od=to(N(x.o.pos_lat),N(x.o.pos_long));let ch=false;
+  if(!st.dep&&f.g&&od<4&&!st.desc){st.dep=now;ch=true;if(cur!=="map"||!OV.sel)cxSuggest("taxi-o")}
+  if(!st.desc&&!f.g&&dd<160&&(f.vs<-500||(f.alt<15000&&dd<80))){st.desc=now;ch=true;cxSuggest("app")}
+  if(!st.land&&f.g&&dd<6&&f.gs<60&&(st.desc||bpTd()>0)){st.land=now;ch=true;cxAfterLanding()}
+  if(ch)store.set(k,st)}
+try{BP.onFrame.push(cxPhaseTick)}catch(e){}
+
+/* ---------- keeping it all current ---------- */
+{const _n=npRefresh;npRefresh=function(){const v=_n.apply(this,arguments);try{pinUi();cxStripUi()}catch(e){}return v}}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);try{if(cur==="map")cxStripUi()}catch(e){}return v}}
+{const _t=reToggle;reToggle=function(){const v=_t.apply(this,arguments);setTimeout(()=>{try{cxStripUi();pinUi()}catch(e){}},0);return v}}
+setInterval(()=>{if(document.hidden)return;try{if(cur==="map"){cxStripUi();pinUi()}else if(CV.open)pinUi();if(CX.sug)cxSugUi()}catch(e){}},4000);
+
+document.head.insertAdjacentHTML("beforeend",`<style>
+.pin-fl{flex:none;display:flex;align-items:center;gap:4px}
+.pin-flb{flex:none;display:flex;align-items:center;gap:5px;height:100%;min-height:36px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);color:var(--ink);font:700 11.5px var(--f-mono);padding:0 9px;cursor:pointer;white-space:nowrap}
+.pin-flb svg{width:14px;height:14px;fill:var(--accent)}.pin-flb[aria-expanded="true"]{border-color:var(--accent)}
+.pin-flc{font:500 11.5px var(--f-ui);color:var(--label);padding:0 6px;white-space:nowrap}
+.pin-sep{flex:none;width:1px;align-self:stretch;margin:2px 4px;background:var(--line)}
+.pin-tab.now{animation:cxNow 1.6s ease-in-out 4;box-shadow:0 0 0 2px var(--cc)}
+@keyframes cxNow{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--cc) 45%,transparent)}}
+.cv-pins .pin-flb{min-height:40px}
+.cx-menu{position:absolute;z-index:8;width:min(330px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -14px var(--shadow,#0008);padding:6px 0;font-family:var(--f-ui)}
+.cx-menu[hidden]{display:none}
+.cx-mh{display:flex;align-items:baseline;gap:8px;padding:8px 14px 10px;border-bottom:1px solid var(--line)}.cx-mh b{font:700 14px var(--f-mono);color:var(--ink)}.cx-mh span{font:500 12px var(--f-mono);color:var(--label)}
+.cx-mrow{display:flex;align-items:center;gap:12px;padding:10px 14px}.cx-mrow+.cx-mrow{border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.cx-mrow>div{flex:1;min-width:0}.cx-mrow b{display:block;font:600 13.5px var(--f-ui);color:var(--ink)}.cx-mrow small{display:block;font:500 11.5px var(--f-ui);color:var(--label);margin-top:2px}
+.cx-menu .st-sw{flex:none;position:relative;width:51px;height:31px;border-radius:16px;border:0;background:color-mix(in srgb,var(--ink) 18%,transparent);cursor:pointer;padding:0;transition:background .2s}
+.cx-menu .st-sw i{position:absolute;left:2px;top:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
+.cx-menu .st-sw[aria-checked="true"]{background:#34C759}.cx-menu .st-sw[aria-checked="true"] i{transform:translateX(20px)}
+.as-fl,.chc-fl{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:4px;background:var(--accent);color:var(--panel);font:700 10px/1.5 var(--f-ui);font-style:normal;letter-spacing:.02em;vertical-align:1px}
+.cx-strip{position:absolute;z-index:3;left:12px;top:66px;display:flex;align-items:stretch;max-width:calc(100% - 100px);overflow-x:auto;scrollbar-width:none;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px -16px var(--shadow)}
+.cx-strip::-webkit-scrollbar{display:none}.cx-strip[hidden],.cx-strip.cx-under{display:none}
+.mapwrap:has(#cxStrip:not([hidden]):not(.cx-under)) #rePanel:has(>.re-badge){display:none}
+.cx-c{flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:38px;border:0;border-radius:6px;background:transparent;color:var(--ink);padding:3px 9px;cursor:pointer;text-align:left}
+.cx-c:hover{background:var(--panel-2)}
+.cx-c small{font:700 9.5px var(--f-mono);letter-spacing:.06em;color:var(--label)}.cx-c b{font:700 12.5px var(--f-mono);white-space:nowrap}.cx-c em{font:600 10.5px var(--f-mono);font-style:normal;color:var(--label);white-space:nowrap}
+.cx-c.cx-apt small{color:var(--ink)}.cx-c.cx-apt b{color:var(--cyan,#4FC3F7)}
+.cx-c.cx-sid small{color:#D9548E}.cx-c.cx-star small{color:#7DB35F}.cx-c.cx-app small{color:#E8902F}.cx-c.cx-rte small{color:var(--magenta,#D63AF9)}.cx-c.cx-app em{color:#F2C200}.cx-c.cx-rte em{color:var(--magenta,#D63AF9)}
+.cx-c.cx-add b{color:var(--label);font-weight:600}
+.cx-c.cx-rte b{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.cx-ar{flex:none;align-self:center;width:7px;height:7px;border-top:1.6px solid var(--label);border-right:1.6px solid var(--label);transform:rotate(45deg);margin:0 3px 0 0;opacity:.6}
+@container screen (max-width:640px){.cx-strip{max-width:calc(100% - 70px)}.cx-c{padding:2px 7px;min-height:34px}.cx-c b{font-size:11.5px}.cx-c.cx-rte b{max-width:120px}}
+.cx-min{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.fp-row.cx-fpmin{display:block}.fp-row.cx-fpmin .cx-min{border-bottom:0;padding:0}
+.cx-mk{flex:1;font:500 13px var(--f-ui);color:var(--label)}
+.cx-mv{display:flex;align-items:center;gap:6px;flex:none}.cx-mv input{flex:none;width:80px!important;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font:700 15px var(--f-mono);padding:6px 9px;text-align:right}
+.cx-mv input:focus{outline:2px solid var(--accent);outline-offset:0}.cx-mv i{font:500 12px var(--f-ui);font-style:normal;color:var(--label)}
+.cx-seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.cx-seg button{border:0;background:var(--panel-2);color:var(--label);font:700 11.5px var(--f-mono);padding:7px 10px;cursor:pointer}
+.cx-seg button[aria-checked="true"]{background:var(--accent);color:var(--panel)}
+#mapSvg .cxm line{stroke:#F2C200;stroke-width:2.5}#mapSvg .cxm rect{fill:rgba(10,14,24,.9);stroke:#F2C200;stroke-width:1.2}#mapSvg .cxm text{fill:#F2C200;font:700 11.5px var(--f-mono);text-anchor:middle}
+.cx-geo{font:500 11px var(--f-ui);color:var(--label);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cx-geo[data-s="none"]{color:var(--amber,#F2A33A)}
+.cv-stage canvas.cx-l{transform:none!important;pointer-events:none;z-index:1;will-change:auto}.cvwrap.inv .cv-stage canvas.cx-l{filter:none}
+.cv-rot{z-index:3}
+.cx-bar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);font-family:var(--f-ui)}
+.cx-bar[hidden]{display:none}
+.cx-tfbar p{flex:1;min-width:200px;margin:0}.cx-tfbar p b{display:block;font:600 14px var(--f-ui);color:var(--ink)}.cx-tfbar p span{font:500 12px var(--f-ui);color:var(--label)}
+.cx-tfn{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#D63AF9;color:#fff;font:700 15px var(--f-mono)}.cx-tfn i{font-size:10px;font-style:normal;opacity:.8}.cx-tfn.ok{background:#30D158}
+.cx-pc{width:34px;height:34px;border-radius:50%;border:2px solid transparent;background:transparent;display:grid;place-items:center;cursor:pointer;padding:0}
+.cx-pc i{width:22px;height:22px;border-radius:50%;background:var(--pc);box-shadow:0 0 0 1px rgba(255,255,255,.35) inset}.cx-pc[aria-pressed="true"]{border-color:var(--ink)}
+.cx-pt{border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font:600 12.5px var(--f-ui);padding:7px 10px;cursor:pointer}
+.cx-pt[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}.cx-pt:disabled{opacity:.45;cursor:default}
+.cx-ps{width:1px;height:24px;background:var(--line);margin:0 2px}.cx-phint{flex:1;min-width:120px;text-align:right;font:500 11.5px var(--f-ui);color:var(--label)}
+.cx-pick{position:absolute;z-index:6;width:250px;max-height:min(420px,70%);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -12px rgba(0,0,0,.6);overflow:hidden;font-family:var(--f-ui)}
+.cx-pkh{padding:10px 12px 6px}.cx-pkh b{display:block;font:700 13.5px var(--f-ui);color:var(--ink)}.cx-pkh span{font:500 12px var(--f-ui);color:var(--label)}
+.cx-pick input{margin:0 10px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font:700 14px var(--f-mono);padding:8px 10px;text-transform:uppercase}
+.cx-pkl{flex:1;min-height:0;overflow-y:auto;border-top:1px solid var(--line)}
+.cx-pkl button{display:flex;align-items:baseline;gap:8px;width:100%;border:0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:transparent;color:var(--ink);padding:9px 12px;cursor:pointer;text-align:left}
+.cx-pkl button:hover{background:var(--panel-2)}.cx-pkl b{font:700 14px var(--f-mono);min-width:64px}.cx-pkl small{font:500 11.5px var(--f-ui);color:var(--label)}.cx-pkl p{margin:12px;color:var(--label);font-size:13px}
+.cx-pkx{border:0;border-top:1px solid var(--line);background:var(--panel-2);color:var(--ink);font:600 13px var(--f-ui);padding:10px;cursor:pointer}
+.cx-sug{position:fixed;z-index:70;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);padding:8px 8px 8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -12px rgba(0,0,0,.55);font-family:var(--f-ui);animation:cxSugIn .25s ease-out}
+.cx-sug[hidden]{display:none}@keyframes cxSugIn{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.cx-sug>div{min-width:0}.cx-sug small{display:block;font:500 11.5px var(--f-ui);color:var(--label)}.cx-sug b{display:block;font:600 13.5px var(--f-ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.cx-sgi{flex:none;display:grid;place-items:center;width:42px;height:34px;border-radius:7px;background:color-mix(in srgb,var(--cc) 35%,var(--panel));border-top:3px solid var(--cc);font:700 10.5px var(--f-mono);color:#fff}
+.cx-sgx{border:0;background:transparent;color:var(--label);font-size:20px;line-height:1;padding:4px 8px;cursor:pointer}
+body.cx-split .cvwrap{left:50%;border-left:1px solid var(--line);box-shadow:-12px 0 30px -18px rgba(0,0,0,.6)}
+body.cx-split main{width:50vw;max-width:50vw}
+body.cx-split .isl-wrap{left:25%}body.cx-split .cx-sug{left:25%}
+</style>`);
 
 /* start */
 (function(){const h=location.hash.slice(1);if(APPS[h]){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");

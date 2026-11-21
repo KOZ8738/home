@@ -9146,6 +9146,13 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:calc(var(--mt) + 64px)!important}}
 @container screen (min-width:561px) and (max-width:640px){.screen[data-app="map"] .mapwrap .nr-panel{right:8px;left:8px;top:auto;bottom:8px;width:auto;max-height:62%}}
 @container screen (max-width:640px){.screen.ft-on.ft-on.ft-on[data-app="map"] .mapwrap .ovbar{left:8px!important;right:8px!important;top:112px!important}}
+@container screen (min-width:641px){
+  .screen.screen[data-app="map"] .mapwrap :is(.assheet,.nr-panel,.mapinfo,.fppanel){left:0!important;top:0!important;bottom:0!important;max-height:none!important;border-radius:0!important;border:0!important;border-right:1px solid var(--line)!important;margin:0!important}
+  .screen.screen[data-app="map"] .mapwrap .mapinfo{display:flex;flex-direction:column;overflow:hidden;box-shadow:8px 0 30px -18px var(--shadow)}
+  .screen.screen[data-app="map"] .mapwrap .mapinfo:not(.vsx)>.raw{flex:1;min-height:0;max-height:none!important;overflow:auto}
+  .screen.screen[data-app="map"] .mapwrap.mapwrap.mapwrap:is(.tb-as,.tb-nr,.tb-sel){--tbx:380px}
+  .screen.screen[data-app="map"] .mapwrap.mapwrap.mapwrap.tb-fp{--tbx:360px}
+  .screen.screen[data-app="map"] .mapwrap:is(.tb-as,.tb-nr,.tb-sel,.tb-fp) .mapctl{border-top-left-radius:0!important;border-bottom-left-radius:0!important;border-left:0!important}}
 </style>`);
 
 /* ---------- Motion for every switch (Nov 2026) ----------

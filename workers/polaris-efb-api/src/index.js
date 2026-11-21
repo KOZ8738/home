@@ -13,6 +13,7 @@
  *   GET /api/efb/sigmets                -> international SIGMETs and US SIGMET/AIRMETs (aviationweather.gov)
  *   GET /api/efb/charts?icao=KSFO       -> FAA d-TPP chart list for the current AIRAC cycle
  *   GET /api/efb/chart-pdf?cycle=&file= -> one FAA chart PDF (passed through, cached)
+ *                                          (airports RCxx: AIP Taiwan from the CAA eAIP, same shape, cycle "TW…")
  *   GET /api/efb/airport-layout?icao=   -> runways, taxiways, stands and holds from OpenStreetMap
  *   GET /api/efb/fir                    -> FIR / ARTCC boundaries (VATSpy Data Project, CC BY-SA 4.0), simplified
  *   GET /api/efb/radar                  -> RainViewer radar frame list (tiles are loaded straight from RainViewer)
@@ -411,6 +412,7 @@ async function edgeCache(key, ttlSec, fn, keep) {
 async function chartsRoute(icaoIn, env, ctx) {
   const icao = String(icaoIn || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{3,4}$/.test(icao)) throw new HttpError(400, 'Enter a 3 or 4 letter airport code');
+  if (/^RC[A-Z]{2}$/.test(icao)) return twChartsRoute(icao, env, ctx);
   const ac = airac();
   return cached('charts:' + ac.cycle + ':' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'charts:' + ac.cycle + ':' + icao, 40 * 86400_000, () => edgeCache(`charts/${ac.cycle}/${icao}`, 86400, async () => {
     const res = await fetch(`https://aeronav.faa.gov/d-tpp/${ac.cycle}/xml_data/d-TPP_Metafile.xml`, { cf: { cacheTtl: 86400, cacheEverything: true } });
@@ -443,9 +445,101 @@ async function chartsRoute(icaoIn, env, ctx) {
 }
 async function chartPdfRoute(url, h) {
   const cycle = url.searchParams.get('cycle') || '', file = url.searchParams.get('file') || '';
+  if (/^TW/.test(cycle)) return twPdfRoute(cycle, file, h);
   if (!/^\d{4}$/.test(cycle) || !/^[A-Z0-9_-]{1,60}\.PDF$/i.test(file)) return json({ error: 'Invalid chart' }, 400, h);
   const res = await fetch(`https://aeronav.faa.gov/d-tpp/${cycle}/${file}`, { cf: { cacheTtl: 7 * 86400, cacheEverything: true } });
   if (!res.ok) return json({ error: `FAA returned HTTP ${res.status}` }, 502, h);
+  return new Response(res.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
+}
+
+/* ---------- AIP Taiwan charts (CAA eAIP) ----------
+   The CAA publishes the AIP for the Taipei FIR at ais.caa.gov.tw/eaip/, free and without sign-in; its charts are not
+   sold and are downloaded from there (GEN 3.2.3). Each AIRAC amendment is a folder ("AIRAC AIP AMDT 05-26_2026_10_29")
+   with a menu of every page, and each airport's AD 2 page links its charts as separate PDFs under
+   documents/Root/Taiwan_Rep/Charts/AD/AD 2 RCxx/. The list is built from those links, sorted the way the AIP orders
+   them, and the PDFs are passed through from the CAA, cached. Taiwan's amendments come about six times a year, so the
+   edition in force is the latest one whose effective date has come. */
+const TW_EAIP = 'https://ais.caa.gov.tw/eaip/';
+const TW_UA = { 'User-Agent': 'Mozilla/5.0 (compatible; PolarisEFB/1.0; +https://koz8738.com/efb/)', Accept: 'text/html,application/pdf,*/*' };
+const twEnc = (p) => p.split('/').map(encodeURIComponent).join('/');
+const twEntities = (t) => t.replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"');
+async function twEditions() {
+  return edgeCache('tw/editions/v1', 3 * 3600, async () => {
+    const r = await fetch(TW_EAIP, { headers: TW_UA, cf: { cacheTtl: 1800, cacheEverything: true } });
+    if (!r.ok) throw new HttpError(502, `The CAA Taiwan eAIP is not answering (HTTP ${r.status})`);
+    const t = await r.text(), out = [], seen = new Set();
+    for (const m of t.matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
+      let href = twEntities(m[1]); try { href = decodeURIComponent(href); } catch (e) { /* keep as is */ }
+      href = href.replace(/\\/g, '/');
+      const q = href.match(/(?:^|\/)([^/]*?(\d{2})-(\d{2})_(\d{4})_(\d{2})_(\d{2}))\/index\.html$/i);
+      if (!q || seen.has(q[1])) continue; seen.add(q[1]);
+      out.push({ folder: q[1], amdt: q[2] + '/' + q[3], eff: `${q[4]}-${q[5]}-${q[6]}`, id: 'TW' + q[2] + q[3] + q[4] + q[5] + q[6] });
+    }
+    return out.sort((a, b) => a.eff.localeCompare(b.eff));
+  }, (v) => Array.isArray(v) && v.length > 0);
+}
+async function twEdition(t = Date.now()) {
+  const all = await twEditions(), today = new Date(t).toISOString().slice(0, 10);
+  const live = all.filter((e) => e.eff <= today), cur = live[live.length - 1];
+  if (!cur) throw new HttpError(502, 'No AIP Taiwan amendment is in force yet');
+  return { cur, next: all.find((e) => e.eff > today) || null };
+}
+/* every airport's AD 2 page in this edition: RCTP -> "RC-AD 2 RCTP …-en-GB.html" and its English name */
+async function twMenu(env, ctx, ed) {
+  return kvStore(env, ctx, 'twmenu:' + ed.id, 30 * 86400_000, () => edgeCache('tw/menu/' + ed.id, 86400, async () => {
+    const r = await fetch(TW_EAIP + twEnc(ed.folder) + '/eAIP/menu.html', { headers: TW_UA, cf: { cacheTtl: 86400, cacheEverything: true } });
+    if (!r.ok) throw new HttpError(502, `The AIP Taiwan contents did not load (HTTP ${r.status})`);
+    const t = await r.text(), apts = {};
+    for (const m of t.matchAll(/href\s*=\s*'(RC-AD 2 (RC[A-Z]{2}) ([^']*?)-(en-GB|zh-TW)\.html)/g)) {
+      const ic = m[2], en = m[4] === 'en-GB';
+      if (apts[ic] && !en) continue;
+      apts[ic] = { file: twEntities(m[1]), name: m[3].replace(/[^\x20-\x7e]/g, '').replace(/^[\s-]+|[\s-]+$/g, '').replace(/\s+/g, ' ') };
+    }
+    return apts;
+  }), (v) => v && Object.keys(v).length > 0);
+}
+function twGroup(n) {
+  const u = n.toUpperCase();
+  if (/^AERONAUTICAL DATA\b|\bDATA (OF|FOR)\b|\bWP TABLE\b|\bTABULAR\b|\bCODING\b/.test(u)) return ['DATA', 'Procedure data'];
+  if (/AERODROME CHART|AIRPORT CHART|AIRPORT DIAGRAM/.test(u)) return ['APD', 'Airport diagram'];
+  if (/PARKING|DOCKING|GROUND MOVEMENT|\bGMC\b|TAXI|\bTA?XI? RTE\b|\bTAX RTE\b|HOT ?SPOT|TWY CENT/.test(u)) return ['HOT', 'Hot spots'];
+  if (/\b(DEP|SID)\b|DEPARTURE/.test(u)) return ['DP', 'Departures'];
+  if (/\b(ARR|STAR)\b|ARRIVAL/.test(u)) return ['STR', 'Arrivals'];
+  if (/^(ILS|LOC|RNP|RNAV|GNSS|GPS|VOR|NDB|TACAN|GLS|LDA|SDF|PAR|SRA|ASR|VISUAL|CIRCLING)\b/.test(u)) return ['IAP', 'Approaches'];
+  if (/MINIMUM/.test(u)) return ['MIN', 'Minimums'];
+  return ['DAU', 'Other'];
+}
+async function twChartsRoute(icao, env, ctx) {
+  const { cur: ed, next } = await twEdition();
+  return cached('twcharts:' + ed.id + ':' + icao, 6 * 3600_000, () => kvStore(env, ctx, 'twcharts:' + ed.id + ':' + icao, 7 * 86400_000, () => edgeCache(`twcharts/${ed.id}/${icao}`, 86400, async () => {
+    const base = { cycle: ed.id, from: ed.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null, src: 'tw', amdt: ed.amdt, eff: ed.eff,
+      label: 'AIP Taiwan · AMDT ' + ed.amdt, aip: TW_EAIP + twEnc(ed.folder) + '/index.html', next: next ? { amdt: next.amdt, eff: next.eff } : null };
+    const apts = await twMenu(env, ctx, ed), a = apts[icao];
+    if (!a) return { ...base, airport: { icao, name: '' }, charts: [], notFound: true };
+    const r = await fetch(TW_EAIP + twEnc(ed.folder) + '/eAIP/' + twEnc(a.file), { headers: TW_UA, cf: { cacheTtl: 86400, cacheEverything: true } });
+    if (!r.ok) throw new HttpError(502, `The AIP Taiwan page for ${icao} did not load (HTTP ${r.status})`);
+    const t = await r.text(), seen = new Set(), charts = [];
+    for (const m of t.matchAll(/href\s*=\s*["']([^"']+?\.pdf)["']/gi)) {
+      let href = twEntities(m[1]); try { href = decodeURIComponent(href); } catch (e) { /* keep */ }
+      href = href.replace(/\\/g, '/');
+      const i = href.indexOf('Charts/AD/'); if (i < 0) continue;
+      const pdf = href.slice(i + 10);
+      if (!pdf.startsWith('AD 2 ' + icao + '/') || pdf.includes('..') || seen.has(pdf)) continue; seen.add(pdf);
+      const file = pdf.split('/').pop().replace(/\.pdf$/i, ''), order = parseInt(file, 10);
+      const name = file.replace(/^\d+\s*-\s*/, '').replace(/_/g, ' / ').replace(/\s+/g, ' ').trim();
+      const [code, group] = twGroup(name);
+      charts.push({ code, group, name, pdf, changed: false, order: isFinite(order) ? order : 9999, url: TW_EAIP + twEnc(ed.folder) + '/documents/Root/Taiwan_Rep/Charts/AD/' + twEnc(pdf) });
+    }
+    charts.sort((x, y) => x.order - y.order);
+    return { ...base, airport: { icao, name: a.name }, charts: charts.map(({ order, ...c }) => c), notFound: !charts.length };
+  }), (v) => v && !v.notFound));
+}
+async function twPdfRoute(cycle, file, h) {
+  if (!/^TW\d{12}$/.test(cycle) || !/^AD 2 RC[A-Z]{2}\/[^\\]{1,220}\.pdf$/i.test(file) || file.includes('..')) return json({ error: 'Invalid chart' }, 400, h);
+  const ed = (await twEditions()).find((e) => e.id === cycle);
+  if (!ed) return json({ error: 'That AIP Taiwan amendment is no longer listed' }, 404, h);
+  const res = await fetch(TW_EAIP + twEnc(ed.folder) + '/documents/Root/Taiwan_Rep/Charts/AD/' + twEnc(file), { headers: TW_UA, cf: { cacheTtl: 7 * 86400, cacheEverything: true } });
+  if (!res.ok) return json({ error: `The CAA eAIP returned HTTP ${res.status}` }, 502, h);
   return new Response(res.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
 }
 

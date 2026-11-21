@@ -14,7 +14,7 @@
  *   GET /api/efb/charts?icao=KSFO       -> FAA d-TPP chart list for the current AIRAC cycle
  *   GET /api/efb/chart-pdf?cycle=&file= -> one FAA chart PDF (passed through, cached)
  *                                          (airports RCxx: AIP Taiwan from the CAA eAIP, same shape, cycle "TW…")
- *   GET /api/efb/airport-layout?icao=   -> runways, taxiways, stands and holds from OpenStreetMap
+ *   GET /api/efb/airport-layout?icao=   -> runways, taxiways, stands and holds from OpenStreetMap (&warm=1: build it ahead, small answer)
  *   GET /api/efb/fir                    -> FIR / ARTCC boundaries (VATSpy Data Project, CC BY-SA 4.0), simplified
  *   GET /api/efb/radar                  -> RainViewer radar frame list (tiles are loaded straight from RainViewer)
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
@@ -1527,7 +1527,10 @@ export default {
         case '/api/efb/bookings': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your bookings' }, 401, h); return json({ ...(await bookingsRoute(env, me.u)), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
-        case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {})); return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
+          /* warm=1: the EFB only asks the server to have it ready; answered at once, without the diagram */
+          if (url.searchParams.get('warm') === '1') { p.catch(() => {}); return json({ ok: true, warm: true }, 202, h); }
+          return json({ ...(await p), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/airport': return json({ ...(await airportRoute(url.searchParams.get('icao'), ctx)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/major': return json({ ...(await majorRoute(env)), updatedAt: new Date().toISOString() }, 200, h);
         case '/api/efb/metars': return await metarCellRoute(url.searchParams.get('cell'), url.searchParams.get('size'), ctx, h);

@@ -89,7 +89,7 @@ export function sigText(f, hits, now) {
     const val = timeOf(s.from) || timeOf(s.to) ? 'VALID ' + (timeOf(s.from) ? z(timeOf(s.from)) : '') + '-' + (timeOf(s.to) ? z(timeOf(s.to)) : '') : '';
     const mins = Math.round((h.t - now) / 60_000);
     const nmF = oneLine(s.firName, 30).toUpperCase(), fir = String(s.fir || '').toUpperCase();
-    const where = nmF ? (fir && !nmF.includes(fir) ? fir + ' ' : '') + nmF + (/\b(FIR|UIR|CTA)\b/.test(nmF) ? '' : ' FIR') : fir;
+    const where = nmF ? (fir && !nmF.includes(fir) && !/^[A-Z]{4}\b/.test(nmF) ? fir + ' ' : '') + nmF + (/\b(FIR|UIR|CTA)\b/.test(nmF) ? '' : ' FIR') : fir;
     L.push('', (hits.length > 1 ? i + 1 + '. ' : '') + [where, oneLine([s.qualifier, s.hazard].filter(Boolean).join(' '), 40), lev, val, s.mov ? 'MOV ' + oneLine(s.mov, 20) : ''].filter(Boolean).join('  '));
     L.push(h.d < STEP_NM ? 'YOU ARE IN IT NOW, ABOUT ' + fl(h.alt) : 'ABOUT ' + h.d + ' NM AHEAD, IN ABOUT ' + mins + ' MIN, NEAR ' + ll(h.lat, h.lon) + ', YOUR LEVEL ABOUT ' + fl(h.alt));
     if (s.raw) L.push(oneLine(s.raw, 420));

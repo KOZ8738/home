@@ -2650,7 +2650,7 @@ function ofpSummary(){const x=O(),wt=ofp.weights||{},tm=ofp.times||{};const dist
     <div class="ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span></div></div></section>
   <section class="card"><dl class="stats">${st("STD",utcHM(N(tm.sched_out)))}${st("STA",utcHM(N(tm.sched_in)))}${st("Dep runway",esc(S(x.o.plan_rwy)||"—"))}${st("Arr runway",esc(S(x.d.plan_rwy)||"—"))}${st("Cruise","FL"+String(Math.round((N(x.g.initial_altitude)||0)/100)).padStart(3,"0")+" <small>M"+esc(S(x.g.cruise_mach))+"</small>")}${st("Cost index",esc(S(x.g.costindex)||"—"))}${st("Passengers",fmt(N(wt.pax_count)))}${st("Alternate",esc(S(x.a.icao_code)||"—"))}</dl></section>
   <section class="card">${cardH("Vertical profile","Climb, cruise and descent",'<span class="note">FT / NM</span>')}<div class="card-b">${profileSVG(x)}</div></section>
-  <div class="row">${x.pdf?`<a class="btn" href="${esc(x.pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""}<a class="btn" href="#map">Show on map</a><a class="btn" href="#wx">Weather</a><a class="btn" href="#perf">Performance</a></div>`}
+  <div class="row">${x.pdf?`<a class="btn" href="${esc(x.pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""}<a class="btn" href="#map">Show on map</a><a class="btn" href="#wx">Weather</a></div>`}
 function profileSVG(x){
   const pts=[{n:S(x.o.icao_code),d:0,a:N(x.o.elevation)||0}];let cum=0;
   x.fixes.forEach(f=>{cum+=N(f.distance)||0;pts.push({n:S(f.ident),d:cum,a:N(f.altitude_feet)||0})});
@@ -2673,7 +2673,7 @@ function ofpFuel(){const x=O(),f=ofp.fuel||{},wt=ofp.weights||{},u=x.unit;
     <div class="fuelkey">${parts.map(p=>`<span><i style="background:${p[2]}"></i>${esc(p[0])} <b class="mono">${fmt(p[1])}</b></span>`).join("")}</div></div>
    <div class="tblw"><table><tbody>${fr("Trip",f.enroute_burn)}${fr("Contingency",f.contingency)}${fr("Alternate "+esc(S(x.a.icao_code)),f.alternate_burn)}${fr("Final reserve",f.reserve)}${fr("Extra",f.extra)}${fr("Taxi",f.taxi)}${fr("Block fuel",f.plan_ramp,"tot")}${fr("Takeoff fuel",f.plan_takeoff)}${fr("Minimum takeoff fuel",f.min_takeoff)}${fr("Landing fuel",f.plan_landing)}</tbody></table></div></section>
   <section class="card">${cardH("Weights · "+u,"Estimated against structural limits",'<span class="note">Line marks the limit</span>')}${wb("Zero fuel",wt.est_zfw,wt.max_zfw)}${wb("Takeoff",wt.est_tow,wt.max_tow)}${wb("Landing",wt.est_ldw,wt.max_ldw)}
-   <div class="card-f"><span>Payload ${fmt(N(wt.payload))} ${u} · ${fmt(N(wt.pax_count))} passengers</span><a class="btn sm" href="#load">Open Loadsheet</a></div></section>`}
+   <div class="card-f"><span>Payload ${fmt(N(wt.payload))} ${u} · ${fmt(N(wt.pax_count))} passengers</span></div></section>`}
 function ofpRoute(){const x=O();const toks=S(x.g.route).split(/\s+/).filter(Boolean);
   const chips=`<span class="ap">${esc(S(x.o.icao_code))}/${esc(S(x.o.plan_rwy))}</span>`+toks.map((t,i)=>{const aw=/^(DCT|[A-Z]{1,2}\d{1,4}[A-Z]?|[A-Z]+\d[A-Z]?)$/.test(t)&&i%2===1;return `<span class="${aw?"aw":""}">${esc(t)}</span>`}).join("")+`<span class="ap">${esc(S(x.d.icao_code))}/${esc(S(x.d.plan_rwy))}</span>`;
   return reNote()+`<section class="card">${cardH("ATC route",fmt(N(x.g.route_distance)||N(x.g.air_distance))+" NM",`<button class="btn sm" id="rtCopy">Copy</button>`)}<div class="card-b"><div class="waypts">${chips}</div></div>
@@ -2787,7 +2787,7 @@ function clNormal(){const x=O(),st=store.get(clKey(),{});const ct=clType();const
    ${sec[2].when?`<div class="cl-when">${ico("info")}<span>${esc(sec[2].when)}</span></div>`:""}
    ${clItems(sec[1],st,clIdx,"data-ck")}
    ${p.done===p.total?`<div class="cl-done"><span>“${esc(sec[0])} checklist complete”</span>${nx>=0?`<button class="btn pri" id="clNext">${esc(CL[nx][0])} ›</button>`:""}</div>`:""}</section>
-   <p class="note">PF calls for the checklist. PM reads each challenge; PF responds only after checking the aircraft. Teal values are filled in from this flight's OFP, METAR, Loadsheet and Performance. <i class="co">SOP</i> marks company items.${clAutoOK()?"":" <b class=\"c-amber\">Values are not filled in: the loaded OFP is for a different flight. Load this flight in Flight › Download.</b>"}${ct.fam==="A350"?" The A350 list follows the standard Airbus A350 checklist structure with the company items added; it is not from the A321 SOP.":""}</p>`;
+   <p class="note">PF calls for the checklist. PM reads each challenge; PF responds only after checking the aircraft. Teal values are filled in from this flight's OFP and METAR. <i class="co">SOP</i> marks company items.${clAutoOK()?"":" <b class=\"c-amber\">Values are not filled in: the loaded OFP is for a different flight. Load this flight in Flight › Download.</b>"}${ct.fam==="A350"?" The A350 list follows the standard Airbus A350 checklist structure with the company items added; it is not from the A321 SOP.":""}</p>`;
   return split(side,main)}
 function nnView(){if(nnIdx>=NN.length)nnIdx=0;const st=store.get("nn2:"+O().id,{});const P=NN[nnIdx];const acts=P.i.filter(x=>typeof x!=="string");const done=acts.filter((_,j)=>st[nnIdx+"-"+j]).length;
   let lastC="";const list=NN.map((q,i)=>{const hd=q.c!==lastC?`<div class="nn-cat">${esc(q.c)}</div>`:"";lastC=q.c;
@@ -2876,22 +2876,138 @@ function vamBookHtml(){if(!vamOn())return "";vamLoad("bookings");const s=vamStat
   if(!j)return `<section class="card">${head}<div class="empty">${s.err?esc(s.err):"Loading bookings…"}</div></section>`;
   const b=j.bookings||[];if(!b.length)return `<section class="card">${head}<div class="empty">No current bookings. Book a flight in vAMSYS, then come back here.</div></section>`;
   return `<section class="card">${head}${b.map(x=>`<div class="bk"><div><b>${esc(x.flight||x.callsign)} · ${esc(x.from)} → ${esc(x.to)}${ftTag(x.flight||x.callsign,x.from,x.to)}</b><small>${esc(x.type)} ${esc(x.registration)}${x.departureTime?" · STD "+esc(isoZ(x.departureTime)):""}${x.altitude?" · FL"+Math.round(x.altitude/100):""}${x.costIndex?" · CI "+esc(x.costIndex):""}</small></div><a class="btn sm" href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">Plan in SimBrief ↗</a></div>`).join("")}<div class="card-f">Generate the OFP for this booking in SimBrief, then load it here.</div></section>`}
-V.simbrief=()=>{const x=O(),u=store.get("sbUser","");const tm=ofp.times||{};
-  return `<section class="hero">${ROSE_SVG}<span class="eyebrow">${ofp._sample?"No plan loaded":"Current OFP · "+esc(x.id)}</span>
-    ${ofp._sample?`<h2>Load your <em>next flight.</em></h2><p>Fetch your SimBrief plan and every app fills in with your flight.</p>`
-    :`<div class="route"><div class="ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span></div><div class="mid">${plane}<span>${esc(x.flight)} · ${utcHM(N(tm.sched_out))}</span>${ftTag(x.flight,S(x.o.icao_code),S(x.d.icao_code))}</div><div class="ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span></div></div><div class="row" style="margin-top:16px"><a class="btn pri" href="#ofp">Open Flight Plan</a><button class="btn" id="ofpClear" type="button">Clear plan</button><span class="note">${esc(S(x.ac.name))} · ${esc(S(x.ac.reg))}</span></div>`}</section>
-  ${vamBookHtml()}
-  <div class="steps">
-   <section class="card">${cardH("Step 1","Fetch from SimBrief",'<span class="stepn">1</span>')}<div class="card-b" style="display:grid;gap:14px">
-    <label class="f">SimBrief username or pilot ID<input type="text" id="sbUser" placeholder="polaris214" value="${esc(u)}"></label>
-    <div class="row"><button class="btn pri" id="sbFetch">Fetch latest OFP</button></div>
-    <p class="note" id="sbMsg">Loads the newest plan in your SimBrief account.</p>${SBMAN.on?"":`<button class="sb-alt" data-sbman>Paste or upload a plan instead</button>`}</div></section>
-   ${SBMAN.on?`<section class="card sb-man${SBMAN.anim?" in":""}" id="sbMan">${cardH("Step 2","Paste or upload",'<span class="stepn">2</span>')}<div class="card-b" style="display:grid;gap:14px">
-    <p class="note">Open your SimBrief data, copy everything on that page, and paste it here. Or upload a SimBrief .json file.</p>
-    <div class="row"><a class="btn" id="sbOpen" href="${esc(sbHref(u))}" target="_blank" rel="noopener">Open SimBrief data ↗</a></div>
-    <label class="f">SimBrief JSON<textarea id="sbPaste" rows="5" placeholder='{"fetch":{...},"params":{...}}'></textarea></label>
-    <div class="row"><button class="btn pri" id="sbLoad">Load pasted OFP</button><label class="btn" style="cursor:pointer">Upload .json<input type="file" id="sbFile" accept=".json,application/json" hidden></label><button class="sb-alt" data-sbhide>Hide</button></div></div></section>`:""}
-  </div>`};
+/* ---------- Flight › Download, redesigned (Nov 2026) ----------
+   Like the "download flight" page of an airline EFB: on the left the flight folder the plan brings (the route, the
+   times, the numbers the crew look for first, and what in the EFB it fills in, each a tap away), on the right where it
+   comes from (SimBrief, or a pasted or uploaded plan) and the vAMSYS bookings. With no plan loaded, one column: the
+   welcome and the download box. The ids and data attributes of the old page stay (sbUser, sbFetch, sbMsg, sbMan,
+   sbPaste, sbLoad, sbFile, sbOpen, data-sbman, data-sbhide, data-sbauto, ofpClear), so its handlers still work. */
+const DL_I={dl:'<path d="M12 3.5v11M7 10l5 5 5-5M4.5 19.5h15"/>',plan:'<path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4h4M9 11.5h7M9 15h7M9 18.5h4.5"/>',
+  wx:'<path d="M7.5 18.5a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.6 3.7 3.7 0 0 1-.8 7.4z"/>',chart:'<path d="M5 3.5h10l4 4v13H5z"/><path d="M8.5 16l2.6-5 2.4 3.4 1.6-2.4 1.9 4"/>',
+  docs:'<path d="M4 6.5h6l2 2h8v11H4z"/><path d="M4 9.5h16"/>',ck:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
+  ci:'<rect x="4" y="5" width="16" height="15.5" rx="2.6"/><path d="M8 3.2v3.6M16 3.2v3.6M4 10h16M8.5 15l2.4 2.4 4.6-4.8"/>',map:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
+  chev:'<path d="M9 5l7 7-7 7"/>',ext:'<path d="M14 4.5h5.5V10M19.5 4.5l-8 8M17 14v5.5H4.5V7H10"/>',paste:'<rect x="5" y="4.5" width="14" height="16" rx="2"/><path d="M9 4.5V3h6v1.5M8.5 10h7M8.5 13.5h7M8.5 17h4"/>'};
+const dlIc=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${DL_I[k]}</svg>`;
+function dlAgo(t){const m=Math.round((Date.now()-t)/6e4);return m<1?"just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":"")+" ago":Math.floor(m/1440)+" d ago"}
+const dlZ=sec=>sec?utcHM(sec):"—";
+const dlDur=sec=>{if(!(sec>0))return"";const m=Math.round(sec/60);return Math.floor(m/60)+"h "+pad(m%60)+"m"};
+const dlHas=id=>{try{return typeof asHas!=="function"||asHas(id)}catch(e){return true}};
+/* the download box: SimBrief, and the way to paste or upload a plan */
+function dlGet(none){const u=store.get("sbUser",""),auto=store.get("sbAuto",false)===true;
+  return `<section class="dl2-card dl2-get"><div class="dl2-gh"><span class="dl2-gi">${dlIc("dl")}</span><div><b>${none?"Download your plan":"Download a newer plan"}</b><small>From your SimBrief account</small></div></div>
+    <label class="dl2-f"><span>SimBrief username or pilot ID</span><input type="text" id="sbUser" placeholder="polaris214" value="${esc(u)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <button class="dl2-go" id="sbFetch" type="button">${dlIc("dl")}<span>Download latest plan</span></button>
+    <p class="dl2-msg" id="sbMsg">${none?"Loads the newest plan in your SimBrief account.":"Your plan stays until a newer one is downloaded."}</p>
+    <div class="dl2-row"><span><b>Download when the EFB opens</b><small>Fetches your newest plan each time</small></span><button class="dl2-sw" type="button" role="switch" aria-checked="${auto}" aria-label="Download when the EFB opens" data-sbauto="${auto?0:1}"><i></i></button></div>
+    <div class="dl2-links"><a href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">${dlIc("ext")}Plan a new flight on SimBrief</a>${SBMAN.on?"":`<button type="button" data-sbman>${dlIc("paste")}Paste or upload a plan</button>`}</div></section>
+  ${SBMAN.on?`<section class="dl2-card dl2-man${SBMAN.anim?" in":""}" id="sbMan"><div class="dl2-gh"><span class="dl2-gi alt">${dlIc("paste")}</span><div><b>Paste or upload</b><small>A SimBrief JSON plan</small></div><button class="dl2-x" type="button" data-sbhide aria-label="Hide">×</button></div>
+    <p class="dl2-note">Open your SimBrief data, copy everything on that page and paste it here, or upload a SimBrief .json file.</p>
+    <a class="dl2-b" id="sbOpen" href="${esc(sbHref(u))}" target="_blank" rel="noopener">Open SimBrief data ↗</a>
+    <label class="dl2-f"><span>SimBrief JSON</span><textarea id="sbPaste" rows="4" placeholder='{"fetch":{...},"params":{...}}'></textarea></label>
+    <div class="dl2-acts"><button class="dl2-b pri" id="sbLoad" type="button">Load pasted plan</button><label class="dl2-b">Upload .json<input type="file" id="sbFile" accept=".json,application/json" hidden></label></div></section>`:""}`}
+/* what the plan fills in, each a tap away */
+function dlFills(x){const wx=(()=>{try{return wxFor(x).map(a=>S(a[2]&&a[2].icao_code)).filter(Boolean)}catch(e){return[]}})(),apts=[S(x.o.icao_code),S(x.d.icao_code),S(x.a.icao_code)].filter(Boolean);
+  const ci=RS.ci,ciOk=ci&&ci.from===S(x.o.icao_code)&&ci.to===S(x.d.icao_code),signed=typeof authOn==="function"&&authOn();
+  let ck="";try{const t=clType();ck=(t&&t.name)||""}catch(e){}
+  const rows=[["ofp","plan","Flight plan and nav log",(x.fixes.length?x.fixes.length+" waypoints":"The route")+(N(x.g.route_distance)?" · "+fmt(N(x.g.route_distance))+" nm":"")],
+    ["map","map","Route on the map","With the airports, weather and traffic"],
+    ["wx","wx","Weather",(wx.length?wx:apts).join(" · ")+" · METAR and TAF"],
+    ["charts","chart","Charts",apts.join(" · ")],
+    ["docs","docs","Documents","OFP, briefing, fuel, nav log and NOTAMs"],
+    ["checklist","ck","Checklists",ck?ck+" · values from this plan":"Values from this plan"],
+    ["roster","ci",ciOk?"Checked in":"Check-in",ciOk?"Polaris operations sends your gates and the final loadsheet":signed?"Not checked in for this flight · check in on Roster":"Sign in to check in"]];
+  return `<section class="dl2-card dl2-fill"><h3 class="dl2-h">In this download</h3><div class="dl2-list">${rows.map(([id,ic,t,sub])=>{const go=dlHas(id);
+    return `<${go?`a href="#${id}"`:"div"} class="dl2-li${id==="roster"&&ciOk?" ok":""}"><span class="dl2-li-ic">${dlIc(ic)}</span><span class="dl2-li-t"><b>${esc(t)}</b><small>${esc(sub)}</small></span>${id==="roster"&&!ciOk?'<span class="dl2-tick no" aria-label="Not yet"></span>':'<span class="dl2-tick" aria-label="Ready">✓</span>'}${go?`<svg class="dl2-ch" viewBox="0 0 24 24" aria-hidden="true">${DL_I.chev}</svg>`:""}</${go?"a":"div"}>`}).join("")}</div></section>`}
+/* the flight folder: the route, the times and the first numbers */
+function dlFolder(x){const tm=ofp.times||{},wt=ofp.weights||{},fu=ofp.fuel||{},pa=ofp.params||{},u=x.unit,gen=N(pa.time_generated)?N(pa.time_generated)*1000:0;
+  const blk=N(tm.sched_block)||(N(tm.sched_in)&&N(tm.sched_out)?N(tm.sched_in)-N(tm.sched_out):null),fl=N(x.g.initial_altitude),ci=S(x.g.costindex);
+  const fact=(k,v,sub)=>`<div><dt>${k}</dt><dd>${v}${sub?` <small>${sub}</small>`:""}</dd></div>`;
+  return `<section class="dl2-card dl2-fold"><div class="dl2-top"><span class="dl2-ey">Flight folder</span><span class="dl2-gen">${gen?"Generated "+esc(utcHM(gen/1000))+" · "+dlAgo(gen):"Loaded"}${S(pa.airac)?" · AIRAC "+esc(S(pa.airac)):""}</span></div>
+    <div class="dl2-route"><div class="dl2-ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span><em>STD ${dlZ(N(tm.sched_out))}${S(x.o.plan_rwy)?`<span class="rw">RWY ${esc(S(x.o.plan_rwy))}</span>`:""}</em></div>
+      <div class="dl2-mid"><span class="dl2-fl">${esc(x.flight)}${ftTag(x.flight,S(x.o.icao_code),S(x.d.icao_code))}</span><div class="dl2-line"><i></i>${plane}</div><span class="dl2-bt">${blk?"Block "+dlDur(blk):""}</span></div>
+      <div class="dl2-ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span><em>STA ${dlZ(N(tm.sched_in))}${S(x.d.plan_rwy)?`<span class="rw">RWY ${esc(S(x.d.plan_rwy))}</span>`:""}</em></div></div>
+    <dl class="dl2-facts">${fact("Aircraft",esc(S(x.ac.name)||S(x.ac.icaocode)||"—"),esc(S(x.ac.reg)))}${fact("Cruise",fl?"FL"+String(Math.round(fl/100)).padStart(3,"0"):"—",ci?"CI "+esc(ci):"")}${fact("Alternate",esc(S(x.a.icao_code)||"—"))}${fact("Distance",N(x.g.route_distance)?fmt(N(x.g.route_distance)):"—",N(x.g.route_distance)?"nm":"")}
+      ${fact("Block fuel",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):"—",u)}${fact("Trip fuel",N(fu.est_burn)!=null?fmt(N(fu.est_burn)):"—",u)}${fact("Takeoff weight",N(wt.est_tow)!=null?fmt(N(wt.est_tow)):"—",u)}${fact("Passengers",N(wt.pax_count)!=null?fmt(N(wt.pax_count)):"—")}</dl>
+    <div class="dl2-acts"><a class="dl2-b pri" href="#ofp">Open Flight Plan</a><a class="dl2-b" href="#ofpdoc">OFP</a><a class="dl2-b" href="#map">${dlIc("map")}Map</a><button class="dl2-b ghost" id="ofpClear" type="button">Clear plan</button></div></section>`}
+V.simbrief=()=>{const x=O(),none=!!ofp._sample;
+  if(none)return `<div class="dl2 one"><section class="dl2-hello"><span class="dl2-ey">No plan loaded</span><h2>Load your <em>next flight.</em></h2><p>Download your SimBrief plan and the EFB fills in with your flight: the map, charts, documents, weather and checklists.</p></section>${dlGet(true)}${vamBookHtml()}</div>`;
+  return `<div class="dl2"><div class="dl2-main">${dlFolder(x)}${dlFills(x)}</div><div class="dl2-side">${dlGet(false)}${vamBookHtml()}</div></div>`};
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* ---------- Flight › Download (Nov 2026) ---------- */
+.dl2{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:20px;max-width:1240px;margin:0 auto;box-sizing:border-box}
+.dl2.one{max-width:620px;padding-top:28px}
+@container screen (min-width:900px){.dl2:not(.one){grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);align-items:start}}
+.dl2-main,.dl2-side{display:grid;gap:16px;min-width:0;align-content:start}
+.dl2-side>.card{margin:0}
+.dl2-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
+.dl2-ey,.dl2-h{font:600 11px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--bronze)}
+.dl2-h{margin:0 0 4px}
+.dl2-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
+.dl2-gen{font:500 12.5px var(--f-ui);color:var(--label)}
+.dl2-route{display:grid;grid-template-columns:minmax(0,1fr) minmax(92px,1.1fr) minmax(0,1fr);align-items:center;gap:12px;margin:14px 0 4px}
+.dl2-ap{min-width:0}.dl2-ap.r{text-align:right}
+.dl2-ap b{display:block;font:400 clamp(38px,calc(2.6cqw + 14px),58px)/1 var(--f-disp);color:var(--ink);letter-spacing:.01em}
+.dl2-ap span{display:block;font:500 13px var(--f-ui);color:var(--label);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl2-ap em{display:block;font:500 12.5px var(--f-mono);font-style:normal;color:var(--ink);margin-top:4px;white-space:nowrap}
+.dl2-ap em .rw::before{content:" · "}
+.dl2-mid{text-align:center;color:var(--bronze);min-width:0}
+.dl2-fl{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;font:600 13px var(--f-mono);color:var(--ink)}
+.dl2-line{display:flex;align-items:center;margin:6px 0 5px}.dl2-line i{flex:1;border-top:1.5px dashed color-mix(in srgb,var(--bronze) 55%,transparent)}.dl2-line svg{width:34px;height:17px;flex:none;margin-left:-2px}
+.dl2-bt{font:500 12px var(--f-ui);color:var(--label);white-space:nowrap}
+.dl2-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:16px 0 0;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.dl2-facts div{background:var(--panel);padding:10px 12px;min-width:0}
+.dl2-facts dt{font:600 10px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+.dl2-facts dd{margin:4px 0 0;font:500 16px var(--f-mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl2-facts dd small{font:500 11.5px var(--f-ui);color:var(--label)}
+.dl2-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.dl2-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px var(--f-ui);text-decoration:none;cursor:pointer;box-shadow:none;margin:0;box-sizing:border-box}
+.dl2-b svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dl2-b.pri{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.dl2-b.ghost{margin-left:auto;color:var(--label)}
+.dl2-b.warn{background:#D9483B;border-color:#D9483B;color:#fff}
+.dl2-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+.dl2-li{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;min-width:0}
+.dl2-li-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);flex:none}
+.dl2-li-ic svg,.dl2-gi svg,.dl2-go svg,.dl2-links svg{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+.dl2-li-ic svg{width:19px;height:19px;stroke-width:1.7}
+.dl2-li-t{flex:1;min-width:0}.dl2-li-t b{display:block;font:600 14px var(--f-ui)}.dl2-li-t small{display:block;font:500 12px var(--f-ui);color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.dl2-tick{width:19px;height:19px;border-radius:50%;background:#34C759;color:#fff;font:700 11px/19px var(--f-ui);text-align:center;flex:none}
+.dl2-tick.no{background:transparent;border:1.5px solid color-mix(in srgb,var(--label) 55%,transparent);box-sizing:border-box}
+.dl2-ch{width:15px;height:15px;fill:none;stroke:var(--label);stroke-width:2;flex:none}
+a.dl2-li:active{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.dl2-gh{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.dl2-gi{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--accent);color:var(--panel);flex:none}
+.dl2-gi.alt{background:var(--bronze)}
+.dl2-gi svg{width:22px;height:22px;stroke-width:1.9}
+.dl2-gh b{display:block;font:600 16px var(--f-ui);color:var(--ink)}.dl2-gh small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:1px}
+.dl2-x{margin-left:auto;width:32px;height:32px;border-radius:50%;border:0;background:color-mix(in srgb,var(--label) 14%,transparent);color:var(--label);font:400 20px/1 var(--f-ui);cursor:pointer;padding:0}
+.dl2-f{display:grid;gap:6px;margin:0 0 12px}
+.dl2-f span{font:600 10.5px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+.dl2-f input,.dl2-f textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:500 15px var(--f-mono);padding:10px 12px;margin:0}
+.dl2-f textarea{font-size:13px;resize:vertical}
+.dl2-go{width:100%;height:46px;border:0;border-radius:11px;background:var(--accent);color:var(--panel);font:600 15px var(--f-ui);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin:0}
+.dl2-go svg{width:20px;height:20px;stroke-width:2}
+.dl2-go:active{filter:brightness(.92)}
+.dl2-msg{margin:10px 0 0;font:500 12.5px/1.45 var(--f-ui);color:var(--label)}
+.dl2-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.dl2-row b{display:block;font:600 13.5px var(--f-ui);color:var(--ink)}.dl2-row small{display:block;font:500 12px var(--f-ui);color:var(--label);margin-top:1px}
+.dl2-sw{position:relative;width:51px;height:31px;border-radius:16px;border:0;background:color-mix(in srgb,var(--label) 32%,transparent);flex:none;cursor:pointer;padding:0;margin:0;transition:background .2s}
+.dl2-sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
+.dl2-sw[aria-checked="true"]{background:#34C759}.dl2-sw[aria-checked="true"] i{transform:translateX(20px)}
+.dl2-links{display:grid;margin-top:10px;padding-top:6px;border-top:1px solid var(--line)}
+.dl2-links a,.dl2-links button{display:flex;align-items:center;gap:9px;padding:9px 0;border:0;background:none;color:var(--accent);font:600 13.5px var(--f-ui);text-decoration:none;cursor:pointer;text-align:left;margin:0;box-shadow:none}
+.dl2-links svg{width:17px;height:17px;stroke-width:1.8}
+.dl2-note{margin:0 0 12px;font:500 13px/1.45 var(--f-ui);color:var(--label)}
+.dl2-man>.dl2-b{margin-bottom:12px}
+.dl2-man.in{animation:dl2In .35s ease-out both}@keyframes dl2In{from{opacity:0;transform:translateY(-6px)}}
+.dl2-hello{padding:4px 2px}
+.dl2-hello h2{font:400 clamp(34px,calc(2cqw + 22px),48px)/1.08 var(--f-disp);margin:10px 0 10px;color:var(--accent)}
+.dl2-hello h2 em{font-style:normal;color:var(--bronze)}
+.dl2-hello p{margin:0;font:500 15px/1.5 var(--f-ui);color:var(--label);max-width:520px}
+@container screen (max-width:700px){.dl2-list{grid-template-columns:minmax(0,1fr)}}
+@container screen (max-width:560px){.dl2{padding:14px;gap:12px}.dl2-card{padding:16px}.dl2-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.dl2-route{grid-template-columns:minmax(0,1fr) 80px minmax(0,1fr);gap:8px}.dl2-ap b{font-size:34px}.dl2-ap em .rw{display:block}.dl2-ap em .rw::before{content:none}.dl2-bt{font-size:11px}.dl2-b.ghost{margin-left:0}}
+@media (prefers-reduced-motion:reduce){.dl2-man.in{animation:none}.dl2-sw,.dl2-sw i{transition:none}}
+</style>`);
 
 /* ===== Settings ===== */
 let psec=store.get("psec","general"),stOpen=false;
@@ -3013,7 +3129,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
       +grp("When the map opens",[r("Follow my aircraft","Centres on your live vAMSYS flight and keeps it in view",sw("data-nvfollow",store.get("mapFollowOpen",false)===true,"Follow my aircraft"))])
       +(typeof rulSettingsHtml==="function"?rulSettingsHtml({grp,pick}):"")}
   else if(psec==="a11y"){const ts=store.get("textSize","m");
-    main+=grp("Text size",[pick("data-textsize","m",ts==="m","Default",""),pick("data-textsize","l",ts==="l","Large","112%"),pick("data-textsize","xl",ts==="xl","Extra large","125%")],"Larger text applies to the reading apps: Flight Plan, Weather, Checklist, Performance, Loadsheet, Logbook, Dispatch, Mail and Settings. The map and charts stay at 1:1 so touch and drawing stay exact.")
+    main+=grp("Text size",[pick("data-textsize","m",ts==="m","Default",""),pick("data-textsize","l",ts==="l","Large","112%"),pick("data-textsize","xl",ts==="xl","Extra large","125%")],"Larger text applies to the reading apps: Flight Plan, Weather, Checklist, Logbook, Mail and Settings. The map and charts stay at 1:1 so touch and drawing stay exact.")
       +grp("Vision",[r("Bold text","",sw("data-boldtext",store.get("boldText",false)===true,"Bold text")),r("Increase contrast","Darker secondary text and lines",sw("data-hicontrast",store.get("hiContrast",false)===true,"Increase contrast"))])
       +grp("Motion",[r("Reduce motion","Turns off animations and transitions in the EFB",sw("data-lessmotion",store.get("lessMotion",false)===true,"Reduce motion"))],"If your device is already set to reduce motion, the EFB follows it.")}
   else if(psec==="ops"){const ct=clType(),sel=store.get("clTypeSel","auto"),u=store.get("sbUser","");
@@ -5810,7 +5926,7 @@ async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim(
   try{const j=await fetch(sbHref(u)).then(r=>r.json());if(!j||!j.origin||!j.destination||(j.fetch&&S(j.fetch.status)&&S(j.fetch.status)!=="Success")){if(manual)toast("SimBrief didn’t return a plan for that account");return}
     const id=j.params&&(j.params.request_id||j.params.time_generated),curId=!ofp._sample&&ofp.params&&(ofp.params.request_id||ofp.params.time_generated);
     if(id&&curId&&String(id)===String(curId)){if(manual)toast("You already have your latest plan");return}
-    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;render();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
+    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
   catch(e){if(manual)toast("SimBrief can’t be reached from here. Use Dispatch to paste the plan.")}}
 setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
 document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
@@ -6095,6 +6211,8 @@ svg.seats.acmap{max-height:210px}
    Home page: Mail (company notices at sign-on) → Loadsheet → Performance → Winter Ops, then the tools: Convert, Clock,
    Music, Settings. A phone shows the dock's four; its second page carries the rest of the flight in the same order,
    its third page the tools. */
+/* Nov 2026: no Performance or Loadsheet app (their sums stay for the checklists, the Backup PFD and the Kneeboard) */
+delete APPS.perf;delete APPS.load;
 {const set=(arr,ids)=>{arr.splice(0,arr.length,...ids.filter(id=>APPS[id]))};
   set(DOCK,["flight","wx","checklist","logbook"]);
   set(PAGE1,["mail","load","perf","winter","convert","timer","music","prefs"]);
@@ -6152,7 +6270,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -6656,7 +6774,7 @@ V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now()
 async function rsCheckin(id){if(RS.busy)return;RS.busy=id;render();
   try{/* the plan's alternate goes along when the loaded plan is this flight, so the server can watch its weather too */
     const bk=(RS.list||[]).find(x=>String(x.id)===String(id)),px=O(),altn=bk&&!ofp._sample&&S(px.d.icao_code)===bk.to&&S(px.o.icao_code)===bk.from?S(px.a.icao_code):"";
-    const j=await pmPost("/api/efb/crew/checkin",{bookingId:id,altn});RS.ci=j.checkin;store.set("checkin",RS.ci);
+    const j=await pmPost("/api/efb/crew/checkin",{bookingId:id,altn});RS.ci=j.checkin;store.set("checkin",RS.ci);setTimeout(()=>ciOfpSync(true),400);
     const fl=RS.ci.callsign||RS.ci.flight;if(window.islAlert&&window.__islOn&&window.__islOn())islAlert({app:"Roster",short:"Checked in",icon:`<span class="rs-ic" style="background:${APPS.roster.bg}"><svg viewBox="0 0 24 24">${APPS.roster.g}</svg></span>`,title:"Checked in · "+fl,sub:RS.ci.from+" → "+RS.ci.to+(RS.ci.std?" · STD "+rsZ(RS.ci.std):""),ms:5000});else toast("Checked in · "+fl);
     /* the plan for this flight: fetch it if SimBrief has a newer one */
     const x=O();if(store.get("sbUser","")&&(ofp._sample||S(x.o.icao_code)!==RS.ci.from||S(x.d.icao_code)!==RS.ci.to))sbFetchQuiet(false);
@@ -7152,7 +7270,7 @@ function goHome(){if(cur)location.hash="home";else goPage(0)}
 function loadOfp(obj){
   if(!obj||typeof obj!=="object"||!obj.origin||!obj.destination){toast("That doesn’t look like a SimBrief JSON plan");return false}
   if(obj.fetch&&S(obj.fetch.status)&&S(obj.fetch.status)!=="Success"){toast("SimBrief: "+S(obj.fetch.status));return false}
-  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
+  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
 
 window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const a=e.target.closest('#home a[href^="#"]');if(a){const ic=a.querySelector(".icon")||a;openOrigin=originOf(ic)}},true);
@@ -8094,7 +8212,7 @@ document.addEventListener("click",e=>{if(cur!=="kneeboard")return;const t=e.targ
   if(!p)return;
   if(t.matches("[data-kbmenu]")){if(KB.menu)kbMenuClose();else{KB.menu=true;KB.fx="menu";render()}return}
   if(t.matches("[data-kbnight]")){KB.night=!kbNight();store.set("kbNight",KB.night);const pp=document.getElementById("kbPaper");if(pp)pp.classList.toggle("night",KB.night);t.classList.toggle("on",KB.night);t.setAttribute("aria-pressed",String(KB.night));return}
-  if(t.matches("[data-kbfill]")){const before={...(p.fields||{})},rows=JSON.stringify(p.rows||null);if(kbFill(p)){kbTouch(p);if(p.tpl==="fuel"&&JSON.stringify(p.rows||null)!==rows)KB.fx="rows";render();kbFlash(before,p);toast("Filled from "+(p.tpl==="told"?"Performance":p.tpl==="atis"?"the ATIS":"the flight plan"))}return}
+  if(t.matches("[data-kbfill]")){const before={...(p.fields||{})},rows=JSON.stringify(p.rows||null);if(kbFill(p)){kbTouch(p);if(p.tpl==="fuel"&&JSON.stringify(p.rows||null)!==rows)KB.fx="rows";render();kbFlash(before,p);toast("Filled from "+(p.tpl==="told"?"the plan’s performance":p.tpl==="atis"?"the ATIS":"the flight plan"))}return}
   if(t.matches("[data-kbdup]")){kbMenuClose(()=>{const c=JSON.parse(JSON.stringify(kbWire(p).data));const q={...c,id:kbId(),u:kbMe(),title:(p.title||kbTitle(p))+" copy",created:Date.now(),upd:Date.now()};KB.pages.set(q.id,q);kbTouch(q);KB.sel=q.id;KB.undo=[];KB.redo=[];KB.fx="new";toast("Page duplicated")});return}
   if(t.matches("[data-kbmore]")){kbMenuClose(()=>{p.h=kbTpl(p).h+320;kbTouch(p)});setTimeout(()=>{const s=document.getElementById("kbScroll");if(s)s.scrollTo({top:s.scrollHeight,behavior:reduced()?"auto":"smooth"})},220);return}
   if(t.matches("[data-kbfinger]")){kbMenuClose(()=>{KB.finger=KB.finger==="write"?"scroll":"write";store.set("kbFinger",KB.finger);toast(KB.finger==="write"?"One finger writes":"Finger scrolls · Pencil writes")});return}
@@ -9012,7 +9130,7 @@ function msBox(){if(MSG.setup)return msSetup();const L=msAll(),m=L.find(x=>x.k==
   const ra=m.ra&&!/^(N|NE)$/.test(m.ra)?`<p class="ms-ra">RESPONSE REQUIRED (${esc(m.ra)}): ANSWER IN THE AIRCRAFT</p>`:"";
   const meta=m.src==="aoc"?"POLARIS AOC"+(m.crew!=null?" · TO CREW "+m.crew:"")+" · "+msDay(m.t)+" "+msZ(m.t)+" · READ ONLY":"HOPPIE ACARS · FROM "+m.from+" · "+msDay(m.t)+" "+msZ(m.t)+(m.id?" · MSG "+m.id:"");
   return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">${m.src==="aoc"?"AOC MSG DISPLAY":"ACARS MSG DISPLAY"}</span></div>
-    <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb">${esc(m.body)}</div>${ra}<p class="ms-meta">${esc(meta)}</p></div>`}
+    <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb${/ {2,}/.test(m.body)?" ms-mono":""}">${esc(m.body)}</div>${ra}<p class="ms-meta">${esc(meta)}</p></div>`}
 function msSetup(){const lg=msLogon(),ofc=msCsOfp();
   return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">ACARS SETUP</span></div>
     <div class="ms-box ms-set"><b class="ms-mh">HOPPIE ACARS</b>
@@ -9084,6 +9202,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .ms-box{border:1px solid var(--ms-box);padding:18px 20px 20px;max-width:900px;width:100%;margin:0 auto;font-size:15px;line-height:1.55}
 .ms-mh{display:block;color:var(--ms-pink);font-weight:600;letter-spacing:.06em;margin-bottom:10px}
 .ms-mb{white-space:pre-wrap;word-break:break-word;color:var(--ms-ink)}
+.ms-mb.ms-mono{font-family:var(--f-mono);font-size:.9em;line-height:1.5;letter-spacing:0;word-break:normal;overflow-wrap:anywhere}
 .ms-ra{margin:14px 0 0;color:#F2C94C;font-size:13px;letter-spacing:.06em}
 .ms-meta{margin:18px 0 0;color:var(--ms-dim);font-size:11.5px;letter-spacing:.08em;line-height:1.5}
 .ms-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:220px;color:var(--ms-sub);letter-spacing:.1em;text-align:center}
@@ -9118,6 +9237,81 @@ V.more=()=>`<div class="fd">
   <section class="card">${cardH("Flight","Instruments and settings")}<div class="fd-list">${fdRow('data-ftgo="pfd"','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>',"Backup PFD","Standby flight display, live from the simulator")}${fdRow("data-ftset",ST_I.gear||'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',"Settings","Base map and layers, your SimBrief account (opens Settings)")}</div></section>
   <p class="fd-foot">© Polaris Airways EFB Beta${EFB_BUILD?" · build "+esc(EFB_BUILD):""}</p></div>`;
 
+/* ---------- Flight › More: a menu above the tab bar (Nov 2026), not a page ----------
+   The More tab opens a menu over itself, as a toolbar button does on an iPad: the tabs that do not fit (on a phone:
+   Documents, Messages, Scratch Pad), the Backup PFD and Settings, with the flight on top and the build at the foot.
+   A tap outside, Escape, or going anywhere closes it. The More page stays for links to #more. */
+const FTM={open:false};
+const FTM_PFD='<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>';
+function ftmClose(now){FTM.open=false;const b=document.querySelector('#ftabs [data-ft="more"]');if(b)b.setAttribute("aria-expanded","false");
+  const m=$("#ftMenu");if(!m)return;m.id="";if(now||reduced()){m.remove();return}m.classList.add("out");setTimeout(()=>m.remove(),170)}
+function ftmOpen(btn){const bar=ftBar();ftmClose(true);FTM.open=true;btn.setAttribute("aria-expanded","true");
+  const hid=FT.filter(([k])=>{if(k==="more")return false;const e=bar.querySelector(`[data-ft="${k}"]`);return e&&!e.offsetParent});
+  let nmsg=0;try{nmsg=typeof msNew==="function"?msNew():0}catch(e){}
+  const x=O(),item=(attr,ic,t,sub,n)=>`<button type="button" class="ftm-i" role="menuitem" ${attr}><span class="ftm-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg></span><span class="ftm-t"><b>${t}</b>${sub?`<small>${sub}</small>`:""}</span>${n?`<i class="ftm-n">${n}</i>`:""}</button>`;
+  const m=document.createElement("div");m.id="ftMenu";m.className="ftm";m.setAttribute("role","menu");m.setAttribute("aria-label","More");
+  m.innerHTML=`<div class="ftm-h">${ofp._sample?"No plan loaded":esc(x.flight)+" · "+esc(S(x.o.icao_code))+" → "+esc(S(x.d.icao_code))}</div>`
+    +(hid.length?`<div class="ftm-g">${hid.map(([k,t,v])=>item(`data-ftmgo="${v}"`,FT_I[k],t,"",k==="msg"?nmsg:0)).join("")}</div>`:"")
+    +`<div class="ftm-g">${item('data-ftmgo="pfd"',FTM_PFD,"Backup PFD","Standby display, live from the simulator")}${item("data-ftmset",ST_I.gear,"Settings","Map layers and your SimBrief account")}</div>`
+    +`<div class="ftm-f">Polaris Airways EFB Beta${typeof EFB_BUILD!=="undefined"&&EFB_BUILD?" · build "+esc(EFB_BUILD):""}</div>`;
+  bar.appendChild(m);
+  /* above the More button, its right edge with the button's, and inside the screen */
+  const br=bar.getBoundingClientRect(),bb=btn.getBoundingClientRect(),w=m.offsetWidth;
+  let right=Math.max(6,br.right-bb.right+4);if(br.width-right-w<6)right=Math.max(6,br.width-w-6);
+  m.style.right=right+"px";m.style.transformOrigin=Math.round(w-((br.right-right)-(bb.left+bb.width/2)))+"px 100%";
+  const f=m.querySelector(".ftm-i");if(f&&matchMedia("(hover:hover)").matches)f.focus({preventScroll:true})}
+/* the More tab: the menu instead of the page (before the tab bar's own handler) */
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest('#ftabs [data-ft="more"]');if(!t)return;
+  e.preventDefault();e.stopImmediatePropagation();try{navigator.vibrate&&navigator.vibrate(6)}catch(_){}
+  if(FTM.open)ftmClose();else ftmOpen(t)},true);
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ftmgo],[data-ftmset]");if(!t)return;
+  ftmClose(true);if(t.dataset.ftmgo){goApp(t.dataset.ftmgo);return}psec="nav";store.set("psec","nav");stOpen=true;goApp("prefs")});
+document.addEventListener("pointerdown",e=>{if(!FTM.open)return;if(e.target.closest&&e.target.closest('#ftMenu,#ftabs [data-ft="more"]'))return;ftmClose()},true);
+document.addEventListener("keydown",e=>{if(!FTM.open)return;if(e.key==="Escape"){e.preventDefault();e.stopPropagation();const b=document.querySelector('#ftabs [data-ft="more"]');ftmClose();if(b)b.focus()}
+  else if(e.key==="ArrowDown"||e.key==="ArrowUp"){const L=[...document.querySelectorAll("#ftMenu .ftm-i")];if(!L.length)return;e.preventDefault();const i=L.indexOf(document.activeElement),dn=e.key==="ArrowDown";L[dn?(i+1)%L.length:(i<=0?L.length-1:i-1)].focus()}},true);
+window.addEventListener("hashchange",()=>{if(FTM.open)ftmClose(true)});
+window.addEventListener("resize",()=>{if(FTM.open)ftmClose(true)});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&FTM.open)ftmClose(true)});
+
+/* ---------- the final loadsheet: the plan's weights go to the server (Nov 2026) ----------
+   When the pilot has checked in for a flight in the EFB and the plan loaded is that flight's, its weights go to the
+   EFB server, which sends the crew "LOADSHEET FINAL" as an AOC message 15 minutes before STD (see the server's
+   loadsheet.js). Sent again only when the plan changes. */
+let ciOfpSent="";
+function ciOfpSync(force){try{
+  const ci=RS.ci;if(!ci||!ci.bookingId||ofp._sample||typeof authOn!=="function"||!authOn()||!authSrv())return;
+  if(ci.std&&Date.now()>ci.std+3600e3)return;
+  const x=O();if(S(x.o.icao_code)!==ci.from||S(x.d.icao_code)!==ci.to)return;
+  const wt=ofp.weights||{},fu=ofp.fuel||{},ac=ofp.aircraft||{},pa=ofp.params||{};
+  const w={units:/^lb/i.test(S(pa.units))?"lbs":"kgs",zfw:N(wt.est_zfw),mzfw:N(wt.max_zfw),tow:N(wt.est_tow),mtow:N(wt.max_tow),ldw:N(wt.est_ldw),mlw:N(wt.max_ldw),oew:N(wt.oew),
+    pax:N(wt.pax_count_actual)!=null?N(wt.pax_count_actual):N(wt.pax_count),bags:N(wt.bag_count),paxWt:N(wt.pax_weight),payload:N(wt.payload),freight:N(wt.freight_added),cargo:N(wt.cargo),
+    block:N(fu.plan_ramp),tof:N(fu.plan_takeoff),trip:N(fu.est_burn),taxi:N(fu.taxi),seats:N(ac.max_passengers),reg:S(ac.reg),type:S(ac.icaocode)||S(ac.icao_code),gen:S(pa.time_generated)||S(pa.request_id)};
+  if(w.zfw==null||w.tow==null)return;
+  const key=ci.bookingId+"|"+w.gen+"|"+w.zfw+"|"+w.tow;if(!force&&key===ciOfpSent)return;ciOfpSent=key;
+  pmPost("/api/efb/crew/ofp",{bookingId:ci.bookingId,w}).catch(()=>{ciOfpSent=""})}catch(e){}}
+setTimeout(()=>ciOfpSync(),6000);
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* ---------- Flight › More menu (Nov 2026) ---------- */
+.ftm{position:absolute;bottom:calc(100% + 10px);width:316px;max-width:calc(100% - 12px);box-sizing:border-box;background:color-mix(in srgb,var(--panel) 88%,transparent);
+  -webkit-backdrop-filter:blur(26px) saturate(1.6);backdrop-filter:blur(26px) saturate(1.6);border:.5px solid var(--ft-line);border-radius:16px;
+  box-shadow:0 22px 60px -14px rgba(0,0,0,.38),0 2px 10px rgba(0,0,0,.1);overflow:hidden;z-index:40;color:var(--ft-ink);font-family:var(--f-ui);text-transform:none;letter-spacing:0;
+  animation:ftmIn .22s cubic-bezier(.2,.9,.3,1.15) both}
+.ftm.out{animation:ftmOut .16s ease-in both;pointer-events:none}
+@keyframes ftmIn{from{opacity:0;transform:scale(.88) translateY(10px)}}
+@keyframes ftmOut{to{opacity:0;transform:scale(.94) translateY(6px)}}
+.ftm-h{padding:12px 16px 9px;font:600 11px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--ft-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ftm-g{border-top:.5px solid var(--ft-line);padding:4px 0}
+.ftm-i{display:flex;align-items:center;gap:13px;width:100%;min-height:52px;padding:9px 16px;border:0;border-radius:0;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit;margin:0;box-shadow:none;-webkit-tap-highlight-color:transparent}
+.ftm-i:hover,.ftm-i:focus-visible{background:color-mix(in srgb,var(--ft-ink) 7%,transparent);outline:none}
+.ftm-i:active{background:color-mix(in srgb,var(--ft-ink) 13%,transparent)}
+.ftm-ic{color:var(--ft-on);flex:none;display:flex}
+.ftm-ic svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ftm-t{flex:1;min-width:0}.ftm-t b{display:block;font:500 15.5px/1.25 var(--f-ui);color:var(--ft-ink)}.ftm-t small{display:block;font:500 12px/1.3 var(--f-ui);color:var(--ft-dim);margin-top:2px}
+.ftm-n{font-style:normal;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#FF3B30;color:#fff;font:600 12px/20px var(--f-ui);text-align:center;box-sizing:border-box;flex:none}
+.ftm-f{border-top:.5px solid var(--ft-line);padding:9px 16px 11px;font:500 11px var(--f-ui);letter-spacing:.04em;color:var(--ft-dim)}
+.ft-tab[aria-expanded="true"]{color:var(--ft-on)}
+@media (prefers-reduced-motion:reduce){.ftm,.ftm.out{animation:none}}
+</style>`);
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* the bar, its icons and words grow with the screen (Nov 2026: bigger than at first): about 72 / 31 / 13 px on an iPad
    held sideways, up to 88 / 40 / 16 px on a large monitor */
@@ -9703,7 +9897,7 @@ const asIcon=(id,cls)=>{const a=APPS[id];return `<span class="asx-ic ${cls||""}"
 /* ---------- the App Store app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="store"){screenEl.dataset.layout="full";ASX.anim=1;setTimeout(asSync,0)}return r}}
 function asxRow(id,i){const A=AS_INFO[id];return `<div class="asx-row" style="--i:${i||0}"><button class="asx-rowb" data-asdet="${id}">${asIcon(id)}<span class="asx-rt"><b>${esc(APPS[id].name)}</b><small>${esc(A.s)}</small></span></button>${asBtn(id)}</div>`}
-function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["perf","load","checklist"].filter(id=>!asHas(id));
+function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["roster","checklist","wx"].filter(id=>!asHas(id));
   const card=(cls,eyebrow,title,sub,body,i)=>`<section class="asx-card ${cls}" style="--i:${i}"><div class="asx-ch"><span>${eyebrow}</span><b>${title}</b><p>${sub}</p></div>${body}</section>`;
   const hero=`<div class="asx-hero">${asOk("calendar")||APPS.calendar?`<button class="asx-hc h-cal" data-asdet="calendar" style="--i:0"><span class="asx-hk">New for you</span><b>Calendar</b><p>Your bookings, the flight plan and your own events by day, week, month and year, in Zulu time.</p><span class="asx-hf">${asIcon("calendar","sm")}<span>Calendar</span></span></button>`:""}
 </div>`;
@@ -9711,10 +9905,10 @@ function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:
   const disc=`<div class="asx-sec"><h2 class="asx-h2">Discover something new</h2><button class="asx-link" data-asxtab="apps">All apps</button></div>${miss2.length?`<div class="asx-group">${miss2.map((id,i)=>asxRow(id,i)).join("")}</div>`:`<p class="asx-none">You have every app. Nice.</p>`}`;
   const partners=!AS_PARTNERS.length?"":`<div class="asx-sec"><h2 class="asx-h2">Today with our partners</h2><button class="asx-link" data-asxtab="partners">All partners</button></div><div class="asx-ptoday">${AS_PARTNERS.slice(0,2).map((p,i)=>asPartnerCard(p,i,true)).join("")}</div>`;
   return `<div class="asx-date">${day}</div><h1 class="asx-h1">Today</h1>${hero}
-  ${card("c-plan","Get started","Plan your first flight","Open Flight, fetch your plan in Download and read it in Documents, then work out the numbers in Performance and Loadsheet.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["perf","load","checklist"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
-  ${card("c-kb","Before departure","Performance","Takeoff and landing data from the runway, the weather and the weights of your flight.",`<div class="asx-feat">${asIcon("perf","md")}<span class="asx-rt"><b>Performance</b><small>${esc(AS_INFO.perf.s)}</small></span>${asBtn("perf")}</div>`,1)}
+  ${card("c-plan","Get started","Plan your first flight","Open Flight, download your plan and read it in Documents. Check in on Roster, and Polaris operations sends your gates and the final loadsheet.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["roster","checklist","wx"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="roster,checklist,wx">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
+  ${card("c-kb","Before departure","Roster","Check in up to 12 hours before departure for your briefing; your gates and the final loadsheet follow as AOC messages.",`<div class="asx-feat">${asIcon("roster","md")}<span class="asx-rt"><b>Roster</b><small>${esc(AS_INFO.roster.s)}</small></span>${asBtn("roster")}</div>`,1)}
   ${partners}
-  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="asx-list">${["checklist","wx","perf","logbook"].map((id,i)=>asxRow(id,i)).join("")}</div>`,2)}
+  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="asx-list">${["checklist","wx","winter","logbook"].map((id,i)=>asxRow(id,i)).join("")}</div>`,2)}
   ${disc}`}
 /* ---------- partners ---------- */
 /* partner airlines (none at the moment: 海岸航空 was taken out for now; see _archive/appstore-with-eim.js) */
@@ -11131,7 +11325,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .gx-chip.s4{background:rgba(10,132,255,.16);color:#0A84FF}.gx-chip.s5{background:rgba(255,159,10,.2);color:#E08600;animation:gxBlink 1.6s infinite}.gx-chip.s6{background:rgba(48,209,88,.18);color:#1FA347}.gx-chip.s2,.gx-chip.s3{opacity:.7}
 @keyframes gxBlink{50%{opacity:.55}}
 .gx-big{font:700 30px/1 var(--f-os);color:var(--ink);font-variant-numeric:tabular-nums}.gx-big span{font-weight:500;color:var(--label);font-size:20px}.gx-big em{font:400 13px var(--f-os);font-style:normal;color:var(--label);margin-left:6px}
-.gx-bar{display:block;height:6px;border-radius:3px;background:rgba(127,127,127,.18);overflow:hidden;flex:1;min-width:40px}.gx-bar i{display:block;height:100%;background:linear-gradient(90deg,#FFB020,#FF8A00);border-radius:3px;transition:width .6s}
+.gx-bar{display:block;height:6px;border-radius:3px;background:rgba(127,127,127,.18);overflow:hidden;flex:1;min-width:40px}.gx-t>.gx-bar{flex:none;width:100%}.gx-bar i{display:block;height:100%;background:linear-gradient(90deg,#FFB020,#FF8A00);border-radius:3px;transition:width .6s}
 .gx-sub{display:flex;align-items:center;gap:10px;font:400 13px var(--f-os);color:var(--label)}.gx-sub span:first-child{white-space:nowrap}
 .gx-led{width:9px;height:9px;border-radius:50%;background:rgba(127,127,127,.3)}.gx-led.on{background:#30D158}
 .gx-note{font:400 12.5px var(--f-os);color:var(--label)}.gx-diff{color:#E08600;font-weight:600}
@@ -11160,7 +11354,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 /* the count GSX finished boarding with, for this device's plan */
 const gxPaxFor=()=>{const v=GX.v;return v&&v.board===6&&gxMine()&&(v.paxB||v.pax)?(v.paxB||v.pax):null};
 /* puts n passengers in the Loadsheet, keeping the business / economy split it has */
-function gxToLs(n,quiet){if(!gxPlan()||!n)return false;let s;try{s=ldState()}catch(e){return false}const seats=seatLayout(AC()),capJ=seats.filter(q=>q.c==="J").length,cap=seats.length;
+function gxToLs(n,quiet){if(!APPS.load)return false;if(!gxPlan()||!n)return false;let s;try{s=ldState()}catch(e){return false}const seats=seatLayout(AC()),capJ=seats.filter(q=>q.c==="J").length,cap=seats.length;
   n=Math.min(cap,Math.round(n));const tot=(s.J||0)+(s.Y||0);if(tot===n)return false;
   s.J=Math.min(capJ,Math.round(n*(tot?(s.J||0)/tot:capJ/cap)));s.Y=Math.min(cap-capJ,n-s.J);store.set("ld:"+O().id,s);
   if(cur==="load")render();if(!quiet)gxNote({title:"Loadsheet: "+n+" passengers",sub:"From GSX · planned "+fmt(Math.round(N((ofp.weights||{}).pax_count)||0)),short:n+" pax to loadsheet"});return true}
@@ -11454,7 +11648,7 @@ function bpDraw(cv,small){const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientW
   BPC=bpNight(s)?BPC_N:BPC_D;
   const stale=!BP.lastRx||now-BP.lastRx>1500,u=Math.min(W,H),phone=small||W<560,f=small?.72:phone?.85:1;
   /* layout: an HSI under the attitude when there is room for one */
-  const hr=small?0:Math.min(H*.165,W/2-(phone?80:122),175),hsi=hr>=72,cx=W/2,cy=hsi?H*(phone?.37:.4):H*.5,k=(hsi?H*.86:H)/46;
+  const hr=small?0:Math.min(H*.165,W/2-(phone?98:122),175),hsi=hr>=72,cx=W/2,cy=hsi?H*(phone?.37:.4):H*.5,k=(hsi?H*.86:H)/46;
   const th=small?H*.72:hsi?Math.min(H*(phone?.44:.5),430):Math.min(H*.62,440),ty=cy-th/2,sw=small?48:phone?64:86,sx=small?4:phone?6:14,aw=small?54:phone?72:96,vw=small?0:phone?20:28,ax=W-(small?4:phone?6:14)-vw-aw;
   const rb=Math.max(small?34:60,Math.min(u*(small?.34:.36),(hsi?H*.33:H*.36),W/2-(small?56:phone?80:110)));
   /* sky and ground */
@@ -11524,7 +11718,7 @@ function bpTape(c,x,y,w,h,v,kind,f,o){o=o||{};const spd=kind==="spd",span=spd?84
     if(t%lab===0)bpText(c,String(t),spd?x+w*.42:x+w*.6,yy,(spd?14:13)*f,"center",BPC.fg,600)}
   if(spd){/* overspeed: red and black barber pole from VMO / MMO up */
     if(o.vmax&&o.vmax<hi){const y0=Math.max(y,cyT-(o.vmax-v)*pp);c.save();c.beginPath();c.rect(x+w-8,y,8,y0-y);c.clip();for(let yy=y-8;yy<y0;yy+=12){c.fillStyle="#FF3B30";c.fillRect(x+w-8,yy,8,6);c.fillStyle="#000";c.fillRect(x+w-8,yy+6,8,6)}c.restore()}
-    for(const b of o.vb||[]){const yy=cyT-(b[1]-v)*pp;if(yy<y-10||yy>y+h+10)continue;const col=b[2]==="amb"?"#FF9F0A":b[2]==="mag"?BPC.mag:BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x+w-14,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,b[0],x+w-16,yy,11*f,"right",col,700)}
+    for(const b of o.vb||[]){const yy=cyT-(b[1]-v)*pp;if(yy<y-10||yy>y+h+10)continue;const col=b[2]==="amb"?"#FF9F0A":b[2]==="mag"?BPC.mag:BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x+w-14,yy);c.lineTo(x+w,yy);c.stroke();c.font=`700 ${11*f}px ${bpFont||"ui-monospace,monospace"}`;{const tw=c.measureText(b[0]).width;c.fillStyle="rgba(0,0,0,.8)";c.fillRect(x+w-19-tw,yy-7*f,tw+6,14*f)}bpText(c,b[0],x+w-16,yy,11*f,"right",col,700)}
     if(BP.trend.ias){const tv=BP.trend.ias*6;if(Math.abs(tv)>1){c.strokeStyle=BPC.mag;c.lineWidth=3;c.beginPath();c.moveTo(x+w-3,cyT);c.lineTo(x+w-3,cyT-tv*pp);c.stroke()}}}
   else{if(o.min!=null){const yy=cyT-(o.min-v)*pp;if(yy>y&&yy<y+h){const col=o.minHit?"#FF9F0A":BPC.cy;c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(x,yy);c.lineTo(x+w,yy);c.stroke();bpText(c,"MIN",x+w-4,yy-8,10*f,"right",col,700)}}
     if(o.tgt!=null){const yy=Math.max(y+6,Math.min(y+h-6,cyT-(o.tgt-v)*pp));c.fillStyle=BPC.cy;c.beginPath();c.moveTo(x,yy-9);c.lineTo(x+9,yy-9);c.lineTo(x+9,yy-4);c.lineTo(x+4,yy);c.lineTo(x+9,yy+4);c.lineTo(x+9,yy+9);c.lineTo(x,yy+9);c.closePath();c.fill()}}
@@ -11571,20 +11765,22 @@ function bpHsi(c,cx,cy,r,s,f){const h=s.h;c.save();c.fillStyle=BPC.hsi;c.beginPa
   c.fillStyle=BPC.fg;c.beginPath();c.moveTo(0,-r+1);c.lineTo(-7,-r-11);c.lineTo(7,-r-11);c.closePath();c.fill();c.restore();
   bpBox(c,cx,cy-r-24*f,String(Math.round(h)%360||360).padStart(3,"0")+"°",16*f,BPC.fg)}
 /* wind: an arrow the way the wind blows (relative to the heading), direction / speed, head and cross components, OAT */
+/* a line that fits its box: a little smaller when the box is narrow (a phone) */
+function bpTextFit(mw,c,t,x,y,sz,al,col,wt){if(!bpFont)bpFont=(getComputedStyle(document.body).getPropertyValue("--f-mono")||"").trim()||"ui-monospace,monospace";c.font=`${wt||600} ${sz}px ${bpFont}`;const tw=c.measureText(t).width;bpText(c,t,x,y,tw>mw&&mw>0?Math.max(7,sz*mw/tw):sz,al,col,wt)}
 function bpWind(c,s,x,y,w,f){if(w<56||s.wsp==null)return;const cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
   if(s.wsp>=2){const a=(s.wd+180-(s.h+(s.mv||0)))*BP_R;c.save();c.translate(cx,y-26);c.rotate(a);c.strokeStyle=BPC.fg;c.fillStyle=BPC.fg;c.lineWidth=2.5;c.beginPath();c.moveTo(0,16);c.lineTo(0,-10);c.stroke();c.beginPath();c.moveTo(0,-17);c.lineTo(-6,-8);c.lineTo(6,-8);c.closePath();c.fill();c.restore()}
   const wdm=Math.round(bpWrap(s.wd-(s.mv||0)))||360,rel=(s.wd-(s.h+(s.mv||0)))*BP_R,hw=Math.round(s.wsp*Math.cos(rel)),xw=Math.round(s.wsp*Math.sin(rel));
-  bpText(c,s.wsp<2?"CALM":String(wdm).padStart(3,"0")+"°/"+s.wsp+(w>=100?" KT":""),cx,y+4,12*f,"center",BPC.fg,700);
-  if(s.wsp>=2)bpText(c,(hw>=0?"HD ":"TL ")+Math.abs(hw)+" · X "+Math.abs(xw)+(xw>0?"R":xw<0?"L":""),cx,y+22,11*f,"center",BPC.sub,600);
-  bpText(c,"OAT "+(s.oat<0?"−":"")+Math.abs(Math.round(s.oat))+"°C",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
+  bpTextFit(w-8,c,s.wsp<2?"CALM":String(wdm).padStart(3,"0")+"°/"+s.wsp+(w>=100?" KT":""),cx,y+4,12*f,"center",BPC.fg,700);
+  if(s.wsp>=2)bpTextFit(w-8,c,(hw>=0?"HD ":"TL ")+Math.abs(hw)+" · X "+Math.abs(xw)+(xw>0?"R":xw<0?"L":""),cx,y+22,11*f,"center",BPC.sub,600);
+  bpTextFit(w-8,c,"OAT "+(s.oat<0?"−":"")+Math.abs(Math.round(s.oat))+"°C",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
 /* next waypoint: ident, course, distance, time, cross-track */
 function bpNavBox(c,s,x,y,w,f){if(w<56)return;const n=BP.nav,cx=x+w/2;c.save();c.fillStyle="rgba(0,0,0,.55)";c.fillRect(x,y-52,w,104);
-  if(!n){bpText(c,bpPlan()?"NO POSITION":"NO PLAN",cx,y,11*f,"center",BPC.sub,700);c.restore();return}
-  const ete=s.gs>40?n.dist/s.gs*60:null;bpText(c,n.to,cx,y-36,15*f,"center",BPC.mag,700);
-  bpText(c,"DTK "+String(Math.round(n.dtk)%360||360).padStart(3,"0")+"°",cx,y-16,12*f,"center",BPC.fg,600);
-  bpText(c,(n.dist<10?n.dist.toFixed(1):Math.round(n.dist))+" NM"+(ete!=null?" · "+(Math.round(ete)<60?Math.round(ete)+"m":Math.floor(Math.round(ete)/60)+"h"+pad(Math.round(ete)%60)):""),cx,y+3,12*f,"center",BPC.fg,600);
-  bpText(c,"XTK "+(Math.abs(n.xtk)<.05?"0.0":(n.xtk>0?"R ":"L ")+Math.abs(n.xtk).toFixed(Math.abs(n.xtk)<10?1:0)),cx,y+22,11*f,"center",Math.abs(n.xtk)>n.fsd?"#FF9F0A":BPC.sub,600);
-  bpText(c,"DEST "+Math.round(n.rem)+" NM",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
+  if(!n){bpTextFit(w-8,c,bpPlan()?"NO POSITION":"NO PLAN",cx,y,11*f,"center",BPC.sub,700);c.restore();return}
+  const ete=s.gs>40?n.dist/s.gs*60:null;bpTextFit(w-8,c,n.to,cx,y-36,15*f,"center",BPC.mag,700);
+  bpTextFit(w-8,c,"DTK "+String(Math.round(n.dtk)%360||360).padStart(3,"0")+"°",cx,y-16,12*f,"center",BPC.fg,600);
+  bpTextFit(w-8,c,(n.dist<10?n.dist.toFixed(1):Math.round(n.dist))+" NM"+(ete!=null?" · "+(Math.round(ete)<60?Math.round(ete)+"m":Math.floor(Math.round(ete)/60)+"h"+pad(Math.round(ete)%60)):""),cx,y+3,12*f,"center",BPC.fg,600);
+  bpTextFit(w-8,c,"XTK "+(Math.abs(n.xtk)<.05?"0.0":(n.xtk>0?"R ":"L ")+Math.abs(n.xtk).toFixed(Math.abs(n.xtk)<10?1:0)),cx,y+22,11*f,"center",Math.abs(n.xtk)>n.fsd?"#FF9F0A":BPC.sub,600);
+  bpTextFit(w-8,c,"DEST "+Math.round(n.rem)+" NM",cx,y+40,11*f,"center",BPC.sub,600);c.restore()}
 
 /* ---------- the app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="pfd")screenEl.dataset.layout="full";return r}}
@@ -11610,7 +11806,7 @@ function bpSheetHtml(){const B=bpBug(),P=bpPerf(),S=BP.set,seg=(k,opts,v)=>`<div
     <label class="bpf-f"><span>Target altitude</span><input id="bpTgt" inputmode="text" placeholder="e.g. 12000 or FL350" value="${B.alt!=null?esc(bpFt(B.alt).replace(/,/g,"")):""}"${bpPlan()?"":" disabled"}></label>
     <label class="bpf-f"><span>Minimums (ft)</span><input id="bpMin" inputmode="numeric" placeholder="DA / MDA from the chart" value="${B.min!=null?B.min:""}"${bpPlan()?"":" disabled"}></label>
     ${seg("minT",[["baro","Baro (DA/MDA)"],["radio","Radio (DH)"]],B.minT)}
-    <div class="bpf-f"><span>V speeds · from Performance</span><p>${vs}</p>${bpPlan()&&APPS.perf?`<a href="#perf" class="bpf-a">Open Performance ›</a>`:""}</div>
+    <div class="bpf-f"><span>V speeds · from the plan</span><p>${vs}</p>${bpPlan()&&APPS.perf?`<a href="#perf" class="bpf-a">Open Performance ›</a>`:""}</div>
     <div class="bpf-f"><span>Night colours</span>${seg("night",[["auto","Auto"],["day","Day"],["night","Night"]],S.night)}</div>
     <div class="bpf-f"><span>Traffic (VATSIM)</span>${seg("tcas",[[0,"Off"],[5,"5 NM"],[10,"10 NM"],[20,"20 NM"]],S.tcas)}</div>
     <label class="bpf-sw"><input type="checkbox" data-bpsw="voice"${S.voice?" checked":""}><span></span>Spoken minimums callouts</label>
@@ -12854,7 +13050,7 @@ function cbStats(s,J){const x=O(),tz=cbTz(x.d,"d"),st=(l,v,u,sub)=>`<div class="
   return st("Ground speed",s?cbK(s.gs*1.852):"–",s?"km/h":"",s?cbK(s.gs*1.15078)+" mph":"")+st("Altitude",s?cbK(s.alt*.3048):"–",s?"m":"",s?cbK(s.alt)+" ft":"")
     +st("Distance to go",J?cbK(J.rem*1.852):"–",J?"km":"",J?cbK(J.rem*1.15078)+" mi":"")+st("Time at destination",cbClock(tz),"",esc(cbDay(tz)))}
 function cbMore(s,J){const x=O(),ov=cbOver(s),hw=s&&s.wsp!=null&&!s.g?-s.wsp*Math.cos(((s.wd||0)-cbTrk(s))*Math.PI/180):null,R=[],row=(l,v,sub)=>`<div class="cb-row"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:""}</div>`;
-  if(ov)R.push(row("Now over",esc(ov.t),ov.sub?esc(ov.sub):""));if(s&&s.oat!=null)R.push(row("Outside",Math.round(s.oat)+" °C",Math.round(s.oat*9/5+32)+" °F"));
+  if(ov)R.push(row("Now over",esc(ov.t),ov.sub?esc(ov.sub):""));{const G=cbGate();if(G)R.push(row("Arrival gate",esc(G.gate),G.term?"Terminal "+esc(G.term):""))}if(s&&s.oat!=null)R.push(row("Outside",Math.round(s.oat)+" °C",Math.round(s.oat*9/5+32)+" °F"));
   if(hw!=null&&Math.abs(hw)>=3)R.push(row(hw>0?"Tailwind":"Headwind",cbK(Math.abs(hw)*1.852)+" km/h",cbK(Math.abs(hw))+" kt"));if(J&&J.off&&s&&!s.g)R.push(row("Flying for",cbHm((Date.now()-J.off)/1000)));
   const A=[[cbCity(x.o),cbTz(x.o,"o")],[cbCity(x.d),cbTz(x.d,"d")],["Your time",LOCAL_TZ]];
   return R.join("")+`<div class="cb-cks">${A.map(([n,tz])=>`<div><span>${esc(n)}</span><b>${cbClock(tz)}</b></div>`).join("")}</div>`}
@@ -12873,7 +13069,7 @@ function cbHeroPage(){const x=O(),lg=CB_PRE.includes(CB.ph)?cbLogo():"";
   return `<div class="cb-hero">${lg?`<img class="cb-hlogo" src="${lg}" alt="Polaris Airways">`:""}<div class="cb-ht"><p class="cb-hk">${esc(cbHeroKick())}</p><h1>${esc(cbCity(x.d))}</h1></div><div class="cb-hlive"></div>
     <button class="cb-hx" data-cb="route">Explore map${CB_IC.arrow}</button></div>`}
 function cbHeroLive(){const x=O(),tz=cbTz(x.d,"d"),m=decodeMetar(S(x.w&&x.w.dest_metar)||S(x.d.metar)),A=[`<span><b>${cbClock(tz)}</b> local time</span>`];
-  if(m&&m.temp!=null)A.push(`<span><b>${Math.round(m.temp)}°</b> ${esc(condText(m))}</span>`);
+  if(m&&m.temp!=null)A.push(`<span><b>${Math.round(m.temp)}°</b> ${esc(condText(m))}</span>`);{const G=["descent","taxiin","arrived"].includes(CB.ph)?cbGate():null;if(G)A.push(`<span><b>Gate ${esc(G.gate)}</b>${G.term?" Terminal "+esc(G.term):""}</span>`)}
   if(CB_PRE.includes(CB.ph)){const g=typeof GX!=="undefined"&&GX.v&&typeof gxLive==="function"&&gxLive()&&(typeof gxMine!=="function"||gxMine())?GX.v:null,P=typeof gxPlanned==="function"?gxPlanned():{pax:0};
     if(g&&(g.board>=4||g.paxB>0)){const tot=g.pax||P.pax,f=tot?Math.min(1,(g.paxB||0)/tot):g.board===6?1:0;A.push(`<span class="cb-hbd"><b>${g.board===6?"Boarding complete":"Boarding"}</b> ${cbK(g.paxB||0)}${tot?" of "+cbK(tot):""}<em role="progressbar" aria-valuenow="${Math.round(f*100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${(f*100).toFixed(1)}%"></i></em></span>`)}
     else if(P.pax)A.push(`<span><b>${cbK(P.pax)}</b> passengers</span>`)}
@@ -12949,7 +13145,7 @@ function cbTfcNear(s,km){const L=[];if(typeof VS==="undefined"||!VS.list||!s)ret
 function cbTwrCard(){const s=cbLive();if(!s)return"";const x=O(),ph=CB.ph,dep=ph==="board"||ph==="taxi"||ph==="plan",w=cbWhere(s),T=cbTfcNear(s,6),a=dep?x.o:x.d,rw=S(dep?x.o.plan_rwy:x.d.plan_rwy);
   const k={board:"At the gate",taxi:"Taxiing",taxiin:"Taxiing to the gate",arrived:"Arrived"}[ph]||"On the ground",row=(l,v,sub)=>`<div class="cb-row"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:""}</div>`;
   return `<section class="cb-card cb-twrc"><p class="cb-k">${k}</p><h2 class="cb-cn">${esc(w?w.t:cbCity(a))}</h2><div class="cb-more">${row("Airport",esc(cbCity(a)))}${dep&&rw?row("Departure runway",esc(rw)):""}
-    ${T.n?row("Aircraft nearby",String(T.n),"on VATSIM"):""}${T.near?row("Nearest",esc(T.near.c),cbK(T.near.d)+" m"):""}</div></section>`}
+    ${(G=>!dep&&G?row("Your gate",esc(G.gate),G.term?"Terminal "+esc(G.term):""):"")(cbGate())}${T.n?row("Aircraft nearby",String(T.n),"on VATSIM"):""}${T.near?row("Nearest",esc(T.near.c),cbK(T.near.d)+" m"):""}</div></section>`}
 function cbTxGeo(d){const F=[],cosl=Math.cos(((d.airport&&d.airport.lat)||0)*Math.PI/180)||1,f=(t,g,p)=>F.push({type:"Feature",properties:Object.assign({t},p||{}),geometry:g}),ring=a=>{const q=a.slice();if(q.length&&(q[0][0]!==q[q.length-1][0]||q[0][1]!==q[q.length-1][1]))q.push(q[0]);return q};
   (d.aprons||[]).forEach(a=>{if(a&&a.length>2)f("apron",{type:"Polygon",coordinates:[ring(a)]})});
   (d.buildings||[]).forEach(b=>{if(b&&b.pts&&b.pts.length>2)f("bldg",{type:"Polygon",coordinates:[ring(b.pts)]})});
@@ -12992,7 +13188,7 @@ V.cabin=()=>{queueMicrotask(cbMount);const ok=bpPlan();CB.ph=cbPhase(cbLive());i
   return `<div class="cb" id="cb" data-mode="${CB.mode}" data-ph="${CB.ph}" style="--cbz:${CB.z}"><div class="cb-stars" aria-hidden="true"></div><div class="cb-map" id="cbMap"></div><div class="cb-attr">Imagery NASA Blue Marble · Black Marble (GIBS) · Terrain Mapzen/AWS · Airports OpenStreetMap · not for navigation</div><div class="cb-shade"></div><div id="cbHud"></div>
   <div class="cb-intro" id="cbIntro" hidden>${lg?`<img class="cb-ilogo" src="${lg}" alt="Polaris Airways">`:""}<div class="cb-iword" role="img"></div><button class="cb-iskip" data-cb="skip">Skip</button></div>
   <header class="cb-top"><div id="cbPill">${ok?cbPill():""}</div><div class="cb-fl" id="cbFl">${ok?cbFlight():""}</div>
-    <div class="cb-tr"><button class="cb-i cb-hello" data-cb="hello" aria-label="Play the welcome again">${CB_IC.star}</button><button class="cb-i cb-bt" data-cb="snd" data-on="${CBM.on}" aria-expanded="false" aria-controls="cbMp" aria-label="${CBM.on?"Polaris Sound connected":"Polaris Sound"}"><span class="bt">${CBM_BT}</span></button><button class="cb-i" data-cb="text" aria-label="Text size: ${["standard","large","largest"][CB_Z.indexOf(CB.z)]}">${CB_IC.text}</button><button class="cb-i" data-cb="auto" aria-pressed="${CB.auto}" aria-label="${CB.auto?"Views follow the flight":"Views stay put"}">${CB.auto?CB_IC.pause:CB_IC.play}</button>${document.fullscreenEnabled?`<button class="cb-i" data-cb="fs" aria-label="Full screen">${CB_IC.fs}</button>`:""}</div></header>
+    <div class="cb-tr"><button class="cb-i cb-hello" data-cb="hello" aria-label="Play the welcome again">${CB_IC.star}</button><button class="cb-i cb-bt" data-cb="snd" data-on="${CBM.on}" aria-expanded="false" aria-controls="cbMp" aria-label="${CBM.on?"Polaris Sound connected":"Polaris Sound"}"><span class="bt">${CBM_BT}</span></button>${(on=>`<button class="cb-i" data-cb="pa" aria-pressed="${on}" aria-label="${on?"Chimes on":"Chimes off"}">${on?CB_IC.bell:CB_IC.belloff}</button>`)(store.get("cbPa",true)!==false)}<button class="cb-i" data-cb="text" aria-label="Text size: ${["standard","large","largest"][CB_Z.indexOf(CB.z)]}">${CB_IC.text}</button><button class="cb-i" data-cb="auto" aria-pressed="${CB.auto}" aria-label="${CB.auto?"Views follow the flight":"Views stay put"}">${CB.auto?CB_IC.pause:CB_IC.play}</button>${document.fullscreenEnabled?`<button class="cb-i" data-cb="fs" aria-label="Full screen">${CB_IC.fs}</button>`:""}</div></header>
   <div class="cb-mid" id="cbMid"></div>
   <footer class="cb-bot"><div id="cbWait"></div><nav class="cb-views" aria-label="Views">${CB_V.map(t=>`<button data-cb="${t[0]}" aria-pressed="${cbOn(t[0])}"><span class="cb-vt">${CB_TH[t[0]]}</span><span class="cb-vl">${t[1]}</span></button>`).join("")}</nav><div id="cbTl">${ok?cbTimeline():""}</div></footer></div>`};
 /* MapLibre 5 (the globe) for Cabin alone: while it loads, the global name keeps whatever the rest of the EFB put there;
@@ -13113,7 +13309,7 @@ function cbSet(mode,byHand){if(!CB_MODES.includes(mode))return;CB.mode=mode;if(b
 /* the panels once a second */
 function cbPaint(force){if(cur!=="cabin")return;const el=$("#cb");if(!el)return;const ok=bpPlan(),s=cbLive(),M=CB.mode,set=(id,h)=>{const e=$("#"+id);if(e&&e._h!==h){e._h=h;e.innerHTML=h}};
   el.dataset.ph=CB.ph;
-  if(M==="home"&&ok)cbHeroPaint();else set("cbMid",!ok?"":M==="route"||M==="close"?cbCard():CB_3D.includes(M)?cbChip():M==="network"?cbNetCard():M==="tower"&&s&&s.g?cbTwrCard():"");
+  if(M==="home"&&ok)cbHeroPaint();else set("cbMid",!ok?"":M==="route"||M==="close"?cbCard():CB_3D.includes(M)?cbChip():M==="info"?cbInfoCard():M==="network"?cbNetCard():M==="tower"&&s&&s.g?cbTwrCard():"");
   /* on the ground: the airport's layout ahead of the tower view; the traffic while the tower view is up */
   if(s&&s.g){const ic=cbTxIc(s);if(ic&&typeof txLoad==="function")txLoad(ic)}
   if(M==="tower"&&s&&typeof VS!=="undefined"&&typeof vsLoad==="function"&&!VS.loading&&!document.hidden&&Date.now()>=(VS.next||VS.at+20000))try{vsLoad()}catch(e){}
@@ -13239,6 +13435,89 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .cb-hk{font-size:17px}.cb-hlive{font-size:13px;gap:6px 18px}
   .cb-bot{padding:0 16px calc(20px + env(safe-area-inset-bottom));gap:10px}.cb-views{align-self:center}.cb-views button{padding:4px}.cb-vl{display:none}
   .cb-tl{gap:12px}.cb-tle b{font-size:14px}.cb-tle span{font-size:11px}.cb-attr{left:16px;right:16px;bottom:2px;text-align:center;font-size:7.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cb-twrc .cb-more{display:none}}
+</style>`.replace(/font-size:(\d+(?:\.\d+)?px)/g,"font-size:calc($1*var(--cbz,1))").replace(/(font:(?:[a-z0-9-]+\s+)*?)(clamp\([^)]*\)|\d+(?:\.\d+)?px)/g,(m,a,b)=>a+"calc("+b+"*var(--cbz,1))"));
+/* ===== Cabin, more of an airline's seatback screen (Nov 2026) =====
+   - "Flight", a page about the flight as the seatback screens have one: where from and to with the local times, the
+     time difference, how long and how far, how high, and the aircraft with its size and engines;
+   - the arrival gate: when Polaris operations sends the crew the gate before landing (an AOC message), the journey
+     page, the card and the tower show it;
+   - announcements from the flight deck at the turns of the flight (cruising altitude reached, the descent, landing,
+     parked), with the two-tone chime (which a button turns off), each once a flight;
+   - after landing, the aircraft at the destination stays "arrived" instead of turning back to boarding. */
+CB_V.splice(2,0,["info","Flight"]);CB_MODES.push("info");
+CB_SEQ.plan.splice(1,0,["info",16]);CB_SEQ.board.push(["info",16]);CB_SEQ.cruise.splice(4,0,["info",20]);
+CB_TH.info='<svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11" fill="#2F6FB8"/><circle cx="15" cy="9.6" r="1.7" fill="#fff"/><path d="M15 13.6v7.6" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>';
+CB_IC.bell='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>';
+CB_IC.belloff='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0M4 4l16 16"/></svg>';
+/* the fleet's sizes and engines (Airbus and Boeing figures) */
+const CB_AC={A21N:["Airbus A321neo",44.51,35.8,"CFM LEAP-1A or Pratt & Whitney PW1100G"],A20N:["Airbus A320neo",37.57,35.8,"CFM LEAP-1A or Pratt & Whitney PW1100G"],
+  A359:["Airbus A350-900",66.8,64.75,"Rolls-Royce Trent XWB-84"],A35K:["Airbus A350-1000",73.79,64.75,"Rolls-Royce Trent XWB-97"],B77W:["Boeing 777-300ER",73.86,64.8,"GE Aerospace GE90-115B"],
+  B789:["Boeing 787-9",62.81,60.12,"GEnx-1B or Rolls-Royce Trent 1000"],B38M:["Boeing 737 MAX 8",39.52,35.92,"CFM LEAP-1B"]};
+/* the gate the crew were sent for this flight (GATE ASSIGNMENT / GATE CHANGE, AOC): { gate, term, t } */
+function cbGate(){try{const L=(typeof MSG!=="undefined"&&MSG.aoc&&MSG.aoc.msgs)||[],x=O(),arr=S(x.d.icao_code),cs=(S((ofp.atc||{}).callsign)||x.flight||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!cs||!arr||!bpPlan())return null;let best=null;
+  for(const m of L){if(!/^GATE (ASSIGNMENT|CHANGE)$/.test(m.title||"")||Date.now()-m.t>12*3600e3)continue;const b=String(m.body||""),l1=b.split("\n")[0]||"";
+    if(l1.split(" ")[0]!==cs||!l1.includes("-"+arr))continue;const g=b.match(/(?:^|\n)GATE ([A-Z0-9]+)(?: +TERMINAL +(\S+))?/);if(!g||(best&&best.t>m.t))continue;best={t:m.t,gate:g[1],term:g[2]||""}}
+  return best}catch(e){return null}}
+const cbGateTxt=G=>"Gate "+G.gate+(G.term?" · Terminal "+G.term:"");
+/* the Flight page */
+function cbInfoCard(){const x=O(),tm=ofp.times||{},so=N(tm.sched_out),si=N(tm.sched_in),ot=cbTz(x.o,"o"),dt=cbTz(x.d,"d"),dh=Math.round((cbOffH(dt)-cbOffH(ot))*2)/2;
+  const blk=N(tm.sched_block)||(so&&si?si-so:null),nm=N(x.g.route_distance)||N(x.g.gc_distance),fl=N(x.g.initial_altitude),mach=S(x.g.cruise_mach),A=CB_AC[S(x.ac.icaocode).toUpperCase()],seats=N(x.ac.max_passengers);
+  const row=(l,v,sub)=>`<div class="cb-row"><span>${l}</span><b>${v}</b>${sub?`<small>${sub}</small>`:""}</div>`,G=cbGate(),svc=cbSvc(S(x.g.flight_number));
+  return `<section class="cb-card cb-infc"><p class="cb-k">${svc?esc(svc)+" · ":""}About your flight</p><h2 class="cb-cn">${esc(S((ofp.atc||{}).callsign)||x.flight)}</h2><div class="cb-icols"><div><div class="cb-more">
+    ${row("From",esc(cbCity(x.o)),so?"Departs "+cbClock(ot,new Date(so*1000))+" local · "+esc(cbDay(ot,new Date(so*1000))):"")}
+    ${row("To",esc(cbCity(x.d)),si?"Arrives "+cbClock(dt,new Date(si*1000))+" local · "+esc(cbDay(dt,new Date(si*1000))):"")}
+    ${dh?row("Time difference",(dh>0?"+":"−")+Math.abs(dh)+" h",esc(cbCity(x.d))+" is "+(dh>0?"ahead of ":"behind ")+esc(cbCity(x.o))):row("Time difference","None","Same time as "+esc(cbCity(x.o)))}
+    ${blk?row("Flight time",cbHm(blk),"Gate to gate"):""}${nm?row("Distance",cbK(nm*1.852)+" km",cbK(nm*1.15078)+" mi · "+cbK(nm)+" nm"):""}
+    ${fl?row("Cruising altitude",cbK(fl*.3048)+" m",cbK(fl)+" ft"+(mach?" · Mach "+esc(mach.replace(/^0?\./,"0.")):"")):""}
+    ${G?row("Arrival gate",esc(G.gate),G.term?"Terminal "+esc(G.term):""):""}</div></div><div>
+    <p class="cb-k cb-ik">${A?esc(A[0]):esc(S(x.ac.name)||S(x.ac.icaocode)||"The aircraft")}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}</p><div class="cb-more">
+    ${A?row("Length",A[1].toFixed(1)+" m",cbK(A[1]*3.28084)+" ft")+row("Wingspan",A[2].toFixed(1)+" m",cbK(A[2]*3.28084)+" ft"):""}${seats?row("Seats",cbK(seats)):""}${A?row("Engines","2",esc(A[3])):""}</div></div></div></section>`}
+/* announcements from the flight deck */
+const CBPA={done:{},ph:null,t:0,ac:null};
+function cbAudio(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;if(!CBPA.ac)CBPA.ac=new AC();if(CBPA.ac.state==="suspended")CBPA.ac.resume().catch(()=>{});return CBPA.ac}catch(e){return null}}
+function cbChime(){if(store.get("cbPa",true)===false)return;const c=cbAudio();if(!c||c.state!=="running")return;
+  try{const t0=c.currentTime+.03;[[880,0],[698.46,.55]].forEach(([f,d])=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;
+    g.gain.setValueAtTime(0,t0+d);g.gain.linearRampToValueAtTime(.16,t0+d+.015);g.gain.exponentialRampToValueAtTime(.0006,t0+d+1.8);o.connect(g);g.connect(c.destination);o.start(t0+d);o.stop(t0+d+1.9)})}catch(e){}}
+function cbPaText(ph){const x=O(),city=cbCity(x.d),tz=cbTz(x.d,"d"),G=cbGate(),s=cbLive(),J=cbJourney(s);let wx="";
+  try{const m=decodeMetar(S(x.w&&x.w.dest_metar)||S(x.d.metar));if(m&&m.temp!=null)wx=Math.round(m.temp)+" °C"+(condText(m)?", "+String(condText(m)).toLowerCase():"")}catch(e){}
+  const gate=G?" We will arrive at gate "+G.gate+(G.term?", terminal "+G.term:"")+".":"";
+  if(ph==="cruise"){const pl=N(x.g.initial_altitude),ft=s&&!s.g?(pl&&Math.abs(s.alt-pl)<2000?pl:Math.round(s.alt/1000)*1000):0;return["From the flight deck",(ft>=10000?"We have reached our cruising altitude of "+cbK(ft)+" feet, "+cbK(ft*.3048)+" metres. ":"")+(J&&J.left!=null?"We will land in "+city+" in about "+cbHm(J.left)+".":"Sit back and enjoy the flight.")]}
+  if(ph==="descent")return["We are starting our descent","We will land in "+city+(J&&J.left!=null?" in about "+cbHm(J.left):" soon")+". The local time there is "+cbClock(tz)+(wx?" and it is "+wx:"")+"."+gate];
+  if(ph==="taxiin")return["Welcome to "+city,"The local time is "+cbClock(tz)+(wx?", "+wx:"")+". Please stay seated with your seat belt fastened until the aircraft has stopped at the gate."+gate];
+  if(ph==="arrived")return["Thank you for flying Polaris Airways","We hope you enjoyed your journey, and look forward to welcoming you on board again."];
+  return null}
+function cbPaShow(t){const el=$("#cb");if(!el||!t)return;let b=$("#cbPa");if(!b){b=document.createElement("div");b.id="cbPa";b.className="cb-pa";b.setAttribute("role","status");b.setAttribute("aria-live","polite");el.appendChild(b)}
+  b.innerHTML=`<span class="cb-pai">${CB_IC.bell}</span><div><b>${esc(t[0])}</b><p>${esc(t[1])}</p></div>`;b.classList.remove("out");b.hidden=false;void b.offsetWidth;b.classList.add("in");
+  clearTimeout(CBPA.t);CBPA.t=setTimeout(()=>cbPaHide(),16000);cbChime()}
+function cbPaHide(){const b=$("#cbPa");if(!b)return;clearTimeout(CBPA.t);b.classList.remove("in");b.classList.add("out");setTimeout(()=>{if(b.classList.contains("out"))b.hidden=true},400)}
+/* each turn of the flight once a flight, and only going forward (not on opening Cabin, not when a phase flickers) */
+const CB_PA_FROM={cruise:["climb"],descent:["climb","cruise"],taxiin:["climb","cruise","descent"],arrived:["taxiin"]};
+function cbPaPhase(ph,prev){const id=O().id,k=id+":"+ph;if(!bpPlan()||CBPA.done[k]||!(CB_PA_FROM[ph]||[]).includes(prev))return;CBPA.done[k]=1;if(CB.intro)return;const t=cbPaText(ph);if(t)cbPaShow(t)}
+{const _t=cbTick;cbTick=function(t){const r=_t.apply(this,arguments);if(cur==="cabin"){if(CBPA.ph!=null&&CB.ph!==CBPA.ph)cbPaPhase(CB.ph,CBPA.ph);CBPA.ph=CB.ph}else CBPA.ph=null;return r}}
+/* sound may only start after a tap: the first one on the Cabin wakes the chime */
+document.addEventListener("pointerdown",()=>{if(cur==="cabin"&&store.get("cbPa",true)!==false)cbAudio()},true);
+document.addEventListener("click",e=>{if(cur!=="cabin")return;if(e.target.closest("#cbPa")){cbPaHide();return}const t=e.target.closest('[data-cb="pa"]');if(!t)return;
+  const on=store.get("cbPa",true)===false;store.set("cbPa",on);t.setAttribute("aria-pressed",String(on));t.setAttribute("aria-label",on?"Chimes on":"Chimes off");t.innerHTML=on?CB_IC.bell:CB_IC.belloff;
+  if(on){cbAudio();setTimeout(cbChime,60)}toast(on?"Announcements with the chime":"Announcements without the chime")});
+/* the aircraft standing at the destination, after its flight: arrived, not boarding again */
+{const _p=cbPhase;cbPhase=function(s){const r=_p.apply(this,arguments);if(!s||!s.g||(r!=="board"&&r!=="taxi"))return r;
+  const x=O(),near=a=>{const la=N(a&&a.pos_lat),lo=N(a&&a.pos_long);return la!=null&&lo!=null&&bpGd({la:s.la,lo:s.lo},{la,lo})*BP_NM<6};
+  return near(x.d)&&!near(x.o)?(Date.now()-CB.movAt<60000?"taxiin":"arrived"):r}}
+document.head.insertAdjacentHTML("beforeend",`<style>
+.cb-infc{width:min(calc(680px*var(--cbz,1)),62vw);padding-top:16px}.cb-infc .cb-cn{margin-bottom:6px}
+.cb-icols{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;align-items:start}
+.cb-ik{margin:12px 0 2px!important;color:var(--cb-gold)!important;font-weight:600!important}
+@media (max-width:899px){.cb-infc{width:min(calc(380px*var(--cbz,1)),46vw)}.cb-icols{grid-template-columns:1fr}.cb-icols .cb-ik{margin-top:14px!important}}
+.cb-pa{position:absolute;left:50%;top:calc(var(--sbh,0px) + 104px);z-index:6;display:flex;gap:14px;align-items:flex-start;width:min(560px,calc(100% - 32px));box-sizing:border-box;padding:16px 20px;border-radius:20px;
+  background:rgba(9,15,29,.88);border:1px solid rgba(226,184,106,.45);box-shadow:0 22px 50px rgba(0,0,0,.45);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transform:translate(-50%,-14px);opacity:0;transition:transform .45s cubic-bezier(.2,.9,.3,1.1),opacity .35s;cursor:pointer}
+.cb-pa.in{transform:translate(-50%,0);opacity:1}.cb-pa.out{transform:translate(-50%,-10px);opacity:0}
+.cb-pai{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(226,184,106,.16);color:var(--cb-gold)}
+.cb-pai svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cb-pa b{display:block;font:600 17px/1.3 var(--f-os);color:#fff}.cb-pa p{margin:4px 0 0;font:400 15px/1.45 var(--f-os);color:#D5DEEA}
+.cb-i[data-cb="pa"] svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:600px){.cb-infc{width:100%}.cb-pa{top:calc(var(--sbh,0px) + 92px);padding:13px 15px;gap:11px}.cb-pa b{font-size:15px}.cb-pa p{font-size:13.5px}}
+@media (prefers-reduced-motion:reduce){.cb-pa{transition:opacity .2s}}
 </style>`.replace(/font-size:(\d+(?:\.\d+)?px)/g,"font-size:calc($1*var(--cbz,1))").replace(/(font:(?:[a-z0-9-]+\s+)*?)(clamp\([^)]*\)|\d+(?:\.\d+)?px)/g,(m,a,b)=>a+"calc("+b+"*var(--cbz,1))"));
 /* ===== Polaris Sound over Bluetooth, in the Dynamic Island (the website's header player, brought over) =====
    The Bluetooth button in Cabin's top bar opens it: the island springs open and "pairs" (searching for the device,

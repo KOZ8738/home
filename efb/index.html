@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1121.0104">
+<meta name="efb-build" content="1121.0114">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6740,20 +6740,21 @@ function npHtml(){const kind=NP.kind,ic=npIcao(kind),d=NP.data[ic]||(NP.data[ic]
   const rws=(d.rw||[]).map(r=>r.n).sort();
   const sel=`<label class="np-rw"><select data-nprw aria-label="Runway">${rws.map(n=>`<option value="${n}"${n===R?" selected":""}>RW${n}</option>`).join("")}${R&&!rws.includes(R)?`<option value="${esc(R)}" selected>RW${esc(R)}</option>`:""}</select></label>`;
   const top=`<div class="np-top"><span class="np-cnt"><b>${from.length}</b> ${kind==="sid"?(from.length===1?"departure":"departures"):(from.length===1?"arrival":"arrivals")}${con?` · ${con} ${kind==="sid"?(con===1?"joins":"join"):(con===1?"starts on":"start on")} your route`:""}</span>${sel}</div>`;
-  const cur=rpGet(),row=(r)=>{const on=cur[kind]===r.p.n&&(cur[kind+"T"]||"")===(r.t||r.p.nf||"")&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r),hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
+  const cur=rpGet(),orig=cur[kind]==null?rpOrig(kind):"",row=(r)=>{const on=cur[kind]!=null?cur[kind]===r.p.n&&(cur[kind+"T"]||"")===(r.t||r.p.nf||"")&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r):orig===r.p.n&&r.r===R,hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
     return `<div class="np-row${hot?" hot":""}${on?" cur":""}" data-npk="${r.k}" style="--c:${r.col}"><div class="np-rh"><i class="np-dot"></i><b>${esc(r.p.n)}</b>${on?'<em class="np-on">In route</em>':route.has(npEnd(kind,r))?'<em class="np-join">Joins route</em>':""}
       <span class="np-bt">${ch?`<button data-npch="${r.k}" aria-label="Chart">${npI("chart")}</button>`:""}<button data-npinfo="${r.k}" aria-label="Legs" aria-expanded="${open}">${npI("info")}</button></span></div>
       <div class="np-rd"><div><small>Transition</small><span>${esc(r.t||r.p.nf||"–")}</span></div><div><small>Runway</small><span>${r.r&&r.r!=="ALL"?"RW"+esc(r.r):"All"}</span></div><button class="np-add" data-npadd="${r.k}">${on?"Added":"+ Add to route"}</button></div>
       ${open?npLegHtml(kind,r,d):""}</div>`};
-  const src=d.src==="sim"?`From ${esc(NP.simName||"your simulator")}`:d.src==="server"?"From your simulator (kept on the EFB server)":"From your simulator (on this device)";
+  const src=d.src==="sim"?`From ${esc(npSimName())}`:d.src==="server"?"From your simulator (kept on the EFB server)":"From your simulator (on this device)";
   return head+`<div class="fp-body np-body">${top}<h4>${kind==="sid"?"From":"To"} RW${esc(R||"–")}</h4>${from.length?from.map(row).join(""):`<p class="np-none">No ${kind==="sid"?"departures from":"arrivals to"} this runway.</p>`}
     ${other.length?`<h4>Other ${kind==="sid"?"departures":"arrivals"}</h4>${other.map(row).join("")}`:""}
     <p class="np-src">${src} · ${npAge(d.at)}${cur[kind]!=null?` · <button class="np-lnk" data-npauto>Use the flight plan's ${kind==="sid"?"SID":"STAR"}</button>`:""}</p></div>`}
+const npSimName=()=>{const n=NP.simName||"";return /sunrise/i.test(n)?"MSFS 2024":/kittyhawk/i.test(n)?"MSFS 2020":n||"your simulator"};
 const npAge=t=>{if(!t)return"";const m=Math.round((Date.now()-t)/60000);return m<2?"just read":m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" days ago"};
 const npEnd=(kind,r)=>{const L=npLegs(kind,r).filter(g=>g.f&&!/^RW/.test(g.f));return L.length?(kind==="sid"?L[L.length-1].f:L[0].f):""};
 function npLegHtml(kind,r,d){const L=npLegs(kind,r);return `<ol class="np-legs">${L.map(g=>`<li><b>${esc(g.f||"("+(g.c!=null?String(Math.round(g.c)).padStart(3,"0")+"°":"—")+")")}</b><span>${esc(NP_LEG[g.t]||g.t)}${g.tn?" · turn "+(g.tn==="L"?"left":"right"):""}${g.fo?" · fly-over":""}</span><em>${esc(npCon(g))}</em></li>`).join("")}</ol>`}
 function npEmpty(ic){const ld=NP.loading[ic]||NP.loading["s"+ic],e=NP.err[ic],br=npBridgeOn();
-  let msg;if(ld)msg=`<p class="np-wait"><i></i>Reading ${esc(ic)}’s procedures${NP.sim?" from "+esc(NP.simName||"your simulator"):""}…</p>`;
+  let msg;if(ld)msg=`<p class="np-wait"><i></i>Reading ${esc(ic)}’s procedures${NP.sim?" from "+esc(npSimName()):""}…</p>`;
   else if(e)msg=`<p class="np-err">${esc(e)}</p>`;
   else if(br&&NP.wsSt==="on"&&NP.sim===false)msg=`<p>Polaris Navdata is open, but the simulator isn’t running. Start MSFS and this list fills in by itself.</p>`;
   else if(br&&NP.wsSt!=="on")msg=`<p>Polaris Navdata isn’t open on this PC. Open it (with MSFS running) and the departures and arrivals come straight from your simulator.</p>`;

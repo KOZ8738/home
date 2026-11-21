@@ -1,5 +1,5 @@
 /* Polaris Navdata — runs on the simulator PC next to MSFS. The Polaris EFB (in a browser on this PC) asks it for an
-   airport's SIDs and STARs on ws://localhost:2050; it reads them from the simulator's own navigation data (the default
+   airport's SIDs, STARs and approaches on ws://localhost:2050; it reads them from the simulator's own navigation data (the default
    data, or Navigraph's if installed in the simulator) through SimConnect. Nothing leaves this PC from here: the EFB
    keeps what it receives for its signed-in pilot only.
    Options: --safe   read fix positions one by one instead of with the legs (for a simulator that stalls on that)
@@ -9,7 +9,7 @@ const { open, Protocol } = require('node-simconnect');
 const { WebSocketServer } = require('ws');
 const { ProcReader } = require('./navdata');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const args = process.argv.slice(2);
 const SAFE = args.includes('--safe');
 const PORT = +(args[args.indexOf('--port') + 1] || 0) || 2050;
@@ -45,7 +45,7 @@ async function procs(icao) {
   const t0 = Date.now(), data = await S.reader.airport(icao);
   S.cache.set(icao, { at: Date.now(), data });
   const legs = [...data.dep, ...data.arr].reduce((n, p) => n + p.c.length + Object.values(p.rt).flat().length + Object.values(p.et).flat().length, 0);
-  log(`${icao}: ${data.dep.length} SIDs, ${data.arr.length} STARs, ${legs} legs (${Date.now() - t0} ms)`);
+  log(`${icao}: ${data.dep.length} SIDs, ${data.arr.length} STARs, ${(data.apr || []).length} approaches, ${legs} legs (${Date.now() - t0} ms)`);
   return data;
 }
 

@@ -16,6 +16,10 @@ const F_RUNWAY = [['LATITUDE', 'd'], ['LONGITUDE', 'd'], ['HEADING', 'f'], ['LEN
 const F_PROC = [['NAME', 's']];
 const F_RWTR = [['RUNWAY_NUMBER', 'i'], ['RUNWAY_DESIGNATOR', 'i']];
 const F_ENTR = [['NAME', 's']];
+const F_APPR = [['TYPE', 'i'], ['SUFFIX', 'i'], ['RUNWAY_NUMBER', 'i'], ['RUNWAY_DESIGNATOR', 'i'], ['MISSED_ALTITUDE', 'f']];
+const F_APTR = [['TYPE', 'i'], ['IAF_ICAO', 's'], ['NAME', 's']];
+const APPR_T = ['', 'GPS', 'VOR', 'NDB', 'ILS', 'LOC', 'SDF', 'LDA', 'VOR/DME', 'NDB/DME', 'RNAV', 'LOC BC'];
+const APPR_C = ['', 'G', 'V', 'N', 'I', 'L', 'U', 'X', 'D', 'Q', 'R', 'B'];
 function legFields(coords) {
   const f = [['TYPE', 'i'], ['FIX_ICAO', 's'], ['FIX_REGION', 's'], ['FIX_TYPE', 'i']];
   if (coords) f.push(['FIX_LATITUDE', 'd'], ['FIX_LONGITUDE', 'd']);
@@ -55,6 +59,12 @@ class ProcReader {
     h.addToFacilityDefinition(DEF.PROC, 'OPEN AIRPORT'); add(DEF.PROC, F_AIRPORT);
     h.addToFacilityDefinition(DEF.PROC, 'OPEN RUNWAY'); add(DEF.PROC, F_RUNWAY); h.addToFacilityDefinition(DEF.PROC, 'CLOSE RUNWAY');
     proc('DEPARTURE'); proc('ARRIVAL');
+    /* approaches: transitions (each with its legs), the final approach and the missed approach */
+    const legs2 = (kind) => { h.addToFacilityDefinition(DEF.PROC, 'OPEN ' + kind); add(DEF.PROC, this.F_LEG); h.addToFacilityDefinition(DEF.PROC, 'CLOSE ' + kind); };
+    h.addToFacilityDefinition(DEF.PROC, 'OPEN APPROACH'); add(DEF.PROC, F_APPR);
+    h.addToFacilityDefinition(DEF.PROC, 'OPEN APPROACH_TRANSITION'); add(DEF.PROC, F_APTR); legs(); h.addToFacilityDefinition(DEF.PROC, 'CLOSE APPROACH_TRANSITION');
+    legs2('FINAL_APPROACH_LEG'); legs2('MISSED_APPROACH_LEG');
+    h.addToFacilityDefinition(DEF.PROC, 'CLOSE APPROACH');
     h.addToFacilityDefinition(DEF.PROC, 'CLOSE AIRPORT');
     for (const [def, kind, list] of [[DEF.WPT, 'WAYPOINT', F_WPT], [DEF.VOR, 'VOR', F_VOR], [DEF.NDB, 'NDB', F_NDB], [DEF.APT, 'AIRPORT', F_WPT]]) {
       h.addToFacilityDefinition(def, 'OPEN ' + kind); add(def, list); h.addToFacilityDefinition(def, 'CLOSE ' + kind);
@@ -86,7 +96,9 @@ class ProcReader {
       else if (t === FT.DEPARTURE || t === FT.ARRIVAL) o.v = read(b, F_PROC);
       else if (t === FT.RUNWAY_TRANSITION) o.v = read(b, F_RWTR);
       else if (t === FT.ENROUTE_TRANSITION) o.v = read(b, F_ENTR);
-      else if (t === FT.APPROACH_LEG) o.v = read(b, this.F_LEG);
+      else if (t === FT.APPROACH_LEG || t === FT.FINAL_APPROACH_LEG || t === FT.MISSED_APPROACH_LEG) o.v = read(b, this.F_LEG);
+      else if (t === FT.APPROACH) o.v = read(b, F_APPR);
+      else if (t === FT.APPROACH_TRANSITION) o.v = read(b, F_APTR);
       return o;
     }, 25000);
     if (res.err) throw res.err;
@@ -98,8 +110,8 @@ class ProcReader {
   /* legs whose fix came without a position (or all of them, without FIX_LATITUDE): look the fixes up one by one */
   async fillFixes(out) {
     const need = new Map();
-    const legsOf = (p) => [p.c, ...Object.values(p.rt), ...Object.values(p.et)].flat();
-    for (const p of [...out.dep, ...out.arr]) for (const l of legsOf(p)) if (l.f && l.la == null && l.ty && 'WVNA'.includes(l.ty)) need.set(l.ty + '|' + l.rg + '|' + l.f, null);
+    const legsOf = (p) => p.f ? [p.f, p.m || [], ...Object.values(p.tr || {})].flat() : [p.c, ...Object.values(p.rt), ...Object.values(p.et)].flat();
+    for (const p of [...out.dep, ...out.arr, ...(out.apr || [])]) for (const l of legsOf(p)) if (l.f && l.la == null && l.ty && 'WVNA'.includes(l.ty)) need.set(l.ty + '|' + l.rg + '|' + l.f, null);
     if (!need.size) return;
     const jobs = [...need.keys()].map(async (k) => {
       const [ty, rg, f] = k.split('|'), def = ty === 'V' ? DEF.VOR : ty === 'N' ? DEF.NDB : ty === 'A' ? DEF.APT : DEF.WPT;
@@ -111,7 +123,7 @@ class ProcReader {
       const c = r.nodes.find((n) => n && (n[0] || n[1])); if (c) need.set(k, c);
     });
     await Promise.all(jobs);
-    for (const p of [...out.dep, ...out.arr]) for (const l of legsOf(p)) if (l.f && l.la == null) { const c = need.get(l.ty + '|' + l.rg + '|' + l.f); if (c) { l.la = +c[0].toFixed(6); l.lo = +c[1].toFixed(6); } }
+    for (const p of [...out.dep, ...out.arr, ...(out.apr || [])]) for (const l of legsOf(p)) if (l.f && l.la == null) { const c = need.get(l.ty + '|' + l.rg + '|' + l.f); if (c) { l.la = +c[0].toFixed(6); l.lo = +c[1].toFixed(6); } }
   }
 }
 
@@ -162,9 +174,18 @@ function build(icao, nodes) {
       if (o.n) list.push(o);
     }
   }
+  for (const a of root.kids.filter((k) => k.t === FT.APPROACH)) {
+    const v = a.v, sfx = v.SUFFIX > 32 ? String.fromCharCode(v.SUFFIX).trim() : '', rw = rwyId(v.RUNWAY_NUMBER, v.RUNWAY_DESIGNATOR), T = APPR_T[v.TYPE] || 'APP';
+    const o = { n: T + (sfx ? ' ' + sfx : '') + (v.RUNWAY_NUMBER ? ' RW' + rw : ''), id: (APPR_C[v.TYPE] || 'A') + (v.RUNWAY_NUMBER ? rw : '') + (sfx ? '-' + sfx : ''), ty: T, rw: v.RUNWAY_NUMBER ? rw : 'ALL', sfx,
+      f: a.kids.filter((k) => k.t === FT.FINAL_APPROACH_LEG).map((k) => leg(k.v)), m: a.kids.filter((k) => k.t === FT.MISSED_APPROACH_LEG).map((k) => leg(k.v)), tr: {} };
+    if (v.MISSED_ALTITUDE) o.ma = Math.round(v.MISSED_ALTITUDE * M2FT);
+    for (const k of a.kids.filter((x) => x.t === FT.APPROACH_TRANSITION)) { const nm = k.v.NAME || k.v.IAF_ICAO || 'T' + Object.keys(o.tr).length; o.tr[nm] = k.kids.filter((x) => x.t === FT.APPROACH_LEG).map((x) => leg(x.v)); }
+    if (o.f.length) (out.apr = out.apr || []).push(o);
+  }
+  if (out.apr) out.apr.sort((x, y) => x.rw.localeCompare(y.rw) || x.n.localeCompare(y.n));
   /* runway fixes (RW05R) get the threshold's position */
   const rwPos = new Map(out.rw.map((r) => ['RW' + r.n, r]));
-  for (const p of [...out.dep, ...out.arr]) for (const l of [p.c, ...Object.values(p.rt), ...Object.values(p.et)].flat())
+  for (const p of [...out.dep, ...out.arr, ...(out.apr || [])]) for (const l of (p.f ? [p.f, p.m, ...Object.values(p.tr)] : [p.c, ...Object.values(p.rt), ...Object.values(p.et)]).flat())
     if (l.f && l.la == null && rwPos.has(l.f)) { const r = rwPos.get(l.f); l.la = r.la; l.lo = r.lo; l.ty = 'R'; }
   out.dep.sort((x, y) => x.n.localeCompare(y.n)); out.arr.sort((x, y) => x.n.localeCompare(y.n));
   return out;

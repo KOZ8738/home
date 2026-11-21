@@ -1,7 +1,7 @@
 {
   "name": "polaris-navdata",
-  "version": "1.0.0",
-  "description": "SIDs and STARs from MSFS (SimConnect facility data) for the Polaris EFB, on ws://localhost:2050",
+  "version": "1.1.0",
+  "description": "SIDs, STARs and approaches from MSFS (SimConnect facility data) for the Polaris EFB, on ws://localhost:2050",
   "main": "main.js",
   "private": true,
   "scripts": {

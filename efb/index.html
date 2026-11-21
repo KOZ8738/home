@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Polaris EFB">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="efb-build" content="1121.0114">
+<meta name="efb-build" content="1121.0121">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Jost:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
@@ -6660,6 +6660,7 @@ const NP_PORT=2050,NP_COL=["#F25C8C","#F2A33A","#E5484D","#E4A6D0","#C7365F","#F
 const npOk=()=>bpPlanOk();
 function bpPlanOk(){return typeof ofp!=="undefined"&&ofp&&!ofp._sample}
 const npIcao=k=>S(k==="sid"?O().o.icao_code:O().d.icao_code).toUpperCase();
+const NP_W={sid:["departure","departures","Set departure","From","Other departures"],star:["arrival","arrivals","Set arrival","To","Other arrivals"],app:["approach","approaches","Set approach","To","Other approaches"]};
 const npRwyN=r=>{const m=S(r).toUpperCase().replace(/^RW/,"").match(/^(\d{1,2})([LRC]?)/);return m?String(+m[1]).padStart(2,"0")+m[2]:""};
 /* ---- the data: memory, this device, the EFB server, the simulator (newest first wins) ---- */
 function npLocal(ic){try{const v=store.get("np:"+ic,null);return v&&v.icao===ic&&Date.now()-(v.at||0)<14*864e5?v:null}catch(e){return null}}
@@ -6690,18 +6691,20 @@ function npGet(ic,fresh){if(!ic)return null;if(!NP.data[ic]){const l=npLocal(ic)
 setInterval(()=>{if(!npOk()||!npBridgeOn()||document.hidden)return;const x=O();for(const ic of [S(x.o.icao_code),S(x.d.icao_code)].map(s=>s.toUpperCase()))if(ic){const d=NP.data[ic]||npLocal(ic);if(!d||d.src!=="sim"||Date.now()-(d.at||0)>6*3600e3)npAsk(ic);else npUpload(ic)}},15000);
 
 /* ---- rows: one per procedure, runway and transition ---- */
-function npRows(kind,d,R){if(!d)return{from:[],other:[]};const L=kind==="sid"?d.dep:d.arr,from=[],other=[];
+function npRows(kind,d,R){if(!d)return{from:[],other:[]};const from=[],other=[];
+  if(kind==="app"){for(const p of d.apr||[]){for(const t of Object.keys(p.tr||{}).concat([""])){const r={p,t,r:p.rw};(p.rw===R||p.rw==="ALL"?from:other).push(r)}}}
+  const L=kind==="app"?[]:kind==="sid"?d.dep:d.arr;
   for(const p of L){const rk=Object.keys(p.rt||{}),ek=Object.keys(p.et||{});const tr=ek.length?ek:[""];if(!ek.length&&p.nf==null)p.nf=npNamedFix(kind,p);
     const all=!rk.length||rk.includes("ALL"),mine=all||rk.includes(R);
     for(const t of tr){if(mine)from.push({p,t,r:R&&(all||rk.includes(R))?R:rk[0]||""});else for(const r of rk)other.push({p,t,r})}}
-  const by=(a,b)=>a.p.n.localeCompare(b.p.n)||a.t.localeCompare(b.t)||a.r.localeCompare(b.r);from.sort(by);other.sort(by);
+  const by=(a,b)=>a.p.n.localeCompare(b.p.n)||(!a.t)-(!b.t)||a.t.localeCompare(b.t)||a.r.localeCompare(b.r);from.sort(by);other.sort(by);
   from.forEach((r,i)=>{r.k="f"+i;r.col=NP_COL[i%NP_COL.length]});other.forEach((r,i)=>{r.k="o"+i;r.col=NP_COL[(i+from.length)%NP_COL.length]});return{from,other}}
-const npLab=r=>r.p.n+((r.t||r.p.nf)?"."+(r.t||r.p.nf):"");
+const npLab=r=>(r.p.id||r.p.n)+((r.t||r.p.nf)?"."+(r.t||r.p.nf):"");
 /* a procedure with no en-route transitions is named after its last fix (a SID) or its first (a STAR): CHAL1A ends at CHALI */
 function npNamedFix(kind,p){const base=String(p.n).replace(/\d.*$/,"");if(base.length<3)return"";const legs=[...(p.c||[]),...Object.values(p.rt||{}).flat()].filter(g=>g.f&&!/^(RW|DE|TP)\d/.test(g.f));
   const f=kind==="sid"?legs.reverse().find(g=>g.f.startsWith(base)):legs.find(g=>g.f.startsWith(base));return f?f.f:""}
 /* the legs of a row, in flying order */
-function npLegs(kind,r){const p=r.p,rt=(p.rt&&(p.rt[r.r]||p.rt.ALL))||[],et=(p.et&&p.et[r.t])||[];return kind==="sid"?[...rt,...(p.c||[]),...et]:[...et,...(p.c||[]),...rt]}
+function npLegs(kind,r){if(kind==="app"){const T=((r.p.tr||{})[r.t]||[]).slice(),F=(r.p.f||[]).slice();if(T.length&&F.length&&F[0].t==="IF"&&F[0].f===T[T.length-1].f){const g=F.shift();T.length&&Object.assign(T[T.length-1]={...T[T.length-1]},g.ad?{ad:g.ad,a1:g.a1,a2:g.a2}:{})}return[...T,...F]}const p=r.p,rt=(p.rt&&(p.rt[r.r]||p.rt.ALL))||[],et=(p.et&&p.et[r.t])||[];return kind==="sid"?[...rt,...(p.c||[]),...et]:[...et,...(p.c||[]),...rt]}
 /* ...and its shape: fixes where there are fixes; heading and course legs drawn a short way along their course */
 function npDest(a,brg,nm){const R=Math.PI/180,d=nm/3440.065,la=a.la*R,lo=a.lo*R,t=brg*R,la2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(t));
   return{la:la2/R,lo:(lo+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(la2)))/R}}
@@ -6719,6 +6722,7 @@ function npPath(kind,r,d){const legs=npLegs(kind,r),P=[];let prev=null;const mv=
       for(let i=1;i<12;i++)push(Object.assign(npDest(c,b0+sw*i/12,rd),{n:""}))}
     push(fix)}
   return P}
+function npMissPath(r,d){const P0=npPath("app",r,d);if(!P0.length||!(r.p.m||[]).length)return[];const fake={p:{tr:{},f:[{t:"IF",f:"_",la:P0[P0.length-1].la,lo:P0[P0.length-1].lo},...r.p.m]},t:""};return npPath("app",fake,d)}
 function npGd(a,b){const R=Math.PI/180,x=Math.sin((b.la-a.la)*R/2)**2+Math.cos(a.la*R)*Math.cos(b.la*R)*Math.sin((b.lo-a.lo)*R/2)**2;return 2*Math.asin(Math.min(1,Math.sqrt(x)))*3440.065}
 function bpBrgN(a,b){const R=Math.PI/180,y=Math.sin((b.lo-a.lo)*R)*Math.cos(b.la*R),x=Math.cos(a.la*R)*Math.sin(b.la*R)-Math.sin(a.la*R)*Math.cos(b.la*R)*Math.cos((b.lo-a.lo)*R);return((Math.atan2(y,x)/R)+360)%360}
 /* altitude and speed limits as the charts write them */
@@ -6728,31 +6732,33 @@ const NP_LEG={VA:"Heading to altitude",CA:"Course to altitude",FA:"From fix to a
 
 /* ---- the panel (in the Flight panel's place) ---- */
 function npOpen(kind){if(!npOk()){toast("Load a flight plan first");return}NP.kind=kind;NP.hov=null;NP.sel=null;NP.open=null;const ic=npIcao(kind);
-  if(!NP.rwy[kind]){const x=O();NP.rwy[kind]=npRwyN(rpGet()[kind+"Rwy"]||(kind==="sid"?x.o.plan_rwy:x.d.plan_rwy))}
+  if(!NP.rwy[kind]){const x=O(),o=rpGet();NP.rwy[kind]=npRwyN(o[kind+"Rwy"]||(kind==="app"?o.starRwy:"")||(kind==="sid"?x.o.plan_rwy:x.d.plan_rwy))}
   npGet(ic,true);if(typeof FP!=="undefined"){FP.open=true;if(typeof AS!=="undefined"&&AS.open){AS.open=false;try{asUi()}catch(e){}}}npFitSoon=1;npRefresh()}
 function npClose(){NP.kind=null;NP.hov=null;NP.sel=null;NP.open=null;npRefresh()}
 let npFitSoon=0;
 function npRefresh(){if(typeof fpUi==="function")try{fpUi()}catch(e){}if(cur==="map")reRedraw()}
 function npHtml(){const kind=NP.kind,ic=npIcao(kind),d=NP.data[ic]||(NP.data[ic]=npLocal(ic)),R=NP.rwy[kind]||"",x=O();
-  const head=`<div class="np-h"><button class="np-x" data-np="close">Cancel</button><b>${kind==="sid"?"Set departure":"Set arrival"}</b><span>${esc(ic)}</span></div>`;
+  const W=NP_W[kind],head=`<div class="np-h"><button class="np-x" data-np="close">Cancel</button><b>${W[2]}</b><span>${esc(ic)}</span></div>`;
   if(!d)return head+`<div class="fp-body np-body">${npEmpty(ic)}</div>`;
   const {from,other}=npRows(kind,d,R),route=new Set(rePts().map(q=>q.n)),con=from.filter(r=>route.has(npEnd(kind,r))).length;
   const rws=(d.rw||[]).map(r=>r.n).sort();
   const sel=`<label class="np-rw"><select data-nprw aria-label="Runway">${rws.map(n=>`<option value="${n}"${n===R?" selected":""}>RW${n}</option>`).join("")}${R&&!rws.includes(R)?`<option value="${esc(R)}" selected>RW${esc(R)}</option>`:""}</select></label>`;
-  const top=`<div class="np-top"><span class="np-cnt"><b>${from.length}</b> ${kind==="sid"?(from.length===1?"departure":"departures"):(from.length===1?"arrival":"arrivals")}${con?` · ${con} ${kind==="sid"?(con===1?"joins":"join"):(con===1?"starts on":"start on")} your route`:""}</span>${sel}</div>`;
-  const cur=rpGet(),orig=cur[kind]==null?rpOrig(kind):"",row=(r)=>{const on=cur[kind]!=null?cur[kind]===r.p.n&&(cur[kind+"T"]||"")===(r.t||r.p.nf||"")&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r):orig===r.p.n&&r.r===R,hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
+  const top=`<div class="np-top"><span class="np-cnt"><b>${from.length}</b> ${from.length===1?W[0]:W[1]}${con?` · ${con} ${kind==="sid"?(con===1?"joins":"join"):(con===1?"starts on":"start on")} your route`:""}</span>${sel}</div>`;
+  const cur=rpGet(),orig=cur[kind]==null&&kind!=="app"?rpOrig(kind):"",row=(r)=>{const on=cur[kind]!=null?cur[kind]===(kind==="app"?r.p.id:r.p.n)&&(cur[kind+"T"]||"")===(r.t||r.p.nf||"")&&(!cur[kind+"Rwy"]||cur[kind+"Rwy"]===r.r):orig===r.p.n&&r.r===R,hot=NP.sel===r.k||NP.hov===r.k,open=NP.open===r.k,ch=npChart(kind,r.p.n);
     return `<div class="np-row${hot?" hot":""}${on?" cur":""}" data-npk="${r.k}" style="--c:${r.col}"><div class="np-rh"><i class="np-dot"></i><b>${esc(r.p.n)}</b>${on?'<em class="np-on">In route</em>':route.has(npEnd(kind,r))?'<em class="np-join">Joins route</em>':""}
       <span class="np-bt">${ch?`<button data-npch="${r.k}" aria-label="Chart">${npI("chart")}</button>`:""}<button data-npinfo="${r.k}" aria-label="Legs" aria-expanded="${open}">${npI("info")}</button></span></div>
-      <div class="np-rd"><div><small>Transition</small><span>${esc(r.t||r.p.nf||"–")}</span></div><div><small>Runway</small><span>${r.r&&r.r!=="ALL"?"RW"+esc(r.r):"All"}</span></div><button class="np-add" data-npadd="${r.k}">${on?"Added":"+ Add to route"}</button></div>
+      <div class="np-rd"><div><small>Transition</small><span>${esc(r.t||r.p.nf||(kind==="app"?"Vectors":"–"))}</span></div><div><small>Runway</small><span>${r.r&&r.r!=="ALL"?"RW"+esc(r.r):"All"}</span></div><button class="np-add" data-npadd="${r.k}">${on?"Added":"+ Add to route"}</button></div>
       ${open?npLegHtml(kind,r,d):""}</div>`};
   const src=d.src==="sim"?`From ${esc(npSimName())}`:d.src==="server"?"From your simulator (kept on the EFB server)":"From your simulator (on this device)";
-  return head+`<div class="fp-body np-body">${top}<h4>${kind==="sid"?"From":"To"} RW${esc(R||"–")}</h4>${from.length?from.map(row).join(""):`<p class="np-none">No ${kind==="sid"?"departures from":"arrivals to"} this runway.</p>`}
-    ${other.length?`<h4>Other ${kind==="sid"?"departures":"arrivals"}</h4>${other.map(row).join("")}`:""}
-    <p class="np-src">${src} · ${npAge(d.at)}${cur[kind]!=null?` · <button class="np-lnk" data-npauto>Use the flight plan's ${kind==="sid"?"SID":"STAR"}</button>`:""}</p></div>`}
+  return head+`<div class="fp-body np-body">${top}<h4>${W[3]} RW${esc(R||"–")}</h4>${from.length?from.map(row).join(""):`<p class="np-none">No ${W[1]} ${kind==="sid"?"from":"to"} this runway.</p>`}
+    ${other.length?`<h4>${W[4]}</h4>${other.map(row).join("")}`:""}
+    <p class="np-src">${src} · ${npAge(d.at)}${cur[kind]!=null?` · <button class="np-lnk" data-npauto>${kind==="app"?"No approach in the route":"Use the flight plan's "+(kind==="sid"?"SID":"STAR")}</button>`:""}</p></div>`}
 const npSimName=()=>{const n=NP.simName||"";return /sunrise/i.test(n)?"MSFS 2024":/kittyhawk/i.test(n)?"MSFS 2020":n||"your simulator"};
 const npAge=t=>{if(!t)return"";const m=Math.round((Date.now()-t)/60000);return m<2?"just read":m<60?m+" min ago":m<1440?Math.round(m/60)+" h ago":Math.round(m/1440)+" days ago"};
-const npEnd=(kind,r)=>{const L=npLegs(kind,r).filter(g=>g.f&&!/^RW/.test(g.f));return L.length?(kind==="sid"?L[L.length-1].f:L[0].f):""};
-function npLegHtml(kind,r,d){const L=npLegs(kind,r);return `<ol class="np-legs">${L.map(g=>`<li><b>${esc(g.f||"("+(g.c!=null?String(Math.round(g.c)).padStart(3,"0")+"°":"—")+")")}</b><span>${esc(NP_LEG[g.t]||g.t)}${g.tn?" · turn "+(g.tn==="L"?"left":"right"):""}${g.fo?" · fly-over":""}</span><em>${esc(npCon(g))}</em></li>`).join("")}</ol>`}
+const npEnd=(kind,r)=>{if(kind==="app"){const L=npLegs(kind,r).filter(g=>g.f&&!/^RW/.test(g.f));return L.length?L[0].f:""}const L=npLegs(kind,r).filter(g=>g.f&&!/^RW/.test(g.f));return L.length?(kind==="sid"?L[L.length-1].f:L[0].f):""};
+function npLegHtml(kind,r,d){const L=npLegs(kind,r),li=g=>`<li><b>${esc(g.f||"("+(g.c!=null?String(Math.round(g.c)).padStart(3,"0")+"°":"—")+")")}</b><span>${esc(NP_LEG[g.t]||g.t)}${g.tn?" · turn "+(g.tn==="L"?"left":"right"):""}${g.fo?" · fly-over":""}</span><em>${esc(npCon(g))}</em></li>`;
+  if(kind==="app")return `<ol class="np-legs">${L.map(li).join("")}${(r.p.m||[]).length?`<li class="np-ma"><b>Missed</b><span>${r.p.ma?"climb to "+fmt(r.p.ma)+" ft":""}</span><em></em></li>${r.p.m.map(li).join("")}`:""}</ol>`;
+  return `<ol class="np-legs">${L.map(g=>`<li><b>${esc(g.f||"("+(g.c!=null?String(Math.round(g.c)).padStart(3,"0")+"°":"—")+")")}</b><span>${esc(NP_LEG[g.t]||g.t)}${g.tn?" · turn "+(g.tn==="L"?"left":"right"):""}${g.fo?" · fly-over":""}</span><em>${esc(npCon(g))}</em></li>`).join("")}</ol>`}
 function npEmpty(ic){const ld=NP.loading[ic]||NP.loading["s"+ic],e=NP.err[ic],br=npBridgeOn();
   let msg;if(ld)msg=`<p class="np-wait"><i></i>Reading ${esc(ic)}’s procedures${NP.sim?" from "+esc(npSimName()):""}…</p>`;
   else if(e)msg=`<p class="np-err">${esc(e)}</p>`;
@@ -6778,10 +6784,11 @@ function npSvg(P,w,h){if(!NP.kind||!npOk()||cur!=="map")return"";const kind=NP.k
   for(const {r,P:pts} of paths){if(pts.length<2)continue;const on=r.k===hk,dim=hk&&!on;
     const dp=pts.map(o=>o.xy[0].toFixed(1)+","+o.xy[1].toFixed(1)).join(" ");
     lines+=`<polyline class="npl${on?" on":""}${dim?" dim":""}" style="stroke:${r.col}" points="${dp}"/>`;
+    if(on&&kind==="app"){const M=npMissPath(r,d).map(q=>xy(q));if(M.length>1)lines+=`<polyline class="npl npm" style="stroke:${r.col}" points="${M.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")}"/>`}
     const last=pts[pts.length-1];if(last.q.open)lines+=`<circle class="npo" cx="${last.xy[0].toFixed(1)}" cy="${last.xy[1].toFixed(1)}" r="3" style="fill:${r.col}"/>`;
     pts.forEach(o=>{if(o.q.n&&!o.q.rw&&!o.q.apt&&(!fixes.has(o.q.n)||on))fixes.set(o.q.n,{o,on})});
     /* the name where the procedure meets the route: the last named fix of a SID, the first of a STAR */
-    const named=pts.filter(o=>o.q.n&&!o.q.rw&&!o.q.apt),end=named.length?(kind==="sid"?named[named.length-1]:named[0]):pts[kind==="sid"?pts.length-1:0];
+    const named=pts.filter(o=>o.q.n&&!o.q.rw&&!o.q.apt&&!/^RW\d/.test(o.q.n)),end=named.length?(kind==="sid"?named[named.length-1]:named[0]):pts[kind==="sid"?pts.length-1:0];
     const t=npLab(r),tw=t.length*7.6+12,th=19;let bx=end.xy[0]+8,by=end.xy[1]-th-6;
     for(const [dx,dy] of [[0,0],[-tw-16,0],[0,th+14],[-tw-16,th+14],[0,-th-4],[0,2*th+18]]){const b=[bx+dx,by+dy,bx+dx+tw,by+dy+th];if(!hit(b)){bx+=dx;by+=dy;break}}
     boxes.push([bx,by,bx+tw,by+th]);
@@ -6804,31 +6811,35 @@ function npApply(kind,r){const d=NP.data[npIcao(kind)];if(!d)return;const x=O(),
   for(const q of pts){if(seen.has(q.n))continue;seen.add(q.n);fx.push({n:q.n,lat:+q.la.toFixed(6),lon:+(((q.lo+540)%360)-180).toFixed(6),pr:r.p.n,pk:kind})}
   if(!fx.length){toast("This procedure has no fixes to add");return}
   /* out: points this picker added before, and (the first time) the flight plan's own procedure points */
-  const orig=o[kind]==null?rpOrig(kind):"",names=orig?new Set(x.fixes.filter(f=>S(f.via_airway).toUpperCase()===orig).map(f=>S(f.ident))):new Set();
+  const orig=o[kind]==null&&kind!=="app"?rpOrig(kind):"",names=orig?new Set(x.fixes.filter(f=>S(f.via_airway).toUpperCase()===orig).map(f=>S(f.ident))):new Set();
   for(let j=w.length-2;j>=1;j--){const q=w[j];if(q.pk===kind||(!q.u&&!q.pr&&names.has(q.n)))w.splice(j,1)}
   const inN=new Set(fx.map(q=>q.n));
   if(kind==="sid"){w.splice(1,0,...fx);const k=fx.length;let cut=-1;for(let j=w.length-2;j>k;j--)if(inN.has(w[j].n)&&!w[j].pk){cut=j;break}if(cut>0)w.splice(k+1,cut-k)}
-  else{const at=w.length-1;w.splice(at,0,...fx);let cut=-1;for(let j=1;j<at;j++)if(inN.has(w[j].n)&&!w[j].pk){cut=j;break}if(cut>0)w.splice(cut,at-cut)}
-  reSave(w);o[kind]=r.p.n;o[kind+"T"]=r.t||r.p.nf||"";o[kind+"Rwy"]=r.r&&r.r!=="ALL"?r.r:"";store.set(rpKey(),o);
-  toast((kind==="sid"?"Departure ":"Arrival ")+npLab(r)+(r.r&&r.r!=="ALL"?" · RW"+r.r:"")+" is in the route");
+  else if(kind==="star"){let at=w.length-1;while(at>1&&w[at-1].pk==="app")at--;w.splice(at,0,...fx);let cut=-1;for(let j=1;j<at;j++)if(inN.has(w[j].n)&&!w[j].pk){cut=j;break}if(cut>0)w.splice(cut,at-cut)}
+  else{/* an approach starts where the route already passes its first fix (the end of a STAR, an IAF on the route): the route goes on from there */
+    let at=w.length-1,k=-1;for(let j=at-1;j>=1;j--)if(w[j].n===fx[0].n){k=j;break}if(k>0){w.splice(k+1,at-k-1);at=k+1;fx.shift()}w.splice(at,0,...fx)}
+  reSave(w);o[kind]=kind==="app"?r.p.id:r.p.n;if(kind==="app")o.appN=r.p.n;o[kind+"T"]=r.t||r.p.nf||"";o[kind+"Rwy"]=r.r&&r.r!=="ALL"?r.r:"";store.set(rpKey(),o);
+  toast((kind==="sid"?"Departure ":kind==="app"?"Approach ":"Arrival ")+npLab(r)+(r.r&&r.r!=="ALL"?" · RW"+r.r:"")+" is in the route");
   NP.kind=null;NP.sel=null;NP.hov=null;if(typeof mapFit==="function")try{mapFit()}catch(e){}npRefresh()}
 /* back to what the flight plan had */
 function npAuto(kind){const o=rpGet(),w=reWork();for(let j=w.length-2;j>=1;j--)if(w[j].pk===kind)w.splice(j,1);
-  const x=O(),orig=rpOrig(kind);if(orig){const F=x.fixes.filter(f=>S(f.via_airway).toUpperCase()===orig&&!/^TO[CD]$/.test(S(f.ident)));
+  const x=O(),orig=kind==="app"?"":rpOrig(kind);if(orig){const F=x.fixes.filter(f=>S(f.via_airway).toUpperCase()===orig&&!/^TO[CD]$/.test(S(f.ident)));
     if(F.length){const fx=F.map(f=>({n:S(f.ident),lat:N(f.pos_lat),lon:N(f.pos_long)})),have=new Set(w.map(q=>q.n));const add=fx.filter(q=>!have.has(q.n));
       if(kind==="sid")w.splice(1,0,...add);else w.splice(w.length-1,0,...add)}}
-  reSave(w);delete o[kind];delete o[kind+"T"];delete o[kind+"Rwy"];store.set(rpKey(),o);toast("The flight plan's "+(kind==="sid"?"SID":"STAR")+" again");NP.kind=null;npRefresh()}
+  reSave(w);delete o[kind];delete o[kind+"T"];delete o[kind+"Rwy"];if(kind==="app")delete o.appN;store.set(rpKey(),o);toast(kind==="app"?"No approach in the route":"The flight plan's "+(kind==="sid"?"SID":"STAR")+" again");NP.kind=null;npRefresh()}
 
 /* the ATC route: a procedure picked here is written as its name and its transition fix only ("KUDO1A KUDOS DCT …") */
-{const _rr=reRoute;reRoute=function(){const r=_rr.apply(this,arguments);if(!npOk())return r;const e=reGet(),o=rpGet();if(!e||(!o.sid&&!o.star))return r;
+{const _rr=reRoute;reRoute=function(){const r=_rr.apply(this,arguments);if(!npOk())return r;const e=reGet(),o=rpGet();if(!e||(!o.sid&&!o.star&&!o.app))return r;
   const t=String(r||"").trim().split(/\s+/).filter(Boolean);
+  if(o.app){const keepN=new Set(e.filter(q=>q.pk!=="app").map(q=>q.n)),an=new Set(e.filter(q=>q.pk==="app"&&!keepN.has(q.n)).map(q=>q.n));for(let i=t.length-1;i>=0;i--)if(an.has(t[i])){if(i>0&&!reProc(t[i-1]))t.splice(i-1,2);else t.splice(i,1)}}
   for(const kind of ["sid","star"]){if(!o[kind])continue;const keep=o[kind+"T"]||"",names=new Set(e.filter(q=>q.pk===kind&&q.n!==keep).map(q=>q.n));
     for(let i=t.length-1;i>=0;i--){if(!names.has(t[i]))continue;if(i>0&&!reProc(t[i-1])&&!(t[i-1]===keep))t.splice(i-1,2);else t.splice(i,1)}}
   if(o.sid&&t[0]===o.sid&&t[1]==="DCT")t.splice(1,1);
+  for(let i=t.length-1;i>0;i--)if(t[i]===t[i-1])t.splice(i,1);
   if(o.star&&t[t.length-1]===o.star&&t[t.length-3]==="DCT"&&t[t.length-2]===o.starT){}
   return t.join(" ")}}
 /* ---- taps ---- */
-document.addEventListener("click",e=>{const b=e.target.closest('[data-fp="sid"],[data-fp="star"]');if(b){e.stopImmediatePropagation();npOpen(b.dataset.fp);return}},true);
+document.addEventListener("click",e=>{const b=e.target.closest('[data-fp="sid"],[data-fp="star"],[data-fp="app"]');if(b){e.stopImmediatePropagation();npOpen(b.dataset.fp);return}},true);
 document.addEventListener("click",e=>{if(!NP.kind)return;const t=e.target;const kind=NP.kind,d=NP.data[npIcao(kind)],rows=()=>{const R=npRows(kind,d,NP.rwy[kind]);return R.from.concat(R.other)},find=k=>d&&rows().find(r=>r.k===k);
   if(t.closest('[data-np="close"]')){npClose();return}
   if(t.closest("[data-npretry]")){const ic=npIcao(kind);NP.err[ic]=null;NP.wsAt=0;if(NP.srvAt)delete NP.srvAt[ic];if(NP.asked)delete NP.asked[ic];npGet(ic,true);npRefresh();return}
@@ -6846,7 +6857,7 @@ document.addEventListener("pointerover",e=>{if(!NP.kind||e.pointerType==="touch"
 /* the Flight panel redraws itself every 4 s: keep the open list where it is */
 {const _u=fpUi;fpUi=function(){if(NP.kind){const el=$("#fpPanel");if(el&&!el.hidden&&el.contains(document.activeElement)&&document.activeElement.tagName==="SELECT")return}return _u.apply(this,arguments)}}
 /* the Flight panel's procedure rows: runway with the procedure */
-{const _p=fpProc;fpProc=function(kind,ic){let h=_p.apply(this,arguments);const o=rpGet(),r=o[kind+"Rwy"];if(r&&o[kind]!=null)h=h.replace(/(<span class="fp-k">(?:Departure|Arrival)<\/span><b>[^<]*)/,`$1 <small class="np-fr">RW${esc(r)}</small>`);return h}}
+{const _p=fpProc;fpProc=function(kind,ic){let h=_p.apply(this,arguments);if(kind==="star"){const o=rpGet();h+=`<div class="fp-row fp-proc star"><div><span class="fp-k">Approach</span><b>${esc(o.appN||o.app||"—")}</b>${o.appRwy?` <small class="np-fr">RW${esc(o.appRwy)}</small>`:""}</div><div><span class="fp-k">Transition</span><b>${esc(o.app?(o.appT||"Vectors"):"—")}</b></div><div class="fp-btns"><button data-fp="app" title="Choose the approach">${fpI("swap")}</button></div></div>`}const o=rpGet(),r=o[kind+"Rwy"];if(r&&o[kind]!=null)h=h.replace(/(<span class="fp-k">(?:Departure|Arrival)<\/span><b>[^<]*)/,`$1 <small class="np-fr">RW${esc(r)}</small>`);return h}}
 
 document.head.insertAdjacentHTML("beforeend",`<style>
 .fppanel{top:calc(var(--sbh,26px) + 12px)}
@@ -6873,7 +6884,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .np-add{margin-left:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font:600 13px var(--f-ui);padding:7px 12px;cursor:pointer;white-space:nowrap}.np-add:hover{border-color:var(--accent);color:var(--accent)}
 .np-row.cur .np-add{background:var(--accent);border-color:var(--accent);color:var(--panel)}
 .np-legs{margin:10px 0 2px;padding:0;list-style:none;border-top:1px dashed var(--line)}.np-legs li{display:grid;grid-template-columns:74px 1fr auto;gap:8px;padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);font:500 12.5px var(--f-ui);color:var(--label)}
-.np-legs b{font:700 12.5px var(--f-mono);color:var(--ink)}.np-legs em{font:700 12px var(--f-mono);font-style:normal;color:var(--cyan)}
+.np-legs .np-ma{border-top:1px dashed var(--line);margin-top:4px}.np-legs .np-ma b{color:var(--amber)}.np-legs b{font:700 12.5px var(--f-mono);color:var(--ink)}.np-legs em{font:700 12px var(--f-mono);font-style:normal;color:var(--cyan)}
 .np-none{margin:12px 14px;color:var(--label);font:500 13px var(--f-ui)}
 .np-src{margin:14px 14px 0;font:500 11.5px var(--f-ui);color:var(--label)}.np-lnk{border:0;background:none;color:var(--accent);font:600 11.5px var(--f-ui);padding:0;cursor:pointer}
 .np-empty{margin:16px 12px;padding:18px 16px;border-radius:12px;background:var(--panel-2);text-align:center}.np-empty>svg{width:34px;height:34px;fill:var(--accent);opacity:.8}
@@ -6882,7 +6893,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .np-wait i{display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-right-color:transparent;border-radius:50%;margin-right:8px;vertical-align:-2px;animation:npSpin .8s linear infinite}@keyframes npSpin{to{transform:rotate(360deg)}}
 .np-fr{font:600 11px var(--f-mono);color:var(--label);margin-left:4px}
 #mapSvg .npl{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round;opacity:.9;pointer-events:none}
-#mapSvg .npl.on{stroke-width:5.5;opacity:1}#mapSvg .npl.dim{opacity:.28}
+#mapSvg .npl.on{stroke-width:5.5;opacity:1}#mapSvg .npl.npm{stroke-dasharray:7 6;stroke-width:3;opacity:.95}#mapSvg .npl.dim{opacity:.28}
 #mapSvg .npf{fill:#0B0F17;stroke:#E9EEF6;stroke-width:1.4}#mapSvg .npf.on{fill:#fff}
 #mapSvg .npt{font:600 11px var(--f-mono);fill:#C9D3E3;paint-order:stroke;stroke:#0B0F17;stroke-width:3px}#mapSvg .npt.on{fill:#fff}#mapSvg .npc{fill:#7FD4FF}
 #mapSvg .npb{cursor:pointer}#mapSvg .npb rect{stroke-width:1.5}#mapSvg .npb text{font:700 11.5px var(--f-mono);text-anchor:middle}#mapSvg .npb.dim{opacity:.4}

@@ -131,11 +131,7 @@ function lapsHtml(){const L=tmr.laps,ms=swMs();if(!L.length&&!ms)return"";const 
 
 /* ---------- apps (icons are original designs) ---------- */
 const APPS={
- ofp:{name:"Flight Plan",bg:"linear-gradient(160deg,#2C8C99,#145660)",fg:"#fff",g:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 15h5M10 18h3"/>'},
- _navlog:{name:"Nav Log",bg:"linear-gradient(160deg,#30557F,#182F4A)",fg:"#fff",g:'<path d="M5 3.5l2.2 3.8H2.8zM5 10l2.2 3.8H2.8zM5 16.5l2.2 3.8H2.8z"/><path d="M10 5.8h10M10 12.3h10M10 18.8h10"/>'},
- _oooi:{name:"Block Times",bg:"linear-gradient(160deg,#C9A07C,#94704F)",fg:"#fff",g:'<path d="M2 17h4l4-8h4l4 8h4"/><circle cx="6" cy="17" r="1.3"/><circle cx="18" cy="17" r="1.3"/><path d="M2 20.5h20"/>'},
  wx:{name:"Weather",bg:"linear-gradient(180deg,#64B6F7,#2D74D6)",fg:"#fff",g:'<circle cx="8" cy="8" r="3" fill="#FFD54A" stroke="#FFD54A"/><path d="M8.5 20h8.5a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.4 1.6A2.7 2.7 0 0 0 8.5 20z" fill="#fff"/>'},
- charts:{name:"Charts",bg:"linear-gradient(180deg,#FFFFFF,#E9EEEE)",fg:"#1A6772",g:'<rect x="4.5" y="3" width="15" height="18" rx="1"/><path d="M8 18l4-10 4 10M9.6 14h4.8"/>'},
  checklist:{name:"Checklist",bg:"linear-gradient(180deg,#FFFFFF,#ECEFEF)",fg:"#8A8A8E",g:'<path d="M10.5 6h9.5M10.5 12h9.5M10.5 18h9.5"/><path d="M3.5 6l1.6 1.6 3-3M3.5 12l1.6 1.6 3-3M3.5 18l1.6 1.6 3-3" stroke="#34C759" stroke-width="2"/>'},
 
  winter:{name:"Winter Ops",bg:"linear-gradient(160deg,#8EC5EE,#2B6AA6)",fg:"#fff",g:'<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.6 4.2L12 6.2l2.4-2M9.6 19.8l2.4-2 2.4 2M4.3 10.4l3-.4-1.1-2.8M19.7 13.6l-3 .4 1.1 2.8M4.3 13.6l3 .4-1.1 2.8M19.7 10.4l-3-.4 1.1-2.8"/>'},
@@ -143,20 +139,23 @@ const APPS={
  music:{name:"Music",bg:"linear-gradient(160deg,#1F7682,#0B3238)",fg:"#E3CDB6",g:'<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5" fill="#E3CDB6"/><circle cx="17.5" cy="16" r="2.5" fill="#E3CDB6"/>'},
  perf:{name:"Performance",bg:"linear-gradient(160deg,#2B2F33,#0E1113)",fg:"#E3E9E9",g:'<rect x="9" y="2.5" width="6" height="19" rx=".6" fill="#3A4244" stroke="#E3E9E9" stroke-width="1"/><path d="M12 5v2.2M12 9.5v2.2" stroke="#fff" stroke-width="1"/><rect x="10" y="14" width="4" height="6.5" fill="#3FDA79" stroke="none" opacity=".85"/><path d="M8 13.5h8" stroke="#FFB020" stroke-width="1.4"/>'},
  load:{name:"Loadsheet",bg:"linear-gradient(160deg,#C9A07C,#8E6A4B)",fg:"#fff",g:'<path d="M5 20V4M5 20h15"/><path d="M8 17l2-9h6l2 9z" fill="rgba(255,255,255,.25)"/><circle cx="13" cy="12" r="1.8" fill="#fff"/>'},
- map:{name:"Map",bg:"linear-gradient(160deg,#5DB37E,#2E7D5B)",fg:"#fff",g:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z" fill="#E9F5EC" stroke="none"/><path d="M9 4v13.5M15 6.5V20" stroke="#BFD9C7"/><path d="M5.5 16c3-1 4-5 7-6s4 1 6-3" stroke="#C2185B" stroke-width="2"/>'},
  timer:{name:"Clock",bg:"linear-gradient(180deg,#2F2F31,#050505)",fg:"#fff",g:'<circle cx="12" cy="12" r="9" fill="#fff" stroke="none"/><path d="M12 6.5V12l3.6 2.2" stroke="#111" stroke-width="1.9"/><path d="M12 12L8.6 16.4" stroke="#FF9500" stroke-width="1"/><circle cx="12" cy="12" r="1" fill="#FF9500" stroke="none"/>'},
  logbook:{name:"Logbook",bg:"linear-gradient(160deg,#946F53,#634733)",fg:"#F3E6D8",g:'<path d="M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2z"/><path d="M6 17a2 2 0 0 1 2-2h11M10 7.5h6"/>'},
- simbrief:{name:"Dispatch",bg:"linear-gradient(160deg,#25323B,#0D1519)",fg:"#5BC0CC",g:'<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path d="M4 15v4.5h16V15" stroke="#fff"/>'},
  prefs:{name:"Settings",bg:"linear-gradient(180deg,#C2C7CC,#8C949B)",fg:"#3A3F44",g:'<circle cx="12" cy="12" r="7.3" stroke-width="3.2" stroke-dasharray="2.6 3.1" stroke-linecap="butt"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="2"/>'}
 };
-const DOCK=["ofp","map","wx","charts","checklist","logbook"];
-const PAGE1=["perf","load","simbrief","winter","convert","timer","music","prefs"];
+const DOCK=["flight","wx","checklist","logbook"];
+const PAGE1=["perf","load","winter","convert","timer","music","prefs"];
 /* phone home screen, page 2: every app not in the 4-icon phone dock */
-const PAGE2=["checklist","logbook","perf","load","simbrief","winter","convert"];
+const PAGE2=["checklist","logbook","perf","load","winter","convert"];
+/* Flight's views (Nov 2026: Map, Charts, Kneeboard, Dispatch, Flight Plan, OFP and Backup PFD became tabs of Flight):
+   [title, tab]; see "Flight: the EFB app" further down */
+const FLV={simbrief:["Download","dl"],map:["Map","map"],charts:["Charts","charts"],docs:["Documents","docs"],ofp:["Flight Plan","docs"],ofpdoc:["OFP","docs"],
+  messages:["Messages","msg"],kneeboard:["Scratch Pad","pad"],more:["More","more"],pfd:["Backup PFD","more"]};
+const isFl=id=>!!(id&&Object.prototype.hasOwnProperty.call(FLV,id));
+const ftLast=()=>{const v=store.get("ftLast","map");return isFl(v)?v:"map"};
 const PAGE3=["music","timer","prefs"];
 function badge(id){
   if(id==="checklist"&&CLP.idx!=null&&CLP.flight){const q=clProgress(CLP.idx);if(q.done<q.total)return `<span class="badge" aria-label="${esc(CL[CLP.idx][0])} checklist due">1</span>`}
-  if(id==="simbrief"&&ofp._sample)return `<span class="badge" aria-label="No plan loaded">1</span>`;
   if(id==="wx"){const n=wxFor(O()).map(a=>decodeMetar(a[3])).filter(m=>m&&(m.cat==="IFR"||m.cat==="LIFR")).length;if(n)return `<span class="badge" aria-label="${n} airports below VFR">${n}</span>`}
   return "";
 }
@@ -185,7 +184,7 @@ function renderHome(){
       <div class="rem-t">${esc(CL[clIdx][0])}</div>
       <ul class="rem-l">${p.pending.length?p.pending.slice(0,3).map(it=>`<li><i></i>${esc(it[0])}</li>`).join(""):`<li style="color:var(--wg-sub)">All items checked</li>`}</ul></a>
     ${(typeof rsCalHtml==="function"&&rsCalHtml())||`<a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
-      <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Dispatch</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
+      <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Flight › Download</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
       <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>`}
     <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?(dest[1]==="BASE"?AL().base+" · live":"Destination"):"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
       <div class="wx-cond">${wIco(metarKind(dm,wxDay(dest))||"cloud",30)}<b>${esc(condText(dm))}</b><span>${dm&&dm.ceiling!=null?"Ceiling "+fmt(dm.ceiling)+" ft":"No ceiling"}</span><span>${dm&&dm.alt?"A"+dm.alt.inhg.toFixed(2)+" · "+dm.alt.hpa+" hPa":""}</span></div></div>
@@ -1834,7 +1833,7 @@ document.addEventListener("click",e=>{if(e.target.closest("#reBtn")){reToggle();
 /* note on the OFP Route page while the map route differs from the plan */
 function reNote(){const inf=reInfo();if(!inf)return"";
   return `<section class="card re-note"><div class="card-b"><b>Route modified on the map</b><span>${Math.round(inf.d).toLocaleString("en-US")} NM, ${reSign(inf.dd,v=>Math.round(v)+" NM")} against the OFP${inf.dt!=null?", about "+reSign(inf.dt,v=>reHM(v)):""}. The ATC route, nav log and fuel below are still the original plan.</span>
-   <div class="re-rt"><span>New ATC route</span><code>${esc(reRoute())}</code></div><div class="ms-btns"><a class="re-sb" href="${esc(reSbUrl())}" target="_blank" rel="noopener">Send to SimBrief ↗</a><button type="button" data-re="open">Edit on map</button><button type="button" data-re="revert">Revert to OFP</button></div><span class="re-hint">SimBrief opens with this route filled in. Generate the new OFP there, then fetch it in Dispatch.</span></div></section>`}
+   <div class="re-rt"><span>New ATC route</span><code>${esc(reRoute())}</code></div><div class="ms-btns"><a class="re-sb" href="${esc(reSbUrl())}" target="_blank" rel="noopener">Send to SimBrief ↗</a><button type="button" data-re="open">Edit on map</button><button type="button" data-re="revert">Revert to OFP</button></div><span class="re-hint">SimBrief opens with this route filled in. Generate the new OFP there, then fetch it in Flight › Download.</span></div></section>`}
 try{window.__efbDbg={routePts,rePts,reGeo,store,reRoute,reSbUrl}}catch(e){}
 
 /* ---- Send to SimBrief: rebuild an ATC route string from the edited route and open SimBrief's dispatch page with it ----
@@ -2628,7 +2627,7 @@ const cardH=(eb,h,r)=>`<div class="card-h"><div><span class="eyebrow">${eb}</spa
 const plane='<svg viewBox="0 0 36 18" aria-hidden="true"><path d="M1 9h30M25 3l7 6-7 6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 const ring=(d,t)=>{const f=t?d/t:0,c=2*Math.PI*12;return `<svg class="ring${t&&d===t?" done":""}" viewBox="0 0 30 30" aria-hidden="true"><circle class="bg" cx="15" cy="15" r="12"/><circle class="fg" cx="15" cy="15" r="12" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c*(1-f)).toFixed(1)}"/></svg>`};
 const ROSE_SVG='';
-const sampleNote=()=>ofp._sample?`<div class="notice"><b>No flight plan</b><span>Fetch your SimBrief OFP in Dispatch to see it here.</span><a class="btn pri" href="#simbrief">Open Dispatch</a></div>`:"";
+const sampleNote=()=>ofp._sample?`<div class="notice"><b>No flight plan</b><span>Fetch your SimBrief OFP in Flight › Download to see it here.</span><a class="btn pri" href="#simbrief">Open Download</a></div>`:"";
 
 /* ===== Flight Plan ===== */
 let ofpTab=store.get("ofpTab","sum");if(!["sum","fuel","route","navlog","oooi"].includes(ofpTab))ofpTab="sum";
@@ -2641,7 +2640,7 @@ function ofpSide(){const x=O(),tm=ofp.times||{},o=store.get("oooi:"+x.id,{});con
    <div class="tb"><div><b>${esc(S(x.o.icao_code))}</b><small>${utcHM(N(tm.sched_out))} · ${esc(S(x.o.plan_rwy)||"—")}</small></div>${plane}<div class="r"><b>${esc(S(x.d.icao_code))}</b><small>${utcHM(N(tm.sched_in))} · ${esc(S(x.d.plan_rwy)||"—")}</small></div></div>
    <div class="tf"><div><span>ETE</span><b>${hhmm(N(tm.est_time_enroute))}</b></div><div><span>Altn</span><b>${esc(S(x.a.icao_code)||"—")}</b></div><div><span>Block</span><b>${fmt(N((ofp.fuel||{}).plan_ramp))}</b></div></div></div>
    <div class="slabel">Plan</div><nav class="snav" aria-label="Flight plan sections">${items.map(i=>navBtn(`data-tab="${i[0]}"`,ofpTab===i[0],ico(i[1]),i[2],i[3])).join("")}</nav>
-   <div class="sfoot">${ofp._sample?"No plan · load yours in Dispatch":"SimBrief OFP "+esc(x.id)}</div>`}
+   <div class="sfoot">${ofp._sample?"No plan · load yours in Flight › Download":"SimBrief OFP "+esc(x.id)}</div>`}
 function ofpSummary(){const x=O(),wt=ofp.weights||{},tm=ofp.times||{};const dist=N(x.g.route_distance)||N(x.g.air_distance);
   const st=(k,v)=>`<div><dt>${k}</dt><dd>${v}</dd></div>`;
   return `${sampleNote()}
@@ -2788,7 +2787,7 @@ function clNormal(){const x=O(),st=store.get(clKey(),{});const ct=clType();const
    ${sec[2].when?`<div class="cl-when">${ico("info")}<span>${esc(sec[2].when)}</span></div>`:""}
    ${clItems(sec[1],st,clIdx,"data-ck")}
    ${p.done===p.total?`<div class="cl-done"><span>“${esc(sec[0])} checklist complete”</span>${nx>=0?`<button class="btn pri" id="clNext">${esc(CL[nx][0])} ›</button>`:""}</div>`:""}</section>
-   <p class="note">PF calls for the checklist. PM reads each challenge; PF responds only after checking the aircraft. Teal values are filled in from this flight's OFP, METAR, Loadsheet and Performance. <i class="co">SOP</i> marks company items.${clAutoOK()?"":" <b class=\"c-amber\">Values are not filled in: the loaded OFP is for a different flight. Load this flight in Dispatch.</b>"}${ct.fam==="A350"?" The A350 list follows the standard Airbus A350 checklist structure with the company items added; it is not from the A321 SOP.":""}</p>`;
+   <p class="note">PF calls for the checklist. PM reads each challenge; PF responds only after checking the aircraft. Teal values are filled in from this flight's OFP, METAR, Loadsheet and Performance. <i class="co">SOP</i> marks company items.${clAutoOK()?"":" <b class=\"c-amber\">Values are not filled in: the loaded OFP is for a different flight. Load this flight in Flight › Download.</b>"}${ct.fam==="A350"?" The A350 list follows the standard Airbus A350 checklist structure with the company items added; it is not from the A321 SOP.":""}</p>`;
   return split(side,main)}
 function nnView(){if(nnIdx>=NN.length)nnIdx=0;const st=store.get("nn2:"+O().id,{});const P=NN[nnIdx];const acts=P.i.filter(x=>typeof x!=="string");const done=acts.filter((_,j)=>st[nnIdx+"-"+j]).length;
   let lastC="";const list=NN.map((q,i)=>{const hd=q.c!==lastC?`<div class="nn-cat">${esc(q.c)}</div>`:"";lastC=q.c;
@@ -4476,8 +4475,6 @@ function muWidget(){const t=muCur(),on=!!muA.dataset.src&&!muA.paused;
    The operational flight plan exactly as SimBrief prints it (the plan_html in the loaded OFP), on paper or at night,
    with bigger or smaller type, find in page, and the PDF one tap away. The HTML is cleaned before it is shown:
    no scripts, frames, forms or event handlers, only plain web links and images. */
-APPS.ofpdoc={name:"OFP",bg:"linear-gradient(180deg,#FBFAF6,#E7E2D6)",fg:"#1A6772",g:'<path d="M6.5 2.5h11v19h-11z" fill="#fff" stroke="#8C7B63"/><path d="M9 6.5h6M9 9.5h6M9 12.5h6M9 15.5h4" stroke="#1A6772" stroke-width="1.5"/>'};
-{const i=PAGE1.indexOf("simbrief");PAGE1.splice(i<0?PAGE1.length:i+1,0,"ofpdoc");const j=PAGE2.indexOf("simbrief");PAGE2.splice(j<0?PAGE2.length:j+1,0,"ofpdoc")}
 
 const OD={pen:false,tool:"pen",col:store.get("odInkCol","red")||"red",undo:[],pencil:!!store.get("odPencil",false),finger:store.get("odFinger",null)||(store.get("odPencil",false)?"scroll":"write"),fs:+store.get("odFs",13)||13,night:store.get("odNight",null),q:"",hits:0,at:0,cacheId:null,html:""};
 const odNight=()=>OD.night!=null?!!OD.night:isDark();
@@ -4499,7 +4496,7 @@ V.ofpdoc=()=>{if(ofp._sample)return `<div style="padding:24px 16px;max-width:760
         <button class="btn sm" data-od="prev" aria-label="Previous match">‹</button><button class="btn sm" data-od="next" aria-label="Next match">›</button></div>
         <button class="btn sm" data-od="smaller" aria-label="Smaller text">A−</button><button class="btn sm" data-od="bigger" aria-label="Bigger text">A+</button>
         <button class="btn sm" data-od="night" aria-pressed="${odNight()}">Night</button><button class="btn sm od-penb" data-od="pen" aria-pressed="${OD.pen}">${OD_PEN_ICON}Pen</button>${pdf?`<a class="btn sm" href="${esc(pdf)}" target="_blank" rel="noopener">PDF ↗</a>`:""}</div>${odInkBar()}</div>
-    <div class="od-scroll" id="odScroll"><div class="od-paper"><div class="od-host" id="odHost"><div id="odPaper">${h||`<p class="od-none">This OFP has no printed plan in it. ${pdf?"Open the PDF instead.":"Fetch it again from SimBrief in Dispatch."}</p>`}</div>${h?odInkSvg():""}</div></div></div></div>`};
+    <div class="od-scroll" id="odScroll"><div class="od-paper"><div class="od-host" id="odHost"><div id="odPaper">${h||`<p class="od-none">This OFP has no printed plan in it. ${pdf?"Open the PDF instead.":"Fetch it again from SimBrief in Flight › Download."}</p>`}</div>${h?odInkSvg():""}</div></div></div></div>`};
 /* find: mark every match in the text, step through them */
 function odFind(q,step){const paper=document.getElementById("odPaper");if(!paper)return;
   if(q!==OD.q||step==null){OD.q=q;paper.querySelectorAll("mark.odm").forEach(m=>{m.replaceWith(document.createTextNode(m.textContent))});paper.normalize();OD.hits=0;OD.at=0;
@@ -4921,7 +4918,7 @@ function fpProc(kind,ic){let code="";try{code=rpCur(kind)}catch(e){}const tr=fpT
 function fpCharts(ic){try{chLoad(ic)}catch(e){}const d=CH.data[ic];if(!d||!d.charts)return CH.err&&CH.err[ic]?"":`<p class="fp-note">${vam.url?"Looking for charts…":""}</p>`;
   const n=g=>d.charts.filter(c=>c.group===g).length,na=n("Arrivals"),np=n("Approaches");if(!na&&!np)return "";
   return `${na?`<div class="fp-row fp-cnt"><span class="fp-n g">${na}</span><span>Arrivals available</span><button class="fp-sel" data-fp="cat" data-cat="STAR" data-icao="${esc(ic)}">Select</button></div>`:""}${np?`<div class="fp-row fp-cnt"><span class="fp-n o">${np}</span><span>Approaches available</span><button class="fp-sel" data-fp="cat" data-cat="APP" data-icao="${esc(ic)}">Select</button></div>`:""}`}
-function fpHtml(){const x=O();if(ofp._sample)return `<div class="fp-h"><b>Flight</b><button data-fp="close" aria-label="Close">${fpI("x")}</button></div><p class="fp-empty">Load a SimBrief plan in Dispatch to see your flight here.</p>`;
+function fpHtml(){const x=O();if(ofp._sample)return `<div class="fp-h"><b>Flight</b><button data-fp="close" aria-label="Close">${fpI("x")}</button></div><p class="fp-empty">Load a SimBrief plan in Flight › Download to see your flight here.</p>`;
   const W={};wxFor(x).forEach(r=>{W[r[1]]=r[3]});const oi=S(x.o.icao_code),di=S(x.d.icao_code);
   return `<div class="fp-h"><b>${esc(x.flight)}</b><span>${esc(oi)} → ${esc(di)}</span><button data-fp="close" aria-label="Close">${fpI("x")}</button></div>
    <div class="fp-body"><button class="fp-ofp" data-fp="ofp">${fpI("doc")}View flight plan</button>
@@ -6093,14 +6090,14 @@ svg.seats.acmap{max-height:210px}
 </style>`);
 
 /* ===== Home screen: the apps in the order a flight uses them =====
-   Dock: Flight Plan → Weather → Charts (briefing) → Checklist (cockpit) → Map (in flight) → Logbook (after landing).
-   Home page: Mail (company notices at sign-on) → Dispatch (fetch the plan) → OFP → Loadsheet → Performance →
-   Winter Ops, then the tools: Convert, Clock, Music, Settings. A phone shows the dock's first four; its second page
-   carries the rest of the flight in the same order, its third page the tools. */
+   Dock: Flight (plan, map, charts, documents) → Weather → Checklist (cockpit) → Logbook (after landing).
+   Home page: Mail (company notices at sign-on) → Loadsheet → Performance → Winter Ops, then the tools: Convert, Clock,
+   Music, Settings. A phone shows the dock's four; its second page carries the rest of the flight in the same order,
+   its third page the tools. */
 {const set=(arr,ids)=>{arr.splice(0,arr.length,...ids.filter(id=>APPS[id]))};
-  set(DOCK,["ofp","wx","charts","checklist","map","logbook"]);
-  set(PAGE1,["mail","simbrief","ofpdoc","load","perf","winter","convert","timer","music","prefs"]);
-  set(PAGE2,["mail","simbrief","ofpdoc","load","perf","winter","map","logbook"]);
+  set(DOCK,["flight","wx","checklist","logbook"]);
+  set(PAGE1,["mail","load","perf","winter","convert","timer","music","prefs"]);
+  set(PAGE2,["mail","load","perf","winter"]);
   set(PAGE3,["convert","timer","music","prefs"])}
 
 /* Live Clock app icon (iOS-style): local time, sweeping second hand */
@@ -7111,8 +7108,8 @@ const TOOLS={
  ofp:()=>ofp._sample?`<a class="btn sm hide-n" href="#simbrief">No plan · Load yours</a>`:(O().pdf?`<a class="btn sm hide-n" href="${esc(O().pdf)}" target="_blank" rel="noopener">OFP PDF ↗</a>`:""),
  load:()=>`<button class="btn sm" data-ldact="reset">Reset to OFP</button>`
 };
-function appChrome(id){const a=APPS[id];$("#appTitle").textContent=a.name;const ic=$("#navIc");ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;
-  screenEl.dataset.app=id;screenEl.dataset.layout=LAYOUT[id]||"page"}
+function appChrome(id){const fl=isFl(id),a=fl?APPS.flight:APPS[id];$("#appTitle").textContent=fl?FLV[id][0]:a.name;const ic=$("#navIc");ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;
+  screenEl.dataset.app=id;screenEl.dataset.layout=LAYOUT[id]||"page";screenEl.classList.toggle("ft-on",fl);if(fl)store.set("ftLast",id)}
 function updBar(){$("#wake").hidden=!wl;const mm=$("#muMini");if(mm){const on=typeof muA!=="undefined"&&!muA.paused&&cur!=="music"&&!(window.__islOn&&window.__islOn());mm.hidden=!on;if(on){const t=muCur();mm.innerHTML=`<span class="eq"><i></i><i></i><i></i></span><span>${esc(t?t.title:"Music")}</span>`;mm.setAttribute("aria-label","Now playing: "+(t?t.title:"music"))}}if(!cur)return;const x=O();$("#navEyebrow").textContent=(EYEBROW[cur]||(()=>""))(x);const th=(TOOLS[cur]||(()=>""))();$("#navTools").innerHTML=th;screenEl.classList.toggle("no-tools",!th.trim())}
 function tick(){const d=new Date();
   $("#sbTime").textContent=pad(d.getHours())+":"+pad(d.getMinutes());
@@ -7131,11 +7128,12 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
   let h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="_navlog"||h==="_oooi")h=h.slice(1);if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
-  const next=APPS[h]&&typeof V[h]==="function"?h:null;const prev=cur;
+  if(h==="flight"){location.replace("#"+ftLast());return}
+  const next=(APPS[h]||isFl(h))&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
   if(next){
-    if(!DOCK.includes(next)){store.set("recents",[next,...store.get("recents",[]).filter(i=>i!==next)].slice(0,3))}
+    {const rid=isFl(next)?"flight":next;if(!DOCK.includes(rid))store.set("recents",[rid,...store.get("recents",[]).filter(i=>i!==rid)].slice(0,3))}
     appChrome(next);screenEl.classList.add("in-app");$("#home").inert=true;root.style.setProperty("--sbg","var(--bar)");
     render();$("#main").scrollTop=0;
     if(prev==null){win.hidden=false;win.classList.remove("closing","opening");
@@ -7144,7 +7142,7 @@ function route(){
   }else{
     screenEl.classList.remove("in-app");$("#home").inert=false;root.style.setProperty("--sbg","var(--wp0)");render();
     if(reduced()){win.hidden=true;return}
-    const ic=document.querySelector(`#home [data-app="${prev}"] .icon`);setOrigin(ic&&originOf(ic));
+    const ic=document.querySelector(`#home [data-app="${isFl(prev)?"flight":prev}"] .icon`);setOrigin(ic&&originOf(ic));
     win.classList.remove("opening");void win.offsetWidth;win.classList.add("closing");
   }
 }
@@ -7736,8 +7734,6 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    flight plan, the ATIS and Performance. Pages are grouped by flight.
    Pages live on this device (IndexedDB) and, while signed in, on the EFB server too, so they follow the pilot to
    every device (Worker kb.js; only the pilot can read them). The newer copy of a page wins. */
-APPS.kneeboard={name:"Kneeboard",bg:"linear-gradient(165deg,#5E6E7B,#2C3843)",fg:"#fff",g:'<rect x="5" y="4" width="14" height="17.5" rx="1.6" fill="#fff" stroke="none"/><rect x="8.6" y="2.4" width="6.8" height="3.4" rx="1.1" fill="#C3CDD5" stroke="#fff" stroke-width="1"/><path d="M8 10h8M8 13h8M8 16h4.5" stroke="#5E6E7B" stroke-width="1.3"/><path d="M14 19.6l5.2-5.2 1.6 1.6-5.2 5.2H14z" fill="#F2B233" stroke="none"/>'};
-{const put=(a,after)=>{if(a.includes("kneeboard"))return;const i=a.indexOf(after);a.splice(i<0?a.length:i+1,0,"kneeboard")};put(PAGE1,"ofpdoc");put(PAGE2,"ofpdoc")}
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="kneeboard"){KB.fx="open";KB.sheet=false;KB.menu=false;screenEl.dataset.layout="full";setTimeout(()=>kbSync(),0)}return r}}
 
 const KB_W=640;
@@ -7908,7 +7904,7 @@ const pad3=n=>String(Math.round(n)%360||360).padStart(3,"0");
 /* ---------- filling a form ---------- */
 function kbFill(p,quiet,noWait){const say=m=>{if(!quiet)toast(m)};const x=O(),f=p.fields=p.fields||{},set=(k,v)=>{if(v!=null&&String(v).trim()!==""&&!String(f[k]||"").trim())f[k]=String(v)};let n=0;
   const cnt=()=>{n=Object.keys(f).length};const before=JSON.stringify(f);
-  if(ofp._sample&&p.tpl!=="atis"){say("Load a flight plan in Dispatch first");return false}
+  if(ofp._sample&&p.tpl!=="atis"){say("Load a flight plan in Flight › Download first");return false}
   if(p.tpl==="craft"){set("c",S(x.d.icao_code));set("r",S(x.g.route));const ia=N(x.g.initial_altitude);set("a",ia?(ia>=18000?"FL"+Math.round(ia/100):fmt(ia)):"");set("crz",ia?"FL"+Math.round(ia/100):"");set("dep",S(x.o.plan_rwy)?"RWY "+S(x.o.plan_rwy):"")}
   else if(p.tpl==="fuel"){p.rows=x.fixes.filter(q=>S(q.ident)).slice(0,60).map(q=>({w:S(q.ident),t:hhmm(N(q.time_total)),f:N(q.fuel_plan_onboard)}))}
   else if(p.tpl==="told"){try{const s=pfState(),m0=s.mode;s.mode="to";pfSave(s);let T=null,L=null;try{T=pfCalc()}catch(e){}s.mode="ld";pfSave(s);try{L=pfCalc()}catch(e){}s.mode=m0;pfSave(s);
@@ -7989,7 +7985,7 @@ document.addEventListener("click",e=>{const w=e.target.closest&&e.target.closest
   if(e.target.closest(".kb-actb")){e.stopImmediatePropagation();e.preventDefault();kbSwDelete(w);return}
   if((w._noClick&&performance.now()-w._noClick<350)||w.classList.contains("open-r")){e.stopImmediatePropagation();e.preventDefault();if(w.classList.contains("open-r")&&!(w._noClick&&performance.now()-w._noClick<350))kbSwClose()}},true);
 function kbSide(){const n=[...KB.pages.values()].filter(kbMine).length;
-  return `<aside class="kb-side"><div class="kb-sh"><h2>Kneeboard</h2><button class="kb-gl" data-kbnew aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+  return `<aside class="kb-side"><div class="kb-sh"><h2>Scratch Pad</h2><button class="kb-gl" data-kbnew aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
     <div class="kb-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input type="search" data-kbq placeholder="Search" value="${esc(KB.q)}" autocomplete="off"></div>
     <div class="kb-list" id="kbList">${KB.ready?kbList():`<div class="kb-empty">Loading…</div>`}</div>
     <div class="kb-foot"><div class="kb-st" id="kbSt" role="status">${kbStatusHtml()}</div>${n?`<button class="kb-delall" data-kbdelall>${KB.armAll?"Tap again to delete all "+n+" pages":"Delete All Pages"}</button>`:""}</div></aside>`}
@@ -8000,7 +7996,7 @@ function kbTools(){const col=c=>`<button class="kb-sw" data-kbt="col:${c}" aria-
     <button class="kb-tb" data-kbt="undo" aria-label="Undo"${KB.undo.length?"":" disabled"}><svg viewBox="0 0 24 24"><path d="M9 7L4.5 11.5 9 16"/><path d="M5 11.5h9a5 5 0 0 1 0 10h-2"/></svg></button><button class="kb-tb" data-kbt="redo" aria-label="Redo"${KB.redo.length?"":" disabled"}><svg viewBox="0 0 24 24"><path d="M15 7l4.5 4.5L15 16"/><path d="M19 11.5h-9a5 5 0 0 0 0 10h2"/></svg></button>
     <span class="kb-hint">${kbHint()}</span></div>`}
 const kbHint=()=>KB.tool==="type"?(KB.pencil?"Tap a box to type · Pencil writes anywhere":"Tap a box to type"):KB.finger==="scroll"?(KB.pencil?"Pencil writes · finger scrolls":"Finger scrolls · use a Pencil or mouse to write"):"One finger writes · two fingers scroll";
-function kbMain(p){if(!p)return `<section class="kb-main none"><div class="kb-none">${kbG("lined")}<b>${KB.pages.size?"Pick a page":"Your kneeboard is empty"}</b><span>Start a page with + . Forms fill themselves from your flight plan, the ATIS and Performance.</span><button class="kb-btn" data-kbnew>New Page</button></div></section>`;
+function kbMain(p){if(!p)return `<section class="kb-main none"><div class="kb-none">${kbG("lined")}<b>${KB.pages.size?"Pick a page":"Your scratch pad is empty"}</b><span>Start a page with + . Forms fill themselves from your flight plan, the ATIS and Performance.</span><button class="kb-btn" data-kbnew>New Page</button></div></section>`;
   const T=kbTpl(p),fill=KB_T[p.tpl]?.fill,night=kbNight();
   return `<section class="kb-main"><div class="kb-bar"><button class="kb-back" data-kbback aria-label="Pages"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Pages</span></button>
       <input class="kb-ti" data-kbtitle value="${esc(p.title||"")}" placeholder="${esc(KB_T[p.tpl]?.name||"Page")}" aria-label="Page title" maxlength="60">
@@ -8295,114 +8291,157 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @media (max-width:480px){.kb-acts{width:100%;justify-content:flex-end}.kb-acts .kb-pill{margin-right:auto}}
 </style>`);
 
-/* ===== Flight: the preflight in one app =====
-   Flight walks through the apps a pilot uses before departure, in order: Import Plan (Dispatch), the OFP, the
-   Loadsheet, Takeoff and Descent performance, and Charts. Each step is the real app, so everything in it works as
-   usual; a step bar under the app moves between the steps, and Flight reopens at the step where the pilot left it for
-   the same plan. Loading a plan moves on to the OFP by itself. Going to the Home Screen or to another app ends it. */
+/* ===== Flight: the EFB app (Nov 2026) =====
+   One app for the flight, laid out like an airline EFB: a tab bar along the bottom with the UTC time on the left and
+   Download (fetch the SimBrief plan), Map, Airports (the Map with its airport panel open), Charts, Documents (the OFP
+   and the flight plan's pages), Messages (ACARS, coming), Scratch Pad (the kneeboard) and More (Backup PFD, settings).
+   Map, Charts, Kneeboard, Dispatch, Flight Plan, OFP and Backup PFD used to be apps of their own. They are views of
+   Flight now and keep their addresses (#map, #charts, #kneeboard, #simbrief, #ofp, #ofpdoc, #pfd), so every link,
+   notification and Dynamic Island tap still lands in the right place, with the right tab lit. #flight opens the view
+   used last. On a phone the bar keeps Download, Map, Airports, Charts and More; More lists the other three. */
+/* FLV (the views), isFl() and ftLast() are defined with the Dock and pages at the top */
+/* tab icons: one stroke weight, drawn in the tab's colour (day and night) */
+const FT_I={
+  dl:'<path d="M12 3.5v11.3M7.4 10.3 12 14.9l4.6-4.6"/><path d="M4 14.6v4.1a1.8 1.8 0 0 0 1.8 1.8h12.4a1.8 1.8 0 0 0 1.8-1.8v-4.1"/>',
+  map:'<path d="M3.5 6.6 9 4.2l6 2.4 5.5-2.4v13.2L15 19.8l-6-2.4-5.5 2.4z"/><path d="M9 4.2v13.2M15 6.6v13.2"/>',
+  apt:'<circle cx="12" cy="12" r="6.2"/><path d="M17.7 6.3 6.3 17.7M12 2.6v2.3M12 19.1v2.3M2.6 12h2.3M19.1 12h2.3"/>',
+  charts:'<path d="M5.5 2.8h9.1l3.9 3.9v14.5h-13z"/><path d="M14.6 2.8v3.9h3.9"/><text x="12" y="16.4" text-anchor="middle" font-size="6.1" font-weight="700" stroke="none" fill="currentColor" font-family="IBM Plex Mono,ui-monospace,monospace">IFR</text>',
+  docs:'<path d="M5.5 2.8h9.1l3.9 3.9v14.5h-13z"/><path d="M14.6 2.8v3.9h3.9M8.6 11.2h6.8M8.6 14.2h6.8M8.6 17.2h4.3"/>',
+  msg:'<rect x="2.8" y="5.3" width="18.4" height="13.4" rx="1.8"/><path d="m3.4 6.2 8.6 6.9 8.6-6.9M3.5 17.8l6.4-6.1M20.5 17.8l-6.4-6.1"/>',
+  pad:'<path d="m15.1 4.4 4.5 4.5L8.9 19.6l-5.4.9.9-5.4z"/><path d="m13.2 6.3 4.5 4.5"/>',
+  more:'<path d="M4.3 6.8h15.4M4.3 12h15.4M4.3 17.2h15.4"/>'};
+/* [tab, label, view] */
+const FT=[["dl","Download","simbrief"],["map","Map","map"],["apt","Airports","map"],["charts","Charts","charts"],["docs","Documents","docs"],["msg","Messages","messages"],["pad","Scratch Pad","kneeboard"],["more","More","more"]];
+const FT_PHONE=new Set(["dl","map","apt","charts","more"]);
+const FTX={as:false};
+const ftUtc=()=>{const d=new Date();return pad(d.getUTCHours())+":"+pad(d.getUTCMinutes())};
+/* which tab is lit: the Map is Airports while its airport panel is open */
+function ftKey(){if(cur==="map")return typeof AS!=="undefined"&&AS.open?"apt":"map";return isFl(cur)?FLV[cur][1]:null}
+function ftBar(){let b=$("#ftabs");if(b)return b;b=document.createElement("nav");b.id="ftabs";b.className="ftabs";b.setAttribute("aria-label","Flight");
+  b.innerHTML=`<div class="ft-utc" role="timer" aria-label="UTC time"><b id="ftUtc">${ftUtc()}</b><span>UTC</span></div>`
+    +FT.map(([k,t])=>`<button type="button" class="ft-tab${FT_PHONE.has(k)?"":" ft-pad"}" data-ft="${k}"><span class="ft-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${FT_I[k]}</svg><i class="ft-b" hidden></i></span><span class="ft-l">${t}</span></button>`).join("");
+  $("#homeInd").before(b);return b}
+function ftSync(){if(!cur||!isFl(cur))return;const b=ftBar(),k=ftKey();
+  b.querySelectorAll("[data-ft]").forEach(e=>{if(e.dataset.ft===k)e.setAttribute("aria-current","page");else e.removeAttribute("aria-current")});
+  /* Download shows 1 while no plan is loaded, as the Dispatch icon did */
+  const dl=b.querySelector('[data-ft="dl"]'),need=!!ofp._sample,bd=dl.querySelector(".ft-b");bd.hidden=!need;bd.textContent=need?"1":"";
+  dl.setAttribute("aria-label",need?"Download, no plan loaded":"Download");
+  const u=$("#ftUtc");if(u)u.textContent=ftUtc();
+  /* Airports from another tab: open the panel once the Map is up */
+  if(FTX.as&&cur==="map"){FTX.as=false;setTimeout(()=>{if(cur==="map"&&!AS.open)asOpen()},0)}}
+{const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);ftSync();return r}}
+{const _u=asUi;asUi=function(){const r=_u.apply(this,arguments);if(cur==="map")ftSync();return r}}
+{const _t=tick;tick=function(){const r=_t.apply(this,arguments);const u=$("#ftUtc");if(u&&cur&&isFl(cur))u.textContent=ftUtc();return r}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ft]");if(!t)return;const k=t.dataset.ft;try{navigator.vibrate&&navigator.vibrate(6)}catch(_){}
+  if(k==="apt"){if(cur==="map"){if(!AS.open)asOpen()}else{FTX.as=true;goApp("map")}return}
+  /* Map: the map alone, also when the airport panel was left open */
+  if(k==="map"){if(AS.open){AS.open=false;if(cur==="map")asUi()}if(cur!=="map")goApp("map");return}
+  const id=FT.find(f=>f[0]===k)[2];
+  /* the lit tab again: back to its first page, or to the top of it */
+  if(cur===id){const m=$("#main");if(m)m.scrollTo({top:0,behavior:reduced()?"auto":"smooth"});return}
+  goApp(id)});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ftgo],[data-fdoc],[data-ftset]");if(!t||!isFl(cur))return;const d=t.dataset;
+  if(d.ftgo){goApp(d.ftgo);return}
+  if(d.fdoc){if(d.fdoc==="ofpdoc"){goApp("ofpdoc");return}ofpTab=d.fdoc;store.set("ofpTab",d.fdoc);goApp("ofp");return}
+  if(d.ftset!=null){psec="nav";store.set("psec","nav");stOpen=true;goApp("prefs")}});
+
+/* A pilot's own Home Screen from before: Flight takes the Dock place of the first app it took in (Flight Plan, Map,
+   Charts…), once; the old step-by-step Flight's state goes. */
+{const GONE=["ofp","map","charts","simbrief","ofpdoc","kneeboard","pfd","_navlog","_oooi"],L=store.get("homeLayout",null);
+  if(L&&typeof L==="object"&&!store.get("ftMoved",false)){let ch=false;
+    for(const m of Object.keys(L)){const o=L[m];if(!o||!Array.isArray(o.dock)||o.dock.includes("flight"))continue;const i=o.dock.findIndex(id=>GONE.includes(id));if(i<0)continue;
+      Object.values(o).forEach(a=>{if(Array.isArray(a)){const j=a.indexOf("flight");if(j>=0)a.splice(j,1)}});o.dock.splice(i,1,"flight");ch=true}
+    if(ch)store.set("homeLayout",L)}
+  store.set("ftMoved",true);try{["flOn","flSeen"].forEach(k=>localStorage.removeItem("pefb:"+k))}catch(e){}}
+
 APPS.flight={name:"Flight",bg:"linear-gradient(160deg,#2F8F9C,#123F49)",fg:"#fff",g:'<path d="M3 20.2h18" stroke-width="1.7"/><path d="M20.6 6.3c.7.6.6 1.6-.2 2.2L9.3 15.7c-.5.3-1.1.3-1.6 0l-3.4-2.4 1.5-.8 2.6.9 3.1-2-4.8-4.2 1.9-.9 6.5 2.3 3.3-2.1c.7-.5 1.6-.6 2.2-.2z" fill="#fff" stroke="none"/><circle cx="6" cy="20.2" r="1.15" fill="#9FE3EA" stroke="none"/><circle cx="12" cy="20.2" r="1.15" fill="#9FE3EA" stroke="none"/><circle cx="18" cy="20.2" r="1.15" fill="#fff" stroke="none"/>'};
-{const put=(a)=>{if(!a.includes("flight"))a.splice(0,0,"flight")};put(PAGE1);put(PAGE2)}
-const FL_STEPS=[{k:"plan",app:"simbrief",t:"Import Plan"},{k:"ofp",app:"ofpdoc",t:"OFP"},{k:"load",app:"load",t:"Loadsheet"},
-  {k:"to",app:"perf",mode:"to",t:"Takeoff"},{k:"ds",app:"perf",mode:"ds",t:"Descent"},{k:"charts",app:"charts",t:"Charts"}];
-const FL_APPS=[...new Set(FL_STEPS.map(s=>s.app))];
-const FL={on:store.get("flOn",false)===true,last:-1};
-/* the App Store lets Flight open its steps, also those not on the Home Screen */
-const flAllows=id=>FL.on&&(FL_APPS.includes(id)||id==="ofp");
-function flKey(){if(ofp._sample)return "";const x=O();return [x.flight,S(x.o.icao_code),S(x.d.icao_code),S(ofp.params&&ofp.params.request_id)].join("|")}
-function flSeen(){const s=store.get("flSeen",null),k=flKey();return s&&s.k===k&&Array.isArray(s.steps)?s:{k,steps:[],at:null}}
-function flMark(k){const s=flSeen();if(!s.steps.includes(k))s.steps.push(k);s.at=k;store.set("flSeen",s)}
-function flNow(){if(!FL.on||!cur||!FL_APPS.includes(cur))return -1;
-  if(cur==="perf"){const m=pfDs?"ds":pfState().mode;return m==="to"?3:4}
-  return FL_STEPS.findIndex(s=>s.app===cur)}
-function flResume(){if(ofp._sample)return 0;const i=FL_STEPS.findIndex(x=>x.k===flSeen().at);return i>=0?i:1}
-function flGo(i,replace){const st=FL_STEPS[i];if(!st)return;FL.on=true;store.set("flOn",true);
-  if(st.mode){pfDs=st.mode==="ds";store.set("pfDs",pfDs);if(!pfDs){const s=pfState();s.mode=st.mode;pfSave(s)}}
-  if(cur===st.app){render();const m=$("#main");if(m)m.scrollTop=0;return}
-  if(replace)location.replace("#"+st.app);else location.hash=st.app}
-function flDone(){const s=flSeen();s.at=null;store.set("flSeen",s);FL.on=false;store.set("flOn",false);goHome()}
+/* #flight itself is never shown: route() sends it on to the view used last */
+V.flight=()=>"";
+EYEBROW.docs=x=>ofp._sample?"No plan loaded":`${x.flight} · ${S(x.o.icao_code)} → ${S(x.d.icao_code)}`;
+EYEBROW.messages=()=>"ACARS";EYEBROW.more=()=>"Polaris EFB";
 
-/* opening Flight goes straight to the step the pilot is on */
-V.flight=()=>{const i=flResume();FL.last=-1;setTimeout(()=>{if(cur==="flight")flGo(i,true)},0);
-  return `<div class="fl-boot" aria-hidden="true"></div>`};
-{const _g=goApp;goApp=function(id){
-  /* a plan loaded in Dispatch moves on to the OFP */
-  if(FL.on&&cur==="simbrief"&&id==="ofp"){flMark("plan");flGo(1);return}
-  return _g.apply(this,arguments)}}
-window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h!=="map"){FL.ret=null;const r=$("#flRet");if(r)r.remove()}
-  if(FL.on&&!FL_APPS.includes(h)&&h!=="flight"&&h!=="descent"){FL.on=false;FL.last=-1;store.set("flOn",false)}});
+/* ---------- Documents: the flight's papers ---------- */
+const FD_I={ofpdoc:FT_I.docs,sum:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 12.5h8M8 16h5"/>',brief:'<path d="M7.5 18.5h10a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6-1.3 3.9 3.9 0 0 0-.8 8.3z"/>',
+  fuel:'<path d="M5 20.5V5.5a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14 5.5v15M3.5 20.5h12M14 9h2.2l2.3 2.3V17a1.5 1.5 0 0 0 3 0V8.5L18.5 5.5"/><path d="M7.5 7.5h4v4h-4z"/>',
+  route:'<circle cx="6" cy="17.5" r="2.2"/><circle cx="18" cy="6.5" r="2.2"/><path d="M8 16.5c4-1 2-6 6-8l2.2-1"/>',navlog:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 7.6 1.9-3.2 1.9 3.2zM3.5 13.6l1.9-3.2 1.9 3.2zM3.5 19.6l1.9-3.2 1.9 3.2z"/>',
+  oooi:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/>',notam:'<path d="M12 3.5 21 19.5H3z"/><path d="M12 9.5v4.5M12 16.8v.1"/>'};
+const FD=[["ofpdoc","OFP","The operational flight plan as SimBrief prints it, with the pens"],["sum","Overview","Route, fuel, weights and times at a glance"],["brief","Briefing","The whole route on one page, with the weather"],
+  ["fuel","Fuel","Planned fuel, burn and reserves"],["route","Route","The route string and the airways"],["navlog","Nav Log","Waypoint by waypoint"],["oooi","Block Times","Out, off, on and in (OOOI)"],["notam","NOTAMs","For the airports of the flight"]];
+const fdRow=(attr,ic,t,sub)=>`<button type="button" class="fd-row" ${attr}><span class="fd-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg></span><span class="fd-t"><b>${t}</b><small>${sub}</small></span><svg class="fd-ch" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>`;
+V.docs=()=>{const x=O(),s=ofp._sample,gen=N(ofp.params&&ofp.params.time_generated);
+  const head=s?"No flight plan loaded":`${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}`;
+  const sub=s?"Fetch your SimBrief plan in Download and its documents appear here.":`${esc(S(x.ac.name)||S(x.ac.icaocode))}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}${gen?" · SimBrief OFP of "+new Date(gen*1000).toISOString().slice(0,16).replace("T"," ")+" UTC":""}`;
+  return `<div class="fd"><section class="card">${cardH("Flight documents",head)}<p class="fd-sub">${sub}</p>
+    ${s?`<div class="fd-empty"><button type="button" class="btn pri" data-ftgo="simbrief">Go to Download</button></div>`:`<div class="fd-list">${FD.map(([k,t,d])=>fdRow(`data-fdoc="${k}"`,FD_I[k],t,d)).join("")}</div>`}</section></div>`};
 
-/* ---------- the step bar ---------- */
-const FL_CHK='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.4l2.9 2.9 6.1-6.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const FL_CHV=d=>`<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d<0?"M10 3.5L5.5 8l4.5 4.5":"M6 3.5L10.5 8 6 12.5"}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-/* a chart laid over the map from Flight keeps a way back to Flight */
-function flRet(){let r=$("#flRet");const on=cur==="map"&&FL.ret!=null;
-  if(!on){if(r)r.remove();return}
-  if(!r){r=document.createElement("button");r.id="flRet";r.className="fl-ret";r.dataset.flgo=String(FL.ret);r.innerHTML=`${FL_CHV(-1)}<span>Flight</span><b>${esc(FL_STEPS[FL.ret].t)}</b>`;r.setAttribute("aria-label","Back to Flight, "+FL_STEPS[FL.ret].t);screenEl.querySelector(".appwin").appendChild(r)}}
-function flBar(){if(!cur)return;if(cur==="map"&&FL.on&&FL.last>=0)FL.ret=FL.last;else if(cur!=="map")FL.ret=null;flRet();let b=$("#flBar");
-  if(!b){b=document.createElement("nav");b.id="flBar";b.className="fl-bar";b.setAttribute("aria-label","Flight steps");$("#homeInd").before(b)}
-  const i=flNow();screenEl.classList.toggle("fl-on",i>=0);if(i<0){b.innerHTML="";b._h="";FL.last=-1;return}
-  const st=FL_STEPS[i],seen=flSeen(),nx=FL_STEPS[i+1],pv=FL_STEPS[i-1];flMark(st.k);
-  const done=(s,j)=>j!==i&&(s.k==="plan"?!ofp._sample:seen.steps.includes(s.k));
-  const html=`<button class="fl-nav fl-prev" data-flgo="${i-1}"${pv?"":" disabled"} aria-label="${pv?"Back to "+esc(pv.t):"First step"}">${FL_CHV(-1)}<span>Back</span></button>
-  <ol class="fl-steps">${FL_STEPS.map((s,j)=>`<li><button class="fl-st${j===i?" on":""}${done(s,j)?" done":""}" data-flgo="${j}" aria-current="${j===i?"step":"false"}" aria-label="Step ${j+1}, ${esc(s.t)}${done(s,j)?", done":""}"><i>${done(s,j)?FL_CHK:j+1}</i><span>${esc(s.t)}</span></button></li>`).join("")}</ol>
-  <button class="fl-nav fl-next" data-flgo="${i+1}" aria-label="${nx?"Next: "+esc(nx.t):"Done, back to the Home Screen"}"><span class="fl-nl">${nx?"Next":"Done"}</span>${nx?`<span class="fl-nt">${esc(nx.t)}</span>`:""}${nx?FL_CHV(1):FL_CHK}</button>`;
-  if(b._h!==html){b.innerHTML=html;b._h=html}
-  /* the step slides in from the side it comes from */
-  if(FL.last>=0&&FL.last!==i&&!reduced()){const v=$("#view");if(v){v.classList.remove("fl-in-n","fl-in-p");void v.offsetWidth;v.classList.add(i>FL.last?"fl-in-n":"fl-in-p")}}
-  FL.last=i}
-/* the header shows the step, under Flight */
-{const _u=updBar;updBar=function(){_u.apply(this,arguments);flBar();const i=flNow();if(i<0)return;
-  const st=FL_STEPS[i],a=APPS.flight,x=O();$("#appTitle").textContent=st.t;
-  $("#navEyebrow").textContent=`Flight · Step ${i+1} of ${FL_STEPS.length}`+(ofp._sample?"":` · ${x.flight} ${S(x.o.icao_code)} → ${S(x.d.icao_code)}`+(ftText(x.flight)?" · "+ftText(x.flight):""));
-  const ic=$("#navIc");if(ic.dataset.fl!=="1"){ic.style.background=a.bg;ic.style.color=a.fg;ic.innerHTML=`<svg viewBox="0 0 24 24">${a.g}</svg>`;ic.dataset.fl="1"}}}
-{const _ac=appChrome;appChrome=function(){const r=_ac.apply(this,arguments);const ic=$("#navIc");if(ic)delete ic.dataset.fl;return r}}
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-flgo]");if(!t||t.disabled)return;const j=+t.dataset.flgo;
-  if(j>=FL_STEPS.length){flDone();return}if(j<0)return;try{navigator.vibrate&&navigator.vibrate(6)}catch(_){}flGo(j)});
-document.addEventListener("animationend",e=>{if(e.target&&e.target.id==="view")e.target.classList.remove("fl-in-n","fl-in-p")});
-document.addEventListener("keydown",e=>{if(flNow()<0||e.altKey||e.ctrlKey||e.metaKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
-  if(e.key==="]"||e.key==="["){e.preventDefault();const j=flNow()+(e.key==="]"?1:-1);if(j>=0&&j<FL_STEPS.length)flGo(j)}});
+/* ---------- Messages: ACARS, coming ---------- */
+V.messages=()=>`<div class="fd"><section class="card fm"><span class="fm-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${FT_I.msg}</svg></span>
+  <span class="eyebrow">Coming soon</span><h2>ACARS messages</h2>
+  <p>Telex for your flight will arrive here as it does on the flight deck: the loadsheet, the pre-departure clearance, ATIS and messages from Polaris dispatch, by ACARS (Hoppie) on VATSIM.</p>
+  <p class="fm-note">Company notices, the Crew Mobile welcome after landing and your messages to and from staff stay in Mail.</p>
+  <a class="btn" href="#mail">Open Mail</a></section></div>`;
+
+/* ---------- More ---------- */
+V.more=()=>`<div class="fd">
+  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","The OFP, the flight plan, nav log and block times")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
+  <section class="card">${cardH("Flight","Instruments and settings")}<div class="fd-list">${fdRow('data-ftgo="pfd"','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>',"Backup PFD","Standby flight display, live from the simulator")}${fdRow("data-ftset",ST_I.gear||'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',"Settings","Base map and layers, your SimBrief account (opens Settings)")}</div></section>
+  <p class="fd-foot">© Polaris Airways EFB Beta${EFB_BUILD?" · build "+esc(EFB_BUILD):""}</p></div>`;
 
 document.head.insertAdjacentHTML("beforeend",`<style>
-.fl-bar{display:none}
-.fl-ret{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);z-index:30;display:inline-flex;align-items:center;gap:7px;padding:0 16px 0 12px;min-height:42px;border:0;border-radius:999px;background:var(--brand);color:#fff;font:500 13px/1 var(--f-ui);letter-spacing:.03em;box-shadow:0 6px 20px rgba(0,0,0,.3);cursor:pointer;animation:flRetIn .35s cubic-bezier(.2,.85,.25,1)}
-.fl-ret svg{width:15px;height:15px}.fl-ret span{opacity:.8}.fl-ret b{font-weight:600}
-.fl-ret:active{transform:translateX(-50%) scale(.96)}
-@keyframes flRetIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translateX(-50%)}}
-.screen.fl-on .fl-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-top:1px solid var(--line);font-family:var(--f-ui);min-height:58px;box-sizing:border-box;position:relative;z-index:3;animation:flUp .32s cubic-bezier(.2,.85,.25,1)}
-@keyframes flUp{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
-.fl-boot{min-height:60vh}
-.fl-nav{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:2px;min-height:40px;padding:0 14px;font:500 13px/1 var(--f-ui);letter-spacing:.04em;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:transform .12s,background .15s,opacity .15s}
-.fl-nav svg{width:15px;height:15px;flex:none}
-.fl-nav:active{transform:scale(.96)}
-.fl-nav:disabled{opacity:.35;cursor:default;transform:none}
-.fl-next{background:var(--brand);border-color:var(--brand);color:#fff;margin-left:auto}
-.fl-next .fl-nt{font-weight:600}
-.fl-next .fl-nt::before{content:"· ";opacity:.7;font-weight:400}
-.fl-steps{list-style:none;margin:0 auto;padding:0;display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
-.fl-steps li{display:flex;align-items:center;flex:none}
-.fl-steps li+li::before{content:"";width:16px;height:1px;background:var(--line);margin:0 2px}
-.fl-st{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--label);padding:6px 8px;border-radius:999px;font:500 12.5px/1 var(--f-ui);letter-spacing:.03em;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .18s,color .18s}
-.fl-st i{font-style:normal;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.4px solid var(--line);font:600 11px/1 var(--f-mono);color:var(--label);transition:background .2s,border-color .2s,color .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
-.fl-st i svg{width:13px;height:13px}
-.fl-st.done i{background:color-mix(in srgb,var(--green) 14%,transparent);border-color:var(--green);color:var(--green)}
-.fl-st.on{color:var(--ink);background:color-mix(in srgb,var(--brand) 11%,transparent)}
-.fl-st.on i{background:var(--brand);border-color:var(--brand);color:#fff;transform:scale(1.08)}
-.fl-st:hover:not(.on){color:var(--ink)}
-:root[data-theme="dark"] .fl-st.on{background:rgba(124,194,201,.14)}
-#view.fl-in-n{animation:flInN .3s cubic-bezier(.2,.85,.25,1)}
-#view.fl-in-p{animation:flInP .3s cubic-bezier(.2,.85,.25,1)}
-@keyframes flInN{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
-@keyframes flInP{from{transform:translateX(-28px);opacity:0}to{transform:none;opacity:1}}
-@media (max-width:1000px){.fl-st:not(.on) span{display:none}.fl-steps li+li::before{width:10px}}
-@media (max-width:560px){
-  .screen.fl-on .fl-bar{gap:6px;padding:7px 10px;min-height:54px}
-  .fl-prev span,.fl-next .fl-nt,.fl-st span{display:none}
-  .fl-nav{padding:0 12px;min-height:40px}
-  .fl-prev{padding:0 10px}
-  .fl-steps{gap:0}.fl-steps li+li::before{width:6px;margin:0 1px}
-  .fl-st{padding:5px 3px}.fl-st i{width:24px;height:24px}}
-html.pwa-ios .screen.fl-on .fl-bar{margin-bottom:0}
-@media (prefers-reduced-motion:reduce){.screen.fl-on .fl-bar,#view.fl-in-n,#view.fl-in-p{animation:none}}
+/* the bar, its icons and words grow with the screen (Nov 2026: bigger than at first): about 72 / 31 / 13 px on an iPad
+   held sideways, up to 88 / 40 / 16 px on a large monitor */
+.screen{--ft-h:clamp(68px,calc(2.2cqw + 46px),88px);--ft-icn:clamp(28px,calc(.9cqw + 20px),40px);--ft-fs:clamp(12px,calc(.3cqw + 9.5px),16px);--ft-utc:clamp(20px,calc(.7cqw + 14px),30px);--ft-bg:var(--panel);--ft-ink:var(--ink);--ft-dim:var(--label);--ft-on:var(--brand);--ft-line:var(--line)}
+:root[data-theme="dark"] .screen{--ft-bg:#050506;--ft-ink:#F1F2F2;--ft-dim:#A1A4A6;--ft-on:#7CC2C9;--ft-line:#232326}
+.ftabs{display:none}
+.screen.ft-on .appwin{grid-template-rows:var(--sbh) auto minmax(0,1fr) auto auto}
+.screen.ft-on .appwin>main{grid-row:3/4!important}
+.screen.ft-on .appwin>.ftabs{grid-row:4;display:flex;align-items:stretch;min-height:var(--ft-h);background:var(--ft-bg);color:var(--ft-ink);border-top:1px solid var(--ft-line);
+  padding-left:max(4px,env(safe-area-inset-left,0px));padding-right:max(4px,env(safe-area-inset-right,0px));position:relative;z-index:7;font-family:var(--f-ui)}
+.screen.ft-on .appwin>.homeind{grid-row:5;position:relative!important;inset:auto!important;background:var(--ft-bg)!important;z-index:7}
+.screen.ft-on .appwin>.homeind span{background:var(--ft-ink)}
+html.pwa-ios .screen.ft-on .appwin{background:linear-gradient(var(--bg),var(--bg)) top/100% calc(100% - var(--sab,0px)) no-repeat,var(--ft-bg)}
+.screen.ft-on[data-app="map"] .mapwrap{--mb:0px}
+.screen.ft-on .nav .clock{display:none}
+.screen.ft-on .wxb-ret{bottom:calc(var(--ft-h) + 30px)}
+.ft-utc{flex:0 0 auto;display:flex;align-items:baseline;justify-content:center;gap:6px;min-width:calc(var(--ft-utc) * 6.4);padding:0 16px;align-self:center;font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ft-ink)}
+.ft-utc b{font-size:var(--ft-utc);font-weight:500;letter-spacing:.02em}
+.ft-utc span{font-size:calc(var(--ft-fs) * .9);font-weight:600;letter-spacing:.1em;color:var(--ft-dim)}
+.ft-tab{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--ft-fs) * .42);padding:7px 2px 8px;border:0;background:transparent;color:var(--ft-ink);
+  font:500 var(--ft-fs)/1.1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s;position:relative}
+@media (hover:hover){.ft-tab:hover{background:color-mix(in srgb,var(--ft-ink) 7%,transparent)}}
+.ft-tab[aria-current="page"]{color:var(--ft-on)}
+.ft-tab[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:24%;right:24%;height:3px;border-radius:0 0 3px 3px;background:var(--ft-on)}
+.ft-tab:active .ft-ic{transform:scale(.92)}
+.ft-ic{position:relative;display:block;width:var(--ft-icn);height:var(--ft-icn);transition:transform .12s}
+.ft-ic svg{width:var(--ft-icn);height:var(--ft-icn);fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
+.ft-b{position:absolute;top:-4px;right:-9px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#FF3B30;color:#fff;font:600 11px/17px var(--f-ui);font-style:normal;letter-spacing:0;text-align:center}
+.ft-l{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@container screen (max-width:900px){.ft-utc{min-width:0;padding:0 10px}.ft-utc span{display:none}.ft-tab{letter-spacing:.03em;font-size:min(var(--ft-fs),11px)}}
+@container screen (max-width:640px){.screen.ft-on .appwin>.ftabs .ft-pad,.ft-utc{display:none}.screen.ft-on .appwin>.ftabs{--ft-h:62px;--ft-icn:27px}.ft-tab{font-size:10.5px;letter-spacing:.04em}}
+.fd{max-width:760px;margin:0 auto;display:grid;gap:16px}
+.fd-sub{margin:-2px 18px 12px;color:var(--label);font-size:12.5px}
+.fd-list{display:grid;border-top:1px solid var(--line)}
+.fd-row{display:grid;grid-template-columns:40px minmax(0,1fr) 16px;align-items:center;gap:12px;width:100%;padding:11px 16px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+.fd-row:last-child{border-bottom:0}
+.fd-row:hover{background:var(--panel-2)}
+.fd-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand)}
+:root[data-theme="dark"] .fd-ic{color:var(--accent)}
+.fd-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.fd-t b{display:block;font-weight:600;font-size:14px}
+.fd-t small{display:block;color:var(--label);font-size:12px;margin-top:2px}
+.fd-ch{width:16px;height:16px;fill:none;stroke:var(--label);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fd-empty{padding:4px 18px 18px}
+.fd-foot{margin:4px 0 0;text-align:center;color:var(--label);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
+.fd-phone{display:none}
+@container screen (max-width:640px){.fd-phone{display:block}}
+.fm{padding:28px 26px 26px;display:grid;justify-items:start;gap:8px}
+.fm .fm-ic{display:grid;place-items:center;width:52px;height:52px;border-radius:12px;background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand);margin-bottom:6px}
+:root[data-theme="dark"] .fm .fm-ic{color:var(--accent)}
+.fm .fm-ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.fm h2{margin:0;font:400 26px/1.15 var(--f-disp)}
+.fm p{margin:0;max-width:56ch;color:var(--ink);line-height:1.5}
+.fm .fm-note{color:var(--label);font-size:12.5px;margin-bottom:8px}
+@media (prefers-reduced-motion:reduce){.ft-tab,.ft-ic{transition:none}}
 </style>`);
 
 /* ===== Home Screen: arrange the apps, as on iPadOS 18 =====
@@ -8628,27 +8667,22 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 </style>`);
 
 /* ===== App Store =====
-   A pilot signing in for the first time starts with Roster, Mail, Map, Dispatch and Clock (plus App Store and Settings);
+   A pilot signing in for the first time starts with Roster, Mail, Flight and Clock (plus App Store and Settings);
    the rest are added from the App Store. All the code is already in the EFB, so "Get" unlocks an app with a short
    download animation. The installed list follows the pilot to every device (Worker /api/efb/apps). A device that was
    already in use before the App Store keeps every app. Removing an app takes it off the Home Screen; its data stays. */
 APPS.store={name:"App Store",bg:"linear-gradient(180deg,#1DA1FF,#0A62E0)",fg:"#fff",g:'<path d="M12 4.5l-1.3 2.2M8.9 9.7L5 16.4M15.1 9.7l-1.6-2.8M19 16.4l-1.6-2.8" stroke-width="2.1"/><path d="M4.5 13.6h7.3M14 13.6h5.5" stroke-width="2.1"/><path d="M10.2 9.7h-1.3l3.1-5.2" stroke-width="2.1"/>'};
-const AS_CORE=["prefs","store"],AS_DEF=["roster","mail","map","flight","simbrief","timer","store","prefs"];
+/* Flight is the EFB itself: always there, like Settings */
+const AS_CORE=["prefs","store","flight"],AS_DEF=["roster","mail","flight","timer","store","prefs"];
 const AS_INFO={
   roster:{c:"company",s:"Bookings, check-in and briefings",d:"See your upcoming flights from vAMSYS, check in up to 12 hours before departure and get a briefing with the plan, weather and ATIS for both ends.",f:["Duty times and turnarounds","Check in from the EFB","Briefing with METAR, TAF and ATIS"]},
   mail:{c:"company",s:"Company notices and messages",d:"Read notices from Polaris operations and write to staff. New messages arrive with a notification, also when the EFB is closed if push is on.",f:["Notices with attachments","Messages to and from staff","Notifications on the Dynamic Island"]},
-  flight:{c:"plan",s:"Your preflight, step by step",d:"Load the plan, read the OFP, then work through the loadsheet, takeoff and descent performance and the charts, one step after another. Flight opens the apps it needs, also before you get them.",f:["Import Plan, OFP, Loadsheet, Takeoff, Descent, Charts","Picks up where you left off","Moves on to the OFP when the plan loads"]},
-  simbrief:{c:"plan",s:"Load your SimBrief plan",d:"Fetch your newest SimBrief flight plan and every app fills in with your flight: the OFP, performance, loadsheet, weather and the map.",f:["One tap to load the newest plan","Paste or upload when fetching is blocked","Can load automatically when the EFB opens"]},
-  ofp:{c:"plan",s:"Route, fuel and times at a glance",d:"A summary of the loaded flight: route, fuel figures, weights and times, with the nav log and block times.",f:["Fuel and weight summary","Nav log","Block times (OOOI)"]},
-  ofpdoc:{c:"plan",s:"The operational flight plan",d:"The full OFP as a document you can read and write on with the pens, like the paper copy on the flight deck.",f:["Red, blue, green and black pens","Highlighter and eraser","Kept with the flight"]},
+  flight:{c:"plan",s:"Your EFB for the flight",d:"Fetch your SimBrief plan, then the moving map, airports, charts, the OFP and the flight plan’s pages, a scratch pad and the backup PFD: one app with tabs along the bottom and the UTC time always in view, like an airline EFB.",f:["Download, Map, Airports and Charts","Documents and Scratch Pad","Backup PFD"]},
   load:{c:"plan",s:"Weights and balance",d:"The loadsheet for the flight from the plan's passengers, cargo and fuel.",f:["Passenger and cargo loading","Fuel and weights","Trim"]},
   perf:{c:"plan",s:"Takeoff and landing data",d:"Takeoff and landing performance for the A321neo and A350-900 from the runway, weather and weights of your flight.",f:["V speeds and flex temperature","Landing distance and approach speed","Runway and wind from the plan"]},
   winter:{c:"plan",s:"De-icing and holdover times",d:"Winter operations reference: fluid types and holdover times for the conditions at the airport.",f:["Holdover time tables","Fluid types I, II and IV"]},
   wx:{c:"wx",s:"Weather for your route",d:"METAR, TAF and forecasts for the departure, destination and alternates of your flight.",f:["METAR and TAF","Flight categories","Plan airports at a glance"]},
-  charts:{c:"wx",s:"Airport and procedure charts",d:"Departure, arrival, approach and airport charts, which can also be laid over the map.",f:["SID, STAR, approach and taxi charts","Lay a chart over the map","Pin charts you use often"]},
   checklist:{c:"flight",s:"Normal checklists",d:"Normal checklists for the A320 family and the A350, with reminders when a checklist is due.",f:["A320 family and A350","Progress kept per flight","Reminders"]},
-  map:{c:"flight",s:"Moving map with weather and traffic",d:"Your route on a moving map with radar, SIGMETs, winds aloft, airports, airspace, Polaris and VATSIM traffic.",f:["Vector, satellite, IFR and VFR maps","Weather layers","Measure and edit the route"]},
-  kneeboard:{c:"flight",s:"Notes, forms and handwriting",d:"Write on lined or grid paper, or on forms for a clearance, ATIS, takeoff and landing data, holdings and fuel. Pages sync to all your devices.",f:["Forms fill from the plan, ATIS and Performance","Day and night paper","Only you can read your pages"]},
   logbook:{c:"flight",s:"Your flights",d:"Your vAMSYS PIREPs with the flown track, profile and landing data, and the flights logged in the EFB.",f:["Track and altitude profile","Landing rate and score","Block and air times"]},
   convert:{c:"tools",s:"Units and flight levels",d:"Convert lengths, speeds, temperatures, pressures, weights and visibility, and metric flight levels.",f:["Metric flight levels","Visibility and RVR","Fuel weights"]},
   timer:{c:"tools",s:"World clock, alarms and timers",d:"World clock with a day and night map, alarms that ring even when the EFB is closed, a stopwatch and timers.",f:["World clock","Alarms","Stopwatch and timers"]},
@@ -8664,7 +8698,7 @@ const ASX={st:null,tab:"today",q:"",det:null,busy:{},fresh:new Set(),syncing:fal
 function asState(){if(ASX.st)return ASX.st;let s=store.get("appsInst",null);
   if(!s||!Array.isArray(s.list)){s={list:asUsedBefore()?Object.keys(APPS).filter(id=>id[0]!=="_"):AS_DEF.slice(),upd:1,first:true};store.set("appsInst",s)}
   ASX.st=s;return s}
-const asOk=id=>asHas(id)||(typeof flAllows==="function"&&flAllows(id));
+const asOk=id=>asHas(id);
 const asHas=id=>!APPS[id]||id[0]==="_"||AS_CORE.includes(id)||asState().list.includes(id);
 function asSet(list,fromServer,upd){const s=asState();s.list=[...new Set([...list.filter(id=>APPS[id]),...AS_CORE])];s.upd=fromServer?upd:Date.now();delete s.first;store.set("appsInst",s);const rc=store.get("recents",null);if(Array.isArray(rc))store.set("recents",rc.filter(id=>s.list.includes(id)||!APPS[id]));if(!fromServer)asSyncSoon()}
 
@@ -8676,8 +8710,8 @@ function asPlaceDef(){if(HL._placed)return;HL._placed=1;for(const id of Object.k
 {const _a=hlApply;hlApply=function(){asPlaceDef();_a.apply(this,arguments);const keep=a=>a.splice(0,a.length,...a.filter(asHas));[DOCK,PAGE1,PAGE2,PAGE3].forEach(keep);
   /* a new pilot's few apps on one iPhone page (not once the pilot has arranged the pages) */
   if(HL.mode==="phone"&&!hlSaved().phone&&Object.keys(AS_INFO).some(id=>APPS[id]&&!asHas(id))&&PAGE2.length+PAGE3.length<=20&&PAGE3.length){PAGE2.push(...PAGE3.splice(0))}
-  /* an empty Dock gets the Map */
-  if(!DOCK.length&&asHas("map")){[PAGE1,PAGE2,PAGE3].forEach(a=>{const i=a.indexOf("map");if(i>=0)a.splice(i,1)});DOCK.push("map")}}}
+  /* an empty Dock gets Flight */
+  if(!DOCK.length&&asHas("flight")){[PAGE1,PAGE2,PAGE3].forEach(a=>{const i=a.indexOf("flight");if(i>=0)a.splice(i,1)});DOCK.push("flight")}}}
 {const _r=renderHome;renderHome=function(){const v=_r.apply(this,arguments);if(ASX.fresh.size&&!reduced()){ASX.fresh.forEach(id=>{document.querySelectorAll(`#home .app[data-app="${id}"]`).forEach(e=>e.classList.add("asx-pop"))});ASX.fresh.clear()}return v}}
 {const _b=hlBadges;hlBadges=function(){_b.apply(this,arguments);document.querySelectorAll('#home .app[data-app="store"]>.hl-x').forEach(x=>x.remove())}}
 
@@ -8705,7 +8739,7 @@ const asIcon=(id,cls)=>{const a=APPS[id];return `<span class="asx-ic ${cls||""}"
 /* ---------- the App Store app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="store"){screenEl.dataset.layout="full";ASX.anim=1;setTimeout(asSync,0)}return r}}
 function asxRow(id,i){const A=AS_INFO[id];return `<div class="asx-row" style="--i:${i||0}"><button class="asx-rowb" data-asdet="${id}">${asIcon(id)}<span class="asx-rt"><b>${esc(APPS[id].name)}</b><small>${esc(A.s)}</small></span></button>${asBtn(id)}</div>`}
-function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["ofpdoc","perf","load"].filter(id=>!asHas(id));
+function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["perf","load","checklist"].filter(id=>!asHas(id));
   const card=(cls,eyebrow,title,sub,body,i)=>`<section class="asx-card ${cls}" style="--i:${i}"><div class="asx-ch"><span>${eyebrow}</span><b>${title}</b><p>${sub}</p></div>${body}</section>`;
   const hero=`<div class="asx-hero">${asOk("calendar")||APPS.calendar?`<button class="asx-hc h-cal" data-asdet="calendar" style="--i:0"><span class="asx-hk">New for you</span><b>Calendar</b><p>Your bookings, the flight plan and your own events by day, week, month and year, in Zulu time.</p><span class="asx-hf">${asIcon("calendar","sm")}<span>Calendar</span></span></button>`:""}
 </div>`;
@@ -8713,10 +8747,10 @@ function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:
   const disc=`<div class="asx-sec"><h2 class="asx-h2">Discover something new</h2><button class="asx-link" data-asxtab="apps">All apps</button></div>${miss2.length?`<div class="asx-group">${miss2.map((id,i)=>asxRow(id,i)).join("")}</div>`:`<p class="asx-none">You have every app. Nice.</p>`}`;
   const partners=!AS_PARTNERS.length?"":`<div class="asx-sec"><h2 class="asx-h2">Today with our partners</h2><button class="asx-link" data-asxtab="partners">All partners</button></div><div class="asx-ptoday">${AS_PARTNERS.slice(0,2).map((p,i)=>asPartnerCard(p,i,true)).join("")}</div>`;
   return `<div class="asx-date">${day}</div><h1 class="asx-h1">Today</h1>${hero}
-  ${card("c-plan","Get started","Plan your first flight","Open Flight and go step by step: load the plan, read the OFP, then work out the numbers.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["simbrief","ofpdoc","perf","load"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
-  ${card("c-kb","New","Kneeboard","Clearances, ATIS and takeoff data on forms that fill themselves, with the OFP pens.",`<div class="asx-feat">${asIcon("kneeboard","md")}<span class="asx-rt"><b>Kneeboard</b><small>${esc(AS_INFO.kneeboard.s)}</small></span>${asBtn("kneeboard")}</div>`,1)}
+  ${card("c-plan","Get started","Plan your first flight","Open Flight, fetch your plan in Download and read it in Documents, then work out the numbers in Performance and Loadsheet.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["perf","load","checklist"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="ofpdoc,perf,load">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
+  ${card("c-kb","Before departure","Performance","Takeoff and landing data from the runway, the weather and the weights of your flight.",`<div class="asx-feat">${asIcon("perf","md")}<span class="asx-rt"><b>Performance</b><small>${esc(AS_INFO.perf.s)}</small></span>${asBtn("perf")}</div>`,1)}
   ${partners}
-  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="asx-list">${["checklist","charts","wx","logbook"].map((id,i)=>asxRow(id,i)).join("")}</div>`,2)}
+  ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="asx-list">${["checklist","wx","perf","logbook"].map((id,i)=>asxRow(id,i)).join("")}</div>`,2)}
   ${disc}`}
 /* ---------- partners ---------- */
 /* partner airlines (none at the moment: 海岸航空 was taken out for now; see _archive/appstore-with-eim.js) */
@@ -8767,8 +8801,6 @@ function asNeedClose(now){const n=$("#asNeed");if(!n)return;if(now||reduced()){n
 /* links and icons pointing at an app that isn't installed */
 document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;const id=a.getAttribute("href").slice(1);if(APPS[id]&&!asOk(id)){e.preventDefault();e.stopImmediatePropagation();asNeed(id)}},true);
 {const _g=goApp;goApp=function(id){
-  /* a plan loaded in Dispatch opens the OFP, or the operational flight plan when only that is on the Home Screen */
-  if(id==="ofp"&&cur==="simbrief"&&!asOk("ofp")){if(asOk("ofpdoc"))id="ofpdoc";else{render();return}}
   if(APPS[id]&&!asOk(id)){asNeed(id);return}asNeedClose(true);return _g.call(this,id)}}
 /* opening another app (a link, a notification) closes a "Get …" sheet left from before */
 {const _ac=appChrome;appChrome=function(id){if(APPS[id]&&!asOk(id)){setTimeout(()=>{goHome();asNeed(id)},0)}else asNeedClose(true);return _ac.apply(this,arguments)}}
@@ -9985,7 +10017,7 @@ function gxLiveHtml(){const v=GX.v,age=gxAge(),live=gxLive();
   const head=`<div class="gx-head"><span class="gx-dot ${live?"on":GX.at?"old":""}"></span><div><b>${!GX.at?"Waiting for GSX":live?"Live from GSX":"Last heard "+gxAgeTxt(age)}</b>
     <small>${GX.at?(GX.src==="pc"?"This PC":"Your simulator PC")+" · "+gxAgeTxt(age)+(GX.ac?" · "+esc(GX.ac):""):GX.bridge?(GX.st==="on"?(GX.wait?"Connected to FSUIPC on this PC · waiting for the simulator (start MSFS)":"Connected to FSUIPC on this PC · reading…"):"Connecting to FSUIPC on this PC…"):"Nothing from your simulator PC yet. Set it up below, on the PC."}</small></div>${gxStd()?`<span class="gx-std"><small>STD</small><b>${gxHM(gxStd())}</b><em>${gxToGo(gxStd())}</em></span>`:""}</div>`;
   if(!v)return head;
-  const other=GX.fid&&gxPlan()&&GX.fid!==O().id?`<div class="gx-warn">The simulator PC has another flight plan loaded, so these values may belong to another flight. Load the same plan in Dispatch on both devices.</div>`:"";
+  const other=GX.fid&&gxPlan()&&GX.fid!==O().id?`<div class="gx-warn">The simulator PC has another flight plan loaded, so these values may belong to another flight. Load the same plan in Flight › Download on both devices.</div>`:"";
   const nog=v.coua===0&&!v.board&&!v.fuel&&!v.dep?`<div class="gx-warn">GSX doesn’t seem to be running (Couatl not started), or FSUIPC hasn’t mapped its L:vars yet. See <b>If the values stay at 0</b> below.</div>`:"";
   const tile=(t,s,body,cls)=>`<div class="gx-t ${cls||""} s${s||0}"><div class="gx-th"><b>${t}</b>${gxChip(s)}</div>${body||""}</div>`;
   const big=(n,of,u)=>`<div class="gx-big">${n}${of?`<span> / ${of}</span>`:""}<em>${u}</em></div>`;
@@ -10047,7 +10079,7 @@ function gxTurnHtml(){if(!gxPlan())return "";const fid=O().id,L=store.get("gsxLo
     ${body||`<p class="gx-p">Each service’s call, start and finish shows here as GSX works, against STD and your block times. It’s kept with the flight, and the Logbook shows it with the PIREP.</p>`}</div>`}
 function gxOooiHtml(){const plan=gxPlan(),o=plan?gxOo():{},auto=store.get("gsxOooi",true)!==false;
   return `<div class="gx-card"><div class="gx-ch"><b>Block times</b><label class="gx-sw"><input type="checkbox" data-gxoooi${auto?" checked":""}><span></span>Stamp automatically</label></div>
-    ${plan?`<div class="gx-oo">${OO.map(k=>`<div class="${o[k]?"on":""}"><small>${k}</small><b>${o[k]?o[k].replace(":","")+"Z":"––"}</b><em>${OOL[k]}</em></div>`).join("")}</div>`:`<p class="gx-p">Load a flight plan in Dispatch first: the times are kept with the plan.</p>`}
+    ${plan?`<div class="gx-oo">${OO.map(k=>`<div class="${o[k]?"on":""}"><small>${k}</small><b>${o[k]?o[k].replace(":","")+"Z":"––"}</b><em>${OOL[k]}</em></div>`).join("")}</div>`:`<p class="gx-p">Load a flight plan in Flight › Download first: the times are kept with the plan.</p>`}
     <p class="gx-p">OUT when GSX starts the pushback (or at the first movement on the ground), OFF and ON from the simulator, IN when you call GSX deboarding. Only empty times are filled, and the Flight Plan’s Block Times can still be changed by hand. Stamped on the simulator PC and copied to your other devices for the same plan.</p></div>`}
 function gxBridgeStatus(){const p=String(GX.port).replace(/\D/g,"")||"2048";
   if(!GX.bridge)return `<span class="gx-dot"></span>Off on this device`;
@@ -10226,8 +10258,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
      Frames are drawn a little behind real time (about one frame) and blended, so 15 a second look smooth at 60.
    Everything comes from FSUIPC's standard offsets: no FSUIPC7.ini lines are needed. Nothing is stored on the server.
    The V speeds come from Performance, the course from the loaded flight plan, the traffic from VATSIM. */
-APPS.pfd={name:"Backup PFD",bg:"linear-gradient(180deg,#3B8FEA 0%,#2468C4 50%,#8A5427 50%,#5E3714 100%)",fg:"#FFD60A",g:'<path d="M3.5 12.5h5l1.5 2h4l1.5-2h5" stroke-width="2.2"/><path d="M12 4.5v2"/>'};
-if(typeof AS_INFO!=="undefined")AS_INFO.pfd={c:"flight",s:"Standby flight display, live from the simulator",d:"A backup primary flight display on your iPad or phone, live from the simulator: attitude, speed and altitude tapes with your V speeds from Performance, target altitude and minimums alerts, an HSI with your flight plan's course and VATSIM traffic, wind and OAT, and your touchdown rate. It reads the simulator on your PC through FSUIPC (as Ground does) and needs nothing else set up.",f:["15 updates a second, drawn smoothly","HSI with course, traffic and wind","Minimums and altitude callouts","Also as a small PFD on the Map"]};
+/* the Backup PFD's colours, for its alerts in the Dynamic Island (the PFD is a view of Flight since Nov 2026) */
+const BP_BG="linear-gradient(180deg,#3B8FEA 0%,#2468C4 50%,#8A5427 50%,#5E3714 100%)";
 /* [name, offset, type, bytes] (FSUIPC standard offsets); trk (0x6040) is the GPS ground track, magnetic, in radians */
 const BP_O=[["p",0x0578,"int",4],["b",0x057C,"int",4],["h",0x0580,"uint",4],["mv",0x02A0,"int",2],["ias",0x02BC,"int",4],["tas",0x02B8,"int",4],["gs",0x02B4,"int",4],
   ["vs",0x02C8,"int",4],["alt",0x3324,"int",4],["baro",0x0330,"uint",2],["ra",0x31E4,"int",4],["ball",0x036E,"int",1],["mach",0x11C6,"int",2],["gnd",0x0366,"uint",2],["trk",0x6040,"float",8],
@@ -10301,7 +10333,7 @@ function bpLandCheck(f){const p=BP.lprev;BP.lprev=f;if(!p)return;
 const bpLdCol=fpm=>{const a=Math.abs(fpm);return a<=200?"#30D158":a<=400?"#FF9F0A":"#FF453A"};
 function bpLanded(L){if(!L||BP.landAt&&Math.abs(BP.landAt-L.t)<5000&&BP.ldShow)return;BP.landAt=L.t;BP.ldShow=L;
   const A=store.get("bpLandings",[]).filter(x=>Math.abs(x.t-L.t)>5000);A.unshift(L);store.set("bpLandings",A.slice(0,40));if(L.fid)store.set("bpLand:"+L.fid,L);
-  const ic=`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${APPS.pfd.bg};display:block"></span>`,t="Touchdown "+(L.fpm<0?"−":"")+Math.abs(Math.round(L.fpm))+" fpm",sub=L.g.toFixed(2)+" G · "+L.ias+" kt · pitch "+L.pitch+"°";
+  const ic=`<span class="isx-ic" style="width:24px;height:24px;border-radius:6px;background:${BP_BG};display:block"></span>`,t="Touchdown "+(L.fpm<0?"−":"")+Math.abs(Math.round(L.fpm))+" fpm",sub=L.g.toFixed(2)+" G · "+L.ias+" kt · pitch "+L.pitch+"°";
   if(window.islAlert&&window.__islOn&&window.__islOn())window.islAlert({app:"Backup PFD",short:t.replace("Touchdown ",""),icon:ic,title:t,sub,ms:9000,tap:()=>{location.hash="pfd"}});else toast(t+" · "+L.g.toFixed(2)+" G")}
 
 /* ---------- the relay on the EFB server ---------- */
@@ -13081,6 +13113,6 @@ body.cx-split .isl-wrap{left:25%}body.cx-split .cx-sug{left:25%}
 </style>`);
 
 /* start */
-(function(){const h=location.hash.slice(1);if(APPS[h]){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");
+(function(){let h=location.hash.slice(1);if(h==="flight"){h=ftLast();try{history.replaceState(null,"","#"+h)}catch(e){}}if(APPS[h]||isFl(h)){cur=h;win.hidden=false;screenEl.classList.add("in-app");$("#home").inert=true;appChrome(h);root.style.setProperty("--sbg","var(--bar)")}else root.style.setProperty("--sbg","var(--wp0)");
   render();tick();setInterval(tick,1000)})();
 })();

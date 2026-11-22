@@ -546,7 +546,11 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-f{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:6px;border-top:1px dashed var(--line)}
 .nd-f small{flex:1;min-width:0;color:var(--label);font-size:11.5px}
 .nd-f button{padding:4px 12px;font-size:12.5px}
-.nd-c#nd-cn-aip{grid-column:1/-1}
+.nd-c#nd-cn-aip,.nd-c#nd-jp-aip,.nd-c#nd-jp-charts{grid-column:1/-1}
+.nd-jc{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;max-height:132px;overflow:auto}
+.nd-jc span{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.nd-jc b{font:600 12px "IBM Plex Mono",ui-monospace,Consolas,monospace}
+.nd-jc i{font-style:normal;font-size:11px;color:var(--accent)}
 .nd-cyl{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:6px}
 .nd-cyl li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:5px}
 .nd-cyl li>div{display:flex;align-items:center;gap:8px}
@@ -1664,6 +1668,67 @@ const CNP=(()=>{
   d.fix.forEach((f,i)=>get(key(f[1],f[2])).fixes.push(["cf"+i,f[0],f[2],f[1],f[3]]));
   d.nav.forEach((n,i)=>get(key(n[3],n[4])).navs.push(["cv"+i,n[0],n[1],n[2],n[4],n[3],n[5]]));
   return C}
+ return{open,parse,cells,unzip}})();
+/* ---------- AIP Japan map data (JCAB SWIM portal › AIP File Download › 3_AIP(Shapefile, KML)), read in this browser
+   (Nov 2026). The zip holds one KML_yyyymmdd folder per AIRAC (the one in force and the next); each is reduced to what
+   the EFB draws: airways (ATS, RNAV, direct and oceanic transition routes), reporting points and waypoints, navaids, and
+   restricted, approach control, control and information zone, training and corridor airspace and the ADIZ. Only that
+   goes to the server, one AIRAC at a time (POST /admin/api/navdata/jp). */
+const JPP=(()=>{
+ const r4=x=>Math.round(x*1e4)/1e4,r5=x=>Math.round(x*1e5)/1e5;
+ const unx=s=>String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\\d+);/g,(m,n)=>String.fromCharCode(+n)).replace(/&amp;/g,"&").replace(/[\\s　]+/g," ").trim();
+ /* 20261126 -> AIRAC "2612" (28-day cycles counted from AIRAC 2601, 22 Jan 2026) */
+ const E0=Date.UTC(2026,0,22),CY=28*864e5;
+ const airac=ymd=>{const t=Date.UTC(+ymd.slice(0,4),+ymd.slice(4,6)-1,+ymd.slice(6,8)),n=Math.floor((t-E0)/CY),f=E0+n*CY,yr=new Date(f).getUTCFullYear(),first=E0+Math.ceil((Date.UTC(yr,0,1)-E0)/CY)*CY;
+  return{pub:String(yr)+String(Math.round((f-first)/CY)+1).padStart(2,"0"),eff:new Date(t).toISOString()}};
+ async function open(ab,prog){const z=await CNP.unzip(ab),td=new TextDecoder(),C={};
+  for(const f of z.L){const m=f.name.match(/(?:^|\\/)KML_(\\d{8})\\/([^/]+?)_EFF(\\d{8})\\.kml$/i);if(!m)continue;(C[m[1]]=C[m[1]]||{})[m[2]]=f}
+  const dates=Object.keys(C).sort();if(!dates.length)throw new Error("There’s no KML_yyyymmdd folder in this zip. Is it 3_AIP(Shapefile, KML) from the SWIM portal?");
+  const out=[];let i=0,n=dates.reduce((s,d)=>s+Object.keys(C[d]).length,0);
+  for(const d of dates){const files={};for(const[k,f]of Object.entries(C[d])){files[k]=td.decode(await z.read(f));if(prog)prog(++i/n)}
+   if(!files.RNAV_ROUTES||!files.REP_WPT)throw new Error("KML_"+d+" has no RNAV_ROUTES or REP_WPT file.");out.push({date:d,...airac(d),files})}
+  return out}
+ const pms=t=>t?t.match(/<Placemark[\\s\\S]*?<\\/Placemark>/g)||[]:[];
+ const attrs=p=>{const a={};for(const m of p.matchAll(/<td>([A-Z][A-Z0-9_-]*)<\\/td>\\s*<td>([^<]*)<\\/td>/g))if(!(m[1] in a))a[m[1]]=unx(m[2]);return a};
+ const coords=s=>s.trim().split(/\\s+/).map(c=>c.split(",").map(Number)).filter(c=>c.length>=2&&isFinite(c[0])&&isFinite(c[1])).map(c=>[c[0],c[1]]);
+ /* Douglas-Peucker in degrees: lines and outlines drawn on a map need far fewer points than the data has */
+ function dp(P,tol){if(P.length<3)return P.slice();const keep=new Uint8Array(P.length);keep[0]=keep[P.length-1]=1;const st=[[0,P.length-1]];
+  while(st.length){const[a,b]=st.pop();let mx=0,ix=-1;const[x1,y1]=P[a],[x2,y2]=P[b],dx=x2-x1,dy=y2-y1,L=dx*dx+dy*dy;
+   for(let i=a+1;i<b;i++){const[x,y]=P[i];let t=L?((x-x1)*dx+(y-y1)*dy)/L:0;t=t<0?0:t>1?1:t;const ex=x1+t*dx-x,ey=y1+t*dy-y,d=ex*ex+ey*ey;if(d>mx){mx=d;ix=i}}
+   if(ix>0&&mx>tol*tol){keep[ix]=1;st.push([a,ix],[ix,b])}}
+  return P.filter((p,i)=>keep[i])}
+ const lines=p=>Array.from(p.matchAll(/<LineString>[\\s\\S]*?<coordinates>([\\s\\S]*?)<\\/coordinates>/g),m=>dp(coords(m[1]),0.003).map(c=>[r4(c[0]),r4(c[1])])).filter(l=>l.length>=2);
+ const polys=p=>Array.from(p.matchAll(/<Polygon>([\\s\\S]*?)<\\/Polygon>/g),m=>{const rings=[];const o=m[1].match(/<outerBoundaryIs>[\\s\\S]*?<coordinates>([\\s\\S]*?)<\\/coordinates>/);if(!o)return null;rings.push(o[1]);
+  for(const q of m[1].matchAll(/<innerBoundaryIs>[\\s\\S]*?<coordinates>([\\s\\S]*?)<\\/coordinates>/g))rings.push(q[1]);
+  return rings.map(r=>{let c=dp(coords(r),0.0006).map(c=>[r4(c[0]),r4(c[1])]);if(c.length&&(c[0][0]!==c[c.length-1][0]||c[0][1]!==c[c.length-1][1]))c.push(c[0].slice());return c}).filter(r=>r.length>=4)}).filter(r=>r&&r.length);
+ const pt=p=>{const m=p.match(/<Point>[\\s\\S]*?<coordinates>([\\s\\S]*?)<\\/coordinates>/);const c=m&&coords(m[1])[0];return c||null};
+ const lim=v=>{v=String(v||"").trim().toUpperCase();if(!v||v==="-")return"";const f=v.match(/^(\\d+)\\s*FT$/);if(f)return f[1]+"ft";const fl=v.match(/^FL\\s*(\\d+)$/);if(fl)return"FL"+fl[1];return v.replace(/\\s+/g," ")};
+ const mea=v=>{v=String(v||"").trim().toUpperCase();const f=v.match(/^(\\d+)\\s*FT$/);return f?f[1]:v||null};
+ const num=v=>v===""||v==null||!isFinite(+v)?null:+v;
+ function parse(F){const st={apt:0},R=[],FX=[],NV=[],A=[];
+  /* airways: one placemark per leg */
+  [["ATS_ROUTES",""],["RNAV_ROUTES","RNAV"],["Direct_routes","DCT"],["Oceanic_Transition_routes","OTR"]].forEach(([k,ty])=>pms(F[k]).forEach(p=>{const a=attrs(p),L=lines(p);if(!L.length)return;
+   const t=/RNAV/i.test(a.TYPE||"")||ty==="RNAV"?"RNAV":ty==="DCT"?"DCT":"";R.push({w:ty==="DCT"?"":(a.DESIGNATOR||""),t,mea:mea(a.MEA),trk:num(a.MAG_TR),rtrk:num(a.R_MAG_TR),len:num(a.DIST)!=null?Math.round(+a.DIST):null,L})}));
+  pms(F.REP_WPT).forEach(p=>{const a=attrs(p),c=pt(p),i=a.NAME_CODE||a["NAME-CODE"]||"";if(!c||!i)return;FX.push([i,r5(c[1]),r5(c[0]),/Compulsory/i.test(a.TYPE||"")&&!/Non-compulsory/i.test(a.TYPE||"")?1:0])});
+  pms(F.RADIO_NAVIGATION_AIDS).forEach(p=>{const a=attrs(p),c=pt(p);if(!c||!a.ID)return;NV.push([a.ID,a.NAME||"",(a.TYPE||"").replace(/\\s*\\(Compulsory\\)/i,""),r5(c[1]),r5(c[0]),a.FREQ||"",a.CH||""])});
+  /* airspace */
+  const add=(t,n,a,p)=>polys(p).forEach(g=>A.push({type:"Feature",properties:{t,d:"",n:unx(n||""),lo:lim(a.ALT_LOWER),hi:lim(a.ALT_UPPER),fq:""},geometry:{type:"Polygon",coordinates:g}}));
+  pms(F.Restricted_area_Airspace_restrictions).forEach(p=>{const a=attrs(p);add("R",a.ID_NAME||a.AREA,a,p)});
+  ["Approach_control_area_CIVIL","Approach_control_area_MIL"].forEach(k=>pms(F[k]).forEach(p=>{const a=attrs(p);add("TMA",(a.NAME||"")+" APP",a,p)}));
+  pms(F.Control_zone_and_Information_zone).forEach(p=>{const a=attrs(p),n=a.NAME||"";add(/\\bCTR$/i.test(n)?"CTR":"IZ",n,a,p)});
+  ["Civil_training_and_testing_areas","JSDF_training_and_testing_areas_HIGH","JSDF_training_and_testing_areas_LOW"].forEach(k=>pms(F[k]).forEach(p=>{const a=attrs(p);add("TRN",a.NAME2&&a.NAME2!==a.NAME1?a.NAME2:(a.NAME1||a.NAME||a.AREA),a,p)}));
+  pms(F.Corridors).forEach(p=>{const a=attrs(p);add("COR",(a.NAME||"")+" CORRIDOR",a,p)});
+  ["ADIZ_INNER","ADIZ_OUTER"].forEach(k=>pms(F[k]).forEach(p=>add("ADIZ","JAPAN ADIZ",{},p)));
+  st.seg=R.length;st.fix=FX.length;st.nav=NV.length;st.asp=A.length;
+  return{R,FX,NV,asp:{type:"FeatureCollection",features:A},st,apt:{}}}
+ /* the IFR map's rows, cut into 8-degree cells; ids start with j so they never meet China's or the FAA's */
+ function cells(d){const C={},get=k=>C[k]||(C[k]={routes:[],fixes:[],navs:[]}),key=(la,lo)=>(Math.floor(la/8)*8)+","+(Math.floor(lo/8)*8);
+  d.R.forEach((r,i)=>{let x0=999,x1=-999,y0=999,y1=-999;r.L.forEach(l=>l.forEach(p=>{if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1]}));
+   const row=["jr"+i,r.w,r.t==="RNAV"?"RNAV":r.t,r.mea,null,null,r.trk,r.rtrk,r.len,r.L];
+   for(let la=Math.floor(y0/8)*8;la<=y1;la+=8)for(let lo=Math.floor(x0/8)*8;lo<=x1;lo+=8)get(la+","+lo).routes.push(row)});
+  d.FX.forEach((f,i)=>get(key(f[1],f[2])).fixes.push(["jf"+i,f[0],f[2],f[1],f[3]]));
+  d.NV.forEach((n,i)=>get(key(n[3],n[4])).navs.push(["jv"+i,n[0],n[1],n[2],n[4],n[3],n[5]]));
+  return C}
  return{open,parse,cells}})();
 /* ---------- Nav Data: each region's navigation data and whether it is current (Nov 2026, see navdata.js on the server) ---------- */
 const ND={busy:""};
@@ -1682,7 +1747,7 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
-   +(s.id==="cn-aip"?ndCnHtml(s):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
+   +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
    +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":"")+"</div></article>").join("")+"</div></section>").join("")}
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
 async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#ndAll");if(b){b.disabled=true;b.textContent="Checking…"}
@@ -1692,45 +1757,95 @@ async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndAll,[data-ndchk]");if(!b||b.disabled)return;ndCheck(b.dataset.ndchk||"")});
 PG_LOAD.navdata=()=>{ndUi();ndLoad(true)};PG_TICK.navdata=[()=>ndLoad(false),60000];
 
-/* ---------- China: the AIP data set zip is dropped here each AIRAC; cnparse.js opens, checks and reads it in this
-   browser, and only the reduced data is sent (POST /admin/api/navdata/cn). Uploaded early, it switches by itself. */
-ND.cn={busy:false,msg:"",err:"",ok:""};
+/* ---------- Official AIP uploads: China's data set and Japan's map data (zips), Japan's charts (a folder). Each is opened
+   and read in this browser (cnparse.js, jpparse.js); only the reduced data, or the chart PDFs one by one, are sent. An
+   AIRAC or a chart folder uploaded early switches by itself on its date. ---------- */
+ND.up={cn:{busy:false,msg:"",err:"",ok:""},jp:{busy:false,msg:"",err:"",ok:""},jpc:{busy:false,msg:"",err:"",ok:""}};
 const ndZ=t=>ndDay(t)+" "+new Date(t).toISOString().slice(11,16)+"Z";
-function ndCnHtml(s){const c=ND.cn,L=((s.cn&&s.cn.cycles)||[]).slice().sort((a,b)=>Date.parse(b.eff)-Date.parse(a.eff));
+const ndMB=n=>n>=1048576?(n/1048576).toFixed(n>=104857600?0:1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+const ND_DROP={cn:["Drop the AIP data set zip here","or click to choose it · eaipchina.cn › AIP Data Set › the BASELINE package. The current and the next AIRAC can both be uploaded."],
+ jp:["Drop the 3_AIP(Shapefile, KML) zip here","or click to choose it · SWIM portal › AIP File Download › 3_AIP(Shapefile, KML), downloaded as a zip. It holds the current and the next AIRAC; both are uploaded."],
+ jpc:["Drop the AD2_Separate folder here","or click to choose it · SWIM portal › AIP File Download › 1_AIP(PDF) › the AIP date › AD2_Separate. Only aerodrome folders not uploaded yet are sent."]};
+const ndDrop=(rg,s)=>{const c=ND.up[rg],d=ND_DROP[rg];
+ return '<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop="'+rg+'"><input type="file" '+(rg==="jpc"?'webkitdirectory multiple':'accept=".zip,application/zip"')+' data-ndfile="'+rg+'"'+(c.busy?" disabled":"")+">"
+  +"<b>"+esc(c.busy?(c.msg||"Working…"):d[0])+"</b><small>"+(c.busy?"Keep this page open until it finishes":esc(d[1]))+"</small></label>"
+  +(c.err?'<div class="msg err">'+esc(c.err)+"</div>":c.ok?'<div class="msg ok">'+esc(c.ok)+"</div>":"")};
+function ndAipHtml(s,rg){const c=ND.up[rg],L=((s.cn&&s.cn.cycles)||[]).slice().sort((a,b)=>Date.parse(b.eff)-Date.parse(a.eff));
  const list=L.length?'<ul class="nd-cyl">'+L.map(x=>{const st=x.st||{};
    return '<li class="'+(x.inUse?"use":x.later?"later":"old")+'"><div><b>AIRAC '+esc(x.cycle)+'</b><span class="nd-tag">'+(x.inUse?"In use":x.later?"From "+ndZ(Date.parse(x.eff)):"Before")+"</span></div>"
-    +'<small>'+esc([st.apt?st.apt+" airports · "+(st.asp||0)+" airspaces · "+(st.seg||0)+" airway legs · "+(st.fix||0)+" fixes":"","uploaded "+ndDay(x.at)+" "+akZ(x.at)+(x.by?" by "+x.by:"")].filter(Boolean).join(" · "))+"</small>"
-    +'<button type="button" class="nd-x" data-ndcndel="'+esc(x.cycle)+'"'+(c.busy?" disabled":"")+">Remove</button></li>"}).join("")+"</ul>":"";
- return list+'<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop><input type="file" accept=".zip,application/zip" id="ndCnFile"'+(c.busy?" disabled":"")+'>'
-  +'<b>'+esc(c.busy?(c.msg||"Working…"):"Drop the AIP data set zip here")+'</b><small>'+(c.busy?"Keep this page open until it finishes":"or click to choose it · eaipchina.cn › AIP Data Set › the BASELINE package. The current and the next AIRAC can both be uploaded.")+"</small></label>"
-  +(c.err?'<div class="msg err">'+esc(c.err)+"</div>":c.ok?'<div class="msg ok">'+esc(c.ok)+"</div>":"")}
-const ndCnMsg=()=>{const b=document.querySelector("[data-nddrop] b");if(b)b.textContent=ND.cn.msg};
-async function ndCnFile(f){const c=ND.cn;if(!f||c.busy)return;c.busy=true;c.err="";c.ok="";c.msg="Opening "+f.name+"…";ndUi();
- try{if(!/\\.zip$/i.test(f.name))throw new Error("Choose the zip file: CN_AIP-DS_…_AIRAC….zip.");if(f.size>80*1048576)throw new Error("That file is too large to be the AIP data set.");
-  const ab=await f.arrayBuffer();
-  const o=await CNP.open(ab,p=>{c.msg="Checking each file against checksum.xml… "+Math.round(p*100)+"%";ndCnMsg()});
-  c.msg="Reading AIRAC "+o.cycle+"…";ndCnMsg();await new Promise(r=>setTimeout(r,40));
-  const d=CNP.parse(o.files),cells=CNP.cells(d);
-  if(!d.st.apt||!d.st.seg)throw new Error("No airports or airways were found in this data set.");
-  c.msg="Uploading AIRAC "+o.cycle+"…";ndCnMsg();
-  const r=await api("/admin/api/navdata/cn",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({meta:o.meta,sha:o.sha,file:f.name,size:f.size,st:d.st,apt:d.apt,asp:d.asp,cells})});
-  const eff=Date.parse(r.eff);
-  c.ok="AIRAC "+o.cycle+" uploaded. All "+o.checked+" files matched checksum.xml; "+d.st.apt+" airports, "+d.st.asp+" airspaces, "+d.st.seg+" airway legs, "+d.st.fix+" fixes and "+d.st.nav+" navaids. "
-   +(r.active===o.cycle?"The EFB uses it now.":eff>Date.now()?"The EFB switches to it by itself "+ndZ(eff)+" (00:00 Beijing).":"A newer AIRAC is in use.")}
- catch(e){c.err=(e&&e.message)||String(e)}
- finally{c.busy=false;c.msg="";await ndLoad(true)}}
-document.addEventListener("change",e=>{const t=e.target;if(!t||t.id!=="ndCnFile")return;const f=t.files&&t.files[0];t.value="";ndCnFile(f)});
+    +'<small>'+esc([st.seg?(st.apt?st.apt+" airports · ":"")+(st.asp||0)+" airspaces · "+(st.seg||0)+" airway legs · "+(st.fix||0)+" fixes":"","uploaded "+ndDay(x.at)+" "+akZ(x.at)+(x.by?" by "+x.by:"")].filter(Boolean).join(" · "))+"</small>"
+    +'<button type="button" class="nd-x" data-ndcndel="'+rg+":"+esc(x.cycle)+'"'+(c.busy?" disabled":"")+">Remove</button></li>"}).join("")+"</ul>":"";
+ return list+ndDrop(rg,s)}
+function ndJcHtml(s){const A=(s.jc&&s.jc.apts)||[],now=Date.now(),t=e=>Date.UTC(+e.slice(0,4),+e.slice(4,6)-1,+e.slice(6,8)),f=e=>e.slice(6,8)+"/"+e.slice(4,6)+"/"+e.slice(0,4);
+ const list=A.length?'<div class="nd-jc">'+A.map(x=>'<span title="'+esc(x.v.map(v=>f(v.eff)+": "+v.n+" charts, "+ndMB(v.size)).join("\\n"))+'"><b>'+esc(x.a)+"</b>"+(x.v.some(v=>t(v.eff)>now)?'<i class="later">new '+esc(x.v.filter(v=>t(v.eff)>now).map(v=>v.eff.slice(6,8)+"/"+v.eff.slice(4,6)).join(", "))+"</i>":"")+"</span>").join("")+"</div>":"";
+ return list+ndDrop("jpc",s)}
+const ndMsg=rg=>{const b=document.querySelector('[data-nddrop="'+rg+'"] b');if(b)b.textContent=ND.up[rg].msg};
+async function ndRun(rg,fn){const c=ND.up[rg];if(c.busy)return;c.busy=true;c.err="";c.ok="";c.msg="Opening…";ndUi();
+ try{c.ok=await fn(c)}catch(e){c.err=(e&&e.message)||String(e)}finally{c.busy=false;c.msg="";await ndLoad(true)}}
+const ndPost=(u,b)=>api(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+/* China: one AIRAC per zip */
+const ndCnFile=f=>ndRun("cn",async c=>{if(!/\\.zip$/i.test(f.name))throw new Error("Choose the zip file: CN_AIP-DS_…_AIRAC….zip.");if(f.size>80*1048576)throw new Error("That file is too large to be the AIP data set.");
+ const o=await CNP.open(await f.arrayBuffer(),p=>{c.msg="Checking each file against checksum.xml… "+Math.round(p*100)+"%";ndMsg("cn")});
+ c.msg="Reading AIRAC "+o.cycle+"…";ndMsg("cn");await new Promise(r=>setTimeout(r,40));
+ const d=CNP.parse(o.files),cells=CNP.cells(d);if(!d.st.apt||!d.st.seg)throw new Error("No airports or airways were found in this data set.");
+ c.msg="Uploading AIRAC "+o.cycle+"…";ndMsg("cn");
+ const r=await ndPost("/admin/api/navdata/cn",{meta:o.meta,sha:o.sha,file:f.name,size:f.size,st:d.st,apt:d.apt,asp:d.asp,cells}),eff=Date.parse(r.eff);
+ return "AIRAC "+o.cycle+" uploaded. All "+o.checked+" files matched checksum.xml; "+d.st.apt+" airports, "+d.st.asp+" airspaces, "+d.st.seg+" airway legs, "+d.st.fix+" fixes and "+d.st.nav+" navaids. "
+  +(r.active===o.cycle?"The EFB uses it now.":eff>Date.now()?"The EFB switches to it by itself "+ndZ(eff)+" (00:00 Beijing).":"A newer AIRAC is in use.")});
+/* Japan's map data: every AIRAC in the zip */
+const ndJpFile=f=>ndRun("jp",async c=>{if(!/\\.zip$/i.test(f.name))throw new Error("Choose the zip of 3_AIP(Shapefile, KML).");if(f.size>300*1048576)throw new Error("That file is too large.");
+ const cys=await JPP.open(await f.arrayBuffer(),p=>{c.msg="Opening the KML files… "+Math.round(p*100)+"%";ndMsg("jp")}),done=[];
+ for(const y of cys){c.msg="Reading AIRAC "+y.pub.slice(2)+"…";ndMsg("jp");await new Promise(r=>setTimeout(r,40));
+  const d=JPP.parse(y.files),cells=JPP.cells(d);if(!d.st.seg)throw new Error("No airways were found for "+y.date+".");
+  c.msg="Uploading AIRAC "+y.pub.slice(2)+"…";ndMsg("jp");
+  const r=await ndPost("/admin/api/navdata/jp",{meta:{pub:y.pub,eff:y.eff,product:"AIP-JP"},file:f.name,size:f.size,st:d.st,apt:{},asp:d.asp,cells});
+  done.push("AIRAC "+y.pub.slice(2)+(r.active===r.cycle?" (in use now)":Date.parse(r.eff)>Date.now()?" (from "+ndZ(Date.parse(r.eff))+")":"")+": "+d.st.asp+" airspaces, "+d.st.seg+" airway legs, "+d.st.fix+" fixes, "+d.st.nav+" navaids")}
+ return "Uploaded. "+done.join(". ")+"."});
+/* Japan's charts: the aerodrome folders (RJTT__20261126/RJTT__IAC (…)_20260416.pdf); a folder already here is skipped */
+const ndJcFiles=items=>ndRun("jpc",async c=>{const G={};
+ for(const it of items){const p=String(it.path||"").split("/");if(p.some(x=>/^AD2_Combine$/i.test(x)))continue;
+  const fn=p[p.length-1],dir=p[p.length-2]||"",dm=dir.match(/^(R[JO][A-Z]{2})__(\\d{8})$/i),fm=fn.match(/^(R[JO][A-Z]{2})__(.+)_(\\d{8})\\.pdf$/i);
+  if(!dm||!fm||fm[1].toUpperCase()!==dm[1].toUpperCase())continue;const k=dm[1].toUpperCase()+"|"+dm[2];(G[k]=G[k]||[]).push({name:fn,file:it.file})}
+ const keys=Object.keys(G).sort();if(!keys.length)throw new Error("No aerodrome folders (like RJTT__20261126) were found. Drop AD2_Separate, or folders from it.");
+ c.msg="Checking what is here…";ndMsg("jpc");
+ const have=(await api("/admin/api/navdata/jpcharts")).apts||{},now=Date.now(),t=e=>Date.UTC(+e.slice(0,4),+e.slice(4,6)-1,+e.slice(6,8));
+ /* per aerodrome: the folder in force today and any later one; older ones are not needed */
+ const byA={};keys.forEach(k=>{const[a,e]=k.split("|");(byA[a]=byA[a]||[]).push(e)});
+ const todo=[];let skip=0;
+ Object.entries(byA).forEach(([a,E])=>{E.sort();const past=E.filter(e=>t(e)<=now),act=past.length?past[past.length-1]:null;
+  E.filter(e=>!act||e>=act).forEach(e=>{const F=G[a+"|"+e],h=(have[a]||[]).find(v=>v.eff===e),size=F.reduce((s,x)=>s+x.file.size,0);
+   if(h&&h.n===F.length&&h.size===size)skip++;else todo.push({a,e,F,size})})});
+ const total=todo.reduce((s,x)=>s+x.F.length,0),bytes=todo.reduce((s,x)=>s+x.size,0);let sent=0,sentB=0;
+ for(const x of todo){let next=0;const files=[];
+  const one=async()=>{for(;;){const i=next++;if(i>=x.F.length)return;const f=x.F[i];
+   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/jpcharts/put?apt="+x.a+"&eff="+x.e+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file});
+     if(!r.ok){let j=null;try{j=await r.json()}catch(e){}throw new Error((j&&j.error)||"HTTP "+r.status)}break}
+    catch(e){if(tr>=2)throw new Error(x.a+" "+f.name+": "+e.message)}}
+   files[i]={i,file:f.name,s:f.file.size};sent++;sentB+=f.file.size;c.msg="Uploading "+x.a+" · "+sent+" of "+total+" charts · "+ndMB(sentB)+" of "+ndMB(bytes);ndMsg("jpc")}};
+  await Promise.all([one(),one(),one(),one()]);
+  await ndPost("/admin/api/navdata/jpcharts/commit",{apt:x.a,eff:x.e,files})}
+ const apts=new Set(todo.map(x=>x.a));
+ return todo.length?"Uploaded "+total+" charts ("+ndMB(bytes)+") for "+apts.size+" aerodrome"+(apts.size>1?"s":"")+": "+[...apts].sort().slice(0,12).join(", ")+(apts.size>12?" …":"")+"."+(skip?" "+skip+" folder"+(skip>1?"s were":" was")+" already here.":""):"Nothing new: all "+skip+" aerodrome folders are already here."});
+/* a dropped folder: walk it (only Chrome and Edge give folders to a drop) */
+async function ndWalk(entry,path,out){if(entry.isFile){const f=await new Promise((res,rej)=>entry.file(res,rej));out.push({path:path+entry.name,file:f});return}
+ if(!entry.isDirectory)return;const rd=entry.createReader();for(;;){const L=await new Promise((res,rej)=>rd.readEntries(res,rej));if(!L.length)break;for(const e of L)await ndWalk(e,path+entry.name+"/",out)}}
+document.addEventListener("change",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.ndfile)return;const rg=t.dataset.ndfile,F=Array.from(t.files||[]);t.value="";if(!F.length)return;
+ if(rg==="cn")ndCnFile(F[0]);else if(rg==="jp")ndJpFile(F[0]);else ndJcFiles(F.map(f=>({path:f.webkitRelativePath||f.name,file:f})))});
 const ndFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files"));
-["dragenter","dragover"].forEach(k=>document.addEventListener(k,e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();const z=e.target.closest&&e.target.closest("[data-nddrop]");
- document.querySelectorAll("[data-nddrop]").forEach(x=>x.classList.toggle("over",x===z&&!ND.cn.busy));e.dataTransfer.dropEffect=z&&!ND.cn.busy?"copy":"none"}));
+["dragenter","dragover"].forEach(k=>document.addEventListener(k,e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();const z=e.target.closest&&e.target.closest("[data-nddrop]"),ok=z&&!ND.up[z.dataset.nddrop].busy;
+ document.querySelectorAll("[data-nddrop]").forEach(x=>x.classList.toggle("over",x===z&&ok));e.dataTransfer.dropEffect=ok?"copy":"none"}));
 document.addEventListener("dragleave",e=>{if(pgNow==="navdata"&&!e.relatedTarget)document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"))});
-document.addEventListener("drop",e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"));
- const z=e.target.closest&&e.target.closest("[data-nddrop]");if(z&&e.dataTransfer.files.length)ndCnFile(e.dataTransfer.files[0])});
-document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("[data-ndcndel]");if(!b||b.disabled)return;const cy=b.dataset.ndcndel,c=ND.cn;
- if(!confirm("Remove AIRAC "+cy+" of the China AIP data set from the EFB? If it is in use, the EFB shows no China data until another uploaded AIRAC is in force."))return;
- c.busy=true;c.err="";c.ok="";c.msg="Removing AIRAC "+cy+"…";ndUi();
- try{await api("/admin/api/navdata/cn/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cycle:cy})});c.ok="AIRAC "+cy+" removed."}
- catch(er){c.err=er.message}finally{c.busy=false;c.msg="";await ndLoad(true)}});
+document.addEventListener("drop",async e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"));
+ const z=e.target.closest&&e.target.closest("[data-nddrop]");if(!z||ND.up[z.dataset.nddrop].busy)return;const rg=z.dataset.nddrop,dt=e.dataTransfer;
+ if(rg!=="jpc"){if(dt.files.length){if(rg==="cn")ndCnFile(dt.files[0]);else ndJpFile(dt.files[0])}return}
+ const ents=Array.from(dt.items||[]).map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+ if(!ents.length){ndJcFiles(Array.from(dt.files).map(f=>({path:f.name,file:f})));return}
+ const c=ND.up.jpc;c.busy=true;c.err="";c.ok="";c.msg="Reading the folder…";ndUi();const out=[];
+ try{for(const en of ents)await ndWalk(en,"",out)}catch(er){c.busy=false;c.err="The folder couldn’t be read: "+er.message;ndUi();return}
+ c.busy=false;ndJcFiles(out)});
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("[data-ndcndel]");if(!b||b.disabled)return;const[rg,cy]=b.dataset.ndcndel.split(":");
+ if(!confirm("Remove AIRAC "+cy+" of "+(rg==="cn"?"the China AIP data set":"Japan’s AIP map data")+" from the EFB? If it is in use, the EFB shows none of this data until another uploaded AIRAC is in force."))return;
+ await ndRun(rg,async()=>{await ndPost("/admin/api/navdata/"+rg+"/delete",{cycle:cy});return "AIRAC "+cy+" removed."})});
 
 /* on a phone the section tabs scroll: keep the open one in view */
 const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);

@@ -40,7 +40,8 @@
  *   GET /admin/api/live, /admin/live.js -> Flight Watch: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /admin/api/navdata, POST /admin/api/navdata/check -> Nav Data: each region's navigation data and whether it is current (see navdata.js)
  *   POST /admin/api/navdata/cn, /cn/delete -> the China AIP data set, uploaded each AIRAC (see cnaip.js)
- *   GET /api/efb/cn/ifr?lv=&cell=, /cn/asp, /cn/apt?icao= -> China airways, airspace and airports, signed-in pilots only
+ *   GET /api/efb/aip/ifr?lv=&cell=, /cn/asp, /jp/asp, /cn/apt?icao= -> China and Japan airways, airspace, China's airports;
+ *       signed-in pilots only. AIP Japan charts (RJxx, ROxx) come through /charts and /chart-pdf (see jpcharts.js)
  *   GET/POST /admin/api/settings        -> Settings: From names and AOC templates (see mail.js); GET /admin/api/checkins -> Pilots
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
@@ -75,6 +76,7 @@ import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic } from './cnaip.js';
+import { jpChartsList, jpChartPdf } from './jpcharts.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1510,8 +1512,8 @@ export default {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }
-    /* China AIP data set: airways, airspace and airports for signed-in pilots (see cnaip.js) */
-    if (/^\/api\/efb\/cn\/(ifr|asp|apt)\/?$/.test(new URL(req.url).pathname)) return await cnPublic(req, new URL(req.url), env, h, await sessionOf(req, env));
+    /* official AIP data (China, Japan): airways, airspace and airports for signed-in pilots (see cnaip.js) */
+    if (/^\/api\/efb\/(cn\/(ifr|asp|apt)|jp\/asp|aip\/ifr)\/?$/.test(new URL(req.url).pathname)) return await cnPublic(req, new URL(req.url), env, h, await sessionOf(req, env));
     /* Messages: what reaches the flight deck on Hoppie's ACARS, read only (see aoc.js) */
     if (/^\/api\/efb\/hoppie\/?$/.test(new URL(req.url).pathname)) return await hoppiePeek(req, env, h, await sessionOf(req, env));
     /* the apps each pilot installed from the EFB's App Store (see kb.js) */
@@ -1610,8 +1612,11 @@ export default {
         /* a pilot's own profile, logbook and bookings: the signed-in pilot only */
         case '/api/efb/pilot': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your vAMSYS profile' }, 401, h); return json({ ...(await pilotRoute(env, me.u)), updatedAt: new Date().toISOString() }, 200, h); }
         case '/api/efb/bookings': { if (!configured) break; const me = await sessionOf(req, env); if (!me) return json({ error: 'Sign in to see your bookings' }, 401, h); return json({ ...(await bookingsRoute(env, me.u)), updatedAt: new Date().toISOString() }, 200, h); }
-        case '/api/efb/charts': return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h);
-        case '/api/efb/chart-pdf': return await chartPdfRoute(url, h);
+        case '/api/efb/charts': { const ic = String(url.searchParams.get('icao') || '').trim().toUpperCase();
+          /* Japan: AIP Japan's charts uploaded on Nav Data, for signed-in pilots (see jpcharts.js) */
+          if (/^R[JO][A-Z]{2}$/.test(ic)) { const j = await jpChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
+          return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h); }
+        case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env)); return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
           /* warm=1: the EFB only asks the server to have it ready; answered at once, without the diagram */
           if (url.searchParams.get('warm') === '1') { p.catch(() => {}); return json({ ok: true, warm: true }, 202, h); }

@@ -17,6 +17,11 @@ workers_dev = false
 binding = "STORE"
 id = "f07c7d20558c4ecf84df98ddb5ea235a"
 
+# AIP Japan charts uploaded on /admin › Nav Data (src/jpcharts.js); private, read only through the Worker
+[[r2_buckets]]
+binding = "CHARTS"
+bucket_name = "polaris-efb-charts"
+
 # 每 20 分鐘檢查一次美國大型機場的資料，缺的或超過 25 天的才重抓（每次最多 3 座）
 # Durable Objects, each with its own SQLite database. Both work on the Workers Free plan; wrangler creates them on deploy.
 #   PM   pilots' messages to a department or an online flight (src/pm.js)

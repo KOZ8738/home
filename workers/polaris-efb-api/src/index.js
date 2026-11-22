@@ -1274,15 +1274,20 @@ async function twFixes(icao, env, ctx) {
 }
 
 /* named points near an airport for lining its charts up: the eAIP's for Hong Kong, Singapore, the UK and Norway;
-   AIP China's and Japan's around the airport the EFB names (lat, lon); signed in, like the charts */
+   AIP China's and Japan's around the airport; signed in, like the charts. Any airport gets its position (arp) */
 async function chartFixes(ic, url, me, env, ctx) {
   if (/^RC[A-Z]{2}$/.test(ic)) return twFixes(ic, env, ctx);
   if (eaRegion(ic)) return eaFixes(ic, env, me, eaDeps(env, ctx));
-  if (!/^(R[JO]|Z)[A-Z]{2,3}$/.test(ic)) return null;
-  if (!me) return { icao: ic, signin: true, pts: [] };
-  const la = parseFloat(url.searchParams.get('lat')), lo = parseFloat(url.searchParams.get('lon'));
-  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) return { icao: ic, pts: [], error: 'lat and lon of the airport' };
-  return { icao: ic, arp: [la, lo], pts: await aipPoints(env, la, lo, 300) };
+  /* elsewhere the airport's own position is what the EFB sends, or the weather service's */
+  let la = parseFloat(url.searchParams.get('lat')), lo = parseFloat(url.searchParams.get('lon'));
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) {
+    const a = await airportRoute(ic, ctx).then((j) => j && j.airport).catch(() => null);
+    la = a ? +a.lat : NaN; lo = a ? +a.lon : NaN;
+  }
+  const arp = isFinite(la) && isFinite(lo) && (la || lo) ? [+la.toFixed(5), +lo.toFixed(5)] : null;
+  if (!/^(R[JO]|Z)[A-Z]{2,3}$/.test(ic)) return { icao: ic, arp, pts: [] };
+  if (!me) return { icao: ic, arp, signin: true, pts: [] };
+  return { icao: ic, arp, pts: arp ? await aipPoints(env, arp[0], arp[1], 300) : [] };
 }
 
 async function ifrRoute(url, ctx, h) {

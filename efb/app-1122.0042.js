@@ -2757,56 +2757,75 @@ async function chOpen(c,cycle){CH.sel={...c,cycle};CH.doc=null;CH.page=1;CH.page
   CH.pdfLoading=false;if(cur==="charts"){render()}}
 async function chRender(){const cv=$("#chCanvas"),box=$("#chView");if(!cv||!box||!CH.doc)return;try{if(CH.task){CH.task.cancel();CH.task=null}
   const pg=await CH.doc.getPage(CH.page);const v1=pg.getViewport({scale:1});const fit=Math.min((box.clientWidth-32)/v1.width,(box.clientHeight-32)/v1.height);const sc=Math.max(.2,fit*CH.zoom),dpr=Math.min(3,window.devicePixelRatio||1);
-  const vp=pg.getViewport({scale:sc*dpr});const vs=pg.getViewport({scale:sc}),k=Math.min(dpr,Math.sqrt(14e6/Math.max(1,vs.width*vs.height))),vq=k<dpr?pg.getViewport({scale:sc*k}):vp;let old=null;if(CH.anchor&&cv.width&&cv.height){try{old=document.createElement("canvas");old.width=cv.width;old.height=cv.height;old.getContext("2d").drawImage(cv,0,0)}catch(e){old=null}}
-  cv.width=Math.floor(vq.width);cv.height=Math.floor(vq.height);cv.style.width=Math.floor(vs.width)+"px";cv.style.height=Math.floor(vs.height)+"px";if(old)try{cv.getContext("2d").drawImage(old,0,0,cv.width,cv.height)}catch(e){}
-  if(CH.anchor){const a=CH.anchor;CH.anchor=null;const r=cv.getBoundingClientRect();box.scrollLeft+=r.left+a.fx*r.width-a.cx;box.scrollTop+=r.top+a.fy*r.height-a.cy}
-  CH.task=pg.render({canvasContext:cv.getContext("2d"),viewport:vq});await CH.task.promise;CH.task=null}catch(e){if(!/cancel/i.test(String(e&&e.name||e)))console.warn(e)}}
-/* ---------- Charts: zoom with the mouse wheel, a trackpad or two fingers (Nov 2026) ----------
-   The chart in the Charts app grows under the fingers or the pointer at once (the drawn picture is scaled), and is
-   drawn sharp again once the hand stops, with the same spot of the chart still under it. A drag with the mouse
-   moves the chart, a double tap or double click zooms in there, and Safari's own pinch no longer zooms the EFB. */
-const CHZ={on:false,s:1,ox:0,oy:0,w:0,h:0,mx:0,my:0,m0x:0,m0y:0,t:0};
-const CHZ_MIN=.5,CHZ_MAX=8;
-/* a zoom that has begun: the spot of the chart (ox, oy on the canvas) that should stay under the pointer */
-function chzBegin(cx,cy){const cv=$("#chCanvas");if(!cv||!CH.doc)return false;const r=cv.getBoundingClientRect();if(!r.width)return false;
-  Object.assign(CHZ,{on:true,s:1,ox:Math.max(0,Math.min(r.width,cx-r.left)),oy:Math.max(0,Math.min(r.height,cy-r.top)),w:r.width,h:r.height,mx:cx,my:cy,m0x:cx,m0y:cy});
-  cv.style.transformOrigin=CHZ.ox+"px "+CHZ.oy+"px";cv.style.willChange="transform";return true}
-function chzShow(){const cv=$("#chCanvas");if(!cv)return;const lo=CHZ_MIN/CH.zoom,hi=CHZ_MAX/CH.zoom;CHZ.s=Math.max(lo,Math.min(hi,CHZ.s));
-  cv.style.transform=`translate(${CHZ.mx-CHZ.m0x}px,${CHZ.my-CHZ.m0y}px) scale(${CHZ.s})`}
-/* the hand has stopped: draw it again at the new size, the same spot under the pointer */
-function chzCommit(){if(!CHZ.on)return;CHZ.on=false;clearTimeout(CHZ.t);const cv=$("#chCanvas");
-  if(cv){cv.style.transform="";cv.style.transformOrigin="";cv.style.willChange=""}
-  if(Math.abs(CHZ.s-1)<.01||!cv)return;
-  CH.anchor={fx:CHZ.ox/CHZ.w,fy:CHZ.oy/CHZ.h,cx:CHZ.mx,cy:CHZ.my};CH.zoom=Math.max(CHZ_MIN,Math.min(CHZ_MAX,CH.zoom*CHZ.s));chRender()}
-function chzBy(f,cx,cy){if(!CHZ.on&&!chzBegin(cx,cy))return;CHZ.s*=f;chzShow()}
+  const vp=pg.getViewport({scale:sc*dpr});cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);cv.style.width=Math.floor(vp.width/dpr)+"px";cv.style.height=Math.floor(vp.height/dpr)+"px";
+  CH.task=pg.render({canvasContext:cv.getContext("2d"),viewport:vp});await CH.task.promise;CH.task=null}catch(e){if(!/cancel/i.test(String(e&&e.name||e)))console.warn(e)}}
+/* ---------- Charts: zoom and move the chart as in a chart app (Nov 2026) ----------
+   The chart sits in its window at a place and a size of its own (not in a scrolled box), so a zoom keeps the spot
+   under the mouse or between the fingers exactly where it is, and nothing else moves. While a wheel, a pinch or a drag
+   is going the drawn picture is moved and scaled at once; when it stops, the chart is drawn sharp again at the new size
+   off screen and swapped in. The chart stays in its window: smaller than the window it stays inside it, larger it
+   covers it. Buttons: − and + zoom on the middle of the window, Fit puts the whole chart back in the middle. */
+const CHZ={key:"",W:0,H:0,vw:0,vh:0,tx:0,ty:0,ls:1,rz:1,gen:0,t:0};
+const CHZ_MIN=.5,CHZ_MAX=8,CHZ_M=12;
+function chzClamp(){const W=CHZ.W*CHZ.ls,H=CHZ.H*CHZ.ls,m=CHZ_M,{vw,vh}=CHZ;
+  CHZ.tx=W<=vw-2*m?Math.min(vw-W-m,Math.max(m,CHZ.tx)):Math.min(m,Math.max(vw-W-m,CHZ.tx));
+  CHZ.ty=H<=vh-2*m?Math.min(vh-H-m,Math.max(m,CHZ.ty)):Math.min(m,Math.max(vh-H-m,CHZ.ty))}
+function chzPlace(el){el=el||$("#chCanvas");if(!el)return;if(!el._w){el.style.visibility="hidden";return}el.style.visibility="";
+  el.style.transform=`translate(${CHZ.tx}px,${CHZ.ty}px) scale(${CHZ.W*CHZ.ls/el._w})`}
+/* zoom by f about a point of the window (x, y) */
+function chzBy(f,x,y){if(!CHZ.W)return;const z=CHZ.rz*CHZ.ls,nz=Math.max(CHZ_MIN,Math.min(CHZ_MAX,z*f));f=nz/z;
+  CHZ.ls*=f;CHZ.tx=x-(x-CHZ.tx)*f;CHZ.ty=y-(y-CHZ.ty)*f;chzClamp();chzPlace()}
+/* the hand has stopped: the chart at its new size, drawn sharp */
+function chzCommit(){clearTimeout(CHZ.t);if(Math.abs(CHZ.ls-1)<.005){CHZ.ls=1;chzPlace();return}
+  CHZ.W*=CHZ.ls;CHZ.H*=CHZ.ls;CH.zoom=CHZ.rz*CHZ.ls;CHZ.rz=CH.zoom;CHZ.ls=1;chRender()}
+chRender=async function(){const box=$("#chView"),cv=$("#chCanvas");if(!box||!cv||!CH.doc)return;box.classList.add("chz");
+  const gen=++CHZ.gen;if(CH.task){try{CH.task.cancel()}catch(e){}CH.task=null}
+  try{const pg=await CH.doc.getPage(CH.page);if(gen!==CHZ.gen)return;
+    const v1=pg.getViewport({scale:1}),vw=box.clientWidth,vh=box.clientHeight;if(!vw||!vh)return;
+    const fit=Math.min((vw-32)/v1.width,(vh-32)/v1.height),key=(CH.sel&&CH.sel.pdf)+"|"+CH.page,W=v1.width*fit*CH.zoom,H=v1.height*fit*CH.zoom;
+    if(CHZ.key!==key||!CHZ.W||(CH.zoom===1&&CHZ.rz!==1)){CHZ.key=key;CHZ.tx=(vw-W)/2;CHZ.ty=(vh-H)/2}
+    else if(CHZ.vw!==vw||CHZ.vh!==vh){const fx=(CHZ.vw/2-CHZ.tx)/CHZ.W,fy=(CHZ.vh/2-CHZ.ty)/CHZ.H;CHZ.tx=vw/2-fx*W;CHZ.ty=vh/2-fy*H}
+    else if(CHZ.rz!==CH.zoom){const f=W/CHZ.W;CHZ.tx=vw/2-(vw/2-CHZ.tx)*f;CHZ.ty=vh/2-(vh/2-CHZ.ty)*f}
+    Object.assign(CHZ,{W,H,vw,vh,rz:CH.zoom,ls:1});chzClamp();chzPlace(cv);
+    /* drawn off screen, then swapped in: the picture on screen stays until the sharp one is ready */
+    const dpr=Math.min(3,window.devicePixelRatio||1),k=Math.min(dpr,Math.sqrt(14e6/Math.max(1,W*H))),vp=pg.getViewport({scale:fit*CH.zoom*k});
+    const nc=document.createElement("canvas");nc.width=Math.floor(vp.width);nc.height=Math.floor(vp.height);nc.style.width=W+"px";nc.style.height=H+"px";nc._w=W;
+    const task=pg.render({canvasContext:nc.getContext("2d"),viewport:vp});CH.task=task;await task.promise;if(CH.task===task)CH.task=null;if(gen!==CHZ.gen)return;
+    const old=$("#chCanvas");if(!old)return;nc.id="chCanvas";old.replaceWith(nc);chzPlace(nc)}
+  catch(e){if(!/cancel/i.test(String(e&&e.name||e)))console.warn(e)}};
 function chzBind(v){if(!v||v._chz)return;v._chz=1;
-  /* the wheel, and a trackpad's pinch (which comes as a wheel with Ctrl held) */
-  v.addEventListener("wheel",e=>{if(!CH.doc)return;e.preventDefault();const dy=e.deltaMode===1?e.deltaY*16:e.deltaMode===2?e.deltaY*400:e.deltaY;
-    chzBy(Math.exp(-dy*(e.ctrlKey?.012:.0022)),e.clientX,e.clientY);clearTimeout(CHZ.t);CHZ.t=setTimeout(chzCommit,160)},{passive:false});
-  /* two fingers */
-  let g=null,tap=0,tx=0,ty=0;
-  const two=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2,d:Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)});
-  v.addEventListener("touchstart",e=>{if(!CH.doc)return;
-    if(e.touches.length===2){const m=two(e.touches);if(CHZ.on)chzCommit();if(chzBegin(m.x,m.y))g={d:m.d};e.preventDefault();return}
-    if(e.touches.length===1){const t=e.touches[0],now=Date.now();
-      if(now-tap<300&&Math.hypot(t.clientX-tx,t.clientY-ty)<30){e.preventDefault();tap=0;if(chzBegin(t.clientX,t.clientY)){CHZ.s=2;chzCommit()}return}
-      tap=now;tx=t.clientX;ty=t.clientY}},{passive:false});
-  v.addEventListener("touchmove",e=>{if(!g||e.touches.length<2)return;e.preventDefault();const m=two(e.touches);CHZ.s=m.d/g.d;CHZ.mx=m.x;CHZ.my=m.y;chzShow()},{passive:false});
-  const end=e=>{if(g&&e.touches.length<2){g=null;chzCommit()}};
+  const pt=(x,y)=>{const r=v.getBoundingClientRect();return[x-r.left,y-r.top]};
+  /* the wheel, and a trackpad's pinch (a wheel with Ctrl held) */
+  v.addEventListener("wheel",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();const dy=e.deltaMode===1?e.deltaY*16:e.deltaMode===2?e.deltaY*400:e.deltaY,[x,y]=pt(e.clientX,e.clientY);
+    chzBy(Math.exp(-dy*(e.ctrlKey?.012:.0022)),x,y);clearTimeout(CHZ.t);CHZ.t=setTimeout(chzCommit,180)},{passive:false});
+  /* fingers: one moves the chart, two zoom it about the point between them (and move it with them) */
+  let g=null,tap=0,tx0=0,ty0=0;
+  const snap=t=>{const a=pt(t[0].clientX,t[0].clientY);if(t.length<2)return{x:a[0],y:a[1],d:0,tx:CHZ.tx,ty:CHZ.ty,ls:CHZ.ls};
+    const b=pt(t[1].clientX,t[1].clientY);return{x:(a[0]+b[0])/2,y:(a[1]+b[1])/2,d:Math.hypot(a[0]-b[0],a[1]-b[1]),tx:CHZ.tx,ty:CHZ.ty,ls:CHZ.ls}};
+  v.addEventListener("touchstart",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();clearTimeout(CHZ.t);if(CH.task){try{CH.task.cancel()}catch(_){}CH.task=null;CHZ.gen++}
+    g=snap(e.touches);if(e.touches.length===1){const now=Date.now(),t=e.touches[0];
+      if(now-tap<300&&Math.hypot(t.clientX-tx0,t.clientY-ty0)<30){tap=0;g=null;chzBy(CHZ.rz>=CHZ_MAX/1.5?1/CHZ.rz:2,...pt(t.clientX,t.clientY));chzCommit();return}
+      tap=now;tx0=t.clientX;ty0=t.clientY}},{passive:false});
+  v.addEventListener("touchmove",e=>{if(!g)return;e.preventDefault();const n=snap(e.touches);
+    if(e.touches.length>=2&&g.d){const z=CHZ.rz*g.ls,nz=Math.max(CHZ_MIN,Math.min(CHZ_MAX,z*n.d/g.d)),f=nz/z;CHZ.ls=g.ls*f;CHZ.tx=n.x-(g.x-g.tx)*f;CHZ.ty=n.y-(g.y-g.ty)*f}
+    else if(e.touches.length===1&&!g.d){CHZ.tx=g.tx+n.x-g.x;CHZ.ty=g.ty+n.y-g.y}
+    chzClamp();chzPlace()},{passive:false});
+  const end=e=>{if(!g)return;if(e.touches.length){g=snap(e.touches);return}g=null;chzCommit()};
   v.addEventListener("touchend",end);v.addEventListener("touchcancel",end);
   ["gesturestart","gesturechange"].forEach(t=>v.addEventListener(t,e=>e.preventDefault()));
-  /* the mouse: drag to move, double click to zoom in there */
+  /* the mouse: drag to move, double click to zoom in there (or back to the whole chart when far in) */
   let dr=null;
-  v.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0||!CH.doc)return;dr={x:e.clientX,y:e.clientY,l:v.scrollLeft,t:v.scrollTop};v.setPointerCapture(e.pointerId);v.classList.add("chz-drag")});
-  v.addEventListener("pointermove",e=>{if(!dr)return;v.scrollLeft=dr.l-(e.clientX-dr.x);v.scrollTop=dr.t-(e.clientY-dr.y)});
+  v.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0||!CH.doc||!CHZ.W)return;dr={x:e.clientX,y:e.clientY,tx:CHZ.tx,ty:CHZ.ty};v.setPointerCapture(e.pointerId);v.classList.add("chz-drag")});
+  v.addEventListener("pointermove",e=>{if(!dr)return;CHZ.tx=dr.tx+e.clientX-dr.x;CHZ.ty=dr.ty+e.clientY-dr.y;chzClamp();chzPlace()});
   const up=()=>{dr=null;v.classList.remove("chz-drag")};v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);
-  v.addEventListener("dblclick",e=>{if(!CH.doc)return;e.preventDefault();if(chzBegin(e.clientX,e.clientY)){CHZ.s=CH.zoom>=CHZ_MAX/1.5?CHZ_MIN/CH.zoom*2:2;chzCommit()}})}
-{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="charts"){CHZ.on=false;chzBind($("#chView"))}return v}}
+  v.addEventListener("dblclick",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();chzBy(CHZ.rz>=CHZ_MAX/1.5?1/CHZ.rz:2,...pt(e.clientX,e.clientY));chzCommit()})}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="charts"){const b=$("#chView");if(b&&$("#chCanvas")){b.classList.add("chz");chzBind(b)}}return v}}
+window.addEventListener("resize",()=>{if(cur==="charts"&&CH.doc)chRender()});
 document.head.insertAdjacentHTML("beforeend",`<style>
-/* Charts: the chart can be dragged and zoomed; a chart wider than the window scrolls from its left edge */
-.chview{justify-content:flex-start;touch-action:pan-x pan-y;overscroll-behavior:contain}
-.chview canvas{margin:0 auto;flex:none}
-.chview:has(canvas){cursor:grab}.chview.chz-drag{cursor:grabbing;user-select:none}
+/* Charts: the chart has its own place and size in its window (chz.js) */
+.chview.chz{position:relative;display:block;overflow:hidden;padding:0;touch-action:none;overscroll-behavior:contain;cursor:grab}
+.chview.chz canvas{position:absolute;left:0;top:0;margin:0;transform-origin:0 0;will-change:transform}
+.chview.chz.chz-drag{cursor:grabbing;user-select:none}
 </style>`);
 V.charts=()=>{const apts=chApts();if(!CH.icao)CH.icao=(apts[0]||[])[1]||"KSFO";const icao=CH.icao,d=CH.data[icao];
   const pick=`<div class="sx"><div class="seg" role="group" aria-label="Airport" style="display:flex;width:100%">${apts.map(a=>`<button style="flex:1" data-chapt="${esc(a[1])}" aria-pressed="${icao===a[1]}">${esc(a[1])}</button>`).join("")}</div>
@@ -2974,10 +2993,10 @@ function dl3Side(B){const x=O(),none=!!ofp._sample,u=dl3User();
     else if(!B.list.length)bk=`<div class="dl3-note">No bookings. Book a flight in vAMSYS, then plan it in SimBrief.</div>`;
     else bk=B.list.map((b,i)=>row("bk:"+dl3BkId(b,i),dl3Plane()+(dl3Match(b)?`<span class="dl3-bdg" title="Its plan is on this device">${dkSvg("check")}</span>`:""),esc(dl3BkName(b)),esc(b.from)+" → "+esc(b.to)+(b.type?" · "+esc(b.type):""),dl3WhenHtml(b.departureTime))).join("")}
   return `<aside class="dk-side"><div class="dk-sl">
-    <div class="dk-sec">This Flight</div>${none?row("plan",dkSvg("fold"),"No flight plan",u?"Download it from SimBrief":"Add your SimBrief account")
+    <div class="dk-sec">This Flight</div>${none?row("plan",dkSvg("fold"),"No flight plan",u?"Download it from SimBrief":"Add your SimBrief account")+(RS.ci?`<button type="button" class="dk-row dl3-sx${DL3.sel==="plan"&&ofpTab==="ci"?" on":""}" data-dl3="plan" data-tab="ci"><span class="dk-ri s"><svg viewBox="0 0 24 24" aria-hidden="true">${DL3_CI}</svg></span><span class="dk-rt"><b>Check-in</b></span><span class="dl3-v">${esc(RS.ci.callsign||RS.ci.flight||"")}</span></button>`:"")
       :`<div class="dl3-fl"><b>${esc(x.flight)}</b><span>${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}${S(x.ac.icaocode)?" · "+esc(S(x.ac.icaocode)):""}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}</span></div>`
         +`<button type="button" class="dk-row dl3-sx" data-fdoc="ofpdoc"><span class="dk-ri s"><svg viewBox="0 0 24 24" aria-hidden="true">${FD_I.ofpdoc}</svg></span><span class="dk-rt"><b>OFP</b></span><span class="dl3-v">${S((ofp.params||{}).airac)?"AIRAC "+esc(S(ofp.params.airac)):""}</span></button>`
-        +dl3Secs().map(([k,ic,t,v])=>`<button type="button" class="dk-row dl3-sx${DL3.sel==="plan"&&ofpTab===k?" on":""}" data-dl3="plan" data-tab="${k}"><span class="dk-ri s">${ico(ic)}</span><span class="dk-rt"><b>${esc(t)}</b></span><span class="dl3-v">${esc(v)}</span></button>`).join("")}
+        +dl3Secs().map(([k,ic,t,v])=>`<button type="button" class="dk-row dl3-sx${DL3.sel==="plan"&&ofpTab===k?" on":""}" data-dl3="plan" data-tab="${k}"><span class="dk-ri s">${ic[0]==="<"?`<svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>`:ico(ic)}</span><span class="dk-rt"><b>${esc(t)}</b></span><span class="dl3-v">${esc(v)}</span></button>`).join("")}
     ${B?`<div class="dk-sec">Bookings</div>${bk}`:""}
   </div><div class="dk-foot"><button type="button" class="dl3-acct" data-sbset>${u?"SimBrief · "+esc(u):"No SimBrief account"}</button></div></aside>`}
 /* a row of the table: the name on the left, the value on the right */
@@ -2986,12 +3005,55 @@ const dl3Sh=t=>`<div class="dl3-sh">${t}</div>`;
 /* the plan on this device: the Flight Plan's sections, as its own sidebar has them (and the printed OFP) */
 function dl3Secs(){const x=O(),fu=ofp.fuel||{},o=store.get("oooi:"+x.id,{}),next=OO.find(k=>!o[k]),dist=N(x.g.route_distance)||N(x.g.air_distance);
   let nt="";try{if(typeof ntAll==="function"){const A=ntAll();nt=A.length?String(A.length):"None"}}catch(e){}
-  return [["sum","doc","Overview",""],["brief","cloud","Briefing","Route"],["fuel","fuel","Fuel & weights",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):""],["route","route","Route",dist?fmt(dist)+" NM":""],
+  return [["ci",DL3_CI,"Check-in",dl3CiState()],["sum","doc","Overview",""],["brief","cloud","Briefing","Route"],["fuel","fuel","Fuel & weights",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):""],["route","route","Route",dist?fmt(dist)+" NM":""],
     ["navlog","list","Nav log",x.fixes.length+" fixes"],["oooi","clock","Block times",next?"Next "+next:"Done"],["notam","alert","NOTAMs",nt]].filter(z=>z[0]!=="brief"||typeof brPage==="function").filter(z=>z[0]!=="notam"||typeof ntPage==="function")}
-function dl3Sec(){const k=ofpTab;let h="";
+function dl3Sec(){const k=ofpTab;let h="";if(k==="ci")return dl3Ci();
   try{h=k==="brief"&&typeof brPage==="function"?brPage():k==="notam"&&typeof ntPage==="function"?ntPage():k==="fuel"?ofpFuel():k==="route"?ofpRoute():k==="navlog"?ofpNavlog():k==="oooi"?ofpTimes():ofpSummary()}
   catch(e){h=`<div class="empty">This part of the plan couldn’t be shown.</div>`}
+  if(k==="brief"){const x=O(),a=S(x.o.icao_code),b=S(x.d.icao_code);if(a&&b&&vam.url)h+=`<section class="card">${cardH("Weather now","METAR, TAF and ATIS",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(a,"Departure")}${rsWxHtml(b,"Arrival")}</div></section>`}
   return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
+/* ---------- check-in (Nov 2026, from the Roster app, which is gone) ----------
+   Checking in (from 12 hours before departure) tells the EFB server which flight this is: the departure and arrival
+   gates, the final loadsheet and the weather pushes follow by AOC, and the track is kept for the logbook. */
+const DL3_CI='<rect x="4" y="5" width="16" height="15.5" rx="2.6"/><path d="M8 3.2v3.6M16 3.2v3.6M4 10h16M8.5 15l2.4 2.4 4.6-4.8"/>';
+const dl3CiOpen=b=>{const t=Date.parse(b&&b.departureTime||"");return !t||Date.now()>=t-12*3600e3};
+const dl3CiOf=b=>!!(RS.ci&&b&&String(RS.ci.bookingId)===String(b.id));
+/* the bookings this plan could be (same airports), the soonest first */
+function dl3CiBks(){const x=O(),L=(RS.list&&RS.list.length?RS.list:(dl3Bks()||{list:[]}).list)||[];if(ofp._sample)return[];
+  return L.filter(b=>String(b.from||"").toUpperCase()===S(x.o.icao_code)&&String(b.to||"").toUpperCase()===S(x.d.icao_code)).sort((a,b)=>(Date.parse(a.departureTime)||9e15)-(Date.parse(b.departureTime)||9e15))}
+function dl3CiState(){const ci=RS.ci,x=O();if(ci&&(ofp._sample||ci.from===S(x.o.icao_code)&&ci.to===S(x.d.icao_code)))return "Done";if(ci)return "Other flight";
+  const b=dl3CiBks()[0];return b?dl3CiOpen(b)?"Open":"Later":""}
+function dl3CiBtn(b){if(dl3CiOf(b))return `<span class="pill c-green">Checked in</span>`;
+  if(!dl3CiOpen(b))return `<span class="note">Check-in opens ${rsZ(Date.parse(b.departureTime)-12*3600e3)}</span>`;
+  return `<button type="button" class="btn pri" data-dl3ci="${esc(String(b.id))}"${RS.busy?" disabled":""}>${RS.busy===String(b.id)?"Checking in…":"Check in"}</button>`}
+function dl3Ci(){const ci=RS.ci,now=Date.now(),signed=typeof authOn==="function"&&authOn();let h="";
+  if(!signed)h=`<section class="card"><div class="empty">Sign in with vAMSYS to check in.</div></section>`;
+  else if(ci){const j=ci.jobs||[],dep=j.find(z=>z.at&&ci.std&&Math.abs(z.at-(ci.std-45*60e3))<120e3),arr=j.find(z=>z.at&&ci.sta&&Math.abs(z.at-(ci.sta-40*60e3))<120e3);
+    const step=(t,label,sub,done)=>`<li class="${done?"done":t&&t<=now+60e3?"now":""}"><span></span><div><b>${label}</b><small>${t?rsZ(t):"—"}${sub?" · "+sub:""}</small></div></li>`;
+    const tl=[step(ci.at,"Checked in",ci.at?rsDay(ci.at):"",true),
+      step(ci.std?ci.std-45*60e3:0,"Departure briefing","weather at "+esc(ci.from)+(dep?" · push scheduled":""),ci.std&&now>=ci.std-45*60e3),
+      step(ci.std,"Off-block",esc(ci.from),ci.std&&now>=ci.std),
+      step(ci.sta?ci.sta-40*60e3:0,"Arrival briefing","weather at "+esc(ci.to)+(arr?" · push scheduled":""),ci.sta&&now>=ci.sta-40*60e3),
+      step(ci.sta,"On-block",esc(ci.to),ci.sta&&now>=ci.sta)].join("");
+    const x=O(),match=!ofp._sample&&S(x.o.icao_code)===ci.from&&S(x.d.icao_code)===ci.to;
+    h=`<section class="card feat">${cardH("Checked in",esc((ci.callsign||ci.flight||"")+" · "+ci.from+" → "+ci.to),`<button class="btn sm" type="button" data-dl3co style="color:#fff;border-color:rgba(255,255,255,.4)">Cancel check-in</button>`)}<ol class="rs-tl">${tl}</ol>
+      ${typeof pushOn==="function"&&pushOn()?"":`<p class="note">Turn on push notifications in Settings › Notifications to get these briefings while the EFB is closed.</p>`}</section>
+      ${match?"":`<div class="notice"><b>${ofp._sample?"No SimBrief plan loaded":"The plan loaded is for "+esc(S(x.o.icao_code))+"–"+esc(S(x.d.icao_code))}</b><span>Plan ${esc(ci.from)}–${esc(ci.to)} in SimBrief, then download it here.</span></div>`}
+      <section class="card">${cardH("After check-in","Polaris operations")}<div class="card-b"><p class="note" style="margin:0">Your departure and arrival gates, the final loadsheet 15 minutes before departure and the weather at each end come as AOC messages in Messages, where the VATSIM datalink stations (DCL / PDC and CPDLC) are too.</p><div class="row" style="margin-top:12px"><button type="button" class="btn" data-dl3msg>Open Messages</button></div></div></section>`}
+  else{const L=dl3CiBks(),now2=Date.now(),soon=((RS.list||[]).filter(b=>{const t=Date.parse(b.departureTime||"");return t&&t>now2-3600e3&&t-now2<12*3600e3}));
+    const row=b=>`<div class="dl3-cir"><div><b>${esc(b.flight||b.callsign)} · ${esc(b.from)} → ${esc(b.to)}</b><small>${esc([b.departureTime?"STD "+dl3When(b.departureTime):"",b.type,b.registration].filter(Boolean).join(" · "))}</small></div>${dl3CiBtn(b)}</div>`;
+    const more=soon.filter(b=>!L.includes(b));
+    h=`<section class="card">${cardH("Check-in","From 12 hours before departure")}<div class="card-b">
+      ${L.length?L.map(row).join(""):`<p class="note" style="margin:0">${ofp._sample?"No flight plan loaded.":"No vAMSYS booking for "+esc(S(O().o.icao_code))+"–"+esc(S(O().d.icao_code))+"."} Book the flight in vAMSYS to check in for it.</p>`}
+      ${more.length?`<div class="dl3-cih">Other bookings open for check-in</div>${more.map(row).join("")}`:""}
+      <p class="note" style="margin:12px 0 0">After check-in, Polaris operations sends your gates and the final loadsheet by AOC.</p></div></section>`}
+  return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dl3ci],[data-dl3co],[data-dl3msg],[data-dl3open]");if(!t)return;const d=t.dataset;
+  if(d.dl3open!=null){if(d.dl3open==="ci"){ofpTab="ci";store.set("ofpTab","ci");DL3.sel="plan"}else DL3.sel="bk:"+d.dl3open;DL3.y=0;goApp("simbrief");return}
+  if(cur!=="simbrief")return;
+  if(d.dl3ci){rsCheckin(d.dl3ci);return}
+  if(d.dl3msg!=null){if(typeof MSG!=="undefined"){MSG.dl=true;MSG.setup=false;MSG.sel="";MSG.det=true}goApp("messages");return}
+  if(d.dl3co!=null){if(!confirm("Cancel the check-in? The briefing notifications for this flight stop."))return;pmPost("/api/efb/crew/checkout",{}).then(()=>{RS.ci=null;store.set("checkin",null);toast("Check-in cancelled");render()}).catch(er=>toast(er.message))}});
 /* a phone: the sections as a row of buttons under the tabs */
 function dl3Chips(){return `<div class="dl3-chips" role="tablist" aria-label="Flight plan">${dl3Secs().map(([k,,t])=>`<button type="button" role="tab" data-dl3="plan" data-tab="${k}" aria-selected="${ofpTab===k}">${esc(t)}</button>`).join("")}<button type="button" data-fdoc="ofpdoc">OFP</button></div>`}
 /* nothing loaded yet */
@@ -3011,7 +3073,8 @@ function dl3Book(b){const dt=b.departureTime?Date.parse(b.departureTime):0,url=r
       ${dl3R("Aircraft",esc(b.type||"—")+(b.registration?" "+i(esc(b.registration)):""))}${b.altitude?dl3R("Cruise","FL"+String(Math.round(b.altitude/100)).padStart(3,"0")+(b.costIndex!=null&&b.costIndex!==""?" "+i("CI "+esc(b.costIndex)):"")):""}
       ${b.route?`<div class="dl3-rt">${esc(b.route)}</div>`:""}
       ${dl3Sh("Flight Plan")}${m?dl3R("On this device",esc(x.flight)+(gen?" "+i("generated "+esc(utcHM(gen/1000))):"")):`<div class="dl3-r"><span>Not planned yet</span><b class="t">Plan it in SimBrief, then download it here</b></div>`}
-      <a class="dk-btn dl3-sb" href="${esc(url)}" target="_blank" rel="noopener">Plan in SimBrief ↗</a></div></div>`}
+      <a class="dk-btn dl3-sb" href="${esc(url)}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>
+      ${typeof authOn==="function"&&authOn()?`${dl3Sh("Check-in")}<div class="dl3-r"><span>${dl3CiOf(b)?"Checked in":dl3CiOpen(b)?"Open now":"Opens 12 h before STD"}</span><b class="t">${dl3CiOf(b)?`<button type="button" class="btn sm" data-dl3open="ci">Open check-in</button>`:dl3CiBtn(b)}</b></div>`:""}</div></div>`}
 /* a phone's Bookings tab */
 function dl3BkList(B){if(!B.s.data)return `<div class="dk-wait">${B.s.err?esc(B.s.err):'<span class="dk-spin" aria-hidden="true"></span>Loading bookings…'}</div>`;
   if(!B.list.length)return dkEmpty(dl3Plane(),"No bookings","Book a flight in vAMSYS, then plan it in SimBrief and download it here.","");
@@ -3029,7 +3092,7 @@ V.simbrief=()=>{const B=dl3Bks(),none=!!ofp._sample;let bk=null;
   let title,right="",back="",body;
   if(bk){title=dl3BkName(bk)+" · "+bk.from+" → "+bk.to;right=dl3Match(bk)?dl3Ok():"";back=`<button type="button" class="dk-back dl3-back" data-dl3="bk">${dkSvg("back")}<span>Bookings</span></button>`;body=dl3Book(bk)}
   else if(DL3.sel!=="plan"){title="Bookings";body=B?dl3BkList(B):""}
-  else{const x=O();title=none?"This Flight":x.flight+" · "+S(x.o.icao_code)+" → "+S(x.d.icao_code);right=none?"":dl3Ok();body=none?dl3None():dl3Sec()}
+  else{const x=O();title=none?(ofpTab==="ci"&&RS.ci?(RS.ci.callsign||RS.ci.flight)+" · "+RS.ci.from+" → "+RS.ci.to:"This Flight"):x.flight+" · "+S(x.o.icao_code)+" → "+S(x.d.icao_code);right=none?"":dl3Ok();body=none&&!(ofpTab==="ci"&&RS.ci)?dl3None():dl3Sec()}
   const tabs=B?`<div class="dk-srcs" role="tablist" aria-label="Download"><button type="button" role="tab" data-dl3="plan" aria-selected="${DL3.sel==="plan"}">This Flight</button><button type="button" role="tab" data-dl3="bk" aria-selected="${DL3.sel!=="plan"}">Bookings${B.list.length?" ("+B.list.length+")":""}</button></div>`:"";
   queueMicrotask(()=>{const b=$("#dl3Body");if(b&&DL3.y)b.scrollTop=DL3.y;const c=document.querySelector(".dl3-chips [aria-selected=\"true\"]");if(c){const r=c.parentElement;r.scrollLeft=c.offsetLeft-(r.clientWidth-c.offsetWidth)/2}});
   return `<div class="dk dl3" id="dl3Root">${dl3Top()}${dl3Side(B)}<section class="dk-main">${tabs}${DL3.sel==="plan"&&!none?dl3Chips():""}<div class="dk-head"><div class="dk-hl">${back}</div><h2 class="dk-t">${esc(title)}</h2><div class="dk-hr">${right}</div></div>
@@ -3135,6 +3198,11 @@ a.dk-sq,label.dk-sq{text-decoration:none;box-sizing:border-box}
 @container screen (max-width:640px){.dk-sq.dl3-clr{flex:none;padding:0 10px}.dk-sq.dl3-go{min-width:0}.dk-sq.dl3-go span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 .dl3-lp{font-style:normal}
 @container screen (max-width:640px){.dl3-clr~.dk-sq.dl3-go .dl3-lp{display:none}}
+/* check-in: a booking with its button */
+.dl3-cir{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.dl3-cir b{display:block;font:600 15px var(--f-mono);color:var(--ink)}.dl3-cir small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:2px}
+.dl3-cih{margin:16px 0 4px;font:600 11px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
+.dl3-r>b.t .btn{font-family:var(--f-ui)}
 </style>`);
 
 /* ===== Settings ===== */
@@ -6790,7 +6858,7 @@ function rsLoad(force){if(!vam.url||!authOn()||RS.loading)return;if(!force&&Date
   Promise.allSettled([vamGet("/api/efb/bookings",15000),vamGet("/api/efb/crew",15000)]).then(([b,c])=>{
     if(b.status==="fulfilled"){RS.list=(b.value&&b.value.bookings)||[];RS.err=null}else RS.err=b.reason&&b.reason.message||"Couldn’t load your bookings";
     if(c.status==="fulfilled"){RS.ci=c.value&&c.value.checkin||null;store.set("checkin",RS.ci)}})
-    .finally(()=>{RS.loading=false;RS.at=Date.now();if(cur==="roster")render();else renderHome()})}
+    .finally(()=>{RS.loading=false;RS.at=Date.now();if(cur==="simbrief")render();else renderHome()})}
 setTimeout(()=>rsLoad(true),2500);
 /* home screen calendar widget: the checked-in flight (until 2 h after its arrival), else, with no SimBrief plan
    loaded, the next booking within 36 hours. A loaded plan without a check-in keeps the widget as it was. */
@@ -6806,8 +6874,8 @@ function rsDue(w){const f=w.f,now=Date.now();if(!f.std)return w.ci?"Checked in":
 function rsCalHtml(){const w=rsCalFlight();if(!w)return "";const f=w.f,x=O(),fu=ofp.fuel||{},d=f.std?new Date(f.std):new Date();
   const match=!ofp._sample&&S(x.o.icao_code)===f.from&&S(x.d.icao_code)===f.to,ac=[f.type,f.registration].filter(Boolean).map(esc).join(" · ")||"Aircraft";
   const alt=w.ci&&match?`<div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode)||f.type)} · ${esc(S(x.ac.reg)||f.registration)}</b><span>Block fuel ${fmt(N(fu.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`
-    :`<div class="ev alt"><b>${ac}</b><span>${w.ci?(ofp._sample?"No SimBrief plan yet":"SimBrief plan doesn’t match"):"Check in on the Roster"}</span></div>`;
-  return `<a class="w w-m w-cal" href="#roster"><div class="cal-l"><span class="cal-d">${d.toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"}).toUpperCase()}</span><span class="cal-n">${d.getUTCDate()}</span><span class="cal-ex${w.ci?" ci":""}">${w.ci?"Checked in":"Booked"}</span><span class="cal-due" id="wDue">${esc(rsDue(w))}</span></div>
+    :`<div class="ev alt"><b>${ac}</b><span>${w.ci?(ofp._sample?"No SimBrief plan yet":"SimBrief plan doesn’t match"):"Check in from Download"}</span></div>`;
+  return `<a class="w w-m w-cal" href="#simbrief"><div class="cal-l"><span class="cal-d">${d.toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"}).toUpperCase()}</span><span class="cal-n">${d.getUTCDate()}</span><span class="cal-ex${w.ci?" ci":""}">${w.ci?"Checked in":"Booked"}</span><span class="cal-due" id="wDue">${esc(rsDue(w))}</span></div>
     <div class="cal-r"><div class="ev"><b>${esc(f.callsign||f.flight)} · ${esc(f.from)} → ${esc(f.to)}${ftTag(f.flight||f.callsign,f.from,f.to)}</b><span>STD ${rsZ(f.std)} · STA ${rsZ(f.sta)}${f.std&&f.sta?" · "+rsDur(f.sta-f.std):""}</span></div>${alt}</div></a>`}
 /* home screen: a badge while a booked flight is open for check-in */
 {const _b=badge;badge=function(id){if(id==="roster"){const ci=RS.ci,now=Date.now(),n=(RS.list||[]).filter(l=>{const std=rsT(l.departureTime);return std&&std>now&&now>=std-12*3600e3&&!(ci&&String(ci.bookingId)===String(l.id))}).length;
@@ -6831,11 +6899,11 @@ function rsWx(icao){if(!icao||!vam.url)return;const w=RS.wx[icao];if(w&&(w.loadi
   Promise.allSettled([vamGet("/api/efb/airport?icao="+icao,20000),vamGet("/api/efb/atis?icao="+icao,15000)]).then(([a,t])=>{
     RS.wx[icao]={at:Date.now(),metar:a.status==="fulfilled"?a.value&&a.value.metar:w&&w.metar,taf:a.status==="fulfilled"?a.value&&a.value.taf:w&&w.taf,err:a.status==="rejected"?a.reason.message:null};
     if(t.status==="fulfilled")RS.atis[icao]={vatsim:t.value.vatsim||[],real:(t.value.real||[]).filter(x=>x&&x.datis)}})
-    .finally(()=>{if(cur==="roster")render()})}
+    .finally(()=>{if(cur==="simbrief")render()})}
 /* datalink offered by VATSIM controllers (DCL/PDC, CPDLC through Hoppie), from their public info lines */
 const DL={list:null,at:0,loading:false,err:null};
 function dlLoad(){if(!vam.url||DL.loading||Date.now()-DL.at<60000)return;DL.loading=true;
-  vamGet("/api/efb/datalink",15000).then(j=>{DL.list=j.stations||[];DL.err=null}).catch(e=>{DL.err=e.message}).finally(()=>{DL.loading=false;DL.at=Date.now();if(cur==="roster")render()})}
+  vamGet("/api/efb/datalink",15000).then(j=>{DL.list=j.stations||[];DL.err=null}).catch(e=>{DL.err=e.message}).finally(()=>{DL.loading=false;DL.at=Date.now();if(cur==="messages")render()})}
 /* stations of one airport: callsign prefix is the ICAO code, or (US, Pacific, Canada) the three letters after K/P/C */
 function dlAt(icao){icao=String(icao||"").toUpperCase();const pre=new Set([icao]);if(/^[KPC][A-Z0-9]{3}$/.test(icao))pre.add(icao.slice(1));
   return (DL.list||[]).filter(x=>pre.has(x.cs.split("_")[0])||x.code===icao)}
@@ -6903,7 +6971,7 @@ async function rsCheckin(id){if(RS.busy)return;RS.busy=id;render();
   try{/* the plan's alternate goes along when the loaded plan is this flight, so the server can watch its weather too */
     const bk=(RS.list||[]).find(x=>String(x.id)===String(id)),px=O(),altn=bk&&!ofp._sample&&S(px.d.icao_code)===bk.to&&S(px.o.icao_code)===bk.from?S(px.a.icao_code):"";
     const j=await pmPost("/api/efb/crew/checkin",{bookingId:id,altn});RS.ci=j.checkin;store.set("checkin",RS.ci);setTimeout(()=>ciOfpSync(true),400);
-    const fl=RS.ci.callsign||RS.ci.flight;if(window.islAlert&&window.__islOn&&window.__islOn())islAlert({app:"Roster",short:"Checked in",icon:`<span class="rs-ic" style="background:${APPS.roster.bg}"><svg viewBox="0 0 24 24">${APPS.roster.g}</svg></span>`,title:"Checked in · "+fl,sub:RS.ci.from+" → "+RS.ci.to+(RS.ci.std?" · STD "+rsZ(RS.ci.std):""),ms:5000});else toast("Checked in · "+fl);
+    const fl=RS.ci.callsign||RS.ci.flight;if(window.islAlert&&window.__islOn&&window.__islOn())islAlert({app:"Flight",short:"Checked in",icon:`<span class="rs-ic" style="background:${APPS.flight.bg}"><svg viewBox="0 0 24 24">${APPS.flight.g}</svg></span>`,title:"Checked in · "+fl,sub:RS.ci.from+" → "+RS.ci.to+(RS.ci.std?" · STD "+rsZ(RS.ci.std):""),ms:5000});else toast("Checked in · "+fl);
     /* the plan for this flight: fetch it if SimBrief has a newer one */
     const x=O();if(store.get("sbUser","")&&(ofp._sample||S(x.o.icao_code)!==RS.ci.from||S(x.d.icao_code)!==RS.ci.to))sbFetchQuiet(false);
     rsLoad(true)}
@@ -6950,6 +7018,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .rs-leg{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t b" "r r" "m m"}.rs-turn{padding-left:20px}.rs-wx2{grid-template-columns:1fr}.rs-wx+.rs-wx{border-left:0;border-top:1px solid var(--line)}}
 </style>`);
 
+/* Nov 2026: no Roster app (check-in is in Download, datalink in Messages, bookings in Calendar) */
+delete APPS.roster;{const rm=a=>{const i=a.indexOf("roster");if(i>=0)a.splice(i,1)};rm(PAGE1);rm(PAGE2);rm(PAGE3);rm(DOCK)}
 /* ===== Logbook: one PIREP with its flown track and altitude profile =====
    Tap a vAMSYS PIREP in Logbook › vAMSYS PIREPs. The EFB server returns the PIREP and its track: vAMSYS position
    reports, or, if vAMSYS has none, the track it recorded from the flight map while the flight was checked in on the
@@ -6986,7 +7056,7 @@ function ltHtml(id){const j=LT.data[id],err=LT.err[id];ltLoad(id);
      <dl class="stats"><div><dt>Aircraft</dt><dd>${esc(p.type||"—")} ${esc(p.registration||"")}</dd></div><div><dt>Distance</dt><dd>${p.distanceNm!=null?fmt(Math.round(p.distanceNm))+" NM":"—"}</dd></div><div><dt>Fuel</dt><dd>${p.fuelUsed!=null?fmt(Math.round(p.fuelUsed)):"—"}</dd></div><div><dt>Points</dt><dd>${p.points!=null?fmt(p.points):"—"}</dd></div></dl></section>
    ${pts.length>1?`<section class="card">${cardH("Flown track",esc(p.from)+" → "+esc(p.to))}<div class="lt-map" id="ltMap" data-for="${esc(String(id))}"></div><p class="lt-src">${srcTxt}</p></section>
    <section class="card">${cardH("Profile","Altitude over distance")}<div class="card-b">${ltProfile(pts)}</div></section>`
-   :`<section class="card">${cardH("Flown track","Not available")}<div class="empty">vAMSYS has no position reports for this flight.<br>Check in on the Roster before your next flight, and the EFB records the track while you fly.</div></section>`}
+   :`<section class="card">${cardH("Flown track","Not available")}<div class="empty">vAMSYS has no position reports for this flight.<br>Check in from Download before your next flight, and the EFB records the track while you fly.</div></section>`}
    ${p.route?`<section class="card">${cardH("Route","Filed")}<div class="card-b"><p class="rs-raw">${esc(p.route)}</p></div></section>`:""}`}
 /* the map: a small MapLibre map with the vector style of the Map app */
 function ltMapMount(){const el=document.getElementById("ltMap");if(!el){if(LT.map){try{LT.map.remove()}catch(e){}LT.map=null;LT.mapFor=null}return}
@@ -7374,7 +7444,7 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
   let h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="_navlog"||h==="_oooi")h=h.slice(1);if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
-  if(h==="flight"){location.replace("#"+ftLast());return}if(h==="ofp"){DL3.sel="plan";location.replace("#simbrief");return}
+  if(h==="flight"){location.replace("#"+ftLast());return}if(h==="ofp"){DL3.sel="plan";location.replace("#simbrief");return}if(h==="roster"){DL3.sel="plan";if(RS.ci){ofpTab="ci";store.set("ofpTab","ci")}location.replace("#simbrief");return}
   const next=(APPS[h]||isFl(h))&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
@@ -9213,7 +9283,7 @@ function msSeen(keys){let ch=false;for(const k of keys)if(!MSG.seen[k]){MSG.seen
 function msAfter(src){if(!MSG.seeded[src]){for(const m of msAll())if(m.src===src)MSG.seen[m.k]=1;MSG.seeded[src]=1;store.set("msgSeeded",MSG.seeded);store.set("msgSeen",MSG.seen)}msBadge()}
 const msNarrow=()=>{try{return screenEl.clientWidth<=640}catch(e){return false}};
 /* which message the display shows when nothing was picked: the oldest unread, else the newest (on a phone, none) */
-function msPick(){if(MSG.setup||MSG.det||MSG.sel||msNarrow())return;const L=msAll(),un=L.filter(msUnseen),u=un.length?un[un.length-1]:L[0];if(u){MSG.sel=u.k;setTimeout(()=>msSeen([u.k]),0)}}
+function msPick(){if(MSG.setup||MSG.dl||MSG.det||MSG.sel||msNarrow())return;const L=msAll(),un=L.filter(msUnseen),u=un.length?un[un.length-1]:L[0];if(u){MSG.sel=u.k;setTimeout(()=>msSeen([u.k]),0)}}
 
 /* ---- loading ---- */
 const msOff=()=>{try{return typeof apmOn==="function"&&apmOn()}catch(e){return false}};
@@ -9254,8 +9324,21 @@ function msFoot(){const lg=msLogon(),cs=msCs();let st;
 function msList(){const L=msAll();if(MSG.sel&&!L.some(m=>m.k===MSG.sel))MSG.sel="";
   const signed=typeof authOn==="function"&&authOn();
   const body=L.length?L.map(msRow).join(""):`<p class="ms-none">${signed?"NO MESSAGES":"SIGN IN FOR AOC MESSAGES"}</p>`;
-  return `<aside class="ms-side"><h2 class="ms-h">MESSAGES</h2><div class="ms-list" id="msList">${body}</div>${msFoot()}</aside>`}
-function msBox(){if(MSG.setup)return msSetup();const L=msAll(),m=L.find(x=>x.k===MSG.sel);
+  const dl=`<button type="button" class="ms-row ms-dlrow${MSG.dl?" on":""}" data-ms="dl"${MSG.dl?' aria-current="true"':""}><b>DATALINK STATIONS</b><span>DCL / PDC · CPDLC ON VATSIM</span></button>`;
+  return `<aside class="ms-side"><h2 class="ms-h">MESSAGES</h2><div class="ms-list" id="msList">${dl}${body}</div>${msFoot()}</aside>`}
+/* VATSIM controllers offering datalink (from the Roster app, which is gone): at the checked-in flight's airports, or
+   the loaded plan's, and the centres with CPDLC */
+function msDl(){if(typeof dlLoad==="function")dlLoad();const ci=typeof RS!=="undefined"&&RS.ci,x=O(),a=ci?ci.from:ofp._sample?"":S(x.o.icao_code),b=ci?ci.to:ofp._sample?"":S(x.d.icao_code);
+  const back=MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:"";
+  const head=`<div class="ms-dh">${back}<span class="ms-dt">DATALINK STATIONS</span></div>`;
+  if(typeof DL==="undefined"||!DL.list)return head+`<div class="ms-box ms-empty">${typeof DL!=="undefined"&&DL.err?esc(String(DL.err).toUpperCase()):"LOOKING FOR DATALINK STATIONS ON VATSIM"}</div>`;
+  const row=st=>`<div class="ms-dl"><b>${esc(st.cs)}</b><span class="ms-dlk">${st.kind.map(k=>k==="DCL"?"DCL / PDC":k).join(" · ")}${st.f&&st.f!=="199.998"?" · "+esc(st.f):""}${st.code?" · LOGON "+esc(st.code):""}</span><p>${esc(st.text)}</p></div>`;
+  const grp=(t,L,none)=>`<b class="ms-mh">${t}</b>${L.length?L.map(row).join(""):`<p class="ms-note">${none}</p>`}`;
+  const dep=a?dlAt(a):[],arr=b?dlAt(b):[],seen=new Set([...dep,...arr].map(z=>z.cs)),enr=DL.list.filter(z=>!seen.has(z.cs)&&z.kind.includes("CPDLC")&&/^(CTR|FSS)$/.test(z.fac));
+  return head+`<div class="ms-box ms-dlbox">${a?grp("DEPARTURE "+esc(a),dep,"NO DATALINK AT "+esc(a)+" NOW. REQUEST YOUR CLEARANCE BY VOICE."):""}${b?grp("ARRIVAL "+esc(b),arr,"NO DATALINK AT "+esc(b)+" NOW."):""}
+    ${a?"":`<p class="ms-note">CHECK IN OR LOAD A PLAN TO SEE YOUR AIRPORTS.</p>`}${grp("CPDLC CENTRES ONLINE",enr,"NO CENTRE OFFERS CPDLC NOW.")}
+    <p class="ms-meta">FROM THE CONTROLLERS’ OWN INFORMATION ON VATSIM. DATALINK RUNS THROUGH HOPPIE ACARS: USE YOUR AIRCRAFT’S DATALINK WITH YOUR OWN LOGON CODE.</p></div>`}
+function msBox(){if(MSG.setup)return msSetup();if(MSG.dl)return msDl();const L=msAll(),m=L.find(x=>x.k===MSG.sel);
   if(!m){const signed=typeof authOn==="function"&&authOn();
     return `<div class="ms-dh"><span class="ms-dt">AOC MSG DISPLAY</span></div><div class="ms-box ms-empty">${L.length?"SELECT A MESSAGE":"NO MESSAGES"}<small>${signed?(MSG.err.aoc?esc(MSG.err.aoc.toUpperCase()):"MESSAGES FROM POLARIS OPERATIONS AND HOPPIE ACARS ARRIVE HERE"):`<button type="button" class="ms-btn" data-ms="signin">SIGN IN</button>`}</small></div>`}
   const ra=m.ra&&!/^(N|NE)$/.test(m.ra)?`<p class="ms-ra">RESPONSE REQUIRED (${esc(m.ra)}): ANSWER IN THE AIRCRAFT</p>`:"";
@@ -9285,10 +9368,11 @@ function msBadge(){const b=document.getElementById("ftabs");if(!b)return;const t
   const n=msNew();bd.hidden=!n;bd.textContent=n?String(n):"";t.setAttribute("aria-label",n?`Messages, ${n} new`:"Messages")}
 {const _s=ftSync;ftSync=function(){const r=_s.apply(this,arguments);try{msBadge()}catch(e){}return r}}
 document.addEventListener("click",e=>{if(cur!=="messages")return;const t=e.target.closest&&e.target.closest("[data-msk],[data-ms]");if(!t)return;const a=t.dataset;
-  if(a.msk){MSG.sel=a.msk;MSG.setup=false;MSG.det=true;msSeen([a.msk]);MSG.fx="fwd";render();return}
+  if(a.msk){MSG.sel=a.msk;MSG.setup=false;MSG.dl=false;MSG.det=true;msSeen([a.msk]);MSG.fx="fwd";render();return}
   const k=a.ms;
-  if(k==="back"){MSG.det=false;MSG.fx="back";render();return}
-  if(k==="setup"){MSG.setup=!MSG.setup;MSG.det=MSG.setup;MSG.fx=MSG.setup?"fwd":"back";render();if(MSG.setup)setTimeout(()=>{const i=$("#msLogon");if(i&&!i.value)i.focus()},50);return}
+  if(k==="back"){MSG.det=false;MSG.dl=false;MSG.fx="back";render();return}
+  if(k==="dl"){MSG.dl=true;MSG.setup=false;MSG.sel="";MSG.det=true;MSG.fx="fwd";render();return}
+  if(k==="setup"){MSG.dl=false;MSG.setup=!MSG.setup;MSG.det=MSG.setup;MSG.fx=MSG.setup?"fwd":"back";render();if(MSG.setup)setTimeout(()=>{const i=$("#msLogon");if(i&&!i.value)i.focus()},50);return}
   if(k==="save"){const lg=($("#msLogon")||{}).value||"",cs=(($("#msCs")||{}).value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
     if(lg&&!/^[A-Za-z0-9]{4,32}$/.test(lg.trim())){toast("That doesn’t look like a Hoppie logon code");return}
     const ch=lg.trim()!==msLogon()||cs!==String(store.get("hopCs","")||"");store.set("hopLogon",lg.trim());store.set("hopCs",cs);
@@ -9363,6 +9447,12 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   @keyframes msSl{from{transform:translateX(24px);opacity:.3}}@keyframes msSlb{from{transform:translateX(-24px);opacity:.3}}}
 @container screen (min-width:641px) and (max-width:960px){.ms{grid-template-columns:260px minmax(0,1fr)}.ms-main{padding:14px 18px 22px}}
 @media(prefers-reduced-motion:reduce){.ms *{animation:none!important}}
+/* datalink stations */
+.ms.ms .ms-dlrow b{color:var(--ms-pink)}
+.ms-dlbox .ms-mh{display:block;margin:16px 0 6px}.ms-dlbox .ms-mh:first-child{margin-top:0}
+.ms-dl{padding:8px 0 10px;border-bottom:1px solid var(--ms-line)}.ms-dl b{font:600 15px ui-monospace,"SF Mono",Menlo,monospace;color:var(--ms-ink)}
+.ms-dlk{display:block;margin-top:2px;font-size:12.5px;color:var(--ms-sub)}.ms-dl p{margin:4px 0 0;font-size:12.5px;line-height:1.45;color:var(--ms-sub);text-transform:none;letter-spacing:0;word-break:break-word}
+.ms-dlbox .ms-note{margin:6px 0 8px}
 </style>`);
 
 /* ---------- More ---------- */
@@ -9965,9 +10055,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
    already in use before the App Store keeps every app. Removing an app takes it off the Home Screen; its data stays. */
 APPS.store={name:"App Store",bg:"linear-gradient(180deg,#1DA1FF,#0A62E0)",fg:"#fff",g:'<path d="M12 4.5l-1.3 2.2M8.9 9.7L5 16.4M15.1 9.7l-1.6-2.8M19 16.4l-1.6-2.8" stroke-width="2.1"/><path d="M4.5 13.6h7.3M14 13.6h5.5" stroke-width="2.1"/><path d="M10.2 9.7h-1.3l3.1-5.2" stroke-width="2.1"/>'};
 /* Flight is the EFB itself: always there, like Settings */
-const AS_CORE=["prefs","store","flight"],AS_DEF=["roster","mail","flight","timer","store","prefs"];
+const AS_CORE=["prefs","store","flight"],AS_DEF=["calendar","mail","flight","timer","store","prefs"];
 const AS_INFO={
-  roster:{c:"company",s:"Bookings, check-in and briefings",d:"See your upcoming flights from vAMSYS, check in up to 12 hours before departure and get a briefing with the plan, weather and ATIS for both ends.",f:["Duty times and turnarounds","Check in from the EFB","Briefing with METAR, TAF and ATIS"]},
   mail:{c:"company",s:"Company notices and messages",d:"Read notices from Polaris operations and write to staff. New messages arrive with a notification, also when the EFB is closed if push is on.",f:["Notices with attachments","Messages to and from staff","Notifications on the Dynamic Island"]},
   flight:{c:"plan",s:"Your EFB for the flight",d:"Fetch your SimBrief plan, then the moving map, airports, charts, the OFP and the flight plan’s pages, a scratch pad and the backup PFD: one app with tabs along the bottom and the UTC time always in view, like an airline EFB.",f:["Download, Map, Airports and Charts","Documents and Scratch Pad","Backup PFD"]},
   load:{c:"plan",s:"Weights and balance",d:"The loadsheet for the flight from the plan's passengers, cargo and fuel.",f:["Passenger and cargo loading","Fuel and weights","Trim"]},
@@ -10031,7 +10120,7 @@ const asIcon=(id,cls)=>{const a=APPS[id];return `<span class="asx-ic ${cls||""}"
 /* ---------- the App Store app ---------- */
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="store"){screenEl.dataset.layout="full";ASX.anim=1;setTimeout(asSync,0)}return r}}
 function asxRow(id,i){const A=AS_INFO[id];return `<div class="asx-row" style="--i:${i||0}"><button class="asx-rowb" data-asdet="${id}">${asIcon(id)}<span class="asx-rt"><b>${esc(APPS[id].name)}</b><small>${esc(A.s)}</small></span></button>${asBtn(id)}</div>`}
-function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["roster","checklist","wx"].filter(id=>!asHas(id));
+function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}).toUpperCase(),miss=["calendar","checklist","wx"].filter(id=>!asHas(id));
   const card=(cls,eyebrow,title,sub,body,i)=>`<section class="asx-card ${cls}" style="--i:${i}"><div class="asx-ch"><span>${eyebrow}</span><b>${title}</b><p>${sub}</p></div>${body}</section>`;
   const hero=`<div class="asx-hero">${asOk("calendar")||APPS.calendar?`<button class="asx-hc h-cal" data-asdet="calendar" style="--i:0"><span class="asx-hk">New for you</span><b>Calendar</b><p>Your bookings, the flight plan and your own events by day, week, month and year, in Zulu time.</p><span class="asx-hf">${asIcon("calendar","sm")}<span>Calendar</span></span></button>`:""}
 </div>`;
@@ -10039,8 +10128,8 @@ function asToday(){const d=new Date(),day=d.toLocaleDateString("en-US",{weekday:
   const disc=`<div class="asx-sec"><h2 class="asx-h2">Discover something new</h2><button class="asx-link" data-asxtab="apps">All apps</button></div>${miss2.length?`<div class="asx-group">${miss2.map((id,i)=>asxRow(id,i)).join("")}</div>`:`<p class="asx-none">You have every app. Nice.</p>`}`;
   const partners=!AS_PARTNERS.length?"":`<div class="asx-sec"><h2 class="asx-h2">Today with our partners</h2><button class="asx-link" data-asxtab="partners">All partners</button></div><div class="asx-ptoday">${AS_PARTNERS.slice(0,2).map((p,i)=>asPartnerCard(p,i,true)).join("")}</div>`;
   return `<div class="asx-date">${day}</div><h1 class="asx-h1">Today</h1>${hero}
-  ${card("c-plan","Get started","Plan your first flight","Open Flight, download your plan and read it in Documents. Check in on Roster, and Polaris operations sends your gates and the final loadsheet.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["roster","checklist","wx"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="roster,checklist,wx">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
-  ${card("c-kb","Before departure","Roster","Check in up to 12 hours before departure for your briefing; your gates and the final loadsheet follow as AOC messages.",`<div class="asx-feat">${asIcon("roster","md")}<span class="asx-rt"><b>Roster</b><small>${esc(AS_INFO.roster.s)}</small></span>${asBtn("roster")}</div>`,1)}
+  ${card("c-plan","Get started","Plan your first flight","Open Flight, download your plan and read it in Documents. Check in there too, and Polaris operations sends your gates and the final loadsheet.",`<div class="asx-feat">${asIcon("flight","md")}<span class="asx-rt"><b>Flight</b><small>${esc(AS_INFO.flight.s)}</small></span>${asBtn("flight")}</div><div class="asx-bund">${["calendar","checklist","wx"].map(id=>asIcon(id,"sm")).join("")}${miss.length?`<button class="asx-all" data-asall="calendar,checklist,wx">Get all ${miss.length}</button>`:`<span class="asx-ok">All on your Home Screen</span>`}</div>`,0)}
+  ${card("c-kb","Before departure","Calendar","Your vAMSYS bookings, the Polaris schedule and events, all in UTC, with reminders before each one.",`<div class="asx-feat">${asIcon("calendar","md")}<span class="asx-rt"><b>Calendar</b><small>${esc((AS_INFO.calendar||{}).s||"")}</small></span>${asBtn("calendar")}</div>`,1)}
   ${partners}
   ${card("c-ck","Collection","On the flight deck","The apps you reach for from pushback to parking.",`<div class="asx-list">${["checklist","wx","winter","logbook"].map((id,i)=>asxRow(id,i)).join("")}</div>`,2)}
   ${disc}`}
@@ -10735,7 +10824,7 @@ if(typeof AS_INFO!=="undefined"){AS_INFO.calendar={c:"company",s:"Your flights a
 queueMicrotask(()=>{if(typeof EYEBROW!=="undefined")EYEBROW.calendar=()=>"All times UTC"});
 
 const CAL={view:store.get("calView","month"),d:null,q:"",sel:null,add:null,src:Object.assign({roster:true,plan:true,events:true,personal:true},store.get("calSrc",{})||{}),srcOpen:false,anim:0};
-const CAL_SRC=[["roster","Roster","#30B0C7"],["plan","Flight Plan","#5E5CE6"],["events","Polaris Events","#AF52DE"],["personal","Personal","#FF9F0A"]];
+const CAL_SRC=[["roster","Bookings","#30B0C7"],["plan","Flight Plan","#5E5CE6"],["events","Polaris Events","#AF52DE"],["personal","Personal","#FF9F0A"]];
 /* Polaris's group events from vAMSYS (the same list as the website's Events page), read every 30 minutes while the
    Calendar is open. An event over several days shows on each of its days. */
 const CALEV={list:null,at:0,busy:false,pol:store.get("calPol",null)};
@@ -10844,7 +10933,7 @@ V.calendar=()=>{const E=calEvents(),a=calAnchor(),anim=CAL.anim;CAL.anim=0;if(ty
 function calSrcPop(){return `<div class="cal-pop" role="dialog" aria-label="Calendars"><b>Calendars</b>${CAL_SRC.map(([k,t,c])=>`<label class="cal-src"><input type="checkbox" data-calsrcset="${k}" ${CAL.src[k]?"checked":""}><i style="--c:${c}"></i>${t}</label>`).join("")}<small>Times are UTC. Personal events stay on this device.</small></div>`}
 function calDetail(E){const v=E.find(x=>x.id===CAL.sel);if(!v)return "";const src=CAL_SRC.find(x=>x[0]===v.src);
   const dur=v.allDay?"All day":`${calZ(v.s)} – ${calZ(v.e)} · ${Math.floor((v.e-v.s)/36e5)}:${String(Math.round((v.e-v.s)/6e4)%60).padStart(2,"0")}`;
-  const act=v.src==="events"?"":v.src==="roster"?`<a class="cal-btn" href="#roster">${v.ci?"Open briefing in Roster":"Open in Roster"}</a>`:v.src==="plan"?`<a class="cal-btn" href="#ofp">Open Flight Plan</a>`:`<button class="cal-btn del" data-caldel="${esc(v.id)}">${CAL.armDel===v.id?"Tap again to delete":"Delete Event"}</button>`;
+  const act=v.src==="events"?"":v.src==="roster"?`<button type="button" class="cal-btn" data-dl3open="${v.ci?"ci":esc(String(v.id).slice(1))}">${v.ci?"Open check-in in Download":"Open in Download"}</button>`:v.src==="plan"?`<a class="cal-btn" href="#ofp">Open Flight Plan</a>`:`<button class="cal-btn del" data-caldel="${esc(v.id)}">${CAL.armDel===v.id?"Tap again to delete":"Delete Event"}</button>`;
   return `<div class="cal-sheetw" data-calx><div class="cal-sheet" role="dialog" aria-label="${esc(v.title)}"><div class="cal-sh1"><i style="background:${calColor(v.src)}"></i><b>${esc(v.title)}</b><button class="cal-x" data-calx aria-label="Close">✕</button></div>
     <p>${new Date(v.s).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})}<br>${dur}</p>${v.sub?`<p class="dim">${esc(v.sub)}</p>`:""}${v.evs?`<p class="dim">Event runs ${esc(new Date(v.evs).toISOString().slice(0,16).replace("T"," "))}Z – ${esc(new Date(v.eve).toISOString().slice(0,16).replace("T"," "))}Z</p>`:""}${v.aircraft?`<p class="dim">Aircraft: ${esc(v.aircraft)}</p>`:""}${v.reg?`<p class="dim">Registration required</p>`:""}${calExtra(v)}${v.desc?`<p class="cal-desc">${esc(v.desc)}</p>`:""}
     ${v.from?`<div class="cal-rt"><b>${esc(v.from)}</b><svg viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></svg><b>${esc(v.to||"")}</b>${typeof ftTag==="function"?ftTag(v.flight,v.from,v.to):""}</div>`:""}

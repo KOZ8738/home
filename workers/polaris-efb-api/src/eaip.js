@@ -202,6 +202,12 @@ const NOT_ID = new Set(['VOR', 'DME', 'NDB', 'ILS', 'LOC', 'LLZ', 'GP', 'TACAN',
   'LGTD', 'UNLGTD', 'LIGHTED', 'LIGHT', 'NO', 'YES', 'TREE', 'TREES', 'MAST', 'BLDG', 'TOWER', 'CRANE', 'POLE', 'POLES', 'PYLON', 'CHIMNEY', 'ANTENNA', 'AERIAL', 'HILL', 'TERRAIN', 'SPIRE', 'OBST', 'WGS', 'ELEV', 'HGT', 'AMSL', 'NIL', 'MAG', 'TRUE', 'DEG', 'ACFT', 'TWR', 'APP', 'ATIS', 'ACC', 'FIS']);
 /* a point's name; not a DME channel (CH34X) */
 const isId = (t) => (/^[A-Z][A-Z0-9]{1,5}$/.test(t) && !NOT_ID.has(t) && !/^CH\d{1,3}[XY]$/.test(t)) || /^(0[1-9]|[12]\d|3[0-6])[LCR]?$/.test(t);
+/* the aerodrome reference point on an AD 2 page: the first coordinates after "ARP" (else the page's first) */
+export function eaArp(html) {
+  const plain = text(String(html || '').slice(0, 400_000)), i = plain.search(/\bARP\b/), c = [...plain.slice(Math.max(0, i)).matchAll(COORD)][0] || [...plain.matchAll(COORD)][0];
+  return c ? [+dms(c[1], c[2], c[3], c[4]).toFixed(6), +dms(c[5], c[6], c[7], c[8]).toFixed(6)] : null;
+}
+export const eaKm = (a, b, c, d) => km(a, b, c, d);
 export function eaPoints(html) {
   const out = [];
   for (const m of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -236,8 +242,7 @@ export async function eaFixes(icao, env, me, d) {
   const ad = await d.kvStore('eafixad:v2:' + cycle + ':' + icao, 30 * 86400_000, async () => {
     const t = await page(R.page(icao));
     if (!t) return { arp: null, pts: [] };
-    const plain = text(t.slice(0, 400_000)), i = plain.search(/\bARP\b/), c = [...plain.slice(Math.max(0, i)).matchAll(COORD)][0] || [...plain.matchAll(COORD)][0];
-    return { arp: c ? [+dms(c[1], c[2], c[3], c[4]).toFixed(6), +dms(c[5], c[6], c[7], c[8]).toFixed(6)] : null, pts: eaPoints(t) };
+    return { arp: eaArp(t), pts: eaPoints(t) };
   }, (v) => v && v.arp);
   const arp = ad.arp, near = arp ? (enr.pts || []).filter((p) => km(arp[0], arp[1], p[1], p[2]) <= 300) : [];
   return { icao, cycle, arp, pts: [...ad.pts, ...near] };

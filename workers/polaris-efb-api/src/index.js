@@ -77,7 +77,7 @@ import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic, aipPoints } from './cnaip.js';
 import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
-import { eaRegion, eaChartsList, eaChartPdf, eaWarm, eaFixes } from './eaip.js';
+import { eaRegion, eaChartsList, eaChartPdf, eaWarm, eaFixes, eaPoints, eaArp, eaKm } from './eaip.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1254,9 +1254,29 @@ async function aisQuery(svc, where, fields, env4, maxPages, extra) {
   return out;
 }
 const aisV = (v) => (v == null || +v >= 99999 ? null : +v);
+/* AIP Taiwan's named points around an airport (ENR 4.4 and 4.1 of the eAIP, and the airport's own AD 2 page), free
+   like its charts: { icao, cycle, arp, pts: [[name, lat, lon]] } */
+async function twFixes(icao, env, ctx) {
+  const { cur: ed } = await twEdition(), base = TW_EAIP + twEnc(ed.folder) + '/eAIP/';
+  const page = async (f) => { const r = await fetch(base + twEnc(f), { headers: TW_UA, cf: { cacheTtl: 86400, cacheEverything: true } }); return r.ok ? r.text() : ''; };
+  const enr = await kvStore(env, ctx, 'twfix:v1:' + ed.id, 30 * 86400_000, async () => {
+    const menu = await page('menu.html'), pts = [], files = [];
+    for (const n of ['4\\.4', '4\\.1']) { const m = menu.match(new RegExp("href\\s*=\\s*'(RC-ENR " + n + "[^']*?-en-GB\\.html)")); if (m) files.push(twEntities(m[1])); }
+    for (const f of files) { try { pts.push(...eaPoints(await page(f))); } catch (e) { /* the other page still counts */ } }
+    return { pts, files };
+  }, (v) => v && v.pts && v.pts.length > 20);
+  const ad = await kvStore(env, ctx, 'twfixad:v1:' + ed.id + ':' + icao, 30 * 86400_000, async () => {
+    const a = (await twMenu(env, ctx, ed))[icao]; if (!a) return { arp: null, pts: [] };
+    const t = await page(a.file); return { arp: eaArp(t), pts: eaPoints(t) };
+  }, (v) => v && v.arp);
+  const arp = ad.arp, near = arp ? (enr.pts || []).filter((p) => eaKm(arp[0], arp[1], p[1], p[2]) <= 300) : [];
+  return { icao, cycle: ed.id, arp, pts: [...(ad.pts || []), ...near] };
+}
+
 /* named points near an airport for lining its charts up: the eAIP's for Hong Kong, Singapore, the UK and Norway;
    AIP China's and Japan's around the airport the EFB names (lat, lon); signed in, like the charts */
 async function chartFixes(ic, url, me, env, ctx) {
+  if (/^RC[A-Z]{2}$/.test(ic)) return twFixes(ic, env, ctx);
   if (eaRegion(ic)) return eaFixes(ic, env, me, eaDeps(env, ctx));
   if (!/^(R[JO]|Z)[A-Z]{2,3}$/.test(ic)) return null;
   if (!me) return { icao: ic, signin: true, pts: [] };

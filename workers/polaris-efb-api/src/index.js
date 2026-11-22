@@ -1486,7 +1486,10 @@ async function ovgeoRoute(req, url, env, h) {
   if (!sess) throw new HttpError(401, 'Sign in to share chart alignments');
   const user = sess.u;
   const k = keyOf(icao, name, page), old = await kv.get(k, 'json').catch(() => null);
-  const snap = (o) => ({ lat: o.lat, lon: o.lon, h: o.h, rot: o.rot, t: o.t || 0, by: o.by || '' });
+  const snap = (o) => ({ lat: o.lat, lon: o.lon, h: o.h, rot: o.rot, t: o.t || 0, by: o.by || '', ...(o.cy ? { cy: o.cy } : {}), ...(o.fp ? { fp: o.fp } : {}) });
+  /* the AIRAC cycle the chart was lined up in, and a print of the page then (where its symbols, strips and words sat),
+     so the EFB can tell in a later cycle whether the chart has been redrawn */
+  const cy = /^[A-Za-z0-9._-]{1,24}$/.test(String(b.cy || '')) ? String(b.cy) : '', fp = ovFp(b.fp);
   /* undo: the alignment before the last change comes back (five earlier ones are kept) */
   if (b.revert) {
     if (!old || !Array.isArray(old.prev) || !old.prev.length) throw new HttpError(409, 'There is no earlier alignment to go back to');
@@ -1496,17 +1499,33 @@ async function ovgeoRoute(req, url, env, h) {
     return json({ ok: true, geo: ovgeoPub(v) }, 200, h);
   }
   const num = (v) => typeof v === 'number' && isFinite(v);
+  /* a line-up shared before prints were kept gets one, from a pilot who has the same chart open: nothing else changes */
+  if (b.stamp) {
+    if (old && !old.fp && fp && cy && num(g.lat) && num(g.lon) && Math.abs(old.lat - g.lat) < 1e-6 && Math.abs(old.lon - g.lon) < 1e-6) { old.fp = fp; old.cy = cy; await kv.put(k, JSON.stringify(old)); }
+    return json({ ok: true, geo: ovgeoPub(old) }, 200, h);
+  }
   if (!num(g.lat) || !num(g.lon) || !num(g.h) || !num(g.rot) || Math.abs(g.lat) > 85 || Math.abs(g.lon) > 180 || g.h < 300 || g.h > 800000) throw new HttpError(400, 'Alignment out of range');
   /* must be near the airport (a chart centre can sit off the field, but not far) */
   try { const a = await airportRoute(icao); const ap = a && a.airport; if (ap && isFinite(ap.lat)) { const d = Math.hypot(g.lat - ap.lat, (g.lon - ap.lon) * Math.cos(ap.lat * Math.PI / 180)) * 60; if (d > Math.max(60, g.h / 1852 * 1.5)) throw new HttpError(400, 'Alignment is too far from the airport'); } } catch (e) { if (e instanceof HttpError) throw e; }
   if (old && Date.now() - (old.t || 0) < 5000 && old.by === user) return json({ ok: true, geo: ovgeoPub(old) }, 200, h);
   const prev = old ? [snap(old), ...(Array.isArray(old.prev) ? old.prev : [])].slice(0, 5) : [];
-  const v = { lat: +g.lat.toFixed(7), lon: +g.lon.toFixed(7), h: Math.round(g.h * 10) / 10, rot: Math.round((((g.rot % 360) + 360) % 360) * 100) / 100, t: Date.now(), n: ((old && old.n) || 0) + 1, by: user, prev };
+  const v = { lat: +g.lat.toFixed(7), lon: +g.lon.toFixed(7), h: Math.round(g.h * 10) / 10, rot: Math.round((((g.rot % 360) + 360) % 360) * 100) / 100, t: Date.now(), n: ((old && old.n) || 0) + 1, by: user, prev, ...(cy ? { cy } : {}), ...(fp ? { fp } : {}) };
   await kv.put(k, JSON.stringify(v));
   return json({ ok: true, geo: ovgeoPub(v) }, 200, h);
 }
 /* what the EFB sees of a stored alignment: no history, just how many steps can be undone */
-function ovgeoPub(v) { return v ? { lat: v.lat, lon: v.lon, h: v.h, rot: v.rot, t: v.t || 0, n: v.n || 0, by: v.by || '', undo: Array.isArray(v.prev) ? v.prev.length : 0 } : null; }
+function ovgeoPub(v) { return v ? { lat: v.lat, lon: v.lon, h: v.h, rot: v.rot, t: v.t || 0, n: v.n || 0, by: v.by || '', undo: Array.isArray(v.prev) ? v.prev.length : 0, cy: v.cy || '', fp: v.fp || null } : null; }
+/* a page print as the EFB sends it, checked and trimmed: page size, up to 80 symbols [x, y], 30 strips [x, y, length]
+   and 80 words [text, x, y], in points */
+function ovFp(fp) {
+  if (!fp || typeof fp !== 'object') return null;
+  const num = (v) => typeof v === 'number' && isFinite(v) && Math.abs(v) < 1e5, r = (v) => Math.round(v * 10) / 10;
+  if (!num(fp.w) || !num(fp.h) || fp.w <= 0 || fp.h <= 0) return null;
+  const pts = (A, k, n) => (Array.isArray(A) ? A : []).slice(0, n).filter((p) => Array.isArray(p) && p.length === k && p.every(num)).map((p) => p.map(r));
+  const t = (Array.isArray(fp.t) ? fp.t : []).slice(0, 80).filter((p) => Array.isArray(p) && p.length === 3 && typeof p[0] === 'string' && p[0].length <= 12 && num(p[1]) && num(p[2])).map((p) => [p[0], r(p[1]), r(p[2])]);
+  const o = { w: Math.round(fp.w), h: Math.round(fp.h), s: pts(fp.s, 2, 80), l: pts(fp.l, 3, 30), t };
+  return o.s.length + o.l.length + o.t.length ? o : null;
+}
 
 /* Airports for the map, from OurAirports (public domain), rebuilt every 14 days and kept in KV.
    set=a: large and medium airports with a rank (1 large, 2 medium with airline service, 3 other medium);

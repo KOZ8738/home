@@ -897,7 +897,7 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
   if(!VEC.el){VEC.el=document.createElement("div");VEC.el.className="mapvec";VEC.el.setAttribute("aria-hidden","true")}
   if(VEC.el.parentNode!==wrap){wrap.insertBefore(VEC.el,wrap.firstChild);if(VEC.map)try{VEC.map.resize()}catch(e){}}
   VEC.el.hidden=!vecOn();if(!vecOn())return;
-  oaipCheck();const key=(isDark()?"d":"l")+baseKey()+(oaipOn()?"+oaip":"")+(ML.apts!==false&&vam.url?"+apts":"");
+  oaipCheck();const key=(isDark()?"d":"l")+baseKey()+(oaipOn()?"+oaip":"")+cnaKey()+(ML.apts!==false&&vam.url?"+apts":"");
   if(!VEC.map){if(VEC.t0)return;VEC.t0=Date.now();vecLib().then(lib=>{
       VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:300,maxZoom:19.5,maxTileCacheSize:600,pixelRatio:Math.min(2,window.devicePixelRatio||1)});VEC.key=key;
       VEC.map.on("load",()=>{VEC.ready=true;VEC.slow=false;if(cur==="map"){drawMap();updMapNote()}});
@@ -1010,9 +1010,9 @@ function wmmDecl(lat,lon,hKm,yr){const N=12,d2r=Math.PI/180,t=(yr||2025+(Date.no
 const IFR={cells:{},loading:{},q:0,ver:0,setVer:-1,setAt:0,tickAt:0,err:null};
 const ifrLv=()=>{const b=BASES[baseKey()];return b&&b.ifr||null};
 const IFR_SZ={L:4,H:8},IFR_MINZ={L:6,H:4.3};
-function ifrLoad(lv,key){if(!vam.url||IFR.loading[lv+key]||IFR.q>=2)return;const c=IFR.cells[lv+key];if(c&&(!c.fail||Date.now()-c.at<12000))return;
+function ifrLoad(lv,key){if(!vam.url||IFR.loading[lv+key]||IFR.q>=2)return;const c=IFR.cells[lv+key];if(c&&(!c.fail||Date.now()-c.at<12000)&&!(c.exp&&Date.now()>c.exp))return;
   IFR.loading[lv+key]=true;IFR.q++;
-  vamGet(`/api/efb/ifr?lv=${lv}&cell=${key}&v=2`,40000).then(j=>{if(!j||!j.routes)throw new Error((j&&j.error)||"No data");IFR.cells[lv+key]={at:Date.now(),d:j};IFR.err=null})
+  vamGet(cnCellIn(lv,key)&&cnAuthed()?`/api/efb/cn/ifr?lv=${lv}&cell=${key}`:`/api/efb/ifr?lv=${lv}&cell=${key}&v=2`,40000).then(j=>{if(!j||!j.routes)throw new Error((j&&j.error)||"No data");IFR.cells[lv+key]={at:Date.now(),d:j,exp:cnExp(lv,key,j)};IFR.err=null})
     .catch(e=>{IFR.cells[lv+key]={at:Date.now(),fail:true};IFR.err=e.message||"Couldn’t load";setTimeout(()=>{IFR.tickAt=0;try{if(cur==="map")ifrTick()}catch(er){}},13000)})
     .finally(()=>{IFR.loading[lv+key]=false;IFR.q--;IFR.ver++;if(cur==="map"){mapSched();setTimeout(()=>{try{ifrTick()}catch(e){}},420)}})}
 const ifrMea=r=>{const e=r[3],w=r[4];if(e==null&&w==null)return"";if(e!=null&&w!=null&&e!==w)return e+"/"+w;return String(e!=null?e:w)};
@@ -1997,7 +1997,7 @@ function asInfo(icao){const j=AS.data[icao],a=j&&j.airport;
     +(rw.length?asRow("Runways",rw.map(r=>`<span class="as-rw"><span class="mono">${esc(r.id)}</span>${fmt(r.lengthFt)} × ${fmt(r.widthFt)} ft · ${esc(AS_SURF[r.surface]||r.surface||"")}</span>`).join("")):"")
     +asRow("Magnetic variation",md?md[1]+"° "+md[2].toUpperCase():esc(a.magdec||"—"))
     +asRow("Type",a.owner==="P"?"Public":a.owner==="R"?"Private":a.owner==="M"?"Military":"—")+asRow("Tower",a.tower==="T"?"Yes":"No")
-    +(freq?asRow("Frequencies",freq):"")+asAtis(icao)+(usca?asRow("Transition altitude","18,000 ft (5,486 m)")+asRow("Transition level","FL180"):"")}
+    +(freq?asRow("Frequencies",freq):"")+cnAptInfo(icao)+asAtis(icao)+(usca?asRow("Transition altitude","18,000 ft (5,486 m)")+asRow("Transition level","FL180"):"")}
 function asWx(icao){const j=AS.data[icao];
   if(!vam.url)return `<p class="as-empty">Set the EFB server in Settings to load weather.</p>`;
   const at=asAtis(icao);
@@ -2169,7 +2169,7 @@ function asRwy(icao){const j=AS.data[icao],a=j&&j.airport;
    Links go to each State's own publication; "sign-up" marks the ones that ask for a free account. */
 const EAIP=[
  ["RC","Taiwan","eAIP Taiwan (CAA)","https://ais.caa.gov.tw/eaip/"],
- ["RJ,RO","Japan","AIS Japan (MLIT)","https://aisjapan.mlit.go.jp/",1],
+ ["RJ,RO","Japan","AIP Japan on JCAB’s SWIM portal (AIP閲覧サービス)","https://top.swim.mlit.go.jp/swim/",1],
  ["RK","South Korea","eAIP Korea (MOLIT)","https://aim.koca.go.kr/"],
  ["VH,VM","Hong Kong / Macau","eAIP Hong Kong (CAD), Macau charts included","https://www.ais.gov.hk/"],
  ["Z","China","AIP China (CAAC ATMB)","https://www.aischina.com/",1],
@@ -3324,10 +3324,10 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
       vamOn()?"Uses your live vAMSYS flight.":"Needs a vAMSYS connection. Set it up in vAMSYS.")}
   else if(psec==="data")main+=grp("Stored on this device",[reset("plan",ofp._sample?"No flight plan loaded":"Flight plan "+esc(O().flight),"The loaded SimBrief OFP","Remove",ofp._sample),reset("cl","Checklist progress","Ticked items for this flight","Reset",false),reset("log","Logbook",log.length+" entr"+(log.length===1?"y":"ies")+" on this device","Clear",!log.length)],"Mail read and trash marks, your Home Screen arrangement and your VATSIM CID also stay on this device.");
   else if(psec==="about")main+=grp(esc(alN)+" EFB",[r("Version","",val("2.0")),r("Build","",`<span class="st-v mono">${esc(EFB_BUILD||"—")}</span>`),r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo · A350-900"))])
-      +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts, US"],["CAA eAIP","AIP Taiwan charts"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth","Base map"],["openAIP · VATSpy","FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",val(x[1]))))
+      +grp("Data sources",[["SimBrief","Flight plans"],["vAMSYS","PIREPs, bookings, live flights"],["FAA d-TPP","Terminal procedure charts, US"],["CAA eAIP","AIP Taiwan charts"],["CAAC eAIP","AIP China data set: airspace, airways, runways"],["OpenStreetMap","Airport layouts"],["OpenFreeMap · Natural Earth","Base map"],["openAIP · VATSpy","FIR boundaries"],["RainViewer · aviationweather.gov","Radar, SIGMETs"],["VATSIM","Live network traffic"]].map(x=>r(x[0],"",val(x[1]))))
       +grp("This device",[r("Display",`<span class="mono">${esc(devInfo())}</span>`,"")]);
-  else if(psec==="nav"){const BL=[["map","Map","OpenFreeMap, worldwide"],["sat","Satellite","Sentinel-2, worldwide"],["ifrh","IFR High","United States"],["ifrl","IFR Low","United States"],["vfr","VFR","United States"],["faah","FAA High chart","United States"],["faal","FAA Low chart","United States"],["faav","FAA VFR chart","United States"]];
-    const LY=[["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
+  else if(psec==="nav"){const BL=[["map","Map","OpenFreeMap, worldwide"],["sat","Satellite","Sentinel-2, worldwide"],["ifrh","IFR High","United States, China"],["ifrl","IFR Low","United States, China"],["vfr","VFR","United States"],["faah","FAA High chart","United States"],["faal","FAA Low chart","United States"],["faav","FAA VFR chart","United States"]];
+    const LY=[["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["cna","AIP China airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
     const lsw=(k,label)=>r(label,"",`<button class="st-sw" role="switch" aria-checked="${ML[k]!==false}" aria-label="${label}" data-nvl="${k}" data-v="${ML[k]!==false?0:1}"><i></i></button>`);
     main+=grp("Base map",BL.map(b=>pick("data-nvbase",b[0],(ML.base||"map")===b[0],b[1],b[2])))
       +grp("",[r("Automatic IFR High / Low","Above FL180 High, below Low, from your live flight or the zoom",`<button class="st-sw" role="switch" aria-checked="${!!ML.ifrAuto}" aria-label="Automatic IFR High / Low" data-nvl="ifrAuto" data-v="${ML.ifrAuto?0:1}"><i></i></button>`)])
@@ -6647,7 +6647,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket|cn\/(ifr|asp|apt))|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -7550,7 +7550,7 @@ function updMapNote(){const n=$("#mapNote");if(!n)return;n.hidden=true;mlStatus(
     if(ML.radar&&RADAR.path&&!RADAR.err)at.push('Radar <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>'+(RADAR.time?" "+tz2(RADAR.time):""));
     if(ML.sig&&SIG.list)at.push('SIGMET <a href="https://aviationweather.gov/" target="_blank" rel="noopener">AWC</a>');
     if(ML.apt&&MAP.z>=11&&Object.keys(TX.data).length)at.push('Airports © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL)');a.innerHTML=at.join(" · ")}}
-V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
+V.map=()=>{const x=O(),{pts}=routePts();const L=[["apt","Taxiways"],["apts","Airports"],["wx","METAR"],["fir","FIR boundaries"],["oaip","openAIP airspace"],["cna","AIP China airspace"],["radar","Radar"],["sig","SIGMET / AIRMET / CWA"],["traffic","Polaris traffic"],["vatsim","VATSIM traffic"],["vec","Detail map"]];
   return `<div class="mapwrap"><svg id="mapBase" class="mapsvg mapbase" aria-hidden="true"></svg><canvas id="sigCv" class="mapcv sigcv" aria-hidden="true"></canvas><canvas id="mapCv" class="mapcv" aria-hidden="true"></canvas><svg id="mapSvg" class="mapsvg" role="img" aria-label="Route map"></svg>
    <div class="mapctl"><button class="btn ic" id="mlBtn" aria-label="Map layers" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.5 8 12 13l9.5-5L12 3Z"/><path d="m2.5 12.5 9.5 5 9.5-5"/><path d="m2.5 17 9.5 5 9.5-5"/></svg></button><button class="btn ic" id="wxBtn" aria-label="Weather" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.5v1.3M3.9 6.2l.9.9M2.5 10.3h1.3M12.1 6.2l-.9.9"/><path d="M5.3 12.6A3.6 3.6 0 1 1 11.4 9"/><path d="M8.5 20h9a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.3A2.9 2.9 0 0 0 8.5 20Z"/></svg></button><button class="btn ic" id="asBtn" aria-pressed="false" aria-label="Airport and charts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8.5l4 4v15H6z"/><path d="M14.5 2.5v4h4M9 11h6.5M9 14.5h6.5M9 18h4"/></svg></button><button class="btn ic" id="msBtn" data-x="1" aria-pressed="false" aria-label="Measure distance and course"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2"/></svg></button><button class="btn ic" id="reBtn" aria-pressed="false" aria-label="Edit route"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 19c2.5-1 3.5-4 6-4s3 2 5.5 1.2"/><circle cx="3.5" cy="19" r="1.4"/><path d="M14 9.5l5.5-5.5 2 2-5.5 5.5-2.6.6z"/></svg></button><button class="btn sep" id="mapIn" aria-label="Zoom in">+</button><button class="btn" id="mapOut" aria-label="Zoom out">−</button><button class="btn" id="mapFit" aria-label="Fit route">FIT</button><button class="btn" id="mapMe" aria-pressed="${MAP.follow}" aria-label="Follow my aircraft"${mapMine()?"":" disabled"}>ME</button></div>
    <div class="ovpanel" id="ovPanel" hidden></div><div class="ovbar" id="ovBar" hidden></div><section class="assheet" id="asSheet" aria-label="Airport" hidden></section>
@@ -9597,6 +9597,110 @@ setTimeout(()=>msLoad(true),3000);
 setInterval(()=>{if(!document.hidden)msLoad()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)msLoad()});
 window.addEventListener("online",()=>msLoad(true));
+/* ---------- AIP China (CAAC eAIP data set, uploaded on /admin › Nav Data each AIRAC), for signed-in pilots (Nov 2026)
+   IFR High / Low: China's airways, fixes and navaids come in the same cells as the FAA's, from /api/efb/cn/ifr.
+   Map: R, D, P, TMA, CTA and ADIZ airspace with their limits (/api/efb/cn/asp), drawn in place of openAIP's for China
+   (openAIP keeps the control zones, which the data set doesn't have). Airports: approach frequencies on Info, declared
+   distances and ILS on Runways (/api/efb/cn/apt). Nothing is asked for before sign-in. */
+/* function declarations: the IFR loader and the map's style key ask these, maybe before this part has run */
+function cnIn(la0,lo0,la1,lo1){return !(la1<=0||la0>=56||lo1<=70||lo0>=140)}
+function cnCellIn(lv,key){const p=String(key).split(",").map(Number),sz=lv==="H"?8:4;return cnIn(p[0],p[1],p[0]+sz,p[1]+sz)}
+function cnAuthed(){try{return !!vam.url&&authOn()}catch(e){return false}}
+/* a China cell asked before sign-in, or before any data was uploaded, is asked again after 5 minutes */
+function cnExp(lv,key,j){if(j&&j.cn==="ok"&&j.cycle)try{CNA.ifrCy=j.cycle}catch(e){}return cnCellIn(lv,key)&&(!cnAuthed()||!j||j.cn!=="ok")?Date.now()+300000:0}
+function cnaKey(){try{return cnaOn()?"+cna"+CNA.ver:""}catch(e){return""}}
+const CNA={fc:null,cycle:null,eff:null,at:0,busy:false,ver:0,fails:0,ifrCy:null};
+if(ML.cna===undefined)ML.cna=true;
+const cnaOn=()=>ML.cna!==false&&!!(CNA.fc&&CNA.fc.features&&CNA.fc.features.length)&&cnAuthed();
+function cnaLoad(){if(ML.cna===false||!cnAuthed()||CNA.busy)return;const now=Date.now(),wait=CNA.fc?3600000:CNA.fails?Math.min(600000,30000*Math.pow(2,CNA.fails-1)):300000;
+  if(CNA.at&&now-CNA.at<wait)return;CNA.busy=true;
+  vamGet("/api/efb/cn/asp",30000).then(j=>{const fc=j&&j.fc&&Array.isArray(j.fc.features)&&j.fc.features.length?j.fc:null,was=CNA.cycle+"|"+!!CNA.fc;
+    CNA.fc=fc;CNA.cycle=(j&&j.cycle)||null;CNA.eff=(j&&j.eff)||null;CNA.fails=0;if(was!==CNA.cycle+"|"+!!fc){CNA.ver++;if(cur==="map"){drawMap();updMapNote()}}})
+    .catch(()=>{CNA.fails++}).finally(()=>{CNA.busy=false;CNA.at=Date.now();if(cur==="map")mlStatus()})}
+/* asked when the map shows China */
+function cnaTick(){const m=VEC.map;if(!m||!VEC.ready||ML.cna===false||!cnAuthed())return;let b;try{b=m.getBounds()}catch(e){return}
+  if(m.getZoom()>=3&&cnIn(b.getSouth(),b.getWest(),b.getNorth(),b.getEast()))cnaLoad()}
+{const _vs=vecSync;vecSync=function(){_vs.apply(this,arguments);try{cnaTick()}catch(e){}}}
+/* labels: "ZG(R)206  1800m STD / GND", "GUANGZHOU APP  6000m STD / GND" */
+function cnaFC(){return{type:"FeatureCollection",features:CNA.fc.features.map(f=>{const p=f.properties||{},t=p.t||"";
+  const nm=/^(TMA|CTA|CTR)$/.test(t)?String(p.n||p.d||"").replace(/ APPROACH CONTROL AREA$/," APP").replace(/ TERMINAL CONTROL AREA$/," TMA").replace(/ LOWER CONTROL AREA$/," LTA").replace(/ CONTROL AREA$/," CTA"):String(p.n||p.d||"");
+  const lim=[p.hi,p.lo].filter(Boolean).join(" / ");return{type:"Feature",geometry:f.geometry,properties:{t,lbl:nm+(lim?"  "+lim:"")}}})}}
+function cnaLayers(dark){const C=dark?{rdp:"#FF6B6B",tma:"#E482CF",cta:"#8FA2B6",adiz:"#E0A36B",halo:"#05080A"}:{rdp:"#B3261E",tma:"#A2338A",cta:"#5F7489",adiz:"#8A4F1D",halo:"#FFFFFF"};
+  const T=a=>["match",["get","t"],a,true,false],W=(a,b)=>["interpolate",["linear"],["zoom"],5,a,11,b],F=["Noto Sans Regular"];
+  return[
+   {id:"cna-rdp-fill",type:"fill",source:"cna",minzoom:5,filter:T(["R","D","P"]),paint:{"fill-color":C.rdp,"fill-opacity":dark?.07:.06}},
+   {id:"cna-rp",type:"line",source:"cna",minzoom:4.5,filter:T(["R","P"]),paint:{"line-color":C.rdp,"line-width":W(.6,1.8),"line-opacity":.85}},
+   {id:"cna-d",type:"line",source:"cna",minzoom:4.5,filter:T(["D"]),paint:{"line-color":C.rdp,"line-width":W(.6,1.6),"line-dasharray":[3,2],"line-opacity":.85}},
+   {id:"cna-cta",type:"line",source:"cna",minzoom:4,filter:T(["CTA"]),paint:{"line-color":C.cta,"line-width":W(.5,1.3),"line-opacity":.7}},
+   {id:"cna-tma",type:"line",source:"cna",minzoom:5,filter:T(["TMA","CTR"]),paint:{"line-color":C.tma,"line-width":W(.8,2.2),"line-opacity":.85}},
+   {id:"cna-adiz",type:"line",source:"cna",minzoom:2,filter:T(["ADIZ"]),paint:{"line-color":C.adiz,"line-width":W(.8,1.6),"line-dasharray":[6,3],"line-opacity":.8}},
+   {id:"cna-lbl",type:"symbol",source:"cna",minzoom:7,filter:["!=",["get","lbl"],""],layout:{"symbol-placement":"line","text-field":["get","lbl"],"text-font":F,"text-size":10.5,"symbol-spacing":420,"text-max-angle":30},
+    paint:{"text-color":["match",["get","t"],["R","D","P"],C.rdp,["TMA","CTR"],C.tma,["ADIZ"],C.adiz,C.cta],"text-halo-color":C.halo,"text-halo-width":1.4,"text-opacity":.85}}]}
+{const _vp=vecPreset;vecPreset=function(st,dark){st=_vp(st,dark);if(!cnaOn())return st;
+  st.sources.cna={type:"geojson",data:cnaFC(),tolerance:.3};
+  const CN=["all",["==",["get","country"],"CN"],["match",["get","type"],["restricted","danger","prohibited","tma","cta","adiz"],true,false]];
+  st.layers.forEach(l=>{if(l.source==="oaip"&&l["source-layer"]==="airspaces")l.filter=l.filter?["all",["!",CN],l.filter]:["!",CN]});
+  const L=cnaLayers(dark),i=st.layers.findIndex(l=>/^(oaip-|ifr-|water-name|apt-name|place-)/.test(l.id));if(i<0)st.layers=st.layers.concat(L);else st.layers.splice(i,0,...L);return st}}
+{const _va=vecAttr;vecAttr=function(){const a=_va.apply(this,arguments),cy=(cnaOn()&&CNA.cycle)||(ifrLv()&&cnAuthed()&&CNA.ifrCy);
+  return cy?'China <a href="https://www.eaipchina.cn/" target="_blank" rel="noopener">CAAC eAIP</a> AIRAC '+esc(cy)+" · "+a:a}}
+{const _ms=mlStatus;mlStatus=function(){const r=_ms.apply(this,arguments);const el=document.querySelector('[data-mls="cna"]');
+  if(el)el.textContent=ML.cna===false?"":!cnAuthed()?"Sign in to show":CNA.fc?"AIRAC "+(CNA.cycle||""):CNA.busy?"Loading…":CNA.at?"No data yet":"";return r}}
+/* ---- airports ---- */
+const CNAP={d:{},busy:{}};
+const cnApt=i=>/^Z[BGHJLPSUWY][A-Z]{2}$/.test(i||"");
+function cnAptLoad(icao){if(!cnApt(icao)||!cnAuthed()||CNAP.d[icao]!==undefined||CNAP.busy[icao])return;CNAP.busy[icao]=true;
+  vamGet("/api/efb/cn/apt?icao="+encodeURIComponent(icao),20000).then(j=>{CNAP.d[icao]=j&&j.apt?{cy:j.cycle,eff:j.eff,a:j.apt}:null})
+    .catch(()=>{}).finally(()=>{CNAP.busy[icao]=false;if(AS.open&&AS.icao===icao)asUi()})}
+{const _al=asLoad;asLoad=function(icao){const r=_al.apply(this,arguments);try{cnAptLoad(icao)}catch(e){}return r}}
+const cnSrc=(t,x)=>`<div class="cn-src"><span>${t}</span><small>AIP China · CAAC eAIP · AIRAC ${esc(x.cy||"")}</small></div>`;
+/* Info: the approach's frequencies, sector by sector; an airport the airport service doesn't know gets its AIP details */
+function cnAptInfo(icao){let x;try{x=CNAP.d[icao]}catch(e){return""}if(!x)return"";const a=x.a,fq=(a.fq||[]),j=AS.data[icao],known=!!(j&&j.airport);let h="";
+  if(!known&&!AS.loading[icao])h+=cnSrc("Airport",x)+asRow("ICAO / IATA",esc(a.i)+(a.ia?" / "+esc(a.ia):""))+asRow("Name",esc(asTitle(a.n)))+asRow("City",esc(asTitle(a.c)||"—"))
+    +asRow("Elevation",a.el==null?"—":fmt(a.el)+" ft ("+fmt(a.el*.3048)+" m)")+(a.mv!=null?asRow("Magnetic variation",Math.abs(a.mv)+"° "+(a.mv<0?"W":"E")):"");
+  if(fq.length)h+=cnSrc("Approach",x)+`<div class="cn-fqs">${fq.map(f=>`<div class="cn-fq"><b>${esc(asTitle(f.n))}</b>${f.s?`<small>${esc(f.s)}</small>`:""}<span>${f.f.map(esc).join(" · ")}</span></div>`).join("")}</div>`;
+  return h}
+function cnRwyHtml(icao){let x;try{x=CNAP.d[icao]}catch(e){return""}if(!x)return cnApt(icao)&&cnAuthed()&&CNAP.busy[icao]?`<p class="at-none">Loading AIP China…</p>`:"";
+  const a=x.a,ils={},m=v=>v==null?"–":fmt(v);(a.ils||[]).forEach(i=>{(ils[i.rw]=ils[i.rw]||[]).push(i)});if(!(a.rw||[]).length)return"";
+  const body=a.rw.map(r=>`<tbody><tr class="rw"><td colspan="5"><b>${esc(r.d)}</b>${r.len?fmt(r.len)+" × "+fmt(r.wid)+" m":""}${r.sfc?" · "+esc(r.sfc):""}</td></tr>`
+    +(r.ends||[]).map(e=>{const I=ils[e.d]||[];
+      return `<tr class="end"><th>${esc(e.d)}</th><td>${m(e.tora)}</td><td>${m(e.toda)}</td><td>${m(e.asda)}</td><td>${m(e.lda)}</td></tr>`
+       +(e.rm?`<tr class="nt"><td colspan="5">${esc(e.rm)}</td></tr>`:"")
+       +(e.ix||[]).map(z=>`<tr class="ix"><th>${esc(z.rm||"Intersection")}</th><td>${m(z.tora)}</td><td>${m(z.toda)}</td><td>${m(z.asda)}</td><td></td></tr>`).join("")
+       +I.map(i=>`<tr class="il"><td colspan="5"><span>${esc(i.t==="ILS/DME"||i.t==="ILS"?"ILS":i.t)}</span><b>${esc(i.id)} ${esc(i.f)}</b>${i.crs?`<i>${esc(String(i.crs).padStart(3,"0"))}°</i>`:""}${i.cat?`<small>${esc(i.cat.replace(/^ILS\s*/i,""))}</small>`:""}${i.dme?`<small>DME ${esc(i.dme)}</small>`:""}</td></tr>`).join("")}).join("")+"</tbody>").join("");
+  return cnSrc("Declared distances",x)+`<div class="cn-dd"><table><thead><tr><th>Rwy</th><th>TORA</th><th>TODA</th><th>ASDA</th><th>LDA</th></tr></thead>${body}</table><p class="at-none">Metres. ILS course magnetic.</p></div>`}
+{const _ar=asRwy;asRwy=function(icao){return _ar.apply(this,arguments)+cnRwyHtml(icao)}}
+/* Info has it after Frequencies (patch.py); this covers an airport with no details of its own */
+{const _ai=asInfo;asInfo=function(icao){const s=_ai.apply(this,arguments);return s.indexOf("cn-src")<0?s+cnAptInfo(icao):s}}
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* AIP China in the airport sheet (cnaip.js) */
+.cn-src{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:16px 16px 4px}
+.cn-src span{font:700 11.5px var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--label)}
+.cn-src small{font:500 11.5px var(--f-ui);color:var(--label)}
+.cn-fqs{display:flex;flex-direction:column;padding:2px 16px 10px}
+.cn-fq{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.cn-fq:last-child{border-bottom:0}
+.cn-fq b{font:600 14.5px var(--f-ui);color:var(--ink)}
+.cn-fq small{font:600 11px var(--f-mono);color:var(--label);letter-spacing:.04em}
+.cn-fq span{margin-left:auto;font:600 14px var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.cn-dd{padding:0 16px 12px}
+.cn-dd table{width:100%;border-collapse:collapse;font:500 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.cn-dd th,.cn-dd td{padding:5px 4px;text-align:right;border-bottom:1px solid var(--line);font-weight:500}
+.cn-dd thead th{font:600 10.5px var(--f-ui);letter-spacing:.08em;color:var(--label);padding-top:4px}
+.cn-dd th:first-child,.cn-dd td:first-child{text-align:left}
+.cn-dd tr.end th{font:700 14px var(--f-mono);color:var(--ink)}
+.cn-dd tr.rw td{padding:14px 0 4px;font:500 12px var(--f-ui);color:var(--label);border-bottom:0;text-align:left}
+.cn-dd tr.rw b{font:700 15px var(--f-mono);color:var(--ink);margin-right:8px}
+.cn-dd tr.ix th{font:500 11.5px var(--f-ui);color:var(--label);padding-left:12px}
+.cn-dd tr.ix td{color:var(--label)}
+.cn-dd tr.nt td{font:500 11.5px var(--f-ui);color:var(--label);text-align:left;padding-left:12px}
+.cn-dd tr.il td{text-align:left;padding-left:12px;font:500 12px var(--f-ui);color:var(--label)}
+.cn-dd tr.il td>*{margin-right:8px}
+.cn-dd tr.il span{font:700 10.5px var(--f-ui);letter-spacing:.06em;color:var(--accent)}
+.cn-dd tr.il b{font:700 13px var(--f-mono);color:var(--ink)}
+.cn-dd tr.il i{font:600 13px var(--f-mono);font-style:normal;color:var(--ink)}
+.cn-dd .at-none{margin:8px 0 0}
+</style>`);
+
 /* ---------- AOC MSG: a new message to you or your crew stays on screen until ACCEPT or REJECT (Nov 2026) ----------
    As an ACARS uplink waits for the crew: a message Polaris operations send to one pilot or to a flight's crew (their own,
    and the automatic ones: gates, the final loadsheet), not one to all pilots, comes up in a panel at the foot of the

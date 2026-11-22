@@ -1618,6 +1618,14 @@ export default {
           /* China: AIP China's charts (the eAIP's Full Package, uploaded on Nav Data), the same way */
           if (/^Z[A-Z]{3}$/.test(ic)) { const j = await cnChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
           return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h); }
+        /* the OFP's own PDF from SimBrief, for the EFB's PDF view (SimBrief's files don't allow other sites to read them) */
+        case '/api/efb/ofp-pdf': {
+          const u = String(url.searchParams.get('u') || '');
+          if (!/^https:\/\/(www\.)?simbrief\.com\/ofp\/flightplans\/[A-Za-z0-9_.\-]{1,120}\.pdf$/i.test(u)) return json({ error: 'Not a SimBrief OFP PDF' }, 400, h);
+          const r = await fetch(u, { cf: { cacheTtl: 86400, cacheEverything: true } });
+          if (!r.ok || !r.body) return json({ error: 'SimBrief answered HTTP ' + r.status }, 502, h);
+          return new Response(r.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
+        }
         case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env));
           if (/^CN\d{8}$/.test(url.searchParams.get('cycle') || '')) return await cnChartPdf(url, env, h, await sessionOf(req, env)); return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));

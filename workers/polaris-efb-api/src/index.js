@@ -77,7 +77,7 @@ import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic } from './cnaip.js';
 import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
-import { eaRegion, eaChartsList, eaChartPdf, eaWarm } from './eaip.js';
+import { eaRegion, eaChartsList, eaChartPdf, eaWarm, eaFixes } from './eaip.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1628,6 +1628,13 @@ export default {
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
     }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx),
+      /* staff: any chart PDF and an airport's named points, as a signed-in pilot gets them (to test lining charts up) */
+      chartPdf: async (u) => { const cy = u.searchParams.get('cycle') || '', st = { u: 'staff' };
+        if (/^JP\d{8}$/.test(cy)) return jpChartPdf(u, env, {}, st);
+        if (/^CN\d{8}$/.test(cy)) return cnChartPdf(u, env, {}, st);
+        if (/^(HK|SG|UK|NO)\d{8}$/.test(cy)) return eaChartPdf(u, env, {}, st, eaDeps(env, ctx));
+        return chartPdfRoute(u, {}); },
+      chartFixes: async (icao) => (eaRegion(icao) ? eaFixes(icao, env, { u: 'staff' }, eaDeps(env, ctx)) : { icao, pts: [] }),
       eaProbe: async (icao, pdf) => {
         const d = eaDeps(env, ctx), l = await eaChartsList(String(icao || '').toUpperCase(), env, { u: 'staff' }, d);
         if (l && pdf && l.charts && l.charts.length) {
@@ -1657,6 +1664,11 @@ export default {
           /* Hong Kong, Singapore, the UK and Norway: their eAIPs' own charts, the same way (see eaip.js) */
           if (eaRegion(ic)) { const j = await eaChartsList(ic, env, await sessionOf(req, env), eaDeps(env, ctx)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
           return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h); }
+        /* named points near an airport with their coordinates, from its eAIP, for lining its charts up on the Map (see eaip.js) */
+        case '/api/efb/chart-fixes': { const ic = String(url.searchParams.get('icao') || '').trim().toUpperCase();
+          if (!/^[A-Z]{4}$/.test(ic)) return json({ error: 'Enter a 4 letter ICAO code' }, 400, h);
+          const j = eaRegion(ic) ? await eaFixes(ic, env, await sessionOf(req, env), eaDeps(env, ctx)) : null;
+          return json(j || { icao: ic, pts: [] }, 200, { ...h, 'Cache-Control': 'private, max-age=3600', Vary: 'Authorization' }); }
         /* the OFP's own PDF from SimBrief, for the EFB's PDF view (SimBrief's files don't allow other sites to read them) */
         case '/api/efb/ofp-pdf': {
           const u = String(url.searchParams.get('u') || '');

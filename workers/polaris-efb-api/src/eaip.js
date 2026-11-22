@@ -31,24 +31,24 @@ export const EA = {
       const pkg = A.map((a) => a.pubDate).sort().pop();
       return pkg ? A.map((a) => ({ eff: a.effDate, pub: pkg, amdt: a.no || '', base: `https://www.ais.gov.hk/eaip_${pkg.replace(/-/g, '')}/${a.effDate}-000000/`, index: 'html/index-en-US.html' })) : [];
     },
-    page: (i) => `html/eAIP/VH-AD-2-${i}-en-US.html`,
+    page: (i) => `html/eAIP/VH-AD-2-${i}-en-US.html`, enr: (n) => `html/eAIP/VH-ENR-${n}-en-US.html`,
   },
   SG: {
     apt: /^WS[A-Z]{2}$/, label: 'AIP Singapore', host: 'CAAS AIM-SG', home: 'https://aim-sg.caas.gov.sg/aip/',
     eds: (t) => [...t.matchAll(/aim-content\/uploads\/aip\/([^/"'<>\s]+)\/AIP\/(\d{4}-\d{2}-\d{2})-000000\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://aim-sg.caas.gov.sg/aim-content/uploads/aip/${m[1]}/AIP/${m[2]}-000000/`, index: 'html/index-en-GB.html' })),
-    page: (i) => `html/eAIP/SG-AD-2-${i}-en-GB.html`,
+    page: (i) => `html/eAIP/SG-AD-2-${i}-en-GB.html`, enr: (n) => `html/eAIP/SG-ENR-${n}-en-GB.html`,
     skip: /\/old\//,
   },
   UK: {
     apt: /^EG[A-Z]{2}$/, label: 'UK AIP', host: 'NATS eAIP', home: 'https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/',
     eds: (t) => [...t.matchAll(/aurora\.nats\.co\.uk\/htmlAIP\/Publications\/(\d{4}-\d{2}-\d{2})-AIRAC\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[1], pub: m[1], base: `https://www.aurora.nats.co.uk/htmlAIP/Publications/${m[1]}-AIRAC/`, index: 'html/index-en-GB.html' })),
-    page: (i) => `html/eAIP/EG-AD-2.${i}-en-GB.html`,
+    page: (i) => `html/eAIP/EG-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EG-ENR-${n}-en-GB.html`,
   },
   NO: {
     apt: /^EN[A-Z]{2}$/, label: 'AIP Norway', host: 'Avinor eAIP', home: 'https://aim-prod.avinor.no/no/AIP/',
     /* relative to the history page the front page goes on to */
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})-AIRAC)\/html\/index-(?:no-NO|en-GB)\.html/g)].map((m) => ({ eff: m[2], pub: m[2], base: new URL(m[1] + '/', at).href, index: 'html/index-en-GB.html' })),
-    page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`,
+    page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EN-ENR-${n}-en-GB.html`,
   },
 };
 export const eaRegion = (icao) => Object.keys(EA).find((k) => EA[k].apt.test(String(icao || ''))) || null;
@@ -188,6 +188,56 @@ export async function eaChartPdf(url, env, h, me, d) {
   if (buf.byteLength < 5 || new TextDecoder().decode(new Uint8Array(buf, 0, 5)) !== '%PDF-') return res({ error: `${EA[k].host} did not send a PDF for this chart` }, 502);
   if (env.CHARTS && buf.byteLength <= PDF_MAX) { const p = env.CHARTS.put(key, buf, { httpMetadata: { contentType: 'application/pdf' } }).catch(() => {}); if (d.waitUntil) d.waitUntil(p); else await p; }
   return ok(buf);
+}
+
+/* ---------- named points with their coordinates, for lining charts up on the Map (the EFB's autogeo.js) ----------
+   From the same edition: ENR 4.4 (significant points: RIVMI, LAM…), ENR 4.1 (navaids: ADN, LAM…), and the airport's AD 2
+   page (its ARP, runway thresholds as 07R…, navaids such as the ILS ITFC, stands). Each table row with coordinates gives
+   the name in the cell before them. The country's ENR points are kept per edition; an airport gets those within
+   300 km of its ARP with its own. GET /api/efb/chart-fixes?icao=VHHH -> { icao, cycle, arp: [lat, lon], pts: [[name, lat, lon]] } */
+const COORD = /(\d{2})(\d{2})(\d{2}(?:[.,]\d+)?)\s*([NS])[\s,/]{0,3}(\d{3})(\d{2})(\d{2}(?:[.,]\d+)?)\s*([EW])/g;
+const dms = (d, m, s, h) => { const v = +d + +m / 60 + parseFloat(String(s).replace(',', '.')) / 3600; return /[SW]/.test(h) ? -v : v; };
+const NOT_ID = new Set(['VOR', 'DME', 'NDB', 'ILS', 'LOC', 'LLZ', 'GP', 'TACAN', 'VORTAC', 'DVOR', 'MHZ', 'KHZ', 'H24', 'HO', 'HX', 'NIL', 'CH', 'RWY', 'THR', 'ARP', 'MM', 'OM', 'IM', 'MKR', 'FL', 'FT', 'GND', 'SFC', 'UNL', 'REF', 'AD', 'ENR', 'RNP', 'RNAV', 'GNSS', 'IAF', 'IF', 'FAF', 'MAPT', 'SID', 'STAR', 'IAC', 'ATS', 'FIR', 'TMA', 'CTR', 'CTA', 'ATZ', 'MSL', 'AGL', 'RMK', 'NM', 'KM', 'ASPH', 'CONC', 'GRASS', 'PCN', 'TWY', 'APN', 'TBN', 'EST', 'END', 'BTN']);
+const isId = (t) => (/^[A-Z][A-Z0-9]{1,5}$/.test(t) && !NOT_ID.has(t)) || /^(0[1-9]|[12]\d|3[0-6])[LCR]?$/.test(t);
+export function eaPoints(html) {
+  const out = [];
+  for (const m of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const cells = [...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => text(c[1]));
+    if (cells.length < 2) continue;
+    let name = '', used = false;
+    for (const cell of cells) {
+      const k = cell.replace(/[#*†]+$/, '').trim();
+      if (isId(k)) { name = k; used = false; continue; }
+      if (!name || used) continue;
+      const c = [...cell.matchAll(COORD)][0];
+      if (!c) continue;
+      const la = dms(c[1], c[2], c[3], c[4]), lo = dms(c[5], c[6], c[7], c[8]);
+      if (!(Math.abs(la) <= 90 && Math.abs(lo) <= 180)) continue;
+      out.push([name, +la.toFixed(6), +lo.toFixed(6)]); used = true;
+    }
+  }
+  return out;
+}
+const km = (a, b, c, d) => { const r = Math.PI / 180, h = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2; return 12742 * Math.asin(Math.min(1, Math.sqrt(h))); };
+export async function eaFixes(icao, env, me, d) {
+  const k = eaRegion(icao);
+  if (!k) return null;
+  if (!me) return { icao, signin: true, pts: [] };
+  const R = EA[k], { cur } = await edition(k, d), cycle = cycleOf(k, cur.eff);
+  const page = async (u) => { const r = await get(cur.base + u, 86400); if (!r.ok) throw new EaError(502, `${R.label}: ${u.split('/').pop()} answered HTTP ${r.status}`); const t = await r.text(); return notFoundPage(t) ? '' : t; };
+  const enr = await d.kvStore('eafix:v1:' + cycle, 30 * 86400_000, async () => {
+    const pts = [];
+    for (const n of ['4.4', '4.1']) { try { pts.push(...eaPoints(await page(R.enr(n)))); } catch (e) { /* the other page still counts */ } }
+    return { pts };
+  }, (v) => v && v.pts && v.pts.length > 20);
+  const ad = await d.kvStore('eafixad:v1:' + cycle + ':' + icao, 30 * 86400_000, async () => {
+    const t = await page(R.page(icao));
+    if (!t) return { arp: null, pts: [] };
+    const plain = text(t.slice(0, 400_000)), i = plain.search(/\bARP\b/), c = [...plain.slice(Math.max(0, i)).matchAll(COORD)][0] || [...plain.matchAll(COORD)][0];
+    return { arp: c ? [+dms(c[1], c[2], c[3], c[4]).toFixed(6), +dms(c[5], c[6], c[7], c[8]).toFixed(6)] : null, pts: eaPoints(t) };
+  }, (v) => v && v.arp);
+  const arp = ad.arp, near = arp ? (enr.pts || []).filter((p) => km(arp[0], arp[1], p[1], p[2]) <= 300) : [];
+  return { icao, cycle, arp, pts: [...ad.pts, ...near] };
 }
 
 /* the editions and lists of these airports, so the first pilot to open them doesn't wait (the 20-minute cron) */

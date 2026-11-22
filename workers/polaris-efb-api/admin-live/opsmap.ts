@@ -289,7 +289,9 @@ export class OpsMap implements MapApi {
   private start(onDead?: () => void): void {
     const signal = this.stop.signal;
     const dead = window.setTimeout(() => { if (!this.baseOk && this.baseErr && onDead) { this.destroy(); onDead(); } }, 12000);
-    signal.addEventListener('abort', () => clearTimeout(dead));
+    // on a narrow map the credits take three lines: shown first, folded to the (i) after a few seconds (a drag folds them too)
+    const fold = window.setTimeout(() => { const a = this.el.querySelector('.maplibregl-ctrl-attrib'); if (a && this.el.clientWidth <= 640 && a.classList.contains('maplibregl-compact-show')) { a.classList.remove('maplibregl-compact-show'); a.removeAttribute('open'); } }, 6000);
+    signal.addEventListener('abort', () => { clearTimeout(dead); clearTimeout(fold); });
     this.bind();
     this.layerUi();
     const watch = () => { const d = isDark(); if (d === this.dark) return; this.dark = d; this.el.classList.toggle('dk', d); this.readColours(); try { this.map.setStyle(baseStyle(d), { diff: false }); } catch { /* next time */ } };

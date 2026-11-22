@@ -145,7 +145,7 @@ export function eaCharts(html, k) {
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
-  const m = t.match(new RegExp(icao + '\\s*[—–]\\s*([^\\n]{3,70})'));
+  const m = t.match(new RegExp(icao + '(?:\\s*[—–]|\\s+-)\\s+([^\\n]{3,70})'));
   return m ? m[1].replace(/\s+/g, ' ').trim() : '';
 };
 
@@ -157,7 +157,7 @@ export async function eaChartsList(icao, env, me, d) {
   const R = EA[k], head = { src: 'ea', reg: k, label: R.label, host: R.host, aip: R.site || R.home, airport: { icao, name: '' } };
   if (!me) return { ...head, cycle: null, charts: [], notFound: true, signin: true };
   const { cur, next } = await edition(k, d), cycle = cycleOf(k, cur.eff);
-  const v = await d.cached('ea3:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v3:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v3/${cycle}/${icao}`, 86400, async () => {
+  const v = await d.cached('ea4:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v4:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v4/${cycle}/${icao}`, 86400, async () => {
     const r = await get(cur.base + R.page(icao), 86400);
     if (r.status === 404) return { airport: { icao, name: '' }, charts: [], notFound: true };
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);

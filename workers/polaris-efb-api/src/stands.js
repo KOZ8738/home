@@ -14,6 +14,7 @@
    KV (STORE):  stands:v1:plan -> { on, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, fl: 'all'|'dom'|'intl', ac: 'all'|'narrow'|'wide', term }] }, at, by }
                 stands:v1:log  -> [{ k, t, cs, dep, arr, ac, wide, fl, eta, stand, term, by, aoc, pilot, cid, name }] (two days) */
 import { aocSend } from './aoc.js';
+import { aocTpl, aocMsg } from './aoctpl.js';
 import { PAW_APTS } from './live.js';
 
 class StandError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -103,8 +104,10 @@ export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl) {
   }
   return { none: 'full' };
 }
-const standText = (f, eta, p) => [`${f.cs} ${f.dep || '----'}-${f.arr} ETA ${z(eta)}`, p.stand ? `GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'GATE: CONTACT GROUND ON ARRIVAL', 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC'].join('\n');
-const depText = (f, std, p, ac) => [`${f.cs} ${f.dep}-${f.arr || '----'}${std ? ' STD ' + z(std) : ''}${ac ? '  ' + ac : ''}`, p.stand ? `DEPARTURE GATE ${p.stand}${p.term ? '  TERMINAL ' + p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : ''}` : 'NO PLANNED GATE IS FREE AROUND YOUR DEPARTURE: USE ANY FREE GATE', 'IF THE GATE IS TAKEN WHEN YOU SET UP, USE A FREE GATE NEARBY AND TELL GROUND'].join('\n');
+/* the two gate messages, from the wording set on /admin (aoctpl.js): { title, body } */
+const termOf = (p) => (p.term ? p.term.replace(/^T(ERMINAL)?\s*(?=\w)/, '') : '');
+const standMsg = (T, f, eta, p, chg) => aocMsg(T, 'gate', { CALLSIGN: f.cs, DEP: f.dep || '----', ARR: f.arr, ETA: z(eta), GATE: p.stand || '', TERMINAL: termOf(p) }, { none: !p.stand, chg });
+const depMsg = (T, f, std, p, ac, chg) => aocMsg(T, 'dep', { CALLSIGN: f.cs, DEP: f.dep, ARR: f.arr || '----', STD: std ? z(std) : '', AIRCRAFT: ac || '', GATE: p.stand || '', TERMINAL: termOf(p) }, { none: !p.stand, chg });
 const crewOf = (f) => ({ crew: 1, cs: f.cs, m: f.pilot || f.cid ? [{ pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name && f.name !== f.pilot ? f.name : '' }] : [] });
 
 /* every 2 minutes: deps = { live() -> liveFlights answer, vatsim() -> VATSIM rows, layout(icao) -> cached airport map } */
@@ -121,7 +124,7 @@ export async function standWatch(env, deps) {
     const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || '', fl = flightType(f.dep, f.arr);
     const p = await pickStand(plan, f.arr, ac, eta, log, deps, null, fl);
     if (p.none === 'noplan' && plan.miss !== 'ground') continue;
-    const m = await aocSend(env, { title: 'GATE ASSIGNMENT', body: standText(f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
+    const m = await aocSend(env, { ...standMsg(await aocTpl(env), f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
     const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: isWide(ac), fl, eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
     log.unshift(rec); sent.push(rec);
   }
@@ -142,7 +145,7 @@ export async function departureGate(env, b, deps, now = Date.now()) {
   const p = await pickStand(plan, dep, ac, std, log, deps || {}, null, fl);
   if (p.none === 'noplan') return { none: 'noplan' };
   const f = { cs, dep, arr, pilot: b.pilot || '', cid: b.cid ? String(b.cid) : '', name: b.name || '' };
-  const m = await aocSend(env, { title: 'DEPARTURE GATE', body: depText(f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO' });
+  const m = await aocSend(env, { ...depMsg(await aocTpl(env), f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO' });
   const rec = { k, kind: 'dep', t: now, cs, dep, arr, ac, wide: isWide(ac), fl, eta: std, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
   log.unshift(rec); await writeLog(kv, log);
   return rec;
@@ -198,8 +201,7 @@ export async function standsAdmin(req, url, path, env, who, deps) {
       }
       if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the gate');
       const f = { cs, dep, arr, pilot: up(b.pilot, 12), cid: String(b.cid || '').replace(/\D/g, '').slice(0, 9), name: line(b.name, 60) };
-      const m = kind === 'dep' ? await aocSend(env, { title: 'DEPARTURE GATE', body: depText(f, eta, { stand, term }, ac), to: crewOf(f), push: true, by: who })
-        : await aocSend(env, { title: 'GATE ASSIGNMENT', body: standText(f, eta, { stand, term }), to: crewOf(f), push: true, by: who });
+      const T = await aocTpl(env), m = await aocSend(env, { ...(kind === 'dep' ? depMsg(T, f, eta, { stand, term }, ac) : standMsg(T, f, eta, { stand, term })), to: crewOf(f), push: true, by: who });
       const rec = { k, ...(kind === 'dep' ? { kind: 'dep' } : {}), t: now, cs, dep, arr, ac, wide: isWide(ac), fl: flightType(dep, arr), eta, stand, term, by: who, aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
       log.unshift(rec); await writeLog(kv, log);
       return jsonRes({ ok: true, rec });
@@ -210,8 +212,7 @@ export async function standsAdmin(req, url, path, env, who, deps) {
       const stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the new gate');
       const term = b.term != null ? line(b.term, 20).toUpperCase() : x.term;
       const f = { cs: x.cs, dep: x.dep, arr: x.arr, pilot: x.pilot, cid: x.cid, name: x.name };
-      const m = x.kind === 'dep' ? await aocSend(env, { title: 'DEPARTURE GATE CHANGE', body: depText(f, x.eta, { stand, term }, x.ac), to: crewOf(f), push: true, by: who })
-        : await aocSend(env, { title: 'GATE CHANGE', body: standText(f, x.eta, { stand, term }), to: crewOf(f), push: true, by: who });
+      const T = await aocTpl(env), m = await aocSend(env, { ...(x.kind === 'dep' ? depMsg(T, f, x.eta, { stand, term }, x.ac, true) : standMsg(T, f, x.eta, { stand, term }, true)), to: crewOf(f), push: true, by: who });
       Object.assign(x, { stand, term, by: who, aoc: m.id, changed: Date.now() }); await writeLog(kv, log);
       return jsonRes({ ok: true, rec: x });
     }

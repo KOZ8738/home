@@ -18,6 +18,7 @@ import { crew, mailTo, mailPayload, crewTo, toMatch } from './crew.js';
 import { docsAdmin } from './docs.js';
 import { aocAdmin } from './aoc.js';
 import { standsAdmin } from './stands.js';
+import { aocTplAdmin } from './aoctpl.js';
 import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 
@@ -179,6 +180,7 @@ export async function mailAdmin(req, url, env, opts) {
     try { return jsonRes(opts && opts.watch ? await opts.watch() : { alerts: [] }); } catch (e) { return jsonRes({ error: 'Flight Watch is not available right now: ' + e.message }, 502); }
   }
   /* Stands tab: the stand plan for the automatic stand assignment, and what it sent (see stands.js) */
+  if (path === '/admin/api/aoctpl' || path.startsWith('/admin/api/aoctpl/')) return aocTplAdmin(req, path, env, who);
   if (path === '/admin/api/stands' || path.startsWith('/admin/api/stands/')) return standsAdmin(req, url, path, env, who, opts && opts.stands);
   /* Messages tab, sent as AOC: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */
   if (path === '/admin/api/aoc') return aocAdmin(req, url, env, who);

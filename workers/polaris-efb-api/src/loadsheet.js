@@ -9,6 +9,8 @@
    The weights are kept with the pilot's check-in in the crew Durable Object (crew.js, job "ls"). Staff can turn the
    message off on /admin (Auto AOC tab). */
 
+import { aocMsg } from './aoctpl.js';
+
 const num = (v, lo, hi) => { const n = +v; return isFinite(n) && n >= lo && n <= hi ? Math.round(n) : null; };
 const str = (v, n) => String(v == null ? '' : v).replace(/[^\w\- ./]/g, '').trim().slice(0, n);
 
@@ -58,34 +60,19 @@ export function finalFigures(ci, w) {
 
 const pad = (v, n) => String(v).padStart(n);
 const sgn = (v) => (v > 0 ? '+' : v < 0 ? '-' : '') + Math.abs(v).toLocaleString('en-US');
-/* the message: { title, body } */
-export function loadsheetMsg(ci, w, now = Date.now()) {
+/* the message: { title, body }, in the wording set on /admin (T: aoctpl.js's templates; the default without it) */
+export function loadsheetMsg(ci, w, now = Date.now(), T = null) {
   const F = finalFigures(ci, w), U = w.units === 'lbs' ? 'LB' : 'KG', d = new Date(now);
   const dd = String(d.getUTCDate()).padStart(2, '0') + ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][d.getUTCMonth()];
   const hm = String(d.getUTCHours()).padStart(2, '0') + String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
-  const fl = String(ci.callsign || ci.flight || '').replace(/\s+/g, '').toUpperCase();
-  const row = (k, v, max) => k.padEnd(6) + pad(Math.round(v).toLocaleString('en-US'), 9) + (max != null ? '   MAX ' + pad(Math.round(max).toLocaleString('en-US'), 9) : '');
-  const L = [
-    'LOADSHEET FINAL ' + hm + '  EDNO 1',
-    fl + '/' + dd + '  ' + (ci.from || '----') + '-' + (ci.to || '----'),
-    [w.reg || ci.registration || '', w.type || ci.type || ''].filter(Boolean).join('  ') + (ci.std ? '  STD ' + new Date(ci.std).toISOString().slice(11, 16).replace(':', '') + 'Z' : ''),
-    'ALL WEIGHTS IN ' + U,
-    '',
-    row('ZFW', F.zfw, w.mzfw),
-    row('TOF', F.tof),
-    row('TOW', F.tow, w.mtow),
-    row('TIF', F.trip),
-    row('LAW', F.law, w.mlw),
-  ];
-  if (F.under != null) L.push('UNDLD ' + pad(Math.round(F.under).toLocaleString('en-US'), 9) + '   (' + F.lim + ' LIMITING)');
-  L.push('');
-  if (F.pax != null) L.push('PAX   ' + pad(F.pax, 9) + (w.seats ? '   OF ' + w.seats + ' SEATS' : ''));
-  if (F.load != null) L.push('LOAD  ' + pad(Math.round(F.load).toLocaleString('en-US'), 9) + '   PAX, BAGS AND CARGO');
-  L.push('');
+  const fl = String(ci.callsign || ci.flight || '').replace(/\s+/g, '').toUpperCase(), n = (v) => (v == null ? '' : Math.round(v).toLocaleString('en-US'));
   const ch = [];
   if (F.dPax) ch.push('PAX ' + sgn(F.dPax));
   if (F.dCargo) ch.push('CARGO ' + sgn(F.dCargo) + ' ' + U);
-  L.push(ch.length ? 'CHANGES FROM THE OFP: ' + ch.join(', ') + ', ZFW ' + sgn(F.dZfw) + ' ' + U : 'NO CHANGES FROM THE OFP');
-  L.push('UPDATE THE FMS ZFW IF IT HAS CHANGED.', 'LMC NIL', 'PREPARED BY POLARIS LOAD CONTROL');
-  return { title: 'LOADSHEET FINAL', body: L.join('\n'), figures: F };
+  const vars = { TIME: hm, FLIGHT: fl, DATE: dd, FROM: ci.from || '----', TO: ci.to || '----', REG: w.reg || ci.registration || '', TYPE: w.type || ci.type || '',
+    STD: ci.std ? new Date(ci.std).toISOString().slice(11, 16).replace(':', '') + 'Z' : '', UNITS: U,
+    ZFW: n(F.zfw), MZFW: n(w.mzfw), TOF: n(F.tof), TOW: n(F.tow), MTOW: n(w.mtow), TIF: n(F.trip), LAW: n(F.law), MLW: n(w.mlw), UNDLD: n(F.under), LIMIT: F.under != null ? F.lim : '',
+    PAX: F.pax != null ? String(F.pax) : '', SEATS: w.seats ? String(w.seats) : '', LOAD: n(F.load),
+    CHANGES: ch.length ? 'CHANGES FROM THE OFP: ' + ch.join(', ') + ', ZFW ' + sgn(F.dZfw) + ' ' + U : 'NO CHANGES FROM THE OFP' };
+  return { ...aocMsg(T, 'ls', vars), figures: F };
 }

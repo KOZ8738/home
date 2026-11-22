@@ -9,6 +9,7 @@
 
    KV (STORE): sigroute:v1:sent -> { [cs:dep:arr]: { t, ids: ['FIR|HAZARD', …] } } (a day) */
 import { aocSend } from './aoc.js';
+import { aocTpl, aocSigMsg } from './aoctpl.js';
 
 const SENT = 'sigroute:v1:sent', R = 3440.065, rad = Math.PI / 180, AHEAD_NM = 900, AHEAD_MIN = 150, STEP_NM = 10, PER_FLIGHT = 3, KEEP_MS = 86400_000;
 const nm = (a, b, c, d) => { const x = Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2; return 2 * R * Math.asin(Math.min(1, Math.sqrt(x))); };
@@ -81,22 +82,22 @@ export function sigmetsAhead(f, dest, sigs, now) {
 
 const crewOf = (f) => ({ crew: 1, cs: f.cs, m: f.pilot || f.cid ? [{ pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name && f.name !== f.pilot ? f.name : '' }] : [] });
 const oneLine = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
-export function sigText(f, hits, now) {
-  const L = [f.cs + ' ' + (f.dep || '----') + '-' + f.arr + (f.cruise ? '  ' + fl(f.cruise) : '')];
-  hits.forEach((h, i) => {
+/* { title, body } in the wording set on /admin (T: aoctpl.js's templates; the default without it) */
+export function sigMsg(f, hits, now, T) {
+  const items = hits.map((h, i) => {
     const s = h.s, lo = levelFt(s.base), hi = levelFt(s.top);
     const lev = lo != null || hi != null ? (lo ? fl(lo) : 'SFC') + '-' + (hi != null ? fl(hi) : '') : '';
     const val = timeOf(s.from) || timeOf(s.to) ? 'VALID ' + (timeOf(s.from) ? z(timeOf(s.from)) : '') + '-' + (timeOf(s.to) ? z(timeOf(s.to)) : '') : '';
     const mins = Math.round((h.t - now) / 60_000);
     const nmF = oneLine(s.firName, 30).toUpperCase(), fir = String(s.fir || '').toUpperCase();
     const where = nmF ? (fir && !nmF.includes(fir) && !/^[A-Z]{4}\b/.test(nmF) ? fir + ' ' : '') + nmF + (/\b(FIR|UIR|CTA)\b/.test(nmF) ? '' : ' FIR') : fir;
-    L.push('', (hits.length > 1 ? i + 1 + '. ' : '') + [where, oneLine([s.qualifier, s.hazard].filter(Boolean).join(' '), 40), lev, val, s.mov ? 'MOV ' + oneLine(s.mov, 20) : ''].filter(Boolean).join('  '));
-    L.push(h.d < STEP_NM ? 'YOU ARE IN IT NOW, ABOUT ' + fl(h.alt) : 'ABOUT ' + h.d + ' NM AHEAD, IN ABOUT ' + mins + ' MIN, NEAR ' + ll(h.lat, h.lon) + ', YOUR LEVEL ABOUT ' + fl(h.alt));
-    if (s.raw) L.push(oneLine(s.raw, 420));
+    const haz = oneLine([s.qualifier, s.hazard].filter(Boolean).join(' '), 40), mov = s.mov ? 'MOV ' + oneLine(s.mov, 20) : '';
+    return { N: hits.length > 1 ? String(i + 1) : '', SUMMARY: [where, haz, lev, val, mov].filter(Boolean).join('  '), FIR: where, HAZARD: haz, LEVELS: lev, VALID: val, MOVE: mov,
+      POSITION: h.d < STEP_NM ? 'YOU ARE IN IT NOW, ABOUT ' + fl(h.alt) : 'ABOUT ' + h.d + ' NM AHEAD, IN ABOUT ' + mins + ' MIN, NEAR ' + ll(h.lat, h.lon) + ', YOUR LEVEL ABOUT ' + fl(h.alt), RAW: s.raw ? oneLine(s.raw, 420) : '' };
   });
-  L.push('', 'SEE THE SIGMET LAYER ON THE EFB MAP. COORDINATE ANY DEVIATION OR LEVEL CHANGE WITH ATC.');
-  return L.join('\n');
+  return aocSigMsg(T, { CALLSIGN: f.cs, DEP: f.dep || '----', ARR: f.arr, CRUISE: f.cruise ? fl(f.cruise) : '' }, items);
 }
+export const sigText = (f, hits, now) => sigMsg(f, hits, now, null).body;
 
 /* deps = { sigmets() -> { sigmets }, on: bool } */
 export async function sigRouteWatch(env, live, deps, now = Date.now()) {
@@ -114,7 +115,7 @@ export async function sigRouteWatch(env, live, deps, now = Date.now()) {
     if (!hits.length) continue;
     const use = hits.slice(0, PER_FLIGHT - rec.ids.length);
     try {
-      const m = await aocSend(env, { title: 'SIGMET ON ROUTE', body: sigText(f, use, now), to: crewOf(f), push: true, by: 'AUTO' });
+      const m = await aocSend(env, { ...sigMsg(f, use, now, await aocTpl(env).catch(() => null)), to: crewOf(f), push: true, by: 'AUTO' });
       sent[k] = { t: now, ids: [...rec.ids, ...use.map((h) => sigId(h.s))] }; out.push({ k, aoc: m.id, ids: sent[k].ids });
     } catch (e) { console.warn('[sigroute]', e && e.message); }
   }

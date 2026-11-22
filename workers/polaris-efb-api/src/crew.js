@@ -20,6 +20,7 @@
 
 import { aocSend } from './aoc.js';
 import { loadsheetMsg, cleanWeights } from './loadsheet.js';
+import { aocTpl } from './aoctpl.js';
 
 const DAY = 86_400_000, MIN = 60_000;
 const BATCH = 35;                 // pushes per alarm run (each is one outgoing request)
@@ -408,7 +409,7 @@ export class Crew {
       const row = this.one('SELECT bid, data FROM ci WHERE u = ?', j.u); if (!row || String(row.bid) !== String(d.bid)) return;
       const ci = JSON.parse(row.data); if (!ci.w || ci.lsSent) return;
       const plan = await this.env.STORE.get('stands:v1:plan', 'json').catch(() => null); if (plan && plan.ls === false) return;
-      const { title, body } = loadsheetMsg(ci, ci.w), cs = String(ci.callsign || ci.flight || '').replace(/\s+/g, '').toUpperCase();
+      const { title, body } = loadsheetMsg(ci, ci.w, Date.now(), await aocTpl(this.env).catch(() => null)), cs = String(ci.callsign || ci.flight || '').replace(/\s+/g, '').toUpperCase();
       const to = /^[A-Z0-9]{2,10}$/.test(cs) ? { crew: 1, cs, m: [{ pilot: j.u, cid: '', name: '' }] } : { pilot: j.u, cid: '', name: '' };
       await aocSend(this.env, { title, body, to, push: true, by: 'AUTO' }, (t, c, p) => this.enqueue(t, c, p));
       ci.lsSent = Date.now(); this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(ci), j.u);

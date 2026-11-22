@@ -149,7 +149,7 @@ const PAGE1=["perf","load","winter","convert","timer","music","prefs"];
 const PAGE2=["checklist","logbook","perf","load","winter","convert"];
 /* Flight's views (Nov 2026: Map, Charts, Kneeboard, Dispatch, Flight Plan, OFP and Backup PFD became tabs of Flight):
    [title, tab]; see "Flight: the EFB app" further down */
-const FLV={simbrief:["Download","dl"],map:["Map","map"],charts:["Charts","charts"],docs:["Documents","docs"],ofp:["Flight Plan","docs"],ofpdoc:["OFP","docs"],
+const FLV={simbrief:["Download","dl"],map:["Map","map"],charts:["Charts","charts"],docs:["Documents","docs"],ofp:["Flight Plan","dl"],ofpdoc:["OFP","dl"],
   messages:["Messages","msg"],kneeboard:["Scratch Pad","pad"],more:["More","more"],pfd:["Backup PFD","more"]};
 const isFl=id=>!!(id&&Object.prototype.hasOwnProperty.call(FLV,id));
 const ftLast=()=>{const v=store.get("ftLast","map");return isFl(v)?v:"map"};
@@ -2915,7 +2915,7 @@ const dl3Ok=()=>`<span class="dk-allok" title="On this device">${dkSvg("check")}
 function dl3Top(){
   return `<div class="dk-top"><h2 class="dk-tt">Download</h2><div class="dk-tr">
     <button type="button" class="dk-sq" data-sbset aria-label="SimBrief account and download settings" title="Settings">${dkSvg("gear")}</button>
-    <button type="button" class="dk-sq dl3-go" id="sbFetch"${DL3.busy?' disabled aria-busy="true"':""}>${DL3.busy?'<span class="dk-spin" aria-hidden="true"></span>':dkSvg("cloud")}<span>${DL3.busy?"Downloading…":"Download Latest Plan"}</span></button></div></div>`}
+    ${ofp._sample?"":`<button type="button" class="dk-sq dl3-clr" id="ofpClear">Clear plan</button>`}<button type="button" class="dk-sq dl3-go" id="sbFetch"${DL3.busy?' disabled aria-busy="true"':""}>${DL3.busy?'<span class="dk-spin" aria-hidden="true"></span>':dkSvg("cloud")}<span>${DL3.busy?"Downloading…":`Download<i class="dl3-lp"> Latest Plan</i>`}</span></button></div></div>`}
 function dlBusy(on){DL3.busy=!!on;const t=document.querySelector(".dl3>.dk-top");if(t)t.outerHTML=dl3Top()}
 /* the flights down the side */
 function dl3Side(B){const x=O(),none=!!ofp._sample,u=dl3User();
@@ -2925,28 +2925,26 @@ function dl3Side(B){const x=O(),none=!!ofp._sample,u=dl3User();
     else if(!B.list.length)bk=`<div class="dl3-note">No bookings. Book a flight in vAMSYS, then plan it in SimBrief.</div>`;
     else bk=B.list.map((b,i)=>row("bk:"+dl3BkId(b,i),dl3Plane()+(dl3Match(b)?`<span class="dl3-bdg" title="Its plan is on this device">${dkSvg("check")}</span>`:""),esc(dl3BkName(b)),esc(b.from)+" → "+esc(b.to)+(b.type?" · "+esc(b.type):""),dl3WhenHtml(b.departureTime))).join("")}
   return `<aside class="dk-side"><div class="dk-sl">
-    <div class="dk-sec">This Flight</div>${row("plan",dkSvg("fold"),none?"No flight plan":esc(x.flight),none?(u?"Download it from SimBrief":"Add your SimBrief account"):esc(S(x.o.icao_code))+" → "+esc(S(x.d.icao_code))+(S(x.ac.icaocode)?" · "+esc(S(x.ac.icaocode)):""))}
+    <div class="dk-sec">This Flight</div>${none?row("plan",dkSvg("fold"),"No flight plan",u?"Download it from SimBrief":"Add your SimBrief account")
+      :`<div class="dl3-fl"><b>${esc(x.flight)}</b><span>${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}${S(x.ac.icaocode)?" · "+esc(S(x.ac.icaocode)):""}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}</span></div>`
+        +`<button type="button" class="dk-row dl3-sx" data-fdoc="ofpdoc"><span class="dk-ri s"><svg viewBox="0 0 24 24" aria-hidden="true">${FD_I.ofpdoc}</svg></span><span class="dk-rt"><b>OFP</b></span><span class="dl3-v">${S((ofp.params||{}).airac)?"AIRAC "+esc(S(ofp.params.airac)):""}</span></button>`
+        +dl3Secs().map(([k,ic,t,v])=>`<button type="button" class="dk-row dl3-sx${DL3.sel==="plan"&&ofpTab===k?" on":""}" data-dl3="plan" data-tab="${k}"><span class="dk-ri s">${ico(ic)}</span><span class="dk-rt"><b>${esc(t)}</b></span><span class="dl3-v">${esc(v)}</span></button>`).join("")}
     ${B?`<div class="dk-sec">Bookings</div>${bk}`:""}
   </div><div class="dk-foot"><button type="button" class="dl3-acct" data-sbset>${u?"SimBrief · "+esc(u):"No SimBrief account"}</button></div></aside>`}
 /* a row of the table: the name on the left, the value on the right */
 const dl3R=(k,v)=>`<div class="dl3-r"><span>${k}</span><b>${v}</b></div>`;
 const dl3Sh=t=>`<div class="dl3-sh">${t}</div>`;
-/* the plan on this device */
-function dl3Plan(){const x=O(),tm=ofp.times||{},wt=ofp.weights||{},fu=ofp.fuel||{},pa=ofp.params||{},u=x.unit,gen=N(pa.time_generated)?N(pa.time_generated)*1000:0;
-  const blk=N(tm.sched_block)||(N(tm.sched_in)&&N(tm.sched_out)?N(tm.sched_in)-N(tm.sched_out):null),fl=N(x.g.initial_altitude),ci=S(x.g.costindex),rt=S(x.g.route);
-  const i=v=>`<i>${v}</i>`,num=(v,unit)=>v!=null?fmt(v)+(unit?" "+i(unit):""):"—";
-  const apt=(a,lbl,t)=>esc(S(a.icao_code)||"—")+(S(a.plan_rwy)?" "+i("RWY "+esc(S(a.plan_rwy))):"")+(N(t)?" · "+lbl+" "+esc(utcHM(N(t))):"");
-  const c=RS.ci,ciOk=!!(c&&c.from===S(x.o.icao_code)&&c.to===S(x.d.icao_code));
-  return `<div class="dl3-pl">
-    <button type="button" class="dk-tile dl3-cov" data-fdoc="ofpdoc" aria-label="Open the OFP"><span class="dk-cv">${dkPaper("ofpdoc",x)}<span class="dk-st ok" title="On this device">${dkSvg("check")}</span></span><span class="dk-cap"><b>OFP</b><small>${S(pa.airac)?"AIRAC "+esc(S(pa.airac)):gen?"Generated "+esc(utcHM(gen/1000)):"SimBrief"}</small></span></button>
-    <div class="dl3-tb">${dl3Sh("Flight")}
-      ${dl3R("Flight",esc(x.flight)+ftTag(x.flight,S(x.o.icao_code),S(x.d.icao_code)))}${dl3R("Aircraft",esc(S(x.ac.name)||S(x.ac.icaocode)||"—")+(S(x.ac.reg)?" "+i(esc(S(x.ac.reg))):""))}
-      ${dl3R("Cruise",(fl?"FL"+String(Math.round(fl/100)).padStart(3,"0"):"—")+(ci?" "+i("CI "+esc(ci)):""))}${dl3R("Generated",gen?esc(utcHM(gen/1000))+" "+i(dl3Ago(gen)):"—")}
-      ${dl3Sh("Route")}${dl3R("Departure",apt(x.o,"STD",tm.sched_out))}${dl3R("Arrival",apt(x.d,"STA",tm.sched_in))}${dl3R("Alternate",esc(S(x.a.icao_code)||"—"))}
-      ${dl3R("Distance",(N(x.g.route_distance)?fmt(N(x.g.route_distance))+" "+i("nm"):"—")+(blk?" · Block "+dl3Dur(blk):""))}${rt?`<div class="dl3-rt">${esc(rt)}</div>`:""}
-      ${dl3Sh("Fuel and Weights")}${dl3R("Block fuel",num(N(fu.plan_ramp),u))}${dl3R("Trip fuel",num(N(fu.est_burn),u))}${dl3R("Takeoff weight",num(N(wt.est_tow),u))}${dl3R("Passengers",num(N(wt.pax_count)))}
-      ${dl3Sh("Check-in")}<button type="button" class="dl3-r dl3-a" data-ftgo="roster"><span>${ciOk?"Checked in":"Not checked in"}</span><b>${ciOk?"Gates and the final loadsheet come by AOC":"Check in on Roster"}<svg class="dk-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></b></button>
-      <button type="button" class="dl3-clear" id="ofpClear">Clear plan</button></div></div>`}
+/* the plan on this device: the Flight Plan's sections, as its own sidebar has them (and the printed OFP) */
+function dl3Secs(){const x=O(),fu=ofp.fuel||{},o=store.get("oooi:"+x.id,{}),next=OO.find(k=>!o[k]),dist=N(x.g.route_distance)||N(x.g.air_distance);
+  let nt="";try{if(typeof ntAll==="function"){const A=ntAll();nt=A.length?String(A.length):"None"}}catch(e){}
+  return [["sum","doc","Overview",""],["brief","cloud","Briefing","Route"],["fuel","fuel","Fuel & weights",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):""],["route","route","Route",dist?fmt(dist)+" NM":""],
+    ["navlog","list","Nav log",x.fixes.length+" fixes"],["oooi","clock","Block times",next?"Next "+next:"Done"],["notam","alert","NOTAMs",nt]].filter(z=>z[0]!=="brief"||typeof brPage==="function").filter(z=>z[0]!=="notam"||typeof ntPage==="function")}
+function dl3Sec(){const k=ofpTab;let h="";
+  try{h=k==="brief"&&typeof brPage==="function"?brPage():k==="notam"&&typeof ntPage==="function"?ntPage():k==="fuel"?ofpFuel():k==="route"?ofpRoute():k==="navlog"?ofpNavlog():k==="oooi"?ofpTimes():ofpSummary()}
+  catch(e){h=`<div class="empty">This part of the plan couldn’t be shown.</div>`}
+  return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
+/* a phone: the sections as a row of buttons under the tabs */
+function dl3Chips(){return `<div class="dl3-chips" role="tablist" aria-label="Flight plan">${dl3Secs().map(([k,,t])=>`<button type="button" role="tab" data-dl3="plan" data-tab="${k}" aria-selected="${ofpTab===k}">${esc(t)}</button>`).join("")}<button type="button" data-fdoc="ofpdoc">OFP</button></div>`}
 /* nothing loaded yet */
 function dl3None(){return dl3User()
   ?dkEmpty(dkSvg("cloud"),"No flight plan","Download your newest SimBrief plan and the EFB fills in with your flight: the map, charts, documents, weather and checklists.",`<button type="button" class="dk-btn" data-dl3go>Download Latest Plan</button>`)
@@ -2982,14 +2980,17 @@ V.simbrief=()=>{const B=dl3Bks(),none=!!ofp._sample;let bk=null;
   let title,right="",back="",body;
   if(bk){title=dl3BkName(bk)+" · "+bk.from+" → "+bk.to;right=dl3Match(bk)?dl3Ok():"";back=`<button type="button" class="dk-back dl3-back" data-dl3="bk">${dkSvg("back")}<span>Bookings</span></button>`;body=dl3Book(bk)}
   else if(DL3.sel!=="plan"){title="Bookings";body=B?dl3BkList(B):""}
-  else{const x=O();title=none?"This Flight":x.flight+" · "+S(x.o.icao_code)+" → "+S(x.d.icao_code);right=none?"":dl3Ok();body=none?dl3None():dl3Plan()}
+  else{const x=O();title=none?"This Flight":x.flight+" · "+S(x.o.icao_code)+" → "+S(x.d.icao_code);right=none?"":dl3Ok();body=none?dl3None():dl3Sec()}
   const tabs=B?`<div class="dk-srcs" role="tablist" aria-label="Download"><button type="button" role="tab" data-dl3="plan" aria-selected="${DL3.sel==="plan"}">This Flight</button><button type="button" role="tab" data-dl3="bk" aria-selected="${DL3.sel!=="plan"}">Bookings${B.list.length?" ("+B.list.length+")":""}</button></div>`:"";
-  queueMicrotask(()=>{const b=$("#dl3Body");if(b&&DL3.y)b.scrollTop=DL3.y});
-  return `<div class="dk dl3" id="dl3Root">${dl3Top()}${dl3Side(B)}<section class="dk-main">${tabs}<div class="dk-head"><div class="dk-hl">${back}</div><h2 class="dk-t">${esc(title)}</h2><div class="dk-hr">${right}</div></div>
+  queueMicrotask(()=>{const b=$("#dl3Body");if(b&&DL3.y)b.scrollTop=DL3.y;const c=document.querySelector(".dl3-chips [aria-selected=\"true\"]");if(c){const r=c.parentElement;r.scrollLeft=c.offsetLeft-(r.clientWidth-c.offsetWidth)/2}});
+  return `<div class="dk dl3" id="dl3Root">${dl3Top()}${dl3Side(B)}<section class="dk-main">${tabs}${DL3.sel==="plan"&&!none?dl3Chips():""}<div class="dk-head"><div class="dk-hl">${back}</div><h2 class="dk-t">${esc(title)}</h2><div class="dk-hr">${right}</div></div>
     <div class="dk-body" id="dl3Body"><p class="dl3-msg" id="sbMsg" role="status"></p>${SBMAN.on?dl3Man():""}${body}</div></section></div>`};
 document.addEventListener("click",e=>{if(cur!=="simbrief")return;const t=e.target.closest&&e.target.closest("[data-dl3],[data-dl3go]");if(!t)return;
   if(t.dataset.dl3go!=null){const b=$("#sbFetch");if(b&&!b.disabled)b.click();return}
+  if(t.dataset.tab&&t.dataset.tab!==ofpTab)DL3.y=0;
   const v=t.dataset.dl3;if(v===DL3.sel)return;DL3.sel=v;DL3.y=0;render()});
+/* Block times: the touchdown rate from the Backup PFD goes into the logbook entry here too */
+{const _r=render;render=function(){const v=_r.apply(this,arguments);try{if(cur==="simbrief"&&ofpTab==="oooi"&&typeof bpPlan==="function"&&bpPlan()){const i=$("#ooFpm"),L=store.get("bpLand:"+O().id,null);if(i&&!i.value&&L)i.value=Math.round(L.fpm)}}catch(e){}return v}}
 document.addEventListener("scroll",e=>{if(e.target&&e.target.id==="dl3Body")DL3.y=e.target.scrollTop},true);
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* ---------- Flight › Download, in the Documents style (Nov 2026): Documents' own parts (.dk-*) and colours (Charts' black), and these ---------- */
@@ -3058,6 +3059,35 @@ a.dk-sq,label.dk-sq{text-decoration:none;box-sizing:border-box}
 @media (prefers-reduced-motion:reduce){.dl3-man.in{animation:none}}
 /* Settings › Flight Operations: a link row like the action rows */
 .st-g a.st-act{text-decoration:none}
+/* This Flight: the flight, then its sections (as the Flight Plan's own sidebar has them) */
+.dl3-fl{display:flex;flex-direction:column;gap:3px;padding:12px 16px;border-bottom:1px solid var(--ff-sep)}
+.dl3-fl b{font:500 20px/1.2 var(--f-mono);color:#fff}.dl3-fl span{font:400 14px/1.3 var(--f-os);color:var(--ff-sub)}
+.dk-row.dl3-sx{min-height:52px;grid-template-columns:26px minmax(0,1fr) auto;gap:12px;padding:8px 16px}
+.dl3 .dk-ri.s svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dl3-sx .dk-rt b{font-size:16px}
+.dl3-v{font:400 13.5px var(--f-mono);color:var(--ff-sub);white-space:nowrap}
+.dk-row.on .dl3-v{color:#fff}
+/* a section of the plan, in Charts' black by day as well */
+.dl3 .dk-body{--bg:#121213;--panel:#1A1A1C;--panel-2:#26262A;--line:#2E2E32;--ink:#E8E8E9;--label:#9C9CA1;--grid:#232326;--shadow:rgba(0,0,0,.6);--accent:#7CC2C9;--accent-h:#E8E8E9;--bronze:#C3A487;--cyan:#5CC6E0;--green:#4FC27E;--amber:#EBA537;--red:#F06A6A;--magenta:#D87BD8;--input:#161618;color-scheme:dark;color:var(--ink)}
+.dl3-sec{padding:clamp(14px,2.2cqw,24px) clamp(16px,3cqw,32px) 48px}
+.dl3-sec>.dwrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px;min-width:0}
+.dl3-sec .dl3-clear{margin:4px 0 0}
+/* a phone: the sections as a row under the tabs */
+.dl3-chips{display:none}
+@container screen (max-width:640px){
+  .dl3-chips{display:flex;flex:none;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--ff-bar);border-bottom:1px solid var(--ff-sep);scrollbar-width:none}
+  .dl3-chips::-webkit-scrollbar{display:none}
+  .dl3-chips button{flex:none;height:32px;padding:0 13px;border:0;border-radius:16px;background:var(--ff-btn);color:var(--ff-sub);font:500 14px var(--f-os);cursor:pointer;white-space:nowrap}
+  .dl3-chips button[aria-selected="true"]{background:var(--ff-sel);color:#fff}
+  .dl3-sec{padding:12px 12px 40px}
+}
+/* Clear plan: on the bar, beside Download Latest Plan (a second tap within 3 seconds clears) */
+.dk-sq.dl3-clr{margin-left:auto;color:var(--ff-red);font-weight:500}
+.dk-sq.dl3-clr.warn{background:var(--ff-red);color:#fff}
+.dl3-clr+.dk-sq.dl3-go{margin-left:0}
+@container screen (max-width:640px){.dk-sq.dl3-clr{flex:none;padding:0 10px}.dk-sq.dl3-go{min-width:0}.dk-sq.dl3-go span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.dl3-lp{font-style:normal}
+@container screen (max-width:640px){.dl3-clr~.dk-sq.dl3-go .dl3-lp{display:none}}
 </style>`);
 
 /* ===== Settings ===== */
@@ -5977,7 +6007,7 @@ async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim(
   try{const j=await fetch(sbHref(u)).then(r=>r.json());if(!j||!j.origin||!j.destination||(j.fetch&&S(j.fetch.status)&&S(j.fetch.status)!=="Success")){if(manual)toast("SimBrief didn’t return a plan for that account");return}
     const id=j.params&&(j.params.request_id||j.params.time_generated),curId=!ofp._sample&&ofp.params&&(ofp.params.request_id||ofp.params.time_generated);
     if(id&&curId&&String(id)===String(curId)){if(manual)toast("You already have your latest plan");return}
-    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;DL3.sel="plan";SBMAN.on=false;render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
+    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ofpTab="sum";store.set("ofpTab","sum");render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
   catch(e){if(manual){SBMAN.on=true;toast("SimBrief can’t be reached from here. Paste or upload the plan in Flight › Download.")}}}
 setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
 document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
@@ -7297,7 +7327,7 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
   let h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="_navlog"||h==="_oooi")h=h.slice(1);if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
-  if(h==="flight"){location.replace("#"+ftLast());return}
+  if(h==="flight"){location.replace("#"+ftLast());return}if(h==="ofp"){DL3.sel="plan";location.replace("#simbrief");return}
   const next=(APPS[h]||isFl(h))&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
@@ -7321,7 +7351,7 @@ function goHome(){if(cur)location.hash="home";else goPage(0)}
 function loadOfp(obj){
   if(obj&&typeof obj==="object"&&obj.fetch&&S(obj.fetch.status)&&S(obj.fetch.status)!=="Success"){toast("SimBrief: "+S(obj.fetch.status));return false}
   if(!obj||typeof obj!=="object"||!obj.origin||!obj.destination){toast("That doesn’t look like a SimBrief JSON plan");return false}
-  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
+  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ofpTab="sum";store.set("ofpTab","sum");ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
 
 window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const a=e.target.closest('#home a[href^="#"]');if(a){const ic=a.querySelector(".icon")||a;openOrigin=originOf(ic)}},true);
@@ -8545,7 +8575,8 @@ const fdRow=(attr,ic,t,sub)=>`<button type="button" class="fd-row" ${attr}><span
    with Download All) and is kept in the browser's Cache Storage, so it opens offline; when staff replace it, the newer
    version comes down by itself, and a withdrawn one goes. Documents open in the reader below, inside Flight, so the
    tab bar stays and the page you were on is still there when you come back. */
-const DOC={src:store.get("docSrc","flight")==="polaris"?"polaris":"flight",dir:"",view:store.get("docView","grid")==="list"?"list":"grid",q:"",edit:false,
+/* Polaris documents only: the flight's own papers are in Flight › Download (Nov 2026) */
+const DOC={src:"polaris",dir:"",view:store.get("docView","grid")==="list"?"list":"grid",q:"",edit:false,
   list:store.get("docList",null),at:0,loading:null,err:"",dl:new Map(),queue:[],pumping:false,cov:new Map(),covBusy:new Set(),covFail:new Map(),have:new Set(),mem:new Map(),
   seen:store.get("docSeen",null),visit:store.get("docVisit",0)||0,fx:"",persist:false,warned:false,menu:false,armAll:false};
 const DOC_CACHE="pefb-docs-v1",DOC_FL=["ofpdoc","sum","brief","fuel","route","navlog","oooi","notam"];
@@ -8696,10 +8727,9 @@ function dkFoot(){const t=dkFootText();
   return `<span>${esc(t)}</span><button type="button" class="dk-ib" data-dk="refresh" aria-label="Check for new documents"${authOn()?"":" disabled"}>${dkSvg("refresh")}</button>`}
 function dkSide(){const x=O(),s=ofp._sample;
   return `<aside class="dk-side"><div class="dk-sl">
-    <div class="dk-sec">This Flight</div><button type="button" class="dk-row${DOC.src==="flight"?" on":""}" data-dksrc="flight"><span class="dk-ri">${dkSvg("fold")}</span><span class="dk-rt"><b>${s?"No flight plan":esc(x.flight)}</b><small>${s?"Fetch one in Download":esc(S(x.o.icao_code))+" → "+esc(S(x.d.icao_code))+" · "+DOC_FL.length+" Items"}</small></span></button>
     <div class="dk-sec">Drives</div><button type="button" class="dk-row${DOC.src==="polaris"?" on":""}" data-dksrc="polaris"><span class="dk-ri">${dkSvg("hdd")}</span><span class="dk-rt"><b>Polaris Airways</b><small>${dkDriveSub()}</small></span>${dkDriveMark()}</button>
   </div><div class="dk-foot" id="dkFoot">${dkFoot()}</div></aside>`}
-const dkSrcs=()=>`<div class="dk-srcs" role="tablist" aria-label="Documents from"><button type="button" role="tab" data-dksrc="flight" aria-selected="${DOC.src==="flight"}">This Flight</button><button type="button" role="tab" data-dksrc="polaris" aria-selected="${DOC.src==="polaris"}">Polaris Airways</button></div>`;
+const dkSrcs=()=>"";
 /* what Download All and the tick are about: the folder you are in, or the whole drive */
 const dkScope=()=>{const L=docList();return DOC.dir&&!DOC.q.trim()?L.filter(d=>(d.folder||"")===DOC.dir):L};
 /* the bar across the top, as in ForeFlight: the title, then list or covers, options, Edit, and the search */
@@ -8767,7 +8797,7 @@ function docBadge(){const b=document.getElementById("ftabs");if(!b)return;const 
 document.addEventListener("click",e=>{if(cur!=="docs")return;
   if(DOC.menu&&!(e.target.closest&&e.target.closest(".dk-gw"))){DOC.menu=false;DOC.armAll=false;dkTopUpd()}
   const t=e.target.closest&&e.target.closest("[data-dksrc],[data-dkdir],[data-dkview],[data-dkopen],[data-dk]");if(!t)return;const a=t.dataset;
-  if(a.dksrc){if(DOC.src!==a.dksrc){DOC.src=a.dksrc;DOC.dir="";DOC.edit=false;DOC.q="";store.set("docSrc",DOC.src);DOC.fx="src";render();if(DOC.src==="polaris")docsLoad();ftSync()}return}
+  if(a.dksrc){if(a.dksrc==="polaris"&&DOC.src!==a.dksrc){DOC.src=a.dksrc;DOC.dir="";DOC.edit=false;DOC.q="";store.set("docSrc",DOC.src);DOC.fx="src";render();if(DOC.src==="polaris")docsLoad();ftSync()}return}
   if(a.dkdir!=null){DOC.fx=a.dkdir?"fwd":"back";DOC.dir=a.dkdir;DOC.q="";render();return}
   if(a.dkview){if(DOC.view!==a.dkview){DOC.view=a.dkview;store.set("docView",DOC.view);DOC.fx="view";docRender()}return}
   if(a.dkopen){const d=docFind(a.dkopen);if(d)docTap(d);return}
@@ -9286,7 +9316,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 
 /* ---------- More ---------- */
 V.more=()=>`<div class="fd">
-  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","The flight\u2019s papers and the Polaris manuals")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
+  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","Polaris manuals, SOPs and notices")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
   <section class="card">${cardH("Flight","Instruments and settings")}<div class="fd-list">${fdRow('data-ftgo="pfd"','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>',"Backup PFD","Standby flight display, live from the simulator")}${fdRow("data-ftset",ST_I.gear||'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',"Settings","Base map and layers, your SimBrief account (opens Settings)")}</div></section>
   <p class="fd-foot">© Polaris Airways EFB Beta${EFB_BUILD?" · build "+esc(EFB_BUILD):""}</p></div>`;
 
@@ -11209,7 +11239,7 @@ function gxStamp(k,why,need,hhmm){if(!gxAuto())return false;const key="oooi:"+O(
   const i=OO.indexOf(k);if(OO.slice(i+1).some(n=>o[n]))return false;
   const d=new Date();o[k]=hhmm||pad(d.getUTCHours())+":"+pad(d.getUTCMinutes());store.set(key,o);
   gxNote({title:k+" "+o[k].replace(":","")+"Z",sub:OOL[k]+" · "+why,short:k+" "+o[k].replace(":","")+"Z"});
-  if(cur==="ofp"||cur==="_oooi")render();gxPaint(true);if(GX.bridge)gxQueue(true);return true}
+  if(cur==="ofp"||cur==="_oooi"||cur==="simbrief")render();gxPaint(true);if(GX.bridge)gxQueue(true);return true}
 
 /* ---------- what changed: alerts and the OOOI times GSX marks ---------- */
 const GX_DONE={board:"Boarding complete",fuel:"Refuelling complete",cater:"Catering complete",deboard:"Deboarding complete",deice:"De-icing complete"};
@@ -11237,7 +11267,7 @@ async function gxPoll(){if(typeof authOn!=="function"||!authOn())return;if(GX.br
     if(g.at!==GX.remoteAt){GX.remoteAt=g.at;gxApply(g.v,g.at,"remote")}else gxPaint();
     if(g.fid&&g.oo&&gxAuto()&&g.fid===O().id){const key="oooi:"+g.fid,o=store.get(key,{});let n=null;
       for(const k of OO)if(!o[k]&&/^\d\d:\d\d$/.test(g.oo[k]||"")){o[k]=g.oo[k];n=k}
-      if(n){store.set(key,o);gxNote({title:n+" "+o[n].replace(":","")+"Z",sub:OOL[n]+" · from the simulator PC",short:n+" "+o[n].replace(":","")+"Z"});if(cur==="ofp"||cur==="_oooi")render();gxPaint(true)}}}catch(e){}}
+      if(n){store.set(key,o);gxNote({title:n+" "+o[n].replace(":","")+"Z",sub:OOL[n]+" · from the simulator PC",short:n+" "+o[n].replace(":","")+"Z"});if(cur==="ofp"||cur==="_oooi"||cur==="simbrief")render();gxPaint(true)}}}catch(e){}}
 function gxTick(){clearTimeout(GX.pt);let ms=0;
   if(!(GX.bridge&&GX.st==="on")&&typeof authOn==="function"&&authOn()&&!document.hidden){
     if(cur==="gsx")ms=3000;else if(store.get("gsxSeen",false))ms=gxLive()?10000:60000}
@@ -12683,7 +12713,7 @@ function brPage(){if(ofp._sample)return"";const x=O(),f=ofp.fuel||{},tm=ofp.time
   const T=[["sum","doc","Overview"],["brief","cloud","Brief"],["fuel","fuel","Fuel"],["route","route","Route"],["navlog","list","Nav log"],["oooi","clock","Block"],["notam","alert","NOTAMs"]];
   return split(ofpSide(),brPage(),"",tabbar(T.map(t=>[`data-tab="${t[0]}"`,ofpTab===t[0],ico(t[1]),t[2]])))}}
 /* repaint while the SIGMETs and the terrain come in */
-setInterval(()=>{if(cur!=="ofp"||ofpTab!=="brief"||document.hidden)return;const sg=$("#brSig"),te=$("#brTer");
+setInterval(()=>{if((cur!=="ofp"&&cur!=="simbrief")||ofpTab!=="brief"||document.hidden)return;const sg=$("#brSig"),te=$("#brTer");
   const k=[SIG.list?SIG.list.length:-1,SIG.err||"",SIG.at].join();if(sg&&k!==BR.k){BR.k=k;sg.innerHTML=brSigHtml(brSig())}
   if(te&&BR.hi&&!BR.hi.done&&typeof TR!=="undefined"&&TR.ver!==BR.tv){BR.tv=TR.ver;BR.hiId=null;te.innerHTML=brTerHtml(brTerrain(),O())}},1500);
 document.head.insertAdjacentHTML("beforeend",`<style>

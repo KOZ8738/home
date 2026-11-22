@@ -34,6 +34,8 @@ const LAND: GeoPermissibleObjects = {
   }),
 };
 const GRATICULE = geoGraticule10();
+/** Most canvas pixels to draw; above this the picture is drawn a little coarser instead. */
+const MAX_PIXELS = 3_600_000;
 const SPHERE: GeoPermissibleObjects = { type: 'Sphere' };
 
 const MIN_ZOOM = 1;
@@ -101,6 +103,13 @@ export class Globe {
   private coast: { vx: number; vy: number } | null = null;
   private moves: { t: number; x: number; y: number }[] = [];
   private airports: Apt[] = [];
+  /** Colours read from CSS, kept until the theme changes (reading them is a style lookup each time). */
+  private colours = new Map<string, string>();
+  /** False while the canvas is off screen (another page is open) or the tab is in the background. */
+  private shown = true;
+  private wake = 0;
+  private skip = false;
+  private lines = new WeakMap<object, LonLat[]>();
   private layouts = new Map<string, Layout | 'loading' | null>();
 
   constructor(
@@ -118,10 +127,19 @@ export class Globe {
       cancelAnimationFrame(this.frame);
     });
     // redraw when the theme changes (colours come from CSS)
-    const themeWatch = new MutationObserver(() => this.redraw());
+    const themeWatch = new MutationObserver(() => { this.colours.clear(); this.redraw(); });
     themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     signal.addEventListener('abort', () => themeWatch.disconnect());
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.redraw(), { signal });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { this.colours.clear(); this.redraw(); }, { signal });
+    // nothing to draw for while the map is not on screen
+    const seen = new IntersectionObserver((es) => {
+      this.shown = es[es.length - 1]!.isIntersecting;
+      if (this.shown) { this.colours.clear(); this.redraw(); }
+    });
+    seen.observe(canvas);
+    signal.addEventListener('abort', () => { seen.disconnect(); clearTimeout(this.wake); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.redraw(); }, { signal });
+
 
     this.bindInput(signal);
     this.resize();
@@ -265,7 +283,9 @@ export class Globe {
 
   private resize(): void {
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (!rect.width || !rect.height) return; // hidden page: keep the last size
+    // sharp on a laptop, but a big 4K window does not need four times the pixels pushed every frame
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(MAX_PIXELS / (rect.width * rect.height))));
     this.size = { w: Math.max(1, rect.width), h: Math.max(1, rect.height), dpr };
     this.canvas.width = Math.round(this.size.w * dpr);
     this.canvas.height = Math.round(this.size.h * dpr);
@@ -280,6 +300,7 @@ export class Globe {
   }
 
   private tick(now: number): void {
+    if (document.hidden || !this.shown) { this.lastTick = 0; return; } // picked up again when the map comes back
     const dt = this.lastTick ? Math.min(100, now - this.lastTick) : 16;
     this.lastTick = now;
     let again = false;
@@ -314,9 +335,14 @@ export class Globe {
       this.spinVel += (IDLE_SPIN_DEG_PER_S - this.spinVel) * Math.min(1, dt / 500);
       this.rotation = [this.rotation[0] + (this.spinVel * dt) / 1000, this.rotation[1]];
       again = true;
-    } else if (this.spinning && this.zoom < SPIN_MAX_ZOOM) {
+      // the slow turn moves about a pixel a frame: every other frame is plenty and halves the work
+      this.skip = !this.skip;
+      if (this.skip) { this.frame = requestAnimationFrame((t) => this.tick(t)); return; }
+    } else if (this.spinning && this.zoom < SPIN_MAX_ZOOM && !this.drag) {
+      // waiting to spin again: sleep until then instead of redrawing a still picture every frame
       this.spinVel = 0;
-      again = true; // keep the loop alive until spinning can resume (not when zoomed in: nothing to wait for)
+      clearTimeout(this.wake);
+      this.wake = window.setTimeout(() => this.redraw(), Math.max(30, IDLE_AFTER_MS - (now - this.lastInteraction) + 20));
     }
     this.draw();
     if (again) this.frame = requestAnimationFrame((t) => this.tick(t));
@@ -324,7 +350,12 @@ export class Globe {
   }
 
   private css(name: string, fallback: string): string {
-    return getComputedStyle(this.canvas).getPropertyValue(name).trim() || fallback;
+    let v = this.colours.get(name);
+    if (v === undefined) {
+      v = getComputedStyle(this.canvas).getPropertyValue(name).trim();
+      this.colours.set(name, v);
+    }
+    return v || fallback;
   }
 
   private degPerPx(): number {
@@ -358,7 +389,8 @@ export class Globe {
     glow.addColorStop(0, this.css('--g-glow', 'rgba(124,194,201,.14)'));
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, w, h);
+    const gr = r * 1.35;
+    ctx.fillRect(Math.max(0, cx - gr), Math.max(0, cy - gr), Math.min(w, 2 * gr), Math.min(h, 2 * gr));
 
     // sphere, graticule, land
     ctx.beginPath();
@@ -590,6 +622,13 @@ export class Globe {
     ctx.restore();
   }
 
+  /** A trail as [lon, lat] points, worked out once per trail rather than once per frame. */
+  private line(trail: readonly (readonly number[])[]): LonLat[] {
+    let l = this.lines.get(trail);
+    if (!l) { l = trail.map((p) => ll(p[0]!, p[1]!)); this.lines.set(trail, l); }
+    return l;
+  }
+
   private drawFlights(radius: number): void {
     const { ctx } = this;
     const route = this.css('--g-route', '#D9B98F');
@@ -606,7 +645,7 @@ export class Globe {
     for (const f of this.flights) {
       if (f === selected || f.trail.length < 2) continue;
       ctx.beginPath();
-      this.path({ type: 'LineString', coordinates: f.trail.map((p) => ll(p[0], p[1])) });
+      this.path({ type: 'LineString', coordinates: this.line(f.trail) });
       ctx.strokeStyle = faint;
       ctx.lineWidth = 1;
       ctx.stroke();
@@ -626,16 +665,15 @@ export class Globe {
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;
       }
-      const flown = selected.trail.length > 1 ? selected.trail.map((p) => ll(p[0], p[1])) : selected.dep ? [ll(selected.dep.lat, selected.dep.lon), here] : [];
+      const flown = selected.trail.length > 1 ? this.line(selected.trail) : selected.dep ? [ll(selected.dep.lat, selected.dep.lon), here] : [];
       if (flown.length > 1) {
         ctx.beginPath();
         this.path({ type: 'LineString', coordinates: flown });
         ctx.strokeStyle = route;
-        ctx.lineWidth = 2;
-        ctx.shadowColor = route;
-        ctx.shadowBlur = 10;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        // glow as two soft under-strokes: a real blurred shadow along the whole route is slow
+        ctx.globalAlpha = 0.1; ctx.lineWidth = 10; ctx.stroke();
+        ctx.globalAlpha = 0.18; ctx.lineWidth = 5; ctx.stroke();
+        ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.stroke();
       }
       for (const a of [selected.dep, selected.arr]) {
         if (!a || !visible(ll(a.lat, a.lon))) continue;

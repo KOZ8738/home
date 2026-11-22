@@ -137,6 +137,8 @@ export class Crew {
       }
       case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
       case 'gsxSet': { const r = this.gsxSet(a); if (r.sent) await this.wake(); return r; }
+      case 'syncGet': return { sync: this.syncGet(String(a.u || '')) };
+      case 'syncSet': return this.syncSet(a);
       case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
@@ -280,6 +282,18 @@ export class Crew {
     if (done('deboard')) msgs.push(['Deboarding complete', (v.paxD ? v.paxD + ' passengers off. ' : '') + 'Ready for the next flight.', 'gsx-deboard']);
     for (const m of msgs) this.enqueue({ u }, 'brief', { title: 'GSX · ' + m[0], body: m[1], url: '#gsx', tag: m[2] });
     return { ok: true, sent: msgs.length > 0 };
+  }
+  /* the pilot's SimBrief ID and plan, for the pilot's other devices (see syncPost): each kept with the time it was set
+     on the device, and the later one wins. The plan itself is in KV (gzipped); this keeps where. */
+  syncGet(u) { const row = this.one('SELECT v FROM kv WHERE k = ?', 'sync:' + u); return row ? JSON.parse(row.v) : { sb: '', sbAt: 0, ofp: null }; }
+  syncSet(a) {
+    const u = String(a.u || ''); if (!u) return { ok: false };
+    const cur = this.syncGet(u), old = (cur.ofp && cur.ofp.blob) || ''; let took = false, drop = '';
+    if (a.sb != null && Number(a.sbAt) > (cur.sbAt || 0)) { cur.sb = String(a.sb).trim().slice(0, 64); cur.sbAt = Number(a.sbAt); took = true; }
+    if (a.ofp && Number(a.ofp.at) > ((cur.ofp && cur.ofp.at) || 0)) { cur.ofp = a.ofp; took = true; if (old && old !== a.ofp.blob) drop = old; }
+    else if (a.ofp && a.ofp.blob) drop = a.ofp.blob;   // older than the plan kept: its copy goes
+    if (took) this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', 'sync:' + u, JSON.stringify(cur));
+    return { ok: true, took, drop, sync: cur };
   }
   checkout(u, quiet) {
     this.sql.exec('DELETE FROM ci WHERE u = ?', u);
@@ -509,6 +523,43 @@ export function alarmNext(d, after) {
 }
 export function crewSoon(env, ctx, a) { const p = crew(env, a).catch((e) => console.warn('[crew]', a.op, e && e.message)); if (ctx && ctx.waitUntil) ctx.waitUntil(p); return p; }
 
+/* ---------- the SimBrief ID and plan follow the pilot ----------
+   GET /api/efb/crew/sync -> { sync: { sb, sbAt, ofp: { at, key, id, gen, flight, from, to } | { at, cleared } | null } }
+   GET /api/efb/crew/sync/ofp -> the plan's SimBrief JSON
+   POST /api/efb/crew/sync { sb, sbAt } | { ofp, at } | { clear: at } -> { ok, took, sync } */
+const syncAt = (x) => { const n = Number(x); return Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), Date.now() + 60_000) : Date.now(); };
+const syncOut = (v) => { const o = v && v.ofp ? { ...v.ofp } : null; if (o) delete o.blob; return { sb: (v && v.sb) || '', sbAt: (v && v.sbAt) || 0, ofp: o }; };
+async function gzip(text) { return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer(); }
+async function gunzip(buf) { return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text(); }
+export function ofpKey(o) { const p = (o && o.params) || {}; return [p.request_id, p.time_generated, o && o.origin && o.origin.icao_code, o && o.destination && o.destination.icao_code].map((x) => String(x == null ? '' : x).trim()).join('|'); }
+async function syncPost(env, me, b) {
+  const u = me.u;
+  if (b.sb != null) {
+    if (typeof b.sb !== 'string' || b.sb.length > 64) throw new CrewError(400, 'Bad SimBrief ID');
+    const r = await crew(env, { op: 'syncSet', u, sb: b.sb, sbAt: syncAt(b.sbAt) }); return { ok: true, took: r.took, sync: syncOut(r.sync) };
+  }
+  let meta;
+  if (b.clear != null) meta = { at: syncAt(b.clear), cleared: true };
+  else {
+    const o = b.ofp; if (!o || typeof o !== 'object' || !o.origin || !o.destination) throw new CrewError(400, 'That isn’t a SimBrief plan');
+    const text = JSON.stringify(o); if (text.length > 8_000_000) throw new CrewError(413, 'That plan is too big to keep');
+    const at = syncAt(b.at), g = o.general || {}, p = o.params || {};
+    meta = { at, key: ofpKey(o), id: String(p.request_id || '').slice(0, 40), gen: Number(p.time_generated) || 0, flight: (String(g.icao_airline || '') + String(g.flight_number || '')).slice(0, 12),
+      from: String(o.origin.icao_code || '').slice(0, 4), to: String(o.destination.icao_code || '').slice(0, 4), blob: 'sync:ofp:' + u + ':' + at + ':' + crypto.randomUUID().slice(0, 8) };
+    await env.STORE.put(meta.blob, await gzip(text), { expirationTtl: 60 * 86400 });
+  }
+  const r = await crew(env, { op: 'syncSet', u, ofp: meta });
+  if (r.drop) await env.STORE.delete(r.drop).catch(() => {});
+  return { ok: true, took: r.took, sync: syncOut(r.sync) };
+}
+async function syncOfpGet(env, h, me) {
+  const v = (await crew(env, { op: 'syncGet', u: me.u })).sync, o = v && v.ofp;
+  if (!o || o.cleared || !o.blob) throw new CrewError(404, 'No plan kept');
+  const buf = await env.STORE.get(o.blob, 'arrayBuffer');
+  if (!buf) throw new CrewError(409, 'The plan isn’t ready yet. Try again in a minute.');
+  return new Response(await gunzip(buf), { headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+}
+
 /** EFB routes: /api/efb/push/*, /api/efb/crew/*. deps: { bookings(u) -> {bookings} } */
 export async function crewPublic(req, url, env, h, me, deps) {
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -518,6 +569,8 @@ export async function crewPublic(req, url, env, h, me, deps) {
     if (!me) throw new CrewError(401, 'Sign in first');
     if (req.method === 'GET' && path === '/api/efb/crew') return res(await crew(env, { op: 'ciGet', u: me.u }));
     if (req.method === 'GET' && path === '/api/efb/gsx') return res(await crew(env, { op: 'gsxGet', u: me.u }));
+    if (req.method === 'GET' && path === '/api/efb/crew/sync') return res({ sync: syncOut((await crew(env, { op: 'syncGet', u: me.u })).sync) });
+    if (req.method === 'GET' && path === '/api/efb/crew/sync/ofp') return await syncOfpGet(env, h, me);
     if (req.method !== 'POST') throw new CrewError(405, 'Method not allowed');
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new CrewError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new CrewError(400, 'Bad body'); }
@@ -539,6 +592,7 @@ export async function crewPublic(req, url, env, h, me, deps) {
       case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo, log: b.log }));
       case '/api/efb/crew/ofp': return res(await crew(env, { op: 'ciOfp', u: me.u, bookingId: String(b.bookingId || ''), w: cleanWeights(b.w) }));
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
+      case '/api/efb/crew/sync': return res(await syncPost(env, me, b));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));
     }
     throw new CrewError(404, 'Not found');

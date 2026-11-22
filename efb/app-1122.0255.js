@@ -862,10 +862,10 @@ function vecStyle0(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E
     {id:"bld",type:"fill",source:"o","source-layer":"building",minzoom:14,paint:{"fill-color":C.urban,"fill-outline-color":C.casing}},
     {id:"rail",type:"line",source:"o","source-layer":"transportation",minzoom:10,filter:["==",["get","class"],"rail"],paint:{"line-color":C.rail,"line-width":W(10,.6,16,2)}},
     {id:"road-minor",type:"line",source:"o","source-layer":"transportation",minzoom:11,filter:["in",["get","class"],["literal",["minor","tertiary","service"]]],paint:{"line-color":C.road,"line-width":W(11,.4,17,8)}},
-    {id:"road-major-c",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.casing,"line-width":W(6,.8,17,14)}},
-    {id:"road-major",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.major,"line-width":W(6,.4,17,11)}},
-    {id:"road-motor-c",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.casing,"line-width":W(5,1,17,17)}},
-    {id:"road-motor",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.motor,"line-width":W(5,.6,17,14)}},
+    {id:"road-major-c",type:"line",source:"o","source-layer":"transportation",minzoom:7.5,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.casing,"line-width":W(6,.8,17,14),"line-opacity":["interpolate",["linear"],["zoom"],7.5,0,8.2,1]}},
+    {id:"road-major",type:"line",source:"o","source-layer":"transportation",minzoom:7.5,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.major,"line-width":W(6,.4,17,11),"line-opacity":["interpolate",["linear"],["zoom"],7.5,0,8.2,1]}},
+    {id:"road-motor-c",type:"line",source:"o","source-layer":"transportation",minzoom:6.5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.casing,"line-width":W(5,1,17,17),"line-opacity":["interpolate",["linear"],["zoom"],6.5,0,7.2,1]}},
+    {id:"road-motor",type:"line",source:"o","source-layer":"transportation",minzoom:6.5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.motor,"line-width":W(5,.6,17,14),"line-opacity":["interpolate",["linear"],["zoom"],6.5,0,7.2,1]}},
     {id:"bord2",type:"line",source:"o","source-layer":"boundary",minzoom:3,filter:["all",["==",["get","admin_level"],4],["!=",["get","maritime"],1]],paint:{"line-color":C.bord2,"line-dasharray":[3,2],"line-width":W(3,.5,10,1.2)}},
     {id:"bord",type:"line",source:"o","source-layer":"boundary",filter:["all",["==",["get","admin_level"],2],["!=",["get","maritime"],1]],paint:{"line-color":C.bord,"line-width":W(1,.6,10,1.8)}},
     {id:"water-name",type:"symbol",source:"o","source-layer":"water_name",layout:{"text-field":name,"text-font":["Noto Sans Italic"],"text-size":["interpolate",["linear"],["zoom"],2,10,10,13],"text-max-width":8},paint:{"text-color":C.wtxt,"text-halo-color":C.halo,"text-halo-width":1}},
@@ -3342,7 +3342,7 @@ V.prefs=()=>{const t=store.get("theme","auto"),log=store.get("log",[]),isl=store
   else if(psec==="ops"){const ct=clType(),sel=store.get("clTypeSel","auto"),u=store.get("sbUser","");
     main+=grp("SimBrief",[`<label class="st-r st-in"><span class="st-l">Username or pilot ID</span><input type="text" id="stSb" placeholder="Not set" value="${esc(u)}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="SimBrief username or pilot ID"></label>`,
         r("Fetch the latest plan when the EFB opens","Loads it quietly if it’s newer than the one you have",sw("data-sbauto",store.get("sbAuto",false)===true,"Fetch the latest plan when the EFB opens")),act("data-sbnow","Fetch latest plan now",false,!u),act("data-sbpaste","Paste or upload a plan"),`<a class="st-r st-act" href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">Plan a new flight on SimBrief ↗</a>`],
-        (ofp._sample?"No plan loaded yet.":"Loaded: "+esc(dlPlanName())+".")+" Flight › Download downloads your newest plan from this account.")
+        (ofp._sample?"No plan loaded yet.":"Loaded: "+esc(dlPlanName())+".")+" Flight › Download downloads your newest plan from this account. Signed in, the username and the plan you load follow you to your other devices.")
       +grp("Checklist aircraft",[pick("data-cltype","auto",sel==="auto","Automatic",ct.known?`Now ${esc(ct.name)}, from ${esc(ct.src)}`:"From your vAMSYS flight, booking or flight plan"),pick("data-cltype","A320",sel==="A320","A320 family","A321neo"),pick("data-cltype","A350",sel==="A350","A350","A350-900")])
       +grp("Polaris",[r("Base","",val("KSFO · San Francisco")),r("Fleet","",val("A321neo domestic · A350-900 international"))])}
   else main+=grp("Brightness",[`<div class="st-r"><span class="st-l">Brightness<small>Below 100% the EFB goes darker than the iPad’s own lowest brightness</small></span><span class="st-range">${stI("sunsm")}<input type="range" id="stDimR" min="30" max="100" step="1" value="${100-dimLv()}" aria-label="Brightness"><output id="stDimV">${100-dimLv()}%</output></span></div>`],"")
@@ -6169,6 +6169,46 @@ async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim(
     ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ofpTab="sum";store.set("ofpTab","sum");render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
   catch(e){if(manual){SBMAN.on=true;toast("SimBrief can’t be reached from here. Paste or upload the plan in Flight › Download.")}}}
 setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
+/* --- Nov 2026: the SimBrief username and the plan follow the pilot. Signed in, both are kept on the EFB server
+   (/api/efb/crew/sync), so another iPad or PC has them without typing the username or loading the plan again.
+   Each is kept with the time it was set or loaded on its device and the later one wins; a plan cleared on one
+   device is cleared on the others. */
+const SYN={quiet:false,t:0,last:0,busy:false,want:{},bad:""};
+const synOn=()=>typeof authOn==="function"&&authOn()&&!!authSrv()&&navigator.onLine&&!(typeof apmOn==="function"&&apmOn());
+const synKey=o=>{if(!o||o._sample||!o.origin||!o.destination)return "";const p=o.params||{};
+  return [p.request_id,p.time_generated,o.origin.icao_code,o.destination.icao_code].map(x=>String(x==null?"":x).trim()).join("|")};
+function synQ(k,v){SYN.quiet=true;try{store.set(k,v)}finally{SYN.quiet=false}}
+{const _set=store.set;store.set=function(k,v){const r=_set.apply(this,arguments);
+  if(!SYN.quiet&&(k==="sbUser"||k==="ofp")){_set.call(store,k==="ofp"?"synOfpAt":"synSbAt",Date.now());SYN.want[k]=1;clearTimeout(SYN.t);SYN.t=setTimeout(synPush,1200)}return r}}
+async function synPost(body){const r=await fetch(authSrv()+"/api/efb/crew/sync",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok&&body.ofp&&(r.status===400||r.status===413))SYN.bad=synKey(body.ofp);return r.ok}
+async function synPush(){if(!synOn())return;const w=SYN.want;SYN.want={};
+  try{if(w.sbUser)await synPost({sb:String(store.get("sbUser","")).trim(),sbAt:store.get("synSbAt",0)||Date.now()});
+    if(w.ofp){const v=store.get("ofp",null),at=store.get("synOfpAt",0)||Date.now();await synPost(v&&v.origin?{ofp:v,at}:{clear:at})}}catch(e){}}
+async function synPull(force){if(SYN.busy||!synOn()||(!force&&Date.now()-SYN.last<20000))return;SYN.busy=true;SYN.last=Date.now();
+  try{const r=await fetch(authSrv()+"/api/efb/crew/sync",{cache:"no-store"});if(!r.ok)return;const s=((await r.json().catch(()=>null))||{}).sync||{};
+    /* another pilot signed in on this device: what is here is not theirs to send */
+    const u=AUTH.tok&&AUTH.tok.u;if(store.get("synU","")!==u){synQ("synU",u);synQ("synSbAt",0);synQ("synOfpAt",0)}
+    let ch=false;
+    const lsb=String(store.get("sbUser","")).trim(),lsa=store.get("synSbAt",0)||0,ssa=s.sbAt||0;
+    if(ssa>lsa){if(s.sb!==lsb){synQ("sbUser",s.sb);ch=true}synQ("synSbAt",ssa)}
+    else if(lsa>ssa||(!ssa&&lsb))await synPost({sb:lsb,sbAt:lsa||1});
+    /* a plan loaded before this came in has no time: when it was made stands in */
+    const so=s.ofp,sat=(so&&so.at)||0,lk=synKey(ofp),lat=store.get("synOfpAt",0)||(lk?(N(ofp.params&&ofp.params.time_generated)||0)*1000||1:0);
+    if(sat>lat){
+      if(so.cleared){if(lk){synQ("ofp",null);ofp=SAMPLE;CL=buildCL();MAP.c=null;ch=true;toast("Your plan was cleared on another device")}synQ("synOfpAt",sat)}
+      else if(so.key!==lk){const j=await fetch(authSrv()+"/api/efb/crew/sync/ofp",{cache:"no-store"}).then(x=>x.ok?x.json():null).catch(()=>null);
+        if(j&&j.origin&&j.destination){synQ("ofp",j);ofp=j;CL=buildCL();MAP.c=null;synQ("synOfpAt",sat);ch=true;
+          toast("Loaded your plan from your other device: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code));
+          if(typeof ciOfpSync==="function")setTimeout(()=>{try{ciOfpSync()}catch(e){}},500)}}
+      else synQ("synOfpAt",sat)}
+    else if(lat>sat&&(lk||sat)&&(!lk||lk!==SYN.bad))await synPost(lk?{ofp,at:lat}:{clear:lat});
+    if(ch)render()}
+  catch(e){}finally{SYN.busy=false}}
+setTimeout(()=>synPull(true),4000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)synPull()});
+window.addEventListener("online",()=>synPull(true));
+window.addEventListener("hashchange",()=>synPull());
 document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-sbauto],[data-sbnow]");if(!b)return;if(b.dataset.sbnow!=null){sbFetchQuiet(true);return}store.set("sbAuto",b.dataset.sbauto==="1");render()});
 
@@ -6510,7 +6550,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);

@@ -29,6 +29,7 @@
  *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
+ *   /api/efb/crew/sync, /api/efb/crew/sync/ofp -> the pilot's SimBrief ID and plan for their other devices (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   /admin (Nov 2026): Home, Flight Watch, Gates, Reports, Pilots, Calendar, Messages, Documents, Settings in a sidebar
@@ -1567,7 +1568,7 @@ export default {
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
     if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */
-    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms|ofp))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
+    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms|ofp|sync|sync\/ofp))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
       const me = await sessionOf(req, env, req.method === 'POST');
       return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u),
         /* the departure gate, sent after the answer (see stands.js) */

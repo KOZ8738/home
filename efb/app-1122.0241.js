@@ -862,10 +862,10 @@ function vecStyle0(dark){const C=dark?{land:"#070909",water:"#0A2748",wline:"#0E
     {id:"bld",type:"fill",source:"o","source-layer":"building",minzoom:14,paint:{"fill-color":C.urban,"fill-outline-color":C.casing}},
     {id:"rail",type:"line",source:"o","source-layer":"transportation",minzoom:10,filter:["==",["get","class"],"rail"],paint:{"line-color":C.rail,"line-width":W(10,.6,16,2)}},
     {id:"road-minor",type:"line",source:"o","source-layer":"transportation",minzoom:11,filter:["in",["get","class"],["literal",["minor","tertiary","service"]]],paint:{"line-color":C.road,"line-width":W(11,.4,17,8)}},
-    {id:"road-major-c",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.casing,"line-width":W(6,.8,17,14)}},
-    {id:"road-major",type:"line",source:"o","source-layer":"transportation",minzoom:6,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.major,"line-width":W(6,.4,17,11)}},
-    {id:"road-motor-c",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.casing,"line-width":W(5,1,17,17)}},
-    {id:"road-motor",type:"line",source:"o","source-layer":"transportation",minzoom:5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.motor,"line-width":W(5,.6,17,14)}},
+    {id:"road-major-c",type:"line",source:"o","source-layer":"transportation",minzoom:7.5,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.casing,"line-width":W(6,.8,17,14),"line-opacity":["interpolate",["linear"],["zoom"],7.5,0,8.2,1]}},
+    {id:"road-major",type:"line",source:"o","source-layer":"transportation",minzoom:7.5,filter:["in",["get","class"],["literal",["primary","secondary","trunk"]]],paint:{"line-color":C.major,"line-width":W(6,.4,17,11),"line-opacity":["interpolate",["linear"],["zoom"],7.5,0,8.2,1]}},
+    {id:"road-motor-c",type:"line",source:"o","source-layer":"transportation",minzoom:6.5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.casing,"line-width":W(5,1,17,17),"line-opacity":["interpolate",["linear"],["zoom"],6.5,0,7.2,1]}},
+    {id:"road-motor",type:"line",source:"o","source-layer":"transportation",minzoom:6.5,filter:["==",["get","class"],"motorway"],paint:{"line-color":C.motor,"line-width":W(5,.6,17,14),"line-opacity":["interpolate",["linear"],["zoom"],6.5,0,7.2,1]}},
     {id:"bord2",type:"line",source:"o","source-layer":"boundary",minzoom:3,filter:["all",["==",["get","admin_level"],4],["!=",["get","maritime"],1]],paint:{"line-color":C.bord2,"line-dasharray":[3,2],"line-width":W(3,.5,10,1.2)}},
     {id:"bord",type:"line",source:"o","source-layer":"boundary",filter:["all",["==",["get","admin_level"],2],["!=",["get","maritime"],1]],paint:{"line-color":C.bord,"line-width":W(1,.6,10,1.8)}},
     {id:"water-name",type:"symbol",source:"o","source-layer":"water_name",layout:{"text-field":name,"text-font":["Noto Sans Italic"],"text-size":["interpolate",["linear"],["zoom"],2,10,10,13],"text-max-width":8},paint:{"text-color":C.wtxt,"text-halo-color":C.halo,"text-halo-width":1}},
@@ -2465,10 +2465,10 @@ const FCW={fc:{},taf:{},loading:{},tafLoading:{},err:{}};
 function fcwLoad(icao,lat,lon){if(!vam.url||!icao)return;
   const f=FCW.fc[icao];if(lat!=null&&lon!=null&&!FCW.loading[icao]&&(!f||Date.now()-f.at>(f.err?60000:20*60000))){FCW.loading[icao]=true;
     vamGet(`/api/efb/fc?lat=${lat}&lon=${lon}`,25000).then(j=>{if(!j||!j.hours)throw new Error((j&&j.error)||"No forecast");FCW.fc[icao]={at:Date.now(),d:j}})
-      .catch(e=>{FCW.fc[icao]={at:Date.now(),d:(f&&f.d)||null,err:e.message||"Couldn’t load"}}).finally(()=>{FCW.loading[icao]=false;if(cur==="wx")render()})}
+      .catch(e=>{FCW.fc[icao]={at:Date.now(),d:(f&&f.d)||null,err:e.message||"Couldn’t load"}}).finally(()=>{FCW.loading[icao]=false;wxDataRender()})}
   const t=FCW.taf[icao];if(!FCW.tafLoading[icao]&&(!t||Date.now()-t.at>15*60000)){FCW.tafLoading[icao]=true;
     vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{FCW.taf[icao]={at:Date.now(),raw:j&&j.taf&&j.taf.raw||null,metar:j&&j.metar&&j.metar.raw||null};if(j&&j.airport&&typeof AS!=="undefined"&&!AS.data[icao])AS.data[icao]=j})
-      .catch(()=>{FCW.taf[icao]={at:Date.now()-14*60000,raw:null,fail:true}}).finally(()=>{FCW.tafLoading[icao]=false;if(cur==="wx")render()})}}
+      .catch(()=>{FCW.taf[icao]={at:Date.now()-14*60000,raw:null,fail:true}}).finally(()=>{FCW.tafLoading[icao]=false;wxDataRender()})}}
 /* ---- TAF decoding into hours ---- */
 function tafFields(s){const t=s.split(/\s+/),r={};
   for(let i=0;i<t.length;i++){const w=t[i];let m;
@@ -3657,6 +3657,12 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .wi-pills .wi-rf:disabled{opacity:.75;cursor:default}
 .wi-pills{flex-wrap:wrap}
 </style>`);
+/* Weather app (Nov 2026): changing airport draws the new page once. Its own fade (wi-in) is the only one (the
+   views' generic swap fade no longer runs on top of it, which played the fade a second time when it ended), and the
+   forecast and reports that come in from the server redraw the page after that fade, together, not in the middle of it */
+const WXQ={sel:null,at:0,t:0};
+{const _r=render;render=function(){if(cur==="wx"&&wxSel!==WXQ.sel){WXQ.sel=wxSel;WXQ.at=Date.now()}else if(cur!=="wx")WXQ.sel=null;return _r.apply(this,arguments)}}
+function wxDataRender(){if(cur!=="wx")return;clearTimeout(WXQ.t);WXQ.t=setTimeout(()=>{WXQ.t=0;if(cur==="wx")render()},Math.max(160,WXQ.at+450-Date.now()))}
 /* rebuild one airport's page from what the Weather app made for it */
 function wxIos(html,role,label,apt,metar){const T=document.createElement("template");T.innerHTML=html;const R=T.content,q=s=>R.querySelector(s);
   const hero=q(".wxhero");if(!hero)return html;
@@ -9847,7 +9853,7 @@ window.addEventListener("resize",()=>{const i=$("#ftabs .ft-ind");if(i)i._x=0;ft
 /* sections and tabs inside an app: the content cross-fades after the render the tap causes */
 let vwSwap=0;
 document.addEventListener("click",e=>{if(motionOff()||!e.target.closest)return;
-  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-wxsel],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
+  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
   if(t&&t.closest("#view"))vwSwap=Date.now()},true);
 {const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);
   if(vwSwap&&Date.now()-vwSwap<400){vwSwap=0;const el=$("#view .detail>.dwrap")||$("#view .detail")||($("#view")&&$("#view").firstElementChild);

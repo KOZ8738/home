@@ -4,7 +4,8 @@
    by pilot ID or VATSIM CID, as Mail does, or to a flight's crew: the pilots listed (both seats of a two-pilot crew) and
    every EFB flying that callsign for 18 hours after it was sent. Pilots read them in the
    EFB under Flight › Messages, beside what reaches their aircraft on Hoppie's ACARS. Pilots cannot answer an AOC
-   message: there is no route for it, on purpose.
+   message: there is no route for it, on purpose. A message to a pilot or a crew (not one to all pilots) stays on the
+   EFB's screen until ACCEPT: POST /api/efb/aoc/ack records it, and /admin shows who has the message and who accepted.
 
    Hoppie: the EFB shows the messages waiting for the pilot's callsign on Hoppie's ACARS network. Hoppie's server does
    not answer browsers (no CORS), so the EFB asks here and this Worker asks Hoppie. It only ever uses type=peek, which
@@ -16,6 +17,11 @@ import { crew, mailTo, crewTo, toMatch } from './crew.js';
 
 class AocError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30;
+/* ACCEPT (Nov 2026): a message to a pilot or a crew (not one to all pilots), sent since this came in and in the last
+   18 hours, stays on the EFB's screen until the pilot presses ACCEPT. The pilot's EFB having it is "delivered", the
+   press "accepted"; both are kept per pilot in the crew Durable Object (crew.js, aocSeen / aocAck) for /admin. */
+export const ACK_FROM = Date.UTC(2026, 10, 22, 3, 30), ACK_HOURS = 18;
+export const aocNeedsAck = (m, now) => !!(m && m.to && m.t >= ACK_FROM && (now || Date.now()) - m.t < ACK_HOURS * 3600_000);
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 const line = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
@@ -35,11 +41,32 @@ export async function aocPublic(req, env, h, sess) {
   try { if (!mem || Date.now() - mem.at > 20000) mem = { at: Date.now(), list: await readIndex(kv) }; }
   catch (e) { return jsonRes({ error: 'AOC messages are not available right now' }, 503, h); }
   const since = Date.now() - SHOW_DAYS * 86400_000;
-  const now = Date.now(), list = mem.list.filter((m) => m.t >= since && aocFor(m, sess, cs, now)).slice(0, 100).map(pub);
+  const now = Date.now(), mine = mem.list.filter((m) => m.t >= since && aocFor(m, sess, cs, now)).slice(0, 100), list = mine.map(pub);
+  /* the ones waiting for ACCEPT: this pilot's EFB has them now (delivered), and whether the pilot has accepted them */
+  const ask = mine.filter((m) => aocNeedsAck(m, now)).map((m) => m.id);
+  if (ask.length) {
+    let r = {}; try { r = (await crew(env, { op: 'aocSeen', u: sess.u, ids: ask })).r || {}; } catch (e) { console.warn('[aoc seen]', e && e.message); }
+    for (const m of list) if (ask.includes(m.id)) { m.need = 1; m.acc = (r[m.id] && r[m.id].a) || 0; }
+  }
   let hsh = 2166136261; const raw = JSON.stringify(list); for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
   const tag = '"a-' + hsh.toString(36) + '"';
   if ((req.headers.get('If-None-Match') || '') === tag) return new Response(null, { status: 304, headers: { ...h, ETag: tag, 'Cache-Control': 'no-cache' } });
   return new Response(JSON.stringify({ msgs: list, at: new Date().toISOString() }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: tag } });
+}
+
+/* POST /api/efb/aoc/ack { id, cs, at }: the signed-in pilot pressed ACCEPT on an AOC message meant for them */
+export async function aocAckPublic(req, env, h, sess) {
+  const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503, h);
+  if (!sess) return jsonRes({ error: 'Sign in first' }, 401, h);
+  try {
+    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new AocError(415, 'Send JSON');
+    let b; try { b = await req.json(); } catch (e) { throw new AocError(400, 'Bad body'); }
+    const id = String(b.id || ''), cs = String(b.cs || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    const m = (await readIndex(kv)).find((x) => x.id === id);
+    if (!m) throw new AocError(404, 'That message no longer exists');
+    if (!m.to || !aocFor(m, sess, cs, Date.now())) throw new AocError(403, 'That message is not for you');
+    return jsonRes(await crew(env, { op: 'aocAck', u: sess.u, id, at: b.at }), 200, h);
+  } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500, h); }
 }
 
 /* ---- Hoppie ---- */
@@ -109,7 +136,12 @@ export async function aocSend(env, { title, body, to, push, by }, notify) {
 export async function aocAdmin(req, url, env, who) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
-    if (req.method === 'GET') return jsonRes({ msgs: await readIndex(kv), now: Date.now() });
+    if (req.method === 'GET') {
+      /* with who has the ones waiting for ACCEPT (the last 7 days) and who has accepted them */
+      const msgs = await readIndex(kv), wk = Date.now() - 7 * 86400_000, ids = msgs.filter((m) => m.to && m.t >= ACK_FROM && m.t >= wk).map((m) => m.id);
+      let rc = {}; if (ids.length) { try { rc = (await crew(env, { op: 'aocRcpts', ids })).r || {}; } catch (e) { rc = null; } }
+      return jsonRes({ msgs, now: Date.now(), rc, ackFrom: ACK_FROM, ackHours: ACK_HOURS });
+    }
     if (req.method === 'POST') {
       /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new AocError(415, 'Send JSON');

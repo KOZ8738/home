@@ -137,6 +137,9 @@ export class Crew {
       }
       case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
       case 'gsxSet': { const r = this.gsxSet(a); if (r.sent) await this.wake(); return r; }
+      case 'aocSeen': return this.aocSeen(a);
+      case 'aocAck': return this.aocAck(a);
+      case 'aocRcpts': return this.aocRcpts(a);
       case 'syncGet': return { sync: this.syncGet(String(a.u || '')) };
       case 'syncSet': return this.syncSet(a);
       case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }
@@ -282,6 +285,35 @@ export class Crew {
     if (done('deboard')) msgs.push(['Deboarding complete', (v.paxD ? v.paxD + ' passengers off. ' : '') + 'Ready for the next flight.', 'gsx-deboard']);
     for (const m of msgs) this.enqueue({ u }, 'brief', { title: 'GSX · ' + m[0], body: m[1], url: '#gsx', tag: m[2] });
     return { ok: true, sent: msgs.length > 0 };
+  }
+  /* AOC receipts (see aoc.js): kv 'aocr:<message id>:<pilot>' -> { d: when the pilot's EFB first had it, a: when the pilot
+     pressed ACCEPT }. Kept 30 days. */
+  aocSeen(a) {
+    const u = String(a.u || ''), now = Date.now(), r = {}; if (!u) return { r };
+    for (const raw of (Array.isArray(a.ids) ? a.ids : []).slice(0, 100)) {
+      const id = String(raw).replace(/[^a-z0-9]/gi, '').slice(0, 24); if (!id) continue;
+      const k = 'aocr:' + id + ':' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k);
+      let v = row ? JSON.parse(row.v) : null;
+      if (!v) { v = { d: now }; this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify(v)); }
+      r[id] = v;
+    }
+    return { r };
+  }
+  aocAck(a) {
+    const u = String(a.u || ''), id = String(a.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 24); if (!u || !id) throw new CrewError(400, 'No message');
+    const k = 'aocr:' + id + ':' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), v = row ? JSON.parse(row.v) : {}, now = Date.now();
+    if (!v.d) v.d = now; if (!v.a) v.a = Math.min(now, Number(a.at) > v.d ? Number(a.at) : now);
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify(v));
+    return { ok: true, r: v };
+  }
+  aocRcpts(a) {
+    const want = new Set((Array.isArray(a.ids) ? a.ids : []).map(String)), r = {}, old = Date.now() - 30 * 86400_000;
+    for (const row of this.rows("SELECT k, v FROM kv WHERE k >= 'aocr:' AND k < 'aocr;'")) {
+      const [, id, ...rest] = row.k.split(':'), v = JSON.parse(row.v);
+      if ((v.d || 0) < old) { this.sql.exec('DELETE FROM kv WHERE k = ?', row.k); continue; }
+      if (want.has(id)) (r[id] || (r[id] = [])).push({ u: rest.join(':'), d: v.d || 0, a: v.a || 0 });
+    }
+    return { r };
   }
   /* the pilot's SimBrief ID and plan, for the pilot's other devices (see syncPost): each kept with the time it was set
      on the device, and the later one wins. The plan itself is in KV (gzipped); this keeps where. */

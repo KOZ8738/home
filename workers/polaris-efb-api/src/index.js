@@ -26,6 +26,7 @@
  *   GET /api/efb/cal?cs=                -> the signed-in pilot's company calendar: Polaris entries for them and the vAMSYS events (see cal.js)
  *   GET /api/efb/aoc                    -> AOC messages from Polaris operations for the EFB's Messages (read only; staff send them
  *                                          on /admin, Messages or Flight Watch, see aoc.js)
+ *   POST /api/efb/aoc/ack {id, cs}      -> the signed-in pilot accepted an AOC message (delivered/accepted show on /admin)
  *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
@@ -54,7 +55,7 @@ import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover, docAckPublic } from './docs.js';
-import { aocPublic, hoppiePeek } from './aoc.js';
+import { aocPublic, aocAckPublic, hoppiePeek } from './aoc.js';
 import { standWatch, autoPlan, departureGate } from './stands.js';
 import { flightWatch } from './watch.js';
 import { calPublic } from './cal.js';
@@ -1576,6 +1577,8 @@ export default {
     }
     /* a pilot confirms reading a Polaris document that asks for it (see docs.js) */
     if (/^\/api\/efb\/docs\/ack\/?$/.test(new URL(req.url).pathname) && req.method === 'POST') return await docAckPublic(req, env, h, await sessionOf(req, env, true));
+    /* a pilot pressed ACCEPT on an AOC message (see aoc.js) */
+    if (/^\/api\/efb\/aoc\/ack\/?$/.test(new URL(req.url).pathname) && req.method === 'POST') return await aocAckPublic(req, env, h, await sessionOf(req, env, true));
     /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
     { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {
       /* the vAMSYS roster with who has signed in to the EFB */

@@ -169,7 +169,7 @@ function cleanPlan(b) {
   }
   return { on: !!b.on, dep: !!b.dep, ls: b.ls !== false, sig: b.sig !== false, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
 }
-export async function standsAdmin(req, url, path, env, who, deps, role) {
+export async function standsAdmin(req, url, path, env, who, deps, lim) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (req.method === 'GET' && path === '/admin/api/stands') return jsonRes({ plan: await readPlan(kv), log: await readLog(kv), apts: PAW_APTS, now: Date.now() });
@@ -177,8 +177,11 @@ export async function standsAdmin(req, url, path, env, who, deps, role) {
     /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new StandError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new StandError(400, 'Bad body'); }
-    /* Operations edit the gates; the automatic-message switches are Settings, for administrators: kept as they are */
-    if (path === '/admin/api/stands' && role && role !== 'admin') { const o = await readPlan(kv); b = { ...b, on: !!o.on, dep: !!o.dep, ls: o.ls !== false, sig: o.sig !== false, lead: o.lead || 30, miss: o.miss || 'skip' }; }
+    /* the plan's gates are Gates, its automatic-message switches Settings: what this person's role may not change
+       is kept as it is (lim, from the admin's roles) */
+    if (path === '/admin/api/stands' && lim && (lim.sw || lim.apts)) { const o = await readPlan(kv);
+      if (lim.sw) b = { ...b, on: !!o.on, dep: !!o.dep, ls: o.ls !== false, sig: o.sig !== false, lead: o.lead || 30, miss: o.miss || 'skip' };
+      if (lim.apts) b = { ...b, apts: o.apts || {} }; }
     if (path === '/admin/api/stands') { const p = { ...cleanPlan(b), at: Date.now(), by: who }; await kv.put(PLAN, JSON.stringify(p)); return jsonRes({ ok: true, plan: p }); }
     /* which stand a flight would get now (nothing is sent) */
     if (path === '/admin/api/stands/try') {

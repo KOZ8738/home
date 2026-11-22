@@ -124,44 +124,97 @@ function cleanSettings(b) {
 }
 
 /* ---- roles (Nov 2026) ----
-   Who may open /admin at all is Cloudflare Access (and ADMIN_EMAILS). Inside, each email has a role:
-     admin  Administrator: everything, and the roles themselves
-     ops    Operations: Flight Watch, Messages, Gates and Calendar; sees the other pages, changes nothing there
-   Kept in KV (admin:v1:roles). Until the first person is added roles are off and everyone signed in is an
-   administrator, as before; turning them on adds the person doing it as an administrator, and the last
-   administrator cannot be removed or changed. With roles on, an email without one is turned away. */
+   Who may open /admin at all is Cloudflare Access (and ADMIN_EMAILS). Inside, each email has a role. Administrator
+   is built in: everything, the roles themselves and staff diagnostics. Other roles are made and edited by
+   administrators under Settings > Roles: which pages they see, and what they may change. Kept in KV
+   (admin:v1:roles): { people: { email: { role } }, roles: { id: { name, pages, can } } }. Until the first person is
+   added roles are off and everyone signed in is an administrator, as before; turning them on adds the person doing
+   it as an administrator, and the last administrator cannot be removed or changed. With roles on, an email without
+   one is turned away. Reading is open to every role (pages use each other's data: the Home page, the composer's
+   From names); what is checked here, on every request, is changing things. */
 const ROLES = 'admin:v1:roles';
+export const ROLE_PAGES = ['fw', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
+export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings'];
+const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change settings' };
+/* the role there was before roles could be edited, kept until an administrator changes or deletes it */
+const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
 async function readRoles(kv) {
   if (ROLES_MEM.v && Date.now() - ROLES_MEM.at < 10000) return ROLES_MEM.v;
   let v = null; try { v = await kv.get(ROLES, 'json'); } catch (e) { v = null; }
-  if (!v || !v.people || typeof v.people !== 'object') v = { people: {} };
+  if (!v || typeof v !== 'object') v = {};
+  if (!v.people || typeof v.people !== 'object') v.people = {};
+  if (!v.roles || typeof v.roles !== 'object') v.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
   ROLES_MEM = { at: Date.now(), v }; return v;
 }
-const roleOf = (R, email) => { if (!Object.keys(R.people).length) return 'admin'; const p = R.people[email]; return p && (p.role === 'admin' || p.role === 'ops') ? p.role : null; };
-/* what a request needs: reading is for everyone with a role, except staff diagnostics and the roles; changing
-   is for administrators, except Messages, Flight Watch (AOC, delay reasons, gates), Gates and Calendar */
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const roleOf = (R, email) => { if (!Object.keys(R.people).length) return 'admin'; const p = own(R.people, email) ? R.people[email] : null; if (!p) return null; return p.role === 'admin' || own(R.roles, p.role) ? p.role : null; };
+const roleName = (R, id) => id === 'admin' ? 'Administrator' : (own(R.roles, id) && R.roles[id].name) || id;
+function permsOf(R, id) {
+  if (id === 'admin') return { pages: ['home', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
+  const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
+}
+/* what a request needs: 'read' (every role), 'admin' (the roles, staff diagnostics), or one of ROLE_ACTS;
+   the gate plan is saved for gates and for the automatic-message switches (Settings): 'stands' */
 function roleNeeds(method, path) {
   if (/^\/admin\/api\/(roles|pirep-probe|bookings-probe|ops-probe|eaip-probe|chart-pdf|chart-fixes|chart-list)(\/|$)/.test(path)) return 'admin';
-  if (method === 'GET' || method === 'HEAD') return 'ops';
-  if (/^\/admin\/api\/(mail|aoc|inbox|stands|cal)(\/|$)/.test(path) || path === '/admin/api/aoctpl/preview' || path === '/admin/api/ooo/reason') return 'ops';
+  if (method === 'GET' || method === 'HEAD' || path === '/admin/api/aoctpl/preview' || path === '/admin/api/stands/try') return 'read';
+  if (/^\/admin\/api\/(mail|aoc|inbox)(\/|$)/.test(path)) return 'msg';
+  if (path === '/admin/api/stands') return 'stands';
+  if (/^\/admin\/api\/stands\//.test(path)) return 'gates';
+  if (path === '/admin/api/ooo/reason') return 'delay';
+  if (/^\/admin\/api\/cal(\/|$)/.test(path)) return 'cal';
+  if (/^\/admin\/api\/docs(\/|$)/.test(path)) return method === 'DELETE' ? 'docsdel' : 'docs';
+  if (path === '/admin/api/pilots/signout') return 'pilots';
+  if (/^\/admin\/api\/navdata(\/|$)/.test(path)) return 'navdata';
+  if (path === '/admin/api/settings' || path === '/admin/api/aoctpl') return 'settings';
   return 'admin';
 }
-const ROLE_NAME = { admin: 'Administrator', ops: 'Operations' };
+const lineR = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 async function rolesApi(req, kv, who) {
-  const R = await readRoles(kv), list = () => ({ on: Object.keys(R.people).length > 0, me: who, people: Object.entries(R.people).map(([email, p]) => ({ email, role: p.role, by: p.by || '', at: p.at || 0 })).sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : 1)) });
+  const R = await readRoles(kv);
+  const list = () => {
+    const n = {}; for (const p of Object.values(R.people)) n[p.role] = (n[p.role] || 0) + 1;
+    return { on: Object.keys(R.people).length > 0, me: who,
+      people: Object.entries(R.people).filter(([, p]) => p.role === 'admin' || own(R.roles, p.role)).map(([email, p]) => ({ email, role: p.role, by: p.by || '', at: p.at || 0 }))
+        .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : b.role === 'admin' ? 1 : roleName(R, a.role).localeCompare(roleName(R, b.role)))),
+      roles: [{ id: 'admin', name: 'Administrator', builtin: true, ...permsOf(R, 'admin'), n: n.admin || 0 },
+        ...Object.entries(R.roles).map(([id, r]) => ({ id, name: r.name, builtin: false, ...permsOf(R, id), n: n[id] || 0, by: r.by || '', at: r.at || 0 })).sort((a, b) => a.name.localeCompare(b.name))] };
+  };
   if (req.method === 'GET') return jsonRes(list());
   if (req.method !== 'POST') throw new MailError(405, 'Method not allowed');
   if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
   let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
-  const email = String(b.email || '').trim().toLowerCase(), role = b.role === 'admin' || b.role === 'ops' ? b.role : null, now = Date.now();
-  if (!/^[^@\s<>"]{1,64}@[^@\s<>"]{1,100}\.[a-z]{2,24}$/.test(email)) throw new MailError(400, 'That is not an email address');
-  if (!role && !R.people[email]) throw new MailError(404, email + ' has no role');
-  const P = { ...R.people };
-  if (!Object.keys(P).length && who && who !== 'unknown') P[who] = { role: 'admin', by: who, at: now };
-  if (role) P[email] = { role, by: who, at: now }; else delete P[email];
-  if (!Object.values(P).some((p) => p.role === 'admin')) throw new MailError(409, 'Keep at least one administrator');
-  const v = { people: P, at: now, by: who }; await kv.put(ROLES, JSON.stringify(v)); ROLES_MEM = { at: Date.now(), v: v };
+  const now = Date.now(), P = { ...R.people }, RS = JSON.parse(JSON.stringify(R.roles));
+  if (b.op === 'role') {
+    /* a new role, or an existing one renamed or given other pages and permissions */
+    const name = lineR(b.name, 40); if (!name) throw new MailError(400, 'Give the role a name');
+    const id = b.id ? String(b.id) : '';
+    if (id && (id === 'admin' || !own(RS, id))) throw new MailError(id === 'admin' ? 403 : 404, id === 'admin' ? 'Administrator is built in and cannot be changed' : 'That role no longer exists');
+    if (name.toLowerCase() === 'administrator' || Object.entries(RS).some(([k, r]) => k !== id && String(r.name).toLowerCase() === name.toLowerCase())) throw new MailError(409, 'There is already a role called ' + name);
+    if (!id && Object.keys(RS).length >= 20) throw new MailError(409, 'Twenty roles at most');
+    const pages = ROLE_PAGES.filter((x) => (Array.isArray(b.pages) ? b.pages : []).includes(x)), can = ROLE_ACTS.filter((x) => (Array.isArray(b.can) ? b.can : []).includes(x));
+    let rid = id;
+    if (!rid) { const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'role'; for (let i = 0; !rid || rid === 'admin' || own(RS, rid); i++) rid = base + '-' + (now + i).toString(36).slice(-4); }
+    RS[rid] = { name, pages, can, by: who, at: now };
+  } else if (b.op === 'delrole') {
+    const id = String(b.id || '');
+    if (id === 'admin') throw new MailError(403, 'Administrator is built in and cannot be deleted');
+    if (!own(RS, id)) throw new MailError(404, 'That role no longer exists');
+    const n = Object.values(P).filter((p) => p.role === id).length;
+    if (n) throw new MailError(409, n + (n === 1 ? ' person has' : ' people have') + ' this role. Give ' + (n === 1 ? 'them' : 'each of them') + ' another role first');
+    delete RS[id];
+  } else {
+    /* a person: given a role, given another, or their role taken away */
+    const email = String(b.email || '').trim().toLowerCase(), role = b.role == null || b.role === '' ? null : String(b.role);
+    if (!/^[^@\s<>"]{1,64}@[^@\s<>"]{1,100}\.[a-z]{2,24}$/.test(email)) throw new MailError(400, 'That is not an email address');
+    if (role && role !== 'admin' && !own(RS, role)) throw new MailError(404, 'That role no longer exists');
+    if (!role && !own(P, email)) throw new MailError(404, email + ' has no role');
+    if (!Object.keys(P).length && who && who !== 'unknown') P[who] = { role: 'admin', by: who, at: now };
+    if (role) P[email] = { role, by: who, at: now }; else delete P[email];
+    if (!Object.values(P).some((p) => p.role === 'admin')) throw new MailError(409, 'Keep at least one administrator');
+  }
+  const v = { people: P, roles: RS, at: now, by: who }; await kv.put(ROLES, JSON.stringify(v)); ROLES_MEM = { at: Date.now(), v };
   Object.assign(R, v); return jsonRes({ ok: true, ...list() });
 }
 
@@ -177,15 +230,23 @@ export async function mailAdmin(req, url, env, opts) {
     return jsonRes({ error: e.message }, e.status || 401);
   }
   /* the role of the person signed in, and whether this request is theirs to make */
-  let role = 'admin';
+  let role = 'admin', RR = null, perm = { pages: [], can: [] }, lim = null;
   if (env && env.STORE && path !== '/admin/signin') {
-    role = roleOf(await readRoles(env.STORE), who);
+    RR = await readRoles(env.STORE); role = roleOf(RR, who);
     if (!role) {
       const msg = 'Your email (' + who + ') has no role in this admin yet. Ask a Polaris administrator to add you under Settings \u203a Roles.';
       if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>Not given a role.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
       return jsonRes({ error: msg }, 403);
     }
-    if (path.startsWith('/admin/api/') && roleNeeds(req.method, path) === 'admin' && role !== 'admin') return jsonRes({ error: 'Only an administrator can do this (your role: ' + ROLE_NAME[role] + ')' }, 403);
+    perm = permsOf(RR, role);
+    if (path.startsWith('/admin/api/')) {
+      const need = roleNeeds(req.method, path), may = (a) => perm.can.includes(a);
+      const no = (what) => jsonRes({ error: 'Your role (' + roleName(RR, role) + ') cannot ' + what + '. An administrator can change that under Settings \u203a Roles.' }, 403);
+      if (need === 'admin' && role !== 'admin') return no('do this');
+      if (ROLE_ACTS.includes(need) && !may(need)) return no(ACT_NAME[need]);
+      /* the gate plan: its gates are Gates, its automatic-message switches are Settings; what may not change is kept */
+      if (need === 'stands') { if (!may('gates') && !may('settings')) return no(ACT_NAME.gates); lim = { sw: !may('settings'), apts: !may('gates') }; }
+    }
   }
   /* the EFB's Admin app shows this page inside the EFB (koz8738.com); no other site may frame it */
   if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME, 'Referrer-Policy': 'no-referrer' } });
@@ -240,14 +301,14 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Stands tab: the stand plan for the automatic stand assignment, and what it sent (see stands.js) */
   if (path === '/admin/api/aoctpl' || path.startsWith('/admin/api/aoctpl/')) return aocTplAdmin(req, path, env, who);
-  if (path === '/admin/api/stands' || path.startsWith('/admin/api/stands/')) return standsAdmin(req, url, path, env, who, opts && opts.stands, role);
+  if (path === '/admin/api/stands' || path.startsWith('/admin/api/stands/')) return standsAdmin(req, url, path, env, who, opts && opts.stands, lim);
   /* Messages tab, sent as AOC: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */
   if (path === '/admin/api/aoc') return aocAdmin(req, url, env, who);
   /* Nav Data: where the EFB's navigation data comes from, region by region, and whether it is current (see navdata.js) */
   if (path === '/admin/api/navdata' || path.startsWith('/admin/api/navdata/')) return opts && opts.navdata ? opts.navdata(req, path, who) : jsonRes({ error: 'Not available' }, 503);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
-    if (path === '/admin/api/me') return jsonRes({ email: who, role, roleName: ROLE_NAME[role], roles: Object.keys((await readRoles(kv)).people).length > 0 });
+    if (path === '/admin/api/me') { const R = await readRoles(kv), P = permsOf(R, role); return jsonRes({ email: who, role, roleName: roleName(R, role), roles: Object.keys(R.people).length > 0, pages: P.pages, can: P.can }); }
     if (path === '/admin/api/roles') return await rolesApi(req, kv, who);
     /* Settings page: From names and AOC templates (written only when staff press Save) */
     if (path === '/admin/api/settings' && req.method === 'GET') return jsonRes({ settings: await readSettings(kv) });

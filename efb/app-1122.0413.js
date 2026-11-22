@@ -9468,7 +9468,7 @@ const MSG={aoc:store.get("msgAoc",null),hop:store.get("msgHop",null)||[],seen:st
   err:{aoc:"",hop:""},at:{aoc:0,hop:0},busy:{aoc:false,hop:false},etag:"",hopAt:store.get("msgHopAt",0)||0,seeded:store.get("msgSeeded",null)||{}};
 if(!MSG.seen)MSG.seen={};
 /* AOC messages to a pilot or a crew wait for ACCEPT (see aocpop.js): what was accepted here, and what is still to send */
-const AP={min:false,acc:store.get("aocAcc",null)||{},q:store.get("aocAckQ",null)||[],shown:{},busy:false,sig:""};
+const AP={acc:store.get("aocAcc",null)||{},q:store.get("aocAckQ",null)||[],shown:{},busy:false,sig:""};
 const msLogon=()=>String(store.get("hopLogon","")||"");
 const msCsOfp=()=>{try{if(ofp._sample)return"";return (S((ofp.atc||{}).callsign)||O().flight||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}catch(e){return""}};
 const msCs=()=>String(store.get("hopCs","")||"")||msCsOfp();
@@ -9479,7 +9479,7 @@ const MS_TYPE={telex:"TELEX",cpdlc:"CPDLC",progress:"PROGRESS",position:"POSITIO
 function msCpdlc(p){const m=String(p||"").match(/^\/data2\/(\d*)\/(\d*)\/([A-Z]*)\/([\s\S]*)$/i);if(!m)return{text:p,ra:""};return{text:m[4].replace(/@/g,""),ra:m[3].toUpperCase()}}
 /* every message, newest first: { k, src, t, title, body, from, ra } */
 function msAll(){const L=[];
-  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null,aid:m.id,need:!!m.need,acc:m.acc||0});
+  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null,aid:m.id,need:!!m.need,acc:m.acc||0,rej:m.rej||0});
   for(const m of MSG.hop){const ty=MS_TYPE[m.type]||String(m.type||"").toUpperCase(),c=m.type==="cpdlc"?msCpdlc(m.packet):{text:m.packet,ra:""};
     L.push({k:"h:"+m.k,src:"hop",t:m.t,title:ty+" "+m.from,body:c.text||"",from:m.from,ra:c.ra,type:m.type,id:m.id})}
   return L.sort((a,b)=>b.t-a.t)}
@@ -9597,54 +9597,52 @@ setTimeout(()=>msLoad(true),3000);
 setInterval(()=>{if(!document.hidden)msLoad()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)msLoad()});
 window.addEventListener("online",()=>msLoad(true));
-/* ---------- AOC MSG: a new message to you or your crew stays on screen until ACCEPT (Nov 2026) ----------
+/* ---------- AOC MSG: a new message to you or your crew stays on screen until ACCEPT or REJECT (Nov 2026) ----------
    As an ACARS uplink waits for the crew: a message Polaris operations send to one pilot or to a flight's crew (their own,
-   and the automatic ones: gates, the final loadsheet), not one to all pilots, comes up over whatever is open, and stays
-   until ACCEPT. Minimise leaves a flashing AOC MSG lamp to come back to it. ACCEPT goes to the EFB server (kept and
-   sent later when offline), where the operations centre sees who has the message and who accepted it; accepting on one
-   device takes it off the pilot's others. The lock screen comes first: the message shows once the EFB is unlocked. */
-const apAccAt=m=>(m&&(m.acc||AP.acc[m.id]))||0;
-function apPending(){const L=(MSG.aoc&&MSG.aoc.msgs)||[],now=Date.now();return L.filter(m=>m.need&&!apAccAt(m)&&now-m.t<18*3600e3).sort((a,b)=>a.t-b.t)}
+   and the automatic ones: gates, the final loadsheet), not one to all pilots, comes up in a panel at the foot of the
+   screen, over whatever is open, in capitals, and stays until ACCEPT or REJECT. The Messages tab is lit meanwhile.
+   The answer goes to the EFB server (kept and sent later when offline), where the operations centre sees who has the
+   message and who accepted or rejected it; answering on one device takes it off the pilot's others. The lock screen
+   comes first: the message shows once the EFB is unlocked. AP.acc[id] is when it was answered here (negative: rejected). */
+const apSt=m=>{if(!m)return null;if(m.acc)return{t:m.acc,rej:false};if(m.rej)return{t:m.rej,rej:true};const v=AP.acc[m.id];return v?{t:Math.abs(v),rej:v<0}:null};
+function apPending(){const L=(MSG.aoc&&MSG.aoc.msgs)||[],now=Date.now();return L.filter(m=>m.need&&!apSt(m)&&now-m.t<18*3600e3).sort((a,b)=>a.t-b.t)}
 const apCan=()=>typeof authOn==="function"&&authOn()&&!AUTH.locked;
 const apNet=()=>navigator.onLine!==false&&typeof authOn==="function"&&authOn()&&!!authSrv()&&!msOff();
 function apCard(m,n){const mono=/ {2,}/.test(m.body||"");
-  return `<div class="ap" id="apRoot" role="alertdialog" aria-modal="true" aria-labelledby="apT" aria-describedby="apB"><div class="ap-card">
-    <div class="ap-hd"><i class="ap-lamp" aria-hidden="true"></i><b>AOC MSG</b>${n>1?`<span class="ap-n">1 OF ${n}</span>`:""}<button type="button" class="ap-min" data-ap="min" aria-label="Minimise, the message stays waiting"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button></div>
-    <div class="ap-bd"><b class="ap-t" id="apT">${esc(m.title||"CREW MESSAGE")} ${msZ(m.t)}</b><div class="ap-mb${mono?" mono":""}" id="apB">${esc(m.body||"")}</div>
-      <p class="ap-meta">POLARIS AOC${m.to&&m.to.crew?" · TO CREW "+esc(m.to.cs||""):""} · ${msDay(m.t)} ${msZ(m.t)}</p></div>
-    <div class="ap-ft"><span>OPERATIONS SEE WHEN YOU ACCEPT</span><button type="button" class="ap-acc" data-ap="acc" data-apid="${esc(m.id)}">ACCEPT</button></div></div></div>`}
-function apUi(){const P=apCan()?apPending():[],old=document.getElementById("apRoot"),chip=document.getElementById("apChip");
-  if(!P.length){if(old)old.remove();if(chip)chip.remove();AP.sig="";if(!apPending().length)AP.min=false;return}
-  /* a message not shown yet comes up, even over the lamp */
-  if(P.some(m=>!AP.shown[m.id]))AP.min=false;
-  const sig=(AP.min?"m":"x")+P.map(m=>m.id).join(",");if(sig===AP.sig&&(AP.min?chip:old))return;AP.sig=sig;
-  if(old)old.remove();if(chip)chip.remove();
-  if(AP.min){screenEl.insertAdjacentHTML("beforeend",`<button type="button" class="ap-chip" id="apChip" data-ap="open" aria-label="${P.length} AOC message${P.length===1?"":"s"} waiting for ACCEPT"><i aria-hidden="true"></i>AOC MSG${P.length>1?`<b>${P.length}</b>`:""}</button>`);return}
-  P.forEach(m=>{AP.shown[m.id]=1});
-  screenEl.insertAdjacentHTML("beforeend",apCard(P[0],P.length));
-  const b=document.querySelector("#apRoot .ap-acc");if(b)try{b.focus({preventScroll:true})}catch(e){}}
-function apAccept(id){const m=((MSG.aoc&&MSG.aoc.msgs)||[]).find(x=>x.id===id);if(!m||apAccAt(m))return;const at=Date.now();
-  AP.acc[id]=at;const live=new Set(((MSG.aoc&&MSG.aoc.msgs)||[]).map(x=>x.id));for(const k of Object.keys(AP.acc))if(!live.has(k))delete AP.acc[k];store.set("aocAcc",AP.acc);
-  AP.q=AP.q.filter(x=>x.id!==id).concat([{id,cs:msCs(),at}]);store.set("aocAckQ",AP.q);
+  return `<section class="ap" id="apRoot" role="alertdialog" aria-labelledby="apT" aria-describedby="apB">
+    <div class="ap-hd"><b class="ap-t" id="apT">${esc(m.title||"CREW MESSAGE")} ${msZ(m.t)}${n>1?`<i>1 OF ${n}</i>`:""}</b><span class="ap-bt"><button type="button" data-ap="rej" data-apid="${esc(m.id)}">REJECT</button><button type="button" data-ap="acc" data-apid="${esc(m.id)}">ACCEPT</button></span></div>
+    <div class="ap-mb${mono?" mono":""}" id="apB">${esc(m.body||"")}</div></section>`}
+/* the panel sits on the tab bar (or on the foot of the screen where there is none) */
+function apPlace(){const r=document.getElementById("apRoot");if(!r)return;const ft=document.getElementById("ftabs"),s=screenEl.getBoundingClientRect(),f=ft&&ft.getBoundingClientRect();
+  r.style.bottom=(f&&f.height&&f.top>s.top?Math.max(0,Math.round(s.bottom-f.top)):0)+"px"}
+function apTab(on){const t=document.querySelector('#ftabs [data-ft="msg"]');if(t)t.classList.toggle("ap-wait",!!on)}
+function apUi(){const P=apCan()?apPending():[],old=document.getElementById("apRoot");apTab(P.length);
+  if(!P.length){if(old)old.remove();AP.sig="";return}
+  const sig=P.map(m=>m.id).join(",");if(sig===AP.sig&&old){apPlace();return}AP.sig=sig;
+  if(old)old.remove();screenEl.insertAdjacentHTML("beforeend",apCard(P[0],P.length));apPlace()}
+function apAnswer(id,rej){const m=((MSG.aoc&&MSG.aoc.msgs)||[]).find(x=>x.id===id);if(!m||apSt(m))return;const at=Date.now();
+  AP.acc[id]=rej?-at:at;const live=new Set(((MSG.aoc&&MSG.aoc.msgs)||[]).map(x=>x.id));for(const k of Object.keys(AP.acc))if(!live.has(k))delete AP.acc[k];store.set("aocAcc",AP.acc);
+  AP.q=AP.q.filter(x=>x.id!==id).concat([{id,cs:msCs(),at,rej:!!rej}]);store.set("aocAckQ",AP.q);
   try{msSeen(["a:"+id])}catch(e){}
-  if(!apNet())toast("Accepted. Polaris operations see it when you are back online.");
+  if(!apNet())toast((rej?"Rejected":"Accepted")+". Polaris operations see it when you are back online.");
   apUi();apFlush();if(cur==="messages")msUpd()}
 async function apFlush(){if(AP.busy||!AP.q.length||!apNet())return;AP.busy=true;
   try{for(const it of AP.q.slice()){let r;try{r=await fetch(authSrv()+"/api/efb/aoc/ack",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(it)})}catch(e){break}
-      /* taken, or no longer there to accept: either way it is done here */
+      /* taken, or no longer there to answer: either way it is done here */
       if(r.ok||r.status===400||r.status===403||r.status===404){AP.q=AP.q.filter(x=>x.id!==it.id);store.set("aocAckQ",AP.q)}else break}}
   finally{AP.busy=false}}
-/* in Messages: the same ACCEPT under the message, or when it was accepted */
-function apMsBar(m){const at=apAccAt({id:m.aid,acc:m.acc});
-  return at?`<p class="ms-acc">ACCEPTED ${msDay(at)} ${msZ(at)}</p>`:`<div class="ms-acts ms-accb"><button type="button" class="ms-btn pri" data-apacc="${esc(m.aid)}">ACCEPT</button><span>POLARIS OPERATIONS ARE WAITING FOR YOUR ACCEPT</span></div>`}
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ap],[data-apacc]");if(!t)return;const d=t.dataset;
-  if(d.apacc){apAccept(d.apacc);return}
-  if(d.ap==="acc"){apAccept(d.apid);return}
-  if(d.ap==="min"){AP.min=true;apUi();return}
-  if(d.ap==="open"){AP.min=false;apUi()}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("apRoot")){e.stopPropagation();AP.min=true;apUi()}},true);
+/* in Messages: the same buttons under the message, or how it was answered */
+function apMsBar(m){const st=apSt({id:m.aid,acc:m.acc,rej:m.rej});
+  return st?`<p class="ms-acc${st.rej?" rej":""}">${st.rej?"REJECTED":"ACCEPTED"} ${msDay(st.t)} ${msZ(st.t)}</p>`:`<div class="ms-acts ms-accb"><button type="button" class="ms-btn" data-aprej="${esc(m.aid)}">REJECT</button><button type="button" class="ms-btn pri" data-apacc="${esc(m.aid)}">ACCEPT</button><span>POLARIS OPERATIONS ARE WAITING FOR YOUR ANSWER</span></div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ap],[data-apacc],[data-aprej]");if(!t)return;const d=t.dataset;
+  if(d.apacc){apAnswer(d.apacc,false);return}
+  if(d.aprej){apAnswer(d.aprej,true);return}
+  if(d.ap==="acc"){apAnswer(d.apid,false);return}
+  if(d.ap==="rej")apAnswer(d.apid,true)});
 {const _u=msUpd;msUpd=function(){const r=_u.apply(this,arguments);try{apUi();apFlush()}catch(e){}return r}}
 {const _a=authShow;authShow=function(){const r=_a.apply(this,arguments);try{setTimeout(apUi,AUTH.locked||!authOn()?0:450)}catch(e){}return r}}
+{const _s=ftSync;ftSync=function(){const r=_s.apply(this,arguments);try{apTab(apCan()&&apPending().length);apPlace()}catch(e){}return r}}
+window.addEventListener("resize",()=>apPlace());window.addEventListener("hashchange",()=>setTimeout(apPlace,60));
 /* a push about an AOC message: ask at once (and once more, the server's list can be a few seconds behind) */
 if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{const d=e.data||{};
   if(d.type==="efb-push"&&/messages/.test(String(d.url||""))){msAocLoad(true);setTimeout(()=>msAocLoad(true),22000)}});
@@ -9652,41 +9650,27 @@ setTimeout(apUi,1800);
 setInterval(()=>{try{apUi();apFlush()}catch(e){}},30000);
 window.addEventListener("online",()=>apFlush());
 document.head.insertAdjacentHTML("beforeend",`<style>
-.ap{--ap-bg:#FFFFFF;--ap-ink:#0F2A2E;--ap-sub:#51696C;--ap-line:#D5DEDE;--ap-pink:#B0457C;--ap-amb:#C77700;--ap-btn:#0F2A2E;--ap-bti:#FFFFFF;
-  position:absolute;inset:0;z-index:2000;display:grid;place-items:center;padding:calc(var(--sbh,0px) + 16px) 14px 16px;background:rgba(6,10,12,.55);
-  font-family:-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;text-transform:uppercase;letter-spacing:.02em;-webkit-font-smoothing:antialiased;animation:apIn .2s ease-out}
-:root[data-theme="dark"] .ap{--ap-bg:#1A1A1C;--ap-ink:#F2F2F2;--ap-sub:#A1A1A6;--ap-line:#2E2E32;--ap-pink:#D98AB4;--ap-amb:#F2B33D;--ap-btn:#F2F2F2;--ap-bti:#111113}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ap{--ap-bg:#1A1A1C;--ap-ink:#F2F2F2;--ap-sub:#A1A1A6;--ap-line:#2E2E32;--ap-pink:#D98AB4;--ap-amb:#F2B33D;--ap-btn:#F2F2F2;--ap-bti:#111113}}
-.ap-card{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;background:var(--ap-bg);color:var(--ap-ink);border:1px solid var(--ap-line);border-top:3px solid var(--ap-amb);box-shadow:0 30px 70px -20px rgba(0,0,0,.6);animation:apUp .26s cubic-bezier(.2,.85,.25,1)}
-.ap-hd{display:flex;align-items:center;gap:10px;padding:12px 10px 12px 18px;border-bottom:1px solid var(--ap-line);flex:none}
-.ap-hd b{font-weight:700;font-size:14px;letter-spacing:.16em;color:var(--ap-amb)}
-.ap-n{font-size:12px;letter-spacing:.1em;color:var(--ap-sub)}
-.ap-lamp,.ap-chip i{width:10px;height:10px;border-radius:50%;background:var(--ap-amb);flex:none;animation:apBlink 1.1s steps(1,end) infinite}
-.ap .ap-min{margin-left:auto;width:40px;height:36px;display:grid;place-items:center;border:0;border-radius:6px;background:none;color:var(--ap-sub);box-shadow:none;padding:0;cursor:pointer}
-.ap .ap-min svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-.ap .ap-min:active{background:var(--ap-line)}
-.ap-bd{padding:18px 20px 6px;overflow:auto;overscroll-behavior:contain;min-height:0}
-.ap-t{display:block;font-weight:600;font-size:16px;letter-spacing:.06em;color:var(--ap-pink)}
-.ap-mb{margin-top:10px;font-size:16px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
-.ap-mb.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:14px;letter-spacing:0;white-space:pre;overflow-x:auto}
-.ap-meta{margin:14px 0 10px;font-size:11px;letter-spacing:.1em;color:var(--ap-sub)}
-.ap-ft{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px 16px;border-top:1px solid var(--ap-line);flex:none}
-.ap-ft span{font-size:11px;letter-spacing:.1em;color:var(--ap-sub)}
-.ap .ap-acc{height:48px;min-width:170px;padding:0 26px;border:0;border-radius:0;background:var(--ap-btn);color:var(--ap-bti);box-shadow:none;font:700 15px/1 inherit;font-family:inherit;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
-.ap .ap-acc:active{opacity:.75}
-.ap .ap-acc:focus-visible{outline:3px solid var(--ap-amb);outline-offset:3px}
-.ap-chip{--ap-amb:#F2B33D;position:absolute;top:calc(var(--sbh,0px) + 8px);right:12px;z-index:2000;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px 0 12px;border:1px solid var(--ap-amb);border-radius:999px;
-  background:#16130B;color:var(--ap-amb);box-shadow:0 8px 22px -8px rgba(0,0,0,.6);font:700 12px/1 -apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;letter-spacing:.14em;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.ap-chip b{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ap-amb);color:#16130B;font-size:11px;letter-spacing:0;display:grid;place-items:center}
+.ap{position:absolute;right:0;bottom:0;z-index:2000;width:min(810px,62%);min-width:min(560px,100%);min-height:210px;max-height:60%;display:flex;flex-direction:column;
+  padding:22px 30px 22px 32px;background:#1C1C1F;color:#F4F4F5;border:1px solid #3A3A3F;border-bottom:0;border-radius:30px 30px 0 0;box-shadow:0 -14px 40px -14px rgba(0,0,0,.6);
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;text-transform:uppercase;-webkit-font-smoothing:antialiased;animation:apUp .28s cubic-bezier(.2,.85,.25,1)}
+.ap-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:none}
+.ap-t{font-weight:400;font-size:20px;line-height:1.3;color:#E07FB2;padding-top:9px;min-width:0;word-break:break-word}
+.ap-t i{font-style:normal;font-size:13px;color:#9A9AA0;margin-left:12px;white-space:nowrap}
+.ap-bt{display:flex;gap:12px;flex:none}
+.ap .ap-bt button{height:38px;min-width:120px;padding:0 20px;border:1.5px solid #5C5C62;border-radius:7px;background:transparent;color:#F4F4F5;box-shadow:none;font:400 20px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ap .ap-bt button:active{background:#34343A}
+.ap .ap-bt button:focus-visible{outline:2px solid #E07FB2;outline-offset:2px}
+.ap-mb{margin-top:20px;font-size:20px;line-height:1.3;white-space:pre-wrap;word-break:break-word;overflow:auto;overscroll-behavior:contain;min-height:0}
+.ap-mb.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:16px;white-space:pre}
+.ftabs .ap-wait,.ftabs .ap-wait *{color:#E07FB2!important}
 .ms-acc{margin:16px 0 0;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--ms-ok)}
-.ms-accb{align-items:center;gap:14px;margin-top:18px}
+.ms-acc.rej{color:var(--ms-err)}
+.ms-accb{align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
 .ms-accb span{font-size:11px;letter-spacing:.1em;color:var(--ms-warn)}
-@keyframes apBlink{0%{opacity:1}50%{opacity:.15}}
-@keyframes apIn{from{opacity:0}to{opacity:1}}
-@keyframes apUp{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.ap,.ap-card{animation:none}.ap-lamp,.ap-chip i{animation:none}}
-:root.a11y-rm .ap,:root.a11y-rm .ap-card,:root.a11y-rm .ap-lamp,:root.a11y-rm .ap-chip i{animation:none}
-@container screen (max-width:640px){.ap{padding:calc(env(safe-area-inset-top,0px) + 54px) 10px 12px;place-items:start center}.ap-ft span{display:none}.ap .ap-acc{flex:1}.ap-chip{top:calc(env(safe-area-inset-top,0px) + 50px)}}
+@keyframes apUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ap{animation:none}}
+:root.a11y-rm .ap{animation:none}
+@container screen (max-width:640px){.ap{width:100%;min-width:0;min-height:0;padding:16px 16px 18px;border-radius:22px 22px 0 0;border-left:0;border-right:0}.ap-hd{flex-direction:column;gap:12px}.ap-t{padding-top:0;font-size:17px}.ap-bt{width:100%}.ap .ap-bt button{flex:1;min-width:0;height:44px;font-size:17px}.ap-mb{margin-top:14px;font-size:17px}.ap-mb.mono{font-size:13px}}
 </style>`);
 
 document.head.insertAdjacentHTML("beforeend",`<style>
@@ -11686,7 +11670,7 @@ function gxStamp(k,why,need,hhmm){if(!gxAuto())return false;const key="oooi:"+O(
 const GX_DONE={board:"Boarding complete",fuel:"Refuelling complete",cater:"Catering complete",deboard:"Deboarding complete",deice:"De-icing complete"};
 function gxApply(v,at,src){const p=GX.v,fresh=p&&GX.at&&at-GX.at<600000;GX.v=v;GX.at=at;GX.src=src;gxSample(v,at);
   /* (a service already called or at work when this PC starts reading counts from then; one already finished does not) */
-  if(src==="pc"&&gxPlan())for(const [k] of GX_SVC)if(p?p[k]!==v[k]&&v[k]>=4&&v[k]<=6:v[k]===4||v[k]===5)gxLogAdd(O().id,{k,s:v[k],t:at});
+  if(src==="pc"&&gxPlan())for(const [k] of GX_SVC){if(p?p[k]!==v[k]&&v[k]>=4&&v[k]<=6:v[k]===4||v[k]===5)gxLogAdd(O().id,{k,s:v[k],t:at});else if(p&&p[k]===5&&v[k]>=1&&v[k]<4)gxLogAdd(O().id,{k,s:6,t:at})}
   if(fresh&&p.board!==6&&v.board===6&&gxMine())gxToLs(v.paxB||v.pax,false);
   gxLate(v);
   if(v&&(v.coua||v.board||v.fuel||v.dep))try{store.set("gsxSeen",true)}catch(e){}
@@ -11769,16 +11753,17 @@ function gxSpan(L,k){const E=L.filter(e=>e.k===k);if(!E.length)return null;const
 /* an OOOI time "HH:MM" as the moment nearest to t */
 function gxOoT(hm,t){if(!/^\d\d:\d\d$/.test(hm||"")||!t)return null;const d=new Date(t);d.setUTCHours(+hm.slice(0,2),+hm.slice(3),0,0);let x=d.getTime();if(x-t>43200000)x-=86400000;if(t-x>43200000)x+=86400000;return x}
 function gxTimeline(L,std,oo,running){if(!L||!L.length)return "";
+  const on=k=>!!running&&!!GX.v&&(GX.v[k]===4||GX.v[k]===5);
   const grp=(keys,marks,title)=>{const rows=keys.map(([k,n])=>[k,n,gxSpan(L,k)]).filter(r=>r[2]);if(!rows.length)return "";
-    const ts=[];rows.forEach(r=>{const p=r[2];[p.r,p.s,p.e].forEach(t=>t&&ts.push(t));if(p.s&&!p.e&&running)ts.push(Date.now())});marks.forEach(m=>m[1]&&ts.push(m[1]));
+    const ts=[];rows.forEach(r=>{const p=r[2];[p.r,p.s,p.e].forEach(t=>t&&ts.push(t));if(p.s&&!p.e&&on(r[0]))ts.push(Date.now())});marks.forEach(m=>m[1]&&ts.push(m[1]));
     let t0=Math.min(...ts),t1=Math.max(...ts);if(t1-t0<20*60000){const c=(t0+t1)/2;t0=c-10*60000;t1=c+10*60000}const pd=(t1-t0)*.04;t0-=pd;t1+=pd;
     const X=t=>((t-t0)/(t1-t0)*100).toFixed(2)+"%";const span=t1-t0,step=[5,10,15,30,60,120].find(m=>span/(m*60000)<=6)*60000;
     const ticks=[];for(let t=Math.ceil(t0/step)*step;t<t1;t+=step)ticks.push(`<i style="left:${X(t)}"><span>${gxHM(t).slice(0,4)}</span></i>`);
     const mk=marks.filter(m=>m[1]).map(m=>`<b class="gx-tl-m ${m[2]||""}${(m[1]-t0)/(t1-t0)>.8?" r":""}" style="left:${X(m[1])}"><span>${m[0]} ${gxHM(m[1]).slice(0,4)}</span></b>`).join("");
-    return `<div class="gx-tl"><div class="gx-tl-h">${title}</div>${rows.map(([k,n,p])=>{const a=p.s||p.r,b=p.e||(p.s&&running?Date.now():p.s||p.r),q=p.r&&p.s&&p.s>p.r;
-      const dur=p.s&&p.e?gxMin(p.e-p.s):p.s?(running?"in progress":""):"called";
+    return `<div class="gx-tl"><div class="gx-tl-h">${title}</div>${rows.map(([k,n,p])=>{const a=p.s||p.r,b=p.e||(p.s&&on(k)?Date.now():p.s||p.r),q=p.r&&p.s&&p.s>p.r;
+      const dur=p.s&&p.e?gxMin(p.e-p.s):p.s?(on(k)?"in progress":"end not recorded"):on(k)?"waiting":"not started";
       return `<div class="gx-tl-r"><span class="gx-tl-n">${n}<small>${p.s?gxHM(p.s).slice(0,4)+(p.e?"–"+gxHM(p.e).slice(0,4):""):p.r?"called "+gxHM(p.r).slice(0,4):""} · ${dur}</small></span>
-        <span class="gx-tl-t">${q?`<i class="w" style="left:${X(p.r)};width:calc(${X(p.s)} - ${X(p.r)})"></i>`:""}<i class="${p.e?"d":"p"}" style="left:${X(a)};width:max(4px,calc(${X(b)} - ${X(a)}))"></i>${mk}</span></div>`}).join("")}
+        <span class="gx-tl-t">${q?`<i class="w" style="left:${X(p.r)};width:calc(${X(p.s)} - ${X(p.r)})"></i>`:""}<i class="${p.e||!on(k)?"d":"p"}" style="left:${X(a)};width:max(4px,calc(${X(b)} - ${X(a)}))"></i>${mk}</span></div>`}).join("")}
       <div class="gx-tl-r ax"><span></span><span class="gx-tl-t">${ticks.join("")}</span></div></div>`};
   const out=gxOoT(oo&&oo.OUT,std||L[0].t),inn=gxOoT(oo&&oo.IN,L[L.length-1].t);
   return grp(GX_SVC.filter(s=>s[0]!=="deboard"),[["STD",std,"std"],["OUT",out,"oo"]],"Departure")+grp([["deboard","Deboarding"]],[["IN",inn,"oo"]],"Arrival")}

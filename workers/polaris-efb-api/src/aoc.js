@@ -46,7 +46,7 @@ export async function aocPublic(req, env, h, sess) {
   const ask = mine.filter((m) => aocNeedsAck(m, now)).map((m) => m.id);
   if (ask.length) {
     let r = {}; try { r = (await crew(env, { op: 'aocSeen', u: sess.u, ids: ask })).r || {}; } catch (e) { console.warn('[aoc seen]', e && e.message); }
-    for (const m of list) if (ask.includes(m.id)) { m.need = 1; m.acc = (r[m.id] && r[m.id].a) || 0; }
+    for (const m of list) if (ask.includes(m.id)) { m.need = 1; m.acc = (r[m.id] && r[m.id].a) || 0; m.rej = (r[m.id] && r[m.id].r) || 0; }
   }
   let hsh = 2166136261; const raw = JSON.stringify(list); for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
   const tag = '"a-' + hsh.toString(36) + '"';
@@ -54,7 +54,7 @@ export async function aocPublic(req, env, h, sess) {
   return new Response(JSON.stringify({ msgs: list, at: new Date().toISOString() }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: tag } });
 }
 
-/* POST /api/efb/aoc/ack { id, cs, at }: the signed-in pilot pressed ACCEPT on an AOC message meant for them */
+/* POST /api/efb/aoc/ack { id, cs, at, rej }: the signed-in pilot pressed ACCEPT (or REJECT) on an AOC message meant for them */
 export async function aocAckPublic(req, env, h, sess) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503, h);
   if (!sess) return jsonRes({ error: 'Sign in first' }, 401, h);
@@ -65,7 +65,7 @@ export async function aocAckPublic(req, env, h, sess) {
     const m = (await readIndex(kv)).find((x) => x.id === id);
     if (!m) throw new AocError(404, 'That message no longer exists');
     if (!m.to || !aocFor(m, sess, cs, Date.now())) throw new AocError(403, 'That message is not for you');
-    return jsonRes(await crew(env, { op: 'aocAck', u: sess.u, id, at: b.at }), 200, h);
+    return jsonRes(await crew(env, { op: 'aocAck', u: sess.u, id, at: b.at, rej: !!b.rej }), 200, h);
   } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500, h); }
 }
 

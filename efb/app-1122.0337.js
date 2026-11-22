@@ -6647,7 +6647,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|aoc|hoppie|cal)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -9467,6 +9467,8 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 const MSG={aoc:store.get("msgAoc",null),hop:store.get("msgHop",null)||[],seen:store.get("msgSeen",null),sel:"",setup:false,det:false,fx:"",
   err:{aoc:"",hop:""},at:{aoc:0,hop:0},busy:{aoc:false,hop:false},etag:"",hopAt:store.get("msgHopAt",0)||0,seeded:store.get("msgSeeded",null)||{}};
 if(!MSG.seen)MSG.seen={};
+/* AOC messages to a pilot or a crew wait for ACCEPT (see aocpop.js): what was accepted here, and what is still to send */
+const AP={acc:store.get("aocAcc",null)||{},q:store.get("aocAckQ",null)||[],shown:{},busy:false,sig:""};
 const msLogon=()=>String(store.get("hopLogon","")||"");
 const msCsOfp=()=>{try{if(ofp._sample)return"";return (S((ofp.atc||{}).callsign)||O().flight||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}catch(e){return""}};
 const msCs=()=>String(store.get("hopCs","")||"")||msCsOfp();
@@ -9477,7 +9479,7 @@ const MS_TYPE={telex:"TELEX",cpdlc:"CPDLC",progress:"PROGRESS",position:"POSITIO
 function msCpdlc(p){const m=String(p||"").match(/^\/data2\/(\d*)\/(\d*)\/([A-Z]*)\/([\s\S]*)$/i);if(!m)return{text:p,ra:""};return{text:m[4].replace(/@/g,""),ra:m[3].toUpperCase()}}
 /* every message, newest first: { k, src, t, title, body, from, ra } */
 function msAll(){const L=[];
-  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null});
+  for(const m of (MSG.aoc&&MSG.aoc.msgs)||[])L.push({k:"a:"+m.id,src:"aoc",t:m.t,title:m.title||"CREW MESSAGE",body:m.body||"",from:"POLARIS AOC",crew:m.to&&m.to.crew?m.to.cs||"":null,aid:m.id,need:!!m.need,acc:m.acc||0,rej:m.rej||0});
   for(const m of MSG.hop){const ty=MS_TYPE[m.type]||String(m.type||"").toUpperCase(),c=m.type==="cpdlc"?msCpdlc(m.packet):{text:m.packet,ra:""};
     L.push({k:"h:"+m.k,src:"hop",t:m.t,title:ty+" "+m.from,body:c.text||"",from:m.from,ra:c.ra,type:m.type,id:m.id})}
   return L.sort((a,b)=>b.t-a.t)}
@@ -9495,7 +9497,7 @@ function msPick(){if(MSG.setup||MSG.dl||MSG.det||MSG.sel||msNarrow())return;cons
 /* ---- loading ---- */
 const msOff=()=>{try{return typeof apmOn==="function"&&apmOn()}catch(e){return false}};
 function msAocLoad(force){if(typeof authOn!=="function"||!authOn()||!authSrv()||MSG.busy.aoc||msOff())return;
-  if(!force&&Date.now()-MSG.at.aoc<(cur==="messages"?45000:120000))return;MSG.busy.aoc=true;
+  if(!force&&Date.now()-MSG.at.aoc<(apPending().length?25000:cur==="messages"?45000:60000))return;MSG.busy.aoc=true;
   const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000),hd={Accept:"application/json"};if(MSG.etag&&MSG.aoc)hd["If-None-Match"]=MSG.etag;
   const cs=msCs();if(cs!==MSG.aocCs){MSG.aocCs=cs;delete hd["If-None-Match"]}
   /* the callsign: AOC messages to this flight's crew reach every EFB flying it */
@@ -9551,7 +9553,7 @@ function msBox(){if(MSG.setup)return msSetup();if(MSG.dl)return msDl();const L=m
   const ra=m.ra&&!/^(N|NE)$/.test(m.ra)?`<p class="ms-ra">RESPONSE REQUIRED (${esc(m.ra)}): ANSWER IN THE AIRCRAFT</p>`:"";
   const meta=m.src==="aoc"?"POLARIS AOC"+(m.crew!=null?" · TO CREW "+m.crew:"")+" · "+msDay(m.t)+" "+msZ(m.t)+" · READ ONLY":"HOPPIE ACARS · FROM "+m.from+" · "+msDay(m.t)+" "+msZ(m.t)+(m.id?" · MSG "+m.id:"");
   return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">${m.src==="aoc"?"AOC MSG DISPLAY":"ACARS MSG DISPLAY"}</span></div>
-    <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb${/ {2,}/.test(m.body)?" ms-mono":""}">${esc(m.body)}</div>${ra}<p class="ms-meta">${esc(meta)}</p></div>`}
+    <div class="ms-box"><b class="ms-mh">${esc(m.title)} ${msZ(m.t)}</b><div class="ms-mb${/ {2,}/.test(m.body)?" ms-mono":""}">${esc(m.body)}</div>${ra}${m.src==="aoc"&&m.need?apMsBar(m):""}<p class="ms-meta">${esc(meta)}</p></div>`}
 function msSetup(){const lg=msLogon(),ofc=msCsOfp();
   return `<div class="ms-dh">${MSG.det?`<button type="button" class="ms-back" data-ms="back" aria-label="Back to messages">${msIco("back")}</button>`:""}<span class="ms-dt">ACARS SETUP</span></div>
     <div class="ms-box ms-set"><b class="ms-mh">HOPPIE ACARS</b>
@@ -9590,11 +9592,87 @@ document.addEventListener("keydown",e=>{if(cur==="messages"&&e.key==="Enter"&&e.
 {const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="messages"){screenEl.dataset.layout="full";if(!MSG.fx)MSG.fx="open";MSG.det=false}return r}}
 /* signed out: the AOC messages and the Hoppie messages go (the logon code is the pilot's, and stays) */
 {const _f=authForget;authForget=function(){const r=_f.apply(this,arguments);MSG.aoc=null;MSG.hop=[];MSG.seen={};MSG.seeded={};MSG.sel="";MSG.etag="";MSG.hopAt=0;
-  ["msgAoc","msgHop","msgSeen","msgHopAt","msgSeeded"].forEach(k=>store.set(k,null));msBadge();return r}}
+  ["msgAoc","msgHop","msgSeen","msgHopAt","msgSeeded","aocAcc","aocAckQ"].forEach(k=>store.set(k,null));AP.acc={};AP.q=[];AP.shown={};try{apUi()}catch(e){}msBadge();return r}}
 setTimeout(()=>msLoad(true),3000);
 setInterval(()=>{if(!document.hidden)msLoad()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)msLoad()});
 window.addEventListener("online",()=>msLoad(true));
+/* ---------- AOC MSG: a new message to you or your crew stays on screen until ACCEPT or REJECT (Nov 2026) ----------
+   As an ACARS uplink waits for the crew: a message Polaris operations send to one pilot or to a flight's crew (their own,
+   and the automatic ones: gates, the final loadsheet), not one to all pilots, comes up in a panel at the foot of the
+   screen, over whatever is open, in capitals, and stays until ACCEPT or REJECT. The Messages tab is lit meanwhile.
+   The answer goes to the EFB server (kept and sent later when offline), where the operations centre sees who has the
+   message and who accepted or rejected it; answering on one device takes it off the pilot's others. The lock screen
+   comes first: the message shows once the EFB is unlocked. AP.acc[id] is when it was answered here (negative: rejected). */
+const apSt=m=>{if(!m)return null;if(m.acc)return{t:m.acc,rej:false};if(m.rej)return{t:m.rej,rej:true};const v=AP.acc[m.id];return v?{t:Math.abs(v),rej:v<0}:null};
+function apPending(){const L=(MSG.aoc&&MSG.aoc.msgs)||[],now=Date.now();return L.filter(m=>m.need&&!apSt(m)&&now-m.t<18*3600e3).sort((a,b)=>a.t-b.t)}
+const apCan=()=>typeof authOn==="function"&&authOn()&&!AUTH.locked;
+const apNet=()=>navigator.onLine!==false&&typeof authOn==="function"&&authOn()&&!!authSrv()&&!msOff();
+function apCard(m,n){const mono=/ {2,}/.test(m.body||"");
+  return `<section class="ap" id="apRoot" role="alertdialog" aria-labelledby="apT" aria-describedby="apB">
+    <div class="ap-hd"><b class="ap-t" id="apT">${esc(m.title||"CREW MESSAGE")} ${msZ(m.t)}${n>1?`<i>1 OF ${n}</i>`:""}</b><span class="ap-bt"><button type="button" data-ap="rej" data-apid="${esc(m.id)}">REJECT</button><button type="button" data-ap="acc" data-apid="${esc(m.id)}">ACCEPT</button></span></div>
+    <div class="ap-mb${mono?" mono":""}" id="apB">${esc(m.body||"")}</div></section>`}
+/* the panel sits on the tab bar (or on the foot of the screen where there is none) */
+function apPlace(){const r=document.getElementById("apRoot");if(!r)return;const ft=document.getElementById("ftabs"),s=screenEl.getBoundingClientRect(),f=ft&&ft.getBoundingClientRect();
+  r.style.bottom=(f&&f.height&&f.top>s.top?Math.max(0,Math.round(s.bottom-f.top)):0)+"px"}
+function apTab(on){const t=document.querySelector('#ftabs [data-ft="msg"]');if(t)t.classList.toggle("ap-wait",!!on)}
+function apUi(){const P=apCan()?apPending():[],old=document.getElementById("apRoot");apTab(P.length);
+  if(!P.length){if(old)old.remove();AP.sig="";return}
+  const sig=P.map(m=>m.id).join(",");if(sig===AP.sig&&old){apPlace();return}AP.sig=sig;
+  if(old)old.remove();screenEl.insertAdjacentHTML("beforeend",apCard(P[0],P.length));apPlace()}
+function apAnswer(id,rej){const m=((MSG.aoc&&MSG.aoc.msgs)||[]).find(x=>x.id===id);if(!m||apSt(m))return;const at=Date.now();
+  AP.acc[id]=rej?-at:at;const live=new Set(((MSG.aoc&&MSG.aoc.msgs)||[]).map(x=>x.id));for(const k of Object.keys(AP.acc))if(!live.has(k))delete AP.acc[k];store.set("aocAcc",AP.acc);
+  AP.q=AP.q.filter(x=>x.id!==id).concat([{id,cs:msCs(),at,rej:!!rej}]);store.set("aocAckQ",AP.q);
+  try{msSeen(["a:"+id])}catch(e){}
+  if(!apNet())toast((rej?"Rejected":"Accepted")+". Polaris operations see it when you are back online.");
+  apUi();apFlush();if(cur==="messages")msUpd()}
+async function apFlush(){if(AP.busy||!AP.q.length||!apNet())return;AP.busy=true;
+  try{for(const it of AP.q.slice()){let r;try{r=await fetch(authSrv()+"/api/efb/aoc/ack",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(it)})}catch(e){break}
+      /* taken, or no longer there to answer: either way it is done here */
+      if(r.ok||r.status===400||r.status===403||r.status===404){AP.q=AP.q.filter(x=>x.id!==it.id);store.set("aocAckQ",AP.q)}else break}}
+  finally{AP.busy=false}}
+/* in Messages: the same buttons under the message, or how it was answered */
+function apMsBar(m){const st=apSt({id:m.aid,acc:m.acc,rej:m.rej});
+  return st?`<p class="ms-acc${st.rej?" rej":""}">${st.rej?"REJECTED":"ACCEPTED"} ${msDay(st.t)} ${msZ(st.t)}</p>`:`<div class="ms-acts ms-accb"><button type="button" class="ms-btn" data-aprej="${esc(m.aid)}">REJECT</button><button type="button" class="ms-btn pri" data-apacc="${esc(m.aid)}">ACCEPT</button><span>POLARIS OPERATIONS ARE WAITING FOR YOUR ANSWER</span></div>`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-ap],[data-apacc],[data-aprej]");if(!t)return;const d=t.dataset;
+  if(d.apacc){apAnswer(d.apacc,false);return}
+  if(d.aprej){apAnswer(d.aprej,true);return}
+  if(d.ap==="acc"){apAnswer(d.apid,false);return}
+  if(d.ap==="rej")apAnswer(d.apid,true)});
+{const _u=msUpd;msUpd=function(){const r=_u.apply(this,arguments);try{apUi();apFlush()}catch(e){}return r}}
+{const _a=authShow;authShow=function(){const r=_a.apply(this,arguments);try{setTimeout(apUi,AUTH.locked||!authOn()?0:450)}catch(e){}return r}}
+{const _s=ftSync;ftSync=function(){const r=_s.apply(this,arguments);try{apTab(apCan()&&apPending().length);apPlace()}catch(e){}return r}}
+window.addEventListener("resize",()=>apPlace());window.addEventListener("hashchange",()=>setTimeout(apPlace,60));
+/* a push about an AOC message: ask at once (and once more, the server's list can be a few seconds behind) */
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{const d=e.data||{};
+  if(d.type==="efb-push"&&/messages/.test(String(d.url||""))){msAocLoad(true);setTimeout(()=>msAocLoad(true),22000)}});
+setTimeout(apUi,1800);
+setInterval(()=>{try{apUi();apFlush()}catch(e){}},30000);
+window.addEventListener("online",()=>apFlush());
+document.head.insertAdjacentHTML("beforeend",`<style>
+.ap{position:absolute;right:0;bottom:0;z-index:2000;width:min(810px,62%);min-width:min(560px,100%);min-height:210px;max-height:60%;display:flex;flex-direction:column;
+  padding:22px 30px 22px 32px;background:#1C1C1F;color:#F4F4F5;border:1px solid #3A3A3F;border-bottom:0;border-radius:30px 30px 0 0;box-shadow:0 -14px 40px -14px rgba(0,0,0,.6);
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;text-transform:uppercase;-webkit-font-smoothing:antialiased;animation:apUp .28s cubic-bezier(.2,.85,.25,1)}
+.ap-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex:none}
+.ap-t{font-weight:400;font-size:20px;line-height:1.3;color:#E07FB2;padding-top:9px;min-width:0;word-break:break-word}
+.ap-t i{font-style:normal;font-size:13px;color:#9A9AA0;margin-left:12px;white-space:nowrap}
+.ap-bt{display:flex;gap:12px;flex:none}
+.ap .ap-bt button{height:38px;min-width:120px;padding:0 20px;border:1.5px solid #5C5C62;border-radius:7px;background:transparent;color:#F4F4F5;box-shadow:none;font:400 20px/1 "Helvetica Neue",Helvetica,Arial,sans-serif;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ap .ap-bt button:active{background:#34343A}
+.ap .ap-bt button:focus-visible{outline:2px solid #E07FB2;outline-offset:2px}
+.ap-mb{margin-top:20px;font-size:20px;line-height:1.3;white-space:pre-wrap;word-break:break-word;overflow:auto;overscroll-behavior:contain;min-height:0}
+.ap-mb.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:16px;white-space:pre}
+.ftabs .ap-wait,.ftabs .ap-wait *{color:#E07FB2!important}
+.ms-acc{margin:16px 0 0;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--ms-ok)}
+.ms-acc.rej{color:var(--ms-err)}
+.ms-accb{align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
+.ms-accb span{font-size:11px;letter-spacing:.1em;color:var(--ms-warn)}
+@keyframes apUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ap{animation:none}}
+:root.a11y-rm .ap{animation:none}
+@container screen (max-width:640px){.ap{width:100%;min-width:0;min-height:0;padding:16px 16px 18px;border-radius:22px 22px 0 0;border-left:0;border-right:0}.ap-hd{flex-direction:column;gap:12px}.ap-t{padding-top:0;font-size:17px}.ap-bt{width:100%}.ap .ap-bt button{flex:1;min-width:0;height:44px;font-size:17px}.ap-mb{margin-top:14px;font-size:17px}.ap-mb.mono{font-size:13px}}
+</style>`);
+
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* ---------- Messages: an ACARS display, in the Charts app's colours (white by day, black at night) ---------- */
 .screen[data-app="messages"] .appwin>main{position:relative}

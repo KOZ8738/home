@@ -287,7 +287,7 @@ export class Crew {
     return { ok: true, sent: msgs.length > 0 };
   }
   /* AOC receipts (see aoc.js): kv 'aocr:<message id>:<pilot>' -> { d: when the pilot's EFB first had it, a: when the pilot
-     pressed ACCEPT }. Kept 30 days. */
+     pressed ACCEPT, r: or REJECT }. Kept 30 days. */
   aocSeen(a) {
     const u = String(a.u || ''), now = Date.now(), r = {}; if (!u) return { r };
     for (const raw of (Array.isArray(a.ids) ? a.ids : []).slice(0, 100)) {
@@ -302,7 +302,9 @@ export class Crew {
   aocAck(a) {
     const u = String(a.u || ''), id = String(a.id || '').replace(/[^a-z0-9]/gi, '').slice(0, 24); if (!u || !id) throw new CrewError(400, 'No message');
     const k = 'aocr:' + id + ':' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), v = row ? JSON.parse(row.v) : {}, now = Date.now();
-    if (!v.d) v.d = now; if (!v.a) v.a = Math.min(now, Number(a.at) > v.d ? Number(a.at) : now);
+    if (!v.d) v.d = now;
+    /* the first answer stands: ACCEPT (a) or REJECT (r) */
+    if (!v.a && !v.r) v[a.rej ? 'r' : 'a'] = Math.min(now, Number(a.at) > v.d ? Number(a.at) : now);
     this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify(v));
     return { ok: true, r: v };
   }
@@ -311,7 +313,7 @@ export class Crew {
     for (const row of this.rows("SELECT k, v FROM kv WHERE k >= 'aocr:' AND k < 'aocr;'")) {
       const [, id, ...rest] = row.k.split(':'), v = JSON.parse(row.v);
       if ((v.d || 0) < old) { this.sql.exec('DELETE FROM kv WHERE k = ?', row.k); continue; }
-      if (want.has(id)) (r[id] || (r[id] = [])).push({ u: rest.join(':'), d: v.d || 0, a: v.a || 0 });
+      if (want.has(id)) (r[id] || (r[id] = [])).push({ u: rest.join(':'), d: v.d || 0, a: v.a || 0, r: v.r || 0 });
     }
     return { r };
   }

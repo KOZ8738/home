@@ -2,12 +2,15 @@
    each is current ----------
    GET  /admin/api/navdata           -> { now, airac: { cur, next }, src: [ source… ], at }
    POST /admin/api/navdata/check {id} -> asks one source (or all, without id) again now, then the same answer
+   POST /admin/api/navdata/cn, /cn/delete -> China's AIP data set, uploaded from this page (cnaip.js)
    A source: { id, region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
    The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA Taiwan eAIP's list, one
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
    every 6 hours from the 20-minute cron, or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
    changes the data itself: each source keeps updating itself as before.
    deps (from index.js): { airac(t), twEdition(), major() -> { airports: [{ icao, layoutAt }] }, majorCount } */
+
+import { cnAdmin } from './cnaip.js';
 
 const CHK = 'nav:v1:chk', H6 = 6 * 3600_000, DAY = 86400_000;
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
@@ -128,14 +131,22 @@ async function navStatus(env, d) {
         o.rows.push(['Next', r.next ? 'AMDT ' + r.next.amdt + ' · ' + r.next.eff + ' · switches by itself' : 'None announced yet']);
         break;
       case 'cn-aip': {
-        o.at = cn && cn.at || 0;
-        const has = (cy) => !!(cn && (cn.cycles || []).some((c) => c.cycle === cy));
-        o.rows.push(['In use', has(cur.cycle) ? 'AIRAC ' + cur.cycle : 'Nothing yet']);
-        o.rows.push(['Next', 'AIRAC ' + next.cycle + ' · ' + day(Date.parse(next.from)) + ' · ' + (has(next.cycle) ? 'uploaded, switches by itself' : 'not uploaded')]);
-        if (!cn) { o.state = 'off'; o.line = 'Waiting for the first upload'; break; }
-        if (!has(cur.cycle)) { fail('AIRAC ' + cur.cycle + ' is not uploaded: the EFB shows no China data'); break; }
-        o.line = 'AIRAC ' + cur.cycle + ' in use';
-        if (!has(next.cycle) && Date.parse(cur.to) - now < 14 * DAY) { o.state = 'warn'; o.line = 'AIRAC ' + next.cycle + ' starts ' + inDays(Date.parse(next.from), now) + ': upload it'; }
+        /* what the EFB serves is the newest upload whose own effective time has come (the data set's, a few hours
+           before the AIRAC date: 00:00 in Beijing) */
+        const L = (cn && cn.cycles) || [], by = (cy) => L.find((c) => c.cycle === cy);
+        const act = L.filter((c) => Date.parse(c.eff) <= now).sort((a, b) => Date.parse(b.eff) - Date.parse(a.eff))[0] || null;
+        const dt = (t) => day(t) + ' ' + new Date(t).toISOString().slice(11, 16) + 'Z';
+        o.at = (cn && cn.at) || 0;
+        o.cn = { cycles: L.map((c) => ({ cycle: c.cycle, eff: c.eff, at: c.at, by: c.by || '', file: c.file || '', size: c.size || 0, st: c.st || {}, issue: c.issue || '', ver: c.ver || '', inUse: !!act && c.cycle === act.cycle, later: Date.parse(c.eff) > now })) };
+        o.rows.push(['In use', act ? 'AIRAC ' + act.cycle + ' · since ' + dt(Date.parse(act.eff)) : 'Nothing yet']);
+        const nx = by(next.cycle);
+        o.rows.push(['Next', 'AIRAC ' + next.cycle + ' · ' + day(Date.parse(next.from)) + ' · ' + (nx ? 'uploaded, switches ' + dt(Date.parse(nx.eff)) : 'not uploaded')]);
+        if (act && act.st && act.st.apt) o.rows.push(['Data', act.st.apt + ' airports · ' + (act.st.asp || 0) + ' airspaces · ' + (act.st.seg || 0) + ' airway legs · ' + (act.st.fix || 0) + ' fixes · ' + (act.st.nav || 0) + ' navaids']);
+        if (!L.length) { o.state = 'off'; o.line = 'Waiting for the first upload'; break; }
+        if (!act) { fail('No upload is in force yet: the EFB shows no China data'); break; }
+        if (act.cycle < cur.cycle && !by(cur.cycle)) { fail('AIRAC ' + cur.cycle + ' is not uploaded: the EFB still shows AIRAC ' + act.cycle); break; }
+        o.line = 'AIRAC ' + act.cycle + ' in use';
+        if (!nx && Date.parse(cur.to) - now < 14 * DAY) { o.state = 'warn'; o.line = 'AIRAC ' + next.cycle + ' starts ' + inDays(Date.parse(next.from), now) + ': upload it'; }
         break; }
       case 'openaip':
         if (!r) { o.state = 'off'; o.line = 'Not checked yet'; break; }
@@ -179,9 +190,10 @@ async function navStatus(env, d) {
   return { now, airac: { cur, next }, src: out, at: chk.at || 0 };
 }
 
-export async function navdataAdmin(req, path, env, d) {
+export async function navdataAdmin(req, path, env, d, who) {
   if (!env || !env.STORE) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
+    if (path === '/admin/api/navdata/cn' || path === '/admin/api/navdata/cn/delete') return await cnAdmin(req, path, env, who);
     if (path === '/admin/api/navdata' && req.method === 'GET') return jsonRes(await navStatus(env, d));
     if (path === '/admin/api/navdata/check' && req.method === 'POST') {
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);

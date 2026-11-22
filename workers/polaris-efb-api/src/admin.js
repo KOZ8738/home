@@ -546,7 +546,24 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-f{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:6px;border-top:1px dashed var(--line)}
 .nd-f small{flex:1;min-width:0;color:var(--label);font-size:11.5px}
 .nd-f button{padding:4px 12px;font-size:12.5px}
-.nd-soon{font-size:11.5px;color:var(--label);white-space:nowrap}
+.nd-c#nd-cn-aip{grid-column:1/-1}
+.nd-cyl{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:6px}
+.nd-cyl li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:5px}
+.nd-cyl li>div{display:flex;align-items:center;gap:8px}
+.nd-cyl li b{font:600 14px "IBM Plex Mono",ui-monospace,Consolas,monospace}
+.nd-cyl li small{grid-column:1;color:var(--label);font-size:12px;overflow-wrap:anywhere}
+.nd-cyl li .nd-x{grid-column:2;grid-row:1/3;padding:3px 10px;font-size:12px}
+.nd-tag{font:600 11px Jost,system-ui,sans-serif;padding:1px 8px;border-radius:9px;background:var(--soft);color:var(--label)}
+.nd-cyl li.use .nd-tag{background:var(--ok-bg);color:var(--green)}
+.nd-cyl li.later .nd-tag{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.nd-cyl li.old{opacity:.7}
+.nd-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;margin-top:4px;padding:18px 14px;border:1.5px dashed color-mix(in srgb,var(--label) 55%,transparent);border-radius:6px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}
+.nd-drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.nd-drop b{font-size:14px;color:var(--ink)}.nd-drop small{font-size:12px;color:var(--label)}
+.nd-drop:hover,.nd-drop:focus-within{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.nd-drop.over{border-color:var(--accent);border-style:solid;background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.nd-drop.busy{cursor:progress;border-style:solid;background:var(--soft)}
+.nd-c .msg{margin-top:2px;font-size:13px}
 @media(max-width:700px){.nd-cyc{grid-template-columns:1fr}.nd-sum{margin-left:0;width:100%}}
 </style></head><body>
 <header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Admin</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
@@ -1458,6 +1475,196 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
  if(g.startsWith("aoc:")){location.hash="#comms";setTimeout(()=>{cmSeg("sent");CM.item="aoc:"+g.slice(4);CM.pane="item";cmUi();listUi()},60);return}
  if(g==="need"){OT.need=true;OT.p=7;document.querySelectorAll("[data-otp]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.otp==="7")));const n=$("#otNeed");if(n)n.setAttribute("aria-pressed","true");location.hash="#reports"}});
 PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
+/* ---------- China AIP data set (CAAC eAIP AIP-DS, AIXM 5.1.1), read in this browser (Nov 2026) ----------
+   The zip is opened here, every Baseline file is checked against the SHA-256 in its checksum.xml, and the AIXM is
+   reduced to what the EFB uses: R, D, P, TMA, CTA and ADIZ airspace, airways, fixes and navaids, and for each
+   airport its runways' declared distances, ILS and approach frequencies. Only that reduced data goes to the server. */
+const CNP=(()=>{
+ const D2R=Math.PI/180,r5=x=>Math.round(x*1e5)/1e5,r4=x=>Math.round(x*1e4)/1e4;
+ /* ---- zip ---- */
+ async function unzip(ab){const u=new Uint8Array(ab),dv=new DataView(ab);let e=-1;
+  for(let i=u.length-22;i>=Math.max(0,u.length-65558);i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break}
+  if(e<0)throw new Error("This isn’t a zip file.");
+  const n=dv.getUint16(e+10,true),td=new TextDecoder(),L=[];let p=dv.getUint32(e+16,true);
+  for(let k=0;k<n;k++){if(dv.getUint32(p,true)!==0x02014b50)throw new Error("The zip’s file list is damaged.");
+   const nl=dv.getUint16(p+28,true);L.push({name:td.decode(u.subarray(p+46,p+46+nl)),meth:dv.getUint16(p+10,true),csz:dv.getUint32(p+20,true),lo:dv.getUint32(p+42,true)});p+=46+nl+dv.getUint16(p+30,true)+dv.getUint16(p+32,true)}
+  const read=async f=>{const q=f.lo;if(dv.getUint32(q,true)!==0x04034b50)throw new Error(f.name+" is damaged in the zip.");
+   const s=q+30+dv.getUint16(q+26,true)+dv.getUint16(q+28,true),raw=u.subarray(s,s+f.csz);if(f.meth===0)return raw.slice();
+   if(f.meth!==8)throw new Error(f.name+" uses a compression this browser can’t open.");
+   return new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())};
+  return{L,read}}
+ const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,"0")).join("");
+ const NEED=["AirportHeliport","Airspace","AirTrafficControlService","DesignatedPoint","DME","Glidepath","Localizer","Navaid","NDB","RadioCommunicationChannel","Route","RouteSegment","Runway","RunwayCentrelinePoint","RunwayDirection","Unit","VOR"];
+ /* open the zip and check it: returns the data set's details and each Baseline file's text */
+ async function open(ab,prog){const z=await unzip(ab),td=new TextDecoder();
+  const cs=z.L.find(f=>/(^|\\/)checksum\\.xml$/i.test(f.name));if(!cs)throw new Error("There’s no checksum.xml in this zip. Is it the China AIP data set (AIP-DS)?");
+  const ct=td.decode(await z.read(cs)),g=n=>{const m=ct.match(new RegExp("<aisc-ds:"+n+">([^<]*)<"));return m?m[1].trim():""};
+  const meta={uid:g("uid"),product:g("product"),issue:g("issueTime"),variant:g("dataVariant"),pub:g("pubNo"),eff:g("effectiveTime"),ver:g("version")};
+  if(!/^AIP-DS$/i.test(meta.product)||!/^\\d{6}$/.test(meta.pub)||!Date.parse(meta.eff))throw new Error("checksum.xml doesn’t describe an AIP data set.");
+  if(meta.variant&&!/^BASELINE$/i.test(meta.variant))throw new Error("This is a "+meta.variant+" package. Upload the BASELINE one.");
+  const sums={};for(const m of ct.matchAll(/<aisc-cs:filename>([^<]+)<\\/aisc-cs:filename>\\s*<aisc-cs:sha256sum>([0-9a-fA-F]{64})</g))sums[m[1].trim()]=m[2].toLowerCase();
+  const base=z.L.filter(f=>/^Baseline\\/[^/]+\\.xml$/i.test(f.name)),files={},bad=[],miss=[];
+  Object.keys(sums).filter(k=>/^Baseline\\//i.test(k)).forEach(k=>{if(!base.some(f=>f.name===k))miss.push(k.split("/").pop())});
+  let i=0;for(const f of base){const b=await z.read(f),h=hex(await crypto.subtle.digest("SHA-256",b));if(sums[f.name]!==h)bad.push(f.name.split("/").pop());
+   const k=(f.name.match(/CN_AIP-DS_([A-Za-z]+)_BASELINE/)||[])[1];if(k)files[k]=td.decode(b);if(prog)prog(++i/base.length)}
+  if(bad.length)throw new Error("The checksum doesn’t match for "+bad.length+" file"+(bad.length>1?"s":"")+" ("+bad.slice(0,3).join(", ")+(bad.length>3?"…":"")+"). The download may be damaged: download it again.");
+  if(miss.length)throw new Error(miss.length+" file"+(miss.length>1?"s":"")+" listed in checksum.xml "+(miss.length>1?"are":"is")+" missing from the zip.");
+  const lack=NEED.filter(k=>!files[k]);if(lack.length)throw new Error("The zip has no "+lack.join(", ")+" data.");
+  const zs=hex(await crypto.subtle.digest("SHA-256",ab));
+  return{meta,files,sha:zs,cycle:meta.pub.slice(2),checked:base.length}}
+ /* ---- AIXM, read with patterns: each file holds one feature type, one per message:hasMember ---- */
+ const RX=new Map(),rx=(k,s,f)=>{let r=RX.get(k);if(!r){r=new RegExp(s,f||"");RX.set(k,r)}return r};
+ const unx=s=>s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#(\\d+);/g,(m,n)=>String.fromCharCode(+n)).replace(/&amp;/g,"&");
+ const mem=t=>t?t.split("<message:hasMember>").slice(1):[];
+ const raw=(s,n)=>{const m=rx("r"+n,"<aixm:"+n+"(\\\\s[^>]*)?>([^<]*)</aixm:"+n+">").exec(s);return m?{t:unx(m[2].trim()),a:m[1]||""}:null};
+ const val=(s,n)=>{const x=raw(s,n);return x&&x.t!==""?x.t:null};
+ const num=(s,n)=>{const x=val(s,n);return x==null||!isFinite(+x)?null:+x};
+ const uv=(s,n)=>{const x=raw(s,n);if(!x||x.t==="")return null;const u=(x.a.match(/uom="([^"]*)"/)||[])[1]||"";return{t:x.t,v:+x.t,u:u.toUpperCase()}};
+ const ref=(s,n)=>{const m=rx("h"+n,"<aixm:"+n+"\\\\s[^>]*?xlink:href=\\"(?:urn:uuid:|#uuid\\\\.|#)?([^\\"]+)\\"").exec(s);return m?m[1]:null};
+ const refs=(s,n)=>Array.from(s.matchAll(new RegExp("<aixm:"+n+"\\\\s[^>]*?xlink:href=\\"(?:urn:uuid:|#uuid\\\\.|#)?([^\\"]+)\\"","g")),m=>m[1]);
+ const uid=s=>{const m=/<gml:identifier[^>]*>([^<]+)</.exec(s);return m?m[1].trim():null};
+ const pos=s=>{const m=/<gml:pos(?:\\s[^>]*)?>([^<]+)<\\/gml:pos>/.exec(s);if(!m)return null;const p=m[1].trim().split(/\\s+/).map(Number);return p.length>=2&&isFinite(p[0])&&isFinite(p[1])&&(p[0]||p[1])?[p[0],p[1]]:null};
+ const part=(s,a,b)=>{const i=s.indexOf(a);if(i<0)return"";const j=s.indexOf(b,i);return s.slice(i,j<0?s.length:j)};
+ const note=(s,prop)=>{const i=s.indexOf("<aixm:propertyName>"+prop+"</aixm:propertyName>");if(i<0)return"";const m=/<aixm:note[^>]*>([^<]*)<\\/aixm:note>/.exec(s.slice(i,i+3000));return m?unx(m[1].trim()):""};
+ const notes=s=>Array.from(s.matchAll(/<aixm:note[^>]*>([^<]*)<\\/aixm:note>/g),m=>unx(m[1].trim())).filter(Boolean);
+ const toM=x=>!x?null:x.u==="FT"?x.v*0.3048:x.u==="KM"?x.v*1000:x.u==="NM"?x.v*1852:x.v;
+ const mhz=v=>{if(v==null||!isFinite(v))return"";const s=(+v).toFixed(3).replace(/0+$/,"");return s.endsWith(".")?s+"0":s};
+ const khz=v=>v==null||!isFinite(v)?"":(+v%1?(+v).toFixed(1):String(+v));
+ const fq=x=>!x?"":x.u==="KHZ"?khz(x.v):x.u==="GHZ"?mhz(x.v*1000):mhz(x.v);
+ /* a point at a true bearing and distance (km) from another, on the sphere */
+ const dest=(p,brg,km)=>{const d=km/6371.0088,b=brg*D2R,f1=p[0]*D2R,l1=p[1]*D2R,f2=Math.asin(Math.sin(f1)*Math.cos(d)+Math.cos(f1)*Math.sin(d)*Math.cos(b)),l2=l1+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(f1),Math.cos(d)-Math.sin(f1)*Math.sin(f2));return[f2/D2R,((l2/D2R+540)%360)-180]};
+ const km=(a,b)=>{const f1=a[0]*D2R,f2=b[0]*D2R,df=f2-f1,dl=(b[1]-a[1])*D2R,h=Math.sin(df/2)**2+Math.cos(f1)*Math.cos(f2)*Math.sin(dl/2)**2;return 12742.0176*Math.asin(Math.min(1,Math.sqrt(h)))};
+ const LIM=v=>{if(!v)return"";const t=v[0].toUpperCase();if(/^(GND|SFC|UNL|UNLTD|FLOOR|CEILING)$/.test(t))return t==="UNLTD"?"UNL":t;
+  if(v[1]==="FL")return"FL"+t;const n=Math.round(+v[0]),un=v[1]==="FT"?"ft":"m";
+  return v[2]==="STD"?(un==="ft"?"FL"+Math.round(n/100):n+"m STD"):v[2]==="SFC"?(n===0?"GND":n+un+" AGL"):n+un};
+ function parse(F){
+  const st={};const P={},PI={};/* positions and idents of anything a route or an arc can point at, by uuid */
+  /* airports */
+  const A={},AU={};
+  for(const s of mem(F.AirportHeliport)){const id=uid(s),icao=val(s,"locationIndicatorICAO")||val(s,"designator");if(!id||!icao||!/^[A-Z]{4}$/.test(icao))continue;
+   const p=pos(part(s,"<aixm:ARP","</aixm:ARP>")),el=uv(s,"fieldElevation"),cy=val(part(s,"<aixm:servedCity","</aixm:servedCity>"),"name");
+   A[icao]={i:icao,ia:val(s,"designatorIATA")||"",n:val(s,"name")||"",c:cy||"",p:p?[r5(p[0]),r5(p[1])]:null,el:el?Math.round(toM(el)/0.3048):null,mv:num(s,"magneticVariation"),rw:[],ils:[],fq:[]};
+   AU[id]=icao;if(p){P[id]=p;PI[id]=icao}}
+  st.apt=Object.keys(A).length;
+  /* runways, their two directions and the points along them that carry the declared distances */
+  const RW={},RD={};
+  for(const s of mem(F.Runway)){const id=uid(s),icao=AU[ref(s,"associatedAirportHeliport")];if(!id||!icao)continue;const ty=val(s,"type");if(ty&&!/^RWY$/i.test(ty))continue;
+   const L=uv(s,"nominalLength"),W=uv(s,"nominalWidth"),sp=note(s,"surfaceProperties")||[val(s,"composition"),val(s,"classPCN")!=null?"PCN "+[val(s,"classPCN"),val(s,"pavementTypePCN"),val(s,"pavementSubgradePCN"),val(s,"maxTyrePressurePCN"),val(s,"evaluationMethodPCN")].filter(Boolean).join("/"):""].filter(Boolean).join(" ");
+   const sp2=Array.from(new Set(sp.replace(/\\r/g,"").split(/\\n+|;\\s*/).map(x=>x.replace(/^RWY\\s*\\w+\\s*:\\s*/i,"").replace(/\\s+/g," ").trim()).filter(Boolean))).sort((a,b)=>(/^PC[NR]\\b/.test(a)?1:0)-(/^PC[NR]\\b/.test(b)?1:0)).join(" · ");
+   const r={d:val(s,"designator")||"",len:L?Math.round(toM(L)):null,wid:W?Math.round(toM(W)):null,sfc:sp2,ends:[]};RW[id]=r;A[icao].rw.push(r)}
+  for(const s of mem(F.RunwayDirection)){const id=uid(s),r=RW[ref(s,"usedRunway")];if(!id||!r)continue;const e={d:val(s,"designator")||"",tb:num(s,"trueBearing"),mb:num(s,"magneticBearing"),_p:[]};RD[id]=e;r.ends.push(e)}
+  for(const s of mem(F.RunwayCentrelinePoint)){const e=RD[ref(s,"onRunway")];if(!e)continue;const dd={};
+   for(const m of s.matchAll(/<aixm:RunwayDeclaredDistance[\\s>][\\s\\S]*?<\\/aixm:RunwayDeclaredDistance>/g)){const t=val(m[0],"type"),v=uv(m[0],"distance");if(t&&v)dd[t.toUpperCase()]=Math.round(toM(v))}
+   e._p.push({role:val(s,"role")||"",dd,p:pos(s),rm:notes(s).join("; ")})}
+  let nrw=0;Object.values(RW).forEach(r=>{nrw++;r.ends.sort((a,b)=>a.d.localeCompare(b.d,"en",{numeric:true}));r.ends.forEach(e=>{const pts=e._p;delete e._p;
+   const withT=pts.filter(x=>x.dd.TORA!=null).sort((a,b)=>b.dd.TORA-a.dd.TORA),main=withT[0]||pts.find(x=>/THR/.test(x.role))||pts[0];
+   const mx=k=>{let v=null;pts.forEach(x=>{if(x.dd[k]!=null&&(v==null||x.dd[k]>v))v=x.dd[k]});return v};
+   if(main){e.tora=main.dd.TORA!=null?main.dd.TORA:null;e.toda=main.dd.TODA!=null?main.dd.TODA:null;e.asda=main.dd.ASDA!=null?main.dd.ASDA:null;if(main.rm)e.rm=main.rm}
+   e.lda=mx("LDA");const dt=mx("DTHR");if(dt)e.dthr=dt;
+   const th=pts.find(x=>/^THR$/.test(x.role)&&x.p)||pts.find(x=>/THR/.test(x.role)&&x.p);if(th)e.thr=[r5(th.p[0]),r5(th.p[1])];
+   const ix=withT.slice(1).filter(x=>e.tora!=null&&x.dd.TORA<e.tora).map(x=>({rm:x.rm||"",tora:x.dd.TORA,toda:x.dd.TODA!=null?x.dd.TODA:null,asda:x.dd.ASDA!=null?x.dd.ASDA:null}));if(ix.length)e.ix=ix;
+   if(e.mb==null)delete e.mb})});
+  st.rwy=nrw;
+  /* navaids: the parts first (VOR, DME, NDB, localizer, glide path), then the systems that group them */
+  const C={};
+  const comp=(t,k)=>{for(const s of mem(F[t])){const id=uid(s);if(!id)continue;C[id]={k,i:val(s,"designator")||"",n:val(s,"name")||"",f:fq(uv(s,"frequency")),ch:val(s,"channel")||"",p:pos(s),mb:num(s,"magneticBearing"),tb:num(s,"trueBearing"),sl:num(s,"slope"),rm:notes(s).join("; ")}}};
+  comp("VOR","VOR");comp("DME","DME");comp("NDB","NDB");comp("Localizer","LOC");comp("Glidepath","GP");
+  const NAV=[],ILS=new Set(["ILS","ILS_DME","LOC","LOC_DME","LDA","LDA_DME","SDF","MLS","MLS_DME"]);let nils=0;
+  for(const s of mem(F.Navaid)){const id=uid(s);if(!id)continue;const ty=(val(s,"type")||"").toUpperCase(),parts=refs(s,"theNavaidEquipment").map(r=>C[r]).filter(Boolean);
+   const p=pos(part(s,"<aixm:location","</aixm:location>"))||((parts.find(x=>x.k==="VOR"&&x.p)||parts.find(x=>x.k==="NDB"&&x.p)||parts.find(x=>x.p)||{}).p)||null;
+   const ident=val(s,"designator")||(parts.find(x=>x.i)||{}).i||"",name=val(s,"name")||(parts.find(x=>x.n)||{}).n||"";
+   if(p){P[id]=p;PI[id]=ident}
+   if(ILS.has(ty)){const icao=AU[ref(s,"servedAirport")],loc=parts.find(x=>x.k==="LOC"),gp=parts.find(x=>x.k==="GP"),dme=parts.find(x=>x.k==="DME");if(!icao||!loc)continue;
+    const rw=((loc.n||"").match(/(\\d{2}[LRC]?)\\s*$/)||[])[1]||"";
+    A[icao].ils.push({rw,id:loc.i||ident,f:loc.f,t:ty.replace(/_/g,"/"),cat:name,gp:gp?(gp.sl||null):null,gpf:gp?gp.f:"",dme:dme?dme.ch:"",mb:loc.mb});nils++;continue}
+   if(!p||!/VOR|NDB|DME|TACAN/.test(ty))continue;
+   const v=parts.find(x=>x.k==="VOR"),n=parts.find(x=>x.k==="NDB"),d=parts.find(x=>x.k==="DME");
+   NAV.push({id,i:ident,n:name,k:/VOR/.test(ty)?(d?"VOR/DME":"VOR"):/NDB/.test(ty)?(d?"NDB/DME":"NDB"):ty,p,f:v?v.f:n?n.f:"",ch:d?d.ch:""})}
+  st.nav=NAV.length;st.ils=nils;
+  /* ILS course: the localizer's own magnetic bearing, else the runway's true bearing less the airport's variation */
+  Object.values(A).forEach(a=>{a.ils.forEach(x=>{const e=[].concat(...a.rw.map(r=>r.ends)).find(e=>e.d===x.rw);let c=x.mb;
+   if(c==null&&e)c=e.mb!=null?e.mb:e.tb!=null&&a.mv!=null?e.tb-a.mv:null;x.crs=c==null?null:Math.round(((c%360)+360)%360)||360;delete x.mb});
+   a.ils.sort((p,q)=>p.rw.localeCompare(q.rw,"en",{numeric:true}))});
+  /* fixes */
+  const FIX=[];for(const s of mem(F.DesignatedPoint)){const id=uid(s),p=pos(s),i=val(s,"designator");if(!id||!p||!i)continue;P[id]=p;PI[id]=i;FIX.push({id,i,p,ty:val(s,"type")||""})}
+  st.fix=FIX.length;
+  /* airways: each segment between two points, with its route's name */
+  const RT={};for(const s of mem(F.Route)){const id=uid(s);if(!id)continue;RT[id]=[val(s,"designatorPrefix"),val(s,"designatorSecondLetter"),val(s,"designatorNumber"),val(s,"multipleIdentifier")].filter(Boolean).join("")}
+  const SEG=[],COMP=new Set();let nos=0;
+  for(const s of mem(F.RouteSegment)){const a=part(s,"<aixm:start>","</aixm:start>"),b=part(s,"<aixm:end>","</aixm:end>");
+   const pt=x=>ref(x,"pointChoice_fixDesignatedPoint")||ref(x,"pointChoice_navaidSystem")||ref(x,"pointChoice_aimingPoint")||ref(x,"pointChoice_airportReferencePoint")||ref(x,"pointChoice_runwayPoint");
+   const pa=pt(a),pb=pt(b);if(!pa||!pb||!P[pa]||!P[pb]){nos++;continue}
+   const ca=val(a,"reportingATC")==="COMPULSORY",cb=val(b,"reportingATC")==="COMPULSORY";if(ca)COMP.add(pa);if(cb)COMP.add(pb);
+   const L=uv(s,"length"),mfa=(notes(s).join(" ").match(/minimum flight altitude\\s*:?\\s*(\\d+)\\s*m/i)||[])[1];
+   const mea=uv(s,"minimumEnrouteAltitude");
+   SEG.push({w:RT[ref(s,"routeFormed")]||"",a:pa,b:pb,len:L?Math.round(toM(L)/1852):Math.round(km(P[pa],P[pb])/1.852),trk:num(s,"magneticTrack"),rtrk:num(s,"reverseMagneticTrack"),
+    mea:mea?Math.round(toM(mea))+"m":mfa?mfa+"m":"",dir:val(s,"direction")||""})}
+  st.seg=SEG.length;st.segSkip=nos;
+  /* approach units and their frequencies */
+  const RC={};for(const s of mem(F.RadioCommunicationChannel)){const id=uid(s);if(!id)continue;RC[id]={f:fq(uv(s,"frequencyTransmission")||uv(s,"frequencyReception")),r:val(s,"rank")||""}}
+  const UN={};for(const s of mem(F.Unit)){const id=uid(s);if(!id)continue;UN[id]={n:val(s,"name")||"",t:val(s,"type")||"",apt:AU[ref(s,"airportLocation")]||null}}
+  const SV=[];for(const s of mem(F.AirTrafficControlService)){const fr=refs(s,"radioCommunication").map(r=>RC[r]).filter(x=>x&&x.f);if(!fr.length)continue;
+   fr.sort((a,b)=>(a.r==="PRIMARY"?0:1)-(b.r==="PRIMARY"?0:1));SV.push({cs:val(s,"callSign")||"",t:val(s,"type")||"",u:UN[ref(s,"serviceProvider")]||null,asp:refs(s,"clientAirspace"),f:Array.from(new Set(fr.map(x=>x.f)))})}
+  /* airspace: R, D, P, TMA, CTA and ADIZ; arcs and circles become points every 3 degrees */
+  const KEEP={R:"R",D:"D",P:"P",TMA:"TMA",CTA:"CTA",ADIZ:"ADIZ",CTR:"CTR"},AS={},FEAT=[];let nog=0,arcs=0,arcFlip=0;
+  for(const s of mem(F.Airspace)){const id=uid(s),ty=(val(s,"type")||"").toUpperCase();if(!id)continue;AS[id]={t:ty,d:val(s,"designator")||"",n:val(s,"name")||""};
+   if(!KEEP[ty]){if(ty==="SECTOR"){const hp=part(s,"<aixm:horizontalProjection","</aixm:horizontalProjection>");AS[id].hp=hp?part(hp,"<gml:exterior","</gml:exterior>"):""}continue}const vols=s.split("<aixm:AirspaceVolume").slice(1);let got=0;
+   vols.forEach(v=>{const lim=k=>{const x=raw(v,k);if(!x||x.t==="")return null;return[x.t,((x.a.match(/uom="([^"]*)"/)||[])[1]||"").toUpperCase(),(val(v,k+"Reference")||"").toUpperCase()]};
+    const hp=part(v,"<aixm:horizontalProjection","</aixm:horizontalProjection>");if(!hp)return;
+    const rings=[part(hp,"<gml:exterior","</gml:exterior>")].concat(hp.split("<gml:interior").slice(1)).map(rg=>ringOf(rg)).filter(r=>r&&r.length>=4);if(!rings.length)return;
+    got++;const lo=lim("lowerLimit"),hi=lim("upperLimit");
+    if(!AS[id].g)AS[id].g=rings[0];
+    FEAT.push({id,t:ty,d:AS[id].d,n:AS[id].n,lo:LIM(lo),hi:LIM(hi),g:rings.map(r=>r.map(p=>[r4(p[1]),r4(p[0])]))})});
+   if(!got)nog++}
+  function ringOf(rg){if(!rg)return null;const out=[],segs=Array.from(rg.matchAll(/<gml:(GeodesicString|LineStringSegment|Geodesic|ArcByCenterPoint|CircleByCenterPoint|ArcString)[\\s>][\\s\\S]*?<\\/gml:\\1>/g));
+   const ptsOf=x=>{const pl=/<gml:posList[^>]*>([^<]+)<\\/gml:posList>/.exec(x);if(pl){const n=pl[1].trim().split(/\\s+/).map(Number),o=[];for(let i=0;i+1<n.length;i+=2)o.push([n[i],n[i+1]]);return o}
+    return Array.from(x.matchAll(/<gml:pos(?:\\s[^>]*)?>([^<]+)<\\/gml:pos>/g),m=>m[1].trim().split(/\\s+/).map(Number)).filter(p=>p.length>=2)};
+   const ctr=x=>{const p=pos(x);if(p)return p;const m=/<gml:pointProperty\\s[^>]*?xlink:href="(?:urn:uuid:|#uuid\\.|#)?([^"]+)"/.exec(x);return m&&P[m[1]]?P[m[1]]:null};
+   const rad=x=>{const m=/<gml:radius(?:\\s+uom="([^"]*)")?[^>]*>([^<]+)<\\/gml:radius>/.exec(x);if(!m)return null;const u=(m[1]||"KM").toUpperCase(),v=+m[2];return u==="NM"||u==="[NMI_I]"?v*1.852:u==="M"?v/1000:u==="FT"?v*0.0003048:v};
+   const ang=(x,n)=>{const m=rx("g"+n,"<gml:"+n+"[^>]*>([^<]+)</gml:"+n+">").exec(x);return m?+m[1]:null};
+   for(let k=0;k<segs.length;k++){const [x,kind]=segs[k];
+    if(kind==="CircleByCenterPoint"){const c=ctr(x),r=rad(x);if(!c||!r)return null;for(let b=0;b<=360;b+=3)out.push(dest(c,b,r));continue}
+    if(kind==="ArcByCenterPoint"){const c=ctr(x),r=rad(x),a0=ang(x,"startAngle"),a1=ang(x,"endAngle");if(!c||!r||a0==null||a1==null)return null;arcs++;
+     /* the angles read as bearings (from north, clockwise); if that puts the arc's ends away from its neighbours, read them as GML's own (from east, anticlockwise) */
+     const mk=f=>{const sw=f(a1)-f(a0),n=Math.max(2,Math.ceil(Math.abs(sw)/3)),o=[];for(let i=0;i<=n;i++)o.push(dest(c,f(a0)+sw*i/n,r));return o};
+     const A1=mk(a=>a),A2=mk(a=>90-a),prev=out.length?out[out.length-1]:null,nx=k+1<segs.length?ptsOf(segs[k+1][0])[0]:null;
+     const err=o=>(prev?km(prev,o[0]):0)+(nx?km(nx,o[o.length-1]):0);let o=A1;if((prev||nx)&&err(A2)+0.05<err(A1)){o=A2;arcFlip++}
+     out.push(...o);continue}
+    out.push(...ptsOf(x))}
+   if(out.length<3)return null;const f=out[0],l=out[out.length-1];if(km(f,l)>0.01)out.push([f[0],f[1]]);
+   /* drop points closer than 30 m to the one before */
+   const o2=[out[0]];for(let i=1;i<out.length;i++)if(km(o2[o2.length-1],out[i])>0.03||i===out.length-1)o2.push(out[i]);return o2}
+  st.asp=FEAT.length;st.aspNoGeo=nog;st.arcs=arcs;st.arcFlip=arcFlip;
+  /* frequencies: for each airspace, and for each airport its approach (the unit at the airport, or the TMA named for it) */
+  const fqAsp={};SV.forEach(v=>v.asp.forEach(a=>{(fqAsp[a]=fqAsp[a]||[]).push({n:v.cs||(v.u&&v.u.n)||"",f:v.f})}));
+  FEAT.forEach(f=>{const x=fqAsp[f.id];if(x)f.fq=x.slice(0,4)});
+  /* an airport's approach: the approach units whose sectors are named for it (ZGGGAP01…), else those whose sectors
+     cover it (Pudong under Shanghai's); each with its sector names (AP01) and frequencies, main one first */
+  const APPR=/APPROACH|DEPARTURE|ARRIVAL|DIRECTOR|TERMINAL/i,ap=SV.filter(v=>v.cs&&APPR.test(v.cs));
+  const inside=(p,r)=>{let n=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const a=r[i],b=r[j];if((a[0]>p[0])!==(b[0]>p[0])&&p[1]<(b[1]-a[1])*(p[0]-a[0])/(b[0]-a[0])+a[1])n=!n}return n};
+  const geo=x=>{const a=AS[x];if(!a)return null;if(a.g===undefined)a.g=a.hp?ringOf(a.hp):null;return a.g};
+  const sect=v=>{const ds=v.asp.map(x=>AS[x]&&AS[x].d||"").filter(Boolean).map(d=>d.replace(/^[A-Z]{4}/,""));if(!ds.length)return"";
+   let p=ds.reduce((p,q)=>{let i=0;while(i<p.length&&p[i]===q[i])i++;return p.slice(0,i)});p=p.replace(/[^A-Z0-9]+$/,"");return p.length>=4?p:""};
+  Object.values(A).forEach(a=>{let L=ap.filter(v=>v.asp.some(x=>AS[x]&&AS[x].d.startsWith(a.i)));
+   if(!L.length&&a.p)L=ap.filter(v=>v.asp.some(x=>{const g=geo(x);return g&&inside(a.p,g)}));
+   const seen=new Set();a.fq=L.map(v=>({n:v.cs,s:sect(v),f:v.f})).filter(x=>{const k=x.n+x.s+x.f.join();if(seen.has(k))return false;seen.add(k);return true})
+    .sort((p,q)=>p.n.localeCompare(q.n)||p.s.localeCompare(q.s,"en",{numeric:true}))});
+  st.aptFq=Object.values(A).filter(a=>a.fq.length).length;
+  /* compact rows for the map */
+  const nav=NAV.map(n=>[n.i,n.n,n.k,r5(n.p[0]),r5(n.p[1]),n.f,n.ch]),fix=FIX.map(f=>[f.i,r5(f.p[0]),r5(f.p[1]),COMP.has(f.id)?1:0]);
+  const seg=SEG.map(g=>[g.w,PI[g.a]||"",r5(P[g.a][0]),r5(P[g.a][1]),PI[g.b]||"",r5(P[g.b][0]),r5(P[g.b][1]),g.len,g.trk,g.rtrk,g.mea,COMP.has(g.a)?1:0,COMP.has(g.b)?1:0,g.dir]);
+  const asp=FEAT.map(f=>({type:"Feature",properties:{t:f.t,d:f.d,n:f.n,lo:f.lo,hi:f.hi,fq:f.fq?f.fq.map(x=>x.n+" "+x.f.join(" ")).join(" · "):""},geometry:{type:"Polygon",coordinates:f.g}}));
+  return{apt:A,nav,fix,seg,asp:{type:"FeatureCollection",features:asp},st}}
+ /* the airways, fixes and navaids cut into the EFB's 8-degree IFR cells, rows the way the IFR map reads them */
+ function cells(d){const C={},key=(la,lo)=>(Math.floor(la/8)*8)+","+(Math.floor(lo/8)*8),get=k=>C[k]||(C[k]={routes:[],fixes:[],navs:[]});
+  const RN=/^[LMNPQTYZ]\\d/;
+  d.seg.forEach((g,i)=>{const la0=Math.min(g[2],g[5]),la1=Math.max(g[2],g[5]),lo0=Math.min(g[3],g[6]),lo1=Math.max(g[3],g[6]);
+   const row=["cn"+i,g[0],RN.test(g[0])?"RNAV":"",g[10]||null,null,null,g[8],g[9],g[7],[[[g[3],g[2]],[g[6],g[5]]]]];
+   for(let la=Math.floor(la0/8)*8;la<=la1;la+=8)for(let lo=Math.floor(lo0/8)*8;lo<=lo1;lo+=8)get(la+","+lo).routes.push(row)});
+  d.fix.forEach((f,i)=>get(key(f[1],f[2])).fixes.push(["cf"+i,f[0],f[2],f[1],f[3]]));
+  d.nav.forEach((n,i)=>get(key(n[3],n[4])).navs.push(["cv"+i,n[0],n[1],n[2],n[4],n[3],n[5]]));
+  return C}
+ return{open,parse,cells}})();
 /* ---------- Nav Data: each region's navigation data and whether it is current (Nov 2026, see navdata.js on the server) ---------- */
 const ND={busy:""};
 const ndDay=t=>new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"});
@@ -1475,8 +1682,8 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
-   +'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
-   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":s.id==="cn-aip"?'<span class="nd-soon">Upload comes next</span>':"")+"</div></article>").join("")+"</div></section>").join("")}
+   +(s.id==="cn-aip"?ndCnHtml(s):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
+   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":"")+"</div></article>").join("")+"</div></section>").join("")}
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
 async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#ndAll");if(b){b.disabled=true;b.textContent="Checking…"}
  try{const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(id?{id}:{})});OPS.nav={at:Date.now(),v,p:null,err:""}}
@@ -1484,6 +1691,46 @@ async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#
  finally{ND.busy="";if(b){b.disabled=false;b.textContent="Check all"}ndUi()}}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndAll,[data-ndchk]");if(!b||b.disabled)return;ndCheck(b.dataset.ndchk||"")});
 PG_LOAD.navdata=()=>{ndUi();ndLoad(true)};PG_TICK.navdata=[()=>ndLoad(false),60000];
+
+/* ---------- China: the AIP data set zip is dropped here each AIRAC; cnparse.js opens, checks and reads it in this
+   browser, and only the reduced data is sent (POST /admin/api/navdata/cn). Uploaded early, it switches by itself. */
+ND.cn={busy:false,msg:"",err:"",ok:""};
+const ndZ=t=>ndDay(t)+" "+new Date(t).toISOString().slice(11,16)+"Z";
+function ndCnHtml(s){const c=ND.cn,L=((s.cn&&s.cn.cycles)||[]).slice().sort((a,b)=>Date.parse(b.eff)-Date.parse(a.eff));
+ const list=L.length?'<ul class="nd-cyl">'+L.map(x=>{const st=x.st||{};
+   return '<li class="'+(x.inUse?"use":x.later?"later":"old")+'"><div><b>AIRAC '+esc(x.cycle)+'</b><span class="nd-tag">'+(x.inUse?"In use":x.later?"From "+ndZ(Date.parse(x.eff)):"Before")+"</span></div>"
+    +'<small>'+esc([st.apt?st.apt+" airports · "+(st.asp||0)+" airspaces · "+(st.seg||0)+" airway legs · "+(st.fix||0)+" fixes":"","uploaded "+ndDay(x.at)+" "+akZ(x.at)+(x.by?" by "+x.by:"")].filter(Boolean).join(" · "))+"</small>"
+    +'<button type="button" class="nd-x" data-ndcndel="'+esc(x.cycle)+'"'+(c.busy?" disabled":"")+">Remove</button></li>"}).join("")+"</ul>":"";
+ return list+'<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop><input type="file" accept=".zip,application/zip" id="ndCnFile"'+(c.busy?" disabled":"")+'>'
+  +'<b>'+esc(c.busy?(c.msg||"Working…"):"Drop the AIP data set zip here")+'</b><small>'+(c.busy?"Keep this page open until it finishes":"or click to choose it · eaipchina.cn › AIP Data Set › the BASELINE package. The current and the next AIRAC can both be uploaded.")+"</small></label>"
+  +(c.err?'<div class="msg err">'+esc(c.err)+"</div>":c.ok?'<div class="msg ok">'+esc(c.ok)+"</div>":"")}
+const ndCnMsg=()=>{const b=document.querySelector("[data-nddrop] b");if(b)b.textContent=ND.cn.msg};
+async function ndCnFile(f){const c=ND.cn;if(!f||c.busy)return;c.busy=true;c.err="";c.ok="";c.msg="Opening "+f.name+"…";ndUi();
+ try{if(!/\\.zip$/i.test(f.name))throw new Error("Choose the zip file: CN_AIP-DS_…_AIRAC….zip.");if(f.size>80*1048576)throw new Error("That file is too large to be the AIP data set.");
+  const ab=await f.arrayBuffer();
+  const o=await CNP.open(ab,p=>{c.msg="Checking each file against checksum.xml… "+Math.round(p*100)+"%";ndCnMsg()});
+  c.msg="Reading AIRAC "+o.cycle+"…";ndCnMsg();await new Promise(r=>setTimeout(r,40));
+  const d=CNP.parse(o.files),cells=CNP.cells(d);
+  if(!d.st.apt||!d.st.seg)throw new Error("No airports or airways were found in this data set.");
+  c.msg="Uploading AIRAC "+o.cycle+"…";ndCnMsg();
+  const r=await api("/admin/api/navdata/cn",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({meta:o.meta,sha:o.sha,file:f.name,size:f.size,st:d.st,apt:d.apt,asp:d.asp,cells})});
+  const eff=Date.parse(r.eff);
+  c.ok="AIRAC "+o.cycle+" uploaded. All "+o.checked+" files matched checksum.xml; "+d.st.apt+" airports, "+d.st.asp+" airspaces, "+d.st.seg+" airway legs, "+d.st.fix+" fixes and "+d.st.nav+" navaids. "
+   +(r.active===o.cycle?"The EFB uses it now.":eff>Date.now()?"The EFB switches to it by itself "+ndZ(eff)+" (00:00 Beijing).":"A newer AIRAC is in use.")}
+ catch(e){c.err=(e&&e.message)||String(e)}
+ finally{c.busy=false;c.msg="";await ndLoad(true)}}
+document.addEventListener("change",e=>{const t=e.target;if(!t||t.id!=="ndCnFile")return;const f=t.files&&t.files[0];t.value="";ndCnFile(f)});
+const ndFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files"));
+["dragenter","dragover"].forEach(k=>document.addEventListener(k,e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();const z=e.target.closest&&e.target.closest("[data-nddrop]");
+ document.querySelectorAll("[data-nddrop]").forEach(x=>x.classList.toggle("over",x===z&&!ND.cn.busy));e.dataTransfer.dropEffect=z&&!ND.cn.busy?"copy":"none"}));
+document.addEventListener("dragleave",e=>{if(pgNow==="navdata"&&!e.relatedTarget)document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"))});
+document.addEventListener("drop",e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"));
+ const z=e.target.closest&&e.target.closest("[data-nddrop]");if(z&&e.dataTransfer.files.length)ndCnFile(e.dataTransfer.files[0])});
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("[data-ndcndel]");if(!b||b.disabled)return;const cy=b.dataset.ndcndel,c=ND.cn;
+ if(!confirm("Remove AIRAC "+cy+" of the China AIP data set from the EFB? If it is in use, the EFB shows no China data until another uploaded AIRAC is in force."))return;
+ c.busy=true;c.err="";c.ok="";c.msg="Removing AIRAC "+cy+"…";ndUi();
+ try{await api("/admin/api/navdata/cn/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cycle:cy})});c.ok="AIRAC "+cy+" removed."}
+ catch(er){c.err=er.message}finally{c.busy=false;c.msg="";await ndLoad(true)}});
 
 /* on a phone the section tabs scroll: keep the open one in view */
 const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);

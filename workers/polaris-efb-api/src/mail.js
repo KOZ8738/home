@@ -183,7 +183,7 @@ export async function mailAdmin(req, url, env, opts) {
   /* Messages tab, sent as AOC: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */
   if (path === '/admin/api/aoc') return aocAdmin(req, url, env, who);
   /* Nav Data: where the EFB's navigation data comes from, region by region, and whether it is current (see navdata.js) */
-  if (path === '/admin/api/navdata' || path.startsWith('/admin/api/navdata/')) return opts && opts.navdata ? opts.navdata(req, path) : jsonRes({ error: 'Not available' }, 503);
+  if (path === '/admin/api/navdata' || path.startsWith('/admin/api/navdata/')) return opts && opts.navdata ? opts.navdata(req, path, who) : jsonRes({ error: 'Not available' }, 503);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });

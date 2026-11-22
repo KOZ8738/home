@@ -39,6 +39,8 @@
  *   GET /admin/api/watch                -> Flight Watch: alerts for the Polaris flights in the air (see watch.js)
  *   GET /admin/api/live, /admin/live.js -> Flight Watch: Polaris (PAW) flights on VATSIM and the globe (see live.js)
  *   GET /admin/api/navdata, POST /admin/api/navdata/check -> Nav Data: each region's navigation data and whether it is current (see navdata.js)
+ *   POST /admin/api/navdata/cn, /cn/delete -> the China AIP data set, uploaded each AIRAC (see cnaip.js)
+ *   GET /api/efb/cn/ifr?lv=&cell=, /cn/asp, /cn/apt?icao= -> China airways, airspace and airports, signed-in pilots only
  *   GET/POST /admin/api/settings        -> Settings: From names and AOC templates (see mail.js); GET /admin/api/checkins -> Pilots
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
@@ -72,6 +74,7 @@ export { PfdRelay } from './pfd.js';
 import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
+import { cnPublic } from './cnaip.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1507,6 +1510,8 @@ export default {
       const me = await sessionOf(req, env);
       return pmPublic(req, new URL(req.url), env, h, me, { live: pawLive, fresh: () => sessionOf(req, env, true) });
     }
+    /* China AIP data set: airways, airspace and airports for signed-in pilots (see cnaip.js) */
+    if (/^\/api\/efb\/cn\/(ifr|asp|apt)\/?$/.test(new URL(req.url).pathname)) return await cnPublic(req, new URL(req.url), env, h, await sessionOf(req, env));
     /* Messages: what reaches the flight deck on Hoppie's ACARS, read only (see aoc.js) */
     if (/^\/api\/efb\/hoppie\/?$/.test(new URL(req.url).pathname)) return await hoppiePeek(req, env, h, await sessionOf(req, env));
     /* the apps each pilot installed from the EFB's App Store (see kb.js) */
@@ -1593,7 +1598,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p) => navdataAdmin(rq, p, env, navDeps(env)), ctx }); }
+    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env), who), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

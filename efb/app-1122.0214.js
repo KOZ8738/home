@@ -12492,7 +12492,7 @@ function trPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)retur
   if(!w.querySelector("#trCv")){const b=w.querySelector("#mapBase");if(b)b.insertAdjacentHTML("afterend",`<canvas id="trCv" class="mapcv tr-cv" aria-hidden="true"></canvas>`)}
   if(!w.querySelector(".tr-pbtn"))w.insertAdjacentHTML("beforeend",`<button class="tr-pbtn" data-trpf aria-pressed="${TR.pf.open}">Profile</button>`);
   let L=w.querySelector(".tr-leg");if(TR.on&&!L){w.insertAdjacentHTML("beforeend",`<div class="tr-leg"></div>`);L=w.querySelector(".tr-leg")}else if(!TR.on&&L){L.remove();L=null}
-  let P=w.querySelector(".tr-prof");if(TR.pf.open&&!P)w.insertAdjacentHTML("beforeend",`<div class="tr-prof"><div class="tr-ph"><b>Profile</b><div class="tr-seg"><button data-trpm="route" aria-pressed="${TR.pf.mode==="route"}">Route</button><button data-trpm="ahead" aria-pressed="${TR.pf.mode==="ahead"}">Ahead 80 NM</button></div><span class="tr-pn" id="trPn"></span><button class="tr-px" data-trpf aria-label="Close">×</button></div><canvas id="trPf"></canvas></div>`);
+  let P=w.querySelector(".tr-prof");if(TR.pf.open&&!P)w.insertAdjacentHTML("beforeend",`<div class="tr-prof"><div class="tr-ph"><b>Profile</b><div class="tr-seg"><button data-trpm="route" aria-pressed="${TR.pf.mode==="route"}">Route</button><button data-trpm="ahead" aria-pressed="${TR.pf.mode==="ahead"}">Ahead 80 NM</button></div><span class="tr-pn" id="trPn"></span><span class="tr-pz"><button class="tr-zb" data-trz="out" aria-label="Zoom out" disabled>−</button><button class="tr-zb" data-trz="in" aria-label="Zoom in">+</button><button class="tr-zf" data-trz="fit" hidden>Fit</button><button class="tr-zb" data-trz="big" aria-pressed="false" aria-label="Taller"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></span><button class="tr-px" data-trpf aria-label="Close">×</button></div><canvas id="trPf"></canvas></div>`);
   else if(!TR.pf.open&&P)P.remove();if(w.classList.contains("tr-prof-on")!==!!TR.pf.open)w.classList.toggle("tr-prof-on",!!TR.pf.open);const pb=w.querySelector(".tr-pbtn");if(pb){pb.setAttribute("aria-pressed",String(TR.pf.open));pb.hidden=TR.pf.open}
   /* the layer switch, in Map › layers */
   const ml=w.querySelector("#mlPanel");if(ml&&!ml.querySelector("[data-trl]")){const rows=ml.querySelectorAll(".ml-row"),last=rows[rows.length-1];
@@ -12587,6 +12587,130 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 @container screen (max-width:560px){.tr-prof{right:8px;left:8px;height:190px}.tr-ph{flex-wrap:wrap}.tr-pn{flex-basis:100%;order:3}.tr-leg{bottom:96px}.mapwrap.tr-prof-on .tr-leg{bottom:210px}.tr-pbtn{bottom:64px}}
 </style>`);
 
+/* ===== Profile zoom (Nov 2026): Map › Profile and Logbook › Profile zoom along the distance =====
+   Mouse wheel about the pointer, two-finger pinch, drag to move along, double-click to zoom in ×4 (again to see it all).
+   On the Map the header has − + and Fit, and ⤢ makes the profile taller; zoomed in, the height scale follows what is
+   in view, so the ground near an airport is not flattened by the cruise level, and finer terrain tiles are used. */
+const PFZ={map:{a:0,b:1,min:.002},lt:{a:0,b:1,min:.002,pts:null}};
+const pfzOn=Z=>Z.b-Z.a<.999;
+function pfzSet(Z,a,w){w=Math.max(Z.min||.002,Math.min(1,w));a=Math.max(0,Math.min(1-w,a));Z.a=a;Z.b=a+w}
+/* el: what takes the gestures; plot(): its plot area {l,r} in client pixels; redraw() after a change */
+function pfzBind(el,Z,plot,redraw){if(!el||el.__pfz)return;el.__pfz=1;
+  const frac=x=>{const p=plot();return Math.max(0,Math.min(1,(x-p.l)/((p.r-p.l)||1)))};
+  const zoomAt=(x,k)=>{const u=frac(x),w=Z.b-Z.a,f=Z.a+u*w,w2=Math.max(Z.min||.002,Math.min(1,w/k));pfzSet(Z,f-u*w2,w2);redraw()};
+  el.addEventListener("wheel",e=>{const dy=e.deltaMode===1?e.deltaY*16:e.deltaY;if(!dy)return;e.preventDefault();e.stopPropagation();zoomAt(e.clientX,Math.exp(-dy*.0018))},{passive:false});
+  const P=new Map();let g=null;
+  el.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button)return;P.set(e.pointerId,{x:e.clientX,y:e.clientY});g=null;try{el.setPointerCapture(e.pointerId)}catch(er){}e.stopPropagation()});
+  el.addEventListener("pointermove",e=>{const q=P.get(e.pointerId);if(!q)return;e.stopPropagation();const dx=e.clientX-q.x;q.x=e.clientX;q.y=e.clientY;
+    if(P.size>=2){const [a,b]=[...P.values()],mx=(a.x+b.x)/2,dist=Math.max(24,Math.abs(a.x-b.x));
+      if(!g){const u=frac(mx);g={d:dist,w:Z.b-Z.a,f:Z.a+u*(Z.b-Z.a)}}
+      const u=frac(mx),w2=Math.max(Z.min||.002,Math.min(1,g.w*g.d/dist));pfzSet(Z,g.f-u*w2,w2);redraw();return}
+    const p=plot(),w=Z.b-Z.a;if(w>=1||!dx)return;pfzSet(Z,Z.a-dx/((p.r-p.l)||1)*w,w);redraw()});
+  const up=e=>{P.delete(e.pointerId);g=null};el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);el.addEventListener("lostpointercapture",up);
+  el.addEventListener("dblclick",e=>{e.preventDefault();e.stopPropagation();if(pfzOn(Z)){Z.a=0;Z.b=1;redraw()}else zoomAt(e.clientX,4)})}
+/* the Map's profile header: Fit when zoomed in, the taller profile */
+function pfzUi(){const P=document.querySelector("#view .tr-prof"),w=document.querySelector("#view .mapwrap");if(P)P.classList.toggle("big",!!TR.pf.big);
+  if(w&&w.classList.contains("tr-prof-big")!==!!(TR.pf.open&&TR.pf.big))w.classList.toggle("tr-prof-big",!!(TR.pf.open&&TR.pf.big));
+  const f=document.querySelector('#view [data-trz="fit"]');if(f)f.hidden=!pfzOn(PFZ.map);const bg=document.querySelector('#view [data-trz="big"]');if(bg){bg.setAttribute("aria-pressed",String(!!TR.pf.big));bg.setAttribute("aria-label",TR.pf.big?"Smaller":"Taller")}
+  const zo=document.querySelector('#view [data-trz="out"]');if(zo)zo.disabled=!pfzOn(PFZ.map)}
+TR.pf.big=!!store.get("trProfBig",false);
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-trz],[data-trpm]");if(!t)return;const Z=PFZ.map;
+  if(t.dataset.trpm){Z.a=0;Z.b=1;TR.pkey="";pfzUi();return}
+  const k=t.dataset.trz;if(k==="big"){TR.pf.big=!TR.pf.big;store.set("trProfBig",TR.pf.big)}
+  else if(k==="fit"){Z.a=0;Z.b=1}
+  else{const w=Z.b-Z.a,c=(Z.a+Z.b)/2,w2=Math.max(Z.min||.002,Math.min(1,k==="in"?w/2:w*2));pfzSet(Z,c-w2/2,w2)}
+  TR.pkey="";pfzUi()});
+/* the Map's profile drawn for the part in view (the original drew the whole route or the 80 NM ahead) */
+trProfDraw=function(){const cv=$("#trPf");if(!cv)return;
+  if(!cv.__ro){cv.__W=cv.clientWidth;cv.__H=cv.clientHeight;try{cv.__ro=new ResizeObserver(()=>{cv.__W=cv.clientWidth;cv.__H=cv.clientHeight;TR.pkey=""});cv.__ro.observe(cv)}catch(e){cv.__ro=1}}
+  if(!cv.__pfz){pfzBind(cv,PFZ.map,()=>{const r=cv.getBoundingClientRect();return{l:r.left+44,r:r.right-10}},()=>{TR.pkey="";pfzUi()});pfzUi()}
+  const W=cv.__ro===1?cv.clientWidth:cv.__W,H=cv.__ro===1?cv.clientHeight:cv.__H;if(!W||!H)return;const R=trLine();if(R.L.length<2){trPfMsg("Load a flight plan to see the profile.");return}
+  const span=R.ahead?Math.min(80,R.len):R.len,f=R.f,Z=PFZ.map;Z.min=Math.min(1,Math.max(.002,2/(span||1)));if(Z.b-Z.a<Z.min)pfzSet(Z,Z.a,Z.min);
+  const d0=Z.a*span,d1=Z.b*span,vis=Math.max(.01,d1-d0);
+  const key=[TR.pf.mode,span|0,TR.ver,f?Math.round(f.la*200)+","+Math.round(f.lo*200)+","+Math.round(f.alt/50)+","+Math.round(f.vs/100):"",W,H,NR&&NR.div?NR.div.icao:"",d0.toFixed(2),d1.toFixed(2)].join("|");
+  if(key===TR.pkey)return;TR.pkey=key;const dpr=Math.min(2,devicePixelRatio||1);if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+  /* finer terrain tiles the closer the view */
+  const zt=vis>800?7:vis>300?8:vis>100?9:vis>35?10:11,N0=Math.min(400,Math.max(60,Math.round(W/2.5))),T=[];let miss=0;
+  for(let i=0;i<=N0;i++){const dd=d0+vis*i/N0,p=trAlong(R.L,dd),e=trElev(p.la,p.lo,zt,true);if(e==null)miss++;T.push(e==null?null:Math.max(0,e))}
+  const plan=R.ahead||(typeof NR!=="undefined"&&NR.div)?[]:trPlanAlt(),own=f?f.alt:null;
+  const along=f&&f.la!=null?(R.ahead||(typeof NR!=="undefined"&&NR.div)?0:Math.max(0,R.len-(BP.nav?BP.nav.rem:R.len))):null,ownIn=own!=null&&along!=null&&along>=d0-1&&along<=d1+1;
+  /* the plan's altitude at a distance (between two fixes, on the straight line) */
+  const planAt=dd=>{for(let i=1;i<plan.length;i++)if(plan[i].d>=dd){const a=plan[i-1],b=plan[i],x=(dd-a.d)/((b.d-a.d)||1);return a.a+(b.a-a.a)*x}return plan.length?plan[plan.length-1].a:0};
+  const pv=plan.length?[planAt(d0),planAt(d1),...plan.filter(p=>p.d>d0&&p.d<d1).map(p=>p.a)]:[],zoomed=pfzOn(Z);
+  const tmax=Math.max(0,...T.filter(v=>v!=null)),pmax=Math.max(0,...(zoomed?pv:plan.map(p=>p.a)));
+  let top=zoomed?Math.max(tmax+1500,pmax+1500,ownIn?own+1500:0,3000):Math.max(tmax+2000,R.ahead?(own||0)+3000:pmax+3000,own!=null?own+2000:0,5000);
+  const tstep=top>20000?5000:top>8000?1000:500;top=Math.ceil(top/tstep)*tstep;
+  const ml=44,mr=10,mt=14,mb=20,X=dd=>ml+(W-ml-mr)*(dd-d0)/vis,Y=a=>mt+(H-mt-mb)*(1-a/top),dk=document.documentElement.classList.contains("dark")||matchMedia("(prefers-color-scheme: dark)").matches&&!document.documentElement.classList.contains("light");
+  /* grid */
+  c.font="500 10px "+(bpFont||"ui-monospace,monospace");c.fillStyle="rgba(127,127,127,.9)";c.strokeStyle="rgba(127,127,127,.22)";c.lineWidth=1;const step=top>30000?10000:top>12000?5000:top>5000?2000:top>2500?1000:500;
+  for(let a=0;a<=top;a+=step){const y=Y(a);c.beginPath();c.moveTo(ml,y);c.lineTo(W-mr,y);c.stroke();c.textAlign="right";c.textBaseline="middle";c.fillText(a>=18000?"FL"+a/100:fmt(a),ml-5,y)}
+  const xs=vis>1000?200:vis>400?100:vis>150?50:vis>60?20:vis>25?10:vis>10?5:vis>4?2:1;c.textAlign="center";c.textBaseline="top";
+  for(let d=Math.ceil(d0/xs)*xs;d<=d1+1e-6;d+=xs)c.fillText(String(Math.round(d)),X(d),H-mb+5);
+  /* the plot clipped to its area, so a line that runs on past the view stops at its edge */
+  c.save();c.beginPath();c.rect(ml,0,W-ml-mr,H);c.clip();
+  /* the ground: brown, red where at or above the aircraft, yellow within 1,000 ft below */
+  const col=a=>own!=null&&a>=own-100?"#E02626":own!=null&&a>=own-1000?"#F2B705":dk?"#7A5530":"#A0703F";
+  for(let i=0;i<N0;i++){const a=T[i],b=T[i+1];if(a==null||b==null)continue;const x0=X(d0+vis*i/N0),x1=X(d0+vis*(i+1)/N0);c.fillStyle=col(Math.max(a,b));c.beginPath();c.moveTo(x0,Y(0));c.lineTo(x0,Y(a));c.lineTo(x1,Y(b));c.lineTo(x1,Y(0));c.closePath();c.fill()}
+  /* the plan */
+  if(plan.length>1){c.strokeStyle="#D63AF9";c.lineWidth=2.5;c.beginPath();plan.forEach((p,i)=>{const x=X(p.d),y=Y(p.a);i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke();
+    c.fillStyle=dk?"#ddd":"#333";c.font="600 9.5px "+(bpFont||"ui-monospace,monospace");c.textAlign="center";c.textBaseline="bottom";let lx=-99;for(const p of plan){if(p.d<d0||p.d>d1)continue;const x=X(p.d);if(x-lx<46||!p.n)continue;lx=x;c.fillText(p.n,x,Math.max(mt+10,Y(p.a)-4))}}
+  else{c.fillStyle=dk?"#ddd":"#333";c.font="600 9.5px "+(bpFont||"ui-monospace,monospace");c.textAlign="center";c.textBaseline="top";let lx=-99;for(const p of R.L){if(!p.id||p.d<d0||p.d>d1)continue;const x=X(p.d);if(x-lx<46)continue;lx=x;c.fillText(p.id,x,mt);c.strokeStyle="rgba(127,127,127,.35)";c.beginPath();c.moveTo(x,mt+12);c.lineTo(x,H-mb);c.stroke()}}
+  /* the aircraft, its altitude and the next two minutes at its vertical speed */
+  if(f&&f.la!=null&&along!=null){const x=X(along),y=Y(f.alt);
+    if(own<=top){c.strokeStyle="rgba(10,132,255,.6)";c.setLineDash([5,4]);c.lineWidth=1.2;c.beginPath();c.moveTo(ml,y);c.lineTo(W-mr,y);c.stroke();c.setLineDash([])}
+    if(f.gs>40){const d2=f.gs*2/60,a2=f.alt+f.vs*2;c.strokeStyle="#30D158";c.lineWidth=2.5;c.beginPath();c.moveTo(x,y);c.lineTo(X(Math.min(span,along+d2)),Y(Math.max(0,a2)));c.stroke()}
+    c.fillStyle="#0A84FF";c.strokeStyle="#fff";c.lineWidth=1.5;c.beginPath();c.moveTo(x+9,y);c.lineTo(x-7,y-6);c.lineTo(x-7,y+6);c.closePath();c.fill();c.stroke()}
+  c.restore();
+  const where=zoomed?Math.round(d0)+"–"+Math.round(d1)+" of "+Math.round(span)+" NM · "+(1/(Z.b-Z.a)).toFixed(1).replace(/\.0$/,"")+"×":"";
+  trPfMsg((miss>N0*.3?"Loading terrain… · ":"")+(zoomed?(R.ahead?"Ahead · ":"")+where:(R.ahead?"Next "+Math.round(span)+" NM from your aircraft":(typeof NR!=="undefined"&&NR.div?"Diversion to "+NR.div.icao+" · ":"")+Math.round(span)+" NM"))+(own==null?" · no aircraft position":""))};
+/* ---- Logbook › Profile: the same zoom on the flown altitude ---- */
+function ltProfInner(pts,Z){const n=pts.length;let d=0;const D=[0];for(let i=1;i<n;i++){d+=ltNm(pts[i-1],pts[i]);D.push(d)}
+  const W=900,H=220,pl=46,pr=46,pt=14,pb=26,zoomed=pfzOn(Z),d0=zoomed?Z.a*d:0,d1=zoomed?Z.b*d:d,vis=Math.max(.01,d1-d0);
+  /* the points in view, with one either side so the line reaches the edges */
+  let i0=0,i1=n-1;if(zoomed){while(i0<n-1&&D[i0+1]<d0)i0++;i1=i0;while(i1<n-1&&D[i1]<=d1)i1++}
+  const V=pts.slice(i0,i1+1),maxV=Math.max(0,...V.map(p=>p[2]||0)),hasG=pts.filter(p=>p[3]).length>n/3,maxG=hasG?Math.max(100,...pts.map(p=>p[3]||0)):1;
+  const tstep=zoomed?(maxV>20000?5000:maxV>8000?2000:1000):5000,top=Math.max(tstep,Math.ceil(Math.max(zoomed?500:1000,maxV*(zoomed?1.08:1))/tstep)*tstep);
+  const X=v=>pl+(W-pl-pr)*(v-d0)/vis,Y=v=>pt+(H-pt-pb)*(1-v/top);
+  const grid=[];for(let a=0;a<=top;a+=top>20000?(zoomed?5000:10000):tstep)grid.push(`<line x1="${pl}" x2="${W-pr}" y1="${Y(a).toFixed(1)}" y2="${Y(a).toFixed(1)}"/><text x="${pl-6}" y="${(Y(a)+4).toFixed(1)}" text-anchor="end">${a>=10000?"FL"+a/100:a}</text>`);
+  const step=vis>2000?500:vis>600?200:vis>200?50:vis>60?20:vis>20?5:vis>8?2:1,ticks=[];
+  for(let v=Math.ceil(d0/step)*step;v<=d1+1e-6;v+=step)if(X(v)<=W-pr-26)ticks.push(`<text x="${X(v).toFixed(1)}" y="${H-8}" text-anchor="middle">${Math.round(v)}</text>`);
+  const line=V.map((p,k)=>`${k?"L":"M"}${X(D[i0+k]).toFixed(1)},${Y(p[2]||0).toFixed(1)}`).join("");
+  const gs=hasG?V.map((p,k)=>`${k?"L":"M"}${X(D[i0+k]).toFixed(1)},${(pt+(H-pt-pb)*(1-(p[3]||0)/(maxG*1.1))).toFixed(1)}`).join(""):"";
+  let iMax=i0;for(let i=i0;i<=i1;i++)if((pts[i][2]||0)>(pts[iMax][2]||0)&&D[i]>=d0&&D[i]<=d1)iMax=i;const mx=pts[iMax][2]||0,showMax=D[iMax]>=d0&&D[iMax]<=d1;
+  return `<defs><clipPath id="ltPfClip"><rect x="${pl}" y="0" width="${W-pl-pr}" height="${H}"/></clipPath></defs><g class="lt-g">${grid.join("")}${ticks.join("")}<text x="${W-pr+6}" y="${H-8}">NM</text></g>
+    <g clip-path="url(#ltPfClip)"><path class="lt-area" d="${line}L${X(D[i1]).toFixed(1)},${Y(0)}L${X(D[i0]).toFixed(1)},${Y(0)}Z"/><path class="lt-alt" d="${line}"/>${gs?`<path class="lt-gs" d="${gs}"/>`:""}</g>
+    ${showMax?`<circle class="lt-dot" cx="${X(D[iMax]).toFixed(1)}" cy="${Y(mx).toFixed(1)}" r="4"/><text class="lt-lbl" x="${X(D[iMax]).toFixed(1)}" y="${(Y(mx)-9).toFixed(1)}" text-anchor="middle">${mx>=10000?"FL"+Math.round(mx/100):mx+" ft"}</text>`:""}
+    ${zoomed?`<text class="lt-lbl lt-zn" x="${W-pr}" y="11" text-anchor="end">${Math.round(d0)}–${Math.round(d1)} NM · ${(1/(Z.b-Z.a)).toFixed(1).replace(/\.0$/,"")}×</text>`:""}`}
+{const _lp=ltProfile;ltProfile=function(pts){const h=_lp.apply(this,arguments);if(!h)return h;const Z=PFZ.lt;if(Z.pts!==pts){Z.pts=pts;Z.a=0;Z.b=1}
+  let d=0;for(let i=1;i<pts.length;i++)d+=ltNm(pts[i-1],pts[i]);Z.min=Math.min(1,Math.max(.002,2/(d||1)));
+  return h.replace(/<svg class="lt-prof"([^>]*)>[\s\S]*?<\/svg>/,(m,a)=>`<svg class="lt-prof"${a}>${ltProfInner(pts,Z)}</svg>`)
+    .replace('<div class="lt-leg">',`<div class="lt-leg"><button type="button" class="lt-fit" data-ltfit${pfzOn(Z)?"":" hidden"}>Show the whole flight</button>`)
+    .replace(/<\/div>$/,`<span class="lt-hint">${matchMedia("(pointer:coarse)").matches?"Pinch to zoom":"Scroll to zoom, drag to move"}</span></div>`)}}
+function ltPfRedraw(){const sv=document.querySelector(".lt-prof"),Z=PFZ.lt;if(!sv||!Z.pts)return;sv.innerHTML=ltProfInner(Z.pts,Z);const b=document.querySelector("[data-ltfit]");if(b)b.hidden=!pfzOn(Z);
+  if(typeof lpDraw==="function")try{lpDraw()}catch(e){}}
+function ltPfBind(){const sv=document.querySelector(".lt-prof");if(!sv||sv.__pfz)return;
+  pfzBind(sv,PFZ.lt,()=>{const r=sv.getBoundingClientRect(),k=Math.min(r.width/900,r.height/220)||1,x0=r.left+(r.width-900*k)/2;return{l:x0+46*k,r:x0+(900-46)*k}},ltPfRedraw)}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);try{ltPfBind()}catch(e){}return v}}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-ltfit]");if(!b)return;PFZ.lt.a=0;PFZ.lt.b=1;ltPfRedraw()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* Profile zoom (Nov 2026) */
+.tr-pz{display:flex;gap:4px;align-items:center}
+.tr-zb{border:0;background:rgba(127,127,127,.18);color:inherit;width:26px;height:26px;border-radius:50%;font:600 16px/1 var(--f-os);cursor:pointer;display:grid;place-items:center;padding:0}
+.tr-zb:disabled{opacity:.35;cursor:default}
+.tr-zb svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tr-zb[aria-pressed="true"]{background:var(--ink);color:var(--panel,#fff)}
+.tr-zf{border:0;background:rgba(127,127,127,.18);color:inherit;height:26px;border-radius:13px;padding:0 11px;font:600 12px var(--f-os);cursor:pointer}
+.tr-prof.big{height:min(440px,58%)}
+.mapwrap.tr-prof-big .tr-leg{bottom:calc(min(440px,58%) + 24px)}
+#trPf{touch-action:none}
+.lt-prof{touch-action:pan-y}
+.lt-leg .lt-fit{border:0;background:rgba(127,127,127,.16);color:var(--ink);border-radius:6px;padding:3px 9px;font:600 12px var(--f-os);cursor:pointer}
+.lt-hint{margin-left:auto;opacity:.75}
+.lt-zn{font-weight:600}
+@container screen (max-width:560px){.tr-prof.big{height:min(400px,62%)}.mapwrap.tr-prof-big .tr-leg{bottom:calc(min(400px,62%) + 20px)}.tr-px{order:2;margin-left:auto}.tr-pz{order:3}.tr-ph .tr-pn{order:4;flex:1 1 120px;flex-basis:auto}}
+</style>`);
+
 /* ===== Logbook: play the flight back =====
    Under a PIREP's flown track: play, pause, 10× to 240× speed and a slider through the flight. The aircraft moves
    along the track on the map (the part flown so far drawn bright, the rest faint), a cursor runs along the altitude
@@ -12639,7 +12763,7 @@ function lpDraw(force){const M=LP.M;if(!M||LP.id!==M.id)return;const s=lpAt(M,LP
     let dot=sv.querySelector(".lp-dot");if(!dot){sv.insertAdjacentHTML("beforeend",'<circle class="lp-dot" r="7"/>');dot=sv.querySelector(".lp-dot")}dot.setAttribute("cx",X.toFixed(1));dot.setAttribute("cy",Y.toFixed(1))}}
   const info=$("#lpInfo");if(info)info.innerHTML=lpInfo(M,s);const sk=document.querySelector("[data-lpseek]");if(sk&&document.activeElement!==sk)sk.value=String(Math.round(s.t/M.dur*1000));
   /* the profile's cursor, at the same distance (its x runs 46…854 of 900) */
-  const cu=$("#lpCur");if(cu){cu.style.left=((46+(900-92)*(M.dist?s.d/M.dist:0))/900*100).toFixed(2)+"%";cu.style.opacity=LP.t>0||LP.on?1:0}}
+  const cu=$("#lpCur");if(cu){const Z=PFZ.lt,u=M.dist?(s.d/M.dist-Z.a)/((Z.b-Z.a)||1):0;cu.style.left=((46+(900-92)*u)/900*100).toFixed(2)+"%";cu.style.opacity=(LP.t>0||LP.on)&&u>=-.001&&u<=1.001?1:0}}
 function lpTick(now){if(!LP.on){LP.raf=0;return}LP.raf=requestAnimationFrame(lpTick);const M=LP.M;if(!M||cur!=="logbook"||!$("#lpBox")){LP.on=false;return}
   const dt=LP.last?Math.min(200,now-LP.last):0;LP.last=now;LP.t+=dt*LP.spd;if(LP.t>=M.dur){LP.t=M.dur;LP.on=false;lpBtn()}lpDraw()}
 function lpBtn(){const b=document.querySelector("[data-lp='play']");if(b){b.setAttribute("aria-label",LP.on?"Pause":"Play");b.innerHTML=LP.on?'<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>':'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg>'}}
@@ -13564,8 +13688,23 @@ function cbView(first){const m=CB.map;const el=$("#cb");if(el)el.dataset.mode=CB
   if(!R.length){m.easeTo({center:[121,25],zoom:1.6,pitch:0,bearing:0,padding:CB_Z0,duration:d});return}
   const cam=cbRouteCam(m);if(cam)m.easeTo(Object.assign({},cam,{pitch:0,bearing:0,padding:CB_Z0,duration:d}))}
 function cbSet(mode,byHand){if(!CB_MODES.includes(mode))return;CB.mode=mode;if(byHand)CB.idle=Date.now();document.querySelectorAll(".cb-views [data-cb]").forEach(b=>b.setAttribute("aria-pressed",String(cbOn(b.dataset.cb))));cbPaint(true);cbView(false)}
+/* the panels change in place (Nov 2026): a card built again each second came in again with its fade, and the blur
+   behind it was laid again, so it flashed once a second; now only the numbers and the compass that changed are
+   touched. A different card (another view) is still put in fresh, with its fade. */
+function cbMorph(el,html){const T=document.createElement("template");T.innerHTML=html;const a=el.firstElementChild,b=T.content.firstElementChild;
+  const kind=e=>e?e.tagName+"|"+String(e.getAttribute("class")||"").replace(/\bopen\b/,"").replace(/\s+/g," ").trim():"";
+  if(!a||!b||kind(a)!==kind(b)||el.childNodes.length!==1||T.content.childNodes.length!==1){el.innerHTML=html;return}
+  cbMorphEl(a,b)}
+function cbMorphEl(x,y){for(const at of [...x.attributes])if(!y.hasAttribute(at.name))x.removeAttribute(at.name);
+  for(const at of [...y.attributes])if(x.getAttribute(at.name)!==at.value)x.setAttribute(at.name,at.value);
+  const A=[...x.childNodes],B=[...y.childNodes];
+  for(let i=0;i<B.length;i++){const p=A[i],q=B[i];
+    if(!p){x.appendChild(q);continue}
+    if(p.nodeType!==q.nodeType||p.nodeName!==q.nodeName){x.replaceChild(q,p);continue}
+    if(p.nodeType===1)cbMorphEl(p,q);else if(p.data!==q.data)p.data=q.data}
+  for(let i=A.length-1;i>=B.length;i--)A[i].remove()}
 /* the panels once a second */
-function cbPaint(force){if(cur!=="cabin")return;const el=$("#cb");if(!el)return;const ok=bpPlan(),s=cbLive(),M=CB.mode,set=(id,h)=>{const e=$("#"+id);if(e&&e._h!==h){e._h=h;e.innerHTML=h}};
+function cbPaint(force){if(cur!=="cabin")return;const el=$("#cb");if(!el)return;const ok=bpPlan(),s=cbLive(),M=CB.mode,set=(id,h)=>{const e=$("#"+id);if(e&&e._h!==h){e._h=h;cbMorph(e,h)}};
   el.dataset.ph=CB.ph;
   if(M==="home"&&ok)cbHeroPaint();else set("cbMid",!ok?"":M==="route"||M==="close"?cbCard():CB_3D.includes(M)?cbChip():M==="info"?cbInfoCard():M==="network"?cbNetCard():M==="tower"&&s&&s.g?cbTwrCard():"");
   /* on the ground: the airport's layout ahead of the tower view; the traffic while the tower view is up */

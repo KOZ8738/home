@@ -2465,10 +2465,10 @@ const FCW={fc:{},taf:{},loading:{},tafLoading:{},err:{}};
 function fcwLoad(icao,lat,lon){if(!vam.url||!icao)return;
   const f=FCW.fc[icao];if(lat!=null&&lon!=null&&!FCW.loading[icao]&&(!f||Date.now()-f.at>(f.err?60000:20*60000))){FCW.loading[icao]=true;
     vamGet(`/api/efb/fc?lat=${lat}&lon=${lon}`,25000).then(j=>{if(!j||!j.hours)throw new Error((j&&j.error)||"No forecast");FCW.fc[icao]={at:Date.now(),d:j}})
-      .catch(e=>{FCW.fc[icao]={at:Date.now(),d:(f&&f.d)||null,err:e.message||"Couldn’t load"}}).finally(()=>{FCW.loading[icao]=false;if(cur==="wx")render()})}
+      .catch(e=>{FCW.fc[icao]={at:Date.now(),d:(f&&f.d)||null,err:e.message||"Couldn’t load"}}).finally(()=>{FCW.loading[icao]=false;wxDataRender()})}
   const t=FCW.taf[icao];if(!FCW.tafLoading[icao]&&(!t||Date.now()-t.at>15*60000)){FCW.tafLoading[icao]=true;
     vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{FCW.taf[icao]={at:Date.now(),raw:j&&j.taf&&j.taf.raw||null,metar:j&&j.metar&&j.metar.raw||null};if(j&&j.airport&&typeof AS!=="undefined"&&!AS.data[icao])AS.data[icao]=j})
-      .catch(()=>{FCW.taf[icao]={at:Date.now()-14*60000,raw:null,fail:true}}).finally(()=>{FCW.tafLoading[icao]=false;if(cur==="wx")render()})}}
+      .catch(()=>{FCW.taf[icao]={at:Date.now()-14*60000,raw:null,fail:true}}).finally(()=>{FCW.tafLoading[icao]=false;wxDataRender()})}}
 /* ---- TAF decoding into hours ---- */
 function tafFields(s){const t=s.split(/\s+/),r={};
   for(let i=0;i<t.length;i++){const w=t[i];let m;
@@ -2727,9 +2727,9 @@ function wxDetail(role,label,apt,metar,taf){const m=decodeMetar(metar);const rwy
    <section class="card">${cardH("Observation","METAR")}<div class="raw" style="border:0">${esc(metar)}</div></section></div>`:`<div class="notice"><b>No report</b><span>This plan has no METAR for ${esc(S(apt.icao_code))}.</span></div>`}
    ${tafHtml(taf)}`}
 V.wx=()=>{const apts=wxFor(O());if(wxSel!=="dec"&&!apts.some(a=>a[1]===wxSel))wxSel=(apts[0]||[])[1]||"dec";
-  const side=sideHead("Weather","Airports",ofp._sample?AL().base:"Reports in your OFP")+`<nav class="snav" aria-label="Airports">${apts.map(a=>{const m=decodeMetar(a[3]);return navBtn(`data-wxsel="${a[1]}"`,wxSel===a[1],`<b style="font:500 10px var(--f-mono)">${a[1]}</b>`,esc(S(a[2].icao_code)),m?`<span class="pill ${m.cat}"><i></i>${m.cat}</span>`:"",esc(m?windTxt(m.wind)+" KT · "+(m.temp??"—")+"°C":"No report"))}).join("")}</nav>
+  const side=sideHead("Weather","Airports",ofp._sample?AL().base:"Newest METAR and TAF")+`<nav class="snav" aria-label="Airports">${apts.map(a=>{const m=decodeMetar(a[3]);return navBtn(`data-wxsel="${a[1]}"`,wxSel===a[1],`<b style="font:500 10px var(--f-mono)">${a[1]}</b>`,esc(S(a[2].icao_code)),m?`<span class="pill ${m.cat}"><i></i>${m.cat}</span>`:"",esc(m?windTxt(m.wind)+" KT · "+(m.temp??"—")+"°C":"No report"))}).join("")}</nav>
    <div class="slabel">Tools</div><nav class="snav">${navBtn('data-wxsel="dec"',wxSel==="dec",ico("code"),"METAR decoder","")}</nav>
-   <div class="sfoot side-x"><a class="btn sm" href="https://aviationweather.gov/data/metar/?ids=${encodeURIComponent(apts.map(a=>S(a[2].icao_code)).join(","))}&taf=1" target="_blank" rel="noopener">Latest on aviationweather.gov ↗</a><p class="note" style="margin-top:8px">${ofp._sample?"No flight loaded: live report for the "+(AL().base==="Base"?"base":AL().base)+".":"Reports are from the OFP, as of when it was generated."}</p></div>`;
+   <div class="sfoot side-x"><a class="btn sm" href="https://aviationweather.gov/data/metar/?ids=${encodeURIComponent(apts.map(a=>S(a[2].icao_code)).join(","))}&taf=1" target="_blank" rel="noopener">Latest on aviationweather.gov ↗</a><p class="note" style="margin-top:8px">${ofp._sample?"No flight loaded: live report for the "+(AL().base==="Base"?"base":AL().base)+".":"The newest METAR and TAF from the EFB server, checked every 15 minutes (the OFP’s when they are newer). Refresh on an airport asks again now."}</p></div>`;
   let main;if(wxSel==="dec")main=`<section class="card">${cardH("Decoder","Decode any METAR")}<div class="card-b" style="display:grid;gap:14px">
      <label class="f">METAR<textarea id="mtIn" rows="3" placeholder="KSFO 091356Z 29012KT 10SM FEW008 14/11 A3008"></textarea></label>
      <div class="row" style="align-items:flex-end"><label class="f" style="width:140px">Runway<input type="text" id="mtRwy" placeholder="28R"></label><button class="btn pri" id="mtGo">Decode</button></div></div></section><div id="mtOut"></div>`;
@@ -3630,6 +3630,39 @@ function wxMoonTile(ll,F){const[la,lo]=ll,now=Date.now(),tz=F&&F.tz,A=wxAstro(la
     <div class="wi-mb"><div class="wi-mface"${img?"":` data-loading`}>${img?`<img src="${img}" alt="" style="transform:rotate(${A.rot.toFixed(3)}rad)">`:""}</div>
     <div class="wi-mt"><div class="wi-tv wi-mname">${name}</div><dl>${row("Illumination",Math.round(A.lit*100)+"%")}${ev.map(e=>row(e[1],esc(wxLT(e[0],tz))+(tz?` <small>${wxZ(e[0])}</small>`:""))).join("")}${row("Next full moon",esc(fmd)+(fd>0?` <small>in ${fd} day${fd>1?"s":""}</small>`:""))}</dl></div></div></section>`}
 
+/* Weather app (Nov 2026): the plan's airports show the newest METAR and TAF from the EFB server when it is newer than
+   the plan's (a SimBrief plan carries the reports from when it was made, often hours old); "Refresh" on an airport's
+   page asks the server again at once instead of after 15 minutes */
+const wxObsMin=raw=>{const m=raw?decodeMetar(raw):null,o=m?wxObs(m):null;return o?o.min:null};
+{const _w0=wxFor0;wxFor0=function(x){const L=_w0.apply(this,arguments);
+  return L.map(a=>{const ic=S(a[2].icao_code);try{fcwLoad(ic,N(a[2].pos_lat),N(a[2].pos_long))}catch(e){}const t=FCW.taf[ic];if(!t||!t.metar)return a;
+    const lm=wxObsMin(t.metar),om=wxObsMin(a[3]);return om==null||(lm!=null&&lm<om)?[a[0],a[1],a[2],t.metar,t.raw||a[4]]:a})}}
+const WXRF={};
+function wxRfBtn(icao){const busy=!!(FCW.tafLoading[icao]||WXRF[icao]);return `<button type="button" class="pill wi-rf" data-wxrf="${esc(icao)}"${busy?" disabled":""} title="Ask for the newest METAR and TAF">${busy?"Updating…":"↻ Refresh"}</button>`}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-wxrf]");if(!b||b.disabled)return;const ic=b.dataset.wxrf;
+  if(!vam.url){toast("Set the EFB server in Settings to get live weather");return}
+  const a=wxFor(O()).find(q=>S(q[2].icao_code)===ic),before=a?a[3]:"",t0=Date.now();
+  if(FCW.taf[ic])FCW.taf[ic].at=0;if(FCW.fc[ic])FCW.fc[ic].at=0;if(ofp._sample&&BASEWX.icao===ic){BASEWX.at=0;baseWxLoad()}
+  WXRF[ic]=1;try{fcwLoad(ic,a?N(a[2].pos_lat):null,a?N(a[2].pos_long):null)}catch(er){}render();
+  /* when the answer is in: say whether a newer report came */
+  const wait=()=>{if(FCW.tafLoading[ic]&&Date.now()-t0<30000){setTimeout(wait,400);return}delete WXRF[ic];
+    const t=FCW.taf[ic],now=wxFor(O()).find(q=>S(q[2].icao_code)===ic),raw=now?now[3]:"",m=raw?decodeMetar(raw):null,o=m?wxObs(m):null;
+    if(t&&t.fail)toast("Couldn’t reach the EFB server for "+ic+". Try again in a moment.");
+    else if(raw&&raw!==before)toast(ic+" updated · METAR "+(o?o.z+(o.ago?", "+o.ago:""):""));
+    else toast(o?ic+": no newer METAR yet · the latest is from "+o.z+(o.ago?", "+o.ago:""):"No METAR from "+ic+" right now");
+    if(cur==="wx")render()};
+  setTimeout(wait,300)});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.wi-pills .wi-rf{cursor:pointer;font-weight:600}
+.wi-pills .wi-rf:disabled{opacity:.75;cursor:default}
+.wi-pills{flex-wrap:wrap}
+</style>`);
+/* Weather app (Nov 2026): changing airport draws the new page once. Its own fade (wi-in) is the only one (the
+   views' generic swap fade no longer runs on top of it, which played the fade a second time when it ended), and the
+   forecast and reports that come in from the server redraw the page after that fade, together, not in the middle of it */
+const WXQ={sel:null,at:0,t:0};
+{const _r=render;render=function(){if(cur==="wx"&&wxSel!==WXQ.sel){WXQ.sel=wxSel;WXQ.at=Date.now()}else if(cur!=="wx")WXQ.sel=null;return _r.apply(this,arguments)}}
+function wxDataRender(){if(cur!=="wx")return;clearTimeout(WXQ.t);WXQ.t=setTimeout(()=>{WXQ.t=0;if(cur==="wx")render()},Math.max(160,WXQ.at+450-Date.now()))}
 /* rebuild one airport's page from what the Weather app made for it */
 function wxIos(html,role,label,apt,metar){const T=document.createElement("template");T.innerHTML=html;const R=T.content,q=s=>R.querySelector(s);
   const hero=q(".wxhero");if(!hero)return html;
@@ -3643,7 +3676,7 @@ function wxIos(html,role,label,apt,metar){const T=document.createElement("templa
   const stale=!dec&&ob&&ob.min>=75?`<span class="pill wi-stale">METAR ${esc(ob.ago.replace(/ ago$/,""))} old</span>`:"";
   const top=`<div class="wi-hero"><span class="wi-role">${wxIc(dec?"raw":"pin")}${esc(label)} · ${esc(icao)}</span><h2>${esc(S(apt.name)||icao)}</h2>
     <div class="wi-temp">${m&&m.temp!=null?wxTs(m.temp):"—"}</div><div class="wi-cond">${esc(condText(m))}</div>
-    ${hl?`<div class="wi-hl">H:${wxTs(hl.hi)}  L:${wxTs(hl.lo)}</div>`:""}<div class="wi-pills">${pills}${stale}</div></div>`;
+    ${hl?`<div class="wi-hl">H:${wxTs(hl.hi)}  L:${wxTs(hl.lo)}</div>`:""}<div class="wi-pills">${pills}${stale}${dec?"":wxRfBtn(icao)}</div></div>`;
   if(!m){const nt=q(".notice");
     return `<div class="wi">${top}${nt?`<section class="wi-card wi-none">${nt.innerHTML}</section>`:""}${dec?"":wxRestCards(R,fc,"",m)}</div>`}
   const w=m.wind,calm=w&&w.spd===0&&!w.gust,spd=w?(calm?"Calm":w.spd):"—";
@@ -9820,7 +9853,7 @@ window.addEventListener("resize",()=>{const i=$("#ftabs .ft-ind");if(i)i._x=0;ft
 /* sections and tabs inside an app: the content cross-fades after the render the tap causes */
 let vwSwap=0;
 document.addEventListener("click",e=>{if(motionOff()||!e.target.closest)return;
-  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-wxsel],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
+  const t=e.target.closest("[data-tab],[data-lgtab],[data-psec],[data-clmode],[data-cl],[data-mailbox],[data-chapt],[data-kbopen],[data-ntapt],[data-pfmode]");
   if(t&&t.closest("#view"))vwSwap=Date.now()},true);
 {const _u=updBar;updBar=function(){const r=_u.apply(this,arguments);
   if(vwSwap&&Date.now()-vwSwap<400){vwSwap=0;const el=$("#view .detail>.dwrap")||$("#view .detail")||($("#view")&&$("#view").firstElementChild);

@@ -13,6 +13,8 @@ type Raw = {
   /** vAMSYS (ACARS) flights: phase as vAMSYS reports it, pilot ID and rank, registration, network, track */
   src?: 'vAMSYS' | 'VATSIM'; vphase?: string; pilot?: string; rank?: string; reg?: string; acName?: string; net?: string;
   departed?: string; eta?: string; remain?: number | null; trail?: [number, number][];
+  /** when the position was taken (server clock, ms), from which source; `at`: the same moment on this browser's clock */
+  pt?: number; ps?: 'VATSIM' | 'vAMSYS'; at?: number;
 };
 type Phase = 'gate' | 'taxiout' | 'takeoff' | 'cruise' | 'descent' | 'taxiin' | 'arrived';
 /** wingspan (m) by ICAO type, for drawing aircraft to scale when zoomed in */
@@ -70,6 +72,8 @@ const S = {
   src: { vamsys: false, vatsim: true } as { vamsys: boolean; vatsim: boolean },
   /** a flight to open once the list has come (a link from Home) */
   want: null as string | null,
+  /** when VATSIM made the file the last answer came from, on this browser's clock (0: not known) */
+  vupdAt: 0,
 };
 const srcText = () => [S.src.vamsys ? 'vAMSYS ACARS' : '', S.src.vatsim ? 'VATSIM PAW callsigns' : ''].filter(Boolean).join(' + ') || 'No source';
 try { S.trails = JSON.parse(sessionStorage.getItem('pmTrails') || '{}'); } catch { /* none */ }
@@ -121,7 +125,8 @@ function build(list: Raw[], updMs: number): Flight[] {
     let vs: number | null = r.vs ?? null;
     if (!r.sample) {
       const h = (S.hist[r.cs] ||= []);
-      if (!h.length || h[h.length - 1]!.t !== updMs) { h.push({ t: updMs, alt: r.alt }); if (h.length > 3) h.shift(); }
+      const ht = r.pt || updMs;
+      if (!h.length || h[h.length - 1]!.t !== ht) { h.push({ t: ht, alt: r.alt }); if (h.length > 3) h.shift(); }
       if (h.length > 1) { const a = h[0]!, b = h[h.length - 1]!; if (b.t > a.t) vs = Math.round(((b.alt - a.alt) / (b.t - a.t)) * 60000); }
       const tr = (S.trails[r.cs] ||= []), lp = tr[tr.length - 1];
       if (!lp || nm(lp, [r.lat, r.lon]) > 0.5) { tr.push([r.lat, r.lon]); if (tr.length > 600) tr.splice(0, tr.length - 600); }
@@ -185,6 +190,11 @@ async function poll(force = false): Promise<void> {
     S.upd = j.upd || ''; S.fetched = Date.now(); S.error = ''; S.loaded = true; S.src = j.sources || { vatsim: true, vamsys: false };
     S.globe?.setAirports(Object.values(S.apts));
     const raw: Raw[] = j.flights || [];
+    // the server's clock against this one, so a position's age is right even when the clocks differ
+    const off = (Number(j.now) || Date.now()) - Date.now();
+    for (const r of raw) r.at = r.pt ? Math.min(Date.now(), r.pt - off) : Date.now();
+    const vu = Date.parse(j.vupd || '');
+    S.vupdAt = isFinite(vu) ? vu - off : 0;
     if (raw.length) S.sample = false;
     S.flights = build(raw.length || !S.sample ? raw : samples(), Date.parse(S.upd) || Date.now());
   } catch (e) {
@@ -196,8 +206,57 @@ async function poll(force = false): Promise<void> {
   render();
   window.dispatchEvent(new CustomEvent('pm:live', { detail: S.flights.map(sum) }));
   if (S.follow) { const f = sel(); if (f) S.globe?.frameFlight(f); }
-  S.timer = window.setTimeout(() => void poll(), POLL_MS);
+  S.timer = window.setTimeout(() => void poll(), nextPoll());
 }
+/* VATSIM makes a new file every 15 s: ask just after the next one is out (the server keeps one for 16 s) */
+function nextPoll(): number {
+  if (!S.vupdAt || S.error) return POLL_MS;
+  let at = S.vupdAt + 17_500;
+  while (at < Date.now() + 3000) at += 15_000;
+  return Math.min(20_000, at - Date.now());
+}
+
+/* ---------- between updates: each aircraft keeps moving at its ground speed along its heading ----------
+   From the position's own time, for up to 25 s (VATSIM) or 75 s (vAMSYS, about once a minute); then it waits for the
+   next update. When that comes, the small difference is faded out over 2 s rather than jumped. Not on the ground. */
+const DR = { err: {} as Record<string, { dLat: number; dLon: number; t: number; fix: number }>, shown: {} as Record<string, [number, number]>, timer: 0 };
+function ahead(lat: number, lon: number, hdg: number, m: number): [number, number] {
+  const d = m / 6371000, φ = lat * R, λ = lon * R, θ = hdg * R;
+  const φ2 = Math.asin(Math.sin(φ) * Math.cos(d) + Math.cos(φ) * Math.sin(d) * Math.cos(θ));
+  const λ2 = λ + Math.atan2(Math.sin(θ) * Math.sin(d) * Math.cos(φ), Math.cos(d) - Math.sin(φ) * Math.sin(φ2));
+  return [φ2 / R, ((λ2 / R + 540) % 360) - 180];
+}
+const moves = (f: Flight) => !f.raw.sample && !f.ground && f.raw.gs >= 50 && !!f.raw.at;
+function predict(f: Flight, now: number): [number, number] {
+  if (!moves(f)) return [f.lat, f.lon];
+  const dt = Math.max(0, Math.min(now - f.raw.at!, f.raw.ps === 'vAMSYS' ? 75_000 : 25_000)) / 1000;
+  return ahead(f.lat, f.lon, f.heading, f.raw.gs * 0.514444 * dt);
+}
+/** the flights where they are now, as drawn */
+function moved(): Flight[] {
+  const now = Date.now();
+  return S.flights.map((f) => {
+    let [lat, lon] = predict(f, now);
+    const was = DR.shown[f.callsign], e = DR.err[f.callsign];
+    if (!e || e.fix !== (f.raw.pt || f.raw.at)) {
+      // a new position: start from where the aircraft was drawn, unless that is far off (a new or a jumped flight)
+      const ok = was && moves(f) && nm(was, [lat, lon]) < 3;
+      DR.err[f.callsign] = { dLat: ok ? was[0] - lat : 0, dLon: ok ? was[1] - lon : 0, t: now, fix: f.raw.pt || f.raw.at || 0 };
+    }
+    const E = DR.err[f.callsign]!, k = Math.max(0, 1 - (now - E.t) / 2000);
+    if (k > 0) { lat += E.dLat * k; lon += E.dLon * k; }
+    DR.shown[f.callsign] = [lat, lon];
+    return lat === f.lat && lon === f.lon ? f : { ...f, lat, lon };
+  });
+}
+function glide(): void {
+  clearInterval(DR.timer);
+  DR.timer = window.setInterval(() => {
+    if (!onFw() || document.hidden || !S.flights.some(moves)) return;
+    S.globe?.setFlights(moved(), S.sel);
+  }, 500);
+}
+glide();
 
 /* ---------- render ---------- */
 const sel = () => S.flights.find((f) => f.callsign === S.sel) || null;
@@ -227,7 +286,7 @@ function render(): void {
   const n = S.flights.length;
   const badge = $('#lvCount'); if (badge) { badge.textContent = S.sample || !n ? '' : String(n); badge.hidden = S.sample || !n; }
   if (!onFw()) return;
-  S.globe?.setFlights(S.flights, S.sel);
+  S.globe?.setFlights(moved(), S.sel);
   S.globe?.setIdleSpin(!S.sel);
 
   // phase summary

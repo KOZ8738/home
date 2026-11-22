@@ -36,6 +36,7 @@ export const PAW_APTS = {
 };
 
 const PAW_CS = /^PAW\d{1,4}[A-Z]{0,2}$/;
+const km = (a, b, c, d) => { const r = Math.PI / 180, h = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2; return 12742 * Math.asin(Math.min(1, Math.sqrt(h))); };
 
 /** "FL350", "F350", "35000", "A045" -> feet */
 function cruiseFt(s) {
@@ -53,16 +54,26 @@ export function liveFlights(d, va) {
   const vsRow = {};
   for (const r of (d && d.rows) || []) vsRow[r[0]] = r;
   const seen = new Set();
+  /* when each source's positions were taken (ms): VATSIM's file is made every 15 s; vAMSYS's map moves about once a minute */
+  const vt = (d && Date.parse(d.upd)) || 0, at = (va && Date.parse(va.updatedAt)) || 0;
   for (const f of (va && va.flights) || []) {
     const cs = String(f.callsign || '').toUpperCase().replace(/\s+/g, ''), v = vsRow[cs];
     for (const a of [f.dep, f.arr]) if (a && a.icao && !apts[a.icao]) apts[a.icao] = [a.lat, a.lon, a.iata || '', a.name || a.icao];
     seen.add(cs);
+    /* on VATSIM too: position, altitude, speed and heading from VATSIM, which is fresher; but only the same flight (its
+       flight plan, if filed, to or from the booked airports, and not far from where vAMSYS has it) */
+    const fp = v && [v[11], v[12]].filter(Boolean), apt = [(f.dep && f.dep.icao) || '', (f.arr && f.arr.icao) || ''];
+    const useV = !!v && isFinite(v[3]) && isFinite(v[4]) && (!fp.length || fp.some((x) => apt.includes(x))) && !(isFinite(f.lat) && km(f.lat, f.lon, v[3], v[4]) > 500);
+    const trail = (f.trail || []).map((p) => [p[0], p[1]]);
+    if (useV && trail.length) trail.pop(); // vAMSYS's own last position: the page joins the track to the VATSIM one
     flights.push({
-      cs, cid: v ? v[1] : 0, name: v ? v[2] : '', lat: f.lat, lon: f.lon, alt: Math.round(f.altitude || 0), gs: Math.round(f.groundspeed || 0), hdg: Math.round(f.heading || 0),
+      cs, cid: v ? v[1] : 0, name: v ? v[2] : '',
+      lat: useV ? v[3] : f.lat, lon: useV ? v[4] : f.lon, alt: useV ? v[5] : Math.round(f.altitude || 0), gs: useV ? v[6] : Math.round(f.groundspeed || 0), hdg: useV ? v[7] : Math.round(f.heading || 0),
+      pt: useV ? vt : at, ps: useV ? 'VATSIM' : 'vAMSYS', alat: f.lat, alon: f.lon,
       sq: v ? v[8] : '', logon: v && v[9] ? v[9] * 1000 : 0, ac: f.aircraft || '', dep: (f.dep && f.dep.icao) || '', arr: (f.arr && f.arr.icao) || '',
       cruise: v ? cruiseFt(v[13]) : null, fl: v ? v[13] || '' : '', rules: v ? v[14] || '' : '', altn: '', tas: '', dt: '', ete: '', route: f.route || '',
       src: 'vAMSYS', vphase: f.phase || '', pilot: f.pilot || '', rank: f.pilotRank || '', reg: f.registration || '', acName: f.aircraftName || '', net: f.network || '',
-      departed: f.departedAt || '', eta: f.eta || '', std: f.std || '', sta: f.sta || '', remain: f.distanceRemaining ?? null, trail: (f.trail || []).map((p) => [p[0], p[1]]),
+      departed: f.departedAt || '', eta: f.eta || '', std: f.std || '', sta: f.sta || '', remain: f.distanceRemaining ?? null, trail,
     });
   }
   for (const r of (d && d.rows) || []) {
@@ -74,10 +85,10 @@ export function liveFlights(d, va) {
     flights.push({
       cs, cid: r[1], name: r[2], lat: r[3], lon: r[4], alt: r[5], gs: r[6], hdg: r[7], sq: r[8], logon: r[9] ? r[9] * 1000 : 0,
       ac: r[10], dep, arr, cruise: cruiseFt(r[13]), fl: r[13] || '', rules: r[14] || '',
-      altn: det.altn || '', tas: det.tas || '', dt: det.dt || '', ete: det.ete || '', route: (d.routes && d.routes[cs]) || '', src: 'VATSIM',
+      altn: det.altn || '', tas: det.tas || '', dt: det.dt || '', ete: det.ete || '', route: (d.routes && d.routes[cs]) || '', src: 'VATSIM', pt: vt, ps: 'VATSIM',
     });
   }
   flights.sort((a, b) => a.cs.localeCompare(b.cs));
   const upd = (va && va.updatedAt) || (d && d.upd) || new Date().toISOString();
-  return { upd, now: Date.now(), sources: { vamsys: !!va, vatsim: !!d }, flights, apts };
+  return { upd, vupd: (d && d.upd) || '', now: Date.now(), sources: { vamsys: !!va, vatsim: !!d }, flights, apts };
 }

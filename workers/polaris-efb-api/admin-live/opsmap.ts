@@ -252,6 +252,8 @@ export class OpsMap implements MapApi {
   private mo: MutationObserver | null = null;
   private stop = new AbortController();
   private ourKey = '';
+  private aptKey = '';
+  private aptSrc: unknown = null;
   private baseOk = false;
   private baseErr = 0;
   private col = { route: '#E2C08C', plane: '#C9B39F', trail: 'rgba(201,179,159,.3)', label: '#fff', halo: '#000', sphere: '#12171C', cl: '#C9A13A', stand: '#9AA7AE' };
@@ -540,6 +542,10 @@ export class OpsMap implements MapApi {
     const sel = this.flights.find((f) => f.callsign === this.selected) || null;
     const ends = new Set([sel?.dep?.icao, sel?.arr?.icao].filter(Boolean) as string[]);
     const cat = (i: string) => (this.on.wx && CAT_COL[this.wx[i] || ''] ? this.wx[i]! : '');
+    // the flights are drawn twice a second as they move: the airports only when something about them changed
+    const key = [...ends].join() + '|' + this.airports.map((a) => a.icao + cat(a.icao)).join();
+    if (key === this.aptKey && this.map.getSource('pm-apt') === this.aptSrc) return;
+    this.aptKey = key; this.aptSrc = this.map.getSource('pm-apt');
     this.setData('pm-apt', fc(this.airports.map((a) => pt([a.lon, a.lat], { icao: a.icao, code: a.iata || a.icao, sel: ends.has(a.icao) ? 1 : 0, c: cat(a.icao) }))));
   }
 

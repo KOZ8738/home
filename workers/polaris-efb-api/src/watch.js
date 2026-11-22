@@ -57,7 +57,7 @@ export async function flightWatch(deps, now = Date.now()) {
     if (f.src === 'vAMSYS') {
       if (v && v[12] && f.arr && v[12] !== f.arr) add(f, 'divert', 'amber', 'Possible diversion', 'VATSIM flight plan to ' + v[12] + '; booked to ' + f.arr);
       if (!v && air && /VATSIM/i.test(f.net || '')) add(f, 'novatsim', 'amber', 'Not connected to VATSIM', 'Booked on VATSIM, flying, but not on the network');
-      if (v && isFinite(v[3]) && isFinite(f.lat)) { const d = nm(f.lat, f.lon, v[3], v[4]); if (d > 40) add(f, 'acars', 'amber', 'ACARS not updating', 'vAMSYS shows the aircraft ' + Math.round(d) + ' nm from its VATSIM position'); }
+      if (v && isFinite(v[3]) && isFinite(f.alat ?? f.lat)) { const d = nm(f.alat ?? f.lat, f.alon ?? f.lon, v[3], v[4]); if (d > 40) add(f, 'acars', 'amber', 'ACARS not updating', 'vAMSYS shows the aircraft ' + Math.round(d) + ' nm from its VATSIM position'); }
       if (air && holdingIn(f.trail)) add(f, 'hold', 'amber', 'Holding', 'The track circles' + (f.arr && f.remain != null && f.remain < 120 ? ' ' + Math.round(f.remain) + ' nm from ' + f.arr : ''));
     }
     if (air && f.alt > 1000 && isFinite(f.lat)) {

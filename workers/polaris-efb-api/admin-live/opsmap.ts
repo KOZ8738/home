@@ -195,6 +195,14 @@ function plane(fill: string, halo: string, glow?: string): ImageData {
   g.shadowBlur = 0; g.fillStyle = fill; g.fill(p);
   return g.getImageData(0, 0, ICON_PX, ICON_PX);
 }
+/** an airport: a dot, ringed in its flight category when that is known (20 CSS px square) */
+function aptMark(fill: string, stroke: string, ring?: string): ImageData {
+  const c = document.createElement('canvas'); c.width = c.height = 40;
+  const g = c.getContext('2d')!;
+  if (ring) { g.beginPath(); g.arc(20, 20, 15, 0, Math.PI * 2); g.lineWidth = 4.6; g.strokeStyle = ring; g.stroke(); }
+  g.beginPath(); g.arc(20, 20, 6.4, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); g.lineWidth = 3; g.strokeStyle = stroke; g.stroke();
+  return g.getImageData(0, 0, 40, 40);
+}
 /** icon-size for an aircraft: the usual symbol (`low`: [zoom, size] stops up to zoom 11), or its real size once that
  *  is bigger (feature property k: the size at zoom 0). The zoom stops stay at the top of the expression, as MapLibre needs. */
 function acSize(low: [number, unknown][]): unknown {
@@ -256,6 +264,8 @@ export class OpsMap implements MapApi {
       dragRotate: false, pitchWithRotate: false, touchPitch: false, maxPitch: 0, maxZoom: 19.5, fadeDuration: 250,
       pixelRatio: Math.min(2, window.devicePixelRatio || 1),
     });
+    this.el.classList.toggle('dk', this.dark);
+    (window as unknown as { pmMap?: ML }).pmMap = this.map; // for a look from the console
     this.map.touchZoomRotate?.disableRotation?.();
     this.map.keyboard?.disableRotation?.();
     this.map.addControl(new lib.AttributionControl({ compact: true, customAttribution: 'Radar <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · SIGMETs aviationweather.gov · FIRs openAIP, VATSpy · Traffic VATSIM' }), 'top-right');
@@ -270,7 +280,7 @@ export class OpsMap implements MapApi {
     const signal = this.stop.signal;
     this.bind();
     this.layerUi();
-    const watch = () => { const d = isDark(); if (d === this.dark) return; this.dark = d; this.readColours(); try { this.map.setStyle(baseStyle(d), { diff: false }); } catch { /* next time */ } };
+    const watch = () => { const d = isDark(); if (d === this.dark) return; this.dark = d; this.el.classList.toggle('dk', d); this.readColours(); try { this.map.setStyle(baseStyle(d), { diff: false }); } catch { /* next time */ } };
     this.mo = new MutationObserver(watch);
     this.mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', watch, { signal });
@@ -343,16 +353,17 @@ export class OpsMap implements MapApi {
   /** the slow turn of the planet while nothing is open and nobody moves it */
   private spin(): void {
     if (this.spinRaf) return;
-    let last = performance.now(), skip = false;
+    let last = performance.now(), skip = false, vel = 0;
     const step = (t: number) => {
       this.spinRaf = 0;
       if (!this.spinOn || !this.shown() || document.hidden) return;
       this.spinRaf = requestAnimationFrame(step);
       const dt = Math.min(100, t - last); last = t;
       skip = !skip; if (skip) return; // every other frame is plenty for 4° a second
-      if (t - this.lastTouch < 2500 || this.map.isMoving() || this.map.getZoom() > this.ovZoom(this.map.getCenter().lat) + 1.3) return;
-      const c = this.map.getCenter();
-      this.map.jumpTo({ center: [c.lng + (4 * dt * 2) / 1000, c.lat] });
+      if (t - this.lastTouch < 2000 || this.map.isMoving() || this.map.getZoom() > this.ovZoom(this.map.getCenter().lat) + 1.3) { vel = 0; return; }
+      const c = this.map.getCenter(), d = dt * 2; // this frame and the one skipped
+      vel += (6 - vel) * Math.min(1, d / 500);
+      this.map.jumpTo({ center: [c.lng - (vel * d) / 1000, c.lat] });
     };
     this.spinRaf = requestAnimationFrame(step);
   }
@@ -374,7 +385,7 @@ export class OpsMap implements MapApi {
       const v = hit(e.point, ['vs-ac', 'vs-gnd']);
       if (v.length) { const p = v[0].properties; this.note(v[0].geometry.coordinates, `<b>${esc(p.c)}</b>${p.ac ? ' · ' + esc(p.ac) : ''}<br>${esc(p.dep || '····')} → ${esc(p.arr || '····')}<br>${p.g < 50 ? 'On the ground' : esc(lvl(+p.a)) + ' · ' + Math.round(+p.g) + ' kt'}<br><small>VATSIM</small>`); return; }
       const s = hit(e.point, ['sig-f']);
-      if (s.length) { const p = s[0].properties; this.note(e.lngLat, `<b>${esc(p.kind)} · ${esc(p.hz)}</b>${p.q ? ' ' + esc(p.q) : ''}<br>${esc(p.lv)}${p.fir ? ' · ' + esc(p.fir) : ''}${p.raw ? `<pre>${esc(String(p.raw).slice(0, 600))}</pre>` : ''}`); return; }
+      if (s.length) { const p = s[0].properties; this.note(e.lngLat, `<b>${esc(p.kind)} · ${esc(p.hz)}</b>${p.q ? ' ' + esc(p.q) : ''}${p.lv || p.fir ? '<br>' + esc([p.lv, p.fir].filter(Boolean).join(' · ')) : ''}${p.raw ? `<pre>${esc(String(p.raw).slice(0, 600))}</pre>` : ''}`); return; }
       this.popup?.remove();
     });
     m.on('mousemove', (e: { point: { x: number; y: number } }) => {
@@ -407,6 +418,7 @@ export class OpsMap implements MapApi {
       this.vis();
       if (i.checked) { if (k === 'vatsim') void this.loadVatsim(true); if (k === 'sig') void this.loadSig(true); if (k === 'radar') void this.loadRadar(true); if (k === 'wx') void this.loadWx(true); if (k === 'fir') void this.loadFir(); }
       else if (k === 'vatsim') this.drawVatsim();
+      if (k === 'wx') this.drawAirports();
     }, { signal });
   }
   private vis(): void {
@@ -414,7 +426,6 @@ export class OpsMap implements MapApi {
     set(['radar'], this.on.radar);
     set(['sig-f', 'sig-l', 'sig-t'], this.on.sig);
     set(['fir-l', 'fir-lo', 'fir-t'], this.on.fir);
-    set(['wx-c'], this.on.wx);
     set(['vs-ac', 'vs-gnd', 'vs-l'], this.on.vatsim);
   }
 
@@ -426,18 +437,21 @@ export class OpsMap implements MapApi {
   private onStyle(): void {
     const m = this.map, C = this.col, E = fc([]);
     const add = (id: string) => { if (!m.getSource(id)) m.addSource(id, { type: 'geojson', data: E }); };
-    for (const id of ['fir', 'firl', 'sig', 'wx', 'lay-st', 'lay-twy', 'lay-rw', 'pm-apt', 'vs', 'pm-trail', 'pm-route', 'pm-ac']) add(id);
+    for (const id of ['fir', 'firl', 'sig', 'lay-st', 'lay-twy', 'lay-rw', 'pm-apt', 'vs', 'pm-trail', 'pm-route', 'pm-ac']) add(id);
     const img = (id: string, d: ImageData) => { if (m.hasImage(id)) m.removeImage(id); m.addImage(id, d, { pixelRatio: 2 }); };
     img('pm-ac', plane(C.plane, C.halo));
     img('pm-ac-sel', plane(C.route, C.halo, C.route));
     img('vs-ac', plane(this.dark ? '#6F8A99' : '#7A8C96', C.halo));
     img('vs-gnd', plane(this.dark ? '#8A7D63' : '#A08B66', C.halo));
+    img('apt', aptMark(C.sphere, C.route));
+    for (const k of Object.keys(CAT_COL)) img('apt-' + k, aptMark(C.sphere, C.route, CAT_COL[k]));
     const below = m.getLayer('water-name') ? 'water-name' : undefined; // under the base map's names
     const L = (l: Record<string, unknown>, before?: string) => { if (!m.getLayer(l.id as string)) m.addLayer(l, before); };
     // weather, airspace: under the names
     if (this.radarTiles) this.addRadar();
-    L({ id: 'sig-f', type: 'fill', source: 'sig', paint: { 'fill-color': SIG_COL, 'fill-opacity': this.dark ? 0.13 : 0.1 } }, below);
-    L({ id: 'sig-l', type: 'line', source: 'sig', paint: { 'line-color': SIG_COL, 'line-width': 1.3, 'line-opacity': 0.85 } }, below);
+    const strong = ['==', ['get', 'sg'], 1]; // a SIGMET; AIRMET-type areas are drawn quieter
+    L({ id: 'sig-f', type: 'fill', source: 'sig', paint: { 'fill-color': SIG_COL, 'fill-opacity': ['case', strong, this.dark ? 0.14 : 0.11, 0.045] } }, below);
+    L({ id: 'sig-l', type: 'line', source: 'sig', paint: { 'line-color': SIG_COL, 'line-width': ['case', strong, 1.3, 0.8], 'line-opacity': ['case', strong, 0.85, 0.5] } }, below);
     const firPaint = { 'line-color': this.dark ? '#3FB98A' : '#2F9E6E', 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.5, 6, 1.1], 'line-opacity': 0.5 };
     L({ id: 'fir-l', type: 'line', source: 'fir', filter: ['!=', ['get', 'oceanic'], '1'], paint: firPaint }, below);
     L({ id: 'fir-lo', type: 'line', source: 'fir', filter: ['==', ['get', 'oceanic'], '1'], paint: { ...firPaint, 'line-dasharray': [4, 3] } }, below);
@@ -446,19 +460,20 @@ export class OpsMap implements MapApi {
     L({ id: 'lay-st', type: 'circle', source: 'lay-st', minzoom: 15, paint: { 'circle-radius': 2, 'circle-color': C.stand } });
     // labels and marks over everything of the base map
     L({ id: 'fir-t', type: 'symbol', source: 'firl', minzoom: 2.2, maxzoom: 8.5, layout: { 'text-field': ['get', 'id'], 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 2.2, 10, 6, 12], 'text-letter-spacing': 0.04, 'text-padding': 4 }, paint: { 'text-color': this.dark ? '#3FB98A' : '#2F9E6E', 'text-halo-color': C.halo, 'text-halo-width': 1.2, 'text-opacity': 0.85 } });
-    L({ id: 'sig-t', type: 'symbol', source: 'sig', minzoom: 2.5, layout: { 'text-field': ['concat', ['get', 'hz'], '\n', ['get', 'lv']], 'text-font': ['Noto Sans Bold'], 'text-size': 10, 'text-padding': 6 }, paint: { 'text-color': SIG_COL, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
+    L({ id: 'sig-t', type: 'symbol', source: 'sig', minzoom: 2.5, maxzoom: 9, layout: { 'text-field': ['case', ['==', ['get', 'lv'], ''], ['get', 'hz'], ['concat', ['get', 'hz'], '\n', ['get', 'lv']]], 'text-font': ['Noto Sans Bold'], 'text-size': 10, 'text-padding': 6, 'symbol-sort-key': ['-', 1, ['get', 'sg']] }, paint: { 'text-color': SIG_COL, 'text-halo-color': C.halo, 'text-halo-width': 1.4, 'text-opacity': ['case', strong, 1, 0.75] } });
     L({ id: 'lay-twy-t', type: 'symbol', source: 'lay-twy', minzoom: 14, filter: ['!=', ['get', 'ref'], ''], layout: { 'symbol-placement': 'line', 'text-field': ['get', 'ref'], 'text-font': ['Noto Sans Bold'], 'text-size': 11, 'symbol-spacing': 260, 'text-rotation-alignment': 'viewport', 'text-keep-upright': true }, paint: { 'text-color': '#111111', 'text-halo-color': '#F2C230', 'text-halo-width': 3 } });
     L({ id: 'lay-st-t', type: 'symbol', source: 'lay-st', minzoom: 16, layout: { 'text-field': ['get', 'ref'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, -0.9], 'text-padding': 1 }, paint: { 'text-color': this.dark ? '#B8C3C9' : '#4A565C', 'text-halo-color': C.halo, 'text-halo-width': 1.2 } });
     L({ id: 'lay-rw-t', type: 'symbol', source: 'lay-rw', minzoom: 12.5, layout: { 'text-field': ['get', 'ref'], 'text-font': ['Noto Sans Bold'], 'text-size': 11, 'text-allow-overlap': true }, paint: { 'text-color': '#FFFFFF', 'text-halo-color': '#1D1F22', 'text-halo-width': 3 } });
-    L({ id: 'wx-c', type: 'circle', source: 'wx', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 6, 8, 9], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.4, 'circle-stroke-color': ['match', ['get', 'c'], 'VFR', CAT_COL.VFR, 'MVFR', CAT_COL.MVFR, 'IFR', CAT_COL.IFR, 'LIFR', CAT_COL.LIFR, 'rgba(0,0,0,0)'] } });
-    L({ id: 'pm-apt', type: 'circle', source: 'pm-apt', paint: { 'circle-radius': ['case', ['==', ['get', 'sel'], 1], 4.5, 3.2], 'circle-color': C.sphere, 'circle-stroke-color': C.route, 'circle-stroke-width': 1.5 } });
-    L({ id: 'pm-apt-t', type: 'symbol', source: 'pm-apt', layout: { 'text-field': ['get', 'code'], 'text-font': ['Noto Sans Bold'], 'text-size': ['case', ['==', ['get', 'sel'], 1], 12, 10.5], 'text-offset': [0, 1.15], 'text-anchor': 'top', 'text-optional': true, 'symbol-sort-key': ['-', 1, ['get', 'sel']] }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
+    // the Polaris airports: always shown, and the base map's names give way to them; gone close in, where the airport itself shows
+    L({ id: 'pm-apt', type: 'symbol', source: 'pm-apt', maxzoom: 12.5, layout: { 'icon-image': ['case', ['!=', ['get', 'c'], ''], ['concat', 'apt-', ['get', 'c']], 'apt'], 'icon-size': ['case', ['==', ['get', 'sel'], 1], 1.25, 1], 'icon-allow-overlap': true,
+      'text-field': ['get', 'code'], 'text-font': ['Noto Sans Bold'], 'text-size': ['case', ['==', ['get', 'sel'], 1], 12, 10.5], 'text-offset': [0, 0.95], 'text-anchor': 'top', 'text-optional': true, 'symbol-sort-key': ['-', 1, ['get', 'sel']] }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
     // traffic
     L({ id: 'vs-gnd', type: 'symbol', source: 'vs', minzoom: 9, filter: ['<', ['get', 'g'], 50], layout: { 'icon-image': 'vs-gnd', 'icon-size': acSize([[9, 0.3], [11, 0.36]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
     L({ id: 'vs-ac', type: 'symbol', source: 'vs', filter: ['>=', ['get', 'g'], 50], layout: { 'icon-image': 'vs-ac', 'icon-size': acSize([[1, 0.22], [6, 0.32], [11, 0.4]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.55, 6, 0.85] } });
     L({ id: 'vs-l', type: 'symbol', source: 'vs', minzoom: 6.5, layout: { 'text-field': ['get', 'c'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [1.1, 0], 'text-anchor': 'left', 'text-optional': true }, paint: { 'text-color': this.dark ? '#8FA3AF' : '#5E707A', 'text-halo-color': C.halo, 'text-halo-width': 1.2 } });
     // the Polaris flights
     L({ id: 'pm-trail', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 0], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': C.trail, 'line-width': 1.2 } });
+    L({ id: 'pm-trail-gap', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 2], layout: { 'line-cap': 'round' }, paint: { 'line-color': C.route, 'line-width': 1.5, 'line-opacity': 0.45 } });
     L({ id: 'pm-route', type: 'line', source: 'pm-route', layout: { 'line-cap': 'round' }, paint: { 'line-color': C.route, 'line-width': 1.4, 'line-opacity': 0.7, 'line-dasharray': [1, 2.5] } });
     L({ id: 'pm-trail-glow', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 1], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': C.route, 'line-width': 9, 'line-opacity': 0.16, 'line-blur': 5 } });
     L({ id: 'pm-trail-sel', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 1], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': C.route, 'line-width': 2.2 } });
@@ -469,7 +484,7 @@ export class OpsMap implements MapApi {
     L({ id: 'pm-ac-t', type: 'symbol', source: 'pm-ac', filter: isSel, layout: { 'text-field': ['get', 'cs'], 'text-font': ['Noto Sans Bold'], 'text-size': 12.5, 'text-offset': [1.35, 0], 'text-anchor': 'left', 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': C.route, 'text-halo-color': C.halo, 'text-halo-width': 1.6 } });
     this.vis();
-    this.drawAirports(); this.drawFlights(); this.drawVatsim(); this.drawSig(); this.drawWx(); this.drawLayouts();
+    this.drawAirports(); this.drawFlights(); this.drawVatsim(); this.drawSig(); this.drawLayouts();
     if (this.fir) this.setData('fir', this.fir.lines), this.setData('firl', this.fir.labels);
     this.refresh();
   }
@@ -495,6 +510,8 @@ export class OpsMap implements MapApi {
       if (!last || Math.abs(last[0] - f.lon) + Math.abs(last[1] - f.lat) > 1e-4) T.push([f.lon, f.lat]);
       const flown = T.length > 1 ? T : isSel && f.dep ? greatCircle([f.dep.lat, f.dep.lon], [f.lat, f.lon]) : [];
       if (flown.length > 1) tr.push(line(unwrap(flown), { sel: isSel ? 1 : 0 }));
+      // the track is only what has been recorded: a thin line joins it to the departure airport
+      if (isSel && f.dep && T.length > 1 && arc(T[0]!, [f.dep.lon, f.dep.lat]) * 6371 > 15) tr.push(line(greatCircle([f.dep.lat, f.dep.lon], [T[0]![1], T[0]![0]]), { sel: 2 }));
     }
     this.setData('pm-ac', fc(ac));
     this.setData('pm-trail', fc(tr));
@@ -505,7 +522,8 @@ export class OpsMap implements MapApi {
     if (!this.map.getSource('pm-apt')) return;
     const sel = this.flights.find((f) => f.callsign === this.selected) || null;
     const ends = new Set([sel?.dep?.icao, sel?.arr?.icao].filter(Boolean) as string[]);
-    this.setData('pm-apt', fc(this.airports.map((a) => pt([a.lon, a.lat], { icao: a.icao, code: a.iata || a.icao, sel: ends.has(a.icao) ? 1 : 0 }))));
+    const cat = (i: string) => (this.on.wx && CAT_COL[this.wx[i] || ''] ? this.wx[i]! : '');
+    this.setData('pm-apt', fc(this.airports.map((a) => pt([a.lon, a.lat], { icao: a.icao, code: a.iata || a.icao, sel: ends.has(a.icao) ? 1 : 0, c: cat(a.icao) }))));
   }
 
   /* ---------- VATSIM traffic (the EFB server's slim feed) ---------- */
@@ -540,7 +558,7 @@ export class OpsMap implements MapApi {
           const ring = unwrap(s.coords.map((c): LL => [c[1], c[0]]));
           const a = ring[0]!, b = ring[ring.length - 1]!;
           if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
-          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { kind: s.kind, hz: String(s.hazard || '').replace(/_/g, ' '), q: s.qualifier || '', cat: sigCat(s.hazard || ''), lv: lvl(s.base) + '–' + lvl(s.top), fir: s.fir || '', raw: s.raw || '' } };
+          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { kind: s.kind || 'SIGMET', sg: /SIGMET/i.test(String(s.kind || 'SIGMET')) ? 1 : 0, hz: String(s.hazard || '').replace(/_/g, ' '), q: s.qualifier || '', cat: sigCat(s.hazard || ''), lv: !s.base && !s.top ? '' : lvl(s.base) + '–' + lvl(s.top), fir: s.fir || '', raw: s.raw || '' } };
         });
       this.drawSig();
     } catch { /* next time */ }
@@ -600,9 +618,8 @@ export class OpsMap implements MapApi {
         try { const j = await (await fetch('/api/efb/metars?size=2&cell=' + k, { cache: 'default' })).json(); for (const s of j.stations || []) if (want.has(s.i) && s.c) out[s.i] = s.c; } catch { /* that cell next time */ }
       }));
     }
-    this.wx = out; this.drawWx();
+    this.wx = out; this.drawAirports();
   }
-  private drawWx(): void { this.setData('wx', fc(this.airports.filter((a) => this.wx[a.icao]).map((a) => pt([a.lon, a.lat], { icao: a.icao, c: this.wx[a.icao] })))); }
 
   /* ---------- close in at a Polaris airport: stands, taxiway names, runway ends ---------- */
   private near(): void {
@@ -657,8 +674,10 @@ function injectCss(): void {
   s.id = 'lvMapCss';
   s.textContent = `
 .lv-stage>.lv-map{position:absolute;inset:0;z-index:0;font:inherit}
-.lv-map .maplibregl-ctrl-attrib{font-size:10.5px}
-.lv-map .maplibregl-ctrl-attrib.maplibregl-compact{background:color-mix(in srgb,var(--bg) 85%,transparent)}
+.lv-map .maplibregl-ctrl-attrib{font-size:10.5px;color:var(--label)}
+.lv-map .maplibregl-ctrl-attrib a{color:var(--label)}
+.lv-map .maplibregl-ctrl-attrib.maplibregl-compact{background:color-mix(in srgb,var(--bg) 88%,transparent)}
+.lv-map.dk .maplibregl-ctrl-attrib-button{filter:invert(1)}
 .lv-stage .lv-src,.lv-stage .lv-ctl{z-index:2}
 .lv-lay{position:absolute;right:64px;bottom:16px;z-index:3;display:grid;gap:7px;min-width:190px;padding:10px 14px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px -12px rgba(0,0,0,.45);font-size:13px;color:var(--ink)}
 .lv-lay[hidden]{display:none}

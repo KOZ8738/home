@@ -183,7 +183,7 @@ function renderHome(){
     <a class="w w-s" href="#checklist"><div class="rem-top"><span class="rem-ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="rem-n">${p.total-p.done}</span></div>
       <div class="rem-t">${esc(CL[clIdx][0])}</div>
       <ul class="rem-l">${p.pending.length?p.pending.slice(0,3).map(it=>`<li><i></i>${esc(it[0])}</li>`).join(""):`<li style="color:var(--wg-sub)">All items checked</li>`}</ul></a>
-    ${(typeof rsCalHtml==="function"&&rsCalHtml())||`<a class="w w-m w-cal" href="#ofp"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
+    ${(typeof rsCalHtml==="function"&&rsCalHtml())||`<a class="w w-m w-cal" href="#calendar"><div class="cal-l"><span class="cal-d">${std.toLocaleDateString("en-US",{weekday:"long"}).toUpperCase()}</span><span class="cal-n">${std.getDate()}</span>${ofp._sample?'<span class="cal-ex">No flight</span>':""}<span class="cal-due" id="wDue">${dueText()}</span></div>
       <div class="cal-r">${ofp._sample?'<div class="ev"><b>No flight loaded</b><span>Fetch your SimBrief plan in Flight › Download</span></div>':`<div class="ev"><b>${esc(x.flight)} · ${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}</b><span>STD ${utcHM(N(tm.sched_out))} · STA ${utcHM(N(tm.sched_in))} · ETE ${hhmm(N(tm.est_time_enroute))}</span></div>
       <div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode))} · ${esc(S(x.ac.reg))}</b><span>Block fuel ${fmt(N(f.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`}</div></a>`}
     <a class="w w-l w-wx" href="#wx"><div class="wx-top"><div><span class="wx-loc">${esc(dest?S(dest[2].icao_code):"—")}</span><span class="wx-role">${dest?(dest[1]==="BASE"?AL().base+" · live":"Destination"):"No flight loaded"}</span><span class="wx-temp">${dm&&dm.temp!=null?dm.temp+"°":"—"}</span></div>
@@ -3010,8 +3010,11 @@ function dl3Secs(){const x=O(),fu=ofp.fuel||{},o=store.get("oooi:"+x.id,{}),next
 function dl3Sec(){const k=ofpTab;let h="";if(k==="ci")return dl3Ci();
   try{h=k==="brief"&&typeof brPage==="function"?brPage():k==="notam"&&typeof ntPage==="function"?ntPage():k==="fuel"?ofpFuel():k==="route"?ofpRoute():k==="navlog"?ofpNavlog():k==="oooi"?ofpTimes():ofpSummary()}
   catch(e){h=`<div class="empty">This part of the plan couldn’t be shown.</div>`}
-  if(k==="brief"){const x=O(),a=S(x.o.icao_code),b=S(x.d.icao_code);if(a&&b&&vam.url)h+=`<section class="card">${cardH("Weather now","METAR, TAF and ATIS",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(a,"Departure")}${rsWxHtml(b,"Arrival")}</div></section>`}
+  if(k==="brief"){const x=O(),a=S(x.o.icao_code),b=S(x.d.icao_code);if(a&&b&&vam.url){const body=rsWxHtml(a,"Departure")+rsWxHtml(b,"Arrival"),st=dl3WxState(a,b);
+    h+=`<section class="card">${cardH("Weather now","METAR, TAF and ATIS"+(st.at?" · updated "+rsZ(st.at):""),`<button class="btn sm dl3-wxr" type="button" data-dl3wx="${esc(a+" "+b)}"${st.busy?" disabled":""} title="Ask for the weather again">${dkSvg("refresh")}<span>${st.busy?"Updating…":"Refresh"}</span></button><a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${body}</div></section>`}}
   return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
+/* Weather now: loading either airport, and when the older of the two came (rsWx keeps them 10 minutes) */
+function dl3WxState(a,b){const W=[RS.wx[a],RS.wx[b]];return {busy:W.some(w=>!w||w.loading),at:W.every(w=>w&&!w.loading&&w.at)?Math.min(...W.map(w=>w.at)):0}}
 /* ---------- check-in (Nov 2026, from the Roster app, which is gone) ----------
    Checking in (from 12 hours before departure) tells the EFB server which flight this is: the departure and arrival
    gates, the final loadsheet and the weather pushes follow by AOC, and the track is kept for the logbook. */
@@ -3048,7 +3051,9 @@ function dl3Ci(){const ci=RS.ci,now=Date.now(),signed=typeof authOn==="function"
       ${more.length?`<div class="dl3-cih">Other bookings open for check-in</div>${more.map(row).join("")}`:""}
       <p class="note" style="margin:12px 0 0">After check-in, Polaris operations sends your gates and the final loadsheet by AOC.</p></div></section>`}
   return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dl3ci],[data-dl3co],[data-dl3msg],[data-dl3open]");if(!t)return;const d=t.dataset;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dl3ci],[data-dl3co],[data-dl3msg],[data-dl3open],[data-dl3wx]");if(!t)return;const d=t.dataset;
+  /* Weather now: ask again now, not after the 10 minutes the last answer is kept */
+  if(d.dl3wx){const L=d.dl3wx.split(" ").filter(Boolean);L.forEach(i=>{const w=RS.wx[i];if(w&&!w.loading)w.at=0});L.forEach(rsWx);render();return}
   if(d.dl3open!=null){if(d.dl3open==="ci"){ofpTab="ci";store.set("ofpTab","ci");DL3.sel="plan"}else DL3.sel="bk:"+d.dl3open;DL3.y=0;goApp("simbrief");return}
   if(cur!=="simbrief")return;
   if(d.dl3ci){rsCheckin(d.dl3ci);return}
@@ -3203,6 +3208,12 @@ a.dk-sq,label.dk-sq{text-decoration:none;box-sizing:border-box}
 .dl3-cir b{display:block;font:600 15px var(--f-mono);color:var(--ink)}.dl3-cir small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:2px}
 .dl3-cih{margin:16px 0 4px;font:600 11px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
 .dl3-r>b.t .btn{font-family:var(--f-ui)}
+/* Weather now: ask for the weather again */
+.btn.sm.dl3-wxr{display:inline-flex;align-items:center;gap:6px}
+.dl3-wxr svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.dl3-wxr:disabled{opacity:.7;cursor:default}.dl3-wxr:disabled svg{animation:dl3wxs 1s linear infinite}
+@keyframes dl3wxs{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.dl3-wxr:disabled svg{animation:none}}
 </style>`);
 
 /* ===== Settings ===== */
@@ -6875,7 +6886,7 @@ function rsCalHtml(){const w=rsCalFlight();if(!w)return "";const f=w.f,x=O(),fu=
   const match=!ofp._sample&&S(x.o.icao_code)===f.from&&S(x.d.icao_code)===f.to,ac=[f.type,f.registration].filter(Boolean).map(esc).join(" · ")||"Aircraft";
   const alt=w.ci&&match?`<div class="ev alt"><b>${esc(S(x.ac.name)||S(x.ac.icaocode)||f.type)} · ${esc(S(x.ac.reg)||f.registration)}</b><span>Block fuel ${fmt(N(fu.plan_ramp))} ${x.unit} · Altn ${esc(S(x.a.icao_code)||"—")}</span></div>`
     :`<div class="ev alt"><b>${ac}</b><span>${w.ci?(ofp._sample?"No SimBrief plan yet":"SimBrief plan doesn’t match"):"Check in from Download"}</span></div>`;
-  return `<a class="w w-m w-cal" href="#simbrief"><div class="cal-l"><span class="cal-d">${d.toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"}).toUpperCase()}</span><span class="cal-n">${d.getUTCDate()}</span><span class="cal-ex${w.ci?" ci":""}">${w.ci?"Checked in":"Booked"}</span><span class="cal-due" id="wDue">${esc(rsDue(w))}</span></div>
+  return `<a class="w w-m w-cal" href="#calendar"><div class="cal-l"><span class="cal-d">${d.toLocaleDateString("en-US",{weekday:"long",timeZone:"UTC"}).toUpperCase()}</span><span class="cal-n">${d.getUTCDate()}</span><span class="cal-ex${w.ci?" ci":""}">${w.ci?"Checked in":"Booked"}</span><span class="cal-due" id="wDue">${esc(rsDue(w))}</span></div>
     <div class="cal-r"><div class="ev"><b>${esc(f.callsign||f.flight)} · ${esc(f.from)} → ${esc(f.to)}${ftTag(f.flight||f.callsign,f.from,f.to)}</b><span>STD ${rsZ(f.std)} · STA ${rsZ(f.sta)}${f.std&&f.sta?" · "+rsDur(f.sta-f.std):""}</span></div>${alt}</div></a>`}
 /* home screen: a badge while a booked flight is open for check-in */
 {const _b=badge;badge=function(id){if(id==="roster"){const ci=RS.ci,now=Date.now(),n=(RS.list||[]).filter(l=>{const std=rsT(l.departureTime);return std&&std>now&&now>=std-12*3600e3&&!(ci&&String(ci.bookingId)===String(l.id))}).length;

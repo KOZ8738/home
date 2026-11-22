@@ -110,6 +110,22 @@ async function regionCell(env, rg, la, lo, sz) {
   return { cn: 'ok', cycle: act.cycle, routes, fixes, navs };
 }
 
+/* named points (fixes and navaids) within km of a place, from the AIP data of China and Japan, for lining charts up
+   on the Map: [[name, lat, lon], ...] */
+export async function aipPoints(env, lat, lon, km = 300) {
+  const out = [], seen = new Set(), c = Math.cos(lat * Math.PI / 180), dLa = km / 111.2, dLo = km / (111.2 * Math.max(0.2, c));
+  const add = (n, la, lo) => { if (!n || !isFinite(la) || !isFinite(lo)) return; const d = Math.hypot(la - lat, (lo - lon) * c) * 111.2; if (d > km) return; const k = n + ',' + la.toFixed(4) + ',' + lo.toFixed(4); if (seen.has(k)) return; seen.add(k); out.push([String(n), +la, +lo]); };
+  for (const rg of Object.keys(AIP_REG)) {
+    const b = AIP_REG[rg].box; if (lat + dLa <= b[0] || lat - dLa >= b[2] || lon + dLo <= b[1] || lon - dLo >= b[3]) continue;
+    for (let la = Math.floor((lat - dLa) / 4) * 4; la < lat + dLa; la += 4) for (let lo = Math.floor((lon - dLo) / 4) * 4; lo < lon + dLo; lo += 4) {
+      const r = await regionCell(env, rg, la, lo, 4).catch(() => null); if (!r || r.cn !== 'ok') continue;
+      for (const f of r.fixes) add(f[1], f[3], f[2]);
+      for (const n of r.navs) add(n[1], n[5], n[4]);
+    }
+  }
+  return out;
+}
+
 /* pilots: GET /api/efb/aip/ifr, /api/efb/cn/*, /api/efb/jp/asp (signed in) */
 export async function cnPublic(req, url, env, h, me) {
   if (req.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405, h);

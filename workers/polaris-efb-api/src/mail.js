@@ -163,7 +163,8 @@ export async function mailAdmin(req, url, env, opts) {
   /* staff diagnostics: the latest PIREP, booking and live flight as vAMSYS returns them */
   /* staff: a chart PDF and an airport's named points, as a signed-in pilot gets them (testing the EFB's chart line-up) */
   if (path === '/admin/api/chart-pdf' && opts && opts.chartPdf) { try { const r = await opts.chartPdf(url); return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('content-type') || 'application/pdf', 'Cache-Control': 'private, max-age=3600' } }); } catch (e) { return jsonRes({ error: e.message }, 502); } }
-  if (path === '/admin/api/chart-fixes' && opts && opts.chartFixes) { try { return jsonRes(await opts.chartFixes(String(url.searchParams.get('icao') || '').toUpperCase())); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  if (path === '/admin/api/chart-fixes' && opts && opts.chartFixes) { try { return jsonRes(await opts.chartFixes(String(url.searchParams.get('icao') || '').toUpperCase(), url)); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  if (path === '/admin/api/chart-list' && opts && opts.chartList) { try { return jsonRes(await opts.chartList(String(url.searchParams.get('icao') || '').trim().toUpperCase())); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* staff diagnostics: an eAIP chart list (Hong Kong, Singapore, UK, Norway) as the server reads it; pdf=1 opens the first chart too */
   if (path === '/admin/api/eaip-probe' && opts && opts.eaProbe) { try { return jsonRes(await opts.eaProbe(url.searchParams.get('icao'), url.searchParams.get('pdf'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: e.message }, 502); } }

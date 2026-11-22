@@ -75,7 +75,7 @@ export { PfdRelay } from './pfd.js';
 import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
-import { cnPublic } from './cnaip.js';
+import { cnPublic, aipPoints } from './cnaip.js';
 import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
 import { eaRegion, eaChartsList, eaChartPdf, eaWarm, eaFixes } from './eaip.js';
 const API = 'https://vamsys.io/api/v3/operations';
@@ -1254,6 +1254,17 @@ async function aisQuery(svc, where, fields, env4, maxPages, extra) {
   return out;
 }
 const aisV = (v) => (v == null || +v >= 99999 ? null : +v);
+/* named points near an airport for lining its charts up: the eAIP's for Hong Kong, Singapore, the UK and Norway;
+   AIP China's and Japan's around the airport the EFB names (lat, lon); signed in, like the charts */
+async function chartFixes(ic, url, me, env, ctx) {
+  if (eaRegion(ic)) return eaFixes(ic, env, me, eaDeps(env, ctx));
+  if (!/^(R[JO]|Z)[A-Z]{2,3}$/.test(ic)) return null;
+  if (!me) return { icao: ic, signin: true, pts: [] };
+  const la = parseFloat(url.searchParams.get('lat')), lo = parseFloat(url.searchParams.get('lon'));
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) return { icao: ic, pts: [], error: 'lat and lon of the airport' };
+  return { icao: ic, arp: [la, lo], pts: await aipPoints(env, la, lo, 300) };
+}
+
 async function ifrRoute(url, ctx, h) {
   const lv = url.searchParams.get('lv') === 'H' ? 'H' : 'L', sz = lv === 'H' ? 8 : 4;
   const m = String(url.searchParams.get('cell') || '').match(/^(-?\d{1,2}),(-?\d{1,3})$/); if (!m) throw new HttpError(400, 'cell=lat,lon');
@@ -1634,7 +1645,12 @@ export default {
         if (/^CN\d{8}$/.test(cy)) return cnChartPdf(u, env, {}, st);
         if (/^(HK|SG|UK|NO)\d{8}$/.test(cy)) return eaChartPdf(u, env, {}, st, eaDeps(env, ctx));
         return chartPdfRoute(u, {}); },
-      chartFixes: async (icao) => (eaRegion(icao) ? eaFixes(icao, env, { u: 'staff' }, eaDeps(env, ctx)) : { icao, pts: [] }),
+      chartFixes: async (icao, u) => (await chartFixes(icao, u, { u: 'staff' }, env, ctx)) || { icao, pts: [] },
+      chartList: async (icao) => { const st = { u: 'staff' };
+        if (/^R[JO][A-Z]{2}$/.test(icao)) return jpChartsList(icao, env, st);
+        if (/^Z[A-Z]{3}$/.test(icao)) return cnChartsList(icao, env, st);
+        if (eaRegion(icao)) return eaChartsList(icao, env, st, eaDeps(env, ctx));
+        return chartsRoute(icao, env, ctx); },
       eaProbe: async (icao, pdf) => {
         const d = eaDeps(env, ctx), l = await eaChartsList(String(icao || '').toUpperCase(), env, { u: 'staff' }, d);
         if (l && pdf && l.charts && l.charts.length) {
@@ -1667,7 +1683,7 @@ export default {
         /* named points near an airport with their coordinates, from its eAIP, for lining its charts up on the Map (see eaip.js) */
         case '/api/efb/chart-fixes': { const ic = String(url.searchParams.get('icao') || '').trim().toUpperCase();
           if (!/^[A-Z]{4}$/.test(ic)) return json({ error: 'Enter a 4 letter ICAO code' }, 400, h);
-          const j = eaRegion(ic) ? await eaFixes(ic, env, await sessionOf(req, env), eaDeps(env, ctx)) : null;
+          const j = await chartFixes(ic, url, await sessionOf(req, env), env, ctx);
           return json(j || { icao: ic, pts: [] }, 200, { ...h, 'Cache-Control': 'private, max-age=3600', Vary: 'Authorization' }); }
         /* the OFP's own PDF from SimBrief, for the EFB's PDF view (SimBrief's files don't allow other sites to read them) */
         case '/api/efb/ofp-pdf': {

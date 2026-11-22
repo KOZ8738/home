@@ -197,8 +197,11 @@ export async function eaChartPdf(url, env, h, me, d) {
    300 km of its ARP with its own. GET /api/efb/chart-fixes?icao=VHHH -> { icao, cycle, arp: [lat, lon], pts: [[name, lat, lon]] } */
 const COORD = /(\d{2})(\d{2})(\d{2}(?:[.,]\d+)?)\s*([NS])[\s,/]{0,3}(\d{3})(\d{2})(\d{2}(?:[.,]\d+)?)\s*([EW])/g;
 const dms = (d, m, s, h) => { const v = +d + +m / 60 + parseFloat(String(s).replace(',', '.')) / 3600; return /[SW]/.test(h) ? -v : v; };
-const NOT_ID = new Set(['VOR', 'DME', 'NDB', 'ILS', 'LOC', 'LLZ', 'GP', 'TACAN', 'VORTAC', 'DVOR', 'MHZ', 'KHZ', 'H24', 'HO', 'HX', 'NIL', 'CH', 'RWY', 'THR', 'ARP', 'MM', 'OM', 'IM', 'MKR', 'FL', 'FT', 'GND', 'SFC', 'UNL', 'REF', 'AD', 'ENR', 'RNP', 'RNAV', 'GNSS', 'IAF', 'IF', 'FAF', 'MAPT', 'SID', 'STAR', 'IAC', 'ATS', 'FIR', 'TMA', 'CTR', 'CTA', 'ATZ', 'MSL', 'AGL', 'RMK', 'NM', 'KM', 'ASPH', 'CONC', 'GRASS', 'PCN', 'TWY', 'APN', 'TBN', 'EST', 'END', 'BTN']);
-const isId = (t) => (/^[A-Z][A-Z0-9]{1,5}$/.test(t) && !NOT_ID.has(t)) || /^(0[1-9]|[12]\d|3[0-6])[LCR]?$/.test(t);
+const NOT_ID = new Set(['VOR', 'DME', 'NDB', 'ILS', 'LOC', 'LLZ', 'GP', 'TACAN', 'VORTAC', 'DVOR', 'MHZ', 'KHZ', 'H24', 'HO', 'HX', 'NIL', 'CH', 'RWY', 'THR', 'ARP', 'MM', 'OM', 'IM', 'MKR', 'FL', 'FT', 'GND', 'SFC', 'UNL', 'REF', 'AD', 'ENR', 'RNP', 'RNAV', 'GNSS', 'IAF', 'IF', 'FAF', 'MAPT', 'SID', 'STAR', 'IAC', 'ATS', 'FIR', 'TMA', 'CTR', 'CTA', 'ATZ', 'MSL', 'AGL', 'RMK', 'NM', 'KM', 'ASPH', 'CONC', 'GRASS', 'PCN', 'TWY', 'APN', 'TBN', 'EST', 'END', 'BTN',
+  /* obstacle and lighting words in the AD 2 tables */
+  'LGTD', 'UNLGTD', 'LIGHTED', 'LIGHT', 'NO', 'YES', 'TREE', 'TREES', 'MAST', 'BLDG', 'TOWER', 'CRANE', 'POLE', 'POLES', 'PYLON', 'CHIMNEY', 'ANTENNA', 'AERIAL', 'HILL', 'TERRAIN', 'SPIRE', 'OBST', 'WGS', 'ELEV', 'HGT', 'AMSL', 'NIL', 'MAG', 'TRUE', 'DEG', 'ACFT', 'TWR', 'APP', 'ATIS', 'ACC', 'FIS']);
+/* a point's name; not a DME channel (CH34X) */
+const isId = (t) => (/^[A-Z][A-Z0-9]{1,5}$/.test(t) && !NOT_ID.has(t) && !/^CH\d{1,3}[XY]$/.test(t)) || /^(0[1-9]|[12]\d|3[0-6])[LCR]?$/.test(t);
 export function eaPoints(html) {
   const out = [];
   for (const m of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -225,12 +228,12 @@ export async function eaFixes(icao, env, me, d) {
   if (!me) return { icao, signin: true, pts: [] };
   const R = EA[k], { cur } = await edition(k, d), cycle = cycleOf(k, cur.eff);
   const page = async (u) => { const r = await get(cur.base + u, 86400); if (!r.ok) throw new EaError(502, `${R.label}: ${u.split('/').pop()} answered HTTP ${r.status}`); const t = await r.text(); return notFoundPage(t) ? '' : t; };
-  const enr = await d.kvStore('eafix:v1:' + cycle, 30 * 86400_000, async () => {
+  const enr = await d.kvStore('eafix:v2:' + cycle, 30 * 86400_000, async () => {
     const pts = [];
     for (const n of ['4.4', '4.1']) { try { pts.push(...eaPoints(await page(R.enr(n)))); } catch (e) { /* the other page still counts */ } }
     return { pts };
   }, (v) => v && v.pts && v.pts.length > 20);
-  const ad = await d.kvStore('eafixad:v1:' + cycle + ':' + icao, 30 * 86400_000, async () => {
+  const ad = await d.kvStore('eafixad:v2:' + cycle + ':' + icao, 30 * 86400_000, async () => {
     const t = await page(R.page(icao));
     if (!t) return { arp: null, pts: [] };
     const plain = text(t.slice(0, 400_000)), i = plain.search(/\bARP\b/), c = [...plain.slice(Math.max(0, i)).matchAll(COORD)][0] || [...plain.matchAll(COORD)][0];

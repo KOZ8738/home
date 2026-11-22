@@ -213,6 +213,19 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
       await dropKeys(kv, await keysOf(kv, 'docs:v1:c:' + id + ':'));
       return jsonRes({ ok: true });
     }
+    /* a cover for a document that has none (the admin draws the first page): POST /admin/api/docs/cover?id=&v=, a JPEG */
+    if (path === '/admin/api/docs/cover' && req.method === 'POST') {
+      const id = String(url.searchParams.get('id') || ''), v = +url.searchParams.get('v'), list = await readIndex(kv), d = list.find((x) => x.id === id);
+      if (!d) throw new DocError(404, 'That document no longer exists');
+      if (d.v !== v) throw new DocError(409, 'This document changed meanwhile');
+      const bin = new Uint8Array(await req.arrayBuffer());
+      if (!bin.length || bin.length > COVER_MAX || bin[0] !== 0xff || bin[1] !== 0xd8) throw new DocError(400, 'The cover must be a JPEG of at most ' + Math.round(COVER_MAX / 1024) + ' KB');
+      await kv.put(cKey(id, v), bin.buffer);
+      /* the index is read again: it may have changed while the picture came */
+      const now = await readIndex(kv), cur = now.find((x) => x.id === id && x.v === v);
+      if (cur && !cur.cover) { cur.cover = true; await writeIndex(kv, now); }
+      return jsonRes({ ok: true });
+    }
     /* staff can look at what pilots get */
     if ((path === '/admin/api/docs/file' || path === '/admin/api/docs/cover') && req.method === 'GET') {
       const id = String(url.searchParams.get('id') || ''), d = (await readIndex(kv)).find((x) => x.id === id);

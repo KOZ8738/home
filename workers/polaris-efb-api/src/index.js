@@ -77,6 +77,7 @@ import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic } from './cnaip.js';
 import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
+import { eaRegion, eaChartsList, eaChartPdf, eaWarm } from './eaip.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -801,8 +802,11 @@ async function refreshMajor(env, ctx) {
   const cyc = airac().cycle, ages = await Promise.all(MAJOR.map(async (icao) => { const l = await kv.get('layout:v11:' + icao, 'json').catch(() => null); return { icao, t: l ? l.t : 0 }; }));
   const due = ages.filter((a) => Date.now() - a.t > 25 * 86400_000).sort((a, b) => a.t - b.t).slice(0, 3);
   for (const a of due) { try { const v = await layoutRoute(a.icao, null, null); if (v && !v.notFound) await kv.put('layout:v11:' + a.icao, JSON.stringify({ t: Date.now(), v }), { expirationTtl: 120 * 86400 }); } catch (e) { /* try again tomorrow */ } }
-  for (const icao of MAJOR) { const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
+  for (const icao of MAJOR) { if (eaRegion(icao)) continue; const c = await kv.get('charts:' + cyc + ':' + icao).catch(() => null); if (!c) { try { await chartsRoute(icao, env, null); } catch (e) { /* next run */ } } }
+  await eaWarm(MAJOR.filter((i) => eaRegion(i)), env, eaDeps(env, ctx));
 }
+/* what eaip.js uses of the caches here */
+const eaDeps = (env, ctx) => ({ edgeCache, cached, kvStore: (key, maxAge, fn, keep) => kvStore(env, ctx, key, maxAge, fn, keep), waitUntil: ctx && ctx.waitUntil ? (p) => ctx.waitUntil(p) : null });
 
 
 /* METARs for one 10x10 degree cell (SW corner lat,lon): flight category and wind for the map dots.
@@ -1623,7 +1627,17 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env), who), ctx }); }
+    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx),
+      eaProbe: async (icao, pdf) => {
+        const d = eaDeps(env, ctx), l = await eaChartsList(String(icao || '').toUpperCase(), env, { u: 'staff' }, d);
+        if (l && pdf && l.charts && l.charts.length) {
+          const c = l.charts[Math.min(l.charts.length - 1, Math.max(0, +pdf - 1 || 0))];
+          const r = await eaChartPdf(new URL('https://x/?cycle=' + l.cycle + '&file=' + encodeURIComponent(c.pdf)), env, {}, { u: 'staff' }, d);
+          const b = await r.arrayBuffer();
+          l.pdfTest = { name: c.name, file: c.pdf, status: r.status, type: r.headers.get('content-type'), bytes: b.byteLength, head: new TextDecoder().decode(new Uint8Array(b, 0, Math.min(120, b.byteLength))) };
+        }
+        return l;
+      }, watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env), who), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);
@@ -1640,6 +1654,8 @@ export default {
           if (/^R[JO][A-Z]{2}$/.test(ic)) { const j = await jpChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
           /* China: AIP China's charts (the eAIP's Full Package, uploaded on Nav Data), the same way */
           if (/^Z[A-Z]{3}$/.test(ic)) { const j = await cnChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
+          /* Hong Kong, Singapore, the UK and Norway: their eAIPs' own charts, the same way (see eaip.js) */
+          if (eaRegion(ic)) { const j = await eaChartsList(ic, env, await sessionOf(req, env), eaDeps(env, ctx)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
           return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h); }
         /* the OFP's own PDF from SimBrief, for the EFB's PDF view (SimBrief's files don't allow other sites to read them) */
         case '/api/efb/ofp-pdf': {
@@ -1650,7 +1666,8 @@ export default {
           return new Response(r.body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=86400' } });
         }
         case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env));
-          if (/^CN\d{8}$/.test(url.searchParams.get('cycle') || '')) return await cnChartPdf(url, env, h, await sessionOf(req, env)); return await chartPdfRoute(url, h);
+          if (/^CN\d{8}$/.test(url.searchParams.get('cycle') || '')) return await cnChartPdf(url, env, h, await sessionOf(req, env));
+          if (/^(HK|SG|UK|NO)\d{8}$/.test(url.searchParams.get('cycle') || '')) return await eaChartPdf(url, env, h, await sessionOf(req, env), eaDeps(env, ctx)); return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
           /* warm=1: the EFB only asks the server to have it ready; answered at once, without the diagram */
           if (url.searchParams.get('warm') === '1') { p.catch(() => {}); return json({ ok: true, warm: true }, 202, h); }

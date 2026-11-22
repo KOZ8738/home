@@ -161,6 +161,8 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/pirep-probe' && opts && opts.probe) { try { return jsonRes(await opts.probe(url.searchParams.get('id'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* staff diagnostics: a pilot's latest bookings as vAMSYS returns them (?pilot=PAW0006) */
   /* staff diagnostics: the latest PIREP, booking and live flight as vAMSYS returns them */
+  /* staff diagnostics: an eAIP chart list (Hong Kong, Singapore, UK, Norway) as the server reads it; pdf=1 opens the first chart too */
+  if (path === '/admin/api/eaip-probe' && opts && opts.eaProbe) { try { return jsonRes(await opts.eaProbe(url.searchParams.get('icao'), url.searchParams.get('pdf'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   if (path === '/admin/api/bookings-probe' && opts && opts.bkProbe) { try { return jsonRes(await opts.bkProbe(url.searchParams.get('pilot'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   /* Pilots page: who is checked in for a flight in the EFB now (see crew.js) */

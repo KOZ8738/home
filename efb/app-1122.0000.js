@@ -149,7 +149,7 @@ const PAGE1=["perf","load","winter","convert","timer","music","prefs"];
 const PAGE2=["checklist","logbook","perf","load","winter","convert"];
 /* Flight's views (Nov 2026: Map, Charts, Kneeboard, Dispatch, Flight Plan, OFP and Backup PFD became tabs of Flight):
    [title, tab]; see "Flight: the EFB app" further down */
-const FLV={simbrief:["Download","dl"],map:["Map","map"],charts:["Charts","charts"],docs:["Documents","docs"],ofp:["Flight Plan","docs"],ofpdoc:["OFP","docs"],
+const FLV={simbrief:["Download","dl"],map:["Map","map"],charts:["Charts","charts"],docs:["Documents","docs"],ofp:["Flight Plan","dl"],ofpdoc:["OFP","dl"],
   messages:["Messages","msg"],kneeboard:["Scratch Pad","pad"],more:["More","more"],pfd:["Backup PFD","more"]};
 const isFl=id=>!!(id&&Object.prototype.hasOwnProperty.call(FLV,id));
 const ftLast=()=>{const v=store.get("ftLast","map");return isFl(v)?v:"map"};
@@ -2876,24 +2876,21 @@ function vamBookHtml(){if(!vamOn())return "";vamLoad("bookings");const s=vamStat
   if(!j)return `<section class="card">${head}<div class="empty">${s.err?esc(s.err):"Loading bookings…"}</div></section>`;
   const b=j.bookings||[];if(!b.length)return `<section class="card">${head}<div class="empty">No current bookings. Book a flight in vAMSYS, then come back here.</div></section>`;
   return `<section class="card">${head}${b.map(x=>`<div class="bk"><div><b>${esc(x.flight||x.callsign)} · ${esc(x.from)} → ${esc(x.to)}${ftTag(x.flight||x.callsign,x.from,x.to)}</b><small>${esc(x.type)} ${esc(x.registration)}${x.departureTime?" · STD "+esc(isoZ(x.departureTime)):""}${x.altitude?" · FL"+Math.round(x.altitude/100):""}${x.costIndex?" · CI "+esc(x.costIndex):""}</small></div><a class="btn sm" href="https://dispatch.simbrief.com/options/custom" target="_blank" rel="noopener">Plan in SimBrief ↗</a></div>`).join("")}<div class="card-f">Generate the OFP for this booking in SimBrief, then load it here.</div></section>`}
-/* ---------- Flight › Download, redesigned (Nov 2026) ----------
-   Like the "download flight" page of an airline EFB: on the left the flight folder the plan brings (the route, the
-   times, the numbers the crew look for first, and what in the EFB it fills in, each a tap away), on the right where it
-   comes from (SimBrief, or a pasted or uploaded plan) and the vAMSYS bookings. With no plan loaded, one column: the
-   welcome and the download box. The download box holds only the download button: the SimBrief username or pilot ID,
-   downloading when the EFB opens and pasting or uploading a plan are in Settings › Flight Operations (the paste card
-   still opens here when a download fails). The ids and data attributes of the old page stay (sbFetch, sbMsg, sbMan,
-   sbPaste, sbLoad, sbFile, sbOpen, data-sbhide, ofpClear), so its handlers still work. */
-const DL_I={dl:'<path d="M12 3.5v11M7 10l5 5 5-5M4.5 19.5h15"/>',plan:'<path d="M6 3.5h9l4 4v13H6z"/><path d="M14.5 3.5v4h4M9 11.5h7M9 15h7M9 18.5h4.5"/>',
-  wx:'<path d="M7.5 18.5a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.6 3.7 3.7 0 0 1-.8 7.4z"/>',chart:'<path d="M5 3.5h10l4 4v13H5z"/><path d="M8.5 16l2.6-5 2.4 3.4 1.6-2.4 1.9 4"/>',
-  docs:'<path d="M4 6.5h6l2 2h8v11H4z"/><path d="M4 9.5h16"/>',ck:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/>',
-  ci:'<rect x="4" y="5" width="16" height="15.5" rx="2.6"/><path d="M8 3.2v3.6M16 3.2v3.6M4 10h16M8.5 15l2.4 2.4 4.6-4.8"/>',map:'<path d="M3 6.5l6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
-  chev:'<path d="M9 5l7 7-7 7"/>',ext:'<path d="M14 4.5h5.5V10M19.5 4.5l-8 8M17 14v5.5H4.5V7H10"/>',paste:'<rect x="5" y="4.5" width="14" height="16" rx="2"/><path d="M9 4.5V3h6v1.5M8.5 10h7M8.5 13.5h7M8.5 17h4"/>'};
-const dlIc=k=>`<svg viewBox="0 0 24 24" aria-hidden="true">${DL_I[k]}</svg>`;
-function dlAgo(t){const m=Math.round((Date.now()-t)/6e4);return m<1?"just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":"")+" ago":Math.floor(m/1440)+" d ago"}
-const dlZ=sec=>sec?utcHM(sec):"—";
-const dlDur=sec=>{if(!(sec>0))return"";const m=Math.round(sec/60);return Math.floor(m/60)+"h "+pad(m%60)+"m"};
-const dlHas=id=>{try{return typeof asHas!=="function"||asHas(id)}catch(e){return true}};
+/* ---------- Flight › Download, in the Documents style (Nov 2026) ----------
+   ForeFlight's look, as Documents has it: the bar across the top (the title, Settings, and Download Latest Plan where
+   Documents has its search), the flights down the side (the plan on this device, then the vAMSYS bookings), and the
+   one picked on the right: the plan's OFP as a printed cover beside its numbers in rows, or a booking with Plan in
+   SimBrief. On a phone, This Flight and Bookings are tabs. The SimBrief account and the other ways to load a plan are
+   in Settings › Flight Operations; the paste card opens here when a download fails. The old page's ids stay (sbFetch,
+   sbMsg, sbMan, sbPaste, sbLoad, sbFile, sbOpen, data-sbhide, ofpClear), so their handlers still work. */
+const DL3={sel:"plan",busy:false,y:0};
+/* edge to edge, as Documents */
+{const _ac=appChrome;appChrome=function(id){const r=_ac.apply(this,arguments);if(id==="simbrief")screenEl.dataset.layout="full";return r}}
+const DL3_PLANE='<path d="M21 15.4v-1.8l-7.7-4.8V3.9a1.3 1.3 0 0 0-2.6 0v4.9L3 13.6v1.8l7.7-2.4v5.2l-2 1.5v1.4l3.3-.9 3.3.9v-1.4l-2-1.5V13z"/>';
+const dl3Plane=()=>`<svg viewBox="0 0 24 24" aria-hidden="true">${DL3_PLANE}</svg>`;
+function dl3Ago(t){const m=Math.round((Date.now()-t)/6e4);return m<1?"just now":m<60?m+" min ago":m<1440?Math.floor(m/60)+" h ago":Math.floor(m/1440)+" d ago"}
+const dl3Dur=sec=>{if(!(sec>0))return"";const m=Math.round(sec/60);return Math.floor(m/60)+"h "+pad(m%60)+"m"};
+const dl3User=()=>String(store.get("sbUser","")).trim();
 /* "PAW203 RCTP–RJAA", for Settings › Flight Operations (inside Settings, S is the section, not this file's S) */
 function dlPlanName(){const x=O();return x.flight+" "+S(x.o.icao_code)+"–"+S(x.d.icao_code)}
 /* the SimBrief account is set in Settings › Flight Operations: open it there (on a phone, the section itself) */
@@ -2904,117 +2901,186 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   /* Paste or upload a plan (Settings): the paste card in Download */
   SBMAN.on=true;SBMAN.anim=false;goApp("simbrief");
   let n=0;const f=()=>{const c=$("#sbPaste");if(c){const m=$("#sbMan");if(m&&m.scrollIntoView)m.scrollIntoView({block:"nearest"});c.focus({preventScroll:true});return}if(++n<15)setTimeout(f,80)};setTimeout(f,120)});
-/* the download box: only the download button, with the account it downloads from (tap it to change it in Settings) */
-function dlGet(none){const u=String(store.get("sbUser","")).trim();
-  return `<section class="dl2-card dl2-get"><div class="dl2-gh"><span class="dl2-gi">${dlIc("dl")}</span><div><b>${none?"Download your plan":"Download a newer plan"}</b>${u?`<button type="button" class="dl2-acct" data-sbset aria-label="SimBrief account ${esc(u)}. Change it in Settings">SimBrief · ${esc(u)}${dlIc("chev")}</button>`:`<button type="button" class="dl2-acct add" data-sbset>Add your SimBrief account${dlIc("chev")}</button>`}</div></div>
-    <button class="dl2-go" id="sbFetch" type="button">${dlIc("dl")}<span>Download latest plan</span></button>
-    <p class="dl2-msg" id="sbMsg">${!u?"Your SimBrief username or pilot ID goes in Settings › Flight Operations.":none?"Loads the newest plan in your SimBrief account.":"Your plan stays until a newer one is downloaded."}</p></section>
-  ${SBMAN.on?`<section class="dl2-card dl2-man${SBMAN.anim?" in":""}" id="sbMan"><div class="dl2-gh"><span class="dl2-gi alt">${dlIc("paste")}</span><div><b>Paste or upload</b><small>A SimBrief JSON plan</small></div><button class="dl2-x" type="button" data-sbhide aria-label="Hide">×</button></div>
-    <p class="dl2-note">Open your SimBrief data, copy everything on that page and paste it here, or upload a SimBrief .json file.</p>
-    <a class="dl2-b" id="sbOpen" href="${esc(sbHref(u))}" target="_blank" rel="noopener">Open SimBrief data ↗</a>
-    <label class="dl2-f"><span>SimBrief JSON</span><textarea id="sbPaste" rows="4" placeholder='{"fetch":{...},"params":{...}}'></textarea></label>
-    <div class="dl2-acts"><button class="dl2-b pri" id="sbLoad" type="button">Load pasted plan</button><label class="dl2-b">Upload .json<input type="file" id="sbFile" accept=".json,application/json" hidden></label></div></section>`:""}`}
-/* what the plan fills in, each a tap away */
-function dlFills(x){const wx=(()=>{try{return wxFor(x).map(a=>S(a[2]&&a[2].icao_code)).filter(Boolean)}catch(e){return[]}})(),apts=[S(x.o.icao_code),S(x.d.icao_code),S(x.a.icao_code)].filter(Boolean);
-  const ci=RS.ci,ciOk=ci&&ci.from===S(x.o.icao_code)&&ci.to===S(x.d.icao_code),signed=typeof authOn==="function"&&authOn();
-  let ck="";try{const t=clType();ck=(t&&t.name)||""}catch(e){}
-  const rows=[["ofp","plan","Flight plan and nav log",(x.fixes.length?x.fixes.length+" waypoints":"The route")+(N(x.g.route_distance)?" · "+fmt(N(x.g.route_distance))+" nm":"")],
-    ["map","map","Route on the map","With the airports, weather and traffic"],
-    ["wx","wx","Weather",(wx.length?wx:apts).join(" · ")+" · METAR and TAF"],
-    ["charts","chart","Charts",apts.join(" · ")],
-    ["docs","docs","Documents","OFP, briefing, fuel, nav log and NOTAMs"],
-    ["checklist","ck","Checklists",ck?ck+" · values from this plan":"Values from this plan"],
-    ["roster","ci",ciOk?"Checked in":"Check-in",ciOk?"Polaris operations sends your gates and the final loadsheet":signed?"Not checked in for this flight · check in on Roster":"Sign in to check in"]];
-  return `<section class="dl2-card dl2-fill"><h3 class="dl2-h">In this download</h3><div class="dl2-list">${rows.map(([id,ic,t,sub])=>{const go=dlHas(id);
-    return `<${go?`a href="#${id}"`:"div"} class="dl2-li${id==="roster"&&ciOk?" ok":""}"><span class="dl2-li-ic">${dlIc(ic)}</span><span class="dl2-li-t"><b>${esc(t)}</b><small>${esc(sub)}</small></span>${id==="roster"&&!ciOk?'<span class="dl2-tick no" aria-label="Not yet"></span>':'<span class="dl2-tick" aria-label="Ready">✓</span>'}${go?`<svg class="dl2-ch" viewBox="0 0 24 24" aria-hidden="true">${DL_I.chev}</svg>`:""}</${go?"a":"div"}>`}).join("")}</div></section>`}
-/* the flight folder: the route, the times and the first numbers */
-function dlFolder(x){const tm=ofp.times||{},wt=ofp.weights||{},fu=ofp.fuel||{},pa=ofp.params||{},u=x.unit,gen=N(pa.time_generated)?N(pa.time_generated)*1000:0;
-  const blk=N(tm.sched_block)||(N(tm.sched_in)&&N(tm.sched_out)?N(tm.sched_in)-N(tm.sched_out):null),fl=N(x.g.initial_altitude),ci=S(x.g.costindex);
-  const fact=(k,v,sub)=>`<div><dt>${k}</dt><dd>${v}${sub?` <small>${sub}</small>`:""}</dd></div>`;
-  return `<section class="dl2-card dl2-fold"><div class="dl2-top"><span class="dl2-ey">Flight folder</span><span class="dl2-gen">${gen?"Generated "+esc(utcHM(gen/1000))+" · "+dlAgo(gen):"Loaded"}${S(pa.airac)?" · AIRAC "+esc(S(pa.airac)):""}</span></div>
-    <div class="dl2-route"><div class="dl2-ap"><b>${esc(S(x.o.icao_code))}</b><span>${esc(S(x.o.name))}</span><em>STD ${dlZ(N(tm.sched_out))}${S(x.o.plan_rwy)?`<span class="rw">RWY ${esc(S(x.o.plan_rwy))}</span>`:""}</em></div>
-      <div class="dl2-mid"><span class="dl2-fl">${esc(x.flight)}${ftTag(x.flight,S(x.o.icao_code),S(x.d.icao_code))}</span><div class="dl2-line"><i></i>${plane}</div><span class="dl2-bt">${blk?"Block "+dlDur(blk):""}</span></div>
-      <div class="dl2-ap r"><b>${esc(S(x.d.icao_code))}</b><span>${esc(S(x.d.name))}</span><em>STA ${dlZ(N(tm.sched_in))}${S(x.d.plan_rwy)?`<span class="rw">RWY ${esc(S(x.d.plan_rwy))}</span>`:""}</em></div></div>
-    <dl class="dl2-facts">${fact("Aircraft",esc(S(x.ac.name)||S(x.ac.icaocode)||"—"),esc(S(x.ac.reg)))}${fact("Cruise",fl?"FL"+String(Math.round(fl/100)).padStart(3,"0"):"—",ci?"CI "+esc(ci):"")}${fact("Alternate",esc(S(x.a.icao_code)||"—"))}${fact("Distance",N(x.g.route_distance)?fmt(N(x.g.route_distance)):"—",N(x.g.route_distance)?"nm":"")}
-      ${fact("Block fuel",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):"—",u)}${fact("Trip fuel",N(fu.est_burn)!=null?fmt(N(fu.est_burn)):"—",u)}${fact("Takeoff weight",N(wt.est_tow)!=null?fmt(N(wt.est_tow)):"—",u)}${fact("Passengers",N(wt.pax_count)!=null?fmt(N(wt.pax_count)):"—")}</dl>
-    <div class="dl2-acts"><a class="dl2-b pri" href="#ofp">Open Flight Plan</a><a class="dl2-b" href="#ofpdoc">OFP</a><a class="dl2-b" href="#map">${dlIc("map")}Map</a><button class="dl2-b ghost" id="ofpClear" type="button">Clear plan</button></div></section>`}
-V.simbrief=()=>{const x=O(),none=!!ofp._sample;
-  if(none)return `<div class="dl2 one"><section class="dl2-hello"><span class="dl2-ey">No plan loaded</span><h2>Load your <em>next flight.</em></h2><p>Download your SimBrief plan and the EFB fills in with your flight: the map, charts, documents, weather and checklists.</p></section>${dlGet(true)}${vamBookHtml()}</div>`;
-  return `<div class="dl2"><div class="dl2-main">${dlFolder(x)}${dlFills(x)}</div><div class="dl2-side">${dlGet(false)}${vamBookHtml()}</div></div>`};
+/* the vAMSYS bookings: null when not connected to vAMSYS */
+function dl3Bks(){if(!vamOn())return null;try{vamLoad("bookings")}catch(e){}const s=vamState("bookings");return{s,list:(s.data&&Array.isArray(s.data.bookings)&&s.data.bookings)||[]}}
+const dl3BkId=(b,i)=>String(b.id!=null?b.id:i);
+function dl3BkFind(id){const B=dl3Bks();return B?B.list.find((b,i)=>dl3BkId(b,i)===id)||null:null}
+const dl3BkName=b=>String(b.flight||b.callsign||"Booking");
+const dl3WhenHtml=v=>{const d=new Date(v);if(!v||isNaN(d))return"";return `<span class="dl3-when"><b>${pad(d.getUTCHours())+pad(d.getUTCMinutes())}Z</b><small>${pad(d.getUTCDate())} ${DK_MON[d.getUTCMonth()]}</small></span>`};
+function dl3When(v){const d=new Date(v);if(!v||isNaN(d))return"";const t=pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",n=new Date();
+  return d.getUTCFullYear()===n.getUTCFullYear()&&d.getUTCMonth()===n.getUTCMonth()&&d.getUTCDate()===n.getUTCDate()?t:pad(d.getUTCDate())+" "+DK_MON[d.getUTCMonth()]+" "+t}
+const dl3Match=b=>{if(!b||ofp._sample)return false;const x=O();return S(x.o.icao_code)===String(b.from||"").toUpperCase()&&S(x.d.icao_code)===String(b.to||"").toUpperCase()};
+const dl3Ok=()=>`<span class="dk-allok" title="On this device">${dkSvg("check")}</span>`;
+/* the bar across the top: Settings, and the one thing this page does */
+function dl3Top(){
+  return `<div class="dk-top"><h2 class="dk-tt">Download</h2><div class="dk-tr">
+    <button type="button" class="dk-sq" data-sbset aria-label="SimBrief account and download settings" title="Settings">${dkSvg("gear")}</button>
+    <button type="button" class="dk-sq dl3-go" id="sbFetch"${DL3.busy?' disabled aria-busy="true"':""}>${DL3.busy?'<span class="dk-spin" aria-hidden="true"></span>':dkSvg("cloud")}<span>${DL3.busy?"Downloading…":"Download Latest Plan"}</span></button></div></div>`}
+function dlBusy(on){DL3.busy=!!on;const t=document.querySelector(".dl3>.dk-top");if(t)t.outerHTML=dl3Top()}
+/* the flights down the side */
+function dl3Side(B){const x=O(),none=!!ofp._sample,u=dl3User();
+  const row=(sel,ic,t,sub,end)=>`<button type="button" class="dk-row${DL3.sel===sel?" on":""}" data-dl3="${esc(sel)}"><span class="dk-ri">${ic}</span><span class="dk-rt"><b>${t}</b><small>${sub}</small></span>${end||""}</button>`;
+  let bk="";
+  if(B){if(!B.s.data)bk=`<div class="dl3-note">${B.s.err?esc(B.s.err):"Loading bookings…"}</div>`;
+    else if(!B.list.length)bk=`<div class="dl3-note">No bookings. Book a flight in vAMSYS, then plan it in SimBrief.</div>`;
+    else bk=B.list.map((b,i)=>row("bk:"+dl3BkId(b,i),dl3Plane()+(dl3Match(b)?`<span class="dl3-bdg" title="Its plan is on this device">${dkSvg("check")}</span>`:""),esc(dl3BkName(b)),esc(b.from)+" → "+esc(b.to)+(b.type?" · "+esc(b.type):""),dl3WhenHtml(b.departureTime))).join("")}
+  return `<aside class="dk-side"><div class="dk-sl">
+    <div class="dk-sec">This Flight</div>${none?row("plan",dkSvg("fold"),"No flight plan",u?"Download it from SimBrief":"Add your SimBrief account")
+      :`<div class="dl3-fl"><b>${esc(x.flight)}</b><span>${esc(S(x.o.icao_code))} → ${esc(S(x.d.icao_code))}${S(x.ac.icaocode)?" · "+esc(S(x.ac.icaocode)):""}${S(x.ac.reg)?" · "+esc(S(x.ac.reg)):""}</span></div>`
+        +`<button type="button" class="dk-row dl3-sx" data-fdoc="ofpdoc"><span class="dk-ri s"><svg viewBox="0 0 24 24" aria-hidden="true">${FD_I.ofpdoc}</svg></span><span class="dk-rt"><b>OFP</b></span><span class="dl3-v">${S((ofp.params||{}).airac)?"AIRAC "+esc(S(ofp.params.airac)):""}</span></button>`
+        +dl3Secs().map(([k,ic,t,v])=>`<button type="button" class="dk-row dl3-sx${DL3.sel==="plan"&&ofpTab===k?" on":""}" data-dl3="plan" data-tab="${k}"><span class="dk-ri s">${ico(ic)}</span><span class="dk-rt"><b>${esc(t)}</b></span><span class="dl3-v">${esc(v)}</span></button>`).join("")}
+    ${B?`<div class="dk-sec">Bookings</div>${bk}`:""}
+  </div><div class="dk-foot"><button type="button" class="dl3-acct" data-sbset>${u?"SimBrief · "+esc(u):"No SimBrief account"}</button></div></aside>`}
+/* a row of the table: the name on the left, the value on the right */
+const dl3R=(k,v)=>`<div class="dl3-r"><span>${k}</span><b>${v}</b></div>`;
+const dl3Sh=t=>`<div class="dl3-sh">${t}</div>`;
+/* the plan on this device: the Flight Plan's sections, as its own sidebar has them (and the printed OFP) */
+function dl3Secs(){const x=O(),fu=ofp.fuel||{},o=store.get("oooi:"+x.id,{}),next=OO.find(k=>!o[k]),dist=N(x.g.route_distance)||N(x.g.air_distance);
+  let nt="";try{if(typeof ntAll==="function"){const A=ntAll();nt=A.length?String(A.length):"None"}}catch(e){}
+  return [["sum","doc","Overview",""],["brief","cloud","Briefing","Route"],["fuel","fuel","Fuel & weights",N(fu.plan_ramp)!=null?fmt(N(fu.plan_ramp)):""],["route","route","Route",dist?fmt(dist)+" NM":""],
+    ["navlog","list","Nav log",x.fixes.length+" fixes"],["oooi","clock","Block times",next?"Next "+next:"Done"],["notam","alert","NOTAMs",nt]].filter(z=>z[0]!=="brief"||typeof brPage==="function").filter(z=>z[0]!=="notam"||typeof ntPage==="function")}
+function dl3Sec(){const k=ofpTab;let h="";
+  try{h=k==="brief"&&typeof brPage==="function"?brPage():k==="notam"&&typeof ntPage==="function"?ntPage():k==="fuel"?ofpFuel():k==="route"?ofpRoute():k==="navlog"?ofpNavlog():k==="oooi"?ofpTimes():ofpSummary()}
+  catch(e){h=`<div class="empty">This part of the plan couldn’t be shown.</div>`}
+  return `<div class="dl3-sec"><div class="dwrap">${h}${k==="sum"?`<div><button type="button" class="dl3-clear" id="ofpClear">Clear plan</button></div>`:""}</div></div>`}
+/* a phone: the sections as a row of buttons under the tabs */
+function dl3Chips(){return `<div class="dl3-chips" role="tablist" aria-label="Flight plan">${dl3Secs().map(([k,,t])=>`<button type="button" role="tab" data-dl3="plan" data-tab="${k}" aria-selected="${ofpTab===k}">${esc(t)}</button>`).join("")}<button type="button" data-fdoc="ofpdoc">OFP</button></div>`}
+/* nothing loaded yet */
+function dl3None(){return dl3User()
+  ?dkEmpty(dkSvg("cloud"),"No flight plan","Download your newest SimBrief plan and the EFB fills in with your flight: the map, charts, documents, weather and checklists.",`<button type="button" class="dk-btn" data-dl3go>Download Latest Plan</button>`)
+  :dkEmpty(dkSvg("gear"),"Add your SimBrief account","Your SimBrief username or pilot ID goes in Settings › Flight Operations. Then download your plan here.",`<button type="button" class="dk-btn" data-sbset>Open Settings</button>`)}
+/* a booking: its printed cover, its details, and Plan in SimBrief */
+function dl3BkPaper(b){const dt=b.departureTime?new Date(b.departureTime):null,ok=dt&&!isNaN(dt),day=ok?pad(dt.getUTCDate())+" "+DK_MON[dt.getUTCMonth()]+" "+dt.getUTCFullYear():"";
+  return `<span class="dk-paper"><span class="dk-ph">${dkSvg("star","dk-mk")}<b>POLARIS AIRWAYS</b></span><span class="dk-pk">vAMSYS Booking</span><span class="dk-pt">${esc(dl3BkName(b))}</span>
+    <span class="dk-pi">${dl3Plane()}</span><span class="dk-pf"><b>${esc(b.from)} → ${esc(b.to)}</b><i>${ok?"STD "+esc(isoZ(b.departureTime)):"&nbsp;"}</i></span><span class="dk-pd">${esc([b.type,day].filter(Boolean).join(" · "))}</span></span>`}
+function dl3Book(b){const dt=b.departureTime?Date.parse(b.departureTime):0,url=rsSbUrl({...b,std:dt||0}),m=dl3Match(b),x=O(),pa=ofp.params||{},gen=N(pa.time_generated)?N(pa.time_generated)*1000:0,i=v=>`<i>${v}</i>`;
+  return `<div class="dl3-pl">
+    <a class="dk-tile dl3-cov" href="${esc(url)}" target="_blank" rel="noopener" aria-label="Plan ${esc(dl3BkName(b))} in SimBrief"><span class="dk-cv">${dl3BkPaper(b)}${m?`<span class="dk-st ok" title="Planned and on this device">${dkSvg("check")}</span>`:""}</span><span class="dk-cap"><b>${esc(dl3BkName(b))}</b><small>${esc(b.from)} → ${esc(b.to)}</small></span></a>
+    <div class="dl3-tb">${dl3Sh("Booking")}
+      ${dl3R("Flight",esc(dl3BkName(b))+ftTag(dl3BkName(b),b.from,b.to))}${b.callsign&&b.callsign!==b.flight?dl3R("Callsign",esc(b.callsign)):""}
+      ${dl3R("Departure",esc(b.from||"—")+(b.departureTime?" · STD "+esc(dl3When(b.departureTime)):""))}${dl3R("Arrival",esc(b.to||"—"))}
+      ${dl3R("Aircraft",esc(b.type||"—")+(b.registration?" "+i(esc(b.registration)):""))}${b.altitude?dl3R("Cruise","FL"+String(Math.round(b.altitude/100)).padStart(3,"0")+(b.costIndex!=null&&b.costIndex!==""?" "+i("CI "+esc(b.costIndex)):"")):""}
+      ${b.route?`<div class="dl3-rt">${esc(b.route)}</div>`:""}
+      ${dl3Sh("Flight Plan")}${m?dl3R("On this device",esc(x.flight)+(gen?" "+i("generated "+esc(utcHM(gen/1000))):"")):`<div class="dl3-r"><span>Not planned yet</span><b class="t">Plan it in SimBrief, then download it here</b></div>`}
+      <a class="dk-btn dl3-sb" href="${esc(url)}" target="_blank" rel="noopener">Plan in SimBrief ↗</a></div></div>`}
+/* a phone's Bookings tab */
+function dl3BkList(B){if(!B.s.data)return `<div class="dk-wait">${B.s.err?esc(B.s.err):'<span class="dk-spin" aria-hidden="true"></span>Loading bookings…'}</div>`;
+  if(!B.list.length)return dkEmpty(dl3Plane(),"No bookings","Book a flight in vAMSYS, then plan it in SimBrief and download it here.","");
+  return `<div class="dk-list">${B.list.map((b,i)=>`<button type="button" class="dk-li" data-dl3="bk:${esc(dl3BkId(b,i))}"><span class="dk-lc dk-lf">${dl3Plane()}</span><span class="dk-lt"><b>${esc(dl3BkName(b))} · ${esc(b.from)} → ${esc(b.to)}</b><small>${esc([b.departureTime?"STD "+dl3When(b.departureTime):"",b.type,b.registration].filter(Boolean).join(" · "))}</small></span>${dl3Match(b)?`<span class="dk-st ok">${dkSvg("check")}</span>`:`<svg class="dk-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg>`}</button>`).join("")}</div>`}
+/* the paste card: when a download fails, or from Settings */
+function dl3Man(){
+  return `<section class="dl3-man${SBMAN.anim?" in":""}" id="sbMan"><div class="dl3-mh"><b>Paste or Upload a Plan</b><button type="button" class="dk-ib" data-sbhide aria-label="Close">×</button></div>
+    <p>Open your SimBrief data, copy everything on that page and paste it here, or upload a SimBrief .json file.</p>
+    <a class="dk-sq" id="sbOpen" href="${esc(sbHref(dl3User()))}" target="_blank" rel="noopener">Open SimBrief Data ↗</a>
+    <textarea id="sbPaste" rows="4" placeholder='{"fetch":{...},"params":{...}}' spellcheck="false"></textarea>
+    <div class="dl3-ma"><button type="button" class="dk-sq dl3-pri" id="sbLoad">Load Pasted Plan</button><label class="dk-sq">Upload .json<input type="file" id="sbFile" accept=".json,application/json" hidden></label></div></section>`}
+V.simbrief=()=>{const B=dl3Bks(),none=!!ofp._sample;let bk=null;
+  if(DL3.sel!=="plan"&&!B)DL3.sel="plan";
+  if(DL3.sel.startsWith("bk:")){bk=dl3BkFind(DL3.sel.slice(3));if(!bk&&B&&B.s.data)DL3.sel="bk"}
+  let title,right="",back="",body;
+  if(bk){title=dl3BkName(bk)+" · "+bk.from+" → "+bk.to;right=dl3Match(bk)?dl3Ok():"";back=`<button type="button" class="dk-back dl3-back" data-dl3="bk">${dkSvg("back")}<span>Bookings</span></button>`;body=dl3Book(bk)}
+  else if(DL3.sel!=="plan"){title="Bookings";body=B?dl3BkList(B):""}
+  else{const x=O();title=none?"This Flight":x.flight+" · "+S(x.o.icao_code)+" → "+S(x.d.icao_code);right=none?"":dl3Ok();body=none?dl3None():dl3Sec()}
+  const tabs=B?`<div class="dk-srcs" role="tablist" aria-label="Download"><button type="button" role="tab" data-dl3="plan" aria-selected="${DL3.sel==="plan"}">This Flight</button><button type="button" role="tab" data-dl3="bk" aria-selected="${DL3.sel!=="plan"}">Bookings${B.list.length?" ("+B.list.length+")":""}</button></div>`:"";
+  queueMicrotask(()=>{const b=$("#dl3Body");if(b&&DL3.y)b.scrollTop=DL3.y;const c=document.querySelector(".dl3-chips [aria-selected=\"true\"]");if(c){const r=c.parentElement;r.scrollLeft=c.offsetLeft-(r.clientWidth-c.offsetWidth)/2}});
+  return `<div class="dk dl3" id="dl3Root">${dl3Top()}${dl3Side(B)}<section class="dk-main">${tabs}${DL3.sel==="plan"&&!none?dl3Chips():""}<div class="dk-head"><div class="dk-hl">${back}</div><h2 class="dk-t">${esc(title)}</h2><div class="dk-hr">${right}</div></div>
+    <div class="dk-body" id="dl3Body"><p class="dl3-msg" id="sbMsg" role="status"></p>${SBMAN.on?dl3Man():""}${body}</div></section></div>`};
+document.addEventListener("click",e=>{if(cur!=="simbrief")return;const t=e.target.closest&&e.target.closest("[data-dl3],[data-dl3go]");if(!t)return;
+  if(t.dataset.dl3go!=null){const b=$("#sbFetch");if(b&&!b.disabled)b.click();return}
+  if(t.dataset.tab&&t.dataset.tab!==ofpTab)DL3.y=0;
+  const v=t.dataset.dl3;if(v===DL3.sel)return;DL3.sel=v;DL3.y=0;render()});
+/* Block times: the touchdown rate from the Backup PFD goes into the logbook entry here too */
+{const _r=render;render=function(){const v=_r.apply(this,arguments);try{if(cur==="simbrief"&&ofpTab==="oooi"&&typeof bpPlan==="function"&&bpPlan()){const i=$("#ooFpm"),L=store.get("bpLand:"+O().id,null);if(i&&!i.value&&L)i.value=Math.round(L.fpm)}}catch(e){}return v}}
+document.addEventListener("scroll",e=>{if(e.target&&e.target.id==="dl3Body")DL3.y=e.target.scrollTop},true);
 document.head.insertAdjacentHTML("beforeend",`<style>
-/* ---------- Flight › Download (Nov 2026) ---------- */
-.dl2{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:20px;max-width:1240px;margin:0 auto;box-sizing:border-box}
-.dl2.one{max-width:620px;padding-top:28px}
-@container screen (min-width:900px){.dl2:not(.one){grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);align-items:start}}
-.dl2-main,.dl2-side{display:grid;gap:16px;min-width:0;align-content:start}
-.dl2-side>.card{margin:0}
-.dl2-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
-.dl2-ey,.dl2-h{font:600 11px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--bronze)}
-.dl2-h{margin:0 0 4px}
-.dl2-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
-.dl2-gen{font:500 12.5px var(--f-ui);color:var(--label)}
-.dl2-route{display:grid;grid-template-columns:minmax(0,1fr) minmax(92px,1.1fr) minmax(0,1fr);align-items:center;gap:12px;margin:14px 0 4px}
-.dl2-ap{min-width:0}.dl2-ap.r{text-align:right}
-.dl2-ap b{display:block;font:400 clamp(38px,calc(2.6cqw + 14px),58px)/1 var(--f-disp);color:var(--ink);letter-spacing:.01em}
-.dl2-ap span{display:block;font:500 13px var(--f-ui);color:var(--label);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dl2-ap em{display:block;font:500 12.5px var(--f-mono);font-style:normal;color:var(--ink);margin-top:4px;white-space:nowrap}
-.dl2-ap em .rw::before{content:" · "}
-.dl2-mid{text-align:center;color:var(--bronze);min-width:0}
-.dl2-fl{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;font:600 13px var(--f-mono);color:var(--ink)}
-.dl2-line{display:flex;align-items:center;margin:6px 0 5px}.dl2-line i{flex:1;border-top:1.5px dashed color-mix(in srgb,var(--bronze) 55%,transparent)}.dl2-line svg{width:34px;height:17px;flex:none;margin-left:-2px}
-.dl2-bt{font:500 12px var(--f-ui);color:var(--label);white-space:nowrap}
-.dl2-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:16px 0 0;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.dl2-facts div{background:var(--panel);padding:10px 12px;min-width:0}
-.dl2-facts dt{font:600 10px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
-.dl2-facts dd{margin:4px 0 0;font:500 16px var(--f-mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dl2-facts dd small{font:500 11.5px var(--f-ui);color:var(--label)}
-.dl2-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-.dl2-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 16px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px var(--f-ui);text-decoration:none;cursor:pointer;box-shadow:none;margin:0;box-sizing:border-box}
-.dl2-b svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.dl2-b.pri{background:var(--accent);border-color:var(--accent);color:var(--panel)}
-.dl2-b.ghost{margin-left:auto;color:var(--label)}
-.dl2-b.warn{background:#D9483B;border-color:#D9483B;color:#fff}
-.dl2-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
-.dl2-li{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none;min-width:0}
-.dl2-li-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);flex:none}
-.dl2-li-ic svg,.dl2-gi svg,.dl2-go svg,.dl2-acct svg{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
-.dl2-li-ic svg{width:19px;height:19px;stroke-width:1.7}
-.dl2-li-t{flex:1;min-width:0}.dl2-li-t b{display:block;font:600 14px var(--f-ui)}.dl2-li-t small{display:block;font:500 12px var(--f-ui);color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.dl2-tick{width:19px;height:19px;border-radius:50%;background:#34C759;color:#fff;font:700 11px/19px var(--f-ui);text-align:center;flex:none}
-.dl2-tick.no{background:transparent;border:1.5px solid color-mix(in srgb,var(--label) 55%,transparent);box-sizing:border-box}
-.dl2-ch{width:15px;height:15px;fill:none;stroke:var(--label);stroke-width:2;flex:none}
-a.dl2-li:active{background:color-mix(in srgb,var(--accent) 7%,transparent)}
-.dl2-gh{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.dl2-gi{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--accent);color:var(--panel);flex:none}
-.dl2-gi.alt{background:var(--bronze)}
-.dl2-gi svg{width:22px;height:22px;stroke-width:1.9}
-.dl2-gh b{display:block;font:600 16px var(--f-ui);color:var(--ink)}.dl2-gh small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:1px}
-.dl2-gh>div{min-width:0}
-.dl2-acct{display:flex;align-items:center;gap:3px;max-width:100%;height:auto;min-height:0;margin:2px 0 0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--label);font:500 12.5px/1.35 var(--f-ui);text-align:left;cursor:pointer}
-.dl2-acct svg{width:12px;height:12px;stroke-width:2.4;flex:none;opacity:.8}
-.dl2-acct.add{color:var(--accent);font-weight:600}
-.dl2-acct:hover{color:var(--accent)}
-.dl2-x{margin-left:auto;width:32px;height:32px;border-radius:50%;border:0;background:color-mix(in srgb,var(--label) 14%,transparent);color:var(--label);font:400 20px/1 var(--f-ui);cursor:pointer;padding:0}
-.dl2-f{display:grid;gap:6px;margin:0 0 12px}
-.dl2-f span{font:600 10.5px var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
-.dl2-f textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:500 13px var(--f-mono);padding:10px 12px;margin:0;resize:vertical}
-.dl2-go{width:100%;height:46px;border:0;border-radius:11px;background:var(--accent);color:var(--panel);font:600 15px var(--f-ui);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin:0}
-.dl2-go svg{width:20px;height:20px;stroke-width:2}
-.dl2-go:active{filter:brightness(.92)}
-.dl2-msg{margin:10px 0 0;font:500 12.5px/1.45 var(--f-ui);color:var(--label)}
-.dl2-a{display:inline;height:auto;min-height:0;margin:0;padding:0;border:0;background:none;box-shadow:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.dl2-note{margin:0 0 12px;font:500 13px/1.45 var(--f-ui);color:var(--label)}
-.dl2-man>.dl2-b{margin-bottom:12px}
-.dl2-man.in{animation:dl2In .35s ease-out both}@keyframes dl2In{from{opacity:0;transform:translateY(-6px)}}
-.dl2-hello{padding:4px 2px}
-.dl2-hello h2{font:400 clamp(34px,calc(2cqw + 22px),48px)/1.08 var(--f-disp);margin:10px 0 10px;color:var(--accent)}
-.dl2-hello h2 em{font-style:normal;color:var(--bronze)}
-.dl2-hello p{margin:0;font:500 15px/1.5 var(--f-ui);color:var(--label);max-width:520px}
-@container screen (max-width:700px){.dl2-list{grid-template-columns:minmax(0,1fr)}}
-@container screen (max-width:560px){.dl2{padding:14px;gap:12px}.dl2-card{padding:16px}.dl2-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.dl2-route{grid-template-columns:minmax(0,1fr) 80px minmax(0,1fr);gap:8px}.dl2-ap b{font-size:34px}.dl2-ap em .rw{display:block}.dl2-ap em .rw::before{content:none}.dl2-bt{font-size:11px}.dl2-b.ghost{margin-left:0}}
-@media (prefers-reduced-motion:reduce){.dl2-man.in{animation:none}}
+/* ---------- Flight › Download, in the Documents style (Nov 2026): Documents' own parts (.dk-*) and colours (Charts' black), and these ---------- */
+/* Documents' own rules come later in the file, so these name both classes */
+.dk-sq.dl3-go{margin-left:auto;background:var(--ff-sel);padding:0 16px 0 12px}
+.dk-sq.dl3-go:active{background:#155660}
+.dk-sq.dl3-go:disabled{cursor:default}
+.dl3-go .dk-spin{width:18px;height:18px}
+.dl3 .dk-foot{justify-content:flex-start}
+.dl3-acct{min-width:0;border:0;background:none;padding:8px 0;color:var(--ff-ico);font:400 13px var(--f-os);text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl3-acct:active{color:#fff}
+.dl3-note{padding:14px 16px;border-bottom:1px solid var(--ff-sep);color:var(--ff-sub);font:400 14px/1.4 var(--f-os)}
+.dl3 .dk-ri{position:relative}
+.dl3-bdg{position:absolute;right:-5px;bottom:-3px;width:17px;height:17px;border-radius:50%;background:var(--ff-green);color:#fff;display:grid;place-items:center;box-shadow:0 0 0 2px var(--ff-bg)}
+.dl3 .dk-ri .dl3-bdg svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.dk-row.on .dl3-bdg{box-shadow:0 0 0 2px var(--ff-sel)}
+.dl3-when{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
+.dl3-when b{font:500 15px/1.2 var(--f-mono);color:var(--ff-ink)}.dl3-when small{font:400 12.5px/1.2 var(--f-os);color:var(--ff-sub);letter-spacing:.04em}
+.dk-row.on .dl3-when b,.dk-row.on .dl3-when small{color:#fff}
+/* the plan: its OFP as a cover, the numbers in rows beside it */
+.dl3-pl{display:grid;grid-template-columns:clamp(150px,21cqw,210px) minmax(0,1fr);gap:clamp(20px,3.6cqw,44px);align-items:start;padding:clamp(10px,1.8cqw,20px) clamp(20px,4cqw,48px) 48px}
+.dl3-cov{position:sticky;top:0}
+a.dk-tile{text-decoration:none;color:inherit}
+.dl3-tb{min-width:0}
+.dl3-sh{background:var(--ff-band);color:var(--ff-ico);font:500 13px/1 var(--f-os);letter-spacing:.06em;text-transform:uppercase;padding:13px 14px 11px;border-bottom:1px solid var(--ff-sep)}
+.dl3-r{display:flex;align-items:baseline;justify-content:space-between;gap:16px;width:100%;min-height:46px;box-sizing:border-box;margin:0;padding:12px 14px;border:0;border-bottom:1px solid var(--ff-sep);background:none;color:var(--ff-ink);text-align:left;font:inherit}
+.dl3-r>span{flex:none;font:400 16px/1.3 var(--f-os);color:var(--ff-sub)}
+.dl3-r>b{min-width:0;font:500 16px/1.3 var(--f-mono);color:#fff;text-align:right;overflow-wrap:anywhere}
+.dl3-r>b i{font-style:normal;font-weight:400;color:var(--ff-sub)}
+.dl3-r>b.t{font:400 16px/1.3 var(--f-os);color:var(--ff-ink)}
+.dl3-r>b .fts{margin-left:8px;vertical-align:1px}
+button.dl3-r{align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.dl3-r:active{background:var(--ff-act)}
+button.dl3-r>b{display:inline-flex;align-items:center;gap:8px;font:400 16px/1.3 var(--f-os);color:var(--ff-acc)}
+.dl3-rt{padding:11px 14px;border-bottom:1px solid var(--ff-sep);font:400 14px/1.55 var(--f-mono);color:var(--ff-sub);word-break:break-word}
+.dl3-clear{display:inline-flex;margin:18px 0 0;padding:8px 14px;border:0;border-radius:4px;background:none;color:var(--ff-red);font:400 16px var(--f-os);cursor:pointer}
+.dl3-clear.warn{background:var(--ff-red);color:#fff}
+.dl3-sb{display:inline-flex;align-items:center;justify-content:center;margin-top:18px;text-decoration:none}
+/* what went wrong, and the paste card */
+.dl3-msg{margin:clamp(10px,1.8cqw,18px) clamp(20px,4cqw,48px) 0;padding:12px 14px;border-left:3px solid #EBA537;background:var(--ff-band);color:#fff;font:400 15px/1.45 var(--f-os)}
+.dl3-msg:empty{display:none}
+.dl3-lk{display:inline;margin:0;padding:0;border:0;background:none;color:var(--ff-acc);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.dl3-man{margin:12px clamp(20px,4cqw,48px) 0;padding:14px 16px 16px;max-width:720px;box-sizing:border-box;background:var(--ff-band);border:1px solid var(--ff-sep);border-radius:5px}
+.dl3-man.in{animation:dkUp .32s cubic-bezier(.2,.8,.2,1) both}
+.dl3-mh{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dl3-mh b{font:600 17px var(--f-os);color:#fff}
+.dl3-mh .dk-ib{font:300 28px/1 var(--f-os)}
+.dl3-man p{margin:4px 0 12px;color:var(--ff-sub);font:400 14px/1.45 var(--f-os)}
+.dl3-man textarea{display:block;width:100%;box-sizing:border-box;margin:12px 0;border:1px solid var(--ff-sep);border-radius:4px;background:var(--ff-in);color:#fff;font:400 13px/1.45 var(--f-mono);padding:10px 12px;resize:vertical;outline:none}
+.dl3-man textarea:focus{box-shadow:0 0 0 2px var(--ff-sel)}
+.dl3-man textarea::placeholder{color:var(--ff-ph)}
+.dl3-ma{display:flex;flex-wrap:wrap;gap:8px}
+a.dk-sq,label.dk-sq{text-decoration:none;box-sizing:border-box}
+.dl3-man .dk-sq{background:var(--ff-btn)}
+.dl3-man .dk-sq:active{background:#38383C}
+.dl3-man .dk-sq.dl3-pri{background:var(--ff-sel)}
+/* a phone: the tabs, the cover above the rows */
+@container screen (min-width:641px){.dk-back.dl3-back{display:none}}
+@container screen (max-width:640px){
+  .dk-sq.dl3-go{flex:1;justify-content:center}
+  .dl3-pl{grid-template-columns:minmax(0,1fr);gap:18px;padding:12px 0 40px}
+  .dl3-cov{position:static;width:min(46%,190px);justify-self:center}
+  .dl3-sb,.dl3-clear{margin-left:14px}
+  .dl3-msg,.dl3-man{margin-left:12px;margin-right:12px}
+}
+@media (prefers-reduced-motion:reduce){.dl3-man.in{animation:none}}
 /* Settings › Flight Operations: a link row like the action rows */
 .st-g a.st-act{text-decoration:none}
+/* This Flight: the flight, then its sections (as the Flight Plan's own sidebar has them) */
+.dl3-fl{display:flex;flex-direction:column;gap:3px;padding:12px 16px;border-bottom:1px solid var(--ff-sep)}
+.dl3-fl b{font:500 20px/1.2 var(--f-mono);color:#fff}.dl3-fl span{font:400 14px/1.3 var(--f-os);color:var(--ff-sub)}
+.dk-row.dl3-sx{min-height:52px;grid-template-columns:26px minmax(0,1fr) auto;gap:12px;padding:8px 16px}
+.dl3 .dk-ri.s svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dl3-sx .dk-rt b{font-size:16px}
+.dl3-v{font:400 13.5px var(--f-mono);color:var(--ff-sub);white-space:nowrap}
+.dk-row.on .dl3-v{color:#fff}
+/* a section of the plan, in Charts' black by day as well */
+.dl3 .dk-body{--bg:#121213;--panel:#1A1A1C;--panel-2:#26262A;--line:#2E2E32;--ink:#E8E8E9;--label:#9C9CA1;--grid:#232326;--shadow:rgba(0,0,0,.6);--accent:#7CC2C9;--accent-h:#E8E8E9;--bronze:#C3A487;--cyan:#5CC6E0;--green:#4FC27E;--amber:#EBA537;--red:#F06A6A;--magenta:#D87BD8;--input:#161618;color-scheme:dark;color:var(--ink)}
+.dl3-sec{padding:clamp(14px,2.2cqw,24px) clamp(16px,3cqw,32px) 48px}
+.dl3-sec>.dwrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px;min-width:0}
+.dl3-sec .dl3-clear{margin:4px 0 0}
+/* a phone: the sections as a row under the tabs */
+.dl3-chips{display:none}
+@container screen (max-width:640px){
+  .dl3-chips{display:flex;flex:none;gap:6px;overflow-x:auto;padding:8px 12px;background:var(--ff-bar);border-bottom:1px solid var(--ff-sep);scrollbar-width:none}
+  .dl3-chips::-webkit-scrollbar{display:none}
+  .dl3-chips button{flex:none;height:32px;padding:0 13px;border:0;border-radius:16px;background:var(--ff-btn);color:var(--ff-sub);font:500 14px var(--f-os);cursor:pointer;white-space:nowrap}
+  .dl3-chips button[aria-selected="true"]{background:var(--ff-sel);color:#fff}
+  .dl3-sec{padding:12px 12px 40px}
+}
 </style>`);
 
 /* ===== Settings ===== */
@@ -5934,7 +6000,7 @@ async function sbFetchQuiet(manual){const u=String(store.get("sbUser","")).trim(
   try{const j=await fetch(sbHref(u)).then(r=>r.json());if(!j||!j.origin||!j.destination||(j.fetch&&S(j.fetch.status)&&S(j.fetch.status)!=="Success")){if(manual)toast("SimBrief didn’t return a plan for that account");return}
     const id=j.params&&(j.params.request_id||j.params.time_generated),curId=!ofp._sample&&ofp.params&&(ofp.params.request_id||ofp.params.time_generated);
     if(id&&curId&&String(id)===String(curId)){if(manual)toast("You already have your latest plan");return}
-    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
+    ofp=j;CL=buildCL();store.set("ofp",j);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ofpTab="sum";store.set("ofpTab","sum");render();ciOfpSync();toast("Loaded your latest plan: "+O().flight+" "+S(j.origin.icao_code)+"–"+S(j.destination.icao_code))}
   catch(e){if(manual){SBMAN.on=true;toast("SimBrief can’t be reached from here. Paste or upload the plan in Flight › Download.")}}}
 setTimeout(()=>{if(store.get("sbAuto",false)===true&&!apmOn())sbFetchQuiet(false)},2500);
 document.addEventListener("change",e=>{if(e.target.id==="stSb"){store.set("sbUser",e.target.value.trim());render()}});
@@ -7254,7 +7320,7 @@ function originOf(el){const r=el.getBoundingClientRect(),s=screenEl.getBoundingC
 function setOrigin(o){const s=screenEl.getBoundingClientRect();o=o||{x:s.width/2,y:s.height/2};win.style.transformOrigin=`${o.x}px ${o.y}px`}
 function route(){
   let h=location.hash.slice(1);if(h==="taxi"){location.replace("#map");return}if(h==="descent"){pfDs=true;store.set("pfDs",true);location.replace("#perf");return}if(h==="_navlog"||h==="_oooi")h=h.slice(1);if(h==="navlog"||h==="oooi"){ofpTab=h;store.set("ofpTab",h);location.replace("#ofp");return}
-  if(h==="flight"){location.replace("#"+ftLast());return}
+  if(h==="flight"){location.replace("#"+ftLast());return}if(h==="ofp"){DL3.sel="plan";location.replace("#simbrief");return}
   const next=(APPS[h]||isFl(h))&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
   cur=next;pendingDel=null;pendingReset=null;
@@ -7278,7 +7344,7 @@ function goHome(){if(cur)location.hash="home";else goPage(0)}
 function loadOfp(obj){
   if(obj&&typeof obj==="object"&&obj.fetch&&S(obj.fetch.status)&&S(obj.fetch.status)!=="Success"){toast("SimBrief: "+S(obj.fetch.status));return false}
   if(!obj||typeof obj!=="object"||!obj.origin||!obj.destination){toast("That doesn’t look like a SimBrief JSON plan");return false}
-  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
+  ofp=obj;CL=buildCL();store.set("ofp",obj);MAP.c=null;DL3.sel="plan";SBMAN.on=false;ofpTab="sum";store.set("ofpTab","sum");ciOfpSync();toast("Loaded "+O().flight+" "+S(obj.origin.icao_code)+"–"+S(obj.destination.icao_code));goApp("ofp");return true}
 
 window.addEventListener("hashchange",route);
 document.addEventListener("click",e=>{const a=e.target.closest('#home a[href^="#"]');if(a){const ic=a.querySelector(".icon")||a;openOrigin=originOf(ic)}},true);
@@ -7547,8 +7613,8 @@ document.addEventListener("click",async e=>{
   if(t.id==="ooSave"){const o=store.get("oooi:"+x.id,{});const m=s=>{const[a,b]=s.split(":").map(Number);return a*60+b};const d=(a,b)=>((m(b)-m(a))+1440)%1440;const now=new Date();
     const e2={id:Date.now(),date:now.getUTCFullYear()+"-"+pad(now.getUTCMonth()+1)+"-"+pad(now.getUTCDate()),flight:x.flight,dep:S(x.o.icao_code),arr:S(x.d.icao_code),ac:S(x.ac.icaocode),block:d(o.OUT,o.IN),air:d(o.OFF,o.ON),fpm:parseFloat($("#ooFpm").value)||null,notes:$("#ooRmk").value.trim()};
     const log=store.get("log",[]);log.push(e2);store.set("log",log);store.set("oooi:"+x.id,{});toast("Saved to logbook");goApp("logbook");return}
-  if(t.id==="sbFetch"){const u=String(store.get("sbUser","")).trim();if(!u){toast("Add your SimBrief username or pilot ID in Settings");sbSetGo();return}$("#sbMsg").textContent="Fetching…";
-    try{const r=await fetch(sbHref(u));const j=await r.json();if(!loadOfp(j)){sbManShow();$("#sbMsg").innerHTML='SimBrief didn’t return a plan for '+esc(u)+'. Check the account in <button type="button" class="dl2-a" data-sbset>Settings</button>, or paste the plan below.'}}catch(err){sbManShow();$("#sbMsg").innerHTML="Couldn’t reach SimBrief from here. Paste or upload the plan below."}return}
+  if(t.id==="sbFetch"){const u=String(store.get("sbUser","")).trim();if(!u){toast("Add your SimBrief username or pilot ID in Settings");sbSetGo();return}dlBusy(true);$("#sbMsg").textContent="";
+    try{const r=await fetch(sbHref(u));const j=await r.json();if(!loadOfp(j)){sbManShow();$("#sbMsg").innerHTML='SimBrief didn’t return a plan for '+esc(u)+'. Check the account in <button type="button" class="dl3-lk" data-sbset>Settings</button>, or paste the plan below.'}}catch(err){sbManShow();$("#sbMsg").innerHTML="Couldn’t reach SimBrief from here. Paste or upload the plan below."}dlBusy(false);return}
   if(t.id==="sbLoad"){try{loadOfp(JSON.parse($("#sbPaste").value))}catch(err){toast("Couldn’t read that text. Paste the whole JSON page.")}return}
   if(t.id==="mtGo"){const raw=$("#mtIn").value.trim(),m=decodeMetar(raw);$("#mtOut").innerHTML=m?`<div class="dwrap" style="display:flex;flex-direction:column;gap:16px">${wxDetail("DEC","Decoded",{icao_code:raw.split(/\s+/)[0],plan_rwy:$("#mtRwy").value.trim().toUpperCase(),name:raw.split(/\s+/)[0]},raw,"")}</div>`:`<div class="notice"><b>Nothing to decode</b><span>Paste a METAR first.</span></div>`;return}
   if(t.id==="chGo"){const i=$("#chIcao").value.trim().toUpperCase();if(!/^[A-Z0-9]{4}$/.test(i)){toast("Enter a 4-letter ICAO code");return}$("#chOut").style.borderTop="1px solid var(--line)";$("#chOut").innerHTML=chartLinks(i);return}
@@ -8502,7 +8568,8 @@ const fdRow=(attr,ic,t,sub)=>`<button type="button" class="fd-row" ${attr}><span
    with Download All) and is kept in the browser's Cache Storage, so it opens offline; when staff replace it, the newer
    version comes down by itself, and a withdrawn one goes. Documents open in the reader below, inside Flight, so the
    tab bar stays and the page you were on is still there when you come back. */
-const DOC={src:store.get("docSrc","flight")==="polaris"?"polaris":"flight",dir:"",view:store.get("docView","grid")==="list"?"list":"grid",q:"",edit:false,
+/* Polaris documents only: the flight's own papers are in Flight › Download (Nov 2026) */
+const DOC={src:"polaris",dir:"",view:store.get("docView","grid")==="list"?"list":"grid",q:"",edit:false,
   list:store.get("docList",null),at:0,loading:null,err:"",dl:new Map(),queue:[],pumping:false,cov:new Map(),covBusy:new Set(),covFail:new Map(),have:new Set(),mem:new Map(),
   seen:store.get("docSeen",null),visit:store.get("docVisit",0)||0,fx:"",persist:false,warned:false,menu:false,armAll:false};
 const DOC_CACHE="pefb-docs-v1",DOC_FL=["ofpdoc","sum","brief","fuel","route","navlog","oooi","notam"];
@@ -8653,10 +8720,9 @@ function dkFoot(){const t=dkFootText();
   return `<span>${esc(t)}</span><button type="button" class="dk-ib" data-dk="refresh" aria-label="Check for new documents"${authOn()?"":" disabled"}>${dkSvg("refresh")}</button>`}
 function dkSide(){const x=O(),s=ofp._sample;
   return `<aside class="dk-side"><div class="dk-sl">
-    <div class="dk-sec">This Flight</div><button type="button" class="dk-row${DOC.src==="flight"?" on":""}" data-dksrc="flight"><span class="dk-ri">${dkSvg("fold")}</span><span class="dk-rt"><b>${s?"No flight plan":esc(x.flight)}</b><small>${s?"Fetch one in Download":esc(S(x.o.icao_code))+" → "+esc(S(x.d.icao_code))+" · "+DOC_FL.length+" Items"}</small></span></button>
     <div class="dk-sec">Drives</div><button type="button" class="dk-row${DOC.src==="polaris"?" on":""}" data-dksrc="polaris"><span class="dk-ri">${dkSvg("hdd")}</span><span class="dk-rt"><b>Polaris Airways</b><small>${dkDriveSub()}</small></span>${dkDriveMark()}</button>
   </div><div class="dk-foot" id="dkFoot">${dkFoot()}</div></aside>`}
-const dkSrcs=()=>`<div class="dk-srcs" role="tablist" aria-label="Documents from"><button type="button" role="tab" data-dksrc="flight" aria-selected="${DOC.src==="flight"}">This Flight</button><button type="button" role="tab" data-dksrc="polaris" aria-selected="${DOC.src==="polaris"}">Polaris Airways</button></div>`;
+const dkSrcs=()=>"";
 /* what Download All and the tick are about: the folder you are in, or the whole drive */
 const dkScope=()=>{const L=docList();return DOC.dir&&!DOC.q.trim()?L.filter(d=>(d.folder||"")===DOC.dir):L};
 /* the bar across the top, as in ForeFlight: the title, then list or covers, options, Edit, and the search */
@@ -8724,7 +8790,7 @@ function docBadge(){const b=document.getElementById("ftabs");if(!b)return;const 
 document.addEventListener("click",e=>{if(cur!=="docs")return;
   if(DOC.menu&&!(e.target.closest&&e.target.closest(".dk-gw"))){DOC.menu=false;DOC.armAll=false;dkTopUpd()}
   const t=e.target.closest&&e.target.closest("[data-dksrc],[data-dkdir],[data-dkview],[data-dkopen],[data-dk]");if(!t)return;const a=t.dataset;
-  if(a.dksrc){if(DOC.src!==a.dksrc){DOC.src=a.dksrc;DOC.dir="";DOC.edit=false;DOC.q="";store.set("docSrc",DOC.src);DOC.fx="src";render();if(DOC.src==="polaris")docsLoad();ftSync()}return}
+  if(a.dksrc){if(a.dksrc==="polaris"&&DOC.src!==a.dksrc){DOC.src=a.dksrc;DOC.dir="";DOC.edit=false;DOC.q="";store.set("docSrc",DOC.src);DOC.fx="src";render();if(DOC.src==="polaris")docsLoad();ftSync()}return}
   if(a.dkdir!=null){DOC.fx=a.dkdir?"fwd":"back";DOC.dir=a.dkdir;DOC.q="";render();return}
   if(a.dkview){if(DOC.view!==a.dkview){DOC.view=a.dkview;store.set("docView",DOC.view);DOC.fx="view";docRender()}return}
   if(a.dkopen){const d=docFind(a.dkopen);if(d)docTap(d);return}
@@ -8865,9 +8931,11 @@ document.addEventListener("keydown",e=>{if(!DR.open||cur!=="docs"||(e.target.clo
   if((e.metaKey||e.ctrlKey)&&(e.key==="="||e.key==="+")){e.preventDefault();drZoom(1.25)}else if((e.metaKey||e.ctrlKey)&&e.key==="-"){e.preventDefault();drZoom(1/1.25)}});
 window.addEventListener("resize",()=>{if(DR.open&&!DR.away&&cur==="docs"){clearTimeout(DR.rz);DR.rz=setTimeout(()=>{drRelayout();drVis()},120)}});
 document.head.insertAdjacentHTML("beforeend",`<style>
-/* ---------- Documents, in ForeFlight's colours (the same by day and by night) ---------- */
+/* ---------- Documents, laid out as ForeFlight's, in the Charts app's black (the same by day and by night) ---------- */
 .screen[data-app="docs"] .appwin>main{position:relative}
-.dk,.drwrap{--ff-bar:#23364D;--ff-btn:#101824;--ff-bg:#16212E;--ff-sep:#2D3844;--ff-sel:#4498DB;--ff-ico:#6D7C8E;--ff-ink:#F1F1F1;--ff-sub:#AEB8C3;--ff-green:#8BC15E;--ff-ph:#8E8E92;--ff-red:#E5534B}
+/* Charts at night: the list #1A1A1C, the viewer #222225, lines #2E2E32, the status bar's black, the teal it picks with */
+.dk,.drwrap{--ff-bar:#0B0B0C;--ff-btn:#2A2A2D;--ff-band:#121213;--ff-bg:#1A1A1C;--ff-main:#222225;--ff-in:#161618;--ff-act:#26262A;--ff-sep:#2E2E32;
+  --ff-sel:#1A6772;--ff-acc:#7CC2C9;--ff-ico:#8E8E93;--ff-ink:#E8E8E9;--ff-sub:#9C9CA1;--ff-green:#4FC27E;--ff-ph:#6E6E73;--ff-red:#F06A6A}
 .dk{position:relative;display:grid;grid-template-columns:300px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:100%;min-height:0;overflow:hidden;
   background:var(--ff-bg);color:var(--ff-ink);font-family:var(--f-os);-webkit-font-smoothing:antialiased}
 .dk button{-webkit-tap-highlight-color:transparent;font-family:var(--f-os)}
@@ -8876,29 +8944,29 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dk-tt{margin:0;padding:0 18px;font:400 22px/1.2 var(--f-os);color:#fff;letter-spacing:.1px;white-space:nowrap}
 .dk-tr{display:flex;align-items:center;gap:8px;padding:9px 16px 9px 16px;min-width:0}
 .dk-sq{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;min-width:46px;padding:0 12px;border:0;border-radius:4px;background:var(--ff-btn);color:#fff;font:600 16px var(--f-os);cursor:pointer;transition:background-color .15s}
-.dk-sq:active{background:#000}.dk-sq.on{background:var(--ff-sel)}
+.dk-sq:active{background:#38383C}.dk-sq.on{background:var(--ff-sel)}
 .dk-sq svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .dk-gw{position:relative;flex:none}
 .dk-q{position:relative;display:block;margin-left:auto;flex:0 1 300px;min-width:120px}
 .dk-q svg{position:absolute;left:10px;top:50%;width:17px;height:17px;margin-top:-8.5px;fill:none;stroke:var(--ff-ph);stroke-width:2;stroke-linecap:round;pointer-events:none}
-.dk-q input{width:100%;box-sizing:border-box;height:38px;border:0;border-radius:5px;background:var(--ff-bg);padding:0 10px 0 34px;font:400 17px var(--f-os);color:#fff;outline:none}
+.dk-q input{width:100%;box-sizing:border-box;height:38px;border:0;border-radius:5px;background:var(--ff-btn);padding:0 10px 0 34px;font:400 17px var(--f-os);color:#fff;outline:none}
 .dk-q input::placeholder{color:var(--ff-ph)}.dk-q input:focus{box-shadow:0 0 0 2px var(--ff-sel)}
 /* options */
-.dk-menu{position:absolute;left:0;top:calc(100% + 8px);z-index:30;min-width:300px;background:var(--ff-btn);border:1px solid var(--ff-sep);border-radius:5px;box-shadow:0 14px 34px rgba(0,0,0,.55);padding:4px 0;animation:dkMenu .16s ease-out both}
-.dk-menu::before{content:"";position:absolute;left:16px;top:-7px;width:12px;height:12px;background:var(--ff-btn);border-left:1px solid var(--ff-sep);border-top:1px solid var(--ff-sep);transform:rotate(45deg)}
+.dk-menu{position:absolute;left:0;top:calc(100% + 8px);z-index:30;min-width:300px;background:var(--ff-bg);border:1px solid var(--ff-sep);border-radius:5px;box-shadow:0 14px 34px rgba(0,0,0,.55);padding:4px 0;animation:dkMenu .16s ease-out both}
+.dk-menu::before{content:"";position:absolute;left:16px;top:-7px;width:12px;height:12px;background:var(--ff-bg);border-left:1px solid var(--ff-sep);border-top:1px solid var(--ff-sep);transform:rotate(45deg)}
 .dk-menu button{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;color:#fff;font:400 16px/1.25 var(--f-os);text-align:left;padding:11px 16px;cursor:pointer}
 .dk-menu button+button{border-top:1px solid var(--ff-sep)}
-.dk-menu button:active{background:var(--ff-bar)}.dk-menu button:disabled{opacity:.4;cursor:default}
+.dk-menu button:active{background:var(--ff-main)}.dk-menu button:disabled{opacity:.4;cursor:default}
 .dk-menu button.red{color:var(--ff-red)}
 .dk-menu svg{width:21px;height:21px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .dk-menu span{display:flex;flex-direction:column;gap:1px}.dk-menu small{font:400 13px var(--f-os);color:var(--ff-sub)}
 @keyframes dkMenu{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 /* the sidebar: bands, and rows the full width */
-.dk-side{display:flex;flex-direction:column;min-height:0;background:var(--ff-bg);border-right:1px solid var(--ff-btn)}
+.dk-side{display:flex;flex-direction:column;min-height:0;background:var(--ff-bg);border-right:1px solid var(--ff-sep)}
 .dk-sl{flex:1;overflow-y:auto}
-.dk-sec{background:var(--ff-btn);color:var(--ff-ico);font:500 14px/1 var(--f-os);letter-spacing:.06em;text-transform:uppercase;padding:20px 16px 16px;border-bottom:1px solid var(--ff-sep)}
+.dk-sec{background:var(--ff-band);color:var(--ff-ico);font:500 14px/1 var(--f-os);letter-spacing:.06em;text-transform:uppercase;padding:20px 16px 16px;border-bottom:1px solid var(--ff-sep)}
 .dk-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;min-height:68px;box-sizing:border-box;padding:10px 16px;border:0;border-bottom:1px solid var(--ff-sep);background:var(--ff-bg);color:var(--ff-ink);text-align:left;cursor:pointer;font:inherit;transition:background-color .15s}
-.dk-row:active{background:#1D2A39}.dk-row.on,.dk-row.on:active{background:var(--ff-sel);color:#fff;border-bottom-color:var(--ff-sel)}
+.dk-row:active{background:var(--ff-act)}.dk-row.on,.dk-row.on:active{background:var(--ff-sel);color:#fff;border-bottom-color:var(--ff-sel)}
 .dk-ri{display:grid;place-items:center;color:var(--ff-ico)}.dk-row.on .dk-ri{color:#fff}
 .dk-ri svg{width:32px;height:32px;fill:currentColor;stroke:none}
 .dk-rt{min-width:0;display:flex;flex-direction:column;gap:3px}
@@ -8908,22 +8976,22 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dk-rm{width:18px;height:18px;border-radius:50%;flex:none}
 .dk-rm.spin,.dk-spin{border:2px solid rgba(255,255,255,.22);border-top-color:#fff;border-radius:50%;box-sizing:border-box;animation:dkSpin .8s linear infinite}
 .dk-spin{width:20px;height:20px;display:inline-block}
-.dk-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 16px;background:var(--ff-btn);border-top:1px solid var(--ff-sep);font:400 13px var(--f-os);color:var(--ff-ico);min-height:46px}
+.dk-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 16px;background:var(--ff-band);border-top:1px solid var(--ff-sep);font:400 13px var(--f-os);color:var(--ff-ico);min-height:46px}
 .dk-foot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dk-ib{flex:none;width:36px;height:36px;border-radius:4px;border:0;background:none;color:#fff;display:grid;place-items:center;cursor:pointer}
 .dk-ib svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.dk-ib:disabled{opacity:.3}
 /* the documents */
-.dk-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--ff-bg);container-type:inline-size;container-name:dkmain}
+.dk-main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--ff-main);container-type:inline-size;container-name:dkmain}
 .dk-srcs{display:none}
 .dk-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;min-height:64px;padding:8px 22px 4px;box-sizing:border-box}
 .dk-hl{display:flex;min-width:0}.dk-hr{display:flex;justify-content:flex-end}
 .dk-t{margin:0;font:400 23px/1.2 var(--f-os);color:#fff;text-align:center;max-width:52cqw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dk-allok{flex:none;width:32px;height:32px;border-radius:50%;background:var(--ff-green);color:#fff;display:grid;place-items:center}
 .dk-allok svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
-.dk-sync{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:0;border-radius:4px;background:var(--ff-btn);color:#fff;font:600 15px var(--f-os);cursor:pointer}
+.dk-sync{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:0;border-radius:4px;background:var(--ff-band);color:#fff;font:600 15px var(--f-os);cursor:pointer}
 .dk-sync svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .dk-sync.busy{cursor:default;padding:0 10px}
-.dk-back{display:inline-flex;align-items:center;gap:4px;height:36px;max-width:100%;padding:0 12px 0 6px;border:0;border-radius:4px;background:var(--ff-btn);color:#fff;font:600 15px var(--f-os);cursor:pointer;min-width:0}
+.dk-back{display:inline-flex;align-items:center;gap:4px;height:36px;max-width:100%;padding:0 12px 0 6px;border:0;border-radius:4px;background:var(--ff-band);color:#fff;font:600 15px var(--f-os);cursor:pointer;min-width:0}
 .dk-back span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dk-back svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .dk-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
@@ -8932,7 +9000,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dk-tile{display:flex;flex-direction:column;border:0;padding:0;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit}
 .dk-tile:active .dk-cv{filter:brightness(.85)}
 .dk-cv{position:relative;display:block;aspect-ratio:8.5/11;background:#fff;overflow:hidden;container-type:inline-size}
-.dk-cap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px;min-height:62px;padding:10px 12px;box-sizing:border-box;background:var(--ff-btn)}
+.dk-cap{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px;min-height:62px;padding:10px 12px;box-sizing:border-box;background:var(--ff-band)}
 .dk-cap b{font:700 15px/1.25 var(--f-os);color:#fff;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:center}
 .dk-cap small{font:400 13px/1.25 var(--f-os);color:var(--ff-sub);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dk-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;background:#fff;opacity:0;transition:opacity .25s}.dk-img.on{opacity:1}
@@ -8955,7 +9023,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dk-st{position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;box-sizing:border-box}
 .dk-st svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
 .dk-st.ok{background:var(--ff-green);color:#fff}
-.dk-st.no,.dk-st.wait,.dk-st.dl{background:rgba(16,24,36,.88);color:#fff}
+.dk-st.no,.dk-st.wait,.dk-st.dl{background:rgba(18,18,19,.88);color:#fff}
 .dk-st.no svg,.dk-st.wait svg{width:19px;height:19px;stroke-width:1.9}.dk-st.wait{color:var(--ff-ph)}
 .dk-st.dl svg{width:24px;height:24px;transform:rotate(-90deg)}
 .dk-st.dl .t{fill:none;stroke:rgba(255,255,255,.2);stroke-width:3}
@@ -8967,14 +9035,14 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dk-x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round}
 .dk.editing .dk-tile:not(.ed):not(.dk-ftile),.dk.editing .dk-li:not(.ed):not(.dk-fli){opacity:.4}
 /* folders */
-.dk-fcv{display:grid;place-items:center;background:#1B2838;box-shadow:inset 0 0 0 1px var(--ff-sep)}
+.dk-fcv{display:grid;place-items:center;background:var(--ff-bg);box-shadow:inset 0 0 0 1px var(--ff-sep)}
 .dk-fi{width:60%;height:auto;aspect-ratio:1;fill:var(--ff-ico);stroke:none}
 .dk-fn{position:absolute;top:57%;left:50%;transform:translate(-50%,-50%);font:700 18px var(--f-os);color:var(--ff-bg)}
 .dk-fcv .dk-new.big{left:auto;right:8px}
 /* the list */
 .dk-list{display:flex;flex-direction:column;margin:6px 0 48px;border-top:1px solid var(--ff-sep)}
 .dk-li{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:16px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--ff-sep);background:none;color:inherit;padding:10px 22px;cursor:pointer;font:inherit}
-.dk-li:active{background:#1D2A39}
+.dk-li:active{background:var(--ff-act)}
 .dk-lc{position:relative;display:block;width:46px;aspect-ratio:8.5/11;background:#fff;overflow:hidden;container-type:inline-size}
 .dk-lf{display:grid;place-items:center;background:none;aspect-ratio:auto;height:46px}.dk-lf svg{width:40px;height:40px;fill:var(--ff-ico);stroke:none}
 .dk-lt{min-width:0;display:flex;flex-direction:column;gap:3px}.dk-lt b{font:400 17px/1.25 var(--f-os);color:#fff}
@@ -9006,9 +9074,9 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .dk{grid-template-columns:minmax(0,1fr)}.dk-side{display:none}
   .dk-top{grid-template-columns:minmax(0,1fr);row-gap:0}.dk-tt{padding:12px 14px 0;font-size:20px}.dk-tr{padding:8px 12px 10px;flex-wrap:nowrap}.dk-q{flex:1 1 auto;min-width:0}
   .dk-menu{left:auto;right:-60px;min-width:280px}.dk-menu::before{left:auto;right:76px}
-  .dk-srcs{display:flex;background:var(--ff-btn);border-bottom:1px solid var(--ff-sep);flex:none}
+  .dk-srcs{display:flex;background:var(--ff-bar);border-bottom:1px solid var(--ff-sep);flex:none}
   .dk-srcs button{flex:1;height:44px;border:0;background:none;color:var(--ff-ico);font:600 15px var(--f-os);cursor:pointer;border-bottom:3px solid transparent}
-  .dk-srcs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--ff-sel)}
+  .dk-srcs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--ff-acc)}
   .dk-head{padding:8px 12px 2px;min-height:54px}.dk-t{font-size:18px;max-width:60cqw}
   .dk-back span{display:none}.dk-back{padding:0 8px}
   .dk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px;padding:12px 16px 40px}
@@ -9016,7 +9084,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .dk-li{padding:10px 14px}
 }
 /* ---------- the reader ---------- */
-.drwrap{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--ff-bg);font-family:var(--f-os);color:var(--ff-ink)}
+.drwrap{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;background:var(--ff-main);font-family:var(--f-os);color:var(--ff-ink)}
 .drwrap[hidden],.screen:not([data-app="docs"]) .drwrap{display:none!important}
 .drwrap.in{animation:drIn .3s cubic-bezier(.2,.8,.2,1) both}.drwrap.out{animation:drOut .2s cubic-bezier(.4,0,1,1) both;pointer-events:none}
 @keyframes drIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
@@ -9040,17 +9108,17 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .dr-pg canvas{position:absolute;inset:0;z-index:1;width:100%;height:100%;display:block}
 .dr-pn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 15px var(--f-os);color:#A8AFB4}
 .drwrap.inv .dr-pg{background:#141414}.drwrap.inv .dr-pg canvas{filter:invert(.92) hue-rotate(180deg)}
-.dr-pgn{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:2px;padding:9px 16px;border-radius:4px;background:rgba(16,24,36,.92);color:#fff;font:600 15px/1 var(--f-os);font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
+.dr-pgn{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:2px;padding:9px 16px;border-radius:4px;background:rgba(11,11,12,.92);color:#fff;font:600 15px/1 var(--f-os);font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap;box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
 .dr-pgn[hidden]{display:none}
 .dr-pgn input{width:4.4em;border:0;border-radius:3px;padding:3px 6px;font:600 15px var(--f-os);text-align:center;background:#fff;color:#000;outline:none}
 .dr-msg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);margin:0;padding:14px 20px;border-radius:5px;background:var(--ff-btn);color:#fff;font:500 15px/1.4 var(--f-os);box-shadow:0 10px 30px -10px rgba(0,0,0,.6);max-width:min(80%,440px);text-align:center;z-index:4}
 .dr-msg[hidden]{display:none}
-.dr-toc{flex:none;width:300px;max-width:80%;overflow-y:auto;background:var(--ff-bg);border-right:1px solid var(--ff-btn);animation:drToc .24s cubic-bezier(.2,.8,.2,1) both}
+.dr-toc{flex:none;width:300px;max-width:80%;overflow-y:auto;background:var(--ff-bg);border-right:1px solid var(--ff-sep);animation:drToc .24s cubic-bezier(.2,.8,.2,1) both}
 .dr-toc[hidden]{display:none}
 @keyframes drToc{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
-.dr-tch{background:var(--ff-btn);color:var(--ff-ico);font:500 14px/1 var(--f-os);letter-spacing:.06em;text-transform:uppercase;padding:18px 16px 14px;border-bottom:1px solid var(--ff-sep)}
+.dr-tch{background:var(--ff-band);color:var(--ff-ico);font:500 14px/1 var(--f-os);letter-spacing:.06em;text-transform:uppercase;padding:18px 16px 14px;border-bottom:1px solid var(--ff-sep)}
 .dr-ti{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--ff-sep);background:none;color:var(--ff-ink);font:400 16px/1.3 var(--f-os);padding:12px 16px 12px calc(16px + var(--l,0)*18px);cursor:pointer}
-.dr-ti[style*="--l:0"]{font-weight:600}.dr-ti:active{background:#1D2A39}
+.dr-ti[style*="--l:0"]{font-weight:600}.dr-ti:active{background:var(--ff-act)}
 @container screen (max-width:640px){
   .dr-toc{position:absolute;inset:0 auto 0 0;z-index:6;box-shadow:12px 0 30px -12px rgba(0,0,0,.6)}
   .dr-top{grid-template-columns:auto minmax(0,1fr) auto;padding:7px 10px}.dr-t{align-items:flex-start;text-align:left;max-width:none}.dr-t b{font-size:17px}
@@ -9241,7 +9309,7 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 
 /* ---------- More ---------- */
 V.more=()=>`<div class="fd">
-  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","The flight\u2019s papers and the Polaris manuals")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
+  <section class="card fd-phone">${cardH("Flight","Also in Flight")}<div class="fd-list">${fdRow('data-ftgo="docs"',FT_I.docs,"Documents","Polaris manuals, SOPs and notices")}${fdRow('data-ftgo="messages"',FT_I.msg,"Messages","ACARS, coming soon")}${fdRow('data-ftgo="kneeboard"',FT_I.pad,"Scratch Pad","Notes, forms and handwriting")}</div></section>
   <section class="card">${cardH("Flight","Instruments and settings")}<div class="fd-list">${fdRow('data-ftgo="pfd"','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12.5h6l1.5 2h3l1.5-2h6M12 6.5v2"/>',"Backup PFD","Standby flight display, live from the simulator")}${fdRow("data-ftset",ST_I.gear||'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',"Settings","Base map and layers, your SimBrief account (opens Settings)")}</div></section>
   <p class="fd-foot">© Polaris Airways EFB Beta${EFB_BUILD?" · build "+esc(EFB_BUILD):""}</p></div>`;
 
@@ -11164,7 +11232,7 @@ function gxStamp(k,why,need,hhmm){if(!gxAuto())return false;const key="oooi:"+O(
   const i=OO.indexOf(k);if(OO.slice(i+1).some(n=>o[n]))return false;
   const d=new Date();o[k]=hhmm||pad(d.getUTCHours())+":"+pad(d.getUTCMinutes());store.set(key,o);
   gxNote({title:k+" "+o[k].replace(":","")+"Z",sub:OOL[k]+" · "+why,short:k+" "+o[k].replace(":","")+"Z"});
-  if(cur==="ofp"||cur==="_oooi")render();gxPaint(true);if(GX.bridge)gxQueue(true);return true}
+  if(cur==="ofp"||cur==="_oooi"||cur==="simbrief")render();gxPaint(true);if(GX.bridge)gxQueue(true);return true}
 
 /* ---------- what changed: alerts and the OOOI times GSX marks ---------- */
 const GX_DONE={board:"Boarding complete",fuel:"Refuelling complete",cater:"Catering complete",deboard:"Deboarding complete",deice:"De-icing complete"};
@@ -11192,7 +11260,7 @@ async function gxPoll(){if(typeof authOn!=="function"||!authOn())return;if(GX.br
     if(g.at!==GX.remoteAt){GX.remoteAt=g.at;gxApply(g.v,g.at,"remote")}else gxPaint();
     if(g.fid&&g.oo&&gxAuto()&&g.fid===O().id){const key="oooi:"+g.fid,o=store.get(key,{});let n=null;
       for(const k of OO)if(!o[k]&&/^\d\d:\d\d$/.test(g.oo[k]||"")){o[k]=g.oo[k];n=k}
-      if(n){store.set(key,o);gxNote({title:n+" "+o[n].replace(":","")+"Z",sub:OOL[n]+" · from the simulator PC",short:n+" "+o[n].replace(":","")+"Z"});if(cur==="ofp"||cur==="_oooi")render();gxPaint(true)}}}catch(e){}}
+      if(n){store.set(key,o);gxNote({title:n+" "+o[n].replace(":","")+"Z",sub:OOL[n]+" · from the simulator PC",short:n+" "+o[n].replace(":","")+"Z"});if(cur==="ofp"||cur==="_oooi"||cur==="simbrief")render();gxPaint(true)}}}catch(e){}}
 function gxTick(){clearTimeout(GX.pt);let ms=0;
   if(!(GX.bridge&&GX.st==="on")&&typeof authOn==="function"&&authOn()&&!document.hidden){
     if(cur==="gsx")ms=3000;else if(store.get("gsxSeen",false))ms=gxLive()?10000:60000}
@@ -12638,7 +12706,7 @@ function brPage(){if(ofp._sample)return"";const x=O(),f=ofp.fuel||{},tm=ofp.time
   const T=[["sum","doc","Overview"],["brief","cloud","Brief"],["fuel","fuel","Fuel"],["route","route","Route"],["navlog","list","Nav log"],["oooi","clock","Block"],["notam","alert","NOTAMs"]];
   return split(ofpSide(),brPage(),"",tabbar(T.map(t=>[`data-tab="${t[0]}"`,ofpTab===t[0],ico(t[1]),t[2]])))}}
 /* repaint while the SIGMETs and the terrain come in */
-setInterval(()=>{if(cur!=="ofp"||ofpTab!=="brief"||document.hidden)return;const sg=$("#brSig"),te=$("#brTer");
+setInterval(()=>{if((cur!=="ofp"&&cur!=="simbrief")||ofpTab!=="brief"||document.hidden)return;const sg=$("#brSig"),te=$("#brTer");
   const k=[SIG.list?SIG.list.length:-1,SIG.err||"",SIG.at].join();if(sg&&k!==BR.k){BR.k=k;sg.innerHTML=brSigHtml(brSig())}
   if(te&&BR.hi&&!BR.hi.done&&typeof TR!=="undefined"&&TR.ver!==BR.tv){BR.tv=TR.ver;BR.hiId=null;te.innerHTML=brTerHtml(brTerrain(),O())}},1500);
 document.head.insertAdjacentHTML("beforeend",`<style>

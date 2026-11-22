@@ -9,7 +9,8 @@
  *   - close in at a Polaris airport: stand numbers, taxiway names and runway ends (OpenStreetMap, the EFB server).
  * The layer button in the map's corner switches these on and off (kept in this browser). A tap on a Polaris aircraft
  * opens the flight; on a VATSIM aircraft or a SIGMET it shows a short note.
- * If the library cannot load or the browser has no WebGL, the old canvas globe (globe.ts) is used instead.
+ * If the library cannot load, the browser has no WebGL or the base map's tiles cannot be reached, the canvas globe
+ * (globe.ts) is drawn instead; ?globe in the address asks for it.
  */
 import { Globe, type GlobeOptions, type LiveFlight, type Layout } from './globe';
 
@@ -216,7 +217,7 @@ function acSize(low: [number, unknown][]): unknown {
 /* ---------- the map ---------- */
 export class OpsMap implements MapApi {
   /** resolves when the map is ready, or throws when it cannot be made (the old globe is used then) */
-  static async create(stage: HTMLElement, opts: GlobeOptions): Promise<OpsMap> {
+  static async create(stage: HTMLElement, opts: GlobeOptions, onDead?: () => void): Promise<OpsMap> {
     if (!webgl()) throw new Error('No WebGL');
     const late = (what: string) => new Promise<never>((_, rej) => setTimeout(() => rej(new Error(what + ' is slow')), 20000));
     const lib = await Promise.race([loadLib(), late('The map library')]);
@@ -224,7 +225,7 @@ export class OpsMap implements MapApi {
     if (v && !/^5\./.test(v)) throw new Error('MapLibre ' + v + ' is not 5');
     const m = new OpsMap(lib, stage, opts);
     try { await Promise.race([m.ready, late('The map')]); } catch (e) { m.destroy(); throw e; }
-    m.start();
+    m.start(onDead);
     return m;
   }
 
@@ -251,6 +252,8 @@ export class OpsMap implements MapApi {
   private mo: MutationObserver | null = null;
   private stop = new AbortController();
   private ourKey = '';
+  private baseOk = false;
+  private baseErr = 0;
   private col = { route: '#E2C08C', plane: '#C9B39F', trail: 'rgba(201,179,159,.3)', label: '#fff', halo: '#000', sphere: '#12171C', cl: '#C9A13A', stand: '#9AA7AE' };
 
   private constructor(private readonly lib: ML, private readonly stage: HTMLElement, private readonly opts: GlobeOptions) {
@@ -271,13 +274,22 @@ export class OpsMap implements MapApi {
     this.map.addControl(new lib.AttributionControl({ compact: true, customAttribution: 'Radar <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · SIGMETs aviationweather.gov · FIRs openAIP, VATSpy · Traffic VATSIM' }), 'top-right');
     this.ready = new Promise<void>((res) => { this.map.once('style.load', () => res()); });
     this.map.on('style.load', () => this.onStyle());
+    // the base map's tiles: seen arriving, or failing (then the old globe takes over, see start)
+    this.map.on('data', (e: { dataType?: string; sourceId?: string; tile?: unknown }) => { if (e.dataType === 'source' && e.sourceId === 'o' && e.tile) this.baseOk = true; });
+    this.map.on('error', (e: { sourceId?: string; error?: { message?: string; url?: string } }) => {
+      const msg = String((e && e.error && (e.error.message || e.error.url)) || '');
+      if ((e && e.sourceId === 'o') || /openfreemap/.test(msg)) this.baseErr++;
+      console.warn('[Flight Watch map]', msg || e);
+    });
     this.ro = new ResizeObserver(() => this.map.resize());
     this.ro.observe(this.el);
     opts.signal.addEventListener('abort', () => this.destroy());
   }
   /** once the map is up: input, the layer switches, light and dark, and the data that comes on its own clock */
-  private start(): void {
+  private start(onDead?: () => void): void {
     const signal = this.stop.signal;
+    const dead = window.setTimeout(() => { if (!this.baseOk && this.baseErr && onDead) { this.destroy(); onDead(); } }, 12000);
+    signal.addEventListener('abort', () => clearTimeout(dead));
     this.bind();
     this.layerUi();
     const watch = () => { const d = isDark(); if (d === this.dark) return; this.dark = d; this.el.classList.toggle('dk', d); this.readColours(); try { this.map.setStyle(baseStyle(d), { diff: false }); } catch { /* next time */ } };
@@ -289,7 +301,7 @@ export class OpsMap implements MapApi {
     this.every(() => this.loadSig(), 300_000);
     this.every(() => this.loadRadar(), 300_000);
     this.every(() => this.loadWx(), 600_000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) this.refresh(); }, { signal });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { this.refresh(); if (this.spinOn) this.spin(); } }, { signal });
     window.addEventListener('pm:tab', () => { if (this.shown()) setTimeout(() => { this.map.resize(); this.refresh(); }, 0); }, { signal });
     this.refresh();
   }
@@ -305,6 +317,7 @@ export class OpsMap implements MapApi {
 
   /* ---------- MapApi ---------- */
   setFlights(flights: readonly LiveFlight[], selected: string | null): void {
+    if (selected !== this.selected) this.popup?.remove();
     this.flights = flights; this.selected = selected;
     this.drawFlights();
     const key = flights.map((f) => f.callsign).join();
@@ -346,6 +359,7 @@ export class OpsMap implements MapApi {
   private zoomForRadius(px: number, lat: number): number { return Math.log2((px * 2 * Math.PI * Math.cos(Math.max(-80, Math.min(80, lat)) * R)) / 512); }
   private ovZoom(lat = 20): number { const { w, h } = this.size(); return this.zoomForRadius(0.4 * Math.min(w, h), lat); }
   private go(c: LL, zoom: number, animate: boolean): void {
+    this.popup?.remove();
     if (!animate || reduced()) this.map.jumpTo({ center: c, zoom });
     else this.map.flyTo({ center: c, zoom, duration: 1600, essential: true });
   }
@@ -362,6 +376,7 @@ export class OpsMap implements MapApi {
       skip = !skip; if (skip) return; // every other frame is plenty for 4° a second
       if (t - this.lastTouch < 2000 || this.map.isMoving() || this.map.getZoom() > this.ovZoom(this.map.getCenter().lat) + 1.3) { vel = 0; return; }
       const c = this.map.getCenter(), d = dt * 2; // this frame and the one skipped
+      if (!vel) this.popup?.remove();
       vel += (6 - vel) * Math.min(1, d / 500);
       this.map.jumpTo({ center: [c.lng - (vel * d) / 1000, c.lat] });
     };
@@ -409,7 +424,7 @@ export class OpsMap implements MapApi {
     const signal = this.stop.signal;
     btn?.addEventListener('click', (e) => { e.stopPropagation(); box.hidden = !box.hidden; btn.setAttribute('aria-expanded', String(!box.hidden)); }, { signal });
     document.addEventListener('click', (e) => { if (!box.hidden && !(e.target as HTMLElement).closest('.lv-lay,[data-lvl]')) { box.hidden = true; btn?.setAttribute('aria-expanded', 'false'); } }, { signal });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) { box.hidden = true; btn?.setAttribute('aria-expanded', 'false'); } }, { signal });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) { e.stopPropagation(); box.hidden = true; btn?.setAttribute('aria-expanded', 'false'); btn?.focus(); } }, { signal, capture: true });
     box.addEventListener('change', (e) => {
       const i = e.target as HTMLInputElement, k = i.dataset.lay as Lay | undefined;
       if (!k) return;
@@ -682,8 +697,8 @@ function injectCss(): void {
 .lv-lay{position:absolute;right:64px;bottom:16px;z-index:3;display:grid;gap:7px;min-width:190px;padding:10px 14px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px -12px rgba(0,0,0,.45);font-size:13px;color:var(--ink)}
 .lv-lay[hidden]{display:none}
 .lv-lay b{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--label);font-weight:600}
-.lv-lay label{display:flex;align-items:center;gap:9px;cursor:pointer;white-space:nowrap}
-.lv-lay input{margin:0;accent-color:var(--accent)}
+.lv-lay label{display:flex;align-items:center;gap:9px;margin:0;padding:1px 0;font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink);cursor:pointer;white-space:nowrap}
+.lv-lay input{margin:0;width:15px;height:15px;accent-color:var(--accent)}
 .lv-ctl [data-lvl][aria-expanded=true]{background:color-mix(in srgb,var(--ink) 10%,transparent)}
 .lv-pop .maplibregl-popup-content{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:9px 26px 9px 11px;font-size:12.5px;line-height:1.45;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
 .lv-pop .maplibregl-popup-tip{display:none}
@@ -696,17 +711,18 @@ function injectCss(): void {
 
 /* ---------- the map Flight Watch uses: this one, or the old globe when it cannot be made ---------- */
 export function createMap(stage: HTMLElement, canvas: HTMLCanvasElement, opts: GlobeOptions): MapApi {
-  const st = { flights: [] as readonly LiveFlight[], sel: null as string | null, apts: [] as readonly Apt[], spin: false, cam: null as null | ((m: MapApi) => void) };
+  const st = { flights: [] as readonly LiveFlight[], sel: null as string | null, apts: [] as readonly Apt[], spin: false, cam: null as null | ((m: MapApi, now: boolean) => void) };
   let impl: MapApi | null = null;
-  const start = (m: MapApi) => { impl = m; m.setAirports(st.apts); m.setFlights(st.flights, st.sel); m.setIdleSpin(st.spin); if (st.cam) st.cam(m); };
-  const old = () => { canvas.style.display = ''; const g = new Globe(canvas, opts); g.pose([-150, 28], 1); start(g); };
-  const want = /[?&]newmap\b/.test(location.search) && !/[?&]globe\b/.test(location.search);
-  if (!want) old();
+  const start = (m: MapApi) => { impl = m; m.setAirports(st.apts); m.setFlights(st.flights, st.sel); m.setIdleSpin(st.spin); st.cam?.(m, false); };
+  const old = () => { impl = null; canvas.style.display = ''; const g = new Globe(canvas, opts); g.pose([-150, 28], 1); start(g); };
+  const why = (e: unknown) => console.warn('[Flight Watch] the map could not be used, so the globe is drawn instead:', e instanceof Error ? e.message : e);
+  // ?globe in the address asks for the canvas globe
+  if (/[?&]globe\b/.test(location.search)) old();
   else {
     canvas.style.display = 'none';
-    OpsMap.create(stage, opts).then((m) => { m.pose([-150, 28], 1); start(m); }, (e) => { console.warn('[Flight Watch] the map library could not be used, so the globe is drawn instead:', e && e.message); stage.querySelector('.lv-map')?.remove(); old(); });
+    OpsMap.create(stage, opts, () => { why('the base map did not load'); old(); }).then((m) => { m.pose([-150, 28], 1); start(m); }, (e) => { why(e); stage.querySelector('.lv-map')?.remove(); old(); });
   }
-  const later = (f: (m: MapApi, now: boolean) => void) => { if (impl) f(impl, true); else st.cam = (m) => f(m, false); };
+  const later = (f: (m: MapApi, now: boolean) => void) => { st.cam = f; if (impl) f(impl, true); };
   return {
     setFlights: (f, s) => { st.flights = f; st.sel = s; impl?.setFlights(f, s); },
     setAirports: (a) => { st.apts = a; impl?.setAirports(a); },

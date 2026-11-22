@@ -1020,6 +1020,29 @@ const vsExp = (d) => { const now = Date.now(), t = (Date.parse(d.upd) || now) + 
 /* what the automatic stand assignment reads (see stands.js): the Polaris flights in the air as the admin's Live tab
    shows them, the VATSIM pilots, and an airport's map (stands) as the EFB already keeps it; the map is never built here */
 const STAND_CRON = '*/2 * * * *';
+/* Flight Watch's tracks (crew.js ltrk): with each 2-minute cron, a point for every Polaris flight now and 30, 60 and 90 s
+   later (the run waits in between), so each flight's whole track is kept even while nobody has Flight Watch open */
+const trackList = (l) => ((l && l.flights) || []).filter((f) => f.cs && isFinite(f.lat) && isFinite(f.lon))
+  .map((f) => ({ cs: f.cs, dep: f.dep || '', arr: f.arr || '', lat: f.lat, lon: f.lon, alt: f.alt || 0, t: f.pt || Date.now(), seed: f.trail && f.trail.length > 1 ? f.trail : undefined }));
+async function trackTick(env, ctx) {
+  for (let i = 0; i < 4; i++) {
+    await new Promise((r) => setTimeout(r, i ? 30_000 : 3000)); // the first after the ops tick has read the feeds
+    try { const add = trackList(await standDeps(env, ctx).live()); if (add.length) await crewCall(env, { op: 'ltrk', add }); }
+    catch (e) { console.warn('[tracks]', e && e.message); }
+  }
+}
+let trackAt = 0; // this isolate's last point from an open Flight Watch
+/* Flight Watch's answer with each flight's track from the server (when longer than what vAMSYS gives) */
+async function withTracks(env, l) {
+  if (!l || !l.flights || !l.flights.length) return l;
+  try {
+    const now = Date.now(), add = now - trackAt > 25_000 ? trackList(l) : null;
+    if (add) trackAt = now;
+    const { tracks } = await crewCall(env, { op: 'ltrk', add, get: l.flights.map((f) => ({ cs: f.cs, dep: f.dep, arr: f.arr })) });
+    for (const f of l.flights) { const t = tracks && tracks[f.cs]; if (t && t.length > (f.trail || []).length) f.trail = t; }
+  } catch (e) { console.warn('[tracks]', e && e.message); }
+  return l;
+}
 /* every 2 minutes: the gate assignment and the OOOI times, from one read of the flights in the air; every 10, the
    SIGMETs on the routes (see sigroute.js) */
 async function opsTick(env, ctx) {
@@ -1481,7 +1504,7 @@ async function aptsRoute(url, env, ctx, h) {
 export default {
   async scheduled(event, env, ctx) {
     /* every 2 minutes: the automatic stand assignment (see stands.js); every 20: the airport maps and weather watch */
-    if (event.cron === STAND_CRON) { ctx.waitUntil(opsTick(env, ctx)); return; }
+    if (event.cron === STAND_CRON) { ctx.waitUntil(opsTick(env, ctx)); ctx.waitUntil(trackTick(env, ctx)); return; }
     ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
     /* every 6 hours: is each source of navigation data current (Nav Data on /admin, see navdata.js) */
     ctx.waitUntil(navCron(env, navDeps(env)));
@@ -1593,7 +1616,7 @@ export default {
     /* a pilot pressed ACCEPT on an AOC message (see aoc.js) */
     if (/^\/api\/efb\/aoc\/ack\/?$/.test(new URL(req.url).pathname) && req.method === 'POST') return await aocAckPublic(req, env, h, await sessionOf(req, env, true));
     /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
-    { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {
+    { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: async () => withTracks(env, await pawLive()), pilots: async () => {
       /* the vAMSYS roster with who has signed in to the EFB */
       const [inEfb, roster, rk] = await Promise.all([signedInPilots(env), siteDeps.configured ? cached('roster', 300_000, () => all(env, '/pilots')).catch(() => null) : null, siteDeps.configured ? ranks(env).catch(() => new Map()) : new Map()]);
       const by = new Map(inEfb.map((p) => [p.u, p])), out = [];

@@ -23,6 +23,9 @@ import { loadsheetMsg, cleanWeights } from './loadsheet.js';
 import { aocTpl } from './aoctpl.js';
 
 const DAY = 86_400_000, MIN = 60_000;
+/* Flight Watch's tracks (ltrk): a gap longer than this starts a new track; points kept per track; points sent out */
+const LT_GAP = 45 * MIN, LT_MAX = 4000, LT_OUT = 600;
+const ltKm = (a, b, c, d) => { const r = Math.PI / 180, h = Math.sin(((c - a) * r) / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(((d - b) * r) / 2) ** 2; return 12742 * Math.asin(Math.min(1, Math.sqrt(h))); };
 const BATCH = 35;                 // pushes per alarm run (each is one outgoing request)
 const TRAIL_EVERY = 3 * MIN, TRAIL_MAX = 2000;
 const te = (s) => new TextEncoder().encode(s);
@@ -102,6 +105,9 @@ export class Crew {
     x('CREATE TABLE IF NOT EXISTS held (id INTEGER PRIMARY KEY AUTOINCREMENT, ep TEXT NOT NULL, payload TEXT NOT NULL, at INTEGER NOT NULL)');
     x('CREATE INDEX IF NOT EXISTS held_ep ON held (ep)');
     x('CREATE INDEX IF NOT EXISTS subs_u ON subs (u)'); x('CREATE INDEX IF NOT EXISTS jobs_at ON jobs (at)'); x('CREATE INDEX IF NOT EXISTS trk_u ON trk (u)');
+    /* every Polaris flight's track for Flight Watch: points [lat, lon, ft, unix s] (see ltrk) */
+    x("CREATE TABLE IF NOT EXISTS ltrk (k TEXT PRIMARY KEY, cs TEXT NOT NULL, dep TEXT NOT NULL DEFAULT '', arr TEXT NOT NULL DEFAULT '', t0 INTEGER NOT NULL, t1 INTEGER NOT NULL, pts TEXT NOT NULL DEFAULT '[]')");
+    x('CREATE INDEX IF NOT EXISTS ltrk_cs ON ltrk (cs, t1)');
   }
   rows(q, ...b) { return this.sql.exec(q, ...b).toArray(); }
   one(q, ...b) { return this.rows(q, ...b)[0] || null; }
@@ -146,6 +152,7 @@ export class Crew {
       case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
+      case 'ltrk': return this.ltrk(a);
       case 'alarmSync': { const r = this.alarmSync(String(a.u || ''), a.list); await this.wake(); return r; }
       default: throw new CrewError(400, 'Unknown call');
     }
@@ -350,6 +357,42 @@ export class Crew {
     const at = Math.max(now + MIN, d.std ? d.std - 15 * MIN : now + 15 * MIN);
     this.job('ls:' + u, at, 'ls', u, { bid: d.bookingId });
     return { ok: true, at };
+  }
+  /* Flight Watch's tracks: the server's cron adds a point for each Polaris flight about every 30 s (trackTick in index.js),
+     the admin's Flight Watch adds one too while it is open, and reads the tracks of the flights it shows. A flight is its
+     callsign and airports; seen again within LT_GAP it is the same flight, else a new track starts (its first points the
+     position reports vAMSYS gives, when it gives any). Parked aircraft add no points. Kept 2 days.
+     a.add: [{ cs, dep, arr, lat, lon, alt, t, seed: [[lat, lon]...] }], a.get: [{ cs, dep, arr }] -> { tracks: { cs: [[lat, lon]...] } } */
+  ltrk(a) {
+    const now = Date.now(), r5 = (v) => Math.round(v * 1e5) / 1e5, out = {};
+    const key = (f) => [String(f.cs || '').toUpperCase().slice(0, 12), String(f.dep || '').toUpperCase().slice(0, 4), String(f.arr || '').toUpperCase().slice(0, 4)];
+    const cur = (cs, dep, arr) => {
+      const r = this.one('SELECT * FROM ltrk WHERE cs = ? ORDER BY t1 DESC LIMIT 1', cs);
+      return r && now - r.t1 < LT_GAP && (!r.dep || !dep || r.dep === dep) && (!r.arr || !arr || r.arr === arr) ? r : null;
+    };
+    for (const f of Array.isArray(a.add) ? a.add.slice(0, 200) : []) {
+      const [cs, dep, arr] = key(f), lat = +f.lat, lon = +f.lon, t = Math.min(now, +f.t || now);
+      if (!cs || !isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      const p = [r5(lat), r5(lon), Math.round(+f.alt || 0), Math.round(t / 1000)], r = cur(cs, dep, arr);
+      if (!r) {
+        const seed = (Array.isArray(f.seed) ? f.seed.slice(0, 2000) : []).filter((q) => Array.isArray(q) && isFinite(q[0]) && isFinite(q[1]) && Math.abs(q[0]) <= 90).map((q) => [r5(+q[0]), r5(+q[1]), Math.round(+q[2] || 0), 0]);
+        this.sql.exec('INSERT OR REPLACE INTO ltrk (k, cs, dep, arr, t0, t1, pts) VALUES (?, ?, ?, ?, ?, ?, ?)', cs + ':' + t, cs, dep, arr, t, t, JSON.stringify(downsample([...seed, p], LT_MAX)));
+        continue;
+      }
+      const pts = JSON.parse(r.pts || '[]'), l = pts[pts.length - 1];
+      if (l && p[3] - l[3] < 20) continue; // this moment is in already (the cron and an open page both add)
+      const moved = !l || ltKm(l[0], l[1], p[0], p[1]) > 0.15;
+      if (moved) pts.push(p);
+      this.sql.exec('UPDATE ltrk SET t1 = ?, dep = ?, arr = ?, pts = ? WHERE k = ?', Math.max(r.t1, t), r.dep || dep, r.arr || arr, moved ? JSON.stringify(pts.length > LT_MAX ? downsample(pts, LT_MAX) : pts) : r.pts, r.k);
+    }
+    for (const f of Array.isArray(a.get) ? a.get.slice(0, 200) : []) {
+      const [cs, dep, arr] = key(f), r = cs ? cur(cs, dep, arr) : null;
+      if (!r) continue;
+      const pts = JSON.parse(r.pts || '[]');
+      if (pts.length > 1) out[cs] = downsample(pts, LT_OUT).map((q) => [q[0], q[1]]);
+    }
+    if (Array.isArray(a.add) && a.add.length && Math.random() < 0.02) this.sql.exec('DELETE FROM ltrk WHERE t1 < ?', now - 2 * DAY);
+    return { tracks: out };
   }
   trkFind(a) {
     let r = a.bid ? this.one('SELECT * FROM trk WHERE bid = ?', String(a.bid)) : null;

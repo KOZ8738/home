@@ -26,6 +26,10 @@ cd ..
 npx wrangler deploy
 ```
 
+Each flight's track comes from the server: the 2-minute cron adds a point for every Polaris flight about every 30 s,
+and an open Flight Watch adds one too (`trackTick` and `withTracks` in `../src/index.js`, stored in the crew Durable
+Object, `ltrk` in `../src/crew.js`), so the whole track shows from the gate even when the page was not open.
+
 The flights come from `/admin/api/live` (`../src/live.js`): VATSIM pilots with a PAW callsign flying to or from a
 Polaris airport. The phase (at gate, taxi out, takeoff, cruise, descent, taxi in, arrived) is worked out in the page
 from altitude, ground speed, vertical speed (two updates compared) and the distance to each airport.

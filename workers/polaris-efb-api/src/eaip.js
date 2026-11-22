@@ -22,8 +22,15 @@ const PDF_MAX = 40 * 1024 * 1024;
 
 export const EA = {
   HK: {
-    apt: /^V[HM][A-Z]{2}$/, label: 'AIP Hong Kong', host: 'CAD eAIP', home: 'https://www.ais.gov.hk/',
-    eds: (t) => [...t.matchAll(/eaip_(\d{8})\/(\d{4}-\d{2}-\d{2})-000000\/html\/index-en-US\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://www.ais.gov.hk/eaip_${m[1]}/${m[2]}-000000/`, index: 'html/index-en-US.html' })),
+    apt: /^V[HM][A-Z]{2}$/, label: 'AIP Hong Kong', host: 'CAD eAIP', site: 'https://www.ais.gov.hk/',
+    /* the front page builds its links from ais.json: every recent edition is in the newest package, eaip_<its publication date> */
+    home: 'https://www.ais.gov.hk/ais.json',
+    eds: (t) => {
+      let j; try { j = JSON.parse(t); } catch (e) { return []; }
+      const A = (j && Array.isArray(j.amdt) ? j.amdt : []).filter((a) => /^\d{4}-\d{2}-\d{2}$/.test(a.effDate || '') && /^\d{4}-\d{2}-\d{2}$/.test(a.pubDate || ''));
+      const pkg = A.map((a) => a.pubDate).sort().pop();
+      return pkg ? A.map((a) => ({ eff: a.effDate, pub: pkg, amdt: a.no || '', base: `https://www.ais.gov.hk/eaip_${pkg.replace(/-/g, '')}/${a.effDate}-000000/`, index: 'html/index-en-US.html' })) : [];
+    },
     page: (i) => `html/eAIP/VH-AD-2-${i}-en-US.html`,
   },
   SG: {
@@ -135,17 +142,22 @@ export function eaCharts(html, k) {
   }
   return out;
 }
-const aptName = (html, icao) => { const m = html.match(new RegExp(icao + '\\s*(?:—|&#8212;|&mdash;|–|-)\\s*([^<]{3,70})')); return m ? unent(m[1]).replace(/\s+/g, ' ').trim() : ''; };
+/* "ENGM — OSLO / Gardermoen", the page's first line naming it */
+const aptName = (html, icao) => {
+  const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
+  const m = t.match(new RegExp(icao + '[ \\t]*[—–][ \\t]*([^\\n]{3,70})'));
+  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+};
 
 /* ---------- the Charts list ---------- */
 /** d: { edgeCache, kvStore(key, maxAge, fn, keep), cached(key, ttl, fn) } */
 export async function eaChartsList(icao, env, me, d) {
   const k = eaRegion(icao);
   if (!k) return null;
-  const R = EA[k], head = { src: 'ea', reg: k, label: R.label, host: R.host, aip: R.home, airport: { icao, name: '' } };
+  const R = EA[k], head = { src: 'ea', reg: k, label: R.label, host: R.host, aip: R.site || R.home, airport: { icao, name: '' } };
   if (!me) return { ...head, cycle: null, charts: [], notFound: true, signin: true };
   const { cur, next } = await edition(k, d), cycle = cycleOf(k, cur.eff);
-  const v = await d.cached('ea:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v1:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v1/${cycle}/${icao}`, 86400, async () => {
+  const v = await d.cached('ea2:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v2:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v2/${cycle}/${icao}`, 86400, async () => {
     const r = await get(cur.base + R.page(icao), 86400);
     if (r.status === 404) return { airport: { icao, name: '' }, charts: [], notFound: true };
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);

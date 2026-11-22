@@ -2,7 +2,8 @@
  * Live tab of the Polaris Mail admin: the website's globe plus every Polaris (PAW) flight on VATSIM and its phase.
  * Built with esbuild into ../src/live-bundle.js (npm run build), served on /admin/live.js.
  */
-import { Globe, type LiveFlight, type Layout } from './globe';
+import { type LiveFlight, type Layout } from './globe';
+import { createMap, type MapApi } from './opsmap';
 
 type Apt = { lat: number; lon: number; icao: string; iata: string; city: string };
 type Raw = {
@@ -64,7 +65,7 @@ const S = {
   /** last phase per callsign, so a level-off or a pause does not flip the phase back */
   last: {} as Record<string, Phase>,
   timer: 0,
-  globe: null as Globe | null,
+  globe: null as MapApi | null,
   follow: false,
   src: { vamsys: false, vatsim: true } as { vamsys: boolean; vatsim: boolean },
   /** a flight to open once the list has come (a link from Home) */
@@ -295,8 +296,8 @@ function showTab(): void {
   if (onFw()) {
     if (!S.globe) {
       const c = $<HTMLCanvasElement>('#lvGlobe')!, ac = new AbortController();
-      S.globe = new Globe(c, { signal: ac.signal, onPick: (cs) => pick(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
-      S.globe.pose([-150, 28], 1);
+      // the EFB's Map (MapLibre), or the canvas globe when that cannot run here
+      S.globe = createMap(c.parentElement!, c, { signal: ac.signal, onPick: (cs) => pick(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
     }
     render();
     void poll(true);

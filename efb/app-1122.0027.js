@@ -2759,6 +2759,74 @@ async function chRender(){const cv=$("#chCanvas"),box=$("#chView");if(!cv||!box|
   const pg=await CH.doc.getPage(CH.page);const v1=pg.getViewport({scale:1});const fit=Math.min((box.clientWidth-32)/v1.width,(box.clientHeight-32)/v1.height);const sc=Math.max(.2,fit*CH.zoom),dpr=Math.min(3,window.devicePixelRatio||1);
   const vp=pg.getViewport({scale:sc*dpr});cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);cv.style.width=Math.floor(vp.width/dpr)+"px";cv.style.height=Math.floor(vp.height/dpr)+"px";
   CH.task=pg.render({canvasContext:cv.getContext("2d"),viewport:vp});await CH.task.promise;CH.task=null}catch(e){if(!/cancel/i.test(String(e&&e.name||e)))console.warn(e)}}
+/* ---------- Charts: zoom and move the chart as in a chart app (Nov 2026) ----------
+   The chart sits in its window at a place and a size of its own (not in a scrolled box), so a zoom keeps the spot
+   under the mouse or between the fingers exactly where it is, and nothing else moves. While a wheel, a pinch or a drag
+   is going the drawn picture is moved and scaled at once; when it stops, the chart is drawn sharp again at the new size
+   off screen and swapped in. The chart stays in its window: smaller than the window it stays inside it, larger it
+   covers it. Buttons: − and + zoom on the middle of the window, Fit puts the whole chart back in the middle. */
+const CHZ={key:"",W:0,H:0,vw:0,vh:0,tx:0,ty:0,ls:1,rz:1,gen:0,t:0};
+const CHZ_MIN=.5,CHZ_MAX=8,CHZ_M=12;
+function chzClamp(){const W=CHZ.W*CHZ.ls,H=CHZ.H*CHZ.ls,m=CHZ_M,{vw,vh}=CHZ;
+  CHZ.tx=W<=vw-2*m?Math.min(vw-W-m,Math.max(m,CHZ.tx)):Math.min(m,Math.max(vw-W-m,CHZ.tx));
+  CHZ.ty=H<=vh-2*m?Math.min(vh-H-m,Math.max(m,CHZ.ty)):Math.min(m,Math.max(vh-H-m,CHZ.ty))}
+function chzPlace(el){el=el||$("#chCanvas");if(!el)return;if(!el._w){el.style.visibility="hidden";return}el.style.visibility="";
+  el.style.transform=`translate(${CHZ.tx}px,${CHZ.ty}px) scale(${CHZ.W*CHZ.ls/el._w})`}
+/* zoom by f about a point of the window (x, y) */
+function chzBy(f,x,y){if(!CHZ.W)return;const z=CHZ.rz*CHZ.ls,nz=Math.max(CHZ_MIN,Math.min(CHZ_MAX,z*f));f=nz/z;
+  CHZ.ls*=f;CHZ.tx=x-(x-CHZ.tx)*f;CHZ.ty=y-(y-CHZ.ty)*f;chzClamp();chzPlace()}
+/* the hand has stopped: the chart at its new size, drawn sharp */
+function chzCommit(){clearTimeout(CHZ.t);if(Math.abs(CHZ.ls-1)<.005){CHZ.ls=1;chzPlace();return}
+  CHZ.W*=CHZ.ls;CHZ.H*=CHZ.ls;CH.zoom=CHZ.rz*CHZ.ls;CHZ.rz=CH.zoom;CHZ.ls=1;chRender()}
+chRender=async function(){const box=$("#chView"),cv=$("#chCanvas");if(!box||!cv||!CH.doc)return;box.classList.add("chz");
+  const gen=++CHZ.gen;if(CH.task){try{CH.task.cancel()}catch(e){}CH.task=null}
+  try{const pg=await CH.doc.getPage(CH.page);if(gen!==CHZ.gen)return;
+    const v1=pg.getViewport({scale:1}),vw=box.clientWidth,vh=box.clientHeight;if(!vw||!vh)return;
+    const fit=Math.min((vw-32)/v1.width,(vh-32)/v1.height),key=(CH.sel&&CH.sel.pdf)+"|"+CH.page,W=v1.width*fit*CH.zoom,H=v1.height*fit*CH.zoom;
+    if(CHZ.key!==key||!CHZ.W||(CH.zoom===1&&CHZ.rz!==1)){CHZ.key=key;CHZ.tx=(vw-W)/2;CHZ.ty=(vh-H)/2}
+    else if(CHZ.vw!==vw||CHZ.vh!==vh){const fx=(CHZ.vw/2-CHZ.tx)/CHZ.W,fy=(CHZ.vh/2-CHZ.ty)/CHZ.H;CHZ.tx=vw/2-fx*W;CHZ.ty=vh/2-fy*H}
+    else if(CHZ.rz!==CH.zoom){const f=W/CHZ.W;CHZ.tx=vw/2-(vw/2-CHZ.tx)*f;CHZ.ty=vh/2-(vh/2-CHZ.ty)*f}
+    Object.assign(CHZ,{W,H,vw,vh,rz:CH.zoom,ls:1});chzClamp();chzPlace(cv);
+    /* drawn off screen, then swapped in: the picture on screen stays until the sharp one is ready */
+    const dpr=Math.min(3,window.devicePixelRatio||1),k=Math.min(dpr,Math.sqrt(14e6/Math.max(1,W*H))),vp=pg.getViewport({scale:fit*CH.zoom*k});
+    const nc=document.createElement("canvas");nc.width=Math.floor(vp.width);nc.height=Math.floor(vp.height);nc.style.width=W+"px";nc.style.height=H+"px";nc._w=W;
+    const task=pg.render({canvasContext:nc.getContext("2d"),viewport:vp});CH.task=task;await task.promise;if(CH.task===task)CH.task=null;if(gen!==CHZ.gen)return;
+    const old=$("#chCanvas");if(!old)return;nc.id="chCanvas";old.replaceWith(nc);chzPlace(nc)}
+  catch(e){if(!/cancel/i.test(String(e&&e.name||e)))console.warn(e)}};
+function chzBind(v){if(!v||v._chz)return;v._chz=1;
+  const pt=(x,y)=>{const r=v.getBoundingClientRect();return[x-r.left,y-r.top]};
+  /* the wheel, and a trackpad's pinch (a wheel with Ctrl held) */
+  v.addEventListener("wheel",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();const dy=e.deltaMode===1?e.deltaY*16:e.deltaMode===2?e.deltaY*400:e.deltaY,[x,y]=pt(e.clientX,e.clientY);
+    chzBy(Math.exp(-dy*(e.ctrlKey?.012:.0022)),x,y);clearTimeout(CHZ.t);CHZ.t=setTimeout(chzCommit,180)},{passive:false});
+  /* fingers: one moves the chart, two zoom it about the point between them (and move it with them) */
+  let g=null,tap=0,tx0=0,ty0=0;
+  const snap=t=>{const a=pt(t[0].clientX,t[0].clientY);if(t.length<2)return{x:a[0],y:a[1],d:0,tx:CHZ.tx,ty:CHZ.ty,ls:CHZ.ls};
+    const b=pt(t[1].clientX,t[1].clientY);return{x:(a[0]+b[0])/2,y:(a[1]+b[1])/2,d:Math.hypot(a[0]-b[0],a[1]-b[1]),tx:CHZ.tx,ty:CHZ.ty,ls:CHZ.ls}};
+  v.addEventListener("touchstart",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();clearTimeout(CHZ.t);if(CH.task){try{CH.task.cancel()}catch(_){}CH.task=null;CHZ.gen++}
+    g=snap(e.touches);if(e.touches.length===1){const now=Date.now(),t=e.touches[0];
+      if(now-tap<300&&Math.hypot(t.clientX-tx0,t.clientY-ty0)<30){tap=0;g=null;chzBy(CHZ.rz>=CHZ_MAX/1.5?1/CHZ.rz:2,...pt(t.clientX,t.clientY));chzCommit();return}
+      tap=now;tx0=t.clientX;ty0=t.clientY}},{passive:false});
+  v.addEventListener("touchmove",e=>{if(!g)return;e.preventDefault();const n=snap(e.touches);
+    if(e.touches.length>=2&&g.d){const z=CHZ.rz*g.ls,nz=Math.max(CHZ_MIN,Math.min(CHZ_MAX,z*n.d/g.d)),f=nz/z;CHZ.ls=g.ls*f;CHZ.tx=n.x-(g.x-g.tx)*f;CHZ.ty=n.y-(g.y-g.ty)*f}
+    else if(e.touches.length===1&&!g.d){CHZ.tx=g.tx+n.x-g.x;CHZ.ty=g.ty+n.y-g.y}
+    chzClamp();chzPlace()},{passive:false});
+  const end=e=>{if(!g)return;if(e.touches.length){g=snap(e.touches);return}g=null;chzCommit()};
+  v.addEventListener("touchend",end);v.addEventListener("touchcancel",end);
+  ["gesturestart","gesturechange"].forEach(t=>v.addEventListener(t,e=>e.preventDefault()));
+  /* the mouse: drag to move, double click to zoom in there (or back to the whole chart when far in) */
+  let dr=null;
+  v.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0||!CH.doc||!CHZ.W)return;dr={x:e.clientX,y:e.clientY,tx:CHZ.tx,ty:CHZ.ty};v.setPointerCapture(e.pointerId);v.classList.add("chz-drag")});
+  v.addEventListener("pointermove",e=>{if(!dr)return;CHZ.tx=dr.tx+e.clientX-dr.x;CHZ.ty=dr.ty+e.clientY-dr.y;chzClamp();chzPlace()});
+  const up=()=>{dr=null;v.classList.remove("chz-drag")};v.addEventListener("pointerup",up);v.addEventListener("pointercancel",up);
+  v.addEventListener("dblclick",e=>{if(!CH.doc||!CHZ.W)return;e.preventDefault();chzBy(CHZ.rz>=CHZ_MAX/1.5?1/CHZ.rz:2,...pt(e.clientX,e.clientY));chzCommit()})}
+{const _r=render;render=function(){const v=_r.apply(this,arguments);if(cur==="charts"){const b=$("#chView");if(b&&$("#chCanvas")){b.classList.add("chz");chzBind(b)}}return v}}
+window.addEventListener("resize",()=>{if(cur==="charts"&&CH.doc)chRender()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+/* Charts: the chart has its own place and size in its window (chz.js) */
+.chview.chz{position:relative;display:block;overflow:hidden;padding:0;touch-action:none;overscroll-behavior:contain;cursor:grab}
+.chview.chz canvas{position:absolute;left:0;top:0;margin:0;transform-origin:0 0;will-change:transform}
+.chview.chz.chz-drag{cursor:grabbing;user-select:none}
+</style>`);
 V.charts=()=>{const apts=chApts();if(!CH.icao)CH.icao=(apts[0]||[])[1]||"KSFO";const icao=CH.icao,d=CH.data[icao];
   const pick=`<div class="sx"><div class="seg" role="group" aria-label="Airport" style="display:flex;width:100%">${apts.map(a=>`<button style="flex:1" data-chapt="${esc(a[1])}" aria-pressed="${icao===a[1]}">${esc(a[1])}</button>`).join("")}</div>
    <form class="row" id="chForm" style="gap:6px;margin-top:10px;flex-wrap:nowrap"><input type="text" id="chIcao" placeholder="Other ICAO" maxlength="4" style="text-transform:uppercase" aria-label="Other airport"><button class="btn" type="submit">Go</button></form></div>`;

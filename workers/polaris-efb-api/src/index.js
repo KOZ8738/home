@@ -38,6 +38,7 @@
  *   /admin/api/ooo, /admin/api/ooo/reason -> Reports and Flight Watch: OOOI times, delay reasons, on-time performance (see ooo.js)
  *   GET /admin/api/watch                -> Flight Watch: alerts for the Polaris flights in the air (see watch.js)
  *   GET /admin/api/live, /admin/live.js -> Flight Watch: Polaris (PAW) flights on VATSIM and the globe (see live.js)
+ *   GET /admin/api/navdata, POST /admin/api/navdata/check -> Nav Data: each region's navigation data and whether it is current (see navdata.js)
  *   GET/POST /admin/api/settings        -> Settings: From names and AOC templates (see mail.js); GET /admin/api/checkins -> Pilots
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
@@ -70,6 +71,7 @@ export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
 import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
+import { navdataAdmin, navCron } from './navdata.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -424,6 +426,8 @@ async function airportRoute(icaoIn, ctx) {
 
 /* ---------- FAA d-TPP charts ---------- */
 const DAY = 86_400_000;
+/* what Nav Data on /admin reads (see navdata.js) */
+const navDeps = (env) => ({ airac, twEdition, major: () => majorRoute(env) });
 /** AIRAC cycle in effect at `t` (cycles start 0901Z every 28 days; 2401 began 25 Jan 2024). */
 function airac(t = Date.now()) {
   const ref = Date.UTC(2024, 0, 25, 9, 1), period = 28 * DAY;
@@ -1474,6 +1478,8 @@ export default {
     /* every 2 minutes: the automatic stand assignment (see stands.js); every 20: the airport maps and weather watch */
     if (event.cron === STAND_CRON) { ctx.waitUntil(opsTick(env, ctx)); return; }
     ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
+    /* every 6 hours: is each source of navigation data current (Nav Data on /admin, see navdata.js) */
+    ctx.waitUntil(navCron(env, navDeps(env)));
   },
   async fetch(req, env, ctx) {
     /* the EFB privacy policy (linked from the "Login with vAMSYS" consent screen) */
@@ -1587,7 +1593,7 @@ export default {
       for (const p of roster || []) { const u = String(p.username || '').toUpperCase(); if (!u) continue; const e = by.get(u); by.delete(u); const k = rk.get(p.rank_id); out.push({ u, name: p.name || (e && e.name) || '', rank: (k && k.name) || (e && e.rank) || '', cid: (e && e.cid) || '', first: (e && e.first) || 0, last: (e && e.last) || 0, devices: (e && e.devices) || 0, roster: true }); }
       for (const e of by.values()) out.push({ ...e, roster: !roster });
       return { pilots: out.sort((a, b) => (b.last - a.last) || a.u.localeCompare(b.u)), roster: !!roster };
-    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), ctx }); }
+    }, events: () => siteEvents(siteDeps), stands: standDeps(env, ctx), watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p) => navdataAdmin(rq, p, env, navDeps(env)), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

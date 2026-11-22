@@ -87,7 +87,7 @@ export async function oooWatch(env, live, deps, now = Date.now()) {
   return { live: Object.keys(L).length, logged: log.length };
 }
 
-/* ---- /admin, On-time tab ---- */
+/* ---- /admin: Reports (on-time performance) and Flight Watch (OOOI of the flights in progress) ---- */
 export async function oooAdmin(req, url, path, env, who) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
@@ -97,9 +97,12 @@ export async function oooAdmin(req, url, path, env, who) {
       let b; try { b = await req.json(); } catch (e) { return jsonRes({ error: 'Bad body' }, 400); }
       if (!DELAY_REASONS.some((x) => x[0] === b.reason)) return jsonRes({ error: 'Not a delay reason' }, 400);
       const log = await readLog(kv), r = log.find((x) => x.k === b.k && x.first === +b.first);
-      if (!r) return jsonRes({ error: 'That flight is no longer listed' }, 404);
-      r.reason = b.reason; r.reasonBy = who; await kv.put(LOG, JSON.stringify(log));
-      return jsonRes({ ok: true });
+      if (r) { r.reason = b.reason; r.reasonBy = who; await kv.put(LOG, JSON.stringify(log)); return jsonRes({ ok: true }); }
+      /* a flight still in progress (Flight Watch): the reason goes with it into the log when it parks */
+      const L = await readLive(kv), x = L[b.k];
+      if (!x || x.tomb || x.first !== +b.first) return jsonRes({ error: 'That flight is no longer listed' }, 404);
+      x.reason = b.reason; x.reasonBy = who; await kv.put(LIVE, JSON.stringify(L));
+      return jsonRes({ ok: true, live: true });
     }
     return jsonRes({ error: 'Not found' }, 404);
   } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500); }

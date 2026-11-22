@@ -67,6 +67,8 @@ const S = {
   globe: null as Globe | null,
   follow: false,
   src: { vamsys: false, vatsim: true } as { vamsys: boolean; vatsim: boolean },
+  /** a flight to open once the list has come (a link from Home) */
+  want: null as string | null,
 };
 const srcText = () => [S.src.vamsys ? 'vAMSYS ACARS' : '', S.src.vatsim ? 'VATSIM PAW callsigns' : ''].filter(Boolean).join(' + ') || 'No source';
 try { S.trails = JSON.parse(sessionStorage.getItem('pmTrails') || '{}'); } catch { /* none */ }
@@ -173,7 +175,7 @@ function samples(): Raw[] {
 /* ---------- data ---------- */
 async function poll(force = false): Promise<void> {
   clearTimeout(S.timer);
-  if (!force && (document.hidden || currentTab() !== 'live')) return;
+  if (!force && (document.hidden || !onFw())) return;
   try {
     const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' });
     const j = await r.json().catch(() => null);
@@ -187,14 +189,35 @@ async function poll(force = false): Promise<void> {
   } catch (e) {
     S.error = (e as Error).message; S.loaded = true;
   }
-  if (S.sel && !S.flights.some((f) => f.callsign === S.sel)) S.sel = null;
+  if (S.sel && !S.flights.some((f) => f.callsign === S.sel)) { S.sel = null; S.follow = false; selChanged(); }
+  if (S.want && S.flights.some((f) => f.callsign === S.want)) { const w = S.want; S.want = null; pick(w); }
+  else if (S.want && S.loaded && !S.error) S.want = null;
   render();
+  window.dispatchEvent(new CustomEvent('pm:live', { detail: S.flights.map(sum) }));
   if (S.follow) { const f = sel(); if (f) S.globe?.frameFlight(f); }
   S.timer = window.setTimeout(() => void poll(), POLL_MS);
 }
 
 /* ---------- render ---------- */
 const sel = () => S.flights.find((f) => f.callsign === S.sel) || null;
+/* when the flight lands: vAMSYS's ETA, else the distance to go at the ground speed */
+function etaOf(f: Flight): Date | null {
+  const v = f.raw.eta ? new Date(f.raw.eta) : null;
+  return v && isFinite(v.getTime()) ? v : f.dArr != null && f.raw.gs > 80 ? new Date(Date.now() + (f.dArr / f.raw.gs) * 3600e3) : null;
+}
+/* what the rest of the admin (Flight Watch's panel, Home) needs to know of a flight */
+export type FlightSum = { cs: string; dep: string; arr: string; pilot: string; cid: string; name: string; ac: string; reg: string; phase: Phase; label: string; ground: boolean; alt: number; gs: number; eta: number | null; sample: boolean; src: string; departed: number | null };
+function sum(f: Flight): FlightSum {
+  const r = f.raw, e = etaOf(f), dp = r.departed ? Date.parse(r.departed) : NaN;
+  return { cs: r.cs, dep: r.dep || '', arr: r.arr || '', pilot: r.pilot || '', cid: r.cid ? String(r.cid) : '', name: r.name || '', ac: r.ac || '', reg: r.reg || '', phase: f.phase, label: LABEL[f.phase], ground: !!f.ground, alt: r.alt, gs: r.gs, eta: e ? e.getTime() : null, sample: !!r.sample, src: r.src || 'VATSIM', departed: isFinite(dp) ? dp : null };
+}
+function selChanged(): void { const f = sel(); window.dispatchEvent(new CustomEvent('pm:sel', { detail: f ? sum(f) : null })); }
+(window as unknown as { pmLive: unknown }).pmLive = {
+  sel: () => { const f = sel(); return f ? sum(f) : null; },
+  flights: () => S.flights.map(sum),
+  /* open a flight (Home, Flight Watch's alerts): now if it is on the map, else once the list has come */
+  show: (cs: string) => { if (S.flights.some((f) => f.callsign === cs)) pick(cs); else S.want = cs; },
+};
 const ft = (n: number) => (n >= 18000 ? 'FL' + String(Math.round(n / 100)).padStart(3, '0') : n.toLocaleString('en-US') + ' ft');
 const dur = (ms: number) => { const m = Math.max(0, Math.round(ms / 60000)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
 const aptCode = (icao: string) => icao || '····';
@@ -202,7 +225,7 @@ const aptCode = (icao: string) => icao || '····';
 function render(): void {
   const n = S.flights.length;
   const badge = $('#lvCount'); if (badge) { badge.textContent = S.sample || !n ? '' : String(n); badge.hidden = S.sample || !n; }
-  if (currentTab() !== 'live') return;
+  if (!onFw()) return;
   S.globe?.setFlights(S.flights, S.sel);
   S.globe?.setIdleSpin(!S.sel);
 
@@ -232,16 +255,17 @@ function render(): void {
   }).join('');
 
   // detail
-  const f = sel(), det = $('#lvDet')!;
+  const f = sel(), det = $('#lvDet')!, main = $('#lvDetMain') || det;
   det.hidden = !f;
-  if (!f) { det.innerHTML = ''; return; }
+  $('.lv-side')?.classList.toggle('sel', !!f);
+  if (!f) { main.innerHTML = ''; return; }
   const r = f.raw, idx = STEPS.findIndex(([k]) => k === f.phase);
   const vsTxt = f.vs == null ? '—' : (f.vs > 0 ? '+' : '') + f.vs.toLocaleString('en-US') + ' fpm';
-  const etaV = r.eta ? new Date(r.eta) : null;
-  const eta = etaV && isFinite(etaV.getTime()) ? etaV : f.dArr != null && r.gs > 80 ? new Date(Date.now() + (f.dArr / r.gs) * 3600e3) : null;
-  det.innerHTML = `
+  const eta = etaOf(f);
+  main.innerHTML = `
+    <button class="lv-back" data-lv="close"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>All flights</button>
     <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${r.pilot ? esc(r.pilot) + (r.rank ? ' · ' + esc(r.rank) : '') + (r.name ? ' · ' + esc(r.name) : '') : esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small><span class="lv-srcb ${r.src === 'vAMSYS' ? 'va' : 'vs'}">${r.sample ? 'Sample' : r.src === 'vAMSYS' ? 'vAMSYS ACARS' + (r.net ? ' · ' + esc(r.net) : '') : 'VATSIM only'}</span></div>
-      <div class="lv-dbtn"><button class="msg" data-lv="msg"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Write a Polaris Mail message to this pilot"'}><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>Message</button><button class="aoc" data-lv="aoc"${r.sample ? ' disabled title="Sample flight: nobody to write to"' : ' title="Send an AOC message to this flight deck (no reply)"'}><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>AOC</button><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button><button data-lv="close" aria-label="Close">✕</button></div></div>
+      <div class="lv-dbtn"><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button></div></div>
     <div class="lv-od">
       <div><b>${esc(aptCode(r.dep))}</b><small>${esc(f.dep?.city || (r.dep ? '' : 'No flight plan'))}</small></div>
       <div class="lv-bar"><span style="width:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"></span><i style="left:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"><svg viewBox="-10 -10 20 20"><path d="M0,-10 L1.5,-6.5 L1.5,-2.2 L9,2.2 L9,4 L1.5,2 L1.2,6.6 L4,8.6 L4,10 L0,9 L-4,10 L-4,8.6 L-1.2,6.6 L-1.5,2 L-9,4 L-9,2.2 L-1.5,-2.2 L-1.5,-6.5Z"/></svg></i></div>
@@ -263,24 +287,12 @@ function render(): void {
     ${r.route ? `<details class="lv-route"><summary>Route${r.altn ? ' · alternate ' + esc(r.altn) : ''}</summary><p>${esc(r.route)}</p></details>` : ''}`;
 }
 
-/* ---------- tabs ---------- */
-function currentTab(): 'mail' | 'live' | 'pilots' | 'inbox' | 'docs' | 'aoc' | 'stands' | 'cal' | 'ot' { return location.hash === '#live' ? 'live' : location.hash === '#pilots' ? 'pilots' : location.hash === '#inbox' ? 'inbox' : location.hash === '#docs' ? 'docs' : location.hash === '#aoc' ? 'aoc' : location.hash === '#stands' ? 'stands' : location.hash === '#cal' ? 'cal' : location.hash === '#ot' ? 'ot' : 'mail'; }
+/* ---------- pages ---------- */
+/* the admin's router (admin.js) puts the open page on <body data-tab>; Flight Watch is "fw" */
+const onFw = () => document.body.dataset.tab === 'fw';
 function showTab(): void {
   if (document.querySelector('.deny')) return;
-  const t = currentTab();
-  document.querySelectorAll<HTMLElement>('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === t)));
-  const mail = $('#app'), live = $('#live'), pilots = $('#pilots'), inbox = $('#inbox');
-  if (mail) mail.hidden = t !== 'mail';
-  if (live) live.hidden = t !== 'live';
-  if (pilots) pilots.hidden = t !== 'pilots';
-  if (inbox) inbox.hidden = t !== 'inbox';
-  const docs = $('#docs'); if (docs) docs.hidden = t !== 'docs';
-  const aoc = $('#aoc'); if (aoc) aoc.hidden = t !== 'aoc';
-  const stands = $('#stands'); if (stands) stands.hidden = t !== 'stands';
-  const cal = $('#cal'); if (cal) cal.hidden = t !== 'cal';
-  const ot = $('#ot'); if (ot) ot.hidden = t !== 'ot';
-  document.body.classList.toggle('on-live', t === 'live');
-  if (t === 'live') {
+  if (onFw()) {
     if (!S.globe) {
       const c = $<HTMLCanvasElement>('#lvGlobe')!, ac = new AbortController();
       S.globe = new Globe(c, { signal: ac.signal, onPick: (cs) => pick(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
@@ -298,8 +310,10 @@ async function loadLayout(icao: string): Promise<Layout | null> {
   return j && !j.notFound ? (j as Layout) : null;
 }
 function pick(cs: string | null): void {
+  const was = S.sel;
   S.sel = cs;
   render();
+  if (was !== cs) selChanged();
   const f = sel();
   if (f) S.globe?.frameFlight(f); else S.globe?.overview();
 }
@@ -325,13 +339,13 @@ document.addEventListener('click', (e) => {
   else if (k === 'sample') { S.sample = true; S.flights = build(samples(), Date.now()); pick('PAW806'); }
   else if (k === 'nosample') { S.sample = false; S.sel = null; S.flights = []; S.globe?.overview(); void poll(true); }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.sel && currentTab() === 'live') { S.follow = false; pick(null); } });
-window.addEventListener('hashchange', showTab);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && currentTab() === 'live') void poll(true); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.sel && onFw() && !(e.target as HTMLElement).closest?.('input,textarea,select')) { S.follow = false; pick(null); } });
+window.addEventListener('pm:tab', showTab);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && onFw()) void poll(true); });
 // keep the "x s old" line and the live badge fresh between polls
-setInterval(() => { if (currentTab() === 'live' && !document.hidden) { const s = $('#lvSrc'); if (s && S.upd && !S.error && !S.sample) { const age = Math.max(0, Math.round((Date.now() - Date.parse(S.upd)) / 1000)); s.innerHTML = `<span class="lv-dot"></span>${srcText()} · data ${age} s old`; } } }, 1000);
-// count on the Live tab even while Mail is open (once a minute)
-setInterval(() => { if (currentTab() === 'mail' && !document.hidden) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
+setInterval(() => { if (onFw() && !document.hidden) { const s = $('#lvSrc'); if (s && S.upd && !S.error && !S.sample) { const age = Math.max(0, Math.round((Date.now() - Date.parse(S.upd)) / 1000)); s.innerHTML = `<span class="lv-dot"></span>${srcText()} · data ${age} s old`; } } }, 1000);
+// the flight count beside Flight Watch in the sidebar, while another page is open (once a minute)
+setInterval(() => { if (!onFw() && !document.hidden && !document.querySelector('.deny')) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
 
 // the admin is locked (not signed in through Access): leave the page as the server sent it
 if (!document.querySelector('.deny')) showTab();

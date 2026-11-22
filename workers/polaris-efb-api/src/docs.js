@@ -7,9 +7,15 @@
    lasts 6 to 12 hours, as mail attachments do, because an <img> or a new tab cannot send the sign-in. Replacing a file
    makes a new version (v); the old version's pieces are deleted once the new one is in.
 
-   KV (STORE):  docs:v1:index           -> [{ id, title, folder, rev, name, size, pages, v, n, cover, t, by, up, upBy, ed, edBy }]
+   A document can ask pilots to confirm they have read it (ack): the EFB shows "I have read it" in the viewer, and the
+   admin lists who has and who has not, for the version now published. The receipts are kept in the crew Durable
+   Object (crew.js, docAck), not in KV, so a tap is not a KV write.
+
+   KV (STORE):  docs:v1:index           -> [{ id, title, folder, rev, name, size, pages, v, n, cover, ack, t, by, up, upBy, ed, edBy }]
                 docs:v1:f:<id>:<v>:<i>  -> piece i of version v of the file (KV metadata { s: bytes, t: when })
                 docs:v1:c:<id>:<v>      -> the cover (JPEG) */
+
+import { crew } from './crew.js';
 
 class DocError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 export const DOC_PIECE = 8 * 1024 * 1024;
@@ -65,8 +71,13 @@ export async function docsPublic(req, env, h, sess, linkSig) {
   if (!mem || Date.now() - mem.at > 20000) mem = { at: Date.now(), list: await readIndex(kv) };
   /* links good until the end of the next 6-hour block, so they stay the same between checks */
   const e = (Math.floor(Date.now() / LINK_MS) + 2) * LINK_MS, docs = [];
+  /* the version of each document this pilot confirmed reading, when one asks for it */
+  let mine = {};
+  if (mem.list.some((d) => d.ack)) { try { mine = (await crew(env, { op: 'docAcks', u: sess.u })).acks || {}; } catch (er) { mine = {}; } }
   for (const d of mem.list) {
-    docs.push({ id: d.id, title: d.title, folder: d.folder || '', rev: d.rev || '', name: d.name || '', size: d.size || 0, pages: d.pages || 0, v: d.v, up: d.up || d.t || 0, cover: !!d.cover, e, k: await linkSig(env, 'doc:' + d.id + ':' + d.v + ':' + e) });
+    const r = d.ack && mine[d.id] && mine[d.id][sess.u];
+    docs.push({ id: d.id, title: d.title, folder: d.folder || '', rev: d.rev || '', name: d.name || '', size: d.size || 0, pages: d.pages || 0, v: d.v, up: d.up || d.t || 0, cover: !!d.cover, e, k: await linkSig(env, 'doc:' + d.id + ':' + d.v + ':' + e),
+      ...(d.ack ? { ack: true, read: r ? r.v : 0, readAt: r ? r.t : 0 } : {}) });
   }
   const raw = JSON.stringify(docs); let hsh = 2166136261;
   for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619) >>> 0; }
@@ -78,6 +89,21 @@ async function linkDoc(url, env, linkSig) {
   const id = String(url.searchParams.get('id') || ''), v = +url.searchParams.get('v') || 0, e = +url.searchParams.get('e') || 0, k = String(url.searchParams.get('k') || '');
   if (!okId(id) || !(v > 0) || !(e > Date.now()) || !k || k !== await linkSig(env, 'doc:' + id + ':' + v + ':' + e)) throw new DocError(401, 'This document link has expired. Open Documents in the EFB again.');
   return { id, v };
+}
+/* POST /api/efb/docs/ack { id, v }: the signed-in pilot has read this version of a document that asks for it */
+export async function docAckPublic(req, env, h, sess) {
+  const res = (b, s) => jsonRes(b, s || 200, h);
+  try {
+    if (!sess) throw new DocError(401, 'Sign in to confirm documents');
+    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send JSON');
+    let b; try { b = await req.json(); } catch (er) { throw new DocError(400, 'Bad body'); }
+    const kv = env && env.STORE; if (!kv) throw new DocError(503, 'Storage is not set up');
+    const d = (await readIndex(kv)).find((x) => x.id === String(b.id || ''));
+    if (!d) throw new DocError(404, 'That document no longer exists');
+    if (!d.ack) throw new DocError(400, 'This document does not ask for a confirmation');
+    if (+b.v !== d.v) throw new DocError(409, 'A newer version of this document is out. Open it again to read that one.');
+    return res(await crew(env, { op: 'docAck', id: d.id, u: sess.u, v: d.v }));
+  } catch (er) { return res({ error: er.message || 'Error' }, er.status || 500); }
 }
 /* GET /api/efb/doc-file?id=&v=&e=&k=: the PDF */
 export async function docFile(url, env, h, linkSig) {
@@ -116,7 +142,10 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
     if (path === '/admin/api/docs' && req.method === 'GET') {
       const list = await readIndex(kv), used = list.reduce((s, d) => s + (d.size || 0), 0);
       const p = sweep(kv, list).catch(() => {}); if (ctx && ctx.waitUntil) ctx.waitUntil(p);
-      return jsonRes({ docs: list, used, max: TOTAL_MAX, fileMax: FILE_MAX, piece: DOC_PIECE, count: list.length, countMax: DOCS_MAX });
+      /* who confirmed reading which version ({ [id]: { [pilot]: { v, t } } }) */
+      let acks = {}, acksErr = '';
+      if (list.some((d) => d.ack)) { try { acks = (await crew(env, { op: 'docAcks' })).acks || {}; } catch (er) { acksErr = 'Read confirmations are not available right now: ' + er.message; } }
+      return jsonRes({ docs: list, used, max: TOTAL_MAX, fileMax: FILE_MAX, piece: DOC_PIECE, count: list.length, countMax: DOCS_MAX, acks, acksErr });
     }
     /* one piece of a file being uploaded: raw bytes (a form on another site cannot send this type) */
     if (path === '/admin/api/docs/piece' && req.method === 'POST') {
@@ -151,6 +180,7 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
       const title = clean(b.title, 120); if (!title) throw new DocError(400, 'Give the document a title');
       const doc = old ? { ...old } : { id, t: Date.now(), by: who };
       doc.title = title; doc.folder = clean(b.folder, 60); doc.rev = clean(b.rev, 40);
+      if (b.ack != null) { if (b.ack) doc.ack = true; else delete doc.ack; }
       let gone = null;
       if (b.file) {
         const f = b.file, v = +f.v, size = +f.size, n = +f.n;

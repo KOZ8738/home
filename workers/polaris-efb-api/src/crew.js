@@ -122,7 +122,19 @@ export class Crew {
       case 'checkin': { const r = this.checkin(a); await this.wake(); return r; }
       case 'checkout': return this.checkout(a.u);
       case 'ciOfp': { const r = this.ciOfp(a); await this.wake(); return r; }
-      case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '' }; }) };
+      case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '', from: d.from || '', at: r.at }; }) };
+      /* Documents: a pilot's "I have read it" on a Polaris document that asks for it (docs.js): kv ack:<doc id>:<pilot> -> { v, t } */
+      case 'docAck': {
+        const id = String(a.id || '').slice(0, 40), u = String(a.u || '').slice(0, 20), v = Math.round(+a.v) || 0;
+        if (!/^[a-z0-9]{8,40}$/.test(id) || !u || !(v > 0)) throw new CrewError(400, 'Bad document');
+        const t = Date.now(); this.sql.exec('INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v', 'ack:' + id + ':' + u, JSON.stringify({ v, t }));
+        return { ok: true, v, t };
+      }
+      case 'docAcks': {
+        const out = {}, me = a.u ? String(a.u) : '';
+        for (const r of this.rows("SELECT k, v FROM kv WHERE k LIKE 'ack:%'")) { const [, id, who] = r.k.split(':'); if (me && who !== me) continue; (out[id] = out[id] || {})[who] = JSON.parse(r.v); }
+        return { acks: out };
+      }
       case 'wxSeen': { const r = this.wxSeen(a); if (r.sent) await this.wake(); return r; }
       case 'gsxSet': { const r = this.gsxSet(a); if (r.sent) await this.wake(); return r; }
       case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }

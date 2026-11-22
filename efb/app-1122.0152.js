@@ -3010,8 +3010,11 @@ function dl3Secs(){const x=O(),fu=ofp.fuel||{},o=store.get("oooi:"+x.id,{}),next
 function dl3Sec(){const k=ofpTab;let h="";if(k==="ci")return dl3Ci();
   try{h=k==="brief"&&typeof brPage==="function"?brPage():k==="notam"&&typeof ntPage==="function"?ntPage():k==="fuel"?ofpFuel():k==="route"?ofpRoute():k==="navlog"?ofpNavlog():k==="oooi"?ofpTimes():ofpSummary()}
   catch(e){h=`<div class="empty">This part of the plan couldn’t be shown.</div>`}
-  if(k==="brief"){const x=O(),a=S(x.o.icao_code),b=S(x.d.icao_code);if(a&&b&&vam.url)h+=`<section class="card">${cardH("Weather now","METAR, TAF and ATIS",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(a,"Departure")}${rsWxHtml(b,"Arrival")}</div></section>`}
+  if(k==="brief"){const x=O(),a=S(x.o.icao_code),b=S(x.d.icao_code);if(a&&b&&vam.url){const body=rsWxHtml(a,"Departure")+rsWxHtml(b,"Arrival"),st=dl3WxState(a,b);
+    h+=`<section class="card">${cardH("Weather now","METAR, TAF and ATIS"+(st.at?" · updated "+rsZ(st.at):""),`<button class="btn sm dl3-wxr" type="button" data-dl3wx="${esc(a+" "+b)}"${st.busy?" disabled":""} title="Ask for the weather again">${dkSvg("refresh")}<span>${st.busy?"Updating…":"Refresh"}</span></button><a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${body}</div></section>`}}
   return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
+/* Weather now: loading either airport, and when the older of the two came (rsWx keeps them 10 minutes) */
+function dl3WxState(a,b){const W=[RS.wx[a],RS.wx[b]];return {busy:W.some(w=>!w||w.loading),at:W.every(w=>w&&!w.loading&&w.at)?Math.min(...W.map(w=>w.at)):0}}
 /* ---------- check-in (Nov 2026, from the Roster app, which is gone) ----------
    Checking in (from 12 hours before departure) tells the EFB server which flight this is: the departure and arrival
    gates, the final loadsheet and the weather pushes follow by AOC, and the track is kept for the logbook. */
@@ -3048,7 +3051,9 @@ function dl3Ci(){const ci=RS.ci,now=Date.now(),signed=typeof authOn==="function"
       ${more.length?`<div class="dl3-cih">Other bookings open for check-in</div>${more.map(row).join("")}`:""}
       <p class="note" style="margin:12px 0 0">After check-in, Polaris operations sends your gates and the final loadsheet by AOC.</p></div></section>`}
   return `<div class="dl3-sec"><div class="dwrap">${h}</div></div>`}
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dl3ci],[data-dl3co],[data-dl3msg],[data-dl3open]");if(!t)return;const d=t.dataset;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-dl3ci],[data-dl3co],[data-dl3msg],[data-dl3open],[data-dl3wx]");if(!t)return;const d=t.dataset;
+  /* Weather now: ask again now, not after the 10 minutes the last answer is kept */
+  if(d.dl3wx){const L=d.dl3wx.split(" ").filter(Boolean);L.forEach(i=>{const w=RS.wx[i];if(w&&!w.loading)w.at=0});L.forEach(rsWx);render();return}
   if(d.dl3open!=null){if(d.dl3open==="ci"){ofpTab="ci";store.set("ofpTab","ci");DL3.sel="plan"}else DL3.sel="bk:"+d.dl3open;DL3.y=0;goApp("simbrief");return}
   if(cur!=="simbrief")return;
   if(d.dl3ci){rsCheckin(d.dl3ci);return}
@@ -3203,6 +3208,12 @@ a.dk-sq,label.dk-sq{text-decoration:none;box-sizing:border-box}
 .dl3-cir b{display:block;font:600 15px var(--f-mono);color:var(--ink)}.dl3-cir small{display:block;font:500 12.5px var(--f-ui);color:var(--label);margin-top:2px}
 .dl3-cih{margin:16px 0 4px;font:600 11px var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
 .dl3-r>b.t .btn{font-family:var(--f-ui)}
+/* Weather now: ask for the weather again */
+.btn.sm.dl3-wxr{display:inline-flex;align-items:center;gap:6px}
+.dl3-wxr svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.dl3-wxr:disabled{opacity:.7;cursor:default}.dl3-wxr:disabled svg{animation:dl3wxs 1s linear infinite}
+@keyframes dl3wxs{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.dl3-wxr:disabled svg{animation:none}}
 </style>`);
 
 /* ===== Settings ===== */
@@ -8828,7 +8839,9 @@ function dkPaper(k,x){const f=DKF[k]||["",k],t=N(ofp.times&&ofp.times.sched_out)
 function dkCover(d){const u=docCov(d),k=d.id+":"+d.v;
   return `<span class="dk-paper dk-gen"><span class="dk-ph">${dkSvg("star","dk-mk")}<b>POLARIS AIRWAYS</b></span><span class="dk-pk">${esc(d.folder||"Document")}</span><span class="dk-pt dk-pts">${esc(d.title)}</span>${d.rev?`<span class="dk-pd">${esc(d.rev)}</span>`:""}</span>`
     +(d.cover?`<img class="dk-img${u?" on":""}" data-dkcov="${esc(k)}"${u?` src="${u}"`:""} alt="" decoding="async">`:"")}
-const dkNewTag=(d,big)=>docUnseen(d)?`<span class="dk-new${big?" big":""}">${DOC.seen&&DOC.seen[d.id]!=null?"Updated":"New"}</span>`:"";
+const dkNewTag=(d,big)=>docToAck(d)?`<span class="dk-new dk-ackt${big?" big":""}">To confirm</span>`:docUnseen(d)?`<span class="dk-new${big?" big":""}">${DOC.seen&&DOC.seen[d.id]!=null?"Updated":"New"}</span>`:"";
+/* Polaris asks pilots to confirm they have read this version (Nov 2026; the admin sees who has) */
+const docToAck=d=>!!(d&&d.ack&&d.read!==d.v);
 function docStHtml(d){if(!d)return"";const st=DOC.dl.get(d.id);
   if(st){const p=st.size?Math.min(100,Math.round(st.got/st.size*100)):0;return `<span class="dk-st dl" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${p}" aria-label="Downloading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" class="t"/><circle cx="12" cy="12" r="9" class="p" pathLength="100" style="stroke-dashoffset:${100-p}"/></svg></span>`}
   if(docHas(d))return `<span class="dk-st ok" title="On this device">${dkSvg("check")}</span>`;
@@ -8956,11 +8969,13 @@ function drEl(){let el=document.getElementById("drWrap");if(el)return el;const m
   el.innerHTML=`<div class="dr-top"><button type="button" class="dr-back" data-dr="close">${dkSvg("back")}<span>Documents</span></button>
     <div class="dr-t"><b id="drName"></b><small id="drSub"></small></div>
     <div class="dr-btns"><button type="button" class="dr-b" data-dr="toc" aria-pressed="false" aria-label="Contents" hidden>${dkSvg("toc")}<span>Contents</span></button><span class="dr-zm"><button type="button" class="dr-b" data-dr="out" aria-label="Zoom out">−</button><button type="button" class="dr-b" data-dr="fit" aria-label="Fit the width">Fit</button><button type="button" class="dr-b" data-dr="in" aria-label="Zoom in">+</button></span><button type="button" class="dr-b" data-dr="inv" aria-pressed="false" aria-label="Night">${dkSvg("moon")}<span>Night</span></button></div></div>
+    <div class="dr-ack" id="drAck" hidden></div>
     <div class="dr-body"><aside class="dr-toc" id="drToc" hidden></aside><div class="dr-scroll" id="drScroll" tabindex="-1"><div class="dr-pages" id="drPages"></div></div>
       <div class="dr-pgn" id="drPgn" role="button" tabindex="0" data-dr="goto" aria-label="Go to page" hidden></div><p class="dr-msg" id="drMsg" hidden></p></div>`;
   m.appendChild(el);drGestures(el.querySelector("#drScroll"));return el}
 function drUi(){const el=document.getElementById("drWrap");if(!el)return;el.hidden=!DR.open;if(!DR.open)return;const d=DR.d;
   el.querySelector("#drName").textContent=d?d.title:"";el.querySelector("#drSub").textContent=d?[d.folder,d.rev,DR.n?DR.n+" page"+(DR.n===1?"":"s"):""].filter(Boolean).join(" · "):"";
+  drAckUi(el);
   const tb=el.querySelector('[data-dr="toc"]');tb.hidden=!DR.toc;tb.setAttribute("aria-pressed",String(!!DR.tocOn));
   el.querySelector('[data-dr="inv"]').setAttribute("aria-pressed",String(drDark()));el.classList.toggle("inv",drDark());
   const toc=el.querySelector("#drToc");toc.hidden=!(DR.toc&&DR.tocOn);
@@ -9049,7 +9064,19 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
   if(a==="close")drClose();else if(a==="in")drZoom(1.25);else if(a==="out")drZoom(1/1.25);else if(a==="fit")drZoom("fit");
   else if(a==="inv"){DR.inv=!drDark();store.set("drInv",DR.inv);drUi()}
   else if(a==="toc"){DR.tocOn=!DR.tocOn;drUi();drRelayout();drVis()}
-  else if(a==="goto")drGoto()});
+  else if(a==="goto")drGoto();
+  else if(a==="ack")docAck(DR.d)});
+function drAckUi(el){const b=el.querySelector("#drAck"),d=DR.d;if(!b)return;b.hidden=!(d&&d.ack);if(b.hidden)return;
+  const ok=d.read===d.v,busy=DR.acking;b.classList.toggle("ok",ok);
+  b.innerHTML=ok?`${dkSvg("check")}<span>You confirmed reading this version${d.readAt?" on "+new Date(d.readAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})+" "+new Date(d.readAt).toISOString().slice(11,16)+"Z":""}.</span>`
+    :`<span>Polaris asks you to read this document and confirm it${d.rev?" ("+esc(d.rev)+")":""}.</span><button type="button" class="dr-ackb" data-dr="ack"${busy?" disabled":""}>${busy?"Sending…":"I have read it"}</button>`}
+/* "I have read it": to the EFB server, then kept in the list on this device too */
+async function docAck(d){if(!d||!d.ack||DR.acking)return;DR.acking=true;drUi();
+  try{const r=await fetch(authSrv()+"/api/efb/docs/ack",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:d.id,v:d.v})});const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||"The EFB server answered HTTP "+r.status);
+    for(const x of [d,...docList().filter(y=>y.id===d.id)]){x.read=d.v;x.readAt=j.t||Date.now()}if(DOC.list)store.set("docList",DOC.list);toast("Confirmed: "+d.title)}
+  catch(e){toast(/fetch|network|load/i.test(e.message||"")?"Can’t reach the EFB server. Try again when online.":e.message||"Couldn’t confirm")}
+  finally{DR.acking=false;drUi();docRefresh()}}
 document.addEventListener("keydown",e=>{if(!DR.open||cur!=="docs"||(e.target.closest&&e.target.closest("input,textarea")))return;
   if(e.key==="Escape"){e.preventDefault();drClose();return}
   if((e.metaKey||e.ctrlKey)&&(e.key==="="||e.key==="+")){e.preventDefault();drZoom(1.25)}else if((e.metaKey||e.ctrlKey)&&e.key==="-"){e.preventDefault();drZoom(1/1.25)}});
@@ -9249,6 +9276,14 @@ document.head.insertAdjacentHTML("beforeend",`<style>
   .dr-top{grid-template-columns:auto minmax(0,1fr) auto;padding:7px 10px}.dr-t{align-items:flex-start;text-align:left;max-width:none}.dr-t b{font-size:17px}
   .dr-zm{display:none}.dr-b span{display:none}.dr-b{padding:0 10px}.dr-back span{display:none}.dr-back{padding:0 9px}
 }
+/* a document Polaris asks pilots to confirm (Nov 2026) */
+.dk-new.dk-ackt{background:#B7791F}
+.dr-ack{flex:none;display:flex;align-items:center;gap:12px;padding:8px 16px;background:color-mix(in srgb,#E5A00D 16%,var(--ff-bar));border-bottom:1px solid color-mix(in srgb,#E5A00D 40%,transparent);color:var(--ff-hi);font:500 14px/1.35 var(--f-os);position:relative;z-index:4}
+.dr-ack>span{flex:1;min-width:0}
+.dr-ackb{flex:none;border:0;border-radius:6px;padding:8px 14px;background:var(--ff-acc,#1A6772);color:#fff;font:600 14px var(--f-os);cursor:pointer}
+.dr-ackb:disabled{opacity:.6;cursor:default}
+.dr-ack.ok{background:var(--ff-bar);border-bottom-color:var(--ff-barline,rgba(127,127,127,.25));color:var(--ff-sub);font-size:13px;padding:6px 16px}
+.dr-ack svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--ff-green);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 </style>`);
 
 /* ---------- Messages: AOC messages from Polaris operations, and Hoppie's ACARS (Nov 2026) ----------

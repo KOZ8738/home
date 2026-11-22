@@ -181,6 +181,29 @@ export async function standsAdmin(req, url, path, env, who, deps) {
       const plan = b.apts ? { ...cleanPlan({ ...b, lead: LEAD_DEF }) } : await readPlan(kv);
       return jsonRes(await pickStand(plan, I, b.wide ? 'A359' : 'A21N', Date.now() + 30 * 60_000, await readLog(kv), deps, null, ['dom', 'intl'].includes(b.fl) ? b.fl : ''));
     }
+    /* staff give a flight its gate by hand (Flight Watch), when none was sent: the gate written, or the plan's first
+       free one; the crew get GATE ASSIGNMENT (arrival) or DEPARTURE GATE */
+    if (path === '/admin/api/stands/assign') {
+      const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+      const kind = b.kind === 'dep' ? 'dep' : 'arr', cs = up(b.cs, 10), dep = up(b.dep, 4), arr = up(b.arr, 4), icao = kind === 'dep' ? dep : arr;
+      if (!/^[A-Z0-9]{2,10}$/.test(cs)) throw new StandError(400, 'Bad callsign');
+      if (!okIcao(icao)) throw new StandError(400, 'The flight has no ' + (kind === 'dep' ? 'departure' : 'arrival') + ' airport');
+      const log = await readLog(kv), k = kind === 'dep' ? 'dep:' + cs + ':' + dep : cs + ':' + arr, now = Date.now();
+      const ac = line(b.ac, 8).toUpperCase(), eta = +b.eta > now - 6 * 3600_000 && +b.eta < now + 24 * 3600_000 ? Math.round(+b.eta) : now + (kind === 'dep' ? 3600_000 : 30 * 60_000);
+      let stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''), term = line(b.term, 20).toUpperCase();
+      if (!stand) {
+        const p = await pickStand(await readPlan(kv), icao, ac, eta, log, deps || {}, k, flightType(dep, arr));
+        if (!p.stand) throw new StandError(400, p.none === 'full' ? 'Every gate in the plan at ' + icao + ' is taken: write one' : 'No gate plan for ' + icao + ': write the gate');
+        stand = p.stand; term = p.term || '';
+      }
+      if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the gate');
+      const f = { cs, dep, arr, pilot: up(b.pilot, 12), cid: String(b.cid || '').replace(/\D/g, '').slice(0, 9), name: line(b.name, 60) };
+      const m = kind === 'dep' ? await aocSend(env, { title: 'DEPARTURE GATE', body: depText(f, eta, { stand, term }, ac), to: crewOf(f), push: true, by: who })
+        : await aocSend(env, { title: 'GATE ASSIGNMENT', body: standText(f, eta, { stand, term }), to: crewOf(f), push: true, by: who });
+      const rec = { k, ...(kind === 'dep' ? { kind: 'dep' } : {}), t: now, cs, dep, arr, ac, wide: isWide(ac), fl: flightType(dep, arr), eta, stand, term, by: who, aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
+      log.unshift(rec); await writeLog(kv, log);
+      return jsonRes({ ok: true, rec });
+    }
     /* staff move an assignment to another stand: the crew get a STAND CHANGE */
     if (path === '/admin/api/stands/change') {
       const log = await readLog(kv), x = log.find((r) => r.k === b.k && r.t === +b.t); if (!x) throw new StandError(404, 'That assignment is no longer listed');

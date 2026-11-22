@@ -96,6 +96,32 @@ export async function mailAttachment(url, env, h, linkSig) {
   return new Response(body, { status: 200, headers: { ...h, 'Content-Type': a.type, 'Content-Disposition': 'inline; filename="' + a.name.replace(/[^\w.\- ]+/g, '_') + '"', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
 }
 
+/* ---- Settings: the From names and the AOC templates the admin's composers offer ----
+   KV (STORE): admin:v1:settings -> { froms: [name], tpl: [{ title, body }], at, by }. A template's {CS}, {DEP} and {ARR}
+   are filled in from the flight, and ___ marks what staff must still write. */
+const SETTINGS = 'admin:v1:settings';
+export const SET_DEF = {
+  froms: ['Crew Management', 'Flight Operations', 'Training', 'Polaris News', 'Fleet'],
+  tpl: [
+    { title: 'CREW MESSAGE', body: '' },
+    { title: 'GATE CHANGE', body: '{CS} {DEP}-{ARR}\nNEW GATE ___\nIF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC' },
+    { title: 'WX ADVISORY', body: '{CS} {DEP}-{ARR}\nWX AT {ARR}: ___\nPLAN EXTRA FUEL AS REQUIRED' },
+    { title: 'SLOT', body: '{CS} {DEP}-{ARR}\nNEW CTOT ___Z\nADVISE IF UNABLE' },
+    { title: 'DELAY', body: '{CS} {DEP}-{ARR}\nEXPECT DELAY ___ MIN\nNEW ETD ___Z' },
+    { title: 'DIVERSION', body: '{CS}\nOPS CONFIRMS DIVERSION TO ___\nADVISE ETA AND FUEL ON ARRIVAL' },
+    { title: 'MAINTENANCE', body: '{CS}\nMX: ___\nCONTACT MAINTENANCE CONTROL BEFORE DEPARTURE' },
+    { title: 'OPS NOTICE', body: '' },
+  ],
+};
+async function readSettings(kv) { const v = await kv.get(SETTINGS, 'json'); return { ...SET_DEF, ...(v && typeof v === 'object' ? v : {}) }; }
+function cleanSettings(b) {
+  const one = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const froms = [...new Set((Array.isArray(b.froms) ? b.froms : []).map((x) => one(x, 60)).filter(Boolean))].slice(0, 20);
+  if (!froms.length) throw new MailError(400, 'Keep at least one From name');
+  const tpl = (Array.isArray(b.tpl) ? b.tpl : []).map((t) => ({ title: one(t && t.title, 40).toUpperCase(), body: String((t && t.body) || '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 2000).toUpperCase() })).filter((t) => t.title).slice(0, 30);
+  return { froms, tpl };
+}
+
 /* ---- /admin ---- */
 const ADMIN_FRAME = "frame-ancestors 'self' https://koz8738.com https://www.koz8738.com";
 const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').slice(0, n);
@@ -136,6 +162,10 @@ export async function mailAdmin(req, url, env, opts) {
   /* staff diagnostics: the latest PIREP, booking and live flight as vAMSYS returns them */
   if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: e.message }, 502); } }
   if (path === '/admin/api/bookings-probe' && opts && opts.bkProbe) { try { return jsonRes(await opts.bkProbe(url.searchParams.get('pilot'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  /* Pilots page: who is checked in for a flight in the EFB now (see crew.js) */
+  if (path === '/admin/api/checkins' && req.method === 'GET') {
+    try { return jsonRes(await crew(env, { op: 'ciList' })); } catch (e) { return jsonRes({ error: 'Check-ins are not available right now: ' + e.message }, 502); }
+  }
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
@@ -155,6 +185,14 @@ export async function mailAdmin(req, url, env, opts) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (path === '/admin/api/me') return jsonRes({ email: who });
+    /* Settings page: From names and AOC templates (written only when staff press Save) */
+    if (path === '/admin/api/settings' && req.method === 'GET') return jsonRes({ settings: await readSettings(kv) });
+    if (path === '/admin/api/settings' && req.method === 'POST') {
+      if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
+      let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
+      const s = { ...cleanSettings(b), at: Date.now(), by: who }; await kv.put(SETTINGS, JSON.stringify(s));
+      return jsonRes({ ok: true, settings: s });
+    }
     if (path === '/admin/api/mail' && req.method === 'GET') return jsonRes({ mails: (await readIndex(kv)).map((m) => ({ ...pub(m), to: m.to || null, sendAt: m.sendAt || m.t, created: m.t, by: m.by || '' })), now: Date.now() });
     if (path === '/admin/api/mail' && req.method === 'POST') {
       /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */

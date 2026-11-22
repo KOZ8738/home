@@ -297,26 +297,259 @@ main#cal{max-width:1380px;grid-template-columns:minmax(0,1fr) 380px;align-items:
 :root[data-theme=dark] .ca-tag{color:#D7A3F0}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .ca-tag{color:#D7A3F0}}
 @media(max-width:1100px){main#cal{grid-template-columns:1fr}.ca-side{position:static;max-height:none}}
 @media(max-width:700px){.ca-d{min-height:64px}.ca-c{font-size:0;padding:0;height:6px;border:0;background:var(--c)}.ca-c b{display:none}.ca-wd span{font-size:10px;padding:4px 2px}.ca-bar h2{min-width:0;font-size:18px}.ca-tz{display:none}}
+/* ---------- shell: the header stays, the sections are in a sidebar (Nov 2026) ---------- */
+header{position:sticky;top:0;z-index:20}
+.side{position:fixed;top:59px;left:0;bottom:0;width:212px;overflow-y:auto;background:var(--bg);border-right:1px solid var(--line);padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;z-index:15}
+.side a{display:flex;align-items:center;gap:11px;padding:7px 10px;border-radius:6px;color:var(--label);text-decoration:none;font:500 14px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;white-space:nowrap}
+.side a>span:first-of-type{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.side a svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.side a:hover{background:var(--soft);color:var(--ink)}
+.side a[aria-current=true]{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+.side .sg{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--off);padding:16px 10px 5px}
+.side .sx{margin-top:auto}
+.side .lv-n{background:var(--soft);color:var(--label);border:1px solid var(--line);padding:2px 6px}
+.side a[aria-current=true] .lv-n{background:var(--bg)}
+#ibCount{background:var(--teal);color:#fff;border-color:var(--teal)}
+.lv-n.q{background:var(--q-bg);color:var(--q);border:0}
+.fw-n.red{background:var(--red)}:root[data-theme=dark] .fw-n.red{background:#C2453F}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .fw-n.red{background:#C2453F}}
+body{padding-left:212px}
+body:has(.deny){padding-left:0}.deny~.side{display:none}
+main{scroll-margin-top:70px}
+main#live{height:calc(100vh - 59px);height:calc(100svh - 59px)}
+@media(max-width:900px){
+ body{padding-left:0}
+ .side{position:sticky;top:59px;bottom:auto;width:auto;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--line);padding:6px 8px;gap:2px;scrollbar-width:none}
+ .side::-webkit-scrollbar{display:none}
+ .side .sg{display:none}.side .sx{margin-top:0}
+ .side a{flex:none;padding:6px 11px;gap:7px}.side a svg{width:16px;height:16px}
+ main#live{height:auto}
+}
+/* page headings with a ? for the explanation, instead of paragraphs of text */
+.pg-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}.pg-h h2{margin:0}
+.help{position:relative;display:inline-block}
+.help>summary{list-style:none;cursor:pointer;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font:600 12px Jost,system-ui,sans-serif;color:var(--label);background:var(--field)}
+.help>summary::-webkit-details-marker{display:none}
+.help>summary:hover,.help[open]>summary{color:var(--accent);border-color:var(--accent)}
+.help>div{position:absolute;z-index:30;top:30px;left:-10px;width:min(380px,80vw);background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.14);padding:12px 14px;font-size:13px;color:var(--ink);line-height:1.5;text-transform:none;letter-spacing:0}
+.help>div p{margin:0 0 8px}.help>div p:last-child{margin:0}
+a.lk{color:var(--accent);text-decoration:none;font-size:13px;font-weight:500}a.lk:hover{text-decoration:underline}
+/* status colours only: the AOC button and tag are no longer pink */
+.lv-dbtn button.aoc,.tag.a,.mail.aoc b{color:var(--ink)!important;border-color:var(--line)}
+.tag.a{background:var(--soft);border:1px solid var(--line);color:var(--label)!important}
+
+/* ---------- Home ---------- */
+main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
+.hm-bar{grid-column:1/-1;display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:16px 20px}
+.hm-clock{display:flex;flex-direction:column;min-width:150px}
+.hm-clock b{font:500 30px/1.05 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:-.01em;color:var(--ink)}
+.hm-clock span{font-size:12.5px;color:var(--label);margin-top:3px}
+.hm-k{display:flex;gap:10px;flex-wrap:wrap;flex:1;justify-content:flex-end}
+.hm-c{min-width:118px;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft);text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.hm-c:hover{border-color:var(--accent)}
+.hm-c span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--label)}
+.hm-c b{font:400 24px/1.15 Marcellus,Georgia,serif;color:var(--ink);margin-top:2px}
+.hm-c small{font-size:11.5px;color:var(--label)}
+.hm-c.good b{color:var(--green)}.hm-c.mid b{color:#B7791F}.hm-c.bad b,.hm-c.red b{color:var(--red)}
+:root[data-theme=dark] .hm-c.mid b{color:#E8B86A}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .hm-c.mid b{color:#E8B86A}}
+.hm-col{display:flex;flex-direction:column;gap:24px;min-width:0}
+#hmAct{margin-top:10px}
+.hm-i{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:2px 12px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:11px 4px;color:var(--ink);font:inherit;cursor:pointer}
+.hm-i:first-child{border-top:0}.hm-i:hover{background:var(--soft)}
+.hm-i>i{width:9px;height:9px;border-radius:50%;background:var(--off);align-self:start;margin-top:6px}
+.hm-i.red>i{background:var(--red)}.hm-i.amber>i{background:#E5A00D}.hm-i.info>i{background:var(--accent)}
+.hm-i b{font-weight:600}.hm-i .t{min-width:0}.hm-i .t small{display:block;color:var(--label);font-size:12.5px;margin-top:1px}
+.hm-i em{font-style:normal;font-size:12.5px;color:var(--accent);white-space:nowrap;font-weight:500}
+.hm-ok{display:flex;gap:10px;align-items:center;color:var(--green);font-size:14px;padding:8px 2px}.hm-ok svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.hm-f{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:1px 12px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;padding:9px 2px;font:inherit;color:var(--ink);cursor:pointer}
+.hm-f:first-child{border-top:0}.hm-f:hover{background:var(--soft)}
+.hm-f .cs{font:600 14px "IBM Plex Mono",ui-monospace,Consolas,monospace}
+.hm-f .rt{font-size:13.5px}.hm-f .rt small{color:var(--label);font-size:12px;margin-left:6px}
+.hm-f .st{font-size:12px;color:var(--label);text-align:right;white-space:nowrap}
+.hm-f .st b{display:block;font:500 12.5px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--ink)}
+.hm-u{display:grid;grid-template-columns:62px minmax(0,1fr);gap:2px 12px;padding:9px 2px;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.hm-u:first-child{border-top:0}
+.hm-u time{font:500 12px/1.35 "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--label)}
+.hm-u b{font-weight:500}.hm-u small{grid-column:2;color:var(--label);font-size:12px}
+#hmFl,#hmUp{margin-top:8px}
+@media(max-width:900px){main#home{grid-template-columns:1fr}.hm-k{justify-content:flex-start}}
+
+/* ---------- Messages: the Inbox and what was sent, with the conversation or the composer beside ---------- */
+main#comms{max-width:1380px;grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start}
+.cm-side{padding:0;display:flex;flex-direction:column;min-height:0;position:sticky;top:83px;max-height:calc(100vh - 107px)}
+.cm-h{display:flex;align-items:center;gap:10px;padding:16px 18px 0}.cm-h h2{margin:0}
+.cm-new{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 18px 12px}
+.cm-new button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 10px;font-size:13.5px}
+.cm-new svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.cm-seg{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cm-seg button{border:0;border-radius:0;background:transparent;color:var(--label);padding:10px 4px 9px;font-size:13.5px;border-bottom:2px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.cm-seg button[aria-pressed=true]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.cm-f{display:flex;gap:8px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line)}.cm-f select{flex:1;padding:6px 8px;font-size:13.5px}
+.cm-side .ib-list,.cm-list{overflow:auto;max-height:none;flex:1;min-height:120px}
+.cm-i{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:11px 18px;border-left:3px solid transparent;font:inherit;color:var(--ink)}
+.cm-i:hover{background:var(--soft)}.cm-i.on{background:var(--soft);border-left-color:var(--accent)}
+.cm-i b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-i time{color:var(--label);font-size:12px;white-space:nowrap}
+.cm-i .meta{grid-column:1/3;color:var(--label);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm-k{display:inline-block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:6px;color:var(--label);vertical-align:1px}
+.cm-k.q{border-color:transparent;background:var(--q-bg);color:var(--q)}
+.cm-main{min-height:420px}
+.cm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;min-height:360px;color:var(--label);font-size:14px;padding:20px}
+.cm-empty svg{width:40px;height:40px;fill:none;stroke:var(--off);stroke-width:1.4;margin-bottom:6px}.cm-empty b{color:var(--ink);font-weight:500;font-size:15px}.cm-empty span{max-width:380px}
+.cm-ch{display:flex;align-items:center;justify-content:space-between;gap:10px}.cm-ch h2{margin:0}
+.cm-x{border:0;background:transparent;color:var(--label);font-size:16px;padding:4px 8px}.cm-x:hover{color:var(--ink)}
+.cm-v h3{margin:0;font:400 21px Marcellus,Georgia,serif}.cm-v .meta{color:var(--label);font-size:13px;margin-top:4px}
+.cm-v .cm-body{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}.cm-v .cm-body p{margin:0 0 10px}
+.cm-v .ac-box{margin-top:14px}.cm-v .atts{margin-top:10px}
+@media(max-width:900px){main#comms{grid-template-columns:1fr}.cm-side{position:static;max-height:none}.cm-side .ib-list,.cm-list{max-height:50vh}}
+
+/* ---------- Settings ---------- */
+main#settings{max-width:1280px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.set-froms{min-height:130px;font-size:14px}
+.set-tpl{display:flex;flex-direction:column;gap:10px}
+.set-t{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--soft);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px}
+.set-t input{font:600 13.5px "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:uppercase}
+.set-t textarea{grid-column:1/-1;min-height:70px;font:13px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:uppercase}
+.set-t .b{display:flex;gap:4px}.set-t .b button{padding:4px 9px;font-size:12.5px}
+@media(max-width:900px){main#settings{grid-template-columns:1fr}}
+
+/* ---------- Gates ---------- */
+.st-lb{display:flex;gap:8px;align-items:center}
+.st-l .k2{display:inline-block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:6px;color:var(--label)}
+
+/* ---------- Reports ---------- */
+#otNeed[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#fff}
+
+/* ---------- Flight Watch: the open flight takes the side ---------- */
+main#live{grid-template-columns:minmax(0,1fr) 440px}
+.lv-side.sel>.fw,.lv-side.sel>.lv-sum,.lv-side.sel>.lv-list{display:none!important}
+.lv-side.sel .lv-det{margin-top:0;border-top:0}
+.lv-back{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--accent);padding:0 0 10px;font-size:13.5px}
+.lv-back svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lv-f .fo-x{font:600 11px "IBM Plex Mono",ui-monospace,Consolas,monospace;margin-left:8px;color:var(--label)}
+.lv-f .fo-x.late{color:var(--red)}
+.fo{display:flex;flex-direction:column;gap:0;margin-top:16px}
+.fo-s{border-top:1px solid var(--line);padding:14px 0 4px}
+.fo-s h4{margin:0 0 10px;font:600 11px Jost,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--bronze);display:flex;align-items:center;gap:8px}
+.fo-s h4 small{font:500 11px Jost,system-ui,sans-serif;letter-spacing:0;text-transform:none;color:var(--label)}
+.fo-t{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.fo-t>div{padding:7px 6px;text-align:center;border-left:1px solid var(--line)}.fo-t>div:first-child{border-left:0}
+.fo-t span{display:block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.08em;color:var(--label)}
+.fo-t b{display:block;font:500 13px "IBM Plex Mono",ui-monospace,Consolas,monospace;margin-top:2px}
+.fo-t .no b{color:var(--off)}.fo-t .sch{background:var(--soft)}
+.fo-d{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--label)}.fo-d b{color:var(--ink);font-weight:500}
+.fo-d .late{color:var(--red);font-weight:600}.fo-d .ok{color:var(--green);font-weight:600}
+.fo-r{display:flex;gap:8px;align-items:center;margin-top:10px}.fo-r label{margin:0;font-size:12.5px;white-space:nowrap}.fo-r select{padding:6px 8px;font-size:13px}
+.fo-g{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:1px 10px;align-items:center;padding:7px 0;border-top:1px dashed var(--line)}.fo-g:first-of-type{border-top:0}
+.fo-g .k{font-size:12px;color:var(--label)}.fo-g .k b{display:block;font:600 13px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--ink)}
+.fo-g .v{font-weight:600}.fo-g.none .v{font-weight:400;color:var(--label)}
+.fo-g small{display:block;font-size:12px;color:var(--label);font-weight:400}
+.fo-g button{padding:4px 10px;font-size:12.5px}
+.fo-ge{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.fo-ge input{width:auto;flex:1 1 80px;padding:6px 9px;font-size:13.5px;text-transform:uppercase}.fo-ge button{padding:6px 10px;font-size:12.5px}
+.fo-ls{font-size:13.5px}.fo-ls .ok{color:var(--green);font-weight:600}.fo-ls small{display:block;color:var(--label);font-size:12px;margin-top:2px}
+.fo-a{border-top:1px dashed var(--line);padding:6px 0}.fo-a:first-of-type{border-top:0}
+.fo-a summary{cursor:pointer;display:flex;gap:8px;align-items:baseline;list-style:none;font-size:13px}.fo-a summary::-webkit-details-marker{display:none}
+.fo-a summary b{font:600 12.5px "IBM Plex Mono",ui-monospace,Consolas,monospace}.fo-a summary time{font:12px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--label)}.fo-a summary small{margin-left:auto;color:var(--label);font-size:11.5px}
+.fo-a pre{margin:6px 0 2px;white-space:pre-wrap;font:12.5px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace;background:var(--soft);border-radius:4px;padding:8px 10px}
+.fo-ch{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.fo-ch h4{margin:0}
+.fo-c label{margin:10px 0 5px}.fo-c textarea{min-height:96px;font-size:13.5px}
+#foBody,#foTitle{text-transform:uppercase;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.fo-c .actions{margin-top:10px;align-items:center}.fo-c .actions a{font-size:13px}
+.fo-to{font-size:12px;color:var(--label);margin-top:8px}
+@media(max-width:1100px){main#live{grid-template-columns:minmax(0,1fr) 400px}}
+@media(max-width:900px){main#live{grid-template-columns:1fr}}
+/* polish */
+@media(min-width:901px){header{margin-left:-212px}}
+body:has(.deny) header{margin-left:0}
+.side a:has(#fwN:not([hidden])) #lvCount{display:none}
+.fo-c input[type=text],.fo-c select,.fo-c textarea,.fo-r select{padding:7px 10px;font-size:14px}
+.fo-c .row{gap:10px}
+.st-lead input{font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.st-l .s,:root[data-theme=dark] .st-l .s{color:var(--ink)!important;font-weight:600}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .st-l .s{color:var(--ink)!important}}
+.ot-bar .help{margin-right:auto}
+@media(max-width:600px){.hm-k{display:grid;grid-template-columns:1fr 1fr;width:100%}.hm-c{min-width:0}}
+
+/* ---------- Pilots: the profile beside the list ---------- */
+main#pilots.pf{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:24px;align-items:start;max-width:1380px}
+.pl-open{border:0;background:transparent;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;display:inline}
+.pl-open:hover b{color:var(--accent);text-decoration:underline}
+.pl-t tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.pl-prof{position:sticky;top:83px}
+.pf-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.pf-h h3{margin:0;font:600 20px "IBM Plex Mono",ui-monospace,Consolas,monospace}.pf-h .meta{color:var(--label);font-size:13px;margin-top:3px}
+.pf-st{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.pl-prof .fo-s{margin-top:14px}
+.pf-t{width:100%;border-collapse:collapse;font-size:13px}.pf-t td{padding:6px 4px;border-top:1px dashed var(--line);white-space:nowrap}.pf-t tr:first-child td{border-top:0}.pf-t td.m{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.pf-m{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:6px 0;border-top:1px dashed var(--line);font-size:13.5px}.pf-m:first-of-type{border-top:0}
+.pf-m>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-m time{font-size:12px;color:var(--label);white-space:nowrap}
+.pf-d{font-weight:700;width:14px;text-align:center}.pf-d.ok{color:var(--green)}.pf-d.no{color:var(--label)}
+.pf-p{margin:0;font-size:14px}
+@media(max-width:1100px){main#pilots.pf{grid-template-columns:1fr}.pl-prof{position:static}}
+/* ---------- Documents: who has read ---------- */
+.dc-ack{grid-column:2/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--label);margin-top:4px}
+.dc-ab b{color:var(--ink)}.dc-all{color:var(--green);font-weight:600}
+.lkb{border:0;background:transparent;padding:0;color:var(--accent);font-size:12.5px;text-decoration:underline;cursor:pointer}
+.dc-who{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.dc-p{display:inline-flex;align-items:baseline;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg);font-size:12.5px;color:var(--ink)}
+.dc-p small{color:var(--label);font-size:11.5px}.dc-p.old{border-style:dashed}
+main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#pilots.pf .pl-t th:nth-child(5),main#pilots.pf .pl-t td:nth-child(5){display:none}
 </style></head><body>
-<header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Admin</span></h1><nav class="tabs" aria-label="Sections"><a href="#mail" data-tab="mail">Messages</a><a href="#live" data-tab="live">Live <span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a><a href="#ot" data-tab="ot">On-time</a><a href="#inbox" data-tab="inbox">Inbox <span class="lv-n" id="ibCount" hidden></span></a><a href="#cal" data-tab="cal">Calendar</a><a href="#stands" data-tab="stands">Auto AOC</a><a href="#docs" data-tab="docs">Documents</a><a href="#pilots" data-tab="pilots">Pilots</a></nav><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
+<header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Admin</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
 <!--DENIED-->
-<main id="app">
-<section>
- <h2 id="formTitle">New message</h2>
- <label>Send as</label>
- <div class="kind" id="kind"><label class="kd"><input type="radio" name="kind" value="mail" checked><span><b>Mail</b><small>Subject, formatting and attachments; can wait for a set time. Pilots read it in Mail and can answer.</small></span></label><label class="kd"><input type="radio" name="kind" value="aoc"><span><b>AOC</b><small>A short message on the flight deck’s AOC display, beside Hoppie ACARS. Pilots cannot answer.</small></span></label></div>
+<nav class="side" id="side" aria-label="Sections">
+<a href="#home" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.5l8.5 6.7"/><path d="M5.8 9.6V20h12.4V9.6"/><path d="M10 20v-5.5h4V20"/></svg><span>Home</span></a>
+<div class="sg">Operations</div>
+<a href="#fw" data-tab="fw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg><span>Flight Watch</span><span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a>
+<a href="#gates" data-tab="gates"><svg viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V8.5l6.5-4 6.5 4v12"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Gates</span></a>
+<a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-5M12 16.5V7M17 16.5v-8"/></svg><span>Reports</span></a>
+<div class="sg">Crew</div>
+<a href="#pilots" data-tab="pilots"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.9 14.3c2.3.2 3.9 1.8 4.4 4.5"/></svg><span>Pilots</span></a>
+<a href="#cal" data-tab="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Calendar</span></a>
+<div class="sg">Communication</div>
+<a href="#comms" data-tab="comms"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg><span>Messages</span><span class="lv-n" id="ibCount" hidden></span></a>
+<a href="#docs" data-tab="docs"><svg viewBox="0 0 24 24"><path d="M6.5 3.5H14l4.5 4.5v12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4.5M8.5 12.5h7M8.5 16h7"/></svg><span>Documents</span><span class="lv-n q" id="dcN" hidden></span></a>
+<a class="sx" href="#settings" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></a>
+</nav>
+<main id="home" hidden>
+<section class="hm-bar">
+ <div class="hm-clock"><b id="hmClock">--:--:--Z</b><span id="hmDate"></span></div>
+ <div class="hm-k" id="hmK"></div>
+</section>
+<section class="hm-act"><div class="lh"><h2>Action needed</h2><span class="hint" id="hmAt"></span></div><div id="hmAct"><span class="empty">Loading…</span></div></section>
+<div class="hm-col">
+<section><div class="lh"><h2>Flights now</h2><a class="lk" href="#fw">Flight Watch ›</a></div><div id="hmFl"><span class="empty">Loading…</span></div></section>
+<section><div class="lh"><h2>Coming up</h2><a class="lk" href="#cal">Calendar ›</a></div><div id="hmUp"><span class="empty">Loading…</span></div></section>
+</div>
+</main>
+<main id="comms" hidden>
+<section class="cm-side">
+ <div class="cm-h"><h2>Messages</h2><details class="help"><summary aria-label="About messages">?</summary><div><p><b>Notice</b> is Polaris Mail: a subject, formatting and attachments, now or at a set time. Pilots read it in the EFB’s Mail and can answer; answers arrive in the Inbox.</p><p><b>AOC</b> is a short message on the flight deck’s AOC display, beside Hoppie ACARS. Pilots cannot answer it. It stays in the EFB under Flight › Messages for 30 days.</p><p>Messages between pilots are private and never appear here.</p></div></details></div>
+ <div class="cm-new"><button type="button" class="primary" data-cmnew="mail"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>New notice</button><button type="button" data-cmnew="aoc"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>New AOC</button></div>
+ <div class="cm-seg" role="group" aria-label="Show"><button type="button" data-cmv="inbox" aria-pressed="true">Inbox<span class="lv-n" id="cmIbN" hidden></span></button><button type="button" data-cmv="sent" aria-pressed="false">Sent</button><button type="button" data-cmv="later" aria-pressed="false">Scheduled<span class="lv-n q" id="cmLaterN" hidden></span></button></div>
+ <div class="cm-f" id="cmFi"><div class="ib-seg" role="group" aria-label="Conversations"><button type="button" data-ibs="open" aria-pressed="true">Open</button><button type="button" data-ibs="done" aria-pressed="false">Done</button></div><select id="ibDept" aria-label="Department"><option value="">All departments</option></select></div>
+ <div class="cm-f" id="cmFs" hidden><div class="kf" role="group" aria-label="Kind"><button type="button" data-kf="all" aria-pressed="true">All</button><button type="button" data-kf="mail" aria-pressed="false">Notices</button><button type="button" data-kf="aoc" aria-pressed="false">AOC</button></div></div>
+ <div class="ib-list" id="ibList"><p class="empty" style="padding:16px 18px">Loading…</p></div>
+ <div class="cm-list" id="list" hidden><p class="empty" style="padding:16px 18px">Loading…</p></div>
+</section>
+<section class="cm-main">
+ <div class="cm-empty" id="cmEmpty"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg><b>Nothing open</b><span>Pick a conversation or a sent message on the left, or write a new notice or AOC message.</span></div>
+ <div id="ibView" hidden></div>
+ <div id="cmItem" hidden></div>
+ <div id="cmCompose" hidden>
+ <div class="cm-ch"><h2 id="formTitle">New notice</h2><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div>
+ <div class="kind" id="kind" hidden><label class="kd"><input type="radio" name="kind" value="mail" checked><span><b>Notice</b></span></label><label class="kd"><input type="radio" name="kind" value="aoc"><span><b>AOC</b></span></label></div>
  <label for="to">To</label>
- <div class="radio" id="to"><label><input type="radio" name="to" value="all" checked> All pilots</label><label><input type="radio" name="to" value="one"> One pilot</label><label id="toCrewL"><input type="radio" name="to" value="crew"> Flight crew</label></div>
+ <div class="radio" id="to"><label id="toAllL"><input type="radio" name="to" value="all" checked> All pilots</label><label><input type="radio" name="to" value="one"> One pilot</label><label id="toCrewL"><input type="radio" name="to" value="crew"> A flight’s crew</label></div>
  <div id="toOne" class="to-one" hidden><div class="row"><div><label for="toPilot">Pilot ID</label><input type="text" id="toPilot" maxlength="12" placeholder="PAW0006" autocomplete="off" spellcheck="false"></div><div><label for="toCid">VATSIM CID</label><input type="text" id="toCid" maxlength="9" inputmode="numeric" placeholder="1234567" autocomplete="off"></div></div><input type="hidden" id="toName"><input type="hidden" id="toCs">
- <p class="hint" id="toHint">Delivered only to the pilot signed in to the EFB with this pilot ID, or whose vAMSYS account has this VATSIM CID. Pick a flight on the Live tab, or a pilot on the Pilots tab, to fill this in.</p></div>
+ <p class="hint" id="toHint">Only the pilot signed in to the EFB with this pilot ID, or whose vAMSYS account has this VATSIM CID.</p></div>
  <div id="toCrew" class="to-one" hidden><div class="row"><div><label for="crCs">Callsign</label><input type="text" id="crCs" maxlength="8" placeholder="PAW123" autocomplete="off" spellcheck="false"></div>
  <div><label for="crAdd">Add a pilot</label><div class="cr-add"><input type="text" id="crAdd" list="crPilots" maxlength="12" placeholder="Pilot ID or VATSIM CID" autocomplete="off" spellcheck="false"><button type="button" id="crAddB">Add</button></div><datalist id="crPilots"></datalist></div></div>
  <div class="cr-list" id="crList"></div>
- <p class="hint">Reaches every pilot listed (both seats of a two-pilot crew), and any EFB flying this callsign for the next 18 hours. Notifications go to the pilots listed. The Message and AOC buttons on a Live flight fill this in.</p></div>
+ <p class="hint">Every pilot listed (both seats of a two-pilot crew), and any EFB flying this callsign for the next 18 hours.</p></div>
  <div id="mkMail">
  <div class="row"><div><label for="from">From</label><input type="text" id="from" list="froms" maxlength="60" value="Crew Management"><datalist id="froms"><option>Crew Management</option><option>Flight Operations</option><option>Training</option><option>Polaris News</option><option>Fleet</option></datalist></div>
  <div><label for="when">Send</label><select id="when"><option value="now">Now</option><option value="later">At a set time</option></select></div></div>
- <div id="atRow" hidden><label for="at">Send at (your local time)</label><input type="datetime-local" id="at"></div>
+ <div id="atRow" hidden><label for="at">Send at (UTC)</label><input type="datetime-local" id="at"></div>
  <label for="subject">Subject</label><input type="text" id="subject" maxlength="160">
  <label for="body">Message</label><textarea id="body" maxlength="20000" placeholder="Dear Polaris pilots,&#10;&#10;**Bold**, *italic*, a line starting with - for a list, ## for a heading, links as [text](https://…)."></textarea>
  <label>Preview</label><div class="preview" id="preview"><span class="empty">The message as pilots will see it.</span></div>
@@ -324,33 +557,26 @@ main#cal{max-width:1380px;grid-template-columns:minmax(0,1fr) 380px;align-items:
  <input type="file" id="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp,text/plain"><ul class="atts" id="atts"></ul>
  </div>
  <div id="mkAoc" hidden>
- <label for="acTitle">Title</label><input type="text" id="acTitle" list="acTitles" maxlength="40" value="CREW MESSAGE" autocomplete="off"><datalist id="acTitles"><option>CREW MESSAGE</option><option>DISPATCH</option><option>OPS NOTICE</option><option>WX ADVISORY</option><option>GATE CHANGE</option><option>SLOT</option><option>MAINTENANCE</option></datalist>
+ <div class="row"><div><label for="acTpl">Template</label><select id="acTpl"></select></div><div><label for="acTitle">Title</label><input type="text" id="acTitle" list="acTitles" maxlength="40" value="CREW MESSAGE" autocomplete="off"><datalist id="acTitles"></datalist></div></div>
  <label for="acBody">Message</label><textarea id="acBody" maxlength="2000" placeholder="WELCOME ABOARD. EXPECT RWY 05 FOR DEP. FUEL CHECK AT TOC." spellcheck="false"></textarea>
  <label>Preview</label><div class="ac-box"><div class="h">AOC MSG DISPLAY</div><div class="b" id="acPre"><i>CREW MESSAGE</i></div></div>
- <label class="ac-chk"><input type="checkbox" id="acPush" checked> Also send a notification to the pilot’s devices</label>
+ <label class="ac-chk"><input type="checkbox" id="acPush" checked> Also send a notification to the pilots’ devices</label>
  </div>
  <div class="actions"><button class="primary" id="send">Send to all pilots</button><button id="cancel" hidden>Cancel editing</button></div>
  <div id="msg"></div>
- <p class="hint" id="kindHint">Pilots read Mail signed in with vAMSYS. A message to one pilot reaches only the pilot with that pilot ID or VATSIM CID.</p>
+ <p class="hint" id="kindHint"></p>
+ </div>
 </section>
-<section><div class="lh"><h2>Sent and scheduled</h2><div class="kf" role="group" aria-label="Show"><button data-kf="all" aria-pressed="true">All</button><button data-kf="mail" aria-pressed="false">Mail</button><button data-kf="aoc" aria-pressed="false">AOC</button></div></div><div id="list"><span class="empty">Loading…</span></div></section>
-</main>
-<main id="inbox" hidden>
-<section class="ib-side"><div class="ib-h"><h2>Inbox</h2><div class="ib-f"><div class="ib-seg" role="group"><button data-ibs="open" aria-pressed="true">Open</button><button data-ibs="done" aria-pressed="false">Done</button></div><select id="ibDept" aria-label="Department"><option value="">All departments</option></select></div></div>
- <div class="ib-list" id="ibList"><p class="empty" style="padding:16px 18px">Loading…</p></div></section>
-<section id="ibView"><p class="empty">Messages pilots write to a department from the EFB arrive here. Pick a conversation to read and reply.</p>
- <p class="ib-note">Messages between pilots are private and never appear in the admin.</p></section>
 </main>
 <main id="ot" hidden>
 <section>
- <div class="ot-bar"><h2>On-time performance</h2><div class="kf" role="group" aria-label="Period"><button type="button" data-otp="1" aria-pressed="true">Today</button><button type="button" data-otp="7" aria-pressed="false">7 days</button><button type="button" data-otp="30" aria-pressed="false">30 days</button><button type="button" data-otp="90" aria-pressed="false">90 days</button></div><button type="button" id="otCsv">Download CSV</button><button type="button" id="otReload">Refresh</button></div>
+ <div class="ot-bar"><h2>On-time performance</h2><details class="help"><summary aria-label="How on-time is counted">?</summary><div><p>The Worker looks at every Polaris flight on the vAMSYS flight map and VATSIM every 2 minutes, so each time is within about two minutes. <b>OUT</b>: first moves off the gate. <b>OFF</b>: airborne. <b>ON</b>: landed. <b>IN</b>: stopped at the gate for 3 minutes (or vAMSYS says it arrived). The schedule (STD, STA) is the vAMSYS booking. A departure is on time when OUT is within 15 minutes of STD (D15), an arrival when IN is within 15 minutes of STA (A15). Flights are kept 90 days.</p></div></details><div class="kf" role="group" aria-label="Period"><button type="button" data-otp="1" aria-pressed="true">Today</button><button type="button" data-otp="7" aria-pressed="false">7 days</button><button type="button" data-otp="30" aria-pressed="false">30 days</button><button type="button" data-otp="90" aria-pressed="false">90 days</button></div><button type="button" id="otNeed" aria-pressed="false" title="Late flights with no delay reason">Late, no reason</button><button type="button" id="otCsv">Download CSV</button><button type="button" id="otReload">Refresh</button></div>
  <div class="ot-kpi" id="otKpi"></div>
  <div class="ot-why" id="otWhy"></div>
  <div id="otErr"></div>
 </section>
-<section><div class="lh"><h2>In progress</h2><span class="hint">Times are UTC</span></div><div id="otLive"><span class="empty">Loading…</span></div></section>
 <section><div class="lh"><h2>Finished flights</h2><input type="search" id="otFind" placeholder="Callsign, pilot or airport" autocomplete="off" spellcheck="false"></div><div id="otLog"><span class="empty">Loading…</span></div>
- <p class="hint ot-note">The Worker looks at every Polaris flight on the vAMSYS flight map and VATSIM every 2 minutes, so each time is within about two minutes. <b>OUT</b>: first moves off the gate. <b>OFF</b>: airborne. <b>ON</b>: landed. <b>IN</b>: stopped at the gate for 3 minutes (or vAMSYS says it arrived). The schedule (STD, STA) is the vAMSYS booking. A departure is on time when OUT is within 15 minutes of STD (D15), an arrival when IN is within 15 minutes of STA (A15). Flights are kept 90 days.</p></section>
+ </section>
 </main>
 <main id="cal" hidden>
 <section class="ca-main">
@@ -364,51 +590,67 @@ main#cal{max-width:1380px;grid-template-columns:minmax(0,1fr) 380px;align-items:
 </main>
 <main id="stands" hidden>
 <section>
- <h2>Automatic AOC messages</h2>
- <p class="hint st-sub">Each is an AOC message to the flight’s crew in the EFB, with a push notification. Off: nothing is sent. Press Save after a change.</p>
- <div class="st-sw">
- <label class="st-on"><input type="checkbox" id="stOn"><span><b>Arrival gate</b><small>Shortly before landing: a free gate at the destination from the gate plan below.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stDep"><span><b>Departure gate</b><small>When the crew check in for the flight in the EFB: a free gate at the departure airport from the gate plan.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stLs"><span><b>Final loadsheet</b><small>15 minutes before STD, to crews who checked in with their SimBrief plan loaded: its weights with a few last changes.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stSig"><span><b>SIGMET on the route</b><small>In flight, when a SIGMET at the flight’s level lies within the next 900 nm. Once per FIR and hazard.</small></span></label>
- </div>
- <div class="row"><div><label for="stLead">Arrival gate: send before landing</label><div class="st-lead"><input type="number" id="stLead" min="10" max="90" step="5" value="30"><span>minutes</span></div></div>
- <div><label for="stMiss">No gate rule for the flight</label><select id="stMiss"><option value="skip">Send nothing</option><option value="ground">Send “GATE: CONTACT GROUND”</option></select></div></div>
- <label>Gate plan</label>
+ <div class="pg-h"><h2>Gate plan</h2><details class="help"><summary aria-label="How the gate plan works">?</summary><div><p>Rules are tried from the top: the first gate of the first rule that fits the flight and is free is sent. A flight is <b>domestic</b> when both airports are in the same country (the US with Hawaii and Alaska); otherwise <b>international</b>.</p><p>A gate is taken while a pilot on VATSIM is parked on it, or while another Polaris arrival or departure has it within 45 minutes. Write gates as ranges, like <b>C1-C10, D5, 201-215</b> (M2-40 is M2 to M40). Gates the airport map does not show are not given, so a range may cover numbers that do not exist.</p><p>Narrowbody is the A320 family; widebody the A350. If every gate is taken, the crew get “GATE: CONTACT GROUND”. Which messages go out automatically is set in Settings.</p></div></details></div>
+ <p class="hint st-sub" id="stState"></p>
  <div class="st-apts" id="stApts"></div>
  <div class="st-add"><input type="text" id="stOther" maxlength="4" placeholder="Other ICAO" autocomplete="off" spellcheck="false"><button type="button" id="stOtherB">Add airport</button></div>
  <div class="st-ed" id="stEd"></div>
  <div class="actions"><button class="primary" id="stSave">Save</button></div>
  <div id="stMsg"></div>
- <p class="hint">Rules are tried from the top: the first gate of the first rule that fits the flight and is free is sent. A flight is <b>domestic</b> when both airports are in the same country (the US with Hawaii and Alaska); otherwise <b>international</b>. A gate is taken while a pilot on VATSIM is parked on it, or while another Polaris arrival or departure has it within 45 minutes. Write gates as ranges, like <b>C1-C10, D5, 201-215</b> (M2-40 is M2 to M40). Gates the airport map does not show are not given, so a range may cover numbers that do not exist. Narrowbody is the A320 family; widebody the A350. If every gate is taken, the crew get “GATE: CONTACT GROUND”.</p>
 </section>
-<section><div class="lh"><h2>Sent gates</h2><button type="button" id="stReload">Refresh</button></div><p class="hint" style="margin:6px 0 0">The last two days. <b>Change</b> sends the crew a GATE CHANGE.</p><div id="stLog"><span class="empty">Loading…</span></div></section>
+<section><div class="lh"><h2 id="stLogT">Assignments</h2><div class="st-lb"><div class="kf" role="group" aria-label="Show"><button type="button" data-stv="apt" aria-pressed="true">This airport</button><button type="button" data-stv="all" aria-pressed="false">All airports</button></div><button type="button" id="stReload">Refresh</button></div></div><p class="hint" style="margin:6px 0 0">Gates sent in the last two days, by the time the gate is used. <b>Change</b> sends the crew a GATE CHANGE.</p><div id="stLog"><span class="empty">Loading…</span></div></section>
+</main>
+<main id="settings" hidden>
+<section>
+ <div class="pg-h"><h2>Automatic AOC messages</h2><details class="help"><summary aria-label="About automatic messages">?</summary><div><p>Each is an AOC message to the flight’s crew in the EFB, with a push notification. Off: nothing is sent.</p><p>The arrival and departure gates come from the gate plan on the Gates page. A flight is domestic when both airports are in the same country (the US with Hawaii and Alaska).</p></div></details></div>
+ <div class="st-sw">
+ <label class="st-on"><input type="checkbox" id="stOn"><span><b>Arrival gate</b><small>Shortly before landing: a free gate at the destination from the gate plan.</small></span></label>
+ <label class="st-on"><input type="checkbox" id="stDep"><span><b>Departure gate</b><small>When the crew check in for the flight in the EFB: a free gate at the departure airport.</small></span></label>
+ <label class="st-on"><input type="checkbox" id="stLs"><span><b>Final loadsheet</b><small>15 minutes before STD, to crews who checked in with their SimBrief plan loaded.</small></span></label>
+ <label class="st-on"><input type="checkbox" id="stSig"><span><b>SIGMET on the route</b><small>In flight, when a SIGMET at the flight’s level lies within the next 900 nm. Once per FIR and hazard.</small></span></label>
+ </div>
+ <div class="row"><div><label for="stLead">Arrival gate: send before landing</label><div class="st-lead"><input type="number" id="stLead" min="10" max="90" step="5" value="30"><span>minutes</span></div></div>
+ <div><label for="stMiss">No gate rule for the flight</label><select id="stMiss"><option value="skip">Send nothing</option><option value="ground">Send “GATE: CONTACT GROUND”</option></select></div></div>
+ <div class="actions"><button class="primary" id="setAocSave">Save</button></div>
+ <div id="setAocMsg"></div>
+</section>
+<section>
+ <div class="pg-h"><h2>Composer</h2><details class="help"><summary aria-label="About the composer">?</summary><div><p>From names are who a notice comes from. The first is the default.</p><p>AOC templates fill in the title and the message. <b>{CS}</b>, <b>{DEP}</b> and <b>{ARR}</b> become the flight’s callsign and airports; <b>___</b> marks what still has to be written, and a message is not sent while one is left.</p></div></details></div>
+ <label for="setFroms">From names <span class="hint" style="margin:0">one per line</span></label>
+ <textarea id="setFroms" class="set-froms" spellcheck="false"></textarea>
+ <label>AOC templates</label>
+ <div class="set-tpl" id="setTpl"><span class="empty">Loading…</span></div>
+ <div class="actions"><button type="button" id="setTplAdd">Add template</button><button class="primary" id="setSave">Save</button></div>
+ <div id="setMsg"></div>
+</section>
 </main>
 <main id="docs" hidden>
 <section>
- <h2 id="dcFormTitle">Add a document</h2>
+ <div class="pg-h"><h2 id="dcFormTitle">Add a document</h2><details class="help"><summary aria-label="About documents">?</summary><div><p>Signed-in pilots see these in the EFB under Flight › Documents › Polaris Airways, grouped by folder, and can keep them on their device to read offline. Titles sort by their numbers first, so “01 …”, “02 …” keep an order. A replaced file reaches everyone as a new version; the EFB swaps it in by itself.</p><p>With <b>Pilots confirm they have read it</b> on, the EFB asks each pilot to tap “I have read it” in the document, and the list here shows who has not, for the version now published. A new version asks everyone again.</p></div></details></div>
  <label for="dcFile" id="dcFileL">PDF file <span class="hint" style="margin:0">up to 100 MB</span></label>
  <input type="file" id="dcFile" accept="application/pdf,.pdf">
  <div class="dc-pre" id="dcPre" hidden><img id="dcCov" alt=""><div><b id="dcPName"></b><div class="hint" id="dcPMeta"></div></div></div>
  <label for="dcTitle">Title</label><input type="text" id="dcTitle" maxlength="120" placeholder="Flight Operations Manual" autocomplete="off">
  <div class="row"><div><label for="dcFolder">Folder</label><input type="text" id="dcFolder" list="dcFolders" maxlength="60" placeholder="Flight Operations" autocomplete="off"><datalist id="dcFolders"></datalist></div>
  <div><label for="dcRev">Revision</label><input type="text" id="dcRev" maxlength="40" placeholder="Rev 26-01" autocomplete="off"></div></div>
+ <label class="ac-chk"><input type="checkbox" id="dcAck"> Pilots confirm they have read it</label>
  <div class="dc-prog" id="dcProg" hidden><span></span></div>
  <div class="actions"><button class="primary" id="dcSave">Upload</button><button id="dcCancel" hidden>Cancel editing</button></div>
  <div id="dcMsg"></div>
- <p class="hint">Signed-in pilots see these in the EFB under Flight › Documents › Polaris Airways, grouped by folder, and can keep them on their device to read offline. Titles sort by their numbers first, so “01 …”, “02 …” keep an order. A replaced file reaches everyone as a new version; the EFB swaps it in by itself.</p>
+ 
 </section>
-<section><h2>Documents</h2><p class="hint" id="dcUse" style="margin:-6px 0 6px"></p><div id="dcList"><span class="empty">Loading…</span></div></section>
+<section><h2>Documents</h2><p class="hint" id="dcUse" style="margin:-6px 0 6px"></p><div id="dcAckErr"></div><div id="dcList"><span class="empty">Loading…</span></div></section>
 </main>
 <main id="pilots" hidden>
-<section class="pl"><div class="pl-h"><div><h2>Pilots</h2><p class="hint" id="plSum">Loading…</p></div><input type="search" id="plFind" placeholder="Search pilot ID, name or CID" autocomplete="off"></div>
+<section class="pl"><div class="pl-h"><div><div class="pg-h" style="margin-bottom:4px"><h2>Pilots</h2><details class="help"><summary aria-label="About pilots">?</summary><div><p>Pilots sign in to the EFB with their vAMSYS account; there are no EFB passwords. <b>Sign out</b> ends a pilot's EFB sign-ins on every device; they can sign in again with vAMSYS. To remove a pilot for good, remove them in vAMSYS.</p><p>Pick a pilot to see their flight now, recent flights, messages and the documents they have confirmed.</p></div></details></div><p class="hint" id="plSum">Loading…</p></div><input type="search" id="plFind" placeholder="Search pilot ID, name or CID" autocomplete="off"></div>
  <div class="pl-wrap"><table class="pl-t"><thead><tr><th>Pilot</th><th>Rank</th><th>VATSIM CID</th><th>EFB</th><th>First sign-in</th><th>Last sign-in</th><th></th></tr></thead><tbody id="plList"></tbody></table></div>
- <p class="hint">Pilots sign in to the EFB with their vAMSYS account; there are no EFB passwords. <b>Sign out</b> ends a pilot's EFB sign-ins on every device; they can sign in again with vAMSYS. To remove a pilot for good, remove them in vAMSYS.</p>
+ 
  <div id="plMsg"></div></section>
+<section class="pl-prof" id="plProf" hidden></section>
 </main>
 <main id="live" hidden>
 <div class="lv-stage"><canvas id="lvGlobe" aria-label="Globe with Polaris flights"></canvas><div class="lv-src" id="lvSrc"></div><div class="lv-ctl"><button data-lv="in" aria-label="Zoom in">+</button><button data-lv="out" aria-label="Zoom out">−</button><button data-lv="all" aria-label="Whole globe" title="Whole globe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button></div></div>
-<aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden></div></aside>
+<aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden><div id="lvDetMain"></div><div class="fo" id="lvOps"></div></div></aside>
 </main>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -424,8 +666,46 @@ thmUi();
 let S={mails:[],edit:null,keep:[],add:[]};
 const api=async(path,opt)=>{const r=await fetch(path,{credentials:"same-origin",...(opt||{})});let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));return j};
 const say=(t,ok)=>{$("#msg").innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
-const fmt=ms=>new Date(ms).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"})+" · "+new Date(ms).toISOString().slice(11,16)+"Z";
+const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})+" "+new Date(ms).toISOString().slice(11,16)+"Z";
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+/* ---------- pages: the sidebar's sections, one at a time (Nov 2026). Old addresses (#mail, #live, #ot, #inbox,
+   #stands, #aoc) open the page that has their part now. ---------- */
+const PG={home:"home",fw:"live",gates:"stands",reports:"ot",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
+const PG_T={home:"Home",fw:"Flight Watch",gates:"Gates",reports:"Reports",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
+const PG_OLD={live:"fw",stands:"gates",ot:"reports",mail:"comms",inbox:"comms",aoc:"comms"};
+const PG_LOAD={},PG_TICK={};let pgNow="",pgTimer=0,pgAsk="";
+const pgOf=()=>{const h=location.hash.slice(1);return PG[h]?h:PG_OLD[h]||"home"};
+/* an old address: the new one in its place, without a new history entry */
+function pgFix(){const h=location.hash.slice(1);if(!PG_OLD[h])return;pgAsk=h;history.replaceState(null,"","#"+PG_OLD[h])}
+function route(){pgFix();if(document.querySelector(".deny"))return;const p=pgOf();
+ for(const [k,id] of Object.entries(PG)){const m=document.getElementById(id);if(m)m.hidden=k!==p}
+ document.querySelectorAll(".side [data-tab]").forEach(a=>a.setAttribute("aria-current",String(a.dataset.tab===p)));
+ document.body.dataset.tab=p;document.title=PG_T[p]+" · Polaris Admin";
+ const first=pgNow!==p;pgNow=p;
+ if(pgAsk){const a=pgAsk;pgAsk="";cmAsk(a)}
+ window.dispatchEvent(new Event("pm:tab"));
+ clearInterval(pgTimer);const t=PG_TICK[p];if(t)pgTimer=setInterval(()=>{if(!document.hidden)t[0]()},t[1]);
+ if(PG_LOAD[p])PG_LOAD[p](first);
+ if(first)scrollTo({top:0})}
+/* what several pages read (Home, Flight Watch): one request, kept a short while */
+const OPS={},OPS_URL={live:"/admin/api/live",ooo:"/admin/api/ooo",stands:"/admin/api/stands",aoc:"/admin/api/aoc",set:"/admin/api/settings"};
+function opsGet(k,age){const o=OPS[k]||(OPS[k]={at:0,v:null,p:null,err:""});
+ if(o.p)return o.p;if(o.v&&Date.now()-o.at<(age==null?30000:age))return Promise.resolve(o.v);
+ o.p=api(OPS_URL[k]).then(v=>{o.v=v;o.at=Date.now();o.err="";return v},e=>{o.err=e.message;if(o.v)return o.v;throw e}).finally(()=>{o.p=null});return o.p}
+const opsV=k=>OPS[k]&&OPS[k].v;
+const opsDrop=k=>{if(OPS[k])OPS[k].at=0};
+/* the From names and AOC templates (Settings), with defaults until they come */
+let SETV={froms:["Crew Management","Flight Operations","Training","Polaris News","Fleet"],tpl:[{title:"CREW MESSAGE",body:""}]};
+function setApply(s){if(!s||!Array.isArray(s.froms))return;SETV=s;
+ const f=$("#froms");if(f)f.innerHTML=s.froms.map(x=>"<option>"+esc(x)+"</option>").join("");
+ const t=$("#acTpl");if(t)t.innerHTML='<option value="">Fill in from a template…</option>'+s.tpl.map((x,i)=>'<option value="'+i+'">'+esc(x.title)+"</option>").join("");
+ const tt=$("#acTitles");if(tt)tt.innerHTML=s.tpl.map(x=>"<option>"+esc(x.title)+"</option>").join("");
+ if(!S.edit&&$("#from")&&!$("#subject").value&&!$("#body").value)$("#from").value=s.froms[0];
+ foTplUi()}
+/* a template's {CS}, {DEP} and {ARR} from the flight; what is not known stays ___ to be written */
+const tplFill=(b,f)=>String(b||"").replace(/\\{CS\\}/g,(f&&f.cs)||"___").replace(/\\{DEP\\}/g,(f&&f.dep)||"___").replace(/\\{ARR\\}/g,(f&&f.arr)||"___");
+/* put the caret on the first ___ */
+function tplCaret(ta){if(!ta)return;const i=ta.value.indexOf("___");ta.focus();if(i>=0)ta.setSelectionRange(i,i+3);else ta.setSelectionRange(ta.value.length,ta.value.length)}
 function attsUi(){const old=S.edit?(S.mails.find(m=>m.id===S.edit)||{}).att||[]:[];
  $("#atts").innerHTML=old.filter(a=>S.keep.includes(a.n)).map(a=>'<li>📎 '+esc(a.name)+' <span class="hint" style="margin:0">'+kb(a.size)+'</span><button data-rmk="'+a.n+'">Remove</button></li>').join("")+S.add.map((f,i)=>'<li>📎 '+esc(f.name)+' <span class="hint" style="margin:0">'+kb(f.size)+' · new</span><button data-rma="'+i+'">Remove</button></li>').join("")}
 /* recipient: all pilots, or one pilot by callsign and/or VATSIM CID */
@@ -450,41 +730,35 @@ function crAdd(){const v=$("#crAdd").value.trim().toUpperCase().replace(/[^A-Z0-
  $("#crAdd").value="";if(S.crew.some(y=>(x.pilot&&y.pilot===x.pilot)||(x.cid&&y.cid===x.cid)))return;if(S.crew.length>=4){say("At most 4 pilots in a crew.");return}S.crew.push(x);crUi();toUi()}
 function kindUi(){const a=kind()==="aoc";$("#mkMail").hidden=a;$("#mkAoc").hidden=!a;
  document.querySelector("input[name=kind][value=aoc]").disabled=!!S.edit;
- $("#kindHint").textContent=a?"AOC messages show in the EFB under Flight › Messages for 30 days. Pilots cannot answer them; delete one here to take it off every EFB.":"Pilots read Mail signed in with vAMSYS. A message to one pilot reaches only the pilot with that pilot ID or VATSIM CID.";
- if(!S.edit){const t=toGet();$("#send").textContent=(a?"Send AOC to ":"Send to ")+(t?(t.crew||t.pilot||t.cid?toWho(t):"this pilot"):"all pilots")}acPreview()}
+ $("#kindHint").textContent=a?"Shows in the EFB under Flight › Messages for 30 days. Pilots cannot answer an AOC message.":"Pilots read notices in the EFB’s Mail and can answer; answers arrive in the Inbox.";
+ if(!S.edit){$("#formTitle").textContent=a?"New AOC message":"New notice";const t=toGet();$("#send").textContent=(a?"Send AOC to ":"Send to ")+(t?(t.crew||t.pilot||t.cid?toWho(t):"this pilot"):"all pilots")}acPreview()}
 /* the Live tab's "Message" and "AOC" buttons, and the Pilots tab's "Message" */
 window.pmCompose=function(t,k){if(S.edit)reset();kindSet(k);
  /* from a Live flight, Mail or AOC goes to its crew: the callsign, and this pilot to start with */
- if(t&&!t.crew&&t.cs)t={crew:true,cs:t.cs,m:t.pilot||t.cid?[{pilot:t.pilot||"",cid:String(t.cid||""),name:t.name&&t.name!==t.pilot?t.name:""}]:[]};toSet(t);if($("#from").value==="Crew Management")$("#from").value="Flight Operations";say("");location.hash="#mail";setTimeout(()=>{scrollTo({top:0});(k==="aoc"?$("#acBody"):$("#subject")).focus()},60)};
+ if(t&&!t.crew&&t.cs)t={crew:true,cs:t.cs,m:t.pilot||t.cid?[{pilot:t.pilot||"",cid:String(t.cid||""),name:t.name&&t.name!==t.pilot?t.name:""}]:[]};toSet(t);if($("#from").value===SETV.froms[0]&&SETV.froms.includes("Flight Operations"))$("#from").value="Flight Operations";say("");CM.item="";CM.pane="compose";cmUi();location.hash="#comms";setTimeout(()=>{(k==="aoc"?$("#acBody"):$("#subject")).focus()},60)};
 function preview(){const b=$("#body").value,t=toGet();$("#preview").innerHTML=b.trim()?"<h4 style='margin-top:0'>"+esc($("#subject").value||"(no subject)")+"</h4><div class='hint' style='margin:-2px 0 10px'>From "+esc($("#from").value||"…")+" · "+(t?"To "+esc(toLabel(t))+(t.name?" ("+esc(t.name)+")":""):"To all Polaris pilots")+"</div>"+md(b):'<span class="empty">The message as pilots will see it.</span>'}
-function listUi(){const now=Date.now();
- const L=[...(S.kf==="aoc"?[]:S.mails.map(m=>({k:"mail",t:m.sendAt,m}))),...(S.kf==="mail"?[]:S.aoc.map(m=>({k:"aoc",t:m.t,m})))].sort((a,b)=>b.t-a.t);
- $("#list").innerHTML=L.length?L.map(({k,m})=>{if(k==="aoc")return '<div class="mail aoc"><div><b>'+esc(m.title)+'</b><span class="tag a">AOC</span>'+(m.to?'<span class="tag d" title="'+esc(toTip(m.to))+'">TO '+esc(toWho(m.to))+'</span>':'')+'</div><div class="meta">'+fmt(m.t)+(m.by?" · by "+esc(m.by):"")+'</div><p>'+esc(m.body)+'</p><div class="btns"><button class="warn" data-acdel="'+esc(m.id)+'">Delete</button></div></div>';
-  const q=m.sendAt>now;return '<div class="mail"><div><b>'+esc(m.subject)+'</b><span class="tag '+(q?"q":"s")+'">'+(q?"SCHEDULED":"SENT")+'</span>'+(m.to?'<span class="tag d" title="'+esc(toTip(m.to))+'">TO '+esc(toWho(m.to))+'</span>':'')+'</div><div class="meta">'+esc(m.from)+" · "+(q?"goes out ":"")+fmt(m.sendAt)+(m.att.length?" · 📎 "+m.att.length:"")+(m.by?" · by "+esc(m.by):"")+(m.edited?" · edited":"")+'</div><div class="btns"><button data-edit="'+m.id+'">Edit</button><button class="warn" data-del="'+m.id+'">Delete</button></div></div>'}).join(""):'<span class="empty">'+(S.kf==="aoc"?"No AOC messages yet.":S.kf==="mail"?"No mail yet.":"Nothing sent yet.")+'</span>'}
 async function load(){const [a,b]=await Promise.allSettled([api("/admin/api/mail"),api("/admin/api/aoc")]);if(a.status==="fulfilled")S.mails=a.value.mails||[];if(b.status==="fulfilled")S.aoc=b.value.msgs||[];
- listUi();const er=[a,b].filter(x=>x.status==="rejected").map(x=>x.reason.message);if(er.length)$("#list").insertAdjacentHTML("afterbegin",'<div class="msg err">'+esc(er.join(" · "))+"</div>")}
-function reset(){S.edit=null;S.keep=[];S.add=[];S.crew=[];$("#crCs").value="";$("#formTitle").textContent="New message";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value="Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();toSet(null)}
-const localInput=ms=>{const d=new Date(ms-new Date(ms).getTimezoneOffset()*60000);return d.toISOString().slice(0,16)};
+ S.listErr=[a,b].filter(x=>x.status==="rejected").map(x=>x.reason.message).join(" · ");listUi()}
+function reset(){S.edit=null;S.keep=[];S.add=[];S.crew=[];$("#crCs").value="";$("#formTitle").textContent="New notice";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value=SETV.froms[0]||"Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();toSet(null)}
+const localInput=ms=>new Date(ms).toISOString().slice(0,16);
 document.addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;
  if(t.dataset.rmk!=null){S.keep=S.keep.filter(n=>n!==+t.dataset.rmk);attsUi()}
  else if(t.dataset.rma!=null){S.add.splice(+t.dataset.rma,1);attsUi()}
  else if(t.dataset.edit){const m=S.mails.find(x=>x.id===t.dataset.edit);if(!m)return;S.edit=m.id;document.querySelector("input[name=kind][value=mail]").checked=true;S.keep=m.att.map(a=>a.n);S.add=[];toSet(m.to||null);$("#from").value=m.from;$("#subject").value=m.subject;$("#body").value=m.body;
-  const q=m.sendAt>Date.now();$("#when").value=q?"later":"now";$("#atRow").hidden=!q;if(q)$("#at").value=localInput(m.sendAt);$("#formTitle").textContent="Edit message";$("#send").textContent=q?"Save changes":"Save changes (already sent)";$("#cancel").hidden=false;attsUi();preview();say("");scrollTo({top:0,behavior:"smooth"})}
+  const q=m.sendAt>Date.now();$("#when").value=q?"later":"now";$("#atRow").hidden=!q;if(q)$("#at").value=localInput(m.sendAt);$("#formTitle").textContent="Edit notice";$("#send").textContent=q?"Save changes":"Save changes (already sent)";$("#cancel").hidden=false;attsUi();preview();say("");scrollTo({top:0,behavior:"smooth"})}
  else if(t.dataset.del){const m=S.mails.find(x=>x.id===t.dataset.del);if(!m||!confirm('Delete "'+m.subject+'"? Pilots will no longer see it.'))return;try{await api("/admin/api/mail?id="+encodeURIComponent(m.id),{method:"DELETE"});if(S.edit===m.id)reset();say("Deleted.",true);load()}catch(er){say(er.message)}}
  else if(t.dataset.acdel){const m=S.aoc.find(x=>x.id===t.dataset.acdel);if(!m||!confirm('Delete the AOC message "'+m.title+'"? It goes off every EFB.'))return;try{await api("/admin/api/aoc?id="+encodeURIComponent(m.id),{method:"DELETE"});say("Deleted.",true);load()}catch(er){say(er.message)}}
  else if(t.dataset.kf){S.kf=t.dataset.kf;document.querySelectorAll("[data-kf]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));listUi()}
  else if(t.id==="cancel"){reset();say("")}
  else if(t.dataset.crrm!=null){S.crew.splice(+t.dataset.crrm,1);crUi();toUi()}
  else if(t.id==="crAddB")crAdd();
- else if(t.id==="send"&&kind()==="aoc"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body=$("#acBody").value.trim();if(!body){say("Write the message first.");return}
+ else if(t.id==="send"&&kind()==="aoc"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body=$("#acBody").value.trim();if(!body){say("Write the message first.");return}if(/___/.test(body)){say("Fill in the ___ first.");tplCaret($("#acBody"));return}
   t.disabled=true;try{await api("/admin/api/aoc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("#acTitle").value,body,to,push:$("#acPush").checked})});$("#acBody").value="";acPreview();say("AOC message sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}
  else if(t.id==="send"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body={id:S.edit||undefined,to,from:$("#from").value,subject:$("#subject").value,body:$("#body").value,keepAtt:S.keep,newAtt:S.add.map(f=>({name:f.name,type:f.type,data:f.data}))};
-  if($("#when").value==="later"){if(!$("#at").value){say("Pick when it goes out.");return}body.sendAt=new Date($("#at").value).toISOString()}
+  if($("#when").value==="later"){if(!$("#at").value){say("Pick when it goes out.");return}const at=$("#at").value;body.sendAt=new Date(at+(at.length===16?":00Z":"Z")).toISOString()}
   t.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const was=S.edit,later=body.sendAt&&Date.parse(body.sendAt)>Date.now();reset();say(was?"Saved.":later?"Scheduled.":"Sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}});
 $("#when").addEventListener("change",()=>{$("#atRow").hidden=$("#when").value!=="later"});
 document.querySelectorAll("input[name=kind]").forEach(x=>x.addEventListener("change",kindUi));$("#crCs").addEventListener("input",toUi);$("#crAdd").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();crAdd()}});["acTitle","acBody"].forEach(i=>$("#"+i).addEventListener("input",acPreview));
-/* the old AOC tab’s address opens Messages, set to AOC */
-const aocHash=()=>{if(location.hash==="#aoc"){kindSet("aoc");location.replace("#mail")}};window.addEventListener("hashchange",aocHash);aocHash();
 ["subject","body","from"].forEach(i=>$("#"+i).addEventListener("input",preview));
 document.querySelectorAll("input[name=to]").forEach(x=>x.addEventListener("change",toUi));["toPilot","toCid"].forEach(i=>$("#"+i).addEventListener("input",()=>{$("#toName").value="";$("#toCs").value="";toUi()}));
 $("#file").addEventListener("change",async e=>{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
@@ -498,8 +772,8 @@ function plUi(){const q=($("#plFind").value||"").trim().toUpperCase(),L=(PL.list
  const signed=L.filter(p=>p.devices>0).length,used=L.filter(p=>p.last).length;
  $("#plSum").textContent=L.length+" pilot"+(L.length===1?"":"s")+(PL.list.roster?" in vAMSYS":" who signed in")+" · "+signed+" signed in to the EFB now · "+used+" have used it";
  const rows=L.filter(p=>!q||(p.u+" "+p.name+" "+p.cid).toUpperCase().includes(q));
- $("#plList").innerHTML=rows.length?rows.map(p=>'<tr class="'+(p.devices?"":"off")+'"><td class="pl-p"><b>'+esc(p.u)+'</b><span>'+esc(p.name)+'</span></td><td>'+esc(p.rank||"—")+'</td><td>'+esc(p.cid||"—")+'</td><td>'+(p.devices?'<span class="pl-s on">Signed in · '+p.devices+' device'+(p.devices>1?"s":"")+'</span>':p.last?'<span class="pl-s was">Signed out</span>':'<span class="pl-s no">Never</span>')+'</td><td>'+ago(p.first)+'</td><td>'+ago(p.last)+'</td><td class="pl-x"><button data-plmail="'+esc(p.u)+'" data-cid="'+esc(p.cid)+'" data-name="'+esc(p.name)+'">Message</button>'+(p.devices?'<button class="warn" data-plout="'+esc(p.u)+'">Sign out</button>':"")+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">'+(L.length?"No pilot matches.":"No pilots yet.")+'</td></tr>'}
-async function plLoad(){PL.err="";plUi();try{PL.list=await api("/admin/api/pilots")}catch(e){PL.err=e.message}plUi()}
+ $("#plList").innerHTML=rows.length?rows.map(p=>'<tr class="'+(p.devices?"":"off")+(PL.sel===p.u?" sel":"")+'"><td class="pl-p"><button type="button" class="pl-open" data-plp="'+esc(p.u)+'" title="Open the profile"><b>'+esc(p.u)+'</b><span>'+esc(p.name)+'</span></button></td><td>'+esc(p.rank||"—")+'</td><td>'+esc(p.cid||"—")+'</td><td>'+(p.devices?'<span class="pl-s on">Signed in · '+p.devices+' device'+(p.devices>1?"s":"")+'</span>':p.last?'<span class="pl-s was">Signed out</span>':'<span class="pl-s no">Never</span>')+'</td><td>'+ago(p.first)+'</td><td>'+ago(p.last)+'</td><td class="pl-x"><button data-plmail="'+esc(p.u)+'" data-cid="'+esc(p.cid)+'" data-name="'+esc(p.name)+'">Message</button>'+(p.devices?'<button class="warn" data-plout="'+esc(p.u)+'">Sign out</button>':"")+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">'+(L.length?"No pilot matches.":"No pilots yet.")+'</td></tr>'}
+async function plLoad(){PL.err="";plUi();try{PL.list=await api("/admin/api/pilots")}catch(e){PL.err=e.message}plUi();plProfUi()}
 $("#plFind").addEventListener("input",plUi);
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-plout],[data-plmail]");if(!b)return;
  if(b.dataset.plmail!=null){window.pmCompose({pilot:b.dataset.plmail,cid:b.dataset.cid,cs:"",name:b.dataset.name});return}
@@ -508,17 +782,17 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-plou
 /* ---------- Inbox tab: pilots' conversations with a department ---------- */
 const IB={threads:null,err:"",sel:"",show:"open",dept:"",depts:[]};
 const txt=s=>esc(s).replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-function ibCount(){const n=(IB.threads||[]).filter(t=>!t.done&&t.waiting&&!t.read).length,b=$("#ibCount");if(b){b.hidden=!n;b.textContent=n}}
+function ibCount(){const n=(IB.threads||[]).filter(t=>!t.done&&t.waiting&&!t.read).length;["#ibCount","#cmIbN"].forEach(i=>{const b=$(i);if(b){b.hidden=!n;b.textContent=n}})}
 function ibUi(){const L=(IB.threads||[]).filter(t=>(IB.show==="done")===t.done&&(!IB.dept||t.dept===IB.dept));
  if(IB.err){$("#ibList").innerHTML='<div class="msg err" style="margin:14px">'+esc(IB.err)+'</div>';return}
  if(!IB.threads){$("#ibList").innerHTML='<p class="empty" style="padding:16px 18px">Loading…</p>';return}
  $("#ibList").innerHTML=L.length?L.map(t=>{const last=t.msgs[t.msgs.length-1],nw=t.waiting&&!t.read;return '<button class="ib-t'+(t.th===IB.sel?" on":"")+(nw?" new":"")+'" data-ib="'+esc(t.th)+'"><b>'+(nw?'<span class="ib-dot"></span>':"")+esc(t.subj)+'</b><time>'+ago(last.t)+'</time><span class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+" → "+esc(t.dept)+(t.waiting&&!t.done?'<span class="ib-w">AWAITING REPLY</span>':"")+'</span></button>'}).join(""):'<p class="empty" style="padding:16px 18px">'+(IB.show==="done"?"No conversations marked done.":"Nothing waiting. Messages pilots send to a department arrive here.")+'</p>';
  const t=(IB.threads||[]).find(x=>x.th===IB.sel);if(!t)return;
  const opts=IB.depts.map(d=>'<option'+(d===t.dept?" selected":"")+'>'+esc(d)+'</option>').join("");
- $("#ibView").innerHTML='<div class="ib-view"><div class="ib-vh"><div><h3>'+esc(t.subj)+'</h3><div class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+(t.cs?" · "+esc(t.cs):"")+" → "+esc(t.dept)+'</div></div><div class="actions" style="margin:0"><button data-ibdone="'+(t.done?0:1)+'">'+(t.done?"Reopen":"Mark done")+'</button></div></div>'+
+ $("#ibView").innerHTML='<div class="ib-view"><div class="ib-vh"><div><h3>'+esc(t.subj)+'</h3><div class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+(t.cs?" · "+esc(t.cs):"")+" → "+esc(t.dept)+'</div></div><div class="actions" style="margin:0"><button data-ibdone="'+(t.done?0:1)+'">'+(t.done?"Reopen":"Mark done")+'</button><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div></div>'+
   t.msgs.map(m=>'<div class="ib-m'+(m.kind==="reply"?" st":"")+'"><div class="who"><b>'+esc(m.kind==="reply"?m.from:(t.pilot+(t.name?" · "+t.name:"")))+'</b>'+(m.kind==="reply"&&m.by?" · "+esc(m.by):"")+(m.cs&&m.kind!=="reply"?" · "+esc(m.cs):"")+" · "+fmt(m.t)+'</div><p>'+txt(m.body)+'</p></div>').join("")+
   '<div class="ib-r"><label for="ibBody">Reply to '+esc(t.pilot)+'</label><textarea id="ibBody" maxlength="4000" placeholder="Your reply goes to this pilot\u2019s EFB Mail."></textarea><div class="row" style="margin-top:10px"><div style="flex:0 1 240px"><label for="ibAs" style="margin-top:0">Reply as</label><select id="ibAs">'+opts+'</select></div><div style="flex:0 0 auto;align-self:end"><button class="primary" id="ibSend">Send reply</button></div></div><div id="ibMsg"></div></div></div>'}
-async function ibLoad(){IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi()}
+async function ibLoad(){IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
 $("#ibDept").addEventListener("change",e=>{IB.dept=e.target.value;ibUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],[data-ibs],[data-ibdone],#ibSend");if(!b)return;
  if(b.dataset.ibs){IB.show=b.dataset.ibs;document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));ibUi();return}
@@ -527,11 +801,8 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],
  if(b.dataset.ibdone!=null){try{await api("/admin/api/inbox/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,done:b.dataset.ibdone==="1"})});await ibLoad()}catch(er){alert(er.message)}return}
  if(b.id==="ibSend"){const body=$("#ibBody").value.trim();if(!body){$("#ibMsg").innerHTML='<div class="msg err">Write a reply first.</div>';return}
   b.disabled=true;try{await api("/admin/api/inbox/reply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,dept:$("#ibAs").value,body})});await ibLoad();$("#ibMsg").innerHTML='<div class="msg ok">Sent to '+esc(t.pilot)+'.</div>'}catch(er){$("#ibMsg").innerHTML='<div class="msg err">'+esc(er.message)+'</div>';b.disabled=false}}});
-const ibMaybe=()=>{if(location.hash==="#inbox")ibLoad()};
-window.addEventListener("hashchange",ibMaybe);
-if(!document.querySelector(".deny")){ibMaybe();if(location.hash!=="#inbox")ibLoad();setInterval(()=>{if(!document.hidden)ibLoad()},60000)}
-const plMaybe=()=>{if(location.hash==="#pilots"&&!document.querySelector(".deny"))plLoad()};
-window.addEventListener("hashchange",plMaybe);plMaybe();
+if(!document.querySelector(".deny")){if(!["comms","home"].includes(pgOf()))ibLoad();setInterval(()=>{if(!document.hidden)ibLoad()},60000)}
+PG_LOAD.pilots=()=>plLoad();
 /* ---------- Documents tab: manuals and SOPs for the EFB's Documents ---------- */
 const DC={list:null,err:"",edit:null,file:null,cover:"",pages:0,busy:false,piece:8388608,fileMax:104857600};
 let dcLibP=null;
@@ -542,10 +813,10 @@ const dcSay=(t,ok)=>{$("#dcMsg").innerHTML=t?'<div class="msg '+(ok?"ok":"err")+
 const dcId=()=>{const a=new Uint8Array(9);crypto.getRandomValues(a);return Array.from(a,b=>(b%36).toString(36)).join("")+Date.now().toString(36).slice(-4)};
 const dcDoc=id=>((DC.list&&DC.list.docs)||[]).find(d=>d.id===id);
 function dcProg(f){const p=$("#dcProg");p.hidden=f==null;if(f!=null)p.firstElementChild.style.width=Math.round(Math.max(0,Math.min(1,f))*100)+"%"}
-function dcBusy(on){["dcFile","dcTitle","dcFolder","dcRev","dcSave","dcCancel"].forEach(i=>{const e=$("#"+i);if(e)e.disabled=on});$("#dcSave").textContent=on?"Uploading…":DC.edit?"Save changes":"Upload";if(!on)dcProg(null)}
+function dcBusy(on){["dcFile","dcTitle","dcFolder","dcRev","dcAck","dcSave","dcCancel"].forEach(i=>{const e=$("#"+i);if(e)e.disabled=on});$("#dcSave").textContent=on?"Uploading…":DC.edit?"Save changes":"Upload";if(!on)dcProg(null)}
 function dcForm(){const d=DC.edit?dcDoc(DC.edit):null;$("#dcFormTitle").textContent=d?"Edit document":"Add a document";$("#dcFileL").firstChild.textContent=d?"Replace the file (optional) ":"PDF file ";
  $("#dcSave").textContent=d?"Save changes":"Upload";$("#dcCancel").hidden=!d}
-function dcReset(){DC.edit=null;DC.file=null;DC.cover="";DC.pages=0;["dcFile","dcTitle","dcFolder","dcRev"].forEach(i=>$("#"+i).value="");$("#dcPre").hidden=true;dcForm();dcUi()}
+function dcReset(){DC.edit=null;DC.file=null;DC.cover="";DC.pages=0;["dcFile","dcTitle","dcFolder","dcRev"].forEach(i=>$("#"+i).value="");$("#dcAck").checked=false;$("#dcPre").hidden=true;dcForm();dcUi()}
 /* one piece, with upload progress */
 function dcPut(url,blob,onp){return new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open("POST",url);x.setRequestHeader("Content-Type","application/octet-stream");
  x.upload.onprogress=e=>onp(e.loaded);x.onload=()=>{let j=null;try{j=JSON.parse(x.responseText)}catch(e){}if(x.status>=200&&x.status<300)res(j);else rej(new Error((j&&j.error)||("HTTP "+x.status)))};
@@ -566,7 +837,7 @@ async function dcSave(){if(DC.busy)return;const old=DC.edit?dcDoc(DC.edit):null,
  if(DC.edit&&!old){dcReset();dcSay("That document is no longer there.");return}
  if(!old&&!DC.file){dcSay("Pick a PDF file first.");return}if(!title){dcSay("Give the document a title.");return}
  DC.busy=true;dcBusy(true);dcSay("");
- try{const body={id:old?old.id:dcId(),title,folder:$("#dcFolder").value.trim(),rev:$("#dcRev").value.trim()};
+ try{const body={id:old?old.id:dcId(),title,folder:$("#dcFolder").value.trim(),rev:$("#dcRev").value.trim(),ack:$("#dcAck").checked};
   if(DC.file){const f=DC.file,v=old?old.v+1:1,n=Math.ceil(f.size/DC.piece);let sent=0;dcProg(0);
    for(let i=0;i<n;i++){const part=f.slice(i*DC.piece,Math.min(f.size,(i+1)*DC.piece));
     for(let tries=1;;tries++){try{await dcPut("/admin/api/docs/piece?id="+body.id+"&v="+v+"&i="+i+"&size="+f.size,part,l=>dcProg((sent+l)/f.size));break}
@@ -580,23 +851,22 @@ async function dcSave(){if(DC.busy)return;const old=DC.edit?dcDoc(DC.edit):null,
 function dcUi(){const L=(DC.list&&DC.list.docs)||[];
  if(DC.err){$("#dcList").innerHTML='<div class="msg err">'+esc(DC.err)+"</div>";return}
  if(!DC.list){$("#dcList").innerHTML='<span class="empty">Loading…</span>';return}
- $("#dcUse").textContent=L.length+" document"+(L.length===1?"":"s")+" · "+(DC.list.used?kb(DC.list.used):"0 KB")+" of "+Math.round(DC.list.max/1048576)+" MB used";
+ $("#dcAckErr").innerHTML=DC.list.acksErr?'<div class="msg err">'+esc(DC.list.acksErr)+"</div>":"";$("#dcUse").textContent=L.length+" document"+(L.length===1?"":"s")+" · "+(DC.list.used?kb(DC.list.used):"0 KB")+" of "+Math.round(DC.list.max/1048576)+" MB used";
  const folders=[...new Set(L.map(d=>d.folder||""))];$("#dcFolders").innerHTML=folders.filter(Boolean).map(f=>'<option value="'+esc(f)+'">').join("");
  $("#dcList").innerHTML=L.length?folders.map(f=>'<div class="dc-f">'+esc(f||"No folder")+"</div>"+L.filter(d=>(d.folder||"")===f).map(d=>'<div class="dc-d'+(DC.edit===d.id?" on":"")+'">'
   +'<span class="dc-c">'+(d.cover?'<img src="/admin/api/docs/cover?id='+encodeURIComponent(d.id)+"&v="+d.v+'" alt="" loading="lazy">':"PDF")+"</span>"
   +"<div><b>"+esc(d.title)+"</b>"+(d.rev?'<span class="tag d">'+esc(d.rev)+"</span>":"")+'</div><div class="meta">'+[d.pages?d.pages+" pages":"",kb(d.size),"v"+d.v,"Updated "+fmt(d.up||d.t)+(d.upBy?" by "+esc(d.upBy):"")].filter(Boolean).join(" · ")+"</div>"
-  +'<div class="btns"><a class="btnl" href="/admin/api/docs/file?id='+encodeURIComponent(d.id)+'" target="_blank" rel="noopener">Open</a><button data-dcedit="'+esc(d.id)+'">Edit</button><button data-dcrep="'+esc(d.id)+'">Replace file</button><button class="warn" data-dcdel="'+esc(d.id)+'">Delete</button></div></div>').join("")).join("")
+  +dcAckHtml(d)+'<div class="btns"><a class="btnl" href="/admin/api/docs/file?id='+encodeURIComponent(d.id)+'" target="_blank" rel="noopener">Open</a><button data-dcedit="'+esc(d.id)+'">Edit</button><button data-dcrep="'+esc(d.id)+'">Replace file</button><button class="warn" data-dcdel="'+esc(d.id)+'">Delete</button></div></div>').join("")).join("")
   :'<p class="empty">No documents yet. Upload a manual or an SOP on the left; pilots see it in the EFB under Flight › Documents.</p>'}
-async function dcLoad(){DC.err="";try{const j=await api("/admin/api/docs");DC.list=j;DC.piece=j.piece||DC.piece;DC.fileMax=j.fileMax||DC.fileMax}catch(e){DC.err=e.message}dcUi()}
+async function dcLoad(){DC.err="";if(!PL.list)api("/admin/api/pilots").then(j=>{if(!PL.list){PL.list=j;dcUi()}}).catch(()=>{});try{const j=await api("/admin/api/docs");DC.list=j;DC.piece=j.piece||DC.piece;DC.fileMax=j.fileMax||DC.fileMax}catch(e){DC.err=e.message}dcUi()}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-dcedit],[data-dcrep],[data-dcdel],#dcSave,#dcCancel");if(!b)return;
  if(b.id==="dcSave"){dcSave();return}if(b.id==="dcCancel"){dcReset();dcSay("");return}
  const id=b.dataset.dcedit||b.dataset.dcrep||b.dataset.dcdel,d=dcDoc(id);if(!d||DC.busy)return;
  if(b.dataset.dcdel){if(!confirm('Delete "'+d.title+'"? Pilots will no longer see it, and the copies on their devices are removed the next time their Documents check.'))return;
   b.disabled=true;try{await api("/admin/api/docs?id="+encodeURIComponent(id),{method:"DELETE"});if(DC.edit===id)dcReset();dcSay("Deleted.",true);await dcLoad()}catch(er){dcSay(er.message);b.disabled=false}return}
- DC.edit=id;DC.file=null;DC.cover="";DC.pages=0;$("#dcFile").value="";$("#dcPre").hidden=true;$("#dcTitle").value=d.title;$("#dcFolder").value=d.folder||"";$("#dcRev").value=d.rev||"";dcForm();dcUi();dcSay("");
+ DC.edit=id;DC.file=null;DC.cover="";DC.pages=0;$("#dcFile").value="";$("#dcPre").hidden=true;$("#dcTitle").value=d.title;$("#dcFolder").value=d.folder||"";$("#dcRev").value=d.rev||"";$("#dcAck").checked=!!d.ack;dcForm();dcUi();dcSay("");
  scrollTo({top:0,behavior:"smooth"});if(b.dataset.dcrep)$("#dcFile").click();else $("#dcTitle").focus()});
-const dcMaybe=()=>{if(location.hash==="#docs"&&!document.querySelector(".deny"))dcLoad()};
-window.addEventListener("hashchange",dcMaybe);dcMaybe();
+PG_LOAD.docs=()=>dcLoad();
 /* ---------- Stands tab: the stand plan for the automatic stand assignment (see stands.js) ---------- */
 const ST={plan:null,log:[],apts:{},sel:"",dirty:false,maps:{},err:""};
 const stZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
@@ -607,7 +877,10 @@ function stExpand(text){const out=[],bad=[];for(let p of String(text||"").toUppe
  if(m){const a=+m[2],b=+m[5];if((m[4]&&m[4]!==m[1])||(m[6]&&m[6]!==m[3])||b<a||b-a>200){bad.push(p);continue}const w=m[2].length>1&&m[2][0]==="0"?m[2].length:0;for(let n=a;n<=b;n++)out.push(m[1]+(w?String(n).padStart(w,"0"):String(n))+m[3])}
  else if(/^[A-Z0-9]{1,8}$/.test(p))out.push(p);else bad.push(p)}return {stands:[...new Set(out)],bad}}
 const stNorm=r=>String(r||"").toUpperCase().replace(/^(GATE|STAND|STAND NO.?|GATE NO.?) */,"").replace(/ /g,"").replace(/(^|[A-Z])0+([0-9])/g,"$1$2");
-function stPlanNow(){return {on:$("#stOn").checked,dep:$("#stDep").checked,ls:$("#stLs").checked,sig:$("#stSig").checked,lead:+$("#stLead").value||30,miss:$("#stMiss").value,apts:ST.plan.apts}}
+/* Gates saves its gates with the switches as last saved; Settings saves its switches with the gates as last saved */
+function stPlanNow(){const v=ST.saved||{};return {on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,lead:v.lead||30,miss:v.miss||"skip",apts:ST.plan.apts}}
+function stSwNow(){return {on:$("#stOn").checked,dep:$("#stDep").checked,ls:$("#stLs").checked,sig:$("#stSig").checked,lead:+$("#stLead").value||30,miss:$("#stMiss").value,apts:(ST.saved||ST.plan||{}).apts||{}}}
+function stStateUi(){const v=ST.saved,el=$("#stState");if(!el||!v)return;el.innerHTML="Automatic gate messages: arrival <b>"+(v.on?"on":"off")+"</b>"+(v.on?" ("+(v.lead||30)+" min before landing)":"")+", departure <b>"+(v.dep?"on":"off")+'</b>. <a class="lk" href="#settings">Change in Settings</a>'}
 function stAptsUi(){const P=ST.plan.apts,L=[...new Set([...Object.keys(ST.apts),...Object.keys(P)])];
  $("#stApts").innerHTML=L.map(i=>{const n=(P[i]||[]).reduce((a,r)=>a+stExpand(r.stands).stands.length,0);return '<button type="button" data-sta="'+esc(i)+'" class="'+(n?"has":"")+'" aria-pressed="'+(i===ST.sel)+'" title="'+esc((ST.apts[i]||[])[3]||"")+'">'+esc(i)+(n?"<small>"+n+"</small>":"")+"</button>"}).join("")}
 function stEdUi(){const el=$("#stEd"),i=ST.sel;if(!i){el.innerHTML='<p class="hint" style="margin:0">Pick an airport to write its gates.</p>';return}
@@ -627,30 +900,62 @@ async function stMap(i){if(ST.maps[i])return;ST.maps[i]={loading:true};stEdUi();
  try{const r=await fetch("/api/efb/airport-layout?icao="+encodeURIComponent(i));const j=await r.json();if(!r.ok)throw new Error(j.error||"HTTP "+r.status);ST.maps[i]={refs:new Set((j.stands||[]).map(s=>stNorm(s.ref)).filter(Boolean))}}
  catch(e){ST.maps[i]={err:"The airport map could not be read, so gates are not checked against it."}}if(ST.sel===i)stEdUi()}
 function stLogUi(){const el=$("#stLog");if(ST.err){el.innerHTML='<div class="msg err">'+esc(ST.err)+"</div>";return}
- el.innerHTML=ST.log.length?ST.log.map(x=>{const dep=x.kind==="dep";return '<div class="st-l"><div><b>'+esc(x.cs)+"</b> "+esc((x.dep||"----")+" → "+(x.arr||"----"))+' · <span class="s">'+(dep?'<i class="st-k" title="Departure gate">DEP</i>':"")+(x.stand?"GATE "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):dep?"ANY FREE GATE":"CONTACT GROUND")+"</span></div>"+
-  '<div class="btns"><button type="button" data-stchg="'+esc(x.k)+'|'+x.t+'">Change</button></div><div class="meta">Sent '+stZ(x.t)+(dep?" at check-in · STD ":" · ETA ")+stZ(x.eta)+" · "+esc(x.ac||"")+(x.wide?" (widebody)":"")+(x.fl?" · "+(x.fl==="dom"?"domestic":"international"):"")+" · "+(x.by==="AUTO"?"automatic":"changed by "+esc(x.by))+"</div></div>"}).join(""):'<span class="empty">Nothing sent in the last two days.</span>'}
-async function stLoad(){ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};if(!ST.dirty||!ST.plan){ST.plan=j.plan;$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}
+ const all=ST.view==="all"||!ST.sel,i=ST.sel,L=ST.log.filter(x=>all||(x.kind==="dep"?x.dep===i:x.arr===i)).slice().sort((a,b)=>(b.eta||b.t)-(a.eta||a.t));
+ $("#stLogT").textContent=all?"Assignments · all airports":"Assignments at "+i;
+ document.querySelectorAll("[data-stv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.stv===(all?"all":"apt"))));
+ el.innerHTML=L.length?L.map(x=>{const dep=x.kind==="dep";return '<div class="st-l"><div><span class="k2">'+(dep?"DEP":"ARR")+"</span><b>"+esc(x.cs)+"</b> "+esc((x.dep||"----")+" → "+(x.arr||"----"))+' · <span class="s">'+(x.stand?"GATE "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):dep?"ANY FREE GATE":"CONTACT GROUND")+"</span></div>"+
+  '<div class="btns"><button type="button" data-stchg="'+esc(x.k)+'|'+x.t+'">Change</button></div><div class="meta">'+(dep?"STD ":"ETA ")+stZ(x.eta)+" · sent "+stZ(x.changed||x.t)+(dep&&!x.changed?" at check-in":"")+" · "+esc(x.ac||"")+(x.wide?" (widebody)":"")+(x.fl?" · "+(x.fl==="dom"?"domestic":"international"):"")+" · "+(x.by==="AUTO"?"automatic":(x.changed?"changed by ":"by ")+esc(String(x.by).split("@")[0]))+"</div></div>"}).join("")
+  :'<span class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</span>"}
+async function stLoad(){ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=JSON.parse(JSON.stringify(j.plan));OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=j.plan;
+ if(!SE.aocDirty){$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}stStateUi();
  if(!ST.sel){ST.sel=Object.keys(ST.plan.apts)[0]||"";if(ST.sel)stMap(ST.sel)}stAptsUi();stEdUi()}catch(e){ST.err=e.message}stLogUi()}
+/* ---------- Settings: the automatic AOC messages (saved with the gate plan), the From names and the AOC templates ---------- */
+const SE={tpl:null,dirty:false,aocDirty:false};
+const seSay=(id,t,ok)=>{$(id).innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+function setTplUi(){const el=$("#setTpl");if(!SE.tpl){el.innerHTML='<span class="empty">Loading…</span>';return}
+ el.innerHTML=SE.tpl.length?SE.tpl.map((t,i)=>'<div class="set-t"><input type="text" data-sett="'+i+'" data-f="title" value="'+esc(t.title)+'" maxlength="40" placeholder="TITLE" spellcheck="false" aria-label="Title"><span class="b">'+(i?'<button type="button" data-setup="'+i+'" title="Move up" aria-label="Move up">↑</button>':"")+'<button type="button" data-setrm="'+i+'" title="Remove" aria-label="Remove">✕</button></span><textarea data-sett="'+i+'" data-f="body" maxlength="2000" placeholder="{CS} {DEP}-{ARR} … (empty: staff write it all)" spellcheck="false" aria-label="Message">'+esc(t.body)+"</textarea></div>").join(""):'<p class="hint" style="margin:0">No templates.</p>'}
+async function setLoad(){try{const j=await opsGet("set",0);setApply(j.settings);if(!SE.dirty){SE.tpl=j.settings.tpl.map(t=>({...t}));$("#setFroms").value=j.settings.froms.join("\\n")}seSay("#setMsg","")}
+ catch(e){seSay("#setMsg",e.message)}setTplUi()}
+document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#settings"))return;
+ if(t.dataset.sett!=null){SE.tpl[+t.dataset.sett][t.dataset.f]=t.value;SE.dirty=true;seSay("#setMsg","");return}
+ if(t.id==="setFroms"){SE.dirty=true;seSay("#setMsg","")}});
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#settings button");if(!b)return;
+ if(b.id==="setTplAdd"){SE.tpl=SE.tpl||[];SE.tpl.push({title:"",body:""});SE.dirty=true;setTplUi();const L=document.querySelectorAll("#setTpl input");if(L.length)L[L.length-1].focus();return}
+ if(b.dataset.setrm!=null){SE.tpl.splice(+b.dataset.setrm,1);SE.dirty=true;setTplUi();return}
+ if(b.dataset.setup!=null){const k=+b.dataset.setup;[SE.tpl[k-1],SE.tpl[k]]=[SE.tpl[k],SE.tpl[k-1]];SE.dirty=true;setTplUi();return}
+ if(b.id==="setSave"){const froms=$("#setFroms").value.split("\\n").map(s=>s.trim()).filter(Boolean),tpl=(SE.tpl||[]).filter(t=>t.title.trim());
+  if(!froms.length){seSay("#setMsg","Keep at least one From name.");return}
+  b.disabled=true;try{const j=await api("/admin/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({froms,tpl})});
+   OPS.set={at:Date.now(),v:{settings:j.settings},p:null,err:""};SE.dirty=false;SE.tpl=j.settings.tpl.map(t=>({...t}));$("#setFroms").value=j.settings.froms.join("\\n");setTplUi();setApply(j.settings);seSay("#setMsg","Saved. The composers use these now.",true)}
+  catch(er){seSay("#setMsg",er.message)}finally{b.disabled=false}return}
+ if(b.id==="setAocSave"){if(!ST.saved){seSay("#setAocMsg","Still loading. Try again in a moment.");return}
+  b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stSwNow())});
+   ST.saved=JSON.parse(JSON.stringify(j.plan));if(!ST.dirty)ST.plan=j.plan;SE.aocDirty=false;opsDrop("stands");stStateUi();
+   seSay("#setAocMsg",(n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route"].filter(Boolean)),true)}
+  catch(er){seSay("#setAocMsg",er.message)}finally{b.disabled=false}return}});
+window.addEventListener("beforeunload",e=>{if(SE.dirty||SE.aocDirty){e.preventDefault();e.returnValue=""}});
+PG_LOAD.settings=()=>{stLoad();setLoad()};
+
 const stDirty=()=>{ST.dirty=true;stSay("")};
-document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#stands"))return;
+document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!(t.closest("#stands")||t.closest("#settings")))return;
  if(t.dataset.str!=null){const r=ST.plan.apts[ST.sel][+t.dataset.str];r[t.dataset.f]=t.value;stDirty();if(t.dataset.f==="stands"){const x=t.closest(".st-r").querySelector(".st-x");const e2=stExpand(t.value);x.className="st-x"+(e2.bad.length?" bad":"");x.textContent=e2.bad.length?"Cannot read: "+e2.bad.join(", "):e2.stands.length+" gates: "+e2.stands.slice(0,14).join(", ")+(e2.stands.length>14?" …":"")}stAptsUi();stTry();return}
- if(["stOn","stDep","stLs","stSig","stLead","stMiss"].includes(t.id)){stDirty();stTry()}});
+ if(["stOn","stDep","stLs","stSig","stLead","stMiss"].includes(t.id)){SE.aocDirty=true;$("#setAocMsg").innerHTML=""}});
 document.addEventListener("change",e=>{const t=e.target;if(t.tagName==="SELECT"&&t.closest("#stEd")&&t.dataset.str!=null)stEdUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#stands button");if(!b)return;const P=ST.plan&&ST.plan.apts;
- if(b.dataset.sta){ST.sel=b.dataset.sta;stAptsUi();stEdUi();stMap(ST.sel);return}
+ if(b.dataset.sta){ST.sel=b.dataset.sta;stAptsUi();stEdUi();stMap(ST.sel);stLogUi();return}
+ if(b.dataset.stv){ST.view=b.dataset.stv;stLogUi();return}
  if(b.id==="stOtherB"){const i=$("#stOther").value.toUpperCase().replace(/[^A-Z0-9]/g,"");if(!/^[A-Z0-9]{4}$/.test(i)){stSay("Write the airport's 4-letter ICAO code.");return}$("#stOther").value="";if(!P[i])P[i]=[];ST.sel=i;stAptsUi();stEdUi();stMap(i);return}
  if(b.dataset.st==="addr"){(P[ST.sel]=P[ST.sel]||[]).push({stands:"",fl:"all",ac:"all",term:""});stDirty();stEdUi();const L=document.querySelectorAll("#stEd input.sr");if(L.length)L[L.length-1].focus();return}
  if(b.dataset.st==="clr"){if(!confirm("Remove every gate at "+ST.sel+"?"))return;delete P[ST.sel];stDirty();stAptsUi();stEdUi();return}
  if(b.dataset.strm!=null){P[ST.sel].splice(+b.dataset.strm,1);stDirty();stAptsUi();stEdUi();return}
  if(b.dataset.stup!=null){const k=+b.dataset.stup,R=P[ST.sel];[R[k-1],R[k]]=[R[k],R[k-1]];stDirty();stEdUi();return}
- if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});ST.plan=j.plan;ST.dirty=false;stSay((n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route"].filter(Boolean)),true);stAptsUi();stEdUi()}catch(er){stSay(er.message)}finally{b.disabled=false}return}
+ if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});ST.plan=j.plan;ST.saved=JSON.parse(JSON.stringify(j.plan));ST.dirty=false;opsDrop("stands");stStateUi();stSay((n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route"].filter(Boolean)),true);stAptsUi();stEdUi()}catch(er){stSay(er.message)}finally{b.disabled=false}return}
  if(b.id==="stReload"){stLoad();return}
  if(b.dataset.stchg){const row=b.closest(".st-l");if(row.querySelector(".chg"))return;row.insertAdjacentHTML("beforeend",'<div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off" style="width:100px"><button type="button" class="primary" data-stsend="'+esc(b.dataset.stchg)+'">Send GATE CHANGE</button></div>');row.querySelector(".chg input").focus();return}
  if(b.dataset.stsend){const [k,t]=b.dataset.stsend.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}b.disabled=true;
   try{await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,t:+t,stand,term:I[1].value.trim()||undefined})});await stLoad()}catch(er){alert(er.message);b.disabled=false}return}});
 window.addEventListener("beforeunload",e=>{if(ST.dirty){e.preventDefault();e.returnValue=""}});
-const stMaybe=()=>{if(location.hash==="#stands"&&!document.querySelector(".deny"))stLoad()};
-window.addEventListener("hashchange",stMaybe);stMaybe();
+PG_LOAD.gates=()=>stLoad();
 /* ---------- On-time tab: OOOI times and on-time performance (see ooo.js) ---------- */
 const OT={live:[],log:[],reasons:[],p:1,q:"",err:"",timer:0,loaded:false};
 const otZ=t=>t?new Date(t).toISOString().slice(11,16)+"Z":"–";
@@ -661,7 +966,7 @@ const otDelta=m=>m==null?'<span class="ot-na">–</span>':'<span class="ot-d '+(
 const otFrom=()=>{if(OT.p===1){const d=new Date();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())}return Date.now()-OT.p*864e5};
 const otReason=k=>(OT.reasons.find(x=>x[0]===(k||""))||["","Not given"])[1];
 function otRows(){const from=otFrom(),q=OT.q.trim().toUpperCase();
- return OT.log.filter(r=>(r.in||r.done)>=from&&(!q||[r.cs,r.pilot,r.name,r.dep,r.arr,r.ac].some(v=>String(v||"").toUpperCase().includes(q)))).sort((a,b)=>(b.in||b.done)-(a.in||a.done))}
+ return OT.log.filter(r=>(r.in||r.done)>=from&&(!q||[r.cs,r.pilot,r.name,r.dep,r.arr,r.ac].some(v=>String(v||"").toUpperCase().includes(q)))&&(!OT.need||((otLate(r.out,r.std)>15||otLate(r.in,r.sta)>15)&&!r.reason))).sort((a,b)=>(b.in||b.done)-(a.in||a.done))}
 function otStats(L){const sd=L.filter(r=>r.std&&r.out),sa=L.filter(r=>r.sta&&r.in);
  const avg=(A,f)=>A.length?Math.round(A.reduce((s,r)=>s+Math.max(0,f(r)),0)/A.length):null;
  return {n:L.length,sd:sd.length,sa:sa.length,d15:sd.filter(r=>otLate(r.out,r.std)<=15).length,a15:sa.filter(r=>otLate(r.in,r.sta)<=15).length,
@@ -679,14 +984,14 @@ function otWhyUi(L){const late=L.filter(r=>otLate(r.out,r.std)>15||otLate(r.in,r
  el.innerHTML="<h3>Why flights were late ("+late.length+")</h3>"+'<div class="ot-bars">'+OT.reasons.filter(x=>c[x[0]]).sort((a,b)=>c[b[0]]-c[a[0]]).map(x=>'<div class="ot-b1"><span>'+esc(x[1])+'</span><i style="--w:'+Math.round(c[x[0]]*100/max)+'%"></i><b>'+c[x[0]]+"</b></div>").join("")+"</div>"}
 function otStage(r){return r.in?"Parked":r.still?"Stopped":r.on?"Landed · taxiing in":r.off!=null?"Airborne":r.out?"Taxiing out":"At the gate"}
 function otT(k,t,alt){return '<span class="ot-t'+(t?"":" no")+'"><i>'+k+"</i>"+(t?otZ(t):alt||"–")+"</span>"}
-function otLiveUi(){const now=Date.now(),L=OT.live.slice().sort((a,b)=>(a.std||a.first)-(b.std||b.first)),el=$("#otLive");
+function otLiveUi(){const now=Date.now(),L=OT.live.slice().sort((a,b)=>(a.std||a.first)-(b.std||b.first)),el=$("#otLive");if(!el)return;
  if(!L.length){el.innerHTML='<span class="empty">'+(OT.loaded?"No Polaris flight is on the map right now.":"Loading…")+"</span>";return}
  el.innerHTML=L.map(r=>{const dl=r.out?otLate(r.out,r.std):r.std&&now>r.std?otLate(now,r.std):null;
   return '<div class="ot-f"><div class="ot-fh"><b>'+esc(r.cs)+"</b><span>"+esc((r.dep||"?")+" → "+r.arr)+"</span><small>"+esc([r.pilot,r.name,r.ac].filter(Boolean).join(" · "))+'</small><em class="ot-st">'+otStage(r)+'</em></div><div class="ot-ts">'+
    otT("STD",r.std,r.std?"":"no booking")+otT("OUT",r.out)+otT("OFF",r.off||null,r.off===0?"seen in the air":"")+otT("ON",r.on)+otT("IN",r.in)+otT("STA",r.sta)+
    (dl!=null&&(r.out||dl>15)?'<span class="ot-t"><i>'+(r.out?"DEP":"NOT OUT")+"</i>"+otDelta(dl)+"</span>":"")+"</div></div>"}).join("")}
 function otLogUi(L){const el=$("#otLog");
- if(!L.length){el.innerHTML='<span class="empty">'+(!OT.loaded?"Loading…":OT.log.length?"No finished flight "+(OT.p===1?"today":"in this period")+(OT.q?" that matches":"")+".":"No finished flight yet. A flight shows here once it has landed and parked.")+"</span>";return}
+ if(!L.length){el.innerHTML='<span class="empty">'+(!OT.loaded?"Loading…":OT.log.length?(OT.need?"No late flight without a delay reason ":"No finished flight ")+(OT.p===1?"today":"in this period")+(OT.q?" that matches":"")+".":"No finished flight yet. A flight shows here once it has landed and parked.")+"</span>";return}
  const opts=r=>OT.reasons.map(x=>'<option value="'+esc(x[0])+'"'+((r.reason||"")===x[0]?" selected":"")+">"+esc(x[1])+"</option>").join("");
  el.innerHTML='<div class="ot-tw"><table class="ot-tb"><thead><tr><th>Date</th><th>Flight</th><th>Route</th><th>STD</th><th>OUT</th><th>OFF</th><th>ON</th><th>IN</th><th>STA</th><th>Block</th><th>Dep.</th><th>Arr.</th><th>Delay reason</th></tr></thead><tbody>'+
   L.map(r=>{const dl=otLate(r.out,r.std),al=otLate(r.in,r.sta),late=dl>15||al>15;
@@ -700,7 +1005,8 @@ function otCsv(){const L=otRows(),iso=t=>t?new Date(t).toISOString().slice(0,16)
  const rows=L.map(r=>[iso(r.in||r.done).slice(0,10),r.cs,r.pilot,r.name,r.ac,r.dep,r.arr,iso(r.std),iso(r.out),iso(r.off),iso(r.on),iso(r.in),iso(r.sta),r.out&&r.in?Math.round((r.in-r.out)/6e4):"",otLate(r.out,r.std),otLate(r.in,r.sta),r.reason?otReason(r.reason):""]);
  const txt=[head,...rows].map(a=>a.map(q).join(",")).join(String.fromCharCode(10)),a=document.createElement("a");
  a.href=URL.createObjectURL(new Blob([txt],{type:"text/csv;charset=utf-8"}));a.download="polaris-on-time-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
-document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-otp],#otCsv,#otReload");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-otp],#otCsv,#otReload,#otNeed");if(!t)return;
+ if(t.id==="otNeed"){OT.need=!OT.need;t.setAttribute("aria-pressed",String(OT.need));otUi();return}
  if(t.dataset.otp){OT.p=+t.dataset.otp;document.querySelectorAll("[data-otp]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));otUi();return}
  if(t.id==="otCsv"){otCsv();return}
  t.disabled=true;otLoad().finally(()=>{t.disabled=false})});
@@ -708,8 +1014,7 @@ document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||t.d
  try{await api("/admin/api/ooo/reason",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,first,reason:t.value})});const r=OT.log.find(x=>x.k===k&&x.first===first);if(r)r.reason=t.value;otWhyUi(otRows())}
  catch(er){OT.err=er.message;$("#otErr").innerHTML='<div class="msg err">'+esc(er.message)+"</div>"}finally{t.disabled=false}});
 document.addEventListener("input",e=>{if(e.target.id==="otFind"){OT.q=e.target.value;otUi()}});
-const otMaybe=()=>{clearInterval(OT.timer);if(location.hash==="#ot"&&!document.querySelector(".deny")){otLoad();OT.timer=setInterval(()=>{if(!document.hidden)otLoad()},60000)}};
-window.addEventListener("hashchange",otMaybe);otMaybe();
+PG_LOAD.reports=()=>otLoad();PG_TICK.reports=[otLoad,60000];
 /* ---------- Calendar tab: the company calendar and the vAMSYS events (see cal.js) ---------- */
 const CA={items:[],vam:{},vamsys:[],vamErr:"",m:0,sel:null,form:null,day:null,err:"",busy:false,loaded:false};
 const CA_TYPES=[["group","Group flight","#0A84FF"],["training","Training","#30B0C7"],["meeting","Meeting","#5E5CE6"],["event","Event","#FF9F0A"],["notice","Notice","#8E8E93"],["maint","Maintenance","#FF453A"]];
@@ -753,7 +1058,7 @@ function caWhoTxt(to){return !to?"Everyone":to.crew?"The "+to.cs+" crew"+(to.m&&
 const CA_REM=[[0,"No reminder"],[15,"15 minutes before"],[30,"30 minutes before"],[60,"1 hour before"],[120,"2 hours before"],[1440,"1 day before"]];
 function caItemHtml(v){const t=caType(v.type),dur=(+v.e||v.s)-v.s;
  return "<h3>"+esc(v.title)+'</h3><div class="sub" style="border-left:3px solid '+t[2]+';padding-left:8px">'+esc(t[1])+(v.efb?"":" · not in the EFB")+"</div>"+
-  '<p style="margin:8px 0 0">'+esc(caDate(v.s))+"<br>"+(v.allDay?"All day"+(dur>CA_D?" · "+Math.round(dur/CA_D)+" days":""):caZ(v.s)+" – "+caZ(v.s+dur)+' <span class="hint" style="margin:0">('+esc(caLocal(v.s))+" your time)</span>")+"</p>"+
+  '<p style="margin:8px 0 0">'+esc(caDate(v.s))+"<br>"+(v.allDay?"All day"+(dur>CA_D?" · "+Math.round(dur/CA_D)+" days":""):caZ(v.s)+" – "+caZ(v.s+dur))+"</p>"+
   (v.rep==="weekly"?'<p class="hint" style="margin:4px 0 0">Every week'+(v.until?" until "+esc(caDate(v.until)):"")+"</p>":"")+
   (v.loc?'<p style="margin:6px 0 0">📍 '+esc(v.loc)+"</p>":"")+'<p class="hint" style="margin:6px 0 0">For: '+esc(caWhoTxt(v.to))+" · "+esc((CA_REM.find(r=>r[0]===(v.remind||0))||CA_REM[0])[1])+"</p>"+
   (v.body?'<div class="ca-desc">'+esc(v.body)+"</div>":"")+'<p class="hint" style="margin:8px 0 0">Added by '+esc(v.by||"")+(v.edBy?" · changed by "+esc(v.edBy):"")+"</p>"+
@@ -784,7 +1089,7 @@ function caRead(){const f=CA.form,all=$("#caAll").checked,sd=$("#caSd").value,ed
  const s=Date.parse(sd+"T"+(all?"00:00":($("#caSt").value||"00:00"))+":00Z");let e=Date.parse(ed+"T"+(all?"00:00":($("#caEt").value||"00:00"))+":00Z");
  if(all)e+=CA_D;return {s,e}}
 function caWhenUi(){const all=$("#caAll").checked;["caSt","caEt"].forEach(i=>{$("#"+i).hidden=all});const r=caRead(),l=$("#caSl");
- if(l)l.textContent=isFinite(r.s)&&!all?"= "+caLocal(r.s)+" your time":"";$("#caUntilW").style.visibility=$("#caRep").value==="weekly"?"visible":"hidden"}
+ if(l)l.textContent="";$("#caUntilW").style.visibility=$("#caRep").value==="weekly"?"visible":"hidden"}
 function caWhoMode(){return (document.querySelector("input[name=cato]:checked")||{}).value||"all"}
 function caWhoUi(){const f=CA.form,md=caWhoMode(),w=$("#caWho");w.hidden=md==="all";if(md==="all")return;if(typeof crPilots==="function")crPilots();
  const M=f.m||[];
@@ -826,8 +1131,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
 document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#caSide")||!CA.form)return;if(["caSd","caSt","caEd","caEt","caAll","caRep"].includes(t.id)){if(t.id==="caSd"){const ed=$("#caEd");if(ed&&ed.value<t.value)ed.value=t.value}caWhenUi()}});
 document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest("#caSide")||!CA.form)return;if(t.name==="cato"){caKeep();caWhoUi()}if(t.id==="caAll"||t.id==="caRep")caWhenUi()});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="caAdd"){e.preventDefault();caKeep();caAddP()}});
-const caMaybe=()=>{if(location.hash==="#cal"&&!document.querySelector(".deny"))caLoad()};
-window.addEventListener("hashchange",caMaybe);caMaybe();
+PG_LOAD.cal=()=>caLoad();
 /* ---------- Flight Watch (Live tab): alerts for the Polaris flights in the air (see watch.js) ---------- */
 const FW={list:[],err:"",busy:false,loaded:false,seen:{}};
 try{FW.seen=JSON.parse(localStorage.getItem("fwSeen")||"{}")||{}}catch(e){}
@@ -841,24 +1145,259 @@ function fwUi(){const L=fwShown(),red=L.some(a=>a.sev==="red"),n=$("#fwN");
  const box=$("#fwBox");if(!box)return;box.hidden=!FW.loaded&&!FW.err;const hid=FW.list.length-L.length;
  box.innerHTML='<div class="fw-h"><b>Flight Watch</b><span'+(!FW.err&&!L.length?' class="ok"':"")+'>'+(FW.err?esc(FW.err):L.length?L.length+" alert"+(L.length===1?"":"s"):"All normal")+"</span>"+(hid?'<button type="button" data-fw="unhide">Show '+hid+" hidden</button>":"")+"</div>"+
   L.map(a=>'<div class="fw-a '+a.sev+'"><i></i><div class="fw-t"><b>'+esc(a.cs)+"</b>"+esc(a.title)+"<small>"+esc(a.detail)+(a.pilot||a.name?" · "+esc(a.pilot||a.name):"")+'</small></div><div class="fw-b"><button type="button" data-fwshow="'+esc(a.cs)+'">Show</button><button type="button" data-fwaoc="'+esc(a.k)+'" title="AOC message to this crew">AOC</button><button type="button" data-fwseen="'+esc(fwKey(a))+'" title="Hide until it changes" aria-label="Hide">✕</button></div></div>').join("");
- fwRows()}
+ fwRows();if(pgNow==="home")hmUi()}
 async function fwLoad(){if(FW.busy||document.querySelector(".deny"))return;FW.busy=true;
  try{const j=await api("/admin/api/watch");FW.list=j.alerts||[];FW.err="";FW.loaded=true;
   /* a hidden alert that has gone is forgotten, so it shows again if it comes back */
   const now=new Set(FW.list.map(fwKey));let ch=false;for(const k of Object.keys(FW.seen))if(!now.has(k)){delete FW.seen[k];ch=true}if(ch)fwSave()}
  catch(e){FW.err="Flight Watch: "+e.message}finally{FW.busy=false}fwUi()}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest(".fw button");if(!b)return;
- if(b.dataset.fwshow){const r=document.querySelector('#lvList [data-cs="'+CSS.escape(b.dataset.fwshow)+'"]');if(r){if(!r.classList.contains("on"))r.click();r.scrollIntoView({block:"nearest"})}return}
- if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(a&&window.pmCompose)window.pmCompose({pilot:a.pilot,cid:a.cid,cs:a.cs,name:a.name},"aoc");return}
+ if(b.dataset.fwshow){if(window.pmLive)window.pmLive.show(b.dataset.fwshow);return}
+ if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(!a||!window.pmLive)return;FO.mode="aoc";window.pmLive.show(a.cs);setTimeout(()=>{const x=$("#foBody");if(x)x.focus()},400);return}
  if(b.dataset.fwseen){FW.seen[b.dataset.fwseen]=Date.now();fwSave();fwUi();return}
  if(b.dataset.fw==="unhide"){FW.seen={};fwSave();fwUi()}});
 /* the list is drawn again with every update: mark its rows again */
-{const l=$("#lvList");if(l)new MutationObserver(()=>fwRows()).observe(l,{childList:true})}
-if(!document.querySelector(".deny")){fwLoad();setInterval(()=>{if(document.hidden)return;if(location.hash==="#live"||Date.now()%90000<30000)fwLoad()},30000);
- window.addEventListener("hashchange",()=>{if(location.hash==="#live")fwLoad()});document.addEventListener("visibilitychange",()=>{if(!document.hidden)fwLoad()})}
+{const l=$("#lvList");if(l)new MutationObserver(()=>{fwRows();foRows()}).observe(l,{childList:true})}
+if(!document.querySelector(".deny")){fwLoad();setInterval(()=>{if(document.hidden)return;if(pgNow==="fw"||pgNow==="home"||Date.now()%90000<30000)fwLoad()},30000);
+ document.addEventListener("visibilitychange",()=>{if(!document.hidden)fwLoad()})}
+/* ---------- Flight Watch: the open flight's operations under its head (live.ts draws the map, the list and the head):
+   OOOI against the schedule with the delay reason, the gates (change or assign), the final loadsheet, the AOC messages
+   it got, and an AOC or Mail to its crew without leaving the flight ---------- */
+const FO={f:null,edit:null,mode:"aoc"};
+const foZ=t=>t?new Date(t).toISOString().slice(11,16)+"Z":"–";
+const foKey=f=>f.cs+":"+f.dep+":"+f.arr;
+const foMin=m=>(m>0?"+":m<0?"−":"±")+Math.abs(m)+" min";
+const foChip=m=>m==null?"":'<span class="'+(m>15?"late":"ok")+'">'+foMin(m)+"</span>";
+function foRec(f){const o=opsV("ooo");return o&&f?(o.live||[]).find(r=>r.k===foKey(f)&&!r.tomb)||null:null}
+function foGates(f){const L=(opsV("stands")||{}).log||[];return {dep:L.find(x=>x.kind==="dep"&&x.cs===f.cs&&x.dep===f.dep)||null,arr:L.find(x=>x.kind!=="dep"&&x.cs===f.cs&&x.arr===f.arr)||null}}
+/* AOC messages to this flight in the last 18 hours: to its callsign, or to its pilot */
+function foAoc(f){const L=(opsV("aoc")||{}).msgs||[],since=Date.now()-18*36e5;
+ return L.filter(m=>m.t>=since&&m.to&&((m.to.cs&&m.to.cs===f.cs)||(f.pilot&&(m.to.pilot===f.pilot||(m.to.m||[]).some(x=>x.pilot===f.pilot))))).sort((a,b)=>b.t-a.t)}
+const foTo=f=>({crew:true,cs:f.cs,m:f.pilot||f.cid?[{pilot:f.pilot||"",cid:f.cid||"",name:f.name&&f.name!==f.pilot?f.name:""}]:[]});
+async function foLoad(force){const age=force?0:20000;await Promise.allSettled([opsGet("ooo",age),opsGet("stands",age),opsGet("aoc",age)]);foInfoUi();foRows()}
+function foOooiHtml(f,r){
+ if(!r)return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4><p class="hint" style="margin:0">'+(opsV("ooo")?"No times yet: the Worker picks a flight up within two minutes of it showing on the map.":"Loading…")+"</p></div>";
+ const now=Date.now(),cell=(k,t,sch,alt)=>'<div class="'+(t?"":"no ")+(sch?"sch":"")+'"><span>'+k+"</span><b>"+(t?foZ(t):alt||"–")+"</b></div>";
+ const dl=r.out?otLate(r.out,r.std):r.std&&now>r.std?otLate(now,r.std):null,eta=r.in?null:f.eta,al=r.in?otLate(r.in,r.sta):r.sta&&eta?otLate(eta,r.sta):null;
+ const dep=!r.std?"no booking, so no STD":r.out?"off the gate "+foChip(dl):now>r.std?'<span class="'+(dl>15?"late":"")+'">still at the gate, '+foMin(dl)+"</span>":"STD in "+Math.max(1,Math.round((r.std-now)/6e4))+" min";
+ const arr=r.in?"at the gate "+foChip(al):eta?"ETA <b>"+foZ(eta)+"</b>"+(al!=null?" · "+foChip(al)+" expected":""):"–";
+ const late=dl>15||al>15||r.reason,R=(opsV("ooo")||{}).reasons||[];
+ return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4><div class="fo-t">'+cell("STD",r.std,1,"–")+cell("OUT",r.out)+cell("OFF",r.off||null,0,r.off===0?"air":"")+cell("ON",r.on)+cell("IN",r.in)+cell("STA",r.sta,1,"–")+"</div>"+
+  '<div class="fo-d"><span><b>Departure</b> '+dep+"</span><span><b>Arrival</b> "+arr+"</span></div>"+
+  (late&&R.length?'<div class="fo-r"><label for="foReason">Delay reason</label><select id="foReason">'+R.map(x=>'<option value="'+esc(x[0])+'"'+((r.reason||"")===x[0]?" selected":"")+">"+esc(x[1])+"</option>").join("")+"</select></div>":"")+"</div>"}
+function foGatesHtml(f){const G=foGates(f),plan=(opsV("stands")||{}).plan,lead=(plan&&plan.lead)||30,E=FO.edit;
+ const row=kind=>{const x=G[kind],apt=kind==="dep"?f.dep:f.arr,lbl=kind==="dep"?"Departure":"Arrival";if(!apt)return "";
+  const ed=E&&E.kind===kind?'<div class="fo-ge"><input type="text" id="foGate" maxlength="8" placeholder="Gate" value="'+esc(E.stand||"")+'" autocomplete="off" spellcheck="false"><input type="text" id="foTerm" maxlength="20" placeholder="Terminal" value="'+esc(E.term||"")+'" autocomplete="off" spellcheck="false" style="flex:0 1 96px">'+(x?"":'<button type="button" data-fog="pick" title="The first free gate in the plan">From plan</button>')+'<button type="button" class="primary" data-fog="send">'+(x?"Send GATE CHANGE":"Send gate")+'</button><button type="button" data-fog="x">Cancel</button></div>':"";
+  if(x)return '<div class="fo-g"><span class="k">'+lbl+"<b>"+esc(apt)+'</b></span><span class="v">'+(x.stand?"Gate "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):kind==="dep"?"Any free gate":"Contact ground")+"<small>"+(x.changed?"Changed ":"Sent ")+foZ(x.changed||x.t)+" · "+(x.by==="AUTO"?"automatic":esc(String(x.by||"").split("@")[0]))+"</small></span>"+(ed||f.sample?"":'<button type="button" data-fog="chg" data-fokind="'+kind+'">Change</button>')+ed+"</div>";
+  const past=kind==="dep"&&!["gate","taxiout"].includes(f.phase);
+  const why=kind==="dep"?(past?"Not needed: the flight has left the gate":plan&&plan.dep?"Goes when the crew check in":"Automatic departure gates are off"):plan&&plan.on?"Goes about "+lead+" min before landing":"Automatic arrival gates are off";
+  return '<div class="fo-g none"><span class="k">'+lbl+"<b>"+esc(apt)+'</b></span><span class="v">Not sent<small>'+why+"</small></span>"+(past||ed||f.sample?"":'<button type="button" data-fog="new" data-fokind="'+kind+'">Assign</button>')+ed+"</div>"};
+ return '<div class="fo-s"><h4>Gates</h4>'+row("dep")+row("arr")+'<div id="foGSay"></div></div>'}
+function foLsHtml(f,r){const L=foAoc(f).find(m=>m.title==="LOADSHEET FINAL"),plan=(opsV("stands")||{}).plan,now=Date.now();let h;
+ if(L)h='<span class="ok">Sent '+foZ(L.t)+'</span><details class="fo-a" data-aid="ls'+esc(L.id)+'"><summary><b>LOADSHEET FINAL</b><small>show</small></summary><pre>'+esc(L.body)+"</pre></details>";
+ else if(plan&&plan.ls===false)h="Off<small>Automatic final loadsheets are off in Settings.</small>";
+ else if(r&&r.std&&now<r.std-15*6e4)h="Not yet<small>Goes at "+foZ(r.std-15*6e4)+", 15 minutes before STD, if the crew checked in with their SimBrief plan loaded.</small>";
+ else if(r&&r.std)h="Not sent<small>The crew did not check in with a SimBrief plan loaded, so there were no weights to send.</small>";
+ else h="Not sent<small>No booking (STD) for this flight.</small>";
+ return '<div class="fo-s"><h4>Final loadsheet</h4><div class="fo-ls">'+h+"</div></div>"}
+function foLogHtml(f){const L=foAoc(f);
+ return '<div class="fo-s"><h4>AOC to this flight <small>'+(L.length?L.length+" in the last 18 h":"")+"</small></h4>"+(L.length?L.slice(0,10).map(m=>'<details class="fo-a" data-aid="'+esc(m.id)+'"><summary><b>'+esc(m.title)+"</b><time>"+foZ(m.t)+"</time><small>"+(m.by==="AUTO"?"automatic":esc(String(m.by||"").split("@")[0]))+"</small></summary><pre>"+esc(m.body)+"</pre></details>").join(""):'<p class="hint" style="margin:0">None in the last 18 hours.</p>')+"</div>"}
+function foMsgHtml(f){if(f.sample)return '<div class="fo-s"><h4>Message the crew</h4><p class="hint" style="margin:0">Sample flight: made up for the preview, so there is nobody to write to.</p></div>';
+ const a=FO.mode==="aoc";
+ return '<div class="fo-s fo-c"><div class="fo-ch"><h4>Message the crew</h4><div class="kf" role="group" aria-label="Send as"><button type="button" data-fom="aoc" aria-pressed="'+a+'">AOC</button><button type="button" data-fom="mail" aria-pressed="'+!a+'">Mail</button></div></div>'+
+  '<div id="foAoc"'+(a?"":" hidden")+'><div class="row"><div><label for="foTpl">Template</label><select id="foTpl"></select></div><div><label for="foTitle">Title</label><input type="text" id="foTitle" maxlength="40" value="CREW MESSAGE" autocomplete="off" spellcheck="false"></div></div><label for="foBody">Message</label><textarea id="foBody" maxlength="2000" spellcheck="false" placeholder="Short, in capitals. The crew cannot answer an AOC message."></textarea><label class="ac-chk"><input type="checkbox" id="foPush" checked> Notify their devices</label><div class="actions"><button type="button" class="primary" id="foSend">Send AOC</button><a class="lk" href="#comms" data-fofull>Open in Messages</a></div></div>'+
+  '<div id="foMail"'+(a?" hidden":"")+'><label for="foFrom">From</label><select id="foFrom"></select><label for="foSubj">Subject</label><input type="text" id="foSubj" maxlength="160" autocomplete="off"><label for="foMBody">Message</label><textarea id="foMBody" maxlength="20000" placeholder="Pilots read it in the EFB’s Mail and can answer."></textarea><div class="actions"><button type="button" class="primary" id="foMSend">Send mail</button><a class="lk" href="#comms" data-fofull>More options in Messages</a></div></div>'+
+  '<div id="foSay"></div><p class="fo-to">To the '+esc(f.cs)+" crew"+(f.pilot||f.cid?" ("+esc(f.pilot||"CID "+f.cid)+(f.name&&f.name!==f.pilot?" · "+esc(f.name):"")+")":"")+", and any EFB flying "+esc(f.cs)+" for 18 hours.</p></div>"}
+const foSay=(t,ok)=>{const m=$("#foSay");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+function foTplUi(){const t=$("#foTpl");if(t)t.innerHTML='<option value="">Fill in from a template…</option>'+SETV.tpl.map((x,i)=>'<option value="'+i+'">'+esc(x.title)+"</option>").join("");
+ const fr=$("#foFrom");if(fr){const v=fr.value;fr.innerHTML=SETV.froms.map(x=>"<option>"+esc(x)+"</option>").join("");fr.value=v&&SETV.froms.includes(v)?v:SETV.froms.includes("Flight Operations")?"Flight Operations":SETV.froms[0]}}
+/* the parts that change with the data; left alone while staff type in them */
+function foInfoUi(force){const f=FO.f,el=$("#foInfo");if(!f||!el)return;
+ if(!force&&(FO.edit||(document.activeElement&&el.contains(document.activeElement))))return;
+ const open=new Set([...el.querySelectorAll("details[open]")].map(d=>d.dataset.aid)),r=foRec(f);
+ el.innerHTML=foOooiHtml(f,r)+foGatesHtml(f)+foLsHtml(f,r)+foLogHtml(f);
+ el.querySelectorAll("details[data-aid]").forEach(d=>{if(open.has(d.dataset.aid))d.open=true})}
+function foUi(){const box=$("#lvOps");if(!box)return;const f=FO.f;if(!f){box.innerHTML="";return}
+ box.innerHTML='<div id="foInfo"></div><div id="foMsg">'+foMsgHtml(f)+"</div>";foTplUi();foInfoUi(true);foLoad()}
+/* the flight list: how late a flight is, beside its altitude */
+function foRows(){const o=opsV("ooo");if(!o)return;const now=Date.now(),F=window.pmLive?window.pmLive.flights():[];
+ document.querySelectorAll("#lvList [data-cs]").forEach(row=>{const cs=row.dataset.cs,r=(o.live||[]).find(x=>x.cs===cs&&!x.tomb);let t="";
+  if(r&&r.std&&r.off==null){const dl=r.out?otLate(r.out,r.std):now>r.std?otLate(now,r.std):null;if(dl>15)t="DEP +"+dl}
+  else if(r&&r.sta&&r.in==null){const f=F.find(x=>x.cs===cs),al=f&&f.eta?otLate(f.eta,r.sta):null;if(al>15)t="ARR +"+al}
+  let s=row.querySelector(".fo-x");if(!t){if(s)s.remove();return}
+  if(!s){s=document.createElement("span");s.className="fo-x late";(row.querySelector(".lv-al")||row).appendChild(s)}s.textContent=t})}
+window.addEventListener("pm:sel",e=>{FO.f=e.detail;FO.edit=null;foUi()});
+window.addEventListener("pm:live",e=>{const L=e.detail||[];if(FO.f){const n=L.find(x=>x.cs===FO.f.cs);if(n){const ph=FO.f.phase;FO.f=n;if(n.phase!==ph)foInfoUi()}}foRows()});
+document.addEventListener("input",e=>{const t=e.target;if(FO.edit&&(t.id==="foGate"||t.id==="foTerm"))FO.edit[t.id==="foGate"?"stand":"term"]=t.value});
+document.addEventListener("change",async e=>{const t=e.target,f=FO.f;if(!f)return;
+ if(t.id==="foReason"){const r=foRec(f);if(!r)return;t.disabled=true;
+  try{await api("/admin/api/ooo/reason",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k:r.k,first:r.first,reason:t.value})});r.reason=t.value}
+  catch(er){alert(er.message)}finally{t.disabled=false}return}
+ if(t.id==="foTpl"){const x=SETV.tpl[+t.value];t.value="";if(!x)return;const b=$("#foBody");
+  if(b.value.trim()&&!confirm("Replace what you wrote with the "+x.title+" template?"))return;
+  $("#foTitle").value=x.title;b.value=tplFill(x.body,f);tplCaret(b)}});
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#lvOps [data-fog],#lvOps [data-fom],#foSend,#foMSend,#lvOps [data-fofull]");if(!b)return;const f=FO.f;if(!f)return;const d=b.dataset;
+ if(d.fom){FO.mode=d.fom;document.querySelectorAll("#lvOps [data-fom]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.fom===FO.mode)));$("#foAoc").hidden=FO.mode!=="aoc";$("#foMail").hidden=FO.mode!=="mail";foSay("");return}
+ if(d.fofull!=null){e.preventDefault();const a=FO.mode==="aoc",ti=a?$("#foTitle").value:$("#foSubj").value,bo=a?$("#foBody").value:$("#foMBody").value,fr=$("#foFrom").value;
+  window.pmCompose({pilot:f.pilot,cid:f.cid,cs:f.cs,name:f.name},a?"aoc":"mail");if(a){if(ti)$("#acTitle").value=ti;if(bo)$("#acBody").value=bo;acPreview()}else{$("#from").value=fr;if(ti)$("#subject").value=ti;if(bo)$("#body").value=bo;preview()}return}
+ if(d.fog==="chg"||d.fog==="new"){const x=foGates(f)[d.fokind];FO.edit={kind:d.fokind,x:x?{k:x.k,t:x.t}:null,stand:"",term:x&&x.term||""};foInfoUi(true);const g=$("#foGate");if(g)g.focus();return}
+ if(d.fog==="x"){FO.edit=null;foInfoUi(true);return}
+ if(d.fog==="pick"){const E=FO.edit;if(!E)return;b.disabled=true;
+  try{const j=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({icao:E.kind==="dep"?f.dep:f.arr,wide:/A35|A33|B77|B78|B74|A38/.test(f.ac||"")})});
+   if(j.stand){E.stand=j.stand;E.term=j.term||"";$("#foGate").value=E.stand;$("#foTerm").value=E.term;$("#foGSay").innerHTML=""}else $("#foGSay").innerHTML='<div class="msg err">'+(j.none==="full"?"Every gate in the plan is taken: write one.":"No gate plan for "+esc(E.kind==="dep"?f.dep:f.arr)+": write the gate.")+"</div>"}
+  catch(er){$("#foGSay").innerHTML='<div class="msg err">'+esc(er.message)+"</div>"}finally{b.disabled=false}return}
+ if(d.fog==="send"){const E=FO.edit;if(!E)return;const stand=($("#foGate").value||"").trim(),term=($("#foTerm").value||"").trim();
+  if(!stand){$("#foGate").focus();return}b.disabled=true;
+  try{if(E.x)await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k:E.x.k,t:E.x.t,stand,term:term||undefined})});
+   else{const r=foRec(f);await api("/admin/api/stands/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:E.kind,cs:f.cs,dep:f.dep,arr:f.arr,ac:f.ac,eta:E.kind==="dep"?r&&r.std:f.eta,pilot:f.pilot,cid:f.cid,name:f.name,stand,term})})}
+   FO.edit=null;opsDrop("stands");opsDrop("aoc");await foLoad(true);foInfoUi(true);$("#foGSay").innerHTML='<div class="msg ok">Sent to the '+esc(f.cs)+" crew.</div>"}
+  catch(er){$("#foGSay").innerHTML='<div class="msg err">'+esc(er.message)+"</div>";b.disabled=false}return}
+ if(b.id==="foSend"){const body=$("#foBody").value.trim();if(!body){foSay("Write the message first.");$("#foBody").focus();return}if(/___/.test(body)){foSay("Fill in the ___ first.");tplCaret($("#foBody"));return}
+  b.disabled=true;try{await api("/admin/api/aoc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("#foTitle").value,body,to:foTo(f),push:$("#foPush").checked})});
+   $("#foBody").value="";$("#foTitle").value="CREW MESSAGE";foSay("AOC sent to the "+f.cs+" crew.",true);opsDrop("aoc");foLoad(true);load()}catch(er){foSay(er.message)}finally{b.disabled=false}return}
+ if(b.id==="foMSend"){const subject=$("#foSubj").value.trim(),body=$("#foMBody").value.trim();if(!subject||!body){foSay("Write a subject and a message.");return}
+  b.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:foTo(f),from:$("#foFrom").value,subject,body,keepAtt:[],newAtt:[]})});
+   $("#foSubj").value="";$("#foMBody").value="";foSay("Mail sent to the "+f.cs+" crew.",true);load()}catch(er){foSay(er.message)}finally{b.disabled=false}}});
+PG_LOAD.fw=()=>{fwLoad();foLoad()};PG_TICK.fw=[()=>foLoad(),45000];
+/* ---------- Messages page: Inbox, Sent and Scheduled on the left; the conversation, the message or the composer on the right ---------- */
+const CM={seg:"inbox",pane:"empty",item:""};
+function cmUi(){const s=CM.seg,P=CM.pane;
+ document.querySelectorAll("[data-cmv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.cmv===s)));
+ $("#cmFi").hidden=s!=="inbox";$("#cmFs").hidden=s!=="sent";$("#ibList").hidden=s!=="inbox";$("#list").hidden=s==="inbox";
+ $("#cmEmpty").hidden=P!=="empty";$("#ibView").hidden=P!=="thread";$("#cmItem").hidden=P!=="item";$("#cmCompose").hidden=P!=="compose"}
+function cmPane(p){CM.pane=p;if(p!=="thread"&&IB.sel){IB.sel="";ibUi()}if(p!=="item")CM.item="";cmUi();listUi()}
+function cmSeg(s){CM.seg=s;cmUi();listUi()}
+/* something written in the composer that would be lost */
+const cmDirty=()=>!!(S.edit||$("#subject").value.trim()||$("#body").value.trim()||$("#acBody").value.trim()||S.add.length);
+/* a new notice (Mail) or AOC message: AOC goes to a flight's crew unless staff pick otherwise */
+function cmNew(k){if(CM.pane==="compose"&&cmDirty()&&!confirm("Discard the message you are writing?"))return;
+ reset();kindSet(k);if(k==="aoc")toSet({crew:true,cs:"",m:[]});$("#acTitle").value="CREW MESSAGE";$("#acBody").value="";acPreview();say("");cmPane("compose");
+ setTimeout(()=>{const e=k==="aoc"?$("#crCs"):$("#subject");if(e)e.focus()},50)}
+/* an old address: #aoc opens a new AOC message, #inbox the Inbox */
+function cmAsk(a){if(a==="aoc")cmNew("aoc");else if(a==="inbox")cmSeg("inbox")}
+/* a conversation (Home's "waiting for a reply") */
+function ibOpen(th){IB.sel=th;const t=(IB.threads||[]).find(x=>x.th===th);if(t&&t.done!==(IB.show==="done")){IB.show=t.done?"done":"open";document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.ibs===IB.show)))}
+ CM.seg="inbox";CM.pane="thread";cmUi();ibUi();
+ if(t&&!t.read){t.read=true;ibCount();api("/admin/api/inbox/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,read:true})}).catch(()=>{})}}
+const cmWhen=t=>{const d=new Date(t),n=new Date();return d.toISOString().slice(0,10)===n.toISOString().slice(0,10)?d.toISOString().slice(11,16)+"Z":d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})};
+function listUi(){const now=Date.now(),seg=CM.seg,nq=S.mails.filter(m=>m.sendAt>now).length,q=$("#cmLaterN");if(q){q.hidden=!nq;q.textContent=nq}
+ if(seg==="inbox")return;
+ const mails=S.mails.filter(m=>seg==="later"?m.sendAt>now:m.sendAt<=now);
+ const L=[...(seg==="sent"&&S.kf==="aoc"?[]:mails.map(m=>({k:"mail",t:m.sendAt,m}))),...(seg!=="sent"||S.kf==="mail"?[]:S.aoc.map(m=>({k:"aoc",t:m.t,m})))].sort((a,b)=>seg==="later"?a.t-b.t:b.t-a.t);
+ $("#list").innerHTML=(S.listErr?'<div class="msg err" style="margin:12px 18px">'+esc(S.listErr)+"</div>":"")+(L.length?L.map(({k,m})=>{const id=k+":"+m.id,on=CM.item===id?" on":"";
+   if(k==="aoc")return '<button type="button" class="cm-i'+on+'" data-cmi="'+esc(id)+'"><b><span class="cm-k">AOC</span>'+esc(m.title)+"</b><time>"+cmWhen(m.t)+'</time><span class="meta">'+esc((m.to?toWho(m.to):"All pilots")+(m.by==="AUTO"?" · automatic":"")+" · "+m.body.slice(0,90))+"</span></button>";
+   return '<button type="button" class="cm-i'+on+'" data-cmi="'+esc(id)+'"><b>'+esc(m.subject)+"</b><time>"+(m.sendAt>now?fmt(m.sendAt):cmWhen(m.sendAt))+'</time><span class="meta">'+esc(m.from+" → "+(m.to?toWho(m.to):"all pilots"))+(m.att.length?" · 📎 "+m.att.length:"")+"</span></button>"}).join("")
+  :'<p class="empty" style="padding:16px 18px">'+(seg==="later"?"Nothing scheduled.":S.kf==="aoc"?"No AOC messages yet.":S.kf==="mail"?"No notices yet.":"Nothing sent yet.")+"</p>");
+ if(CM.pane==="item")cmItemUi()}
+function cmItemUi(){const i=CM.item.indexOf(":"),k=CM.item.slice(0,i),id=CM.item.slice(i+1),el=$("#cmItem"),x='<button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button>';
+ if(k==="aoc"){const m=S.aoc.find(v=>v.id===id);if(!m){CM.pane="empty";CM.item="";cmUi();return}
+  el.innerHTML='<div class="cm-v"><div class="cm-ch"><h3>'+esc(m.title)+'<span class="tag a">AOC</span></h3>'+x+'</div><div class="meta">'+fmt(m.t)+" · to "+esc(m.to?toLabel(m.to):"all pilots")+(m.by?" · "+(m.by==="AUTO"?"sent automatically":"by "+esc(m.by)):"")+'</div><div class="ac-box"><div class="h">AOC MSG DISPLAY</div><div class="b"><i>'+esc(m.title)+" "+cmZ(m.t)+"</i>"+esc(m.body)+'</div></div><div class="actions"><button class="warn" data-acdel="'+esc(m.id)+'">Delete</button></div><p class="hint">Deleting takes it off every EFB.</p></div>';return}
+ const m=S.mails.find(v=>v.id===id);if(!m){CM.pane="empty";CM.item="";cmUi();return}const q=m.sendAt>Date.now();
+ el.innerHTML='<div class="cm-v"><div class="cm-ch"><h3>'+esc(m.subject)+'<span class="tag '+(q?"q":"s")+'">'+(q?"SCHEDULED":"SENT")+"</span></h3>"+x+'</div><div class="meta">From '+esc(m.from)+" · to "+esc(m.to?toLabel(m.to):"all pilots")+" · "+(q?"goes out ":"")+fmt(m.sendAt)+(m.by?" · by "+esc(m.by):"")+(m.edited?" · edited":"")+'</div><div class="cm-body">'+md(m.body)+"</div>"+
+  (m.att.length?'<ul class="atts">'+m.att.map(a=>"<li>📎 "+esc(a.name)+' <span class="hint" style="margin:0">'+kb(a.size)+"</span></li>").join("")+"</ul>":"")+
+  '<div class="actions"><button data-edit="'+esc(m.id)+'">Edit</button><button class="warn" data-del="'+esc(m.id)+'">Delete</button></div></div>'}
+const cmZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-cmv],[data-cmnew],[data-cmi],[data-cmclose],[data-ib],[data-edit]");if(!b)return;const d=b.dataset;
+ if(d.cmv){cmSeg(d.cmv);return}
+ if(d.cmnew){cmNew(d.cmnew);return}
+ if(d.cmi){CM.item=d.cmi;CM.pane="item";if(IB.sel){IB.sel="";ibUi()}cmUi();listUi();if(innerWidth<900)$("#cmItem").scrollIntoView({behavior:"smooth",block:"start"});return}
+ if(d.cmclose!=null){if(CM.pane==="compose"&&cmDirty()){if(!confirm("Discard this message?"))return;reset();say("")}cmPane("empty");return}
+ if(d.ib){CM.pane="thread";CM.item="";cmUi();listUi();if(innerWidth<900)setTimeout(()=>$("#ibView").scrollIntoView({behavior:"smooth",block:"start"}),30);return}
+ if(d.edit){CM.pane="compose";CM.item="";cmUi();return}});
+/* a template fills in the title and the message (Settings › Composer) */
+$("#acTpl").addEventListener("change",e=>{const t=SETV.tpl[+e.target.value];e.target.value="";if(!t)return;
+ if($("#acBody").value.trim()&&$("#acBody").value.trim()!==tplFill(t.body,{}).trim()&&!confirm("Replace what you wrote with the "+t.title+" template?"))return;
+ const to=toGet(),cs=to&&to.crew?to.cs:to&&to.cs||"",f=cs&&window.pmLive?window.pmLive.flights().find(x=>x.cs===cs):null;
+ $("#acTitle").value=t.title;$("#acBody").value=tplFill(t.body,{cs,dep:f&&f.dep,arr:f&&f.arr});acPreview();tplCaret($("#acBody"))});
+PG_LOAD.comms=()=>{ibLoad();load();cmUi()};
+/* ---------- Home: the time, the operation at a glance, and what needs someone now. Each item opens the page
+   where it is dealt with. ---------- */
+const hmDay0=()=>{const d=new Date();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())};
+const hmGround=f=>f.gs<45&&f.alt<15000;
+const hmNm=(a,b,c,d)=>{const R=Math.PI/180,x=Math.sin((c-a)*R/2)**2+Math.cos(a*R)*Math.cos(c*R)*Math.sin((d-b)*R/2)**2;return 6880.13*Math.asin(Math.min(1,Math.sqrt(x)))};
+/* minutes until a flight lands (as the Worker reckons it for the arrival gate), or null on the ground */
+function hmTtg(f,apts){if(hmGround(f))return null;
+ if(f.remain!=null&&isFinite(f.remain)&&f.remain>=0&&f.gs>100)return f.remain/f.gs*60+4;
+ const e=Date.parse(f.eta||"");if(isFinite(e))return (e-Date.now())/6e4;
+ const a=apts&&apts[f.arr];return a&&f.gs>100?hmNm(f.lat,f.lon,a[0],a[1])/f.gs*60+8:null}
+function hmClock(){const c=$("#hmClock");if(!c||pgNow!=="home")return;const d=new Date();c.textContent=d.toISOString().slice(11,19)+"Z";
+ $("#hmDate").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})+" · UTC"}
+setInterval(hmClock,1000);
+async function hmLoad(){await Promise.allSettled([opsGet("live",15000),opsGet("ooo",30000),opsGet("stands",30000),ibLoad(),CA.loaded?null:caLoad()]);hmUi()}
+function hmUi(){if(pgNow!=="home")return;const lv=opsV("live"),oo=opsV("ooo"),st=opsV("stands"),F=(lv&&lv.flights)||[],now=Date.now(),d0=hmDay0();
+ const air=F.filter(f=>!hmGround(f)).length,logs=(oo&&oo.log)||[],live=((oo&&oo.live)||[]).filter(r=>!r.tomb);
+ const deps=[...logs,...live].filter(r=>r.std&&r.out&&r.out>=d0),arrs=logs.filter(r=>r.sta&&r.in&&r.in>=d0);
+ const d15=deps.filter(r=>otLate(r.out,r.std)<=15).length,a15=arrs.filter(r=>otLate(r.in,r.sta)<=15).length;
+ const al=fwShown(),red=al.some(a=>a.sev==="red");
+ const card=(href,k,v,sub,cls)=>'<a class="hm-c'+(cls?" "+cls:"")+'" href="'+href+'"><span>'+k+"</span><b>"+v+"</b><small>"+sub+"</small></a>";
+ const pc=(a,b)=>b?Math.round(a*100/b)+"%":"–",fr=(a,b)=>b?(a/b>=.8?"good":a/b>=.6?"mid":"bad"):"";
+ $("#hmK").innerHTML=card("#fw","In the air",lv?String(air):"–",!lv?"loading…":F.length?(F.length-air)+" on the ground":"no Polaris flight now")+
+  card("#reports","On-time departures",pc(d15,deps.length),deps.length?d15+" of "+deps.length+" today (D15)":"none today yet",fr(d15,deps.length))+
+  card("#reports","On-time arrivals",pc(a15,arrs.length),arrs.length?a15+" of "+arrs.length+" today (A15)":"none today yet",fr(a15,arrs.length))+
+  card("#fw","Flight Watch",FW.loaded?(al.length?String(al.length):"Normal"):"–",FW.loaded?(al.length?"alert"+(al.length>1?"s":"")+" to look at":"no alerts"):"loading…",al.length?(red?"red":"mid"):FW.loaded?"good":"");
+ /* what needs someone, the most urgent first */
+ const A=[];
+ al.slice().sort((a,b)=>(a.sev==="red"?0:1)-(b.sev==="red"?0:1)).forEach(a=>A.push({sev:a.sev,t:"<b>"+esc(a.cs)+"</b> "+esc(a.title),s:esc(a.detail),go:"fw:"+a.cs,l:"Flight Watch"}));
+ live.filter(r=>r.std&&!r.out&&now-r.std>15*6e4).forEach(r=>A.push({sev:"amber",t:"<b>"+esc(r.cs)+"</b> still at the gate",s:Math.round((now-r.std)/6e4)+" min after STD "+otZ(r.std)+" · "+esc((r.dep||"?")+" → "+r.arr)+(r.reason?"":" · no delay reason yet"),go:"fw:"+r.cs,l:"Flight Watch"}));
+ const plan=st&&st.plan,slog=(st&&st.log)||[],lead=(plan&&plan.lead)||30;
+ if(st)F.forEach(f=>{const m=hmTtg(f,lv&&lv.apts);if(m==null||m<-5||m>Math.max(45,lead+15)||!f.arr)return;if(slog.some(x=>x.kind!=="dep"&&x.cs===f.cs&&x.arr===f.arr))return;
+  const has=plan&&plan.apts&&(plan.apts[f.arr]||[]).length;
+  A.push({sev:m<=lead?"amber":"info",t:"<b>"+esc(f.cs)+"</b> lands at "+esc(f.arr)+" in about "+Math.max(1,Math.round(m))+" min with no gate",s:!plan||!plan.on?"Automatic arrival gates are off":!has?"No gate plan for "+esc(f.arr):m>lead?"The automatic gate goes "+lead+" min before landing":"No gate was sent",go:"fw:"+f.cs,l:"Assign"})});
+ (IB.threads||[]).filter(t=>!t.done&&t.waiting).forEach(t=>{const last=t.msgs[t.msgs.length-1];A.push({sev:"info",t:"<b>"+esc(t.pilot)+"</b> → "+esc(t.dept)+": "+esc(t.subj),s:"Waiting for a reply · "+esc(ago(last.t)),go:"ib:"+t.th,l:"Reply"})});
+ const need=logs.filter(r=>(r.in||r.done)>=now-7*864e5&&(otLate(r.out,r.std)>15||otLate(r.in,r.sta)>15)&&!r.reason);
+ if(need.length)A.push({sev:"info",t:need.length+" late flight"+(need.length>1?"s have":" has")+" no delay reason",s:"The last 7 days: "+esc(need.slice(0,5).map(r=>r.cs).join(", "))+(need.length>5?" …":""),go:"need",l:"Reports"});
+ const errs=["live","ooo","stands"].map(k=>OPS[k]&&OPS[k].err).filter(Boolean);
+ $("#hmAct").innerHTML=(errs.length?'<div class="msg err" style="margin:0 0 8px">'+esc(errs.join(" · "))+"</div>":"")+(A.length?A.map(a=>'<button type="button" class="hm-i '+a.sev+'" data-hmgo="'+esc(a.go)+'"><i></i><span class="t">'+a.t+"<small>"+a.s+"</small></span><em>"+a.l+" ›</em></button>").join("")
+  :lv&&oo&&st?'<div class="hm-ok"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>Nothing needs attention right now.</div>':'<span class="empty">Loading…</span>');
+ $("#hmAt").textContent=lv?"Updated "+new Date().toISOString().slice(11,16)+"Z":"";
+ /* the flights on the map, the next to land first */
+ const FL=F.map(f=>({f,m:hmTtg(f,lv&&lv.apts)})).sort((a,b)=>(a.m==null?1e9:a.m)-(b.m==null?1e9:b.m));
+ $("#hmFl").innerHTML=!lv?'<span class="empty">Loading…</span>':FL.length?FL.slice(0,12).map(({f,m})=>{const g=hmGround(f);
+   return '<button type="button" class="hm-f" data-hmgo="fw:'+esc(f.cs)+'"><span class="cs">'+esc(f.cs)+'</span><span class="rt">'+esc((f.dep||"····")+" → "+(f.arr||"····"))+"<small>"+esc(f.ac||"")+'</small></span><span class="st"><b>'+(g?(f.gs<3?"Parked":"Taxiing"):f.alt>=18000?"FL"+String(Math.round(f.alt/100)).padStart(3,"0"):Math.round(f.alt).toLocaleString("en-US")+" ft")+"</b>"+(m!=null&&m>0?"ETA "+new Date(now+m*6e4).toISOString().slice(11,16)+"Z":esc(f.vphase||(g?"on the ground":"")))+"</span></button>"}).join("")+(FL.length>12?'<a class="lk" href="#fw">'+(FL.length-12)+" more in Flight Watch ›</a>":"")
+  :'<p class="empty" style="margin:6px 0">No Polaris flight on the map right now.</p>';
+ /* the calendar's next two days */
+ const up=CA.loaded?caOcc(now-36e5,now+2*864e5).slice(0,6):null;
+ $("#hmUp").innerHTML=!up?'<span class="empty">Loading…</span>':up.length?up.map(o=>'<a class="hm-u" href="#cal" data-hmcal="'+esc(o.id)+'" data-hms="'+o.s+'"><time>'+esc(new Date(o.s).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",timeZone:"UTC"}))+"<br>"+(o.v&&o.v.allDay?"all day":caZ(o.s))+"</time><b>"+esc(o.x?o.x.name||"Event":o.v.title)+"</b><small>"+esc(o.x?"vAMSYS event":caType(o.v.type)[1]+(o.v.loc?" · "+o.v.loc:""))+"</small></a>").join("")
+  :'<p class="empty" style="margin:6px 0">Nothing in the next two days.</p>'}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-hmgo],[data-hmcal]");if(!b)return;
+ if(b.dataset.hmcal){CA.sel=b.dataset.hmcal;CA.day=null;CA.form=null;CA.m=caMonth0(+b.dataset.hms);return}
+ const g=b.dataset.hmgo;
+ if(g.startsWith("fw:")){location.hash="#fw";if(window.pmLive)window.pmLive.show(g.slice(3));return}
+ if(g.startsWith("ib:")){ibOpen(g.slice(3));location.hash="#comms";return}
+ if(g==="need"){OT.need=true;OT.p=7;document.querySelectorAll("[data-otp]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.otp==="7")));const n=$("#otNeed");if(n)n.setAttribute("aria-pressed","true");location.hash="#reports"}});
+PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
+
 /* on a phone the section tabs scroll: keep the open one in view */
-const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".tabs a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);
+const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);
 window.addEventListener("hashchange",tabSee);window.addEventListener("load",tabSee);
-if(!document.querySelector(".deny")){api("/admin/api/me").then(j=>{$("#who").textContent="Signed in as "+j.email}).catch(()=>{});load();preview()}else $("#app").hidden=true;
+/* ---------- Documents: who has confirmed reading (for a document that asks for it) ---------- */
+function dcAckHtml(d){if(!d.ack)return "";const A=(DC.list&&DC.list.acks||{})[d.id]||{},P=(PL.list&&PL.list.pilots)||[],all=P.map(p=>p.u);
+ const cur=Object.keys(A).filter(u=>A[u].v===d.v),miss=all.filter(u=>!cur.includes(u)),open=DC.who===d.id;
+ return '<div class="dc-ack"><span class="dc-ab">Read and confirmed: <b>'+cur.length+"</b>"+(all.length?" of "+all.length:"")+" pilots (v"+d.v+")</span>"+(all.length&&miss.length?'<button type="button" class="lkb" data-dcwho="'+esc(d.id)+'">'+(open?"Hide":"Who has not ("+miss.length+")")+"</button>":all.length?'<span class="dc-all">Everyone</span>':"")+
+  (open?'<div class="dc-who">'+miss.map(u=>{const p=P.find(x=>x.u===u),o=A[u];return '<span class="dc-p'+(o?" old":"")+'"><b>'+esc(u)+"</b>"+(p&&p.name?"<small>"+esc(p.name)+"</small>":"")+(o?"<small>read v"+o.v+"</small>":"")+"</span>"}).join("")+"</div>":"")+"</div>"}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-dcwho]");if(!b)return;DC.who=DC.who===b.dataset.dcwho?"":b.dataset.dcwho;dcUi()});
+/* ---------- Pilots: a pilot's profile beside the list ---------- */
+async function plOpen(u){PL.sel=u;plUi();plProfUi();
+ await Promise.allSettled([opsGet("ooo",60000),opsGet("live",30000),PL.ci?null:api("/admin/api/checkins").then(j=>{PL.ci=j.list||[]}).catch(()=>{PL.ci=[]}),DC.list?null:dcLoad(),IB.threads?null:ibLoad()]);
+ if(PL.sel===u)plProfUi()}
+function plProfUi(){const el=$("#plProf"),u=PL.sel,m=$("#pilots");if(!el)return;const p=u&&((PL.list&&PL.list.pilots)||[]).find(x=>x.u===u);
+ m.classList.toggle("pf",!!p);el.hidden=!p;if(!p){el.innerHTML="";return}
+ const lv=opsV("live"),fl=((lv&&lv.flights)||[]).find(f=>f.pilot===u||(p.cid&&String(f.cid)===String(p.cid))),ci=(PL.ci||[]).find(c=>c.u===u),oo=opsV("ooo");
+ const F=((oo&&oo.log)||[]).filter(r=>r.pilot===u).sort((a,b)=>(b.in||b.done)-(a.in||a.done));
+ const mine=t=>!!t&&(t.pilot===u||(t.m||[]).some(x=>x.pilot===u)||(!!p.cid&&(t.cid===p.cid||(t.m||[]).some(x=>x.cid===p.cid))));
+ const msgs=[...S.mails.filter(x=>mine(x.to)).map(x=>({t:x.sendAt,k:"Notice",s:x.subject})),...S.aoc.filter(x=>mine(x.to)).map(x=>({t:x.t,k:"AOC",s:x.title})),...(IB.threads||[]).filter(t=>t.pilot===u).map(t=>({t:t.msgs[t.msgs.length-1].t,k:"Inbox",s:t.subj+" → "+t.dept}))].sort((a,b)=>b.t-a.t).slice(0,8);
+ const D=((DC.list&&DC.list.docs)||[]).filter(d=>d.ack),A=(DC.list&&DC.list.acks)||{};
+ el.innerHTML='<div class="pf-h"><div><h3>'+esc(p.u)+'</h3><div class="meta">'+esc([p.name,p.rank,p.cid?"CID "+p.cid:""].filter(Boolean).join(" · "))+'</div></div><button type="button" class="cm-x" data-plx aria-label="Close">✕</button></div>'+
+  '<div class="pf-st">'+(p.devices?'<span class="pl-s on">Signed in · '+p.devices+" device"+(p.devices>1?"s":"")+"</span>":p.last?'<span class="pl-s was">Signed out</span>':'<span class="pl-s no">Never signed in</span>')+(p.last?'<span class="hint" style="margin:0">Last sign-in '+esc(ago(p.last))+"</span>":"")+"</div>"+
+  '<div class="actions" style="margin-top:12px"><button type="button" class="primary" data-plmail="'+esc(p.u)+'" data-cid="'+esc(p.cid||"")+'" data-name="'+esc(p.name||"")+'">Message</button>'+(p.devices?'<button type="button" class="warn" data-plout="'+esc(p.u)+'">Sign out</button>':"")+"</div>"+
+  '<div class="fo-s"><h4>Now</h4>'+(fl?'<button type="button" class="hm-f" data-hmgo="fw:'+esc(fl.cs)+'"><span class="cs">'+esc(fl.cs)+'</span><span class="rt">'+esc((fl.dep||"····")+" → "+(fl.arr||"····"))+'</span><span class="st"><b>'+(hmGround(fl)?"On the ground":"In the air")+"</b>Flight Watch ›</span></button>"
+   :ci?'<p class="pf-p">Checked in for <b>'+esc(ci.fl||"a flight")+"</b> "+esc((ci.from?ci.from+" → ":"")+(ci.to||""))+(ci.std?" · STD "+otZ(ci.std):"")+"</p>":'<p class="hint" style="margin:0">'+(oo&&PL.ci?"Not flying and not checked in.":"Loading…")+"</p>")+"</div>"+
+  '<div class="fo-s"><h4>Recent flights <small>'+(F.length?F.length+" in 90 days":"")+"</small></h4>"+(F.length?'<table class="pf-t"><tbody>'+F.slice(0,8).map(r=>{const al=otLate(r.in,r.sta),dl=otLate(r.out,r.std);return "<tr><td>"+esc(otDay(r.in||r.done))+"</td><td><b>"+esc(r.cs)+"</b></td><td>"+esc((r.dep||"?")+" → "+r.arr)+'</td><td class="m">'+otDur(r.out,r.in)+"</td><td>"+otDelta(al!=null?al:dl)+"</td></tr>"}).join("")+"</tbody></table>":'<p class="hint" style="margin:0">'+(oo?"No finished flight in the last 90 days.":"Loading…")+"</p>")+"</div>"+
+  '<div class="fo-s"><h4>Messages</h4>'+(msgs.length?msgs.map(x=>'<div class="pf-m"><span class="cm-k">'+x.k+"</span><span>"+esc(x.s)+"</span><time>"+cmWhen(x.t)+"</time></div>").join(""):'<p class="hint" style="margin:0">Nothing to or from '+esc(p.u)+" yet, apart from notices to all pilots.</p>")+"</div>"+
+  (D.length?'<div class="fo-s"><h4>Documents to confirm</h4>'+D.map(d=>{const r=(A[d.id]||{})[u],ok=r&&r.v===d.v;return '<div class="pf-m"><span class="pf-d '+(ok?"ok":"no")+'">'+(ok?"✓":"–")+"</span><span>"+esc(d.title)+"</span><time>"+(ok?cmWhen(r.t):r?"read v"+r.v:"not read")+"</time></div>"}).join("")+"</div>":"")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-plp],[data-plx]");if(!b)return;
+ if(b.dataset.plp){plOpen(b.dataset.plp);return}PL.sel="";plUi();plProfUi()});
+if(!document.querySelector(".deny")){api("/admin/api/me").then(j=>{$("#who").textContent="Signed in as "+j.email}).catch(()=>{});load();preview();opsGet("set",6e5).then(j=>setApply(j.settings)).catch(()=>{})}
+window.addEventListener("hashchange",route);route();
 </script>
 <script src="/admin/live.js" defer></script></body></html>`;

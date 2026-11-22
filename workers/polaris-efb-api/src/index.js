@@ -21,19 +21,22 @@
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
- *                                          staff put them on /admin, Documents tab (see docs.js)
+ *                                          staff put them on /admin, Documents (see docs.js)
+ *   POST /api/efb/docs/ack {id, v}      -> the signed-in pilot has read a document that asks for a confirmation (see docs.js)
  *   GET /api/efb/cal?cs=                -> the signed-in pilot's company calendar: Polaris entries for them and the vAMSYS events (see cal.js)
  *   GET /api/efb/aoc                    -> AOC messages from Polaris operations for the EFB's Messages (read only; staff send them
- *                                          on /admin, Messages tab, see aoc.js)
+ *                                          on /admin, Messages or Flight Watch, see aoc.js)
  *   POST /api/efb/hoppie {logon, cs}    -> the messages waiting for a callsign on Hoppie's ACARS, read with type=peek (never sends)
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
- *   /admin/api/stands(/try|/change)      -> the admin's Stands tab: the stand plan for the automatic stand assignment (see stands.js)
- *   /admin/api/ooo, /admin/api/ooo/reason -> the admin's On-time tab: OOOI times and on-time performance (see ooo.js)
- *   GET /admin/api/watch                -> Flight Watch on the Live tab: alerts for the Polaris flights in the air (see watch.js)
- *   GET /admin/api/live, /admin/live.js -> the admin's Live tab: Polaris (PAW) flights on VATSIM and the globe (see live.js)
+ *   /admin (Nov 2026): Home, Flight Watch, Gates, Reports, Pilots, Calendar, Messages, Documents, Settings in a sidebar
+ *   /admin/api/stands(/try|/change|/assign) -> Gates and Settings: the gate plan and the automatic AOC switches (see stands.js)
+ *   /admin/api/ooo, /admin/api/ooo/reason -> Reports and Flight Watch: OOOI times, delay reasons, on-time performance (see ooo.js)
+ *   GET /admin/api/watch                -> Flight Watch: alerts for the Polaris flights in the air (see watch.js)
+ *   GET /admin/api/live, /admin/live.js -> Flight Watch: Polaris (PAW) flights on VATSIM and the globe (see live.js)
+ *   GET/POST /admin/api/settings        -> Settings: From names and AOC templates (see mail.js); GET /admin/api/checkins -> Pilots
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
  *   GET/POST /api/efb/chartnotes?k=     -> the signed-in pilot's pen marks on a chart (ICAO|chart name|page)
@@ -49,7 +52,7 @@ import { siteRoute, siteLive, siteEvents } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
-import { docsPublic, docFile, docCover } from './docs.js';
+import { docsPublic, docFile, docCover, docAckPublic } from './docs.js';
 import { aocPublic, hoppiePeek } from './aoc.js';
 import { standWatch, autoPlan, departureGate } from './stands.js';
 import { flightWatch } from './watch.js';
@@ -1570,6 +1573,8 @@ export default {
         /* the departure gate, sent after the answer (see stands.js) */
         checkedIn: (who, bk) => ctx.waitUntil(departureGate(env, { cs: bk.callsign || bk.flight, dep: bk.from, arr: bk.to, ac: bk.type, std: Date.parse(bk.departureTime || '') || 0, pilot: who.u, cid: who.c || '', name: who.n || '' }, standDeps(env, ctx)).catch((e) => console.warn('[depgate]', e && e.message))) });
     }
+    /* a pilot confirms reading a Polaris document that asks for it (see docs.js) */
+    if (/^\/api\/efb\/docs\/ack\/?$/.test(new URL(req.url).pathname) && req.method === 'POST') return await docAckPublic(req, env, h, await sessionOf(req, env, true));
     /* staff admin: behind Cloudflare Access, checked again in mailAdmin */
     { const pth = new URL(req.url).pathname; if (pth === '/admin' || pth === '/admin/' || pth.startsWith('/admin/')) return await mailAdmin(req, new URL(req.url), env, { live: pawLive, pilots: async () => {
       /* the vAMSYS roster with who has signed in to the EFB */

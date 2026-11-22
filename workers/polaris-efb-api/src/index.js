@@ -76,7 +76,7 @@ import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic } from './cnaip.js';
-import { jpChartsList, jpChartPdf } from './jpcharts.js';
+import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
 const API = 'https://vamsys.io/api/v3/operations';
 const TOKEN_URL = 'https://vamsys.io/oauth/token';
 const TTL = { pilot: 60_000, pireps: 60_000, bookings: 30_000, stats: 300_000, lookup: 3_600_000 };
@@ -1615,8 +1615,11 @@ export default {
         case '/api/efb/charts': { const ic = String(url.searchParams.get('icao') || '').trim().toUpperCase();
           /* Japan: AIP Japan's charts uploaded on Nav Data, for signed-in pilots (see jpcharts.js) */
           if (/^R[JO][A-Z]{2}$/.test(ic)) { const j = await jpChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
+          /* China: AIP China's charts (the eAIP's Full Package, uploaded on Nav Data), the same way */
+          if (/^Z[A-Z]{3}$/.test(ic)) { const j = await cnChartsList(ic, env, await sessionOf(req, env)); if (j) return json({ ...j, updatedAt: new Date().toISOString() }, 200, h); }
           return json({ ...(await chartsRoute(url.searchParams.get('icao'), env, ctx)), updatedAt: new Date().toISOString() }, 200, h); }
-        case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env)); return await chartPdfRoute(url, h);
+        case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env));
+          if (/^CN\d{8}$/.test(url.searchParams.get('cycle') || '')) return await cnChartPdf(url, env, h, await sessionOf(req, env)); return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
           /* warm=1: the EFB only asks the server to have it ready; answered at once, without the diagram */
           if (url.searchParams.get('warm') === '1') { p.catch(() => {}); return json({ ok: true, warm: true }, 202, h); }

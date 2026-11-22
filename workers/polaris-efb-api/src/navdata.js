@@ -11,7 +11,7 @@
    deps (from index.js): { airac(t), twEdition(), major() -> { airports: [{ icao, layoutAt }] }, majorCount } */
 
 import { cnAdmin } from './cnaip.js';
-import { jpChartsAdmin, jpChartsStatus, jpPick } from './jpcharts.js';
+import { AIPCH } from './jpcharts.js';
 
 const CHK = 'nav:v1:chk', H6 = 6 * 3600_000, DAY = 86400_000;
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
@@ -26,6 +26,7 @@ const SRC = [
   { id: 'us-charts', region: 'United States', name: 'Charts', by: 'FAA d-TPP', link: 'https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/', what: 'Airport diagrams, SIDs, STARs and approach charts (Charts app)', how: 'Automatic: the cycle in force, every AIRAC' },
   { id: 'us-enroute', region: 'United States', name: 'En-route data', by: 'FAA AIS open data', link: 'https://adds-faa.opendata.arcgis.com/', what: 'Airways, fixes, navaids, airspace and US runways (Map, IFR layers)', how: 'Automatic: asked live, the FAA keeps it current' },
   { id: 'tw-charts', region: 'Taiwan', name: 'AIP charts', by: 'CAA eAIP', link: 'https://ais.caa.gov.tw/eaip/', what: 'Charts for the RCxx airports (Charts app)', how: 'Automatic: each AIP amendment on its effective date' },
+  { id: 'cn-charts', region: 'China', name: 'AIP charts', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/', what: 'AD 2.24 charts for the Zxxx airports (Charts app)', how: 'Uploaded here each AIRAC from the eAIP Full Package; only aerodromes not uploaded yet are sent' },
   { id: 'cn-aip', region: 'China', name: 'AIP data set', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/dataset', what: 'Airspace, airways, fixes, navaids and runways (AIXM 5.1.1)', how: 'Uploaded here each AIRAC (the eAIP needs a sign-in)' },
   { id: 'jp-aip', region: 'Japan', name: 'AIP map data', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'Airspace, airways, fixes and navaids (KML)', how: 'Uploaded here each AIRAC (SWIM needs a sign-in)' },
   { id: 'jp-charts', region: 'Japan', name: 'AIP charts', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'AD 2 charts for the RJxx and ROxx airports (Charts app)', how: 'Uploaded here each AIRAC; only new aerodrome folders are sent' },
@@ -122,10 +123,28 @@ function aipCard(o, idx, cur, next, now, fail, apt) {
   o.line = 'AIRAC ' + act.cycle + ' in use';
   if (!nx && Date.parse(cur.to) - now < 14 * DAY) { o.state = 'warn'; o.line = 'AIRAC ' + next.cycle + ' starts ' + inDays(Date.parse(next.from), now) + ': upload it'; }
 }
+/* a card for one AIP's charts kept in R2 (jpcharts.js): Japan's, China's */
+function chartsCard(o, st, S, now, fail) {
+        if (!st) { fail('The chart storage (R2) is not connected'); return; }
+        const A = (st && st.apts) || {}, ids = Object.keys(A).sort();
+        o.at = (st && st.at) || 0;
+        o.jc = { apts: ids.map((a) => ({ a, v: A[a].map((v) => ({ eff: v.eff, n: v.n, size: v.size, at: v.at })) })) };
+        if (!ids.length) { o.state = 'off'; o.line = 'Waiting for the first upload'; return; }
+        /* "in use" counts the versions in force; an aerodrome with only a later one shows that one to pilots meanwhile */
+        let n = 0, size = 0, inUse = 0; const later = [], early = [];
+        ids.forEach((a) => { const p = S.pick(A[a], now); if (p.act && !p.pending) { inUse++; n += p.act.n; size += p.act.size; } else if (p.act) early.push(a);
+          A[a].forEach((v) => { if (S.effT(v.eff) > now) later.push(a + ' ' + v.eff.slice(6, 8) + '/' + v.eff.slice(4, 6)); }); });
+        const nAd = (k) => k + (k === 1 ? ' aerodrome' : ' aerodromes'), list = (L) => L.slice(0, 8).join(', ') + (L.length > 8 ? ' and ' + (L.length - 8) + ' more' : '');
+        o.line = nAd(ids.length) + (early.length ? ' · ' + inUse + ' in force' : ' · ' + n + ' charts');
+        o.rows.push(['In use', inUse ? nAd(inUse) + ' · ' + n + ' charts · ' + (size >= 1048576 ? Math.round(size / 1048576) + ' MB' : Math.max(1, Math.round(size / 1024)) + ' KB') : 'none in force yet']);
+        o.rows.push(['Waiting', later.length ? list(later) : 'none']);
+        if (early.length) o.rows.push(['Not in force yet', list(early) + ': pilots see the waiting charts until then. Upload the AIP date in force to fill the gap.']);
+        o.rows.push(['Uploaded', day(o.at) + ' · ' + ago(o.at, now)]);
+}
 async function navStatus(env, d) {
   const kv = env.STORE, now = Date.now(), cur = d.airac(now), next = d.airac(Date.parse(cur.to) + 60_000), chk = await readChk(kv);
   const [fir, aptsT, cn] = await Promise.all([kv.get('fir:v2b', 'json').catch(() => null), kv.get('apts:v1:t').catch(() => null), kv.get('cnaip:v1:idx', 'json').catch(() => null)]);
-  const [jp, jpc] = await Promise.all([kv.get('jpaip:v1:idx', 'json').catch(() => null), env.CHARTS ? jpChartsStatus(env).catch(() => null) : null]);
+  const [jp, jpc, cnc] = await Promise.all([kv.get('jpaip:v1:idx', 'json').catch(() => null), env.CHARTS ? AIPCH.jp.status(env).catch(() => null) : null, env.CHARTS ? AIPCH.cn.status(env).catch(() => null) : null]);
   const soon = Date.parse(cur.to) - now < 7 * DAY;
   const out = SRC.map((s) => {
     const r = chk.r[s.id] || null, o = { ...s, state: 'ok', line: '', rows: [], at: r ? r.at : 0 };
@@ -155,23 +174,8 @@ async function navStatus(env, d) {
         break;
       case 'cn-aip': aipCard(o, cn, cur, next, now, fail, true); break;
       case 'jp-aip': aipCard(o, jp, cur, next, now, fail, false); break;
-      case 'jp-charts': {
-        if (!env.CHARTS) { fail('The chart storage (R2) is not connected'); break; }
-        const A = (jpc && jpc.apts) || {}, ids = Object.keys(A).sort();
-        o.at = (jpc && jpc.at) || 0;
-        o.jc = { apts: ids.map((a) => ({ a, v: A[a].map((v) => ({ eff: v.eff, n: v.n, size: v.size, at: v.at })) })) };
-        if (!ids.length) { o.state = 'off'; o.line = 'Waiting for the first upload'; break; }
-        /* "in use" counts the versions in force; an aerodrome with only a later one shows that one to pilots meanwhile */
-        let n = 0, size = 0, inUse = 0; const later = [], early = [];
-        ids.forEach((a) => { const p = jpPick(A[a], now); if (p.act && !p.pending) { inUse++; n += p.act.n; size += p.act.size; } else if (p.act) early.push(a);
-          A[a].forEach((v) => { if (Date.UTC(+v.eff.slice(0, 4), +v.eff.slice(4, 6) - 1, +v.eff.slice(6, 8)) > now) later.push(a + ' ' + v.eff.slice(6, 8) + '/' + v.eff.slice(4, 6)); }); });
-        const nAd = (k) => k + (k === 1 ? ' aerodrome' : ' aerodromes'), list = (L) => L.slice(0, 8).join(', ') + (L.length > 8 ? ' and ' + (L.length - 8) + ' more' : '');
-        o.line = nAd(ids.length) + (early.length ? ' · ' + inUse + ' in force' : ' · ' + n + ' charts');
-        o.rows.push(['In use', inUse ? nAd(inUse) + ' · ' + n + ' charts · ' + (size >= 1048576 ? Math.round(size / 1048576) + ' MB' : Math.max(1, Math.round(size / 1024)) + ' KB') : 'none in force yet']);
-        o.rows.push(['Waiting', later.length ? list(later) : 'none']);
-        if (early.length) o.rows.push(['Not in force yet', list(early) + ': pilots see the waiting charts until then. Upload the AIP date in force to fill the gap.']);
-        o.rows.push(['Uploaded', day(o.at) + ' · ' + ago(o.at, now)]);
-        break; }
+      case 'jp-charts': chartsCard(o, jpc, AIPCH.jp, now, fail); break;
+      case 'cn-charts': chartsCard(o, cnc, AIPCH.cn, now, fail); break;
       case 'openaip':
         if (!r) { o.state = 'off'; o.line = 'Not checked yet'; break; }
         if (r.err) { fail(r.err); break; }
@@ -217,7 +221,8 @@ async function navStatus(env, d) {
 export async function navdataAdmin(req, path, env, d, who) {
   if (!env || !env.STORE) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
-    if (path === '/admin/api/navdata/jpcharts' || path.startsWith('/admin/api/navdata/jpcharts/')) return await jpChartsAdmin(req, path, env, who);
+    if (path === '/admin/api/navdata/jpcharts' || path.startsWith('/admin/api/navdata/jpcharts/')) return await AIPCH.jp.admin(req, path, env, who);
+    if (path === '/admin/api/navdata/cncharts' || path.startsWith('/admin/api/navdata/cncharts/')) return await AIPCH.cn.admin(req, path, env, who);
     if (/^\/admin\/api\/navdata\/(cn|jp)(\/delete)?$/.test(path)) return await cnAdmin(req, path, env, who);
     if (path === '/admin/api/navdata' && req.method === 'GET') return jsonRes(await navStatus(env, d));
     if (path === '/admin/api/navdata/check' && req.method === 'POST') {

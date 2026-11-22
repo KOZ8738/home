@@ -1747,7 +1747,7 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
-   +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
+   +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s,"jpc"):s.id==="cn-charts"?ndJcHtml(s,"cnc"):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
    +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":"")+"</div></article>").join("")+"</div></section>").join("")}
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
 async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#ndAll");if(b){b.disabled=true;b.textContent="Checking…"}
@@ -1760,14 +1760,15 @@ PG_LOAD.navdata=()=>{ndUi();ndLoad(true)};PG_TICK.navdata=[()=>ndLoad(false),600
 /* ---------- Official AIP uploads: China's data set and Japan's map data (zips), Japan's charts (a folder). Each is opened
    and read in this browser (cnparse.js, jpparse.js); only the reduced data, or the chart PDFs one by one, are sent. An
    AIRAC or a chart folder uploaded early switches by itself on its date. ---------- */
-ND.up={cn:{busy:false,msg:"",err:"",ok:""},jp:{busy:false,msg:"",err:"",ok:""},jpc:{busy:false,msg:"",err:"",ok:""}};
+ND.up={cn:{busy:false,msg:"",err:"",ok:""},jp:{busy:false,msg:"",err:"",ok:""},jpc:{busy:false,msg:"",err:"",ok:""},cnc:{busy:false,msg:"",err:"",ok:""}};
 const ndZ=t=>ndDay(t)+" "+new Date(t).toISOString().slice(11,16)+"Z";
 const ndMB=n=>n>=1048576?(n/1048576).toFixed(n>=104857600?0:1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 const ND_DROP={cn:["Drop the AIP data set zip here","or click to choose it · eaipchina.cn › AIP Data Set › the BASELINE package. The current and the next AIRAC can both be uploaded."],
  jp:["Drop the 3_AIP(Shapefile, KML) zip here","or click to choose it · SWIM portal › AIP File Download › 3_AIP(Shapefile, KML), downloaded as a zip. It holds the current and the next AIRAC; both are uploaded."],
+ cnc:["Drop the eAIP Full Package folder here","or click to choose it · eaipchina.cn › e-AIP › DOWNLOAD › Full Package, unzipped: the EAIP…_Web folder. Only aerodromes not uploaded yet for that AIRAC are sent."],
  jpc:["Drop the AD2_Separate folder here","or click to choose it · SWIM portal › AIP File Download › 1_AIP(PDF) › the AIP date › AD2_Separate. Only aerodrome folders not uploaded yet are sent."]};
 const ndDrop=(rg,s)=>{const c=ND.up[rg],d=ND_DROP[rg];
- return '<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop="'+rg+'"><input type="file" '+(rg==="jpc"?'webkitdirectory multiple':'accept=".zip,application/zip"')+' data-ndfile="'+rg+'"'+(c.busy?" disabled":"")+">"
+ return '<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop="'+rg+'"><input type="file" '+(rg==="jpc"||rg==="cnc"?'webkitdirectory multiple':'accept=".zip,application/zip"')+' data-ndfile="'+rg+'"'+(c.busy?" disabled":"")+">"
   +"<b>"+esc(c.busy?(c.msg||"Working…"):d[0])+"</b><small>"+(c.busy?"Keep this page open until it finishes":esc(d[1]))+"</small></label>"
   +(c.err?'<div class="msg err">'+esc(c.err)+"</div>":c.ok?'<div class="msg ok">'+esc(c.ok)+"</div>":"")};
 function ndAipHtml(s,rg){const c=ND.up[rg],L=((s.cn&&s.cn.cycles)||[]).slice().sort((a,b)=>Date.parse(b.eff)-Date.parse(a.eff));
@@ -1776,9 +1777,9 @@ function ndAipHtml(s,rg){const c=ND.up[rg],L=((s.cn&&s.cn.cycles)||[]).slice().s
     +'<small>'+esc([st.seg?(st.apt?st.apt+" airports · ":"")+(st.asp||0)+" airspaces · "+(st.seg||0)+" airway legs · "+(st.fix||0)+" fixes":"","uploaded "+ndDay(x.at)+" "+akZ(x.at)+(x.by?" by "+x.by:"")].filter(Boolean).join(" · "))+"</small>"
     +'<button type="button" class="nd-x" data-ndcndel="'+rg+":"+esc(x.cycle)+'"'+(c.busy?" disabled":"")+">Remove</button></li>"}).join("")+"</ul>":"";
  return list+ndDrop(rg,s)}
-function ndJcHtml(s){const A=(s.jc&&s.jc.apts)||[],now=Date.now(),t=e=>Date.UTC(+e.slice(0,4),+e.slice(4,6)-1,+e.slice(6,8)),f=e=>e.slice(6,8)+"/"+e.slice(4,6)+"/"+e.slice(0,4);
+function ndJcHtml(s,rg){const A=(s.jc&&s.jc.apts)||[],now=Date.now(),t=e=>Date.UTC(+e.slice(0,4),+e.slice(4,6)-1,+e.slice(6,8)),f=e=>e.slice(6,8)+"/"+e.slice(4,6)+"/"+e.slice(0,4);
  const list=A.length?'<div class="nd-jc">'+A.map(x=>'<span title="'+esc(x.v.map(v=>f(v.eff)+": "+v.n+" charts, "+ndMB(v.size)).join("\\n"))+'"><b>'+esc(x.a)+"</b>"+(x.v.some(v=>t(v.eff)>now)?'<i class="later">new '+esc(x.v.filter(v=>t(v.eff)>now).map(v=>v.eff.slice(6,8)+"/"+v.eff.slice(4,6)).join(", "))+"</i>":"")+"</span>").join("")+"</div>":"";
- return list+ndDrop("jpc",s)}
+ return list+ndDrop(rg||"jpc",s)}
 const ndMsg=rg=>{const b=document.querySelector('[data-nddrop="'+rg+'"] b');if(b)b.textContent=ND.up[rg].msg};
 async function ndRun(rg,fn){const c=ND.up[rg];if(c.busy)return;c.busy=true;c.err="";c.ok="";c.msg="Opening…";ndUi();
  try{c.ok=await fn(c)}catch(e){c.err=(e&&e.message)||String(e)}finally{c.busy=false;c.msg="";await ndLoad(true)}}
@@ -1826,23 +1827,56 @@ const ndJcFiles=items=>ndRun("jpc",async c=>{const G={};
   await ndPost("/admin/api/navdata/jpcharts/commit",{apt:x.a,eff:x.e,files})}
  const apts=new Set(todo.map(x=>x.a));
  return todo.length?"Uploaded "+total+" charts ("+ndMB(bytes)+") for "+apts.size+" aerodrome"+(apts.size>1?"s":"")+": "+[...apts].sort().slice(0,12).join(", ")+(apts.size>12?" …":"")+"."+(skip?" "+skip+" folder"+(skip>1?"s were":" was")+" already here.":""):"Nothing new: all "+skip+" aerodrome folders are already here."});
+/* China's charts: the eAIP Full Package folder (EAIP2026-11.V1.5_Web). Its AD index (Data/JsonPath/AD.JSON) names every
+   chart of AD 2.24 ("ZBAA-3P-8:SID RNAV RWY01/36L(ELKUR)") and its PDF (Data/EAIP2026-11.V1.5/Terminal/ZBAA/<hash>.pdf);
+   the package is one AIRAC ("2026-11" = AIRAC 2611), in force from 00:00 Beijing on its date. The database coding tables
+   are left out. An aerodrome already here for that AIRAC, with the same files, is skipped. */
+function ndAiracDate(y,n){const D=864e5*28,t0=Date.UTC(2026,0,22),k=Math.ceil((Date.UTC(y,0,1)-t0)/D),t=t0+(k+n-1)*D,d=new Date(t);return d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,"0")+String(d.getUTCDate()).padStart(2,"0")}
+const ndCcFiles=items=>ndRun("cnc",async c=>{let ad=null;const byT=new Map();
+ for(const it of items){const p=String(it.path||"").replace(/\\\\/g,"/");if(/(^|\\/)Data\\/JsonPath\\/AD\\.JSON$/i.test(p))ad=it.file;
+  const m=p.match(/Data\\/([^/]+)\\/Terminal\\/([A-Z0-9]{4})\\/([^/]+\\.pdf)$/i);if(m)byT.set((m[1]+"/"+m[2]+"/"+m[3]).toLowerCase(),it.file)}
+ if(!ad)throw new Error("No Data/JsonPath/AD.JSON in what was dropped. Drop the whole EAIP…_Web folder of the Full Package.");
+ c.msg="Reading the eAIP index…";ndMsg("cnc");let L;try{L=JSON.parse((await ad.text()).replace(/^﻿/,""))}catch(e){throw new Error("Data/JsonPath/AD.JSON couldn’t be read.")}
+ const C=(Array.isArray(L)?L:[]).filter(n=>n&&/^Z[A-Z]{3}-\\d[0-9A-Z]*(-[0-9A-Z]+)?:/.test(n.name||"")&&n.pdfPath&&!/DATABASE CODING TABLE/i.test(n.name));
+ if(!C.length)throw new Error("AD.JSON lists no aerodrome charts.");
+ const vm=String(C[0].pdfPath).match(/\\/Data\\/EAIP(\\d{4})-(\\d{2})\\.V[^/]*\\//i);if(!vm)throw new Error("The AIRAC of this package couldn’t be told from its files.");
+ const eff=ndAiracDate(+vm[1],+vm[2]),cyc=vm[1].slice(2)+vm[2];
+ const G={};let miss=0;for(const n of C){const m=String(n.pdfPath).match(/\\/Data\\/([^/]+)\\/Terminal\\/([A-Z0-9]{4})\\/([^/]+\\.pdf)$/i),f=m&&byT.get((m[1]+"/"+m[2]+"/"+m[3]).toLowerCase());
+  if(!f){miss++;continue}const a=n.name.slice(0,4).toUpperCase();(G[a]=G[a]||[]).push({name:n.name.trim(),file:f,chg:n.Is_Modified==="Y"})}
+ if(!Object.keys(G).length)throw new Error("None of the chart PDFs that AD.JSON names were in the folder. Drop the whole EAIP…_Web folder.");
+ c.msg="Checking what is here…";ndMsg("cnc");
+ const have=(await api("/admin/api/navdata/cncharts")).apts||{},todo=[];let skip=0;
+ Object.keys(G).sort().forEach(a=>{const F=G[a].slice(0,400),size=F.reduce((s,x)=>s+x.file.size,0),h=(have[a]||[]).find(v=>v.eff===eff);if(h&&h.n===F.length&&h.size===size)skip++;else todo.push({a,F,size})});
+ const total=todo.reduce((s,x)=>s+x.F.length,0),bytes=todo.reduce((s,x)=>s+x.size,0);let sent=0,sentB=0;
+ for(const x of todo){let next=0;const files=[];
+  const one=async()=>{for(;;){const i=next++;if(i>=x.F.length)return;const f=x.F[i];
+   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/cncharts/put?apt="+x.a+"&eff="+eff+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file});
+     if(!r.ok){let j=null;try{j=await r.json()}catch(e){}throw new Error((j&&j.error)||"HTTP "+r.status)}break}
+    catch(e){if(tr>=2)throw new Error(x.a+" "+f.name+": "+e.message)}}
+   files[i]={i,file:f.name,s:f.file.size,chg:f.chg?1:0};sent++;sentB+=f.file.size;c.msg="AIRAC "+cyc+" · uploading "+x.a+" · "+sent+" of "+total+" charts · "+ndMB(sentB)+" of "+ndMB(bytes);ndMsg("cnc")}};
+  await Promise.all([one(),one(),one(),one()]);
+  await ndPost("/admin/api/navdata/cncharts/commit",{apt:x.a,eff,files})}
+ const apts=new Set(todo.map(x=>x.a)),when=Date.UTC(+eff.slice(0,4),+eff.slice(4,6)-1,+eff.slice(6,8))-8*36e5;
+ return (todo.length?"AIRAC "+cyc+": uploaded "+total+" charts ("+ndMB(bytes)+") for "+apts.size+" aerodrome"+(apts.size>1?"s":"")+"."+(skip?" "+skip+" were already here.":""):"Nothing new: AIRAC "+cyc+" is already here for all "+skip+" aerodromes.")
+  +(miss?" "+miss+" charts AD.JSON names were not in the folder.":"")+(when>Date.now()?" Pilots get it from "+ndZ(when)+" (00:00 Beijing).":"")});
 /* a dropped folder: walk it (only Chrome and Edge give folders to a drop) */
 async function ndWalk(entry,path,out){if(entry.isFile){const f=await new Promise((res,rej)=>entry.file(res,rej));out.push({path:path+entry.name,file:f});return}
  if(!entry.isDirectory)return;const rd=entry.createReader();for(;;){const L=await new Promise((res,rej)=>rd.readEntries(res,rej));if(!L.length)break;for(const e of L)await ndWalk(e,path+entry.name+"/",out)}}
 document.addEventListener("change",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.ndfile)return;const rg=t.dataset.ndfile,F=Array.from(t.files||[]);t.value="";if(!F.length)return;
- if(rg==="cn")ndCnFile(F[0]);else if(rg==="jp")ndJpFile(F[0]);else ndJcFiles(F.map(f=>({path:f.webkitRelativePath||f.name,file:f})))});
+ if(rg==="cn")ndCnFile(F[0]);else if(rg==="jp")ndJpFile(F[0]);else(rg==="cnc"?ndCcFiles:ndJcFiles)(F.map(f=>({path:f.webkitRelativePath||f.name,file:f})))});
 const ndFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files"));
 ["dragenter","dragover"].forEach(k=>document.addEventListener(k,e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();const z=e.target.closest&&e.target.closest("[data-nddrop]"),ok=z&&!ND.up[z.dataset.nddrop].busy;
  document.querySelectorAll("[data-nddrop]").forEach(x=>x.classList.toggle("over",x===z&&ok));e.dataTransfer.dropEffect=ok?"copy":"none"}));
 document.addEventListener("dragleave",e=>{if(pgNow==="navdata"&&!e.relatedTarget)document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"))});
 document.addEventListener("drop",async e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();document.querySelectorAll("[data-nddrop].over").forEach(x=>x.classList.remove("over"));
  const z=e.target.closest&&e.target.closest("[data-nddrop]");if(!z||ND.up[z.dataset.nddrop].busy)return;const rg=z.dataset.nddrop,dt=e.dataTransfer;
- if(rg!=="jpc"){if(dt.files.length){if(rg==="cn")ndCnFile(dt.files[0]);else ndJpFile(dt.files[0])}return}
+ if(rg!=="jpc"&&rg!=="cnc"){if(dt.files.length){if(rg==="cn")ndCnFile(dt.files[0]);else ndJpFile(dt.files[0])}return}
+ const FN=rg==="cnc"?ndCcFiles:ndJcFiles;
  const ents=Array.from(dt.items||[]).map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
- if(!ents.length){ndJcFiles(Array.from(dt.files).map(f=>({path:f.name,file:f})));return}
- const c=ND.up.jpc;c.busy=true;c.err="";c.ok="";c.msg="Reading the folder…";ndUi();const out=[];
+ if(!ents.length){FN(Array.from(dt.files).map(f=>({path:f.name,file:f})));return}
+ const c=ND.up[rg];c.busy=true;c.err="";c.ok="";c.msg="Reading the folder…";ndUi();const out=[];
  try{for(const en of ents)await ndWalk(en,"",out)}catch(er){c.busy=false;c.err="The folder couldn’t be read: "+er.message;ndUi();return}
- c.busy=false;ndJcFiles(out)});
+ c.busy=false;FN(out)});
 document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("[data-ndcndel]");if(!b||b.disabled)return;const[rg,cy]=b.dataset.ndcndel.split(":");
  if(!confirm("Remove AIRAC "+cy+" of "+(rg==="cn"?"the China AIP data set":"Japan’s AIP map data")+" from the EFB? If it is in use, the EFB shows none of this data until another uploaded AIRAC is in force."))return;
  await ndRun(rg,async()=>{await ndPost("/admin/api/navdata/"+rg+"/delete",{cycle:cy});return "AIRAC "+cy+" removed."})});

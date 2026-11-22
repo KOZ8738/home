@@ -181,7 +181,7 @@ function samples(): Raw[] {
 /* ---------- data ---------- */
 async function poll(force = false): Promise<void> {
   clearTimeout(S.timer);
-  if (!force && (document.hidden || !onFw())) return;
+  if (!fwOk() || (!force && (document.hidden || !onFw()))) return;
   try {
     const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' });
     const j = await r.json().catch(() => null);
@@ -350,9 +350,11 @@ function render(): void {
 /* ---------- pages ---------- */
 /* the admin's router (admin.js) puts the open page on <body data-tab>; Flight Watch is "fw" */
 const onFw = () => document.body.dataset.tab === 'fw';
+/* a role that does not see Flight Watch (Settings › Roles): the server puts no-p-fw on <html>, and keeps the flights from it */
+const fwOk = () => !document.documentElement.classList.contains('no-p-fw');
 function showTab(): void {
   if (document.querySelector('.deny')) return;
-  if (onFw()) {
+  if (onFw() && fwOk()) {
     if (!S.globe) {
       const c = $<HTMLCanvasElement>('#lvGlobe')!, ac = new AbortController();
       // the EFB's Map (MapLibre), or the canvas globe when that cannot run here
@@ -405,7 +407,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && on
 // keep the "x s old" line and the live badge fresh between polls
 setInterval(() => { if (onFw() && !document.hidden) { const s = $('#lvSrc'); if (s && S.upd && !S.error && !S.sample) { const age = Math.max(0, Math.round((Date.now() - Date.parse(S.upd)) / 1000)); s.innerHTML = `<span class="lv-dot"></span>${srcText()} · data ${age} s old`; } } }, 1000);
 // the flight count beside Flight Watch in the sidebar, while another page is open (once a minute)
-setInterval(() => { if (!onFw() && !document.hidden && !document.querySelector('.deny')) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
+setInterval(() => { if (!onFw() && fwOk() && !document.hidden && !document.querySelector('.deny')) void (async () => { try { const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' }); const j = await r.json(); const b = $('#lvCount'); if (b) { const n = (j.flights || []).length; b.textContent = n ? String(n) : ''; b.hidden = !n; } } catch { /* ignore */ } })(); }, 60_000);
 
 // the admin is locked (not signed in through Access): leave the page as the server sent it
 if (!document.querySelector('.deny')) showTab();

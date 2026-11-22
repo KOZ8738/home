@@ -130,8 +130,8 @@ function cleanSettings(b) {
    (admin:v1:roles): { people: { email: { role } }, roles: { id: { name, pages, can } } }. Until the first person is
    added roles are off and everyone signed in is an administrator, as before; turning them on adds the person doing
    it as an administrator, and the last administrator cannot be removed or changed. With roles on, an email without
-   one is turned away. Reading is open to every role (pages use each other's data: the Home page, the composer's
-   From names); what is checked here, on every request, is changing things. */
+   one is turned away. Every request is checked here: reading by the pages a role sees (READS: what each page shows;
+   Home shows the parts of those pages, so it has none of its own), changing things by what it may change. */
 const ROLES = 'admin:v1:roles';
 export const ROLE_PAGES = ['fw', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
 export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings'];
@@ -154,7 +154,32 @@ function permsOf(R, id) {
   if (id === 'admin') return { pages: ['home', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
   const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
 }
-/* what a request needs: 'read' (every role), 'admin' (the roles, staff diagnostics), or one of ROLE_ACTS;
+const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Settings' };
+/* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
+   (also opened from Flight Watch) needs the From names and templates; the pilot list picks recipients (Messages,
+   Calendar) and shows who confirmed a document; a pilot's profile shows their flight and recent flights.
+   A read not listed here is for administrators only. */
+const READS = [
+  [/^\/admin\/api\/me$/, []],
+  [/^\/admin\/api\/live$/, ['fw', 'pilots']],
+  [/^\/admin\/api\/ooo(\/|$)/, ['fw', 'reports', 'pilots']],
+  [/^\/admin\/api\/stands\/try$/, ['gates', 'fw']],
+  [/^\/admin\/api\/stands(\/|$)/, ['gates', 'settings', 'fw']],
+  [/^\/admin\/api\/aoctpl(\/|$)/, ['gates', 'settings']],
+  [/^\/admin\/api\/aoc$/, ['comms', 'fw']],
+  [/^\/admin\/api\/(mail|inbox)(\/|$)/, ['comms']],
+  [/^\/admin\/api\/settings$/, ['settings', 'comms', 'fw']],
+  [/^\/admin\/api\/pilots$/, ['pilots', 'comms', 'docs', 'cal']],
+  [/^\/admin\/api\/checkins$/, ['pilots']],
+  [/^\/admin\/api\/docs(\/|$)/, ['docs']],
+  [/^\/admin\/api\/cal(\/|$)/, ['cal']],
+  [/^\/admin\/api\/watch$/, ['fw']],
+  [/^\/admin\/api\/navdata(\/|$)/, ['navdata']],
+];
+const readPages = (path) => { for (const [re, p] of READS) if (re.test(path)) return p; return null; };
+/* the classes the admin page hides what a role does not see or may not change by (Settings › Roles) */
+const permClass = (perm) => [...ROLE_PAGES.filter((p) => !perm.pages.includes(p)).map((p) => 'no-p-' + p), ...[...ROLE_ACTS, 'roles'].filter((a) => !perm.can.includes(a)).map((a) => 'no-a-' + a)].join(' ');
+/* what a request needs: 'read' (READS), 'admin' (the roles, staff diagnostics), or one of ROLE_ACTS;
    the gate plan is saved for gates and for the automatic-message switches (Settings): 'stands' */
 function roleNeeds(method, path) {
   if (/^\/admin\/api\/(roles|pirep-probe|bookings-probe|ops-probe|eaip-probe|chart-pdf|chart-fixes|chart-list)(\/|$)/.test(path)) return 'admin';
@@ -230,7 +255,7 @@ export async function mailAdmin(req, url, env, opts) {
     return jsonRes({ error: e.message }, e.status || 401);
   }
   /* the role of the person signed in, and whether this request is theirs to make */
-  let role = 'admin', RR = null, perm = { pages: [], can: [] }, lim = null;
+  let role = 'admin', RR = null, perm = permsOf(null, 'admin'), lim = null;
   if (env && env.STORE && path !== '/admin/signin') {
     RR = await readRoles(env.STORE); role = roleOf(RR, who);
     if (!role) {
@@ -243,13 +268,24 @@ export async function mailAdmin(req, url, env, opts) {
       const need = roleNeeds(req.method, path), may = (a) => perm.can.includes(a);
       const no = (what) => jsonRes({ error: 'Your role (' + roleName(RR, role) + ') cannot ' + what + '. An administrator can change that under Settings \u203a Roles.' }, 403);
       if (need === 'admin' && role !== 'admin') return no('do this');
+      if (need === 'read' && role !== 'admin') {
+        const rp = readPages(path);
+        if (!rp) return no('do this');
+        if (rp.length && !rp.some((p) => perm.pages.includes(p))) return jsonRes({ error: 'Your role (' + roleName(RR, role) + ') does not see ' + rp.map((p) => PAGE_NAME[p]).join(' or ') + '. An administrator can change that under Settings \u203a Roles.' }, 403);
+      }
       if (ROLE_ACTS.includes(need) && !may(need)) return no(ACT_NAME[need]);
       /* the gate plan: its gates are Gates, its automatic-message switches are Settings; what may not change is kept */
       if (need === 'stands') { if (!may('gates') && !may('settings')) return no(ACT_NAME.gates); lim = { sw: !may('settings'), apts: !may('gates') }; }
     }
   }
   /* the EFB's Admin app shows this page inside the EFB (koz8738.com); no other site may frame it */
-  if (path === '/admin') return new Response(ADMIN_HTML, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME, 'Referrer-Policy': 'no-referrer' } });
+  if (path === '/admin') {
+    /* the role, already applied: nothing shows, and nothing is asked for, that it does not see */
+    const me = { email: who, role, roleName: RR ? roleName(RR, role) : 'Administrator', roles: !!RR && Object.keys(RR.people).length > 0, pages: perm.pages, can: perm.can };
+    const cls = permClass(perm), js = JSON.stringify(me).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+    const html = ADMIN_HTML.replace('<html lang="en">', '<html lang="en"' + (cls ? ' class="' + cls + '"' : '') + '>').replace('<!--PERM-->', '<script>window.PM_PERM=' + js + '</script>');
+    return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME, 'Referrer-Policy': 'no-referrer' } });
+  }
   /* the Admin app's Sign in: Cloudflare Access signs the staff member in on the way here, then back to the EFB */
   if (path === '/admin/signin') {
     const back = String(url.searchParams.get('back') || '');

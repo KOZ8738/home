@@ -372,6 +372,12 @@ main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
 .hm-u time{font:500 12px/1.35 "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--label)}
 .hm-u b{font-weight:500}.hm-u small{grid-column:2;color:var(--label);font-size:12px}
 #hmFl,#hmUp{margin-top:8px}
+/* a role's Home (Settings › Roles): only the parts of the pages it sees; a menu heading with none of its pages goes */
+html.no-p-fw.no-p-gates.no-p-reports.no-p-navdata .sg[data-sg=ops],html.no-p-pilots.no-p-cal .sg[data-sg=crew],html.no-p-comms.no-p-docs .sg[data-sg=comm]{display:none}
+#hmNone{display:none;grid-column:1/-1}
+html.no-p-fw #hmFlS,html.no-p-cal #hmUpS,html.no-p-fw.no-p-cal .hm-col,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata .hm-act{display:none}
+html.no-p-fw.no-p-cal main#home,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata main#home{grid-template-columns:minmax(0,1fr)}
+html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata.no-p-cal #hmNone{display:block}
 @media(max-width:900px){main#home{grid-template-columns:1fr}.hm-k{justify-content:flex-start}}
 
 /* ---------- Messages: the Inbox and what was sent, with the conversation or the composer beside ---------- */
@@ -647,15 +653,15 @@ main#settings>#rlCard{grid-column:1/-1}
 <!--DENIED-->
 <nav class="side" id="side" aria-label="Sections">
 <a href="#home" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.5l8.5 6.7"/><path d="M5.8 9.6V20h12.4V9.6"/><path d="M10 20v-5.5h4V20"/></svg><span>Home</span></a>
-<div class="sg">Operations</div>
+<div class="sg" data-sg="ops">Operations</div>
 <a href="#fw" data-tab="fw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg><span>Flight Watch</span><span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a>
 <a href="#gates" data-tab="gates"><svg viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V8.5l6.5-4 6.5 4v12"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Gates</span></a>
 <a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-5M12 16.5V7M17 16.5v-8"/></svg><span>Reports</span></a>
 <a href="#navdata" data-tab="navdata"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15.6 8.4 13.4 13.4 8.4 15.6 10.6 10.6z"/><path d="M12 3.5v1.6M12 18.9v1.6M3.5 12h1.6M18.9 12h1.6"/></svg><span>Nav Data</span><span class="fw-n" id="ndN" hidden></span></a>
-<div class="sg">Crew</div>
+<div class="sg" data-sg="crew">Crew</div>
 <a href="#pilots" data-tab="pilots"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.9 14.3c2.3.2 3.9 1.8 4.4 4.5"/></svg><span>Pilots</span></a>
 <a href="#cal" data-tab="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Calendar</span></a>
-<div class="sg">Communication</div>
+<div class="sg" data-sg="comm">Communication</div>
 <a href="#comms" data-tab="comms"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg><span>Messages</span><span class="lv-n" id="ibCount" hidden></span></a>
 <a href="#docs" data-tab="docs"><svg viewBox="0 0 24 24"><path d="M6.5 3.5H14l4.5 4.5v12a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-15.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4.5M8.5 12.5h7M8.5 16h7"/></svg><span>Documents</span><span class="lv-n q" id="dcN" hidden></span></a>
 <a class="sx" href="#settings" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></a>
@@ -667,9 +673,10 @@ main#settings>#rlCard{grid-column:1/-1}
 </section>
 <section class="hm-act"><div class="lh"><h2>Action needed</h2><span class="hint" id="hmAt"></span></div><div id="hmAct"><span class="empty">Loading…</span></div></section>
 <div class="hm-col">
-<section><div class="lh"><h2>Flights now</h2><a class="lk" href="#fw">Flight Watch ›</a></div><div id="hmFl"><span class="empty">Loading…</span></div></section>
-<section><div class="lh"><h2>Coming up</h2><a class="lk" href="#cal">Calendar ›</a></div><div id="hmUp"><span class="empty">Loading…</span></div></section>
+<section id="hmFlS"><div class="lh"><h2>Flights now</h2><a class="lk" href="#fw">Flight Watch ›</a></div><div id="hmFl"><span class="empty">Loading…</span></div></section>
+<section id="hmUpS"><div class="lh"><h2>Coming up</h2><a class="lk" href="#cal">Calendar ›</a></div><div id="hmUp"><span class="empty">Loading…</span></div></section>
 </div>
+<section id="hmNone"><h2>Home</h2><p class="hint" style="margin:6px 0 0">Home shows flights, alerts, messages waiting and the calendar, none of which your role sees. Your pages are in the menu.</p></section>
 </main>
 <main id="comms" hidden>
 <section class="cm-side">
@@ -829,6 +836,7 @@ main#settings>#rlCard{grid-column:1/-1}
 <div class="lv-stage"><canvas id="lvGlobe" aria-label="Globe with Polaris flights"></canvas><div class="lv-src" id="lvSrc"></div><div class="lv-ctl"><button data-lv="in" aria-label="Zoom in">+</button><button data-lv="out" aria-label="Zoom out">−</button><button data-lv="all" aria-label="Whole globe" title="Whole globe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button></div></div>
 <aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden><div id="lvDetMain"></div><div class="fo" id="lvOps"></div></div></aside>
 </main>
+<!--PERM-->
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /* the same light markup the EFB renders */
@@ -854,7 +862,8 @@ const PG_LOAD={},PG_TICK={};let pgNow="",pgTimer=0,pgAsk="";
 const pgOf=()=>{const h=location.hash.slice(1);return PG[h]?h:PG_OLD[h]||"home"};
 /* an old address: the new one in its place, without a new history entry */
 function pgFix(){const h=location.hash.slice(1);if(!PG_OLD[h])return;pgAsk=h;history.replaceState(null,"","#"+PG_OLD[h])}
-function route(){pgFix();if(document.querySelector(".deny"))return;const p=pgOf();
+function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
+ if(!pgHas(p)){history.replaceState(null,"","#home");p="home"}
  for(const [k,id] of Object.entries(PG)){const m=document.getElementById(id);if(m)m.hidden=k!==p}
  document.querySelectorAll(".side [data-tab]").forEach(a=>a.setAttribute("aria-current",String(a.dataset.tab===p)));
  document.body.dataset.tab=p;document.title=PG_T[p]+" · Polaris Operations";
@@ -864,9 +873,27 @@ function route(){pgFix();if(document.querySelector(".deny"))return;const p=pgOf(
  clearInterval(pgTimer);const t=PG_TICK[p];if(t)pgTimer=setInterval(()=>{if(!document.hidden)t[0]()},t[1]);
  if(PG_LOAD[p])PG_LOAD[p](first);
  if(first)scrollTo({top:0})}
-/* what several pages read (Home, Flight Watch): one request, kept a short while */
+/* ---------- roles (Settings › Roles, Nov 2026): the pages the person signed in sees and what they may change. The
+   server sends them with the page (window.PM_PERM) with the classes on <html> that hide the rest (no-p-*, no-a-*),
+   and is asked again (/admin/api/me) when the page comes back into view, so a role changed meanwhile shows. Data is
+   asked for only from a page the role sees (the server checks the same: READS in mail.js). ---------- */
+let ROLE="admin",PERM=null,ME_AT=0;
+const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"],["settings","Settings"]];
+const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"]];
+const pgHas=p=>!PERM||PERM.pages.has(p);
+function permSet(j){ROLE=j.role||"admin";const R=document.documentElement;
+ const pg=new Set(j.pages||["home"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
+ RL_PAGES.forEach(x=>R.classList.toggle("no-p-"+x[0],!pg.has(x[0])));RL_ACTS.map(x=>x[0]).concat(["roles"]).forEach(k=>R.classList.toggle("no-a-"+k,!can.has(k)));
+ PERM={pages:pg,can};const w=$("#who");if(w&&j.email)w.textContent="Signed in as "+j.email+(j.roles?" · "+(j.roleName||j.role):"")}
+function permApply(j){const was=PERM?[...PERM.pages].join():"";permSet(j);if(!PERM.pages.has(pgOf())||(was&&was!==[...PERM.pages].join()))route()}
+function meLoad(){ME_AT=Date.now();return api("/admin/api/me").then(permApply).catch(e=>{if(/has no role/.test(e.message))location.reload()})}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-ME_AT>3e4)meLoad()});
+if(window.PM_PERM){permSet(window.PM_PERM);ME_AT=Date.now()}
+/* what several pages read (Home, Flight Watch): one request, kept a short while. Each is shown on these pages */
+const OPS_PG={live:["fw","pilots"],ooo:["fw","reports","pilots"],stands:["gates","settings","fw"],aoc:["comms","fw"],set:["settings","comms","fw"],nav:["navdata"]};
+const opsOk=k=>(OPS_PG[k]||[]).some(pgHas);
 const OPS={},OPS_URL={live:"/admin/api/live",ooo:"/admin/api/ooo",stands:"/admin/api/stands",aoc:"/admin/api/aoc",set:"/admin/api/settings",nav:"/admin/api/navdata"};
-function opsGet(k,age){const o=OPS[k]||(OPS[k]={at:0,v:null,p:null,err:""});
+function opsGet(k,age){if(!opsOk(k))return Promise.reject(new Error("Your role does not see this"));const o=OPS[k]||(OPS[k]={at:0,v:null,p:null,err:""});
  if(o.p)return o.p;if(o.v&&Date.now()-o.at<(age==null?30000:age))return Promise.resolve(o.v);
  o.p=api(OPS_URL[k]).then(v=>{o.v=v;o.at=Date.now();o.err="";return v},e=>{o.err=e.message;if(o.v)return o.v;throw e}).finally(()=>{o.p=null});return o.p}
 const opsV=k=>OPS[k]&&OPS[k].v;
@@ -920,7 +947,7 @@ function acPreview(){const z=new Date(),hm=String(z.getUTCHours()).padStart(2,"0
 /* AOC to a flight's crew: its callsign and the pilots in it (one, or both seats) */
 S.crew=[];const PLN={};let plnP=null;
 function crUi(){$("#crList").innerHTML=S.crew.length?S.crew.map((x,i)=>'<span class="cr-p"><b>'+esc(x.pilot||"CID "+x.cid)+"</b>"+(x.name?"<small>"+esc(x.name)+"</small>":"")+'<button type="button" data-crrm="'+i+'" aria-label="Remove '+esc(x.pilot||x.cid)+'">×</button></span>').join(""):'<span class="hint">No pilots added yet: only EFBs flying this callsign get it.</span>'}
-function crPilots(){if(plnP)return;plnP=api("/admin/api/pilots").then(j=>{const L=(j&&j.pilots)||[];L.forEach(p=>{PLN[p.u]=p.name||""});$("#crPilots").innerHTML=L.map(p=>'<option value="'+esc(p.u)+'">'+esc(p.name||"")+"</option>").join("")}).catch(()=>{plnP=null})}
+function crPilots(){if(plnP||!["pilots","comms","docs","cal"].some(pgHas))return;plnP=api("/admin/api/pilots").then(j=>{const L=(j&&j.pilots)||[];L.forEach(p=>{PLN[p.u]=p.name||""});$("#crPilots").innerHTML=L.map(p=>'<option value="'+esc(p.u)+'">'+esc(p.name||"")+"</option>").join("")}).catch(()=>{plnP=null})}
 function crAdd(){const v=$("#crAdd").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");if(!v)return;const cid=/^[0-9]{4,9}$/.test(v),x=cid?{pilot:"",cid:v,name:""}:{pilot:v,cid:"",name:PLN[v]||""};
  $("#crAdd").value="";if(S.crew.some(y=>(x.pilot&&y.pilot===x.pilot)||(x.cid&&y.cid===x.cid)))return;if(S.crew.length>=4){say("At most 4 pilots in a crew.");return}S.crew.push(x);crUi();toUi()}
 function kindUi(){const a=kind()==="aoc";$("#mkMail").hidden=a;$("#mkAoc").hidden=!a;
@@ -932,7 +959,7 @@ window.pmCompose=function(t,k){if(S.edit)reset();kindSet(k);
  /* from a Live flight, Mail or AOC goes to its crew: the callsign, and this pilot to start with */
  if(t&&!t.crew&&t.cs)t={crew:true,cs:t.cs,m:t.pilot||t.cid?[{pilot:t.pilot||"",cid:String(t.cid||""),name:t.name&&t.name!==t.pilot?t.name:""}]:[]};toSet(t);if($("#from").value===SETV.froms[0]&&SETV.froms.includes("Flight Operations"))$("#from").value="Flight Operations";say("");CM.item="";CM.pane="compose";cmUi();location.hash="#comms";setTimeout(()=>{(k==="aoc"?$("#acBody"):$("#subject")).focus()},60)};
 function preview(){const b=$("#body").value,t=toGet();$("#preview").innerHTML=b.trim()?"<h4 style='margin-top:0'>"+esc($("#subject").value||"(no subject)")+"</h4><div class='hint' style='margin:-2px 0 10px'>From "+esc($("#from").value||"…")+" · "+(t?"To "+esc(toLabel(t))+(t.name?" ("+esc(t.name)+")":""):"To all Polaris pilots")+"</div>"+md(b):'<span class="empty">The message as pilots will see it.</span>'}
-async function load(){const [a,b]=await Promise.allSettled([api("/admin/api/mail"),api("/admin/api/aoc")]);if(a.status==="fulfilled")S.mails=a.value.mails||[];if(b.status==="fulfilled"){S.aoc=b.value.msgs||[];S.aocV=b.value}
+async function load(){if(!pgHas("comms"))return;const [a,b]=await Promise.allSettled([api("/admin/api/mail"),api("/admin/api/aoc")]);if(a.status==="fulfilled")S.mails=a.value.mails||[];if(b.status==="fulfilled"){S.aoc=b.value.msgs||[];S.aocV=b.value}
  S.listErr=[a,b].filter(x=>x.status==="rejected").map(x=>x.reason.message).join(" · ");listUi()}
 function reset(){S.edit=null;S.keep=[];S.add=[];S.crew=[];$("#crCs").value="";$("#formTitle").textContent="New notice";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value=SETV.froms[0]||"Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();toSet(null)}
 const localInput=ms=>new Date(ms).toISOString().slice(0,16);
@@ -968,7 +995,7 @@ function plUi(){const q=($("#plFind").value||"").trim().toUpperCase(),L=(PL.list
  $("#plSum").textContent=L.length+" pilot"+(L.length===1?"":"s")+(PL.list.roster?" in vAMSYS":" who signed in")+" · "+signed+" signed in to the EFB now · "+used+" have used it";
  const rows=L.filter(p=>!q||(p.u+" "+p.name+" "+p.cid).toUpperCase().includes(q));
  $("#plList").innerHTML=rows.length?rows.map(p=>'<tr class="'+(p.devices?"":"off")+(PL.sel===p.u?" sel":"")+'"><td class="pl-p"><button type="button" class="pl-open" data-plp="'+esc(p.u)+'" title="Open the profile"><b>'+esc(p.u)+'</b><span>'+esc(p.name)+'</span></button></td><td>'+esc(p.rank||"—")+'</td><td>'+esc(p.cid||"—")+'</td><td>'+(p.devices?'<span class="pl-s on">Signed in · '+p.devices+' device'+(p.devices>1?"s":"")+'</span>':p.last?'<span class="pl-s was">Signed out</span>':'<span class="pl-s no">Never</span>')+'</td><td>'+ago(p.first)+'</td><td>'+ago(p.last)+'</td><td class="pl-x"><button data-plmail="'+esc(p.u)+'" data-cid="'+esc(p.cid)+'" data-name="'+esc(p.name)+'">Message</button>'+(p.devices?'<button class="warn" data-plout="'+esc(p.u)+'">Sign out</button>':"")+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">'+(L.length?"No pilot matches.":"No pilots yet.")+'</td></tr>'}
-async function plLoad(){PL.err="";plUi();try{PL.list=await api("/admin/api/pilots")}catch(e){PL.err=e.message}plUi();plProfUi()}
+async function plLoad(){if(!pgHas("pilots"))return;PL.err="";plUi();try{PL.list=await api("/admin/api/pilots")}catch(e){PL.err=e.message}plUi();plProfUi()}
 $("#plFind").addEventListener("input",plUi);
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-plout],[data-plmail]");if(!b)return;
  if(b.dataset.plmail!=null){window.pmCompose({pilot:b.dataset.plmail,cid:b.dataset.cid,cs:"",name:b.dataset.name});return}
@@ -987,7 +1014,7 @@ function ibUi(){const L=(IB.threads||[]).filter(t=>(IB.show==="done")===t.done&&
  $("#ibView").innerHTML='<div class="ib-view"><div class="ib-vh"><div><h3>'+esc(t.subj)+'</h3><div class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+(t.cs?" · "+esc(t.cs):"")+" → "+esc(t.dept)+'</div></div><div class="actions" style="margin:0"><button data-ibdone="'+(t.done?0:1)+'">'+(t.done?"Reopen":"Mark done")+'</button><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div></div>'+
   t.msgs.map(m=>'<div class="ib-m'+(m.kind==="reply"?" st":"")+'"><div class="who"><b>'+esc(m.kind==="reply"?m.from:(t.pilot+(t.name?" · "+t.name:"")))+'</b>'+(m.kind==="reply"&&m.by?" · "+esc(m.by):"")+(m.cs&&m.kind!=="reply"?" · "+esc(m.cs):"")+" · "+fmt(m.t)+'</div><p>'+txt(m.body)+'</p></div>').join("")+
   '<div class="ib-r"><label for="ibBody">Reply to '+esc(t.pilot)+'</label><textarea id="ibBody" maxlength="4000" placeholder="Your reply goes to this pilot\u2019s EFB Mail."></textarea><div class="row" style="margin-top:10px"><div style="flex:0 1 240px"><label for="ibAs" style="margin-top:0">Reply as</label><select id="ibAs">'+opts+'</select></div><div style="flex:0 0 auto;align-self:end"><button class="primary" id="ibSend">Send reply</button></div></div><div id="ibMsg"></div></div></div>'}
-async function ibLoad(){IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
+async function ibLoad(){if(!pgHas("comms"))return;IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
 $("#ibDept").addEventListener("change",e=>{IB.dept=e.target.value;ibUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],[data-ibs],[data-ibdone],#ibSend");if(!b)return;
  if(b.dataset.ibs){IB.show=b.dataset.ibs;document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));ibUi();return}
@@ -1053,7 +1080,7 @@ function dcUi(){const L=(DC.list&&DC.list.docs)||[];
   +"<div><b>"+esc(d.title)+"</b>"+(d.rev?'<span class="tag d">'+esc(d.rev)+"</span>":"")+'</div><div class="meta">'+[d.pages?d.pages+" pages":"",kb(d.size),"v"+d.v,"Updated "+fmt(d.up||d.t)+(d.upBy?" by "+esc(d.upBy):"")].filter(Boolean).join(" · ")+"</div>"
   +dcAckHtml(d)+'<div class="btns"><a class="btnl" href="/admin/api/docs/file?id='+encodeURIComponent(d.id)+'" target="_blank" rel="noopener">Open</a><button data-dcedit="'+esc(d.id)+'">Edit</button><button data-dcrep="'+esc(d.id)+'">Replace file</button><button class="warn" data-dcdel="'+esc(d.id)+'">Delete</button></div></div>').join("")).join("")
   :'<p class="empty">No documents yet. Upload a manual or an SOP on the left; pilots see it in the EFB under Flight › Documents.</p>'}
-async function dcLoad(){DC.err="";if(!PL.list)api("/admin/api/pilots").then(j=>{if(!PL.list){PL.list=j;dcUi()}}).catch(()=>{});try{const j=await api("/admin/api/docs");DC.list=j;DC.piece=j.piece||DC.piece;DC.fileMax=j.fileMax||DC.fileMax}catch(e){DC.err=e.message}dcUi()}
+async function dcLoad(){if(!pgHas("docs"))return;DC.err="";if(!PL.list)api("/admin/api/pilots").then(j=>{if(!PL.list){PL.list=j;dcUi()}}).catch(()=>{});try{const j=await api("/admin/api/docs");DC.list=j;DC.piece=j.piece||DC.piece;DC.fileMax=j.fileMax||DC.fileMax}catch(e){DC.err=e.message}dcUi()}
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-dcedit],[data-dcrep],[data-dcdel],#dcSave,#dcCancel");if(!b)return;
  if(b.id==="dcSave"){dcSave();return}if(b.id==="dcCancel"){dcReset();dcSay("");return}
  const id=b.dataset.dcedit||b.dataset.dcrep||b.dataset.dcdel,d=dcDoc(id);if(!d||DC.busy)return;
@@ -1101,7 +1128,7 @@ function stLogUi(){const el=$("#stLog");if(ST.err){el.innerHTML='<div class="msg
  el.innerHTML=L.length?L.map(x=>{const dep=x.kind==="dep";return '<div class="st-l"><div><span class="k2">'+(dep?"DEP":"ARR")+"</span><b>"+esc(x.cs)+"</b> "+esc((x.dep||"----")+" → "+(x.arr||"----"))+' · <span class="s">'+(x.stand?"GATE "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):dep?"ANY FREE GATE":"CONTACT GROUND")+"</span></div>"+
   '<div class="btns"><button type="button" data-stchg="'+esc(x.k)+'|'+x.t+'">Change</button></div><div class="meta">'+(dep?"STD ":"ETA ")+stZ(x.eta)+" · sent "+stZ(x.changed||x.t)+(dep&&!x.changed?" at check-in":"")+" · "+esc(x.ac||"")+(x.wide?" (widebody)":"")+(x.fl?" · "+(x.fl==="dom"?"domestic":"international"):"")+" · "+(x.by==="AUTO"?"automatic":(x.changed?"changed by ":"by ")+esc(String(x.by).split("@")[0]))+"</div></div>"}).join("")
   :'<span class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</span>"}
-async function stLoad(){ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=JSON.parse(JSON.stringify(j.plan));OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=j.plan;
+async function stLoad(){if(!["gates","settings","fw"].some(pgHas))return;ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=JSON.parse(JSON.stringify(j.plan));OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=j.plan;
  if(!SE.aocDirty){$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}stStateUi();
  if(!ST.sel){ST.sel=Object.keys(ST.plan.apts)[0]||"";if(ST.sel)stMap(ST.sel)}stAptsUi();stEdUi()}catch(e){ST.err=e.message}stLogUi()}
 /* ---------- Settings: the automatic AOC messages (saved with the gate plan), the From names and the AOC templates ---------- */
@@ -1133,18 +1160,6 @@ PG_LOAD.settings=()=>{stLoad();setLoad()};
 /* ---------- Roles (Nov 2026) ----------
    Which pages a role sees (no-p-*) and what it may change (no-a-*): classes on the page that hide what is not
    theirs. The server checks every change as well. Administrators make and edit roles in Settings › Roles. */
-let ROLE="admin",PERM=null;
-const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"],["settings","Settings"]];
-const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"]];
-function permApply(j){ROLE=j.role||"admin";const R=document.documentElement;R.dataset.role=ROLE;
- const pg=new Set(j.pages||["home"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
- RL_PAGES.forEach(x=>R.classList.toggle("no-p-"+x[0],!pg.has(x[0])));RL_ACTS.map(x=>x[0]).concat(["roles"]).forEach(k=>R.classList.toggle("no-a-"+k,!can.has(k)));
- PERM={pages:pg,can};if(!pg.has(pgOf())){history.replaceState(null,"","#home");route()}}
-window.addEventListener("hashchange",()=>{if(PERM&&!PERM.pages.has(pgOf()))location.replace("#home")});
-/* who is signed in, and their role; asked again when the page comes back into view, so a role changed meanwhile shows */
-let ME_AT=0;
-function meLoad(){ME_AT=Date.now();return api("/admin/api/me").then(j=>{permApply(j);$("#who").textContent="Signed in as "+j.email+(j.roles?" · "+(j.roleName||j.role):"")}).catch(e=>{if(/has no role/.test(e.message))location.reload()})}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&PERM&&Date.now()-ME_AT>3e4)meLoad()});
 const RL={on:false,people:[],roles:[],me:"",busy:false,ed:null};
 const rlName=id=>{const r=RL.roles.find(x=>x.id===id);return r?r.name:id};
 async function rlLoad(){if(PERM&&!PERM.can.has("roles"))return;try{rlSetData(await api("/admin/api/roles"))}catch(e){seSay("#rlMsg",e.message)}rlUi()}
@@ -1161,7 +1176,7 @@ function rlUi(){const el=$("#rlList");if(!el)return;
  const E=RL.ed,box=$("#rlEd");box.hidden=!E;$("#rlNewRow").hidden=!!E;if(!E){box.innerHTML="";return}
  const cur=RL.roles.find(r=>r.id===E.id);
  box.innerHTML='<label class="n" for="rlEdName">'+(E.id?"Role":"New role")+'</label><input type="text" id="rlEdName" maxlength="40" placeholder="Dispatcher" value="'+esc(E.name)+'" autocomplete="off">'
-  +'<div class="rl-h">Pages they see</div><div class="rl-g"><label class="rl-c"><input type="checkbox" checked disabled><span>Home</span></label>'+RL_PAGES.map(x=>'<label class="rl-c"><input type="checkbox" data-rlpg="'+x[0]+'"'+(E.pages.has(x[0])?" checked":"")+"><span>"+esc(x[1])+"</span></label>").join("")+"</div>"
+  +'<div class="rl-h">Pages they see</div><p class="rl-note">Their Home shows only what is on these pages, and the server keeps the other pages’ data from them.</p><div class="rl-g"><label class="rl-c"><input type="checkbox" checked disabled><span>Home</span></label>'+RL_PAGES.map(x=>'<label class="rl-c"><input type="checkbox" data-rlpg="'+x[0]+'"'+(E.pages.has(x[0])?" checked":"")+"><span>"+esc(x[1])+"</span></label>").join("")+"</div>"
   +'<div class="rl-h">What they can change</div><div class="rl-g acts">'+RL_ACTS.map(x=>'<label class="rl-c"><input type="checkbox" data-rlact="'+x[0]+'"'+(E.can.has(x[0])?" checked":"")+"><span>"+esc(x[1])+(x[2]?"<small>"+esc(x[2])+"</small>":"")+"</span></label>").join("")+"</div>"
   +'<div class="actions"><button class="primary" type="button" id="rlEdSave">'+(E.id?"Save":"Make role")+'</button><button type="button" id="rlEdCancel">Cancel</button>'+(E.id?'<button type="button" class="warn" id="rlEdDel"'+(cur&&cur.n?' title="Give its people another role first"':"")+">Delete role</button>":"")+"</div>"}
 async function rlPost(body,el,ok){if(RL.busy)return false;RL.busy=true;if(el)el.disabled=true;
@@ -1250,7 +1265,7 @@ function otLogUi(L){const el=$("#otLog");
    return "<tr><td>"+esc(otDay(r.in||r.done))+"</td><td><b>"+esc(r.cs)+"</b><small>"+esc([r.pilot,r.ac].filter(Boolean).join(" · "))+'</small></td><td class="m">'+esc((r.dep||"?")+" → "+r.arr)+'</td><td class="m">'+otZ(r.std)+'</td><td class="m">'+otZ(r.out)+'</td><td class="m">'+(r.off?otZ(r.off):"–")+'</td><td class="m">'+otZ(r.on)+'</td><td class="m">'+otZ(r.in)+'</td><td class="m">'+otZ(r.sta)+'</td><td class="m">'+otDur(r.out,r.in)+"</td><td>"+otDelta(dl)+"</td><td>"+otDelta(al)+"</td><td>"+
     (late||r.reason?'<select data-otr="'+esc(r.k)+'" data-otf="'+esc(r.first)+'" aria-label="Delay reason for '+esc(r.cs)+'">'+opts(r)+"</select>":'<span class="ot-na">–</span>')+"</td></tr>"}).join("")+"</tbody></table></div>"}
 function otUi(){const L=otRows();otKpiUi(L);otWhyUi(L);otLiveUi();otLogUi(L);$("#otErr").innerHTML=OT.err?'<div class="msg err">'+esc(OT.err)+"</div>":""}
-async function otLoad(){try{const j=await api("/admin/api/ooo");OT.live=j.live||[];OT.log=j.log||[];OT.reasons=j.reasons||[];OT.err=""}catch(e){OT.err=e.message}OT.loaded=true;
+async function otLoad(){if(!pgHas("reports"))return;try{const j=await api("/admin/api/ooo");OT.live=j.live||[];OT.log=j.log||[];OT.reasons=j.reasons||[];OT.err=""}catch(e){OT.err=e.message}OT.loaded=true;
  const a=document.activeElement;if(a&&a.closest&&a.closest("#otLog select"))return;otUi()}
 function otCsv(){const L=otRows(),iso=t=>t?new Date(t).toISOString().slice(0,16).replace("T"," "):"",q=v=>{const s=String(v==null?"":v);return /[",]/.test(s)?'"'+s.split('"').join('""')+'"':s};
  const head=["date","callsign","pilot","name","aircraft","dep","arr","std_utc","out_utc","off_utc","on_utc","in_utc","sta_utc","block_min","dep_delay_min","arr_delay_min","delay_reason"];
@@ -1355,7 +1370,7 @@ function caKeep(){const f=CA.form;if(!f||!$("#caT"))return;const r=caRead();
  Object.assign(f,{title:$("#caT").value,type:$("#caType").value,allDay:$("#caAll").checked,s:isFinite(r.s)?r.s:f.s,e:isFinite(r.e)?r.e:f.e,rep:$("#caRep").value,until:$("#caUntil").value?Date.parse($("#caUntil").value+"T23:59:00Z"):0,loc:$("#caLoc").value,body:$("#caBody").value,remind:+$("#caRem").value,efb:$("#caEfb").checked});
  const cs=$("#caCs");if(cs)f.cs=cs.value.toUpperCase().replace(/[^A-Z0-9]/g,"")}
 function caUi(){caGridUi();caSideUi()}
-async function caLoad(){if(CA.busy)return;CA.busy=true;try{const j=await api("/admin/api/cal");CA.items=j.items||[];CA.vam=j.vam||{};CA.vamsys=j.vamsys||[];CA.vamErr=j.vamsysErr||"";CA.err="";CA.loaded=true}catch(e){CA.err=e.message}finally{CA.busy=false}
+async function caLoad(){if(CA.busy||!pgHas("cal"))return;CA.busy=true;try{const j=await api("/admin/api/cal");CA.items=j.items||[];CA.vam=j.vam||{};CA.vamsys=j.vamsys||[];CA.vamErr=j.vamsysErr||"";CA.err="";CA.loaded=true}catch(e){CA.err=e.message}finally{CA.busy=false}
  if(!CA.m)CA.m=caMonth0(Date.now());if(!CA.form)caUi();else caGridUi()}
 function caNew(day){const base=day!=null?day:caDay0(Date.now()),s=base+(day!=null?12:Math.min(23,new Date().getUTCHours()+1))*36e5;
  CA.form={title:"",type:"group",s,e:s+2*36e5,allDay:false,rep:"",until:0,loc:"",body:"",remind:60,efb:true,to:null,m:[],cs:""};CA.sel=null;caUi();setTimeout(()=>{const t=$("#caT");if(t)t.focus()},40)}
@@ -1398,7 +1413,7 @@ function fwUi(){const L=fwShown(),red=L.some(a=>a.sev==="red"),n=$("#fwN");
  box.innerHTML='<div class="fw-h"><b>Flight Watch</b><span'+(!FW.err&&!L.length?' class="ok"':"")+'>'+(FW.err?esc(FW.err):L.length?L.length+" alert"+(L.length===1?"":"s"):"All normal")+"</span>"+(hid?'<button type="button" data-fw="unhide">Show '+hid+" hidden</button>":"")+"</div>"+
   L.map(a=>'<div class="fw-a '+a.sev+'"><i></i><div class="fw-t"><b>'+esc(a.cs)+"</b>"+esc(a.title)+"<small>"+esc(a.detail)+(a.pilot||a.name?" · "+esc(a.pilot||a.name):"")+'</small></div><div class="fw-b"><button type="button" data-fwshow="'+esc(a.cs)+'">Show</button><button type="button" data-fwaoc="'+esc(a.k)+'" title="AOC message to this crew">AOC</button><button type="button" data-fwseen="'+esc(fwKey(a))+'" title="Hide until it changes" aria-label="Hide">✕</button></div></div>').join("");
  fwRows();if(pgNow==="home")hmUi()}
-async function fwLoad(){if(FW.busy||document.querySelector(".deny"))return;FW.busy=true;
+async function fwLoad(){if(FW.busy||document.querySelector(".deny")||!pgHas("fw"))return;FW.busy=true;
  try{const j=await api("/admin/api/watch");FW.list=j.alerts||[];FW.err="";FW.loaded=true;
   /* a hidden alert that has gone is forgotten, so it shows again if it comes back */
   const now=new Set(FW.list.map(fwKey));let ch=false;for(const k of Object.keys(FW.seen))if(!now.has(k)){delete FW.seen[k];ch=true}if(ch)fwSave()}
@@ -1577,40 +1592,46 @@ function hmTtg(f,apts){if(hmGround(f))return null;
 function hmClock(){const c=$("#hmClock");if(!c||pgNow!=="home")return;const d=new Date();c.textContent=d.toISOString().slice(11,19)+"Z";
  $("#hmDate").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})+" · UTC"}
 setInterval(hmClock,1000);
-async function hmLoad(){await Promise.allSettled([opsGet("live",15000),opsGet("ooo",30000),opsGet("stands",30000),opsGet("aoc",30000),opsGet("nav",600000),ibLoad(),CA.loaded?null:caLoad()]);hmUi()}
-function hmUi(){if(pgNow!=="home")return;const lv=opsV("live"),oo=opsV("ooo"),st=opsV("stands"),F=(lv&&lv.flights)||[],now=Date.now(),d0=hmDay0();
+/* what Home shows of each page the role sees */
+const hmNeed=()=>{const f=pgHas("fw");return [f&&"live",(f||pgHas("reports"))&&"ooo",f&&"stands",(f||pgHas("comms"))&&"aoc",pgHas("navdata")&&"nav"].filter(Boolean)};
+async function hmLoad(){const age={live:15000,ooo:30000,stands:30000,aoc:30000,nav:600000};
+ await Promise.allSettled(hmNeed().map(k=>opsGet(k,age[k])).concat([ibLoad(),CA.loaded?null:caLoad()]));hmUi()}
+function hmUi(){if(pgNow!=="home")return;const P=pgHas,N=hmNeed(),v=k=>N.includes(k)?opsV(k):null;
+ const lv=v("live"),oo=v("ooo"),st=v("stands"),F=(lv&&lv.flights)||[],now=Date.now(),d0=hmDay0();
  const air=F.filter(f=>!hmGround(f)).length,logs=(oo&&oo.log)||[],live=((oo&&oo.live)||[]).filter(r=>!r.tomb);
  const deps=[...logs,...live].filter(r=>r.std&&r.out&&r.out>=d0),arrs=logs.filter(r=>r.sta&&r.in&&r.in>=d0);
  const d15=deps.filter(r=>otLate(r.out,r.std)<=15).length,a15=arrs.filter(r=>otLate(r.in,r.sta)<=15).length;
- const al=fwShown(),red=al.some(a=>a.sev==="red");
+ const al=P("fw")?fwShown():[],red=al.some(a=>a.sev==="red");
  const card=(href,k,v,sub,cls)=>'<a class="hm-c'+(cls?" "+cls:"")+'" href="'+href+'"><span>'+k+"</span><b>"+v+"</b><small>"+sub+"</small></a>";
  const pc=(a,b)=>b?Math.round(a*100/b)+"%":"–",fr=(a,b)=>b?(a/b>=.8?"good":a/b>=.6?"mid":"bad"):"";
- $("#hmK").innerHTML=card("#fw","In the air",lv?String(air):"–",!lv?"loading…":F.length?(F.length-air)+" on the ground":"no Polaris flight now")+
-  card("#reports","On-time departures",pc(d15,deps.length),deps.length?d15+" of "+deps.length+" today (D15)":"none today yet",fr(d15,deps.length))+
-  card("#reports","On-time arrivals",pc(a15,arrs.length),arrs.length?a15+" of "+arrs.length+" today (A15)":"none today yet",fr(a15,arrs.length))+
-  card("#fw","Flight Watch",FW.loaded?(al.length?String(al.length):"Normal"):"–",FW.loaded?(al.length?"alert"+(al.length>1?"s":"")+" to look at":"no alerts"):"loading…",al.length?(red?"red":"mid"):FW.loaded?"good":"");
+ $("#hmK").innerHTML=(P("fw")?card("#fw","In the air",lv?String(air):"–",!lv?"loading…":F.length?(F.length-air)+" on the ground":"no Polaris flight now"):"")+
+  (P("reports")?card("#reports","On-time departures",pc(d15,deps.length),deps.length?d15+" of "+deps.length+" today (D15)":"none today yet",fr(d15,deps.length))+
+  card("#reports","On-time arrivals",pc(a15,arrs.length),arrs.length?a15+" of "+arrs.length+" today (A15)":"none today yet",fr(a15,arrs.length)):"")+
+  (P("fw")?card("#fw","Flight Watch",FW.loaded?(al.length?String(al.length):"Normal"):"–",FW.loaded?(al.length?"alert"+(al.length>1?"s":"")+" to look at":"no alerts"):"loading…",al.length?(red?"red":"mid"):FW.loaded?"good":""):"");
  /* what needs someone, the most urgent first */
  const A=[];
  al.slice().sort((a,b)=>(a.sev==="red"?0:1)-(b.sev==="red"?0:1)).forEach(a=>A.push({sev:a.sev,t:"<b>"+esc(a.cs)+"</b> "+esc(a.title),s:esc(a.detail),go:"fw:"+a.cs,l:"Flight Watch"}));
- live.filter(r=>r.std&&!r.out&&now-r.std>15*6e4).forEach(r=>A.push({sev:"amber",t:"<b>"+esc(r.cs)+"</b> still at the gate",s:Math.round((now-r.std)/6e4)+" min after STD "+otZ(r.std)+" · "+esc((r.dep||"?")+" → "+r.arr)+(r.reason?"":" · no delay reason yet"),go:"fw:"+r.cs,l:"Flight Watch"}));
+ if(P("fw"))live.filter(r=>r.std&&!r.out&&now-r.std>15*6e4).forEach(r=>A.push({sev:"amber",t:"<b>"+esc(r.cs)+"</b> still at the gate",s:Math.round((now-r.std)/6e4)+" min after STD "+otZ(r.std)+" · "+esc((r.dep||"?")+" → "+r.arr)+(r.reason?"":" · no delay reason yet"),go:"fw:"+r.cs,l:"Flight Watch"}));
  const plan=st&&st.plan,slog=(st&&st.log)||[],lead=(plan&&plan.lead)||30;
  if(st)F.forEach(f=>{const m=hmTtg(f,lv&&lv.apts);if(m==null||m<-5||m>Math.max(45,lead+15)||!f.arr)return;if(slog.some(x=>x.kind!=="dep"&&x.cs===f.cs&&x.arr===f.arr))return;
   const has=plan&&plan.apts&&(plan.apts[f.arr]||[]).length;
   A.push({sev:m<=lead?"amber":"info",t:"<b>"+esc(f.cs)+"</b> lands at "+esc(f.arr)+" in about "+Math.max(1,Math.round(m))+" min with no gate",s:!plan||!plan.on?"Automatic arrival gates are off":!has?"No gate plan for "+esc(f.arr):m>lead?"The automatic gate goes "+lead+" min before landing":"No gate was sent",go:"fw:"+f.cs,l:"Assign"})});
  /* an AOC message the crew has not accepted 10 minutes on */
- const av=opsV("aoc");((av&&av.msgs)||[]).forEach(m=>{const k=akOf(m,av);if(!k)return;const cs=m.to.cs||"",who=cs||m.to.pilot||"crew",onMap=cs&&F.some(f=>f.cs===cs);
+ const av=v("aoc");((av&&av.msgs)||[]).forEach(m=>{const k=akOf(m,av);if(!k)return;const cs=m.to.cs||"",who=cs||m.to.pilot||"crew",onMap=cs&&F.some(f=>f.cs===cs);
+  if(!onMap&&!P("comms"))return;
   if(k.rej&&now-m.t<3*36e5){A.push({sev:"red",t:"<b>"+esc(who)+"</b> rejected "+esc(m.title),s:"Sent "+akZ(m.t)+" · rejected "+akZ(k.L.find(x=>x.r).r),go:onMap?"fw:"+cs:"aoc:"+m.id,l:onMap?"Flight Watch":"Messages"});return}
   if(!k.late)return;
   A.push({sev:"amber",t:"<b>"+esc(who)+"</b> has not accepted "+esc(m.title),s:"Sent "+akZ(m.t)+" · "+(k.del?"on the EFB, waiting for ACCEPT":"not on an EFB yet")+(k.acc?" · "+k.acc+" of "+k.L.length+" accepted":""),go:onMap?"fw:"+cs:"aoc:"+m.id,l:onMap?"Flight Watch":"Messages"})});
  /* navigation data that is not current, or a source that is not answering (Nav Data) */
- const nv=opsV("nav");if(nv){ndBadge(nv);(nv.src||[]).filter(x=>x.state==="bad"||x.state==="warn").forEach(x=>A.push({sev:x.state==="bad"?"red":"amber",t:"<b>"+esc(x.region)+"</b> "+esc(x.name)+": "+esc(x.line),s:esc(x.by)+" · "+esc(x.how),go:"nav:"+x.id,l:"Nav Data"}))}
- (IB.threads||[]).filter(t=>!t.done&&t.waiting).forEach(t=>{const last=t.msgs[t.msgs.length-1];A.push({sev:"info",t:"<b>"+esc(t.pilot)+"</b> → "+esc(t.dept)+": "+esc(t.subj),s:"Waiting for a reply · "+esc(ago(last.t)),go:"ib:"+t.th,l:"Reply"})});
+ const nv=v("nav");if(nv){ndBadge(nv);(nv.src||[]).filter(x=>x.state==="bad"||x.state==="warn").forEach(x=>A.push({sev:x.state==="bad"?"red":"amber",t:"<b>"+esc(x.region)+"</b> "+esc(x.name)+": "+esc(x.line),s:esc(x.by)+" · "+esc(x.how),go:"nav:"+x.id,l:"Nav Data"}))}
+ (P("comms")&&IB.threads||[]).filter(t=>!t.done&&t.waiting).forEach(t=>{const last=t.msgs[t.msgs.length-1];A.push({sev:"info",t:"<b>"+esc(t.pilot)+"</b> → "+esc(t.dept)+": "+esc(t.subj),s:"Waiting for a reply · "+esc(ago(last.t)),go:"ib:"+t.th,l:"Reply"})});
  const need=logs.filter(r=>(r.in||r.done)>=now-7*864e5&&(otLate(r.out,r.std)>15||otLate(r.in,r.sta)>15)&&!r.reason);
- if(need.length)A.push({sev:"info",t:need.length+" late flight"+(need.length>1?"s have":" has")+" no delay reason",s:"The last 7 days: "+esc(need.slice(0,5).map(r=>r.cs).join(", "))+(need.length>5?" …":""),go:"need",l:"Reports"});
- const errs=["live","ooo","stands"].map(k=>OPS[k]&&OPS[k].err).filter(Boolean);
+ if(P("reports")&&need.length)A.push({sev:"info",t:need.length+" late flight"+(need.length>1?"s have":" has")+" no delay reason",s:"The last 7 days: "+esc(need.slice(0,5).map(r=>r.cs).join(", "))+(need.length>5?" …":""),go:"need",l:"Reports"});
+ const errs=["live","ooo","stands"].filter(k=>N.includes(k)).map(k=>OPS[k]&&OPS[k].err).filter(Boolean);
+ const ready=N.every(k=>OPS[k]&&(OPS[k].v||OPS[k].err))&&(!P("comms")||IB.threads||IB.err);
  $("#hmAct").innerHTML=(errs.length?'<div class="msg err" style="margin:0 0 8px">'+esc(errs.join(" · "))+"</div>":"")+(A.length?A.map(a=>'<button type="button" class="hm-i '+a.sev+'" data-hmgo="'+esc(a.go)+'"><i></i><span class="t">'+a.t+"<small>"+a.s+"</small></span><em>"+a.l+" ›</em></button>").join("")
-  :lv&&oo&&st?'<div class="hm-ok"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>Nothing needs attention right now.</div>':'<span class="empty">Loading…</span>');
- $("#hmAt").textContent=lv?"Updated "+new Date().toISOString().slice(11,16)+"Z":"";
+  :ready?'<div class="hm-ok"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>Nothing needs attention right now.</div>':'<span class="empty">Loading…</span>');
+ $("#hmAt").textContent=ready?"Updated "+new Date().toISOString().slice(11,16)+"Z":"";
  /* the flights on the map, the next to land first */
  const FL=F.map(f=>({f,m:hmTtg(f,lv&&lv.apts)})).sort((a,b)=>(a.m==null?1e9:a.m)-(b.m==null?1e9:b.m));
  $("#hmFl").innerHTML=!lv?'<span class="empty">Loading…</span>':FL.length?FL.slice(0,12).map(({f,m})=>{const g=hmGround(f);
@@ -2058,7 +2079,7 @@ function atUi(){const box=$("#atKinds");if(!box)return;if(!AT.v){box.innerHTML="
 function atPrev(p){if(p){$("#atPT").textContent=p.title;$("#atPB").textContent=p.body;$("#atPB").classList.remove("err");return}
  clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{const k=AT.k;try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(k!==AT.k)return;$("#atPT").textContent=r.title;$("#atPB").textContent=r.body;$("#atPB").classList.remove("err")}
   catch(e){if(k!==AT.k)return;$("#atPB").textContent=e.message;$("#atPB").classList.add("err")}},350)}
-async function atLoad(){if(AT.v&&Object.keys(AT.dirty).length)return;try{const v=await api("/admin/api/aoctpl");AT.v=v;AT.ed={};v.kinds.forEach(x=>{AT.ed[x.k]={...v.tpl[x.k]}});AT.dirty={};atSay("")}catch(e){atSay(e.message)}atUi()}
+async function atLoad(){if(!["gates","settings"].some(pgHas))return;if(AT.v&&Object.keys(AT.dirty).length)return;try{const v=await api("/admin/api/aoctpl");AT.v=v;AT.ed={};v.kinds.forEach(x=>{AT.ed[x.k]={...v.tpl[x.k]}});AT.dirty={};atSay("")}catch(e){atSay(e.message)}atUi()}
 document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.atf)return;AT.ed[AT.k][t.dataset.atf]=t.value;if(!AT.dirty[AT.k]){AT.dirty[AT.k]=1;const b=document.querySelector('[data-atk="'+AT.k+'"]');if(b&&!/\\*$/.test(b.textContent))b.append(" *");$("#atReset").disabled=false}atPrev(null)});
 document.addEventListener("focusin",e=>{const t=e.target;if(t&&t.dataset&&t.dataset.atf)AT.foc=t.dataset.atf});
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-atk],[data-attk],#atSave,#atReset");if(!t||t.disabled)return;
@@ -2098,11 +2119,11 @@ function plProfUi(){const el=$("#plProf"),u=PL.sel,m=$("#pilots");if(!el)return;
   '<div class="fo-s"><h4>Now</h4>'+(fl?'<button type="button" class="hm-f" data-hmgo="fw:'+esc(fl.cs)+'"><span class="cs">'+esc(fl.cs)+'</span><span class="rt">'+esc((fl.dep||"····")+" → "+(fl.arr||"····"))+'</span><span class="st"><b>'+(hmGround(fl)?"On the ground":"In the air")+"</b>Flight Watch ›</span></button>"
    :ci?'<p class="pf-p">Checked in for <b>'+esc(ci.fl||"a flight")+"</b> "+esc((ci.from?ci.from+" → ":"")+(ci.to||""))+(ci.std?" · STD "+otZ(ci.std):"")+"</p>":'<p class="hint" style="margin:0">'+(oo&&PL.ci?"Not flying and not checked in.":"Loading…")+"</p>")+"</div>"+
   '<div class="fo-s"><h4>Recent flights <small>'+(F.length?F.length+" in 90 days":"")+"</small></h4>"+(F.length?'<table class="pf-t"><tbody>'+F.slice(0,8).map(r=>{const al=otLate(r.in,r.sta),dl=otLate(r.out,r.std);return "<tr><td>"+esc(otDay(r.in||r.done))+"</td><td><b>"+esc(r.cs)+"</b></td><td>"+esc((r.dep||"?")+" → "+r.arr)+'</td><td class="m">'+otDur(r.out,r.in)+"</td><td>"+otDelta(al!=null?al:dl)+"</td></tr>"}).join("")+"</tbody></table>":'<p class="hint" style="margin:0">'+(oo?"No finished flight in the last 90 days.":"Loading…")+"</p>")+"</div>"+
-  '<div class="fo-s"><h4>Messages</h4>'+(msgs.length?msgs.map(x=>'<div class="pf-m"><span class="cm-k">'+x.k+"</span><span>"+esc(x.s)+"</span><time>"+cmWhen(x.t)+"</time></div>").join(""):'<p class="hint" style="margin:0">Nothing to or from '+esc(p.u)+" yet, apart from notices to all pilots.</p>")+"</div>"+
-  (D.length?'<div class="fo-s"><h4>Documents to confirm</h4>'+D.map(d=>{const r=(A[d.id]||{})[u],ok=r&&r.v===d.v;return '<div class="pf-m"><span class="pf-d '+(ok?"ok":"no")+'">'+(ok?"✓":"–")+"</span><span>"+esc(d.title)+"</span><time>"+(ok?cmWhen(r.t):r?"read v"+r.v:"not read")+"</time></div>"}).join("")+"</div>":"")}
+  (!pgHas("comms")?"":'<div class="fo-s"><h4>Messages</h4>'+(msgs.length?msgs.map(x=>'<div class="pf-m"><span class="cm-k">'+x.k+"</span><span>"+esc(x.s)+"</span><time>"+cmWhen(x.t)+"</time></div>").join(""):'<p class="hint" style="margin:0">Nothing to or from '+esc(p.u)+" yet, apart from notices to all pilots.</p>")+"</div>")+
+  (pgHas("docs")&&D.length?'<div class="fo-s"><h4>Documents to confirm</h4>'+D.map(d=>{const r=(A[d.id]||{})[u],ok=r&&r.v===d.v;return '<div class="pf-m"><span class="pf-d '+(ok?"ok":"no")+'">'+(ok?"✓":"–")+"</span><span>"+esc(d.title)+"</span><time>"+(ok?cmWhen(r.t):r?"read v"+r.v:"not read")+"</time></div>"}).join("")+"</div>":"")}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-plp],[data-plx]");if(!b)return;
  if(b.dataset.plp){plOpen(b.dataset.plp);return}PL.sel="";plUi();plProfUi()});
-if(!document.querySelector(".deny")){meLoad();load();preview();opsGet("set",6e5).then(j=>setApply(j.settings)).catch(()=>{})}
+if(!document.querySelector(".deny")){if(!window.PM_PERM)meLoad();load();preview();if(opsOk("set"))opsGet("set",6e5).then(j=>setApply(j.settings)).catch(()=>{})}
 window.addEventListener("hashchange",route);route();
 </script>
 <script src="/admin/live.js" defer></script></body></html>`;

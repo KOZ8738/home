@@ -32,7 +32,7 @@ const within = (p, ms) => Promise.race([p.then(() => true), sleep(ms).then(() =>
     const look = await open(port, { origin: 'https://koz8738.com.evil.example' });
     ck('a look-alike address: refused', look.refused === 401, look);
     const efb = await open(port, { origin: 'https://koz8738.com' });
-    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.4.0' && efb.hello.live === '' && efb.hello.sim === false && efb.hello.bg === false, efb.hello);
+    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.5.0' && efb.hello.live === '' && efb.hello.sim === false && efb.hello.bg === false, efb.hello);
     ck('starting with Windows: not to be chosen here (not the Windows program, or --no-link)', efb.hello.autostart === null, efb.hello.autostart);
     const ans = new Promise((r) => efb.w.on('message', (m) => { const j = JSON.parse(String(m)); if (j.cmd === 'autostart') r(j); }));
     efb.w.send(JSON.stringify({ cmd: 'autostart', on: true }));

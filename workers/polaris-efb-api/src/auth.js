@@ -54,6 +54,9 @@ async function unsign(env, kind, tok) {
 /** a ticket for one WebSocket connection (browsers cannot send the Authorization header with one): pilot u, 60 s */
 export async function wsTicket(env, u) { return sign(env, 'wt', { u, exp: Date.now() + 60_000 }); }
 export async function wsTicketUser(env, t) { const o = await unsign(env, 'wt', t); return o && o.u ? String(o.u) : null; }
+/** the same for Polaris Navdata on the pilot's simulator PC (not a browser: no Origin to check, so its own kind) */
+export async function navWsTicket(env, u) { return sign(env, 'wn', { u, exp: Date.now() + 60_000 }); }
+export async function navWsTicketUser(env, t) { const o = await unsign(env, 'wn', t); return o && o.u ? String(o.u) : null; }
 /** short signature for a link that must work without the sign-in header (a mail attachment opened in a new tab) */
 export async function linkSig(env, text) {
   return b64u(await crypto.subtle.sign('HMAC', await signKey(env), enc.encode('link.' + text))).slice(0, 32);
@@ -73,6 +76,38 @@ async function writeRec(env, rec) {
   rec.s = (rec.s || []).filter((x) => x.exp > Date.now());
   await env.STORE.put(recKey(rec.u), JSON.stringify(rec));
   recMem.set(String(rec.u).toUpperCase(), { at: Date.now(), rec });
+}
+
+/* ---- Polaris Navdata on the pilot's simulator PC (see nav.js) ----
+   A key the pilot's EFB asks for and hands to Navdata on that PC. It is good only for /api/nav/* (the simulator's
+   values in, the pilot's current flight out), and only while the pilot's record lists it: the pilot removes it on the
+   EFB, and staff signing the pilot out removes them all. Record: nk: [{ kid, name, t, last }], 4 at most. */
+const NAV_MS = 2 * 365 * 86400_000;
+export async function navPair(env, u, name) {
+  const rec = await readRec(env, u, true); if (!rec) return null;
+  const kid = rand(9), now = Date.now();
+  rec.nk = [{ kid, name: String(name || 'Simulator PC').slice(0, 40), t: now, last: 0 }, ...(rec.nk || [])].slice(0, 4);
+  await writeRec(env, rec);
+  return { kid, key: await sign(env, 'nk', { u: rec.u, kid, exp: now + NAV_MS }) };
+}
+export async function navList(env, u) { const rec = await readRec(env, u, true); return ((rec && rec.nk) || []).map((x) => ({ kid: x.kid, name: x.name, t: x.t, last: x.last || 0 })); }
+export async function navUnpair(env, u, kid) {
+  const rec = await readRec(env, u, true); if (!rec) return false;
+  const n = (rec.nk || []).length; rec.nk = (rec.nk || []).filter((x) => x.kid !== kid);
+  if (rec.nk.length !== n) await writeRec(env, rec);
+  return rec.nk.length !== n;
+}
+/** Which pilot's Navdata sent this request: { u, kid } or null. */
+export async function navUser(req, env) {
+  if (!env || !env.STORE) return null;
+  const m = (req.headers.get('Authorization') || '').match(/^Bearer\s+(\S+)$/i);
+  const t = m && await unsign(env, 'nk', m[1]);
+  if (!t || !t.u || !t.kid) return null;
+  const rec = await readRec(env, t.u), k = rec && (rec.nk || []).find((x) => x.kid === t.kid);
+  if (!k) return null;
+  /* when it was last used, to the hour */
+  if (Date.now() - (k.last || 0) > 3600_000) { const fr = await readRec(env, t.u, true), fk = fr && (fr.nk || []).find((x) => x.kid === t.kid); if (!fk) return null; fk.last = Date.now(); await writeRec(env, fr); }
+  return { u: String(rec.u), kid: t.kid };
 }
 
 /** Who is signed in on this request: { u, pid, n, r, c, sid, exp } or null. */
@@ -210,7 +245,7 @@ export async function signedInPilots(env) {
 export async function signOutPilot(env, username) {
   const rec = await readRec(env, username, true);
   if (!rec) return false;
-  rec.s = [];
+  rec.s = []; rec.nk = [];
   await writeRec(env, rec);
   return true;
 }

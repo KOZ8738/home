@@ -7,7 +7,7 @@
    Messages: the PC's frames are passed on as they are (the last one goes to a device that joins); {"ping":n} is answered
    {"pong":n} (for the latency shown); the relay tells the PC how many devices watch ({"subs":n}, so it reads and sends
    only while someone does) and the devices whether the PC is there ({"pub":true|false}). */
-import { sessionOf, wsTicket, wsTicketUser } from './auth.js';
+import { sessionOf, wsTicket, wsTicketUser, navWsTicketUser } from './auth.js';
 
 export async function pfdRoute(req, url, env, h) {
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -20,11 +20,13 @@ export async function pfdRoute(req, url, env, h) {
   }
   if (path === '/api/efb/pfd/ws') {
     if ((req.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return res({ error: 'WebSocket only' }, 426);
+    /* Polaris Navdata on the simulator PC (nav=1, with its own kind of ticket: see nav.js) only ever sends */
+    const nav = url.searchParams.get('nav') === '1';
     const origin = req.headers.get('Origin') || '', allowed = String(env.ALLOWED_ORIGINS || '').split(',').map((x) => x.trim());
-    if (!allowed.includes(origin)) return new Response('Not allowed', { status: 403 });
-    const u = await wsTicketUser(env, url.searchParams.get('ticket'));
+    if (!nav && !allowed.includes(origin)) return new Response('Not allowed', { status: 403 });
+    const u = nav ? await navWsTicketUser(env, url.searchParams.get('ticket')) : await wsTicketUser(env, url.searchParams.get('ticket'));
     if (!u) return new Response('Sign in first', { status: 401 });
-    const role = url.searchParams.get('role') === 'pub' ? 'pub' : 'sub';
+    const role = nav || url.searchParams.get('role') === 'pub' ? 'pub' : 'sub';
     const stub = env.PFD.get(env.PFD.idFromName(u));
     return stub.fetch(new Request('https://pfd/ws?role=' + role, req));
   }

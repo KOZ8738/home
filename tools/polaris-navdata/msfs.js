@@ -26,7 +26,7 @@ const GSX = [['coua', 'FSDT_GSX_COUATL_STARTED'], ['board', 'FSDT_GSX_BOARDING_S
   ['fuel', 'FSDT_GSX_REFUELING_STATE'], ['dep', 'FSDT_GSX_DEPARTURE_STATE'], ['deice', 'FSDT_GSX_DEICING_STATE'], ['cargoB', 'FSDT_GSX_BOARDING_CARGO_PERCENT'],
   ['cargoD', 'FSDT_GSX_DEBOARDING_CARGO_PERCENT'], ['hose', 'FSDT_GSX_FUELHOSE_CONNECTED'], ['deice2', 'FSDT_GSX_DEICE_STATE'],
   ['paxB', 'FSDT_GSX_NUMPASSENGERS_BOARDING_TOTAL'], ['paxD', 'FSDT_GSX_NUMPASSENGERS_DEBOARDING_TOTAL'], ['pax', 'FSDT_GSX_NUMPASSENGERS']];
-const GND = [['gnd', 'SIM ON GROUND', 'bool'], ['kt', 'GROUND VELOCITY', 'knots'], ['pbrk', 'BRAKE PARKING POSITION', 'bool'], ['fob', 'FUEL TOTAL QUANTITY WEIGHT', 'pounds'],
+const GND = [['gnd', 'SIM ON GROUND', 'bool'], ['kt', 'GROUND VELOCITY', 'knots'], ['la', 'PLANE LATITUDE', 'degrees'], ['lo', 'PLANE LONGITUDE', 'degrees'], ['pbrk', 'BRAKE PARKING POSITION', 'bool'], ['fob', 'FUEL TOTAL QUANTITY WEIGHT', 'pounds'],
   ['e1', 'GENERAL ENG COMBUSTION:1', 'bool'], ['e2', 'GENERAL ENG COMBUSTION:2', 'bool'], ['e3', 'GENERAL ENG COMBUSTION:3', 'bool'], ['e4', 'GENERAL ENG COMBUSTION:4', 'bool'],
   ...GSX.map(([k, l]) => ['x.' + k, 'L:' + l, 'number'])];
 const wrap = (a) => ((a % 360) + 360) % 360;
@@ -104,7 +104,7 @@ class MsfsLive {
       const v = this.read(r), x = {};
       for (const [k] of GSX) x[k] = Math.round(n(v['x.' + k]) || 0);
       this.onGsx({ v: x, g: { title: v.title || '', gnd: Number(v.gnd) ? 1 : 0, kt: fx(n(v.kt) || 0, 1), pbrk: Number(v.pbrk) ? 1 : 0,
-        eng: ['e1', 'e2', 'e3', 'e4'].filter((k) => Number(v[k]) > 0).length, fob: Math.round((n(v.fob) || 0) * 0.45359237) } });
+        eng: ['e1', 'e2', 'e3', 'e4'].filter((k) => Number(v[k]) > 0).length, fob: Math.round((n(v.fob) || 0) * 0.45359237), la: n(v.la), lo: n(v.lo) } });
     }
   }
 }

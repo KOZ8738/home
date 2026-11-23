@@ -75,6 +75,7 @@ export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
 export { Taskboard } from './tasks.js';
 import { pfdRoute } from './pfd.js';
+import { navRoute } from './nav.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic, aipPoints } from './cnaip.js';
@@ -1663,6 +1664,8 @@ export default {
       const me = await sessionOf(req, env);
       return kbPublic(req, new URL(req.url), env, h, me);
     }
+    /* Polaris Navdata on the pilot's simulator PC, sending without an EFB open there (see nav.js) */
+    if (/^\/api\/(efb\/nav\/(pair|pairs|unpair)|nav\/(ticket|flight|gsx|navproc))\/?$/.test(new URL(req.url).pathname)) { try { return await navRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
     if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */

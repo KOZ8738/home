@@ -19,17 +19,21 @@
             --xp-port N  X-Plane's Web API port (8086 unless X-Plane was started with --web_server_port)
             --stay       do not close when no EFB is connected
             --no-link    do not set up the polaris-navdata: link (nor read or change starting with Windows)
-            --startup    (as Windows starts it) run a copy without a window and go */
+            --startup    (as Windows starts it) run a copy without a window and go
+            --data-dir D where it keeps its log and its pairing (%LOCALAPPDATA%\\Polaris Navdata otherwise)
+   With the pilot's say (on the EFB), it also sends to the EFB server by itself when no EFB is open on this PC, so
+   the pilot's iPad has the PFD, Ground and the block times with only this running: see cloud.js. */
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
 const { WebSocketServer } = require('ws');
 const { XpLink, CifpReader, findXPlane } = require('./xplane');
 const { MsfsLive } = require('./msfs');
+const { Cloud } = require('./cloud');
 /* SimConnect is for MSFS on Windows; without it (another system, or a build without it) only X-Plane is read */
 let SC = null, ProcReader = null;
 try { SC = require('node-simconnect'); ({ ProcReader } = require('./navdata')); } catch (e) { SC = null; }
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 const SAFE = args.includes('--safe'), STAY = args.includes('--stay'), FROM_LINK = args.includes('--from-link'), BG = args.includes('--background');
@@ -46,7 +50,7 @@ const IDLE_MS = (+(opt('--idle-sec') || 0) || 600) * 1000, PING_MS = (+(opt('--p
 const S = { handle: null, reader: null, live: null, sim: '', connecting: false, cache: new Map(), clients: new Set(), lastEfb: Date.now(), closing: false };
 const stamp = () => new Date().toTimeString().slice(0, 8);
 /* without a window, the messages go to a file (kept to its last 256 KB) */
-const LOG_DIR = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Polaris Navdata') : path.join(os.homedir(), '.polaris-navdata'), LOG_FILE = path.join(LOG_DIR, 'navdata.log');
+const LOG_DIR = opt('--data-dir') || (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Polaris Navdata') : path.join(os.homedir(), '.polaris-navdata')), LOG_FILE = path.join(LOG_DIR, 'navdata.log');
 if (BG) {
   try { fs.mkdirSync(LOG_DIR, { recursive: true }); const st = fs.statSync(LOG_FILE); if (st.size > 512 * 1024) { const b = fs.readFileSync(LOG_FILE); fs.writeFileSync(LOG_FILE, b.subarray(b.length - 256 * 1024)); } } catch (e) { /* a new file */ }
   console.log = (...a) => { try { fs.appendFileSync(LOG_FILE, a.map(String).join(' ') + '\n'); } catch (e) { /* no file */ } };
@@ -73,22 +77,26 @@ function hello() {
   const xpUp = XP.st !== 'off', liveSim = S.handle ? 'msfs' : XP.on ? 'xp' : '';
   return { cmd: 'hello', app: 'Polaris Navdata', v: VERSION, sim: !!S.handle || xpUp, simName: S.handle ? S.sim : xpUp ? XP.name() : '', safe: SAFE,
     msfs: !!S.handle, xp: XP.on, xpName: xpUp ? XP.name() : '', xpWait: XP.st === 'wait' ? XP.err : '', xpData: !!CIFP,
-    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '', autostart: AUTO, bg: BG };
+    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '', autostart: AUTO, bg: BG, cloud: CLOUD.on, cloudKid: CLOUD.kid };
 }
 function tell(msg) { const s = JSON.stringify(msg); for (const c of S.clients) try { c.send(s); } catch (e) { /* gone */ } }
 /* the live values, to the pages that asked for them (MSFS's while it runs, X-Plane's otherwise) */
 function live(f, from) {
   if (from !== 'msfs' && S.handle) return;
+  CLOUD.onFrame(f, from === 'msfs' ? 'msfs' : 'xp');
   const s = JSON.stringify({ cmd: 'live', f }); for (const c of S.clients) if (c.live) try { c.send(s); } catch (e) { /* gone */ }
 }
-function gsxOut(m) { const s = JSON.stringify({ cmd: 'gsx', v: m.v, g: m.g }); for (const c of S.clients) if (c.gsx) try { c.send(s); } catch (e) { /* gone */ } }
+function gsxOut(m) { CLOUD.onGsx(m); const s = JSON.stringify({ cmd: 'gsx', v: m.v, g: m.g }); for (const c of S.clients) if (c.gsx) try { c.send(s); } catch (e) { /* gone */ } }
 /* what the pages want, from the simulators */
 function applyWant() {
-  const L = [...S.clients].some((c) => c.live), G = [...S.clients].some((c) => c.gsx);
+  const L = [...S.clients].some((c) => c.live) || CLOUD.wantLive, G = [...S.clients].some((c) => c.gsx) || CLOUD.wantGsx;
   XP.want(L && !S.handle);
   if (S.live) try { S.live.want(L, G); } catch (e) { log('MSFS:', e.message); }
 }
 
+/* sending to the EFB server by itself, when the pilot turned it on and no EFB is open on this PC (cloud.js) */
+const CLOUD = new Cloud({ dir: LOG_DIR, server: opt('--cloud-server'), pollMs: (+(opt('--cloud-poll-sec') || 0) || 60) * 1000, log, changed: () => applyWant(), paired: () => tell(hello()),
+  sim: () => (S.handle ? 'msfs' : XP.on ? 'xp' : ''), localEfb: () => S.clients.size > 0 || Date.now() - S.lastEfb < 5000, procs: (ic) => procs(ic) });
 /* MSFS not there: looked for every 5 s at first, every 15 s once it has not been seen for 2 minutes */
 let simSeenAt = Date.now();
 const simLater = () => (Date.now() - simSeenAt < 120000 ? 5000 : 15000);
@@ -163,6 +171,7 @@ function registerLink() {
 function shutdown(why) {
   if (S.closing) return; S.closing = true; log(why);
   try { XP.stop(); } catch (e) { /* stopped */ }
+  try { CLOUD.stop(); } catch (e) { /* stopped */ }
   try { if (S.live) S.live.stop(); if (S.handle) S.handle.close(); } catch (e) { /* closed */ }
   for (const c of S.clients) try { c.close(1001, 'closing'); } catch (e) { /* gone */ }
   try { wss.close(); } catch (e) { /* closed */ }
@@ -174,6 +183,7 @@ const wss = new WebSocketServer({ host: '127.0.0.1', port: PORT, verifyClient: (
 wss.on('listening', () => {
   log(`Polaris Navdata ${VERSION} ready for the EFB on ws://localhost:${PORT}` + (BG ? ' (started with Windows, no window)' : ''));
   registerLink();
+  CLOUD.load();
   autoRead().then(() => { if (AUTO) log('Starts with Windows (chosen on the EFB, Ground › Simulator PC): it keeps running, ready for the EFB.'); tell(hello()); });
   connect();
   XP.start();
@@ -199,6 +209,8 @@ wss.on('error', (e) => {
 wss.on('connection', (ws) => {
   ws.alive = true; ws.live = false; ws.gsx = false; ws.on('pong', () => { ws.alive = true; });
   S.clients.add(ws); S.lastEfb = Date.now(); ws.send(JSON.stringify(hello()));
+  /* the times stamped while no EFB was open here, for the EFB to take over with */
+  if (CLOUD.flight && Object.keys(CLOUD.oo).length) ws.send(JSON.stringify({ cmd: 'oo', fid: CLOUD.flight.fid, oo: CLOUD.oo }));
   ws.on('close', () => { S.clients.delete(ws); S.lastEfb = Date.now(); applyWant(); });
   ws.on('message', async (raw) => {
     let j; try { j = JSON.parse(String(raw)); } catch (e) { return; }
@@ -207,6 +219,8 @@ wss.on('connection', (ws) => {
     /* the pilot's choice on the EFB: start with Windows, or with the EFB */
     if (j.cmd === 'autostart') { const err = await autoSet(j.on === true); ws.send(JSON.stringify({ cmd: 'autostart', ok: !err, on: AUTO, error: err })); tell(hello()); return; }
     if (j.cmd === 'quit') { shutdown('Closed from the EFB.'); return; }
+    /* sending by itself: the key from the EFB (or none, to stop), and the EFB's settings for it */
+    if (j.cmd === 'cloud') { const err = await CLOUD.set(j); ws.send(JSON.stringify({ cmd: 'cloud', ok: !err, on: CLOUD.on, kid: CLOUD.kid, error: err })); return; }
     if (j.cmd === 'procs') {
       try { const data = await procs(j.icao); ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: data.icao, ok: true, data })); }
       catch (e) { ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: String(j.icao || '').toUpperCase(), ok: false, error: e.message })); log(String(j.icao), '-', e.message); }

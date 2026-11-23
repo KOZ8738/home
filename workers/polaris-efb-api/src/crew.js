@@ -280,10 +280,25 @@ export class Crew {
     const k = 'gsx:' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), prev = row ? JSON.parse(row.v) : null, p = (prev && prev.v) || {};
     /* the OOOI times the simulator PC stamped, for the flight plan it has open (fid), so the pilot's iPad shows them too */
     const oo = {}; if (a.oo && typeof a.oo === 'object') for (const x of ['OUT', 'OFF', 'ON', 'IN']) if (/^\d\d:\d\d$/.test(String(a.oo[x] || ''))) oo[x] = a.oo[x];
+    const fid = String(a.fid || '').slice(0, 40), same = !!prev && (prev.fid || '') === fid, now = Date.now();
+    /* from Polaris Navdata itself (no EFB open on the simulator PC; see nav.js): a time already kept for this flight
+       stays (Navdata only fills the empty ones), and the turnaround is worked out here from what changed */
+    if (a.nav && same && prev.oo) for (const x of ['OUT', 'OFF', 'ON', 'IN']) if (prev.oo[x]) oo[x] = prev.oo[x];
+    /* the last touchdown (Navdata sends it; kept through the EFB's own posts, 12 hours) */
+    let land = prev && prev.land && now - prev.land.t < 12 * 3600_000 ? prev.land : null;
+    if (a.land && typeof a.land === 'object' && Number.isFinite(+a.land.t) && Number.isFinite(+a.land.fpm) && Math.abs(now - a.land.t) < 12 * 3600_000) {
+      const L = a.land; land = { t: Math.round(+L.t), fpm: Math.round(+L.fpm), g: +(+L.g || 1).toFixed(2), ias: Math.round(+L.ias || 0), pitch: +(+L.pitch || 0).toFixed(1), fl: String(L.fl || '').slice(0, 12), fid: String(L.fid || '').slice(0, 40) };
+    }
     /* the turnaround so far: when each service was called (4), started (5) and finished (6) */
-    const SV = ['board', 'cater', 'fuel', 'deice', 'dep', 'deboard'], log = (Array.isArray(a.log) ? a.log : []).slice(-60)
+    const SV = ['board', 'cater', 'fuel', 'deice', 'dep', 'deboard'];
+    let log = (Array.isArray(a.log) ? a.log : []).slice(-60)
       .filter((e) => e && SV.includes(e.k) && [4, 5, 6].includes(e.s) && Number.isFinite(e.t)).map((e) => ({ k: e.k, s: e.s, t: Math.round(e.t) }));
-    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ v, at: Date.now(), ac: String(a.ac || '').slice(0, 60), fid: String(a.fid || '').slice(0, 40), oo, log }));
+    if (a.nav) {
+      log = same && Array.isArray(prev.log) ? prev.log.slice(-60) : [];
+      for (const s of SV) if (prev && same ? p[s] !== v[s] && v[s] >= 4 && v[s] <= 6 : v[s] === 4 || v[s] === 5) log.push({ k: s, s: v[s], t: now });
+      log = log.slice(-60);
+    }
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify({ v, at: now, ac: String(a.ac || '').slice(0, 60), fid, oo, log, ...(land ? { land } : {}) }));
     /* only a change seen within the last 10 minutes counts (a bridge coming back online is not news) */
     const fresh = prev && Date.now() - prev.at < 600000, done = (x) => fresh && p[x] !== 6 && v[x] === 6;
     const msgs = [];

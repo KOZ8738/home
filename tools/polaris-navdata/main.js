@@ -9,8 +9,12 @@
    The pilot chooses, on the EFB (Ground › Simulator PC), how it runs on this PC:
    - with the EFB (the default): on Windows it sets up a polaris-navdata: link, so the EFB on this PC can start it (one
      tap, the browser asking once), and it closes by itself 10 minutes after the last EFB on this PC went away;
-   - with Windows: it starts when the pilot signs in to Windows (HKCU\...\Run, "--startup": a copy without a window,
-     its messages in %LOCALAPPDATA%\Polaris Navdata\navdata.log) and keeps running, ready for the EFB.
+   - with Windows: it starts when the pilot signs in to Windows and keeps running, ready for the EFB. Windows starts a
+     copy of this program made to have no window at all (%LOCALAPPDATA%\Polaris Navdata\PolarisNavdata-bg.exe, the
+     same program marked as a windowed one that opens no window, so not even a console flashes up), through the Run
+     entry in HKCU; its messages go to navdata.log there. The copy is made again when this program changes.
+   A newer Polaris Navdata started while an older one runs (in the background, say) closes the older one and takes
+   over; an older or the same one leaves it be and goes.
    Only the EFB's own pages (and programs on this PC) may connect. Nothing leaves this PC from here: the EFB keeps what
    it receives for its signed-in pilot only.
    Options: --safe       MSFS: read fix positions one by one instead of with the legs (for a simulator that stalls on that)
@@ -19,13 +23,15 @@
             --xp-port N  X-Plane's Web API port (8086 unless X-Plane was started with --web_server_port)
             --stay       do not close when no EFB is connected
             --no-link    do not set up the polaris-navdata: link (nor read or change starting with Windows)
-            --startup    (as Windows starts it) run a copy without a window and go
+            --background (as Windows starts the copy) no window: messages to navdata.log
+            --main EXE   (with it) the program it was copied from
+            --startup    (as Polaris Navdata 1.4 and 1.5 had Windows start it) run a copy without a window and go
             --data-dir D where it keeps its log and its pairing (%LOCALAPPDATA%\\Polaris Navdata otherwise)
    With the pilot's say (on the EFB), it also sends to the EFB server by itself when no EFB is open on this PC, so
    the pilot's iPad has the PFD, Ground and the block times with only this running: see cloud.js. */
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws');
 const { XpLink, CifpReader, findXPlane } = require('./xplane');
 const { MsfsLive } = require('./msfs');
 const { Cloud } = require('./cloud');
@@ -33,12 +39,14 @@ const { Cloud } = require('./cloud');
 let SC = null, ProcReader = null;
 try { SC = require('node-simconnect'); ({ ProcReader } = require('./navdata')); } catch (e) { SC = null; }
 
-const VERSION = '1.5.0';
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
+/* (--as-version: the tests' stand-in for an older or newer Polaris Navdata) */
+const VERSION = opt('--as-version') || '1.6.0';
 const SAFE = args.includes('--safe'), STAY = args.includes('--stay'), FROM_LINK = args.includes('--from-link'), BG = args.includes('--background');
-/* started by Windows at sign-in: the same program again, without a window (no console at all), and this one goes. The
-   copy is started with its own entry point first, as Node is (pkg's .exe takes it the same way) */
+/* started by Windows at sign-in by Polaris Navdata 1.4 or 1.5's Run entry: the same program again, without a window,
+   and this one goes (it then makes the copy that has none at all, and points the Run entry at it). The copy is started
+   with its own entry point first, as Node is (pkg's .exe takes it the same way) */
 if (args.includes('--startup') && !BG) {
   const c = require('child_process').spawn(process.execPath, [process.argv[1], ...args.filter((a) => a !== '--startup'), '--background'], { detached: true, stdio: 'ignore', windowsHide: true });
   c.unref(); process.exit(0);
@@ -95,7 +103,7 @@ function applyWant() {
 }
 
 /* sending to the EFB server by itself, when the pilot turned it on and no EFB is open on this PC (cloud.js) */
-const CLOUD = new Cloud({ dir: LOG_DIR, server: opt('--cloud-server'), pollMs: (+(opt('--cloud-poll-sec') || 0) || 60) * 1000, log, changed: () => applyWant(), paired: () => tell(hello()),
+const CLOUD = new Cloud({ dir: LOG_DIR, server: opt('--cloud-server'), pollMs: (+(opt("--cloud-poll-sec") || 0) || 30) * 1000, log, changed: () => applyWant(), paired: () => tell(hello()),
   sim: () => (S.handle ? 'msfs' : XP.on ? 'xp' : ''), localEfb: () => S.clients.size > 0 || Date.now() - S.lastEfb < 5000, procs: (ic) => procs(ic) });
 /* MSFS not there: looked for every 5 s at first, every 15 s once it has not been seen for 2 minutes */
 let simSeenAt = Date.now();
@@ -140,25 +148,65 @@ const okOrigin = (o) => !o || /^https:\/\/([a-z0-9-]+\.)*koz8738\.com$/i.test(o)
    the program was moved): the polaris-navdata: link the EFB starts it with, and starting with Windows if chosen */
 const WIN = process.platform === 'win32' && !!process.pkg && !args.includes('--no-link');
 const reg = (a) => new Promise((r) => require('child_process').execFile('reg', a, { windowsHide: true }, (e, out) => r(e ? null : String(out))));
-const RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', RUN_NAME = 'Polaris Navdata', RUN_CMD = () => `"${process.execPath}" --startup`;
+/* the copy Windows starts, and the program it is made from (this one, unless this is the copy) */
+const BG_EXE = path.join(LOG_DIR, 'PolarisNavdata-bg.exe'), BG_META = path.join(LOG_DIR, 'PolarisNavdata-bg.json');
+const IS_COPY = path.resolve(process.execPath).toLowerCase() === path.resolve(BG_EXE).toLowerCase();
+const MAIN_EXE = IS_COPY && opt('--main') ? path.resolve(opt('--main')) : process.execPath;
+const RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', RUN_NAME = 'Polaris Navdata';
+const RUN_CMD = () => `"${BG_EXE}" --background --main "${MAIN_EXE}"` + (opt('--data-dir') ? ` --data-dir "${LOG_DIR}"` : '');
+/* a Windows program marked as windowed (subsystem 2) opens no console: the copy is this program so marked (the PE
+   header's subsystem field, at its optional header + 68) */
+function windowless(f) {
+  const fd = fs.openSync(f, 'r+');
+  try {
+    const b = Buffer.alloc(4); fs.readSync(fd, b, 0, 4, 0x3c); const pe = b.readUInt32LE(0), h = Buffer.alloc(26);
+    fs.readSync(fd, h, 0, 26, pe);
+    if (h.toString('latin1', 0, 4) !== 'PE\0\0' || ![0x10b, 0x20b].includes(h.readUInt16LE(24))) throw new Error('not a Windows program');
+    const v = Buffer.alloc(2); fs.readSync(fd, v, 0, 2, pe + 24 + 68); const sub = v.readUInt16LE(0);
+    if (sub !== 3 && sub !== 2) throw new Error('not a console program (' + sub + ')');
+    v.writeUInt16LE(2, 0); fs.writeSync(fd, v, 0, 2, pe + 24 + 68);
+  } finally { fs.closeSync(fd); }
+}
+/* made (again) when the program it comes from is not the one it was made from; one that is running is moved aside
+   (a running program can be renamed, not replaced) and removed once it no longer runs */
+async function makeCopy() {
+  if (IS_COPY) return true;
+  try {
+    const st = fs.statSync(MAIN_EXE), want = { src: path.resolve(MAIN_EXE), size: st.size, mtime: Math.round(st.mtimeMs), v: VERSION };
+    try { const m = JSON.parse(fs.readFileSync(BG_META, 'utf8')); if (m.src === want.src && m.size === want.size && m.mtime === want.mtime && fs.existsSync(BG_EXE)) return true; } catch (e) { /* none yet */ }
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    /* (the bytes copied, not the file: no mark of the download comes with it, as the program itself was already
+       allowed to run) */
+    const tmp = BG_EXE + '.new'; await require('stream').promises.pipeline(fs.createReadStream(MAIN_EXE), fs.createWriteStream(tmp)); windowless(tmp);
+    try { fs.renameSync(tmp, BG_EXE); } catch (e) { fs.renameSync(BG_EXE, BG_EXE.replace(/\.exe$/, '-old-' + Date.now() + '.exe')); fs.renameSync(tmp, BG_EXE); }
+    fs.writeFileSync(BG_META, JSON.stringify(want)); tidyCopies();
+    return true;
+  } catch (e) { log('Could not make the copy that starts with Windows: ' + e.message); return false; }
+}
+function tidyCopies() { try { for (const f of fs.readdirSync(LOG_DIR)) if (/^PolarisNavdata-bg-old-\d+\.exe$/.test(f)) try { fs.unlinkSync(path.join(LOG_DIR, f)); } catch (e) { /* still running */ } } catch (e) { /* no folder */ } }
+function removeCopy() { if (IS_COPY) return; for (const f of [BG_EXE, BG_META, BG_EXE + '.new']) try { fs.unlinkSync(f); } catch (e) { /* running, or none */ } tidyCopies(); }
 async function autoRead() {
   if (!WIN) { AUTO = null; return; }
   const out = await reg(['query', RUN, '/v', RUN_NAME]);
   AUTO = !!out;
-  /* chosen for a copy that was moved: this copy from now on */
-  if (out && !out.includes(RUN_CMD())) await reg(['add', RUN, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', RUN_CMD(), '/f']);
+  /* chosen: the copy brought up to date from this program and the Run entry pointed at it (Polaris Navdata 1.4 and
+     1.5's entry started the program itself; and a program that was moved is this one from now on) */
+  if (out && !IS_COPY && (await makeCopy()) && !out.includes(RUN_CMD())) await reg(['add', RUN, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', RUN_CMD(), '/f']);
+  if (!out) removeCopy();
 }
 async function autoSet(on) {
   if (!WIN) return 'Only the Windows program can start with Windows';
+  if (on && !(await makeCopy())) return 'Could not set up the copy that starts with Windows';
   const ok = on ? (await reg(['add', RUN, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', RUN_CMD(), '/f'])) !== null : (await reg(['delete', RUN, '/v', RUN_NAME, '/f'])) !== null || (await reg(['query', RUN, '/v', RUN_NAME])) === null;
   await autoRead();
   if (!ok || AUTO !== on) return 'Windows did not take the change';
-  log(on ? 'Starts with Windows from now on, and keeps running, ready for the EFB.' : 'No longer starts with Windows: the EFB starts it, and it closes 10 minutes after the EFB.');
+  log(on ? 'Starts with Windows from now on, without a window, and keeps running, ready for the EFB.' : 'No longer starts with Windows: the EFB starts it, and it closes 10 minutes after the EFB.');
   return '';
 }
 function registerLink() {
-  if (!WIN) return;
-  const exe = process.execPath, K = 'HKCU\\Software\\Classes\\polaris-navdata', cmd = `"${exe}" --from-link "%1"`;
+  if (!WIN || !fs.existsSync(MAIN_EXE)) return;
+  /* (the program itself, also from the copy: started from the EFB, it has its window) */
+  const exe = MAIN_EXE, K = 'HKCU\\Software\\Classes\\polaris-navdata', cmd = `"${exe}" --from-link "%1"`;
   (async () => {
     const now = await reg(['query', K + '\\shell\\open\\command', '/ve']);
     if (now && now.includes(cmd)) return;
@@ -174,13 +222,40 @@ function shutdown(why) {
   try { CLOUD.stop(); } catch (e) { /* stopped */ }
   try { if (S.live) S.live.stop(); if (S.handle) S.handle.close(); } catch (e) { /* closed */ }
   for (const c of S.clients) try { c.close(1001, 'closing'); } catch (e) { /* gone */ }
-  try { wss.close(); } catch (e) { /* closed */ }
+  try { if (wss) wss.close(); } catch (e) { /* closed */ }
   setTimeout(() => process.exit(0), 300);
 }
 const idleText = () => (IDLE_MS >= 60000 ? Math.round(IDLE_MS / 60000) + ' minutes' : Math.round(IDLE_MS / 1000) + ' s');
 
-const wss = new WebSocketServer({ host: '127.0.0.1', port: PORT, verifyClient: (info) => okOrigin(info.origin) });
-wss.on('listening', () => {
+let wss = null, listened = false;
+function serve() {
+  wss = new WebSocketServer({ host: '127.0.0.1', port: PORT, verifyClient: (info) => okOrigin(info.origin) });
+  wss.on('listening', onListening); wss.on('error', onServerError); wss.on('connection', onConnection);
+}
+/* one copy at a time: an older Polaris Navdata that is running (1.3 and later close when asked) makes way for this one */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const newer = (a, b) => { const A = String(a).split('.').map((x) => parseInt(x, 10) || 0), B = String(b).split('.').map((x) => parseInt(x, 10) || 0); for (let i = 0; i < 3; i++) if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) > (B[i] || 0); return false; };
+const portFree = () => new Promise((r) => { const t = require('net').createServer(); t.once('error', () => r(false)); t.listen(PORT, '127.0.0.1', () => t.close(() => r(true))); });
+let tookOver = false;
+async function takeOver() {
+  if (tookOver) return false;
+  const o = await new Promise((r) => {
+    let w; try { w = new WebSocket('ws://127.0.0.1:' + PORT); } catch (e) { r(null); return; }
+    const t = setTimeout(() => { try { w.terminate(); } catch (e) { /* gone */ } r(null); }, 3000);
+    w.on('message', (m) => { let j; try { j = JSON.parse(String(m)); } catch (e) { return; } if (j.cmd === 'hello') { clearTimeout(t); r({ w, v: String(j.v || '') }); } });
+    w.on('error', () => { clearTimeout(t); r(null); });
+  });
+  if (!o) return false;
+  if (!newer(VERSION, o.v)) { try { o.w.close(); } catch (e) { /* gone */ } return false; }
+  tookOver = true;
+  log(`Polaris Navdata ${o.v} was running: it closes, and this one (${VERSION}) takes over.`);
+  try { o.w.send(JSON.stringify({ cmd: 'quit', why: 'newer' })); } catch (e) { /* gone */ }
+  for (let i = 0; i < 20; i++) { await sleep(500); if (await portFree()) { serve(); return true; } }
+  log(`Polaris Navdata ${o.v} did not close.`);
+  return false;
+}
+function onListening() {
+  listened = true;
   log(`Polaris Navdata ${VERSION} ready for the EFB on ws://localhost:${PORT}` + (BG ? ' (started with Windows, no window)' : ''));
   registerLink();
   CLOUD.load();
@@ -195,18 +270,22 @@ wss.on('listening', () => {
     if (S.clients.size) S.lastEfb = Date.now();
     else if (!stayNow() && Date.now() - S.lastEfb > IDLE_MS) shutdown(`No EFB on this PC for ${idleText()}: closing. The EFB starts Polaris Navdata again when you need it.`);
   }, Math.min(5000, Math.max(250, IDLE_MS / 4)));
-});
-wss.on('error', (e) => {
-  if (e.code === 'EADDRINUSE') {
-    /* already open (perhaps in the background): this copy goes (at once when the EFB or Windows started it) */
-    const quiet = FROM_LINK || BG;
-    if (!quiet) log(`Polaris Navdata is already open (port ${PORT} is in use; it may be running in the background). This window closes.`);
-    setTimeout(() => process.exit(0), quiet ? 0 : 4000);
+}
+function onServerError(e) {
+  if (e.code === 'EADDRINUSE' && !listened) {
+    takeOver().then((done) => {
+      if (done) return;
+      /* already open (perhaps in the background), and not older: this copy goes (at once when the EFB or Windows
+         started it) */
+      const quiet = FROM_LINK || BG;
+      if (!quiet) log(`Polaris Navdata is already open (port ${PORT} is in use; it may be running in the background). This window closes.`);
+      setTimeout(() => process.exit(0), quiet ? 0 : 4000);
+    });
     return;
   }
   log('Server: ' + e.message);
-});
-wss.on('connection', (ws) => {
+}
+function onConnection(ws) {
   ws.alive = true; ws.live = false; ws.gsx = false; ws.on('pong', () => { ws.alive = true; });
   S.clients.add(ws); S.lastEfb = Date.now(); ws.send(JSON.stringify(hello()));
   /* the times stamped while no EFB was open here, for the EFB to take over with */
@@ -218,7 +297,7 @@ wss.on('connection', (ws) => {
     if (j.cmd === 'live') { ws.live = j.on === true; ws.gsx = j.gsx === true; applyWant(); return; }
     /* the pilot's choice on the EFB: start with Windows, or with the EFB */
     if (j.cmd === 'autostart') { const err = await autoSet(j.on === true); ws.send(JSON.stringify({ cmd: 'autostart', ok: !err, on: AUTO, error: err })); tell(hello()); return; }
-    if (j.cmd === 'quit') { shutdown('Closed from the EFB.'); return; }
+    if (j.cmd === 'quit') { shutdown(j.why === 'newer' ? 'A newer Polaris Navdata takes over: closing.' : 'Closed from the EFB.'); return; }
     /* sending by itself: the key from the EFB (or none, to stop), and the EFB's settings for it */
     if (j.cmd === 'cloud') { const err = await CLOUD.set(j); ws.send(JSON.stringify({ cmd: 'cloud', ok: !err, on: CLOUD.on, kid: CLOUD.kid, error: err })); return; }
     if (j.cmd === 'procs') {
@@ -226,7 +305,8 @@ wss.on('connection', (ws) => {
       catch (e) { ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: String(j.icao || '').toUpperCase(), ok: false, error: e.message })); log(String(j.icao), '-', e.message); }
     }
   });
-});
+}
+serve();
 
 console.log('Polaris Navdata ' + VERSION + ' for the Polaris EFB: SIDs, STARs and approaches from ' + (SC ? 'MSFS or X-Plane 12' : 'X-Plane 12 (no MSFS on this system)') + ', and the live values for the Backup PFD, Ground and the block times. '
   + (BG ? 'Started with Windows, without a window: it keeps running, ready for the EFB.' : STAY ? 'Keep this window open while you fly.' : 'Unless you chose to start it with Windows (on the EFB, Ground › Simulator PC), it closes by itself ' + idleText() + ' after the EFB on this PC closes, and the EFB starts it again.'));

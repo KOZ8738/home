@@ -6,7 +6,10 @@
    - Ground's, once a second: GSX Pro's L:vars (an external SimConnect client can read L:vars since MSFS 2020 SU12, and
      in MSFS 2024) and what the OOOI times need (on the ground, ground speed, parking brake, engines, fuel, aircraft).
    Both come in tagged form (each value with its id): a variable the simulator does not know is left out instead of
-   shifting the others. */
+   shifting the others.
+   GSX Pro makes its L:vars when it starts (Couatl, after the flight has loaded): until then they read 0, and a
+   definition made before may not pick them up, so while GSX does not say it is running (FSDT_GSX_COUATL_STARTED),
+   Ground's definition is made afresh once a minute. */
 'use strict';
 
 const DEF = { PFD: 501, GND: 502 }, REQ = { PFD: 601, GND: 602 };
@@ -39,7 +42,8 @@ function frameOf(v, now, td) {
   const ht = n(v.ht), hm = n(v.hm), mv = ht != null && hm != null ? wrap180(ht - hm) : 0, gs = n(v.gs) || 0;
   const la = n(v.la), lo = n(v.lo), pos = la != null && lo != null && (la || lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180;
   return {
-    /* MSFS's pitch is positive nose down and its bank positive to the left (as FSUIPC's): the EFB's are the other way */
+    /* MSFS's pitch is positive nose down and its bank positive to the left (as FSUIPC's, and as FlyByWire's A32NX turns
+       round "to conform to standard aeronautical norms"): the EFB's are the other way */
     t: now, p: fx(-(n(v.pitch) || 0), 2), b: fx(-(n(v.bank) || 0), 2), h: fx(wrap(hm != null ? hm : (ht || 0) - mv), 2),
     k: gs > 1 && n(v.trk) != null ? fx(wrap(v.trk - mv), 1) : null,
     ias: fx(n(v.ias) || 0, 1), tas: Math.round(n(v.tas) || 0), gs: Math.round(gs), vs: Math.round(n(v.vs) || 0),
@@ -57,18 +61,31 @@ class MsfsLive {
   constructor(handle, SC, o = {}) {
     this.h = handle; this.SC = SC; this.onFrame = o.onFrame || (() => {}); this.onGsx = o.onGsx || (() => {}); this.log = o.log || (() => {});
     this.now = o.now || Date.now; this.fast = false; this.gsx = false; this.vals = {}; this.td = null; this.prevGnd = null; this.prevTd = null; this.airVs = 0; this.sentAt = 0;
-    this.keys = { [DEF.PFD]: PFD, [DEF.GND]: GND }; this.sent = new Map(); this.bad = new Set();
+    this.keys = { [DEF.PFD]: PFD, [DEF.GND]: GND }; this.sent = new Map(); this.bad = new Set(); this.gndIds = []; this.gndAt = 0; this.gsxTold = false;
     this.define();
     handle.on('simObjectData', (r) => { try { this.onData(r); } catch (e) { this.log('MSFS values: ' + e.message); } });
     handle.on('exception', (x) => { const nm = this.sent.get(x && x.sendId); if (nm && !this.bad.has(nm)) { this.bad.add(nm); this.log('MSFS does not give ' + nm + ' (SimConnect exception ' + x.exception + '): left out'); } });
   }
   define() {
     const T = this.SC.SimConnectDataType;
-    for (const [def, list] of [[DEF.PFD, PFD], [DEF.GND, GND]]) {
-      list.forEach(([, name, unit], i) => { const id = this.h.addToDataDefinition(def, name, unit, T.FLOAT64, 0, i); this.sent.set(id, name); });
-    }
+    PFD.forEach(([, name, unit], i) => { const id = this.h.addToDataDefinition(DEF.PFD, name, unit, T.FLOAT64, 0, i); this.sent.set(id, name); });
+    this.defineGnd();
+  }
+  defineGnd() {
+    const T = this.SC.SimConnectDataType, add = (name, unit, type, i) => { const id = this.h.addToDataDefinition(DEF.GND, name, unit, type, 0, i); this.sent.set(id, name); this.gndIds.push(id); };
+    GND.forEach(([, name, unit], i) => add(name, unit, T.FLOAT64, i));
     /* the aircraft's title last (index after the numbers) */
-    const id = this.h.addToDataDefinition(DEF.GND, 'TITLE', null, T.STRING256, 0, GND.length); this.sent.set(id, 'TITLE');
+    add('TITLE', null, T.STRING256, GND.length);
+  }
+  /* Ground's definition made afresh (and asked for again), its L:vars looked up anew */
+  redefineGnd() {
+    const P = this.SC.SimConnectPeriod, F = this.SC.DataRequestFlag.DATA_REQUEST_FLAG_TAGGED, U = this.SC.SimConnectConstants.OBJECT_ID_USER;
+    this.h.requestDataOnSimObject(REQ.GND, DEF.GND, U, P.NEVER, F, 0, 0, 0);
+    if (typeof this.h.clearDataDefinition === 'function') this.h.clearDataDefinition(DEF.GND);
+    for (const id of this.gndIds) this.sent.delete(id);
+    this.gndIds = []; for (const nm of [...this.bad]) if (/^L:/.test(nm)) this.bad.delete(nm);
+    this.defineGnd();
+    this.h.requestDataOnSimObject(REQ.GND, DEF.GND, U, P.SECOND, F, 0, 0, 0);
   }
   /* fast: the PFD's values; gsx: Ground's. Asked for, or stopped, only when that changes */
   want(fast, gsx) {
@@ -77,7 +94,7 @@ class MsfsLive {
       this.fast = !!fast; this.vals = {}; this.td = null; this.prevGnd = null;
       this.h.requestDataOnSimObject(REQ.PFD, DEF.PFD, U, fast ? P.SIM_FRAME : P.NEVER, F, 0, fast ? 2 : 0, 0);
     }
-    if (!!gsx !== this.gsx) { this.gsx = !!gsx; this.h.requestDataOnSimObject(REQ.GND, DEF.GND, U, gsx ? P.SECOND : P.NEVER, F, 0, 0, 0); }
+    if (!!gsx !== this.gsx) { this.gsx = !!gsx; this.gndAt = this.now(); this.h.requestDataOnSimObject(REQ.GND, DEF.GND, U, gsx ? P.SECOND : P.NEVER, F, 0, 0, 0); }
   }
   stop() { try { this.want(false, false); } catch (e) { /* closed */ } }
   /* tagged data: datum id, then its value, for each value the simulator gave */
@@ -93,7 +110,9 @@ class MsfsLive {
   onData(r) {
     if (r.requestID === REQ.PFD && this.fast) {
       const v = Object.assign(this.vals, this.read(r)), now = this.now(), g = Number(v.gnd) ? 1 : 0;
-      /* touchdown: the vertical speed the simulator gives for it, or else the last one in the air */
+      /* touchdown: the vertical speed the simulator gives for it (PLANE TOUCHDOWN NORMAL VELOCITY: ft/s, positive
+         downwards, kept until the next touchdown; its size, once it differs from the last landing's), or else the
+         last vertical speed in the air */
       if (this.prevGnd === 0 && g === 1) this.td = { v: Math.round(this.airVs), at: now, td0: this.prevTd };
       if (this.td && now - this.td.at < 1000 && n(v.td) && v.td !== this.td.td0) { this.td.v = -Math.round(Math.abs(v.td)); this.td.td0 = v.td; }
       if (!g) this.airVs = n(v.vs) || 0;
@@ -103,6 +122,13 @@ class MsfsLive {
     } else if (r.requestID === REQ.GND && this.gsx) {
       const v = this.read(r), x = {};
       for (const [k] of GSX) x[k] = Math.round(n(v['x.' + k]) || 0);
+      const now = this.now();
+      if (x.coua === 1) this.gsxTold = false;
+      else if (now - this.gndAt >= 60000) {
+        this.gndAt = now;
+        if (!this.gsxTold) { this.gsxTold = true; this.log('GSX Pro not running (yet): its values looked up afresh once a minute'); }
+        try { this.redefineGnd(); } catch (e) { this.log('MSFS Ground values: ' + e.message); }
+      }
       this.onGsx({ v: x, g: { title: v.title || '', gnd: Number(v.gnd) ? 1 : 0, kt: fx(n(v.kt) || 0, 1), pbrk: Number(v.pbrk) ? 1 : 0,
         eng: ['e1', 'e2', 'e3', 'e4'].filter((k) => Number(v[k]) > 0).length, fob: Math.round((n(v.fob) || 0) * 0.45359237), la: n(v.la), lo: n(v.lo) } });
     }

@@ -150,6 +150,7 @@ export class Crew {
       case 'syncGet': return { sync: this.syncGet(String(a.u || '')) };
       case 'syncSet': return this.syncSet(a);
       case 'gsxGet': { const row = this.one('SELECT v FROM kv WHERE k = ?', 'gsx:' + String(a.u || '')); return { gsx: row ? JSON.parse(row.v) : null }; }
+      case 'navWant': return this.navWant(a);
       case 'ciGet': { const r = this.one('SELECT * FROM ci WHERE u = ?', String(a.u || '')); return { checkin: r ? { ...JSON.parse(r.data), at: r.at, jobs: this.rows("SELECT at, kind FROM jobs WHERE u = ? AND kind = 'brief' ORDER BY at", r.u).map((j) => ({ at: j.at, kind: j.kind })) } : null }; }
       case 'trkFind': return { track: this.trkFind(a) };
       case 'ltrk': return this.ltrk(a);
@@ -270,6 +271,23 @@ export class Crew {
     const title = parts.length ? `${who} ${icao}: ${parts.join(' · ')}` : `${who} ${icao}: back to ${a.cat}`;
     this.enqueue({ u }, 'brief', { title, body: String(a.raw || '').slice(0, 180) + fl, url: '#wx', tag: 'wx-' + icao });
     return { ok: true, sent: true };
+  }
+  /* airports the pilot's iPad asked Polaris Navdata (on the simulator PC, sending by itself) for: kept 10 minutes from
+     the last change, at most 8. a.icao alone asks (again); with a.st 'done' or 'error' (and a.err) Navdata answered;
+     a.get lists those still asked for (for Navdata), a.one reports one (for the iPad) */
+  navWant(a) {
+    const u = String(a.u || ''); if (!u) return { ok: false };
+    const k = 'nw:' + u, row = this.one('SELECT v FROM kv WHERE k = ?', k), now = Date.now();
+    let L = (row ? JSON.parse(row.v) : []).filter((x) => x && now - x.t < 600000);
+    const ic = String(a.icao || '').toUpperCase(), okIc = /^[A-Z0-9]{3,4}$/.test(ic);
+    if (a.get) return { want: L.filter((x) => x.st === 'ask').map((x) => x.icao) };
+    if (a.one) { const x = okIc && L.find((y) => y.icao === ic); return { want: x ? { st: x.st, err: x.err || '', t: x.t, asked: x.asked || x.t } : null }; }
+    if (!okIc) return { ok: false };
+    const was = L.find((x) => x.icao === ic);
+    if (a.st === 'done' || a.st === 'error') { if (!was) return { ok: true }; Object.assign(was, { st: a.st, t: now, err: a.st === 'error' ? String(a.err || '').slice(0, 200) : '' }); }
+    else { L = L.filter((x) => x.icao !== ic); L.push({ icao: ic, st: 'ask', t: now, asked: now }); L = L.slice(-8); }
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', k, JSON.stringify(L));
+    return { ok: true };
   }
   /* GSX Pro's ground services, sent by the EFB open on the simulator PC (gsx.js): kept per pilot for the pilot's other
      devices, and a push when a service the pilot may be waiting for away from the screen has finished */

@@ -1,6 +1,6 @@
 {
   "name": "polaris-navdata",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "SIDs, STARs and approaches, and the live values for the Backup PFD, Ground (GSX) and the OOOI times, from MSFS (SimConnect) or X-Plane 12 (its CIFP data and Web API), for the Polaris EFB on ws://localhost:2050; started by the EFB (closes 10 minutes after it) or, as the pilot chooses, with Windows in the background, where it can also send to the EFB server by itself (no EFB open on the PC)",
   "main": "main.js",
   "private": true,

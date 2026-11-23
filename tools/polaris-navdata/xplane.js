@@ -209,8 +209,9 @@ function fixType(sec, sub) {
   if (sec === 'P') return sub === 'G' ? 'R' : sub === 'N' ? 'N' : sub === 'A' ? 'A' : sub === 'I' ? 'V' : 'W';
   return 'W';
 }
-const rwyName = (s) => { const m = String(s || '').trim().toUpperCase().match(/^RW(\d{2})([LRCBW]?)$/); return m ? m[1] + m[2] : ''; };
-const opposite = (r) => { const m = r.match(/^(\d{2})([LRC]?)$/); if (!m) return ''; const k = ((+m[1] + 17) % 36) + 1; return String(k).padStart(2, '0') + ({ L: 'R', R: 'L', C: 'C' }[m[2]] || ''); };
+/* RW16C, RW07B (both parallels), RW08T (a runway named by its true heading, as in Greenland and Antarctica) */
+const rwyName = (s) => { const m = String(s || '').trim().toUpperCase().match(/^RW(\d{2})([LRCBWT]?)$/); return m ? m[1] + m[2] : ''; };
+const opposite = (r) => { const m = r.match(/^(\d{2})([LRCT]?)$/); if (!m) return ''; const k = ((+m[1] + 17) % 36) + 1; return String(k).padStart(2, '0') + ({ L: 'R', R: 'L', C: 'C', T: 'T' }[m[2]] || ''); };
 function dist(a, b) { const R = Math.PI / 180, x = Math.sin((b[0] - a[0]) * R / 2) ** 2 + Math.cos(a[0] * R) * Math.cos(b[0] * R) * Math.sin((b[1] - a[1]) * R / 2) ** 2; return 2 * 3440.065 * Math.asin(Math.min(1, Math.sqrt(x))); }
 function brg(a, b) { const R = Math.PI / 180, y = Math.sin((b[1] - a[1]) * R) * Math.cos(b[0] * R), x = Math.cos(a[0] * R) * Math.sin(b[0] * R) - Math.sin(a[0] * R) * Math.cos(b[0] * R) * Math.cos((b[1] - a[1]) * R); return wrap(Math.atan2(y, x) / R); }
 
@@ -222,7 +223,7 @@ const APP_T = { I: ['ILS', 'I'], L: ['LOC', 'L'], B: ['LOC BC', 'B'], R: ['RNAV'
   V: ['VOR', 'V'], N: ['NDB', 'N'], Q: ['NDB/DME', 'Q'], X: ['LDA', 'X'], U: ['SDF', 'U'], G: ['IGS', 'X'], J: ['GLS', 'J'], T: ['TACAN', 'T'], M: ['MLS', 'M'], W: ['MLS', 'M'], Y: ['MLS', 'M'] };
 
 class CifpReader {
-  constructor(xp) { this.xp = xp; this.fix = null; this.nav = null; this.cycle = ''; }
+  constructor(xp) { this.xp = xp; this.fix = null; this.nav = null; this.apt = null; this.cycle = ''; }
   /* earth_fix.dat and earth_nav.dat, once: ident -> [[lat, lon, airport or ENRT, region]] */
   load() {
     if (this.fix) return;
@@ -239,6 +240,18 @@ class CifpReader {
       const la = +p[1], lo = +p[2]; if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
       const k = p[7]; let a = this.nav.get(k); if (!a) this.nav.set(k, (a = [])); a.push([la, lo, p[8], p[9], code === 2 ? 'N' : code === 3 ? 'V' : 'D']);
     });
+    /* X-Plane 12's airport reference points: ICAO, region, latitude, longitude, ... (not in X-Plane 11's data) */
+    this.apt = new Map();
+    each(dataFile(this.xp, 'earth_aptmeta.dat'), (l) => {
+      const p = l.trim().split(/\s+/); if (p.length < 4 || !/^[A-Z0-9]{3,7}$/.test(p[0])) return;
+      const la = +p[2], lo = +p[3]; if (Number.isFinite(la) && Number.isFinite(lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180 && (la || lo)) this.apt.set(p[0], [la, lo]);
+    });
+  }
+  /* with no reference point and no runway thresholds: the middle of the airport's own terminal waypoints */
+  terminalMiddle(icao) {
+    let n = 0, la = 0, lo = 0;
+    for (const L of this.fix.values()) for (const x of L) if (x[2] === icao) { n++; la += x[0]; lo += x[1]; }
+    return n ? [la / n, lo / n] : null;
   }
   file(icao) { return dataFile(this.xp, path.join('CIFP', icao + '.dat')); }
   airport(icao) {
@@ -252,7 +265,11 @@ class CifpReader {
      the rest; of several with the name, the one in the region (and the airport's terminal area), nearest the airport */
   pos(ident, rg, sec, sub, ctx) {
     if (!ident) return null;
-    if (sec === 'P' && sub === 'G') { const r = ctx.rw.get(rwyName(ident)); if (r) return [r.la, r.lo]; }
+    /* a runway is the airport's own: never one of the same name elsewhere (with no threshold given, no position) */
+    if (sec === 'P' && sub === 'G') {
+      const r = ctx.rw.get(rwyName(ident)); if (r) return [r.la, r.lo];
+      const T = (this.fix.get(ident) || []).filter((x) => x[2] === ctx.icao); return T.length ? [T[0][0], T[0][1]] : null;
+    }
     if (sec === 'P' && sub === 'A' && ident === ctx.icao && ctx.ref) return ctx.ref;
     const navFirst = sec === 'D' || (sec === 'P' && (sub === 'N' || sub === 'I'));
     const lists = navFirst ? [this.nav.get(ident), this.fix.get(ident)] : [this.fix.get(ident), this.nav.get(ident)];
@@ -291,18 +308,37 @@ function leg(F, R, ctx) {
   return o;
 }
 
+/* an approach's runway and multiple indicator from its identifier: I16C, R16C-Y or R16CY, R16-Y, I36-1, D14L1, I08TX
+   (runway 08T), and circling ones with no runway: VORA, RNVB, NDB1. A letter after the number that is not one of the
+   airport's runways is the multiple indicator (R08C: RNAV C to 08); with no runway in the identifier, the runway the
+   final approach ends at */
+function aprRunway(id, names, fin) {
+  let m = id.match(/^[A-Z](\d{2})([LRCT]?)(-?)([A-Z0-9]?)$/);
+  if (m) {
+    if (m[2] && !m[3] && !m[4] && names.size && !names.has(m[1] + m[2]) && names.has(m[1])) return { rw: m[1], sfx: m[2] };
+    return { rw: m[1] + m[2], sfx: m[4] };
+  }
+  m = id.match(/^[A-Z]{3}([A-Z0-9])$/); if (m) return { rw: '', sfx: m[1] };
+  const g = fin.find((r) => (r.F[6] || '').trim() === 'P' && (r.F[7] || '').trim() === 'G');
+  return { rw: g ? rwyName(g.F[4]) : '', sfx: ((id.match(/-([A-Z0-9])$/) || [])[1] || '') };
+}
+
 /* CIFP/<ICAO>.dat into navdata.js's airport object: { v, icao, la, lo, mv, rw, dep, arr, apr, at } */
 function build(icao, text, R) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   /* runways first: their thresholds place the airport and the runway fixes */
-  const rwy = new Map();
+  const rwy = new Map(), names = new Set(), arp = R.apt && R.apt.get(icao);
   for (const l of lines) {
     if (!l.startsWith('RWY:')) continue;
     const body = l.slice(4).replace(/;\s*$/, ''), [a, b] = body.split(';'), F = a.split(','), G = (b || '').split(',');
-    const nm = rwyName(F[0]), la = lat(G[0]), lo = lon(G[1]);
-    if (nm && la != null && lo != null) rwy.set(nm, { n: nm, la: +la.toFixed(6), lo: +lo.toFixed(6), dt: parseInt(G[2], 10) || 0 });
+    const nm = rwyName(F[0]), la = lat(G[0]), lo = lon(G[1]); if (nm) names.add(nm);
+    /* (some runways have no threshold in the data; and a threshold far from the airport's reference point is
+       another airport's, a slip in the data) */
+    if (nm && la != null && lo != null && !(arp && dist(arp, [la, lo]) > 15)) rwy.set(nm, { n: nm, la: +la.toFixed(6), lo: +lo.toFixed(6), dt: parseInt(G[2], 10) || 0 });
   }
-  const R0 = [...rwy.values()], ref = R0.length ? [R0.reduce((s, r) => s + r.la, 0) / R0.length, R0.reduce((s, r) => s + r.lo, 0) / R0.length] : null;
+  /* the airport: its reference point (X-Plane 12), or the middle of its runway thresholds, or of its terminal waypoints */
+  const R0 = [...rwy.values()];
+  const ref = arp || (R0.length ? [R0.reduce((s, r) => s + r.la, 0) / R0.length, R0.reduce((s, r) => s + r.lo, 0) / R0.length] : (R.terminalMiddle && R.terminalMiddle(icao)) || null);
   const ctx = { icao, rw: rwy, ref };
   /* each runway end: true heading and length from the threshold at the other end */
   const rw = R0.map((r) => {
@@ -336,7 +372,11 @@ function build(icao, text, R) {
       if (key === 'c') o.c = L; else { const [kind, name] = key.split('|'); o[kind][name] = L; }
     }
     /* RW07B is both 07L and 07R (and 07C): listed under each that has no transition of its own */
-    for (const k of Object.keys(o.rt)) { const b = k.match(/^(\d{2})B$/); if (b) for (const d of ['L', 'R', 'C']) if (rwy.has(b[1] + d) && !o.rt[b[1] + d]) o.rt[b[1] + d] = o.rt[k]; }
+    for (const k of Object.keys(o.rt)) {
+      const b = k.match(/^(\d{2})B$/); if (!b) continue; let n = 0;
+      for (const d of ['L', 'R', 'C']) if (names.has(b[1] + d)) { n++; if (!o.rt[b[1] + d]) o.rt[b[1] + d] = o.rt[k]; }
+      if (n) delete o.rt[k];
+    }
     /* (an engine-out SID has none of these parts: not listed) */
     if (o.c.length || Object.keys(o.rt).length || Object.keys(o.et).length) (p.k === 'SID' ? out.dep : out.arr).push(o);
   }
@@ -346,8 +386,7 @@ function build(icao, text, R) {
   for (const [id, recs] of A) {
     const fin = recs.filter((r) => r.rt !== 'A' && r.rt !== 'Z'), trs = recs.filter((r) => r.rt === 'A'), miss = recs.filter((r) => r.rt === 'Z');
     if (!fin.length) continue;
-    const type = fin[0].rt, T = APP_T[type] || ['APP', 'A'];
-    const im = id.match(/^[A-Z](\d{2}[LRC]?)(?:-?([A-Z]))?$/), rwn = im ? im[1] : '', sfx = im ? im[2] || '' : ((id.match(/-([A-Z])$/) || [])[1] || '');
+    const type = fin[0].rt, T = APP_T[type] || ['APP', 'A'], { rw: rwn, sfx } = aprRunway(id, names, fin);
     const sorted = fin.slice().sort((x, y) => x.seq - y.seq), map = sorted.findIndex((r) => (r.F[8] || '')[3] === 'M');
     let mi = sorted.findIndex((r) => (r.F[8] || '')[2] === 'M'); if (mi < 0 && map >= 0) mi = map + 1;
     const f = (mi >= 0 ? sorted.slice(0, mi) : sorted).map((r) => leg(r.F, R, ctx));

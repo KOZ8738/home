@@ -1,6 +1,7 @@
 /* Windows only, on the built program (NAVDATA_EXE=dist/PolarisNavdata.exe node test_win.js): starting with Windows,
-   chosen on the EFB (the Run entry in this user's settings, and staying open while it is chosen), and the copy without
-   a window that Windows starts (--startup), with its messages in %LOCALAPPDATA%\Polaris Navdata\navdata.log. */
+   chosen on the EFB (the Run entry in this user's settings, and staying open while it is chosen); the copy Windows
+   starts, made to have no window at all (%LOCALAPPDATA%\Polaris Navdata\PolarisNavdata-bg.exe), with its messages in
+   navdata.log there; and Polaris Navdata 1.4 and 1.5's Run entry (--startup), still working. */
 'use strict';
 const path = require('path'), fs = require('fs'), { spawn, execFileSync } = require('child_process');
 const { WebSocket } = require('ws');
@@ -18,6 +19,9 @@ const open = (port) => new Promise((r) => { const w = new WebSocket('ws://localh
 const upBy = async (port, ms) => { const t = Date.now(); while (Date.now() - t < ms) { const x = await open(port); if (x) return x; await sleep(300); } return null; };
 const answer = (x, cmd, ms) => new Promise((r) => { const t = setTimeout(() => r(null), ms || 8000); x.w.on('message', (m) => { const j = JSON.parse(String(m)); if (j.cmd === cmd) { clearTimeout(t); r(j); } }); });
 const lastHello = (x) => x.m.filter((j) => j.cmd === 'hello').pop();
+const LAD = path.join(process.env.LOCALAPPDATA, 'Polaris Navdata'), COPY = path.join(LAD, 'PolarisNavdata-bg.exe'), LOG = path.join(LAD, 'navdata.log');
+/* a Windows program's subsystem: 2 windowed (no console), 3 console */
+const subsystem = (f) => { const fd = fs.openSync(f, 'r'); try { const b = Buffer.alloc(4); fs.readSync(fd, b, 0, 4, 0x3c); const v = Buffer.alloc(2); fs.readSync(fd, v, 0, 2, b.readUInt32LE(0) + 24 + 68); return v.readUInt16LE(0); } finally { fs.closeSync(fd); } };
 
 (async () => {
   console.log('testing ' + exe);
@@ -32,29 +36,41 @@ const lastHello = (x) => x.m.filter((j) => j.cmd === 'hello').pop();
     x.w.send(JSON.stringify({ cmd: 'autostart', on: true }));
     const on = await answer(x, 'autostart');
     ck('chosen on the EFB: starts with Windows', on && on.ok && on.on === true, on);
-    ck('the Run entry: this program, --startup', runValue() === `"${exe}" --startup`, runValue());
+    ck('the Run entry: the copy, with no window, made from this program', runValue() === `"${COPY}" --background --main "${exe}"`, runValue());
+    ck('the copy: this program marked as windowed (no console), this program a console one', fs.existsSync(COPY) && subsystem(COPY) === 2 && subsystem(exe) === 3 && fs.statSync(COPY).size === fs.statSync(exe).size, fs.existsSync(COPY) && { copy: subsystem(COPY), exe: subsystem(exe) });
     await sleep(300);
     ck('hello says so', lastHello(x).autostart === true, lastHello(x));
     x.w.close(); await sleep(5000);
     ck('chosen: stays open with no EFB', a.exitCode === null);
+    /* as Windows starts it: the copy, as the Run entry says (on a port of its own here) */
+    const port2 = port + 1, c = spawn(COPY, ['--background', '--main', exe, '--port', String(port2), '--xp-port', '1', '--no-link'], { env, stdio: 'ignore' });
+    const z = await upBy(port2, 20000);
+    ck('the copy Windows starts: up, in the background', !!z && lastHello(z).bg === true && lastHello(z).v, z && lastHello(z));
+    let logTxt = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
+    ck('its messages in navdata.log', new RegExp(`ready for the EFB on ws://localhost:${port2} \\(started with Windows, no window\\)`).test(logTxt), logTxt.slice(-300));
+    if (z) { z.w.send(JSON.stringify({ cmd: 'quit' })); await sleep(1500); }
+    ck('closed from the EFB', !(await open(port2)) && c.exitCode !== null, c.exitCode);
     x = await open(port);
     x.w.send(JSON.stringify({ cmd: 'autostart', on: false }));
     const off = await answer(x, 'autostart');
-    ck('back to with the EFB: the Run entry gone', off && off.ok && off.on === false && runValue() === null, { off, run: runValue() });
+    ck('back to with the EFB: the Run entry gone, and the copy', off && off.ok && off.on === false && runValue() === null && !fs.existsSync(COPY), { off, run: runValue(), copy: fs.existsSync(COPY) });
     x.w.close();
     ck('and it closes again after the wait', await within(a.exited, 9000) && a.code === 0, { code: a.code });
-    /* as Windows starts it */
-    const port2 = port + 1, LOG = path.join(process.env.LOCALAPPDATA, 'Polaris Navdata', 'navdata.log');
-    const b = run(['--startup', '--port', String(port2), '--xp-port', '1', '--no-link']);
+    /* Polaris Navdata 1.4 and 1.5's Run entry: this program with --startup */
+    const port3 = port + 2;
+    const b = run(['--startup', '--port', String(port3), '--xp-port', '1', '--no-link']);
     ck('--startup: this copy goes at once', await within(b.exited, 8000) && b.code === 0, { code: b.code });
-    const y = await upBy(port2, 20000);
+    const y = await upBy(port3, 20000);
     ck('and a copy without a window is there', !!y && lastHello(y).bg === true, y && lastHello(y));
-    const logTxt = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
-    ck('its messages in navdata.log', new RegExp(`ready for the EFB on ws://localhost:${port2} \\(started with Windows, no window\\)`).test(logTxt), logTxt.slice(-300));
+    logTxt = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
+    ck('its messages in navdata.log too', new RegExp(`ready for the EFB on ws://localhost:${port3} \\(started with Windows, no window\\)`).test(logTxt), logTxt.slice(-300));
     if (y) { y.w.send(JSON.stringify({ cmd: 'quit' })); await sleep(1500); }
-    ck('closed from the EFB', !(await open(port2)));
+    ck('closed from the EFB', !(await open(port3)));
   } catch (e) { ck('no error', false, e.stack); }
-  finally { try { a.kill(); } catch (e) { /* gone */ } try { execFileSync('reg', ['delete', RUN, '/v', 'Polaris Navdata', '/f'], { stdio: 'ignore' }); } catch (e) { /* not there */ } }
+  finally {
+    try { a.kill(); } catch (e) { /* gone */ } try { execFileSync('reg', ['delete', RUN, '/v', 'Polaris Navdata', '/f'], { stdio: 'ignore' }); } catch (e) { /* not there */ }
+    for (const f of [COPY, path.join(LAD, 'PolarisNavdata-bg.json')]) try { fs.unlinkSync(f); } catch (e) { /* not there */ }
+  }
   if (!ok) console.log('--- Polaris Navdata said:\n' + a.out);
   console.log(ok ? 'ALL OK' : 'SOME FAILED'); process.exit(ok ? 0 : 1);
 })();

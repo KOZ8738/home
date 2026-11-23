@@ -32,7 +32,7 @@ const within = (p, ms) => Promise.race([p.then(() => true), sleep(ms).then(() =>
     const look = await open(port, { origin: 'https://koz8738.com.evil.example' });
     ck('a look-alike address: refused', look.refused === 401, look);
     const efb = await open(port, { origin: 'https://koz8738.com' });
-    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.5.0' && efb.hello.live === '' && efb.hello.sim === false && efb.hello.bg === false, efb.hello);
+    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.6.0' && efb.hello.live === '' && efb.hello.sim === false && efb.hello.bg === false, efb.hello);
     ck('starting with Windows: not to be chosen here (not the Windows program, or --no-link)', efb.hello.autostart === null, efb.hello.autostart);
     const ans = new Promise((r) => efb.w.on('message', (m) => { const j = JSON.parse(String(m)); if (j.cmd === 'autostart') r(j); }));
     efb.w.send(JSON.stringify({ cmd: 'autostart', on: true }));
@@ -65,6 +65,18 @@ const within = (p, ms) => Promise.race([p.then(() => true), sleep(ms).then(() =>
     /* closed from the EFB */
     const q = await open(port2, { origin: 'https://koz8738.com' }); q.w.send(JSON.stringify({ cmd: 'quit' }));
     ck('quit (from the EFB): closes', await within(s.exited, 4000) && s.code === 0 && /Closed from the EFB/.test(s.out), { code: s.code });
+    /* a newer Polaris Navdata takes the place of an older one running; an older one (or the same) leaves it be */
+    const port3 = port + 2, old = run(port3, ['--as-version', '1.4.0', '--stay']);
+    ck('an older one runs', await upBy(port3, 15000));
+    const nw = run(port3, ['--stay']);
+    ck('a newer one started: the older one closes and the newer takes over', await within(old.exited, 15000) && old.code === 0 && /1\.4\.0 was running: it closes, and this one \(1\.6\.0\) takes over/.test(nw.out), { old: old.out.slice(-160), nw: nw.out.slice(-200) });
+    await upBy(port3, 8000); const h3 = await open(port3);
+    ck('and answers in its place', h3.w && h3.hello.v === '1.6.0', h3.hello); if (h3.w) h3.w.close();
+    const older = run(port3, ['--as-version', '1.5.0']);
+    ck('an older one started: it goes, the newer stays', await within(older.exited, 8000) && older.code === 0 && /already open/.test(older.out) && nw.exitCode === null, { code: older.code, out: older.out.slice(-160) });
+    const same = run(port3, ['--from-link', 'polaris-navdata://start/']);
+    ck('the same one, from the EFB: goes at once, quietly', await within(same.exited, 4000) && same.code === 0 && nw.exitCode === null, { code: same.code });
+    nw.kill();
   } catch (e) { ck('no error', false, e.stack); }
   finally { try { a.kill(); } catch (e) { /* gone */ } }
   if (!ok) console.log('--- Polaris Navdata said:\n' + a.out);

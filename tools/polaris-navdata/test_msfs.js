@@ -25,8 +25,9 @@ ck('the enums and constants msfs.js uses exist', SC.SimConnectDataType.FLOAT64 !
   && SC.SimConnectPeriod.NEVER === 0 && SC.DataRequestFlag.DATA_REQUEST_FLAG_TAGGED === 2 && SC.SimConnectConstants.OBJECT_ID_USER === 0);
 
 class FakeSim extends EventEmitter {
-  constructor() { super(); this.defs = {}; this.reqs = []; this.n = 100; }
+  constructor() { super(); this.defs = {}; this.reqs = []; this.n = 100; this.cleared = []; }
   addToDataDefinition(def, name, unit, type, eps, id) { (this.defs[def] = this.defs[def] || []).push({ name, unit, type, id }); return ++this.n; }
+  clearDataDefinition(def) { this.cleared.push(def); delete this.defs[def]; return ++this.n; }
   requestDataOnSimObject(req, def, obj, period, flags, origin, interval, limit) { this.reqs.push({ req, def, obj, period, flags, interval }); return ++this.n; }
   /* tagged data: [datum id, value] pairs */
   send(req, def, pairs) {
@@ -95,6 +96,22 @@ sim.send(REQ.GND, DEF.GND, [...Object.entries(gv).map(([k, v]) => [idx(GND, k), 
 const m = gsx[0];
 ck('Ground: GSX’s values by the EFB’s keys (0 for those not given)', m && m.v.coua === 1 && m.v.board === 5 && m.v.paxB === 120 && m.v.pax === 280 && m.v.deboard === 0 && Object.keys(m.v).length === GSX.length, m && m.v);
 ck('Ground: on the ground, 4.3 kt, brake off, 2 engines, fuel in kg, the title', m && m.g.gnd === 1 && m.g.kt === 4.3 && m.g.pbrk === 0 && m.g.eng === 2 && m.g.fob === 25000 && m.g.title === 'Airbus A330-900 Polaris', m && m.g);
+/* GSX Pro not running yet (COUATL_STARTED 0): after a minute, Ground's definition made afresh and asked for again */
+const gs0 = { ...gv, 'x.coua': 0, 'x.board': 0 }, gsend = (o) => sim.send(REQ.GND, DEF.GND, [...Object.entries(o).map(([k, v]) => [idx(GND, k), v]), [GND.length, 'Airbus A330-900 Polaris']]);
+const nReq = sim.reqs.length, nLog = logs.length;
+T += 30000; gsend(gs0);
+ck('GSX not running: nothing done for the first minute', sim.cleared.length === 0 && sim.reqs.length === nReq);
+T += 31000; gsend(gs0);
+const rq = sim.reqs.slice(nReq), G2 = sim.defs[DEF.GND] || [];
+ck('after a minute: Ground stopped, its definition cleared and made again, asked for again', sim.cleared.join() === String(DEF.GND) && rq.length === 2 && rq[0].period === SC.SimConnectPeriod.NEVER && rq[1].period === SC.SimConnectPeriod.SECOND && rq[1].req === REQ.GND
+  && G2.length === GND.length + 1 && G2[G2.length - 1].name === 'TITLE', { cleared: sim.cleared, rq, n: G2.length });
+ck('said once', logs.length === nLog + 1 && /GSX Pro not running/.test(logs[logs.length - 1]), logs.slice(nLog));
+T += 61000; gsend(gs0);
+ck('and again a minute later (said only once)', sim.cleared.length === 2 && logs.length === nLog + 1, { cleared: sim.cleared.length, logs: logs.length - nLog });
+/* GSX starts: its values come, nothing made afresh any more */
+T += 61000; gsend({ ...gs0, 'x.coua': 1, 'x.board': 3 });
+T += 61000; gsend({ ...gs0, 'x.coua': 1, 'x.board': 4 });
+ck('GSX running: left alone', sim.cleared.length === 2 && gsx[gsx.length - 1].v.board === 4, sim.cleared.length);
 /* not wanted any more: stopped */
 L.want(false, false);
 const st = sim.reqs.slice(-2);
@@ -102,5 +119,5 @@ ck('stopped when no EFB wants them (period NEVER)', st.length === 2 && st.every(
 const nf = frames.length; sim.send(REQ.PFD, DEF.PFD, pfd(air));
 ck('and what still comes in is not sent on', frames.length === nf);
 L.want(false, false);
-ck('asked again only when it changes', sim.reqs.length === 4, sim.reqs.length);
+ck('asked again only when it changes', sim.reqs.length === 8, sim.reqs.length);
 console.log(ok ? 'ALL OK' : 'SOME FAILED'); process.exit(ok ? 0 : 1);

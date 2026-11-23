@@ -2,10 +2,11 @@
    EFB open on the simulator PC. The pilot turns it on in the EFB on that PC (Ground > Simulator PC), which asks the
    server for a key for this PC and hands it over ({ cmd:"cloud", key }); the key is good only for /api/nav/* on the
    server, is kept in this Windows user's protected storage (DPAPI), and is removed on the EFB.
-   While an EFB is open on this PC it does the work as before and this stands by. With none (for 5 s), and a simulator
-   running, it:
-   - asks the server once a minute which plan the pilot has loaded (GET /api/nav/flight). A plan loaded in the last 24
-     hours whose times are not all stamped is the flight under way;
+   With a simulator running it asks the server every 30 s which plan the pilot has loaded and which airports one of
+   the pilot's devices asked for (GET /api/nav/flight): those it reads from the simulator and sends (POST
+   /api/nav/navproc, or why it could not), even while an EFB is open on this PC, which does not hear those questions.
+   For the rest, while an EFB is open on this PC it does the work as before and this stands by. With none (for 5 s):
+   - a plan loaded in the last 24 hours whose times are not all stamped is the flight under way;
    - keeps a sending connection to the pilot's PFD relay, so it hears when a device watches, and sends the PFD's
      frames only then;
    - for the flight under way: stamps OUT, OFF, ON and IN as the EFB does (OUT only within 15 NM of the plan's
@@ -41,8 +42,8 @@ class Cloud {
            procs(icao) -> Promise<data>, changed() (what it wants from the simulator changed), paired() (hello changed) } */
   constructor(o) {
     this.o = o; this.file = path.join(o.dir, 'cloud.json'); this.fixed = o.server || ''; this.server = o.server || DEFAULT_SERVER;
-    this.poll = o.pollMs || 60000; this.key = ''; this.kid = ''; this.auto = true; this.cal = [1, 1]; this.timer = null; this.wantLive = false; this.wantGsx = false;
-    this.clear();
+    this.poll = o.pollMs || 30000; this.key = ''; this.kid = ''; this.auto = true; this.cal = [1, 1]; this.timer = null; this.wantLive = false; this.wantGsx = false;
+    this.want = []; this.answered = {}; this.clear();
   }
   get on() { return !!this.key; }
   clear() {
@@ -89,7 +90,7 @@ class Cloud {
     return '';
   }
   start() { if (!this.timer && this.key) { this.timer = setInterval(() => this.tick().catch(() => {}), 1000); } }
-  stop() { clearInterval(this.timer); this.timer = null; this.clear(); this.setWant(false, false); }
+  stop() { clearInterval(this.timer); this.timer = null; this.clear(); this.want = []; this.answered = {}; this.setWant(false, false); }
   setWant(l, g) { if (l !== this.wantLive || g !== this.wantGsx) { this.wantLive = l; this.wantGsx = g; this.o.changed(); } }
   /* ---- the server ---- */
   async api(method, p, body) {
@@ -116,28 +117,53 @@ class Cloud {
   active() { return !!this.key && !this.o.localEfb() && !!this.o.sim(); }
   flying() { const f = this.flight; return !!f && !this.oo.IN && Date.now() - (f.at || 0) < 24 * 3600_000; }
   async tick() {
-    if (!this.active()) { if (this.flight || this.pub || this.wantLive || this.wantGsx) { const np = this.np; this.clear(); this.np = np; this.setWant(false, false); } return; }
-    const now = Date.now(), sim = this.o.sim();
-    this.openPub();
+    if (!this.active() && (this.flight || this.pub || this.wantLive || this.wantGsx)) { const np = this.np, at = this.flightAt; this.clear(); this.np = np; this.flightAt = at; this.setWant(false, false); }
+    const now = Date.now(), sim = this.o.sim(), act = this.active();
+    /* taking over from an EFB that closed here: the flight asked for at once */
+    if (act && !this.wasAct) this.flightAt = 0; this.wasAct = act;
+    if (!this.key || !sim) return;
+    if (act) this.openPub();
     if (now - this.flightAt > this.poll && !this.busyFlight) {
       this.busyFlight = true;
       try {
         const j = await this.api('GET', '/api/nav/flight');
         if (j) {
           this.flightAt = Date.now();
+          this.want = Array.isArray(j.want) ? j.want.map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z0-9]{3,4}$/.test(x)).slice(0, 8) : [];
+        }
+        if (j && this.active()) {
           const f = j.flight || null;
           if ((f && f.fid) !== (this.flight && this.flight.fid)) { this.oo = {}; this.land = null; this.v = null; this.origin = null; this.posted = ''; if (f && Date.now() - (f.at || 0) < 24 * 3600_000) this.o.log('Flight ' + (f.flight || f.fid) + ' ' + f.from + ' → ' + f.to + ': sending it to your devices.'); }
           this.flight = f;
           /* times kept on the server for this flight fill the empty ones here */
           if (f && j.oo) for (const k of OO) if (!this.oo[k] && /^\d\d:\d\d$/.test(j.oo[k] || '')) this.oo[k] = j.oo[k];
-        } else this.flightAt = Date.now() - this.poll * 0.75;
+        } else if (!j) this.flightAt = Date.now() - this.poll * 0.75;
       } finally { this.busyFlight = false; }
     }
-    if (!this.key) return;
+    if (this.want.length) this.answer();
+    if (!this.key || !this.active()) return;
     const fl = this.flying(), air = fl && !!this.oo.OFF && !this.oo.ON;
     /* the fast values: a device watches the PFD; in flight, for the touchdown; X-Plane, the whole flight */
     this.setWant(this.subs > 0 || (fl && (sim === 'xp' || air)), !!this.flight && sim === 'msfs' && Date.now() - (this.flight.at || 0) < 24 * 3600_000);
     if (this.flight) { this.procs(); this.post(); }
+  }
+  /* airports one of the pilot's devices asked for: read from the simulator and sent, or why not (one at a time; the
+     same one again only after 2 minutes, if the server still asks) */
+  async answer() {
+    if (this.ansBusy) return;
+    const now = Date.now(), ic = this.want.find((x) => !this.answered[x] || now - this.answered[x] > 120000); if (!ic) return;
+    this.ansBusy = true; this.answered[ic] = now;
+    try {
+      let d = null, err = '';
+      try { d = await this.o.procs(ic); } catch (e) { err = String((e && e.message) || e || '') || 'Not read from the simulator'; }
+      const pos = d && Number.isFinite(d.la) && Number.isFinite(d.lo) && (d.la || d.lo) ? [d.la, d.lo] : null;
+      const r = await this.api('POST', '/api/nav/navproc', d ? { data: { ...d, src: 'sim' } } : { icao: ic, error: err.slice(0, 200) });
+      if (r && r.ok) {
+        this.want = this.want.filter((x) => x !== ic);
+        if (d) { this.np[ic] = { at: Date.now(), d: true, pos }; this.o.log(ic + ': its procedures sent (asked for on another device).'); }
+        else this.o.log(ic + ': asked for on another device, but ' + err);
+      }
+    } finally { this.ansBusy = false; }
   }
   /* the flight's airports, read from the simulator once (again after 10 minutes if that failed) */
   async procs() {

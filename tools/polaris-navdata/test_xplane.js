@@ -51,8 +51,19 @@ const cifp = [
   rec('APPCH', S('010', 'D', 'D07R', ' ', 'TAI', 'VH', 'D', ' ', 'IF', { desc: 'V  F' })),
   rec('APPCH', S('020', 'D', 'D07R', ' ', 'ECHO', 'VH', 'P', 'C', 'CF', { desc: 'EY M', f: { 20: '2530', 22: '-', 23: '00800' } })),
   rec('APPCH', S('030', 'D', 'D07R', ' ', 'TAI', 'VH', 'D', ' ', 'DF', { desc: 'V M ' })),
-  rec('APPCH', S('010', 'V', 'VOR-A', ' ', 'TAI', 'VH', 'D', ' ', 'IF', { desc: 'V  F' })),
-  rec('APPCH', S('020', 'V', 'VOR-A', ' ', 'ECHO', 'VH', 'P', 'C', 'CF', { desc: 'EY M' })),
+  rec('APPCH', S('010', 'V', 'VORA', ' ', 'TAI', 'VH', 'D', ' ', 'IF', { desc: 'V  F' })),
+  rec('APPCH', S('020', 'V', 'VORA', ' ', 'ECHO', 'VH', 'P', 'C', 'CF', { desc: 'EY M' })),
+  /* a number as the multiple indicator (VOR/DME 1 RW25L) */
+  rec('APPCH', S('010', 'D', 'D25L1', ' ', 'FOXTR', 'VH', 'P', 'C', 'IF')),
+  rec('APPCH', S('020', 'D', 'D25L1', ' ', 'RW25L', 'VH', 'P', 'G', 'TF', { desc: 'GY M' })),
+  rec('APPCH', S('030', 'D', 'D25L1', ' ', 'TAI', 'VH', 'D', ' ', 'DF')),
+  /* runway 01 has no threshold in the data: its fix gets no position (not another airport's RW01) */
+  'RWY:RW01 ,+0000,     ,00050, ,    , , ;',
+  rec('APPCH', S('010', 'R', 'R01', ' ', 'FOXTR', 'VH', 'P', 'C', 'IF')),
+  rec('APPCH', S('020', 'R', 'R01', ' ', 'RW01', 'VH', 'P', 'G', 'TF', { desc: 'GY M' })),
+  rec('APPCH', S('030', 'R', 'R01', ' ', 'ALPHA', 'VH', 'P', 'C', 'DF')),
+  /* a slip in the data: another airport's runway, 900 NM away (left out) */
+  'RWY:RW11 ,+0000,     ,00050, ,    , , ;S18370700,E025294759,0000;',
   /* a continuation record, and an engine-out SID: not legs to show */
   'PRDAT:I07L,     ,AALL,LPV ,A,LNAV/VNAV,A,LNAV,A,           ;',
   rec('SID', S('010', '0', 'EOSID', 'RW07L', 'ALPHA', 'VH', 'P', 'C', 'DF')),
@@ -60,12 +71,32 @@ const cifp = [
 /* Custom Data (a newer cycle) is read before the default data */
 fs.writeFileSync(path.join(XP, 'Custom Data', 'CIFP', 'VHHH.dat'), cifp.join('\r\n') + '\r\n');
 fs.writeFileSync(path.join(XP, 'Resources', 'default data', 'CIFP', 'VHHH.dat'), 'RWY:RW01 ,+0000,     ,00050, ,    , , ;N22000000,E113000000,0000;\n');
+/* Thule: runways named by their true heading (08T), approaches to them (R08T, I08TX), no reference point listed */
+fs.writeFileSync(path.join(XP, 'Resources', 'default data', 'CIFP', 'BGTL.dat'), [
+  'RWY:RW08T,+0800,      ,00168, ,IITL,1,   ;N76314803,W068454141,0000;', 'RWY:RW26T,-0800,      ,00252, ,    , ,   ;N76315665,W068384137,0000;',
+  rec('SID', S('010', '1', 'WENSA2', 'RW08T', ' ', ' ', ' ', ' ', 'CA', { f: { 20: '085T', 22: '+', 23: '00660' } })),
+  rec('SID', S('020', '1', 'WENSA2', 'RW08T', 'SUNDD', 'BG', 'P', 'C', 'DF')),
+  rec('APPCH', S('010', 'R', 'R08T', ' ', 'SUNDD', 'BG', 'P', 'C', 'IF')),
+  rec('APPCH', S('020', 'R', 'R08T', ' ', 'RW08T', 'BG', 'P', 'G', 'TF', { desc: 'GY M' })),
+  rec('APPCH', S('030', 'R', 'R08T', ' ', 'SUNDD', 'BG', 'P', 'C', 'DF')),
+  rec('APPCH', S('010', 'I', 'I08TX', ' ', 'SUNDD', 'BG', 'P', 'C', 'IF')),
+  rec('APPCH', S('020', 'I', 'I08TX', ' ', 'RW08T', 'BG', 'P', 'G', 'CF', { desc: 'GY M', f: { 20: '085T' } })),
+  rec('APPCH', S('030', 'I', 'I08TX', ' ', 'SUNDD', 'BG', 'P', 'C', 'DF')),
+].join('\n') + '\n');
+/* an airport whose runways have no thresholds and no reference point: placed at the middle of its terminal waypoints */
+fs.writeFileSync(path.join(XP, 'Resources', 'default data', 'CIFP', 'VMMC.dat'), ['RWY:RW16 ,     ,      ,00020, ,    , ,   ;', 'RWY:RW34 ,     ,      ,00020, ,    , ,   ;',
+  rec('APPCH', S('010', 'R', 'R34', ' ', 'MC001', 'VM', 'P', 'C', 'IF')), rec('APPCH', S('020', 'R', 'R34', ' ', 'RW34', 'VM', 'P', 'G', 'TF', { desc: 'GY M' })),
+  rec('APPCH', S('030', 'R', 'R34', ' ', 'MC002', 'VM', 'P', 'C', 'DF'))].join('\n') + '\n');
+/* X-Plane 12's airport reference points */
+fs.writeFileSync(path.join(XP, 'Resources', 'default data', 'earth_aptmeta.dat'), ['I', '1210 Version - data cycle 2512, build 20251130, metadata AptXP1210.', '',
+  'VHHH VH  22.30891944  113.91460278    28 C 12467 I  9000 FL110', ' 08F K4  34.531758333  -96.233052778   615 C  3900 0 18000 FL180', '99'].join('\n') + '\n');
 const fixes = ['I', '1200 Version - data cycle 2512, build 20251130, metadata FixXP1200. Copyright (c) 2025 Test',
   '  22.31000000  113.90000000 ALPHA VHHH VH 2105430', '  22.40000000  114.10000000 BRAVO ENRT VH 4530263',
   '  22.50000000  114.30000000 BETTY ENRT VH 4530263', '  10.00000000  100.00000000 BETTY ENRT VT 4530263',
   '  22.28000000  113.80000000 CHARL VHHH VH 2105430', '  22.29000000  113.85000000 DELTA VHHH VH 2105430',
   '  22.29500000  113.83000000 CTR01 VHHH VH 2105430', '  22.30000000  113.87000000 ECHO VHHH VH 2105430',
-  '  22.27000000  114.00000000 FOXTR VHHH VH 2105430', '99'];
+  '  22.27000000  114.00000000 FOXTR VHHH VH 2105430', '  13.60000000  100.70000000 RW01 VTBS VH 2105430',
+  '  76.50000000  -68.00000000 SUNDD BGTL BG 2105430', '  22.10000000  113.60000000 MC001 VMMC VM 2105430', '  22.20000000  113.60000000 MC002 VMMC VM 2105430', '99'];
 fs.writeFileSync(path.join(XP, 'Custom Data', 'earth_fix.dat'), fixes.join('\n') + '\n');
 fs.writeFileSync(path.join(XP, 'Custom Data', 'earth_nav.dat'), ['I', '1200 Version - data cycle 2512, metadata NavXP1200.',
   '3  22.29244444  114.01425000      0 11650 130   -2.000 TAI ENRT VH TAI PO VOR/DME',
@@ -186,7 +217,7 @@ wsx.on('connection', (w) => {
       ck('runway 07L: threshold, true heading, length', r07 && r07.la === 22.31 && r07.lo === 113.893333 && Math.abs(r07.h - 76.8) < 0.2 && r07.len > 13000 && r07.len < 13500, r07);
       /* 07L's length runs to the far end, past 25R's displaced threshold (100 ft); 25R's to 07L's threshold */
       ck('runway 25R: the reverse heading; the displaced threshold in 07L\'s length', r25 && r07 && Math.abs(r25.h - 256.8) < 0.2 && r25.len === r07.len - 100, r25);
-      ck('airport at the middle of its thresholds', Math.abs(d.la - 22.3) < 0.05 && Math.abs(d.lo - 113.9) < 0.05, { la: d.la, lo: d.lo });
+      ck('airport at its reference point (earth_aptmeta.dat)', d.la === 22.308919 && d.lo === 113.914603, { la: d.la, lo: d.lo });
       const sid = d.dep.find((p) => p.n === 'TEST1A');
       ck('SID: runway transition, common route, en-route transition', sid && sid.rt['07L'] && sid.rt['07L'].length === 2 && sid.c.length === 2 && sid.et.BETTY && sid.et.BETTY.length === 1, sid && { rt: Object.keys(sid.rt), c: sid.c.length, et: Object.keys(sid.et) });
       if (sid) {
@@ -198,7 +229,7 @@ wsx.on('connection', (w) => {
         ck('BETTY: the one in the VH region, fly-over', bt.la === 22.5 && bt.fo === 1, bt);
       }
       const both = d.dep.find((p) => p.n === 'BOTH1');
-      ck('RW07B: under 07B, 07L and 07R', both && both.rt['07B'] && both.rt['07L'] && both.rt['07R'] && !both.rt['07C'], both && Object.keys(both.rt));
+      ck('RW07B: under 07L and 07R (not 07B, not 07C)', both && both.rt['07L'] && both.rt['07R'] && !both.rt['07B'] && !both.rt['07C'], both && Object.keys(both.rt));
       const star = d.arr.find((p) => p.n === 'TEST2B');
       ck('STAR: en-route BETTY, common, runway 07L', star && star.et.BETTY.length === 2 && star.c.length === 1 && star.rt['07L'].length === 2, star && { et: Object.keys(star.et), c: star.c.length, rt: Object.keys(star.rt) });
       if (star) { const a = star.c[0], rf = star.rt['07L'][1];
@@ -218,8 +249,23 @@ wsx.on('connection', (w) => {
       const vd = d.apr.find((p) => p.id === 'D07R'), va = d.apr.find((p) => p.id === 'V-A');
       ck('VOR/DME RW07R: at or below 800 at the missed approach point, then the missed approach', vd && vd.n === 'VOR/DME RW07R' && vd.f.length === 2 && vd.f[1].ad === 3 && vd.f[1].a1 === 800 && vd.m.length === 1 && vd.m[0].f === 'TAI', vd && { n: vd.n, f: vd.f.map((g) => g.f), m: vd.m.map((g) => g.f) });
       ck('VOR-A (circling): no runway', va && va.n === 'VOR A' && va.rw === 'ALL' && va.sfx === 'A' && va.f.length === 2, va && { n: va.n, id: va.id, rw: va.rw });
-      ck('approaches in runway order; the engine-out SID and the continuation record left out', d.apr.map((p) => p.id).join() === 'I07L,D07R,R25R-Y,V-A' && d.dep.map((p) => p.n).join() === 'BOTH1,TEST1A', { apr: d.apr.map((p) => p.id), dep: d.dep.map((p) => p.n) });
+      const d1 = d.apr.find((p) => p.id === 'D25L-1'), r01 = d.apr.find((p) => p.id === 'R01');
+      ck('D25L1: VOR/DME 1 RW25L', d1 && d1.n === 'VOR/DME 1 RW25L' && d1.rw === '25L' && d1.sfx === '1', d1 && { n: d1.n, id: d1.id });
+      ck('RW01 has no threshold: no position (and not the RW01 of another airport)', r01 && r01.f[1].f === 'RW01' && r01.f[1].la == null && !d.rw.some((r) => r.n === '01'), r01 && r01.f[1]);
+      ck('another airport\'s runway in the data, 900 NM away: left out', !d.rw.some((r) => r.n === '11'), d.rw.map((r) => r.n));
+      ck('approaches in runway order; the engine-out SID and the continuation record left out', d.apr.map((p) => p.id).join() === 'R01,I07L,D07R,D25L-1,R25R-Y,V-A' && d.dep.map((p) => p.n).join() === 'BOTH1,TEST1A', { apr: d.apr.map((p) => p.id), dep: d.dep.map((p) => p.n) });
     }
+    efb.send(JSON.stringify({ cmd: 'procs', icao: 'BGTL', id: 3 }));
+    const pb = await until(() => msgs.find((m) => m.cmd === 'procs' && m.id === 3)), b = pb && pb.data;
+    if (b) {
+      const r8 = b.rw.find((r) => r.n === '08T'), rn = (b.apr || []).find((p) => p.id === 'R08T'), il = (b.apr || []).find((p) => p.id === 'I08T-X'), sd = b.dep.find((p) => p.n === 'WENSA2');
+      ck('true-heading runways: 08T and 26T', b.rw.map((r) => r.n).join() === '08T,26T' && r8 && Math.abs(r8.h - 84.9) < 0.5 && r8.len > 9000, b.rw);
+      ck('R08T: RNAV RW08T; I08TX: ILS X RW08T', rn && rn.n === 'RNAV RW08T' && rn.rw === '08T' && !rn.sfx && rn.f[1].la != null && il && il.n === 'ILS X RW08T' && il.sfx === 'X' && il.f[1].tc === 1, { rn: rn && rn.n, il: il && il.n });
+      ck('SID from 08T; no reference point listed: the middle of the thresholds', sd && sd.rt['08T'] && sd.rt['08T'][0].tc === 1 && Math.abs(b.la - 76.53) < 0.01 && Math.abs(b.lo + 68.71) < 0.05, { rt: sd && Object.keys(sd.rt), la: b.la, lo: b.lo });
+    } else ck('BGTL answered', false, pb && pb.error);
+    efb.send(JSON.stringify({ cmd: 'procs', icao: 'VMMC', id: 4 }));
+    const pm = await until(() => msgs.find((m) => m.cmd === 'procs' && m.id === 4)), mc = pm && pm.data;
+    ck('no thresholds, no reference point: at the middle of its terminal waypoints', mc && mc.rw.length === 0 && mc.la === 22.15 && mc.lo === 113.6 && mc.apr && mc.apr[0].id === 'R34', mc && { la: mc.la, lo: mc.lo, rw: mc.rw, apr: (mc.apr || []).map((p) => p.id) });
     efb.send(JSON.stringify({ cmd: 'procs', icao: 'ZZZZ', id: 2 }));
     const pz = await until(() => msgs.find((m) => m.cmd === 'procs' && m.id === 2));
     ck('an airport X-Plane has no procedures for: said so', pz && !pz.ok && /no procedures/.test(pz.error), pz && pz.error);

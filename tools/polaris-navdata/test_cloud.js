@@ -31,16 +31,17 @@ xw.on('connection', (w) => { XS.socks.add(w); w.sub = false; w.on('close', () =>
 setInterval(() => { for (const w of XS.socks) if (w.sub) { const data = {}; for (const [id, k] of Object.entries(KEYOF)) data[id] = V[k]; w.send(JSON.stringify({ type: 'dataref_update_values', data })); } }, 100).unref();
 
 /* ---- the EFB server ---- */
-const SV = { calls: [], gsx: [], np: [], frames: [], flight: null, oo: {}, deny: false, pub: null, pubUrl: '', auth: new Set(), down: false };
+const SV = { calls: [], gsx: [], np: [], npErr: [], want: [], frames: [], flight: null, oo: {}, deny: false, pub: null, pubUrl: '', auth: new Set(), down: false };
 const esrv = http.createServer((q, r) => { let b = ''; q.on('data', (d) => { b += d; }); q.on('end', () => {
   const p = q.url.split('?')[0]; SV.calls.push(q.method + ' ' + p); SV.auth.add(q.headers.authorization || '');
   const send = (o, s = 200) => { r.statusCode = s; r.setHeader('Content-Type', 'application/json'); r.end(JSON.stringify(o)); };
   if (SV.down) return send({ error: 'down' }, 503);
   if (SV.deny || q.headers.authorization !== 'Bearer ' + KEY) return send({ error: 'Not paired' }, 401);
   if (p === '/api/nav/ticket') return send({ ticket: 'T1' });
-  if (p === '/api/nav/flight') return send({ flight: SV.flight, oo: SV.oo });
+  if (p === '/api/nav/flight') return send({ flight: SV.flight, oo: SV.oo, want: SV.want });
   if (p === '/api/nav/gsx') { SV.gsx.push(JSON.parse(b)); return send({ ok: true }); }
-  if (p === '/api/nav/navproc') { SV.np.push(JSON.parse(b).data); return send({ ok: true }); }
+  /* an airport's procedures (or why they could not be read): no longer asked for */
+  if (p === '/api/nav/navproc') { const j = JSON.parse(b), ic = j.data ? j.data.icao : j.icao; if (j.data) SV.np.push(j.data); else SV.npErr.push(j); SV.want = SV.want.filter((x) => x !== ic); return send({ ok: true }); }
   send({ error: 'Not found' }, 404); }); });
 const ew = new WebSocketServer({ noServer: true });
 esrv.on('upgrade', (q, s, h) => { SV.pubUrl = q.url; SV.pubOrigin = q.headers.origin; ew.handleUpgrade(q, s, h, (w) => { SV.pub = w; w.send(JSON.stringify({ hello: 1, subs: 0 })); w.on('close', () => { if (SV.pub === w) SV.pub = null; });
@@ -74,7 +75,14 @@ const lastG = () => SV.gsx[SV.gsx.length - 1];
     /* a flight on the server, X-Plane running; but an EFB is open on this PC: it does the work */
     SV.flight = { fid: 'F1', flight: 'PAW339', from: 'VHHH', to: 'RCTP', at: Date.now() };
     await sleep(4500);
-    ck('an EFB open on this PC: Navdata stands by (nothing to the server, X-Plane not read)', SV.calls.length === 0 && XS.subs === 0, SV.calls);
+    ck('an EFB open on this PC: Navdata stands by (only asks which airports a device wants; X-Plane not read)', SV.calls.length > 0 && SV.calls.every((c) => c === 'GET /api/nav/flight') && XS.subs === 0, SV.calls);
+    /* the iPad asks for two airports: answered even so, with the procedures or why not */
+    SV.want = ['VHHH', 'ZZZZ'];
+    await until(() => SV.np.some((d) => d.icao === 'VHHH') && SV.npErr.some((e) => e.icao === 'ZZZZ'), 8000);
+    ck('airports a device asked for (an EFB open here too): read and sent, or why not', SV.np.some((d) => d.icao === 'VHHH' && d.src === 'sim' && d.dep.length === 1) && SV.npErr.some((e) => e.icao === 'ZZZZ' && /no procedures/.test(e.error)) && SV.want.length === 0, { np: SV.np.map((d) => d.icao), err: SV.npErr });
+    const nNp = SV.np.length; await sleep(4500);
+    ck('each once, and otherwise still standing by (no relay, nothing posted, X-Plane not read)', SV.np.length === nNp && !SV.calls.some((c) => /ticket|gsx/.test(c)) && XS.subs === 0, { np: SV.np.length - nNp, calls: [...new Set(SV.calls)] });
+    SV.np.length = 0; SV.npErr.length = 0;
     /* restarted: still paired */
     x.w.close(); nav.kill(); await sleep(600); nav = run(); x = await efb();
     await until(() => x.m.some((j) => j.cmd === 'hello' && j.cloud === true), 8000);

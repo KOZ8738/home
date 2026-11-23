@@ -1,4 +1,4 @@
-/* ---------- The wording of the automatic AOC messages, set on /admin › Gates (Nov 2026) ----------
+/* ---------- The wording of the automatic AOC messages, set on /admin › Automatic messages (Nov 2026) ----------
    Each automatic message (gate assignment, departure gate, final loadsheet, SIGMET on the route, arrival report) is written from a
    template staff can change. A template is plain text with fields in braces:
 
@@ -9,9 +9,11 @@
    A line that had fields or parts and comes out empty is left out; an empty line in the template stays. What is not
    set keeps the default below. Kept in KV: aoc:v1:tpl -> { at, by, m: { gate: { title, body, … }, … } }
 
-   Admin: GET  /admin/api/aoctpl          -> { kinds, tpl, def, at, by }
+   Admin: GET  /admin/api/aoctpl          -> { kinds, tpl, def, at, by, last: { kind: { t, cs } } (the last one sent) }
           POST /admin/api/aoctpl          { kind, fields } saves one message ({ kind, reset: true } back to the default)
           POST /admin/api/aoctpl/preview  { kind, fields } -> { title, body } with sample values */
+import { aocAutoLast } from './aoc.js';
+
 const KEY = 'aoc:v1:tpl';
 const jsonRes = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const NOTE_GATE = 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC', NOTE_DEP = 'IF THE GATE IS TAKEN WHEN YOU SET UP, USE A FREE GATE NEARBY AND TELL GROUND';
@@ -117,7 +119,9 @@ export async function aocTplAdmin(req, path, env, who) {
   try {
     if (req.method === 'GET' && path === '/admin/api/aoctpl') {
       const raw = (await kv.get(KEY, 'json').catch(() => null)) || {}, tpl = await aocTpl(env, true);
-      return jsonRes({ kinds: AOC_KINDS.map((K) => ({ k: K.k, name: K.name, when: K.when, fields: K.fields, tokens: K.tokens, def: K.def, changed: !!(raw.m && raw.m[K.k]), preview: preview(K, tpl[K.k]) })), tpl, at: raw.at || 0, by: raw.by || '' });
+      const titles = Object.fromEntries(AOC_KINDS.map((K) => [K.k, [...new Set([tpl[K.k].title, tpl[K.k].titleChg, K.def.title, K.def.titleChg].filter(Boolean).map((x) => String(x).toUpperCase()))]]));
+      let last = {}; try { last = await aocAutoLast(env, titles); } catch (e) { last = {}; }
+      return jsonRes({ kinds: AOC_KINDS.map((K) => ({ k: K.k, name: K.name, when: K.when, fields: K.fields, tokens: K.tokens, def: K.def, changed: !!(raw.m && raw.m[K.k]), preview: preview(K, tpl[K.k]) })), tpl, at: raw.at || 0, by: raw.by || '', last });
     }
     if (req.method !== 'POST') return jsonRes({ error: 'Method not allowed' }, 405);
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);

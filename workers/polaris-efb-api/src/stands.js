@@ -86,22 +86,27 @@ export function minutesToGo(f, apts, now) {
   return (nmBetween(f.lat, f.lon, a[0], a[1]) / f.gs) * 60 + 8; // VATSIM only: a straight line is short of the real route
 }
 
-/* stands at icao that are taken now: a pilot on VATSIM on it, or another Polaris arrival or departure around the
-   same time (a departure's time is its STD) */
-async function takenAt(icao, etaMs, log, deps, skipKey) {
-  const taken = new Set();
-  for (const x of log) if ((x.kind === 'dep' ? x.dep : x.arr) === icao && x.k !== skipKey && x.stand && Math.abs((x.eta || x.t) - etaMs) < GAP_MS) taken.add(norm(x.stand));
+/* stands at icao with a pilot on VATSIM parked on them now (norm refs; empty without the airport map or VATSIM) */
+async function vatsimAt(icao, deps) {
+  const on = new Set();
   try {
-    const lay = deps.layout ? await deps.layout(icao) : null, vs = deps.vatsim ? await deps.vatsim() : null;
+    const lay = deps && deps.layout ? await deps.layout(icao) : null, vs = deps && deps.vatsim ? await deps.vatsim() : null;
     if (lay && Array.isArray(lay.stands) && vs && Array.isArray(vs.rows)) {
       const ground = vs.rows.filter((r) => r[6] <= 5 && isFinite(r[3]) && isFinite(r[4]));
       for (const s of lay.stands) {
         if (!s.pt || !s.ref) continue;
         const [lon, lat] = s.pt;
-        if (ground.some((r) => nmBetween(lat, lon, r[3], r[4]) * 1852 < OCC_M)) taken.add(norm(s.ref));
+        if (ground.some((r) => nmBetween(lat, lon, r[3], r[4]) * 1852 < OCC_M)) on.add(norm(s.ref));
       }
     }
-  } catch (e) { /* no map or no VATSIM: the Polaris arrivals still count */ }
+  } catch (e) { /* no map or no VATSIM */ }
+  return on;
+}
+/* stands at icao that are taken now: a pilot on VATSIM on it, or another Polaris arrival or departure around the
+   same time (a departure's time is its STD) */
+async function takenAt(icao, etaMs, log, deps, skipKey) {
+  const taken = await vatsimAt(icao, deps);
+  for (const x of log) if ((x.kind === 'dep' ? x.dep : x.arr) === icao && x.k !== skipKey && x.stand && Math.abs((x.eta || x.t) - etaMs) < GAP_MS) taken.add(norm(x.stand));
   return taken;
 }
 /* the stand for an aircraft at icao: { stand, term } | { none: 'noplan' | 'full' }. heavy: from isHeavy (else from ac) */
@@ -139,7 +144,7 @@ export async function standWatch(env, deps) {
     const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || f.fpAc || '', fl = flightType(f.dep, f.arr), heavy = isHeavy(f);
     const p = await pickStand(plan, f.arr, ac, eta, log, deps, null, fl, heavy);
     if (p.none === 'noplan' && plan.miss !== 'ground') continue;
-    const m = await aocSend(env, { ...standMsg(await aocTpl(env), f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
+    const m = await aocSend(env, { ...standMsg(await aocTpl(env), f, eta, p), to: crewOf(f), push: true, by: 'AUTO', auto: 'gate' });
     const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: heavy, fl, eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
     log.unshift(rec); sent.push(rec);
   }
@@ -160,7 +165,7 @@ export async function departureGate(env, b, deps, now = Date.now()) {
   const p = await pickStand(plan, dep, ac, std, log, deps || {}, null, fl, heavy);
   if (p.none === 'noplan') return { none: 'noplan' };
   const f = { cs, dep, arr, pilot: b.pilot || '', cid: b.cid ? String(b.cid) : '', name: b.name || '' };
-  const m = await aocSend(env, { ...depMsg(await aocTpl(env), f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO' });
+  const m = await aocSend(env, { ...depMsg(await aocTpl(env), f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO', auto: 'dep' });
   const rec = { k, kind: 'dep', t: now, cs, dep, arr, ac, wide: heavy, fl, eta: std, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
   log.unshift(rec); await writeLog(kv, log);
   return rec;
@@ -188,6 +193,11 @@ export async function standsAdmin(req, url, path, env, who, deps, lim) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (req.method === 'GET' && path === '/admin/api/stands') return jsonRes({ plan: await readPlan(kv), log: await readLog(kv), apts: PAW_APTS, now: Date.now() });
+    /* the Gates page's airport map: the stands with a pilot on VATSIM on them now */
+    if (req.method === 'GET' && path === '/admin/api/stands/busy') {
+      const I = String(url.searchParams.get('icao') || '').toUpperCase(); if (!okIcao(I)) throw new StandError(400, 'Pick an airport');
+      return jsonRes({ icao: I, vat: [...(await vatsimAt(I, deps))], at: Date.now() });
+    }
     if (req.method !== 'POST') return jsonRes({ error: 'Method not allowed' }, 405);
     /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new StandError(415, 'Send JSON');

@@ -187,40 +187,6 @@ main#docs{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}main#docs[hidden]
 .cr-p{display:inline-flex;align-items:center;gap:6px;padding:3px 3px 3px 11px;border:1px solid var(--line);border-radius:15px;background:var(--bg);font-size:13px}
 .cr-p b{font:600 12.5px "IBM Plex Mono",ui-monospace,Consolas,monospace}.cr-p small{color:var(--label);font-size:12px}
 .cr-p button{border:0;background:transparent;padding:2px 7px;margin:0;font-size:15px;line-height:1;color:var(--label);border-radius:50%}.cr-p button:hover{color:var(--ink);background:var(--soft)}
-/* ---------- Stands tab ---------- */
-main#stands{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}main#stands[hidden]{display:none!important}
-.st-on{display:flex;gap:12px;align-items:flex-start;margin:4px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--field);font-weight:400;color:var(--ink);cursor:pointer}
-.st-sw{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}.st-sw .st-on{margin:0}.st-sub{margin-top:-6px!important}
-.st-k{font-style:normal;font:700 10.5px Jost,system-ui,sans-serif;letter-spacing:.08em;padding:1px 5px;border-radius:3px;margin-right:6px;background:color-mix(in srgb,#B0487F 14%,transparent);vertical-align:1px}
-@media(max-width:600px){.st-sw{grid-template-columns:1fr}}
-.st-on input{width:auto;margin:3px 0 0;flex:none;transform:scale(1.15)}.st-on b{display:block;font-weight:600}.st-on small{display:block;color:var(--label);font-size:12.5px;margin-top:2px}
-.st-on:has(input:checked){border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.st-lead{display:flex;align-items:center;gap:8px}.st-lead input{width:90px}.st-lead span{color:var(--label);font-size:13.5px}
-.st-apts{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.st-apts button{margin:0;padding:5px 10px;font:600 12.5px "IBM Plex Mono",ui-monospace,Consolas,monospace;border-radius:5px}
-.st-apts button small{font:500 11px Jost,system-ui,sans-serif;color:var(--label);margin-left:5px}
-.st-apts button.has{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}.st-apts button.has small{color:var(--accent)}
-.st-apts button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--bg)}.st-apts button[aria-pressed=true] small{color:inherit;opacity:.8}
-.st-add{display:flex;gap:6px;margin-top:8px}.st-add input{width:130px;text-transform:uppercase}.st-add button{margin:0}
-.st-ed{margin-top:14px;padding:12px 14px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;background:var(--soft)}
-.st-ed h3{margin:0 0 4px;font:600 15px Jost,system-ui,sans-serif}.st-ed h3 small{font-weight:400;color:var(--label);margin-left:6px}
-.st-r{display:grid;grid-template-columns:22px minmax(0,1fr) 132px 118px 80px 62px;gap:8px;align-items:center;margin-top:8px}
-.st-r .n{color:var(--label);font:600 12px "IBM Plex Mono",ui-monospace,monospace;text-align:right}
-.st-r input,.st-r select{margin:0;height:36px;box-sizing:border-box;padding-top:0;padding-bottom:0}.st-r input.sr{text-transform:uppercase;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}.st-r input.tm{text-transform:uppercase}
-.st-r .b{display:flex;gap:4px}.st-r .b button{margin:0;padding:4px 8px;font-size:12.5px}
-.st-x{grid-column:2/-1;font-size:12px;color:var(--label);margin-top:-2px;word-break:break-word}.st-x.bad{color:var(--red)}
-.st-try{margin-top:12px;font-size:13px;color:var(--label)}
-.st-warn{margin:10px 0 0;padding:9px 12px;border-radius:6px;background:#FBF0DA;color:#5C4108;font-size:13px;border-left:3px solid #D9930D}
-:root[data-theme=dark] .st-warn{background:#3A2E19;color:#F0D9AE}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .st-warn{background:#3A2E19;color:#F0D9AE}}.st-try b{color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace}
-.st-ed .actions{margin-top:10px}
-.st-l{border-top:1px solid var(--line);padding:11px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px}
-.st-l b{font:600 14px "IBM Plex Mono",ui-monospace,Consolas,monospace}.st-l .s{font:600 14px "IBM Plex Mono",ui-monospace,monospace;color:#B0487F}.st-l .meta{color:var(--label);font-size:12.5px}
-.st-l .btns{grid-row:1/3;grid-column:2;display:flex;gap:6px;align-items:start}.st-l .btns button{margin:0;padding:4px 10px;font-size:12.5px}
-.st-l .chg{grid-column:1/-1;display:flex;gap:6px;margin-top:6px}.st-l .chg input{width:110px;margin:0;text-transform:uppercase}.st-l .chg button{margin:0}
-:root[data-theme=dark] .st-l .s{color:#E3A3C6}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .st-l .s{color:#E3A3C6}}
-@media(max-width:900px){main#stands{grid-template-columns:1fr}}
-@media(max-width:1100px){.st-r{grid-template-columns:22px minmax(0,1fr) minmax(0,1fr) 62px}.st-r input.sr{grid-column:2/-2}.st-r .b{grid-column:4;grid-row:1}.st-r input.tm{grid-column:2/-2}}
-@media(max-width:600px){.st-r{grid-template-columns:22px minmax(0,1fr) auto}.st-r select,.st-r input.tm,.st-r input.sr{grid-column:2/3}.st-r .b{grid-column:3;grid-row:1}}
 /* ---------- Flight Watch (Live tab) ---------- */
 .fw{padding:12px 16px 10px;border-bottom:1px solid var(--line);background:var(--bg);max-height:42vh;overflow:auto;flex:none}@media(max-width:900px){.fw{max-height:none}}
 .fw-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.fw-h b{font:600 13px Jost,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--bronze)}
@@ -375,7 +341,7 @@ main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
 .hm-u b{font-weight:500}.hm-u small{grid-column:2;color:var(--label);font-size:12px}
 #hmFl,#hmUp{margin-top:8px}
 /* a role's Home (Settings › Roles): only the parts of the pages it sees; a menu heading with none of its pages goes */
-html.no-p-fw.no-p-gates.no-p-reports.no-p-navdata .sg[data-sg=ops],html.no-p-pilots.no-p-cal .sg[data-sg=crew],html.no-p-comms.no-p-docs .sg[data-sg=comm]{display:none}
+html.no-p-fw.no-p-gates.no-p-settings.no-p-reports.no-p-navdata .sg[data-sg=ops],html.no-p-pilots.no-p-cal .sg[data-sg=crew],html.no-p-comms.no-p-docs .sg[data-sg=comm]{display:none}
 html.no-p-fw #hmFlS,html.no-p-cal #hmUpS,html.no-p-fw.no-p-cal .hm-col,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata .hm-act{display:none}
 html.no-p-fw.no-p-cal main#home,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata main#home{grid-template-columns:minmax(0,1fr)}
 @media(max-width:900px){main#home{grid-template-columns:1fr}.hm-k{justify-content:flex-start}}
@@ -462,19 +428,172 @@ main#comms{max-width:1380px;grid-template-columns:minmax(0,380px) minmax(0,1fr);
 .cm-v .ac-box{margin-top:14px}.cm-v .atts{margin-top:10px}
 @media(max-width:900px){main#comms{grid-template-columns:1fr}.cm-side{position:static;max-height:none}.cm-side .ib-list,.cm-list{max-height:50vh}}
 
-/* ---------- Settings ---------- */
-main#settings{max-width:1280px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+/* ---------- page headings (Nov 2026): the title, one line under it, the state on the right ---------- */
+.pg-top{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-end;gap:10px 20px;flex-wrap:wrap}
+.pg-top h1{margin:0;font:400 26px/1.2 Marcellus,Georgia,serif;color:var(--ink)}
+.pg-top p{margin:3px 0 0;color:var(--label);font-size:14px}
+.pg-top>.help{align-self:center}
+.pg-st{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap;font-size:13.5px;color:var(--label)}
+.pg-st>span{display:inline-flex;gap:6px;align-items:center}
+.bdg{display:inline-block;padding:0 9px;border-radius:99px;font:500 12px/1.75 Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;white-space:nowrap;background:var(--mist);color:var(--label)}
+.bdg.on{background:var(--ok-bg);color:var(--green)}.bdg.bad{background:var(--err-bg);color:var(--red)}.bdg.adm{background:var(--mist);color:var(--accent)}.bdg.role{background:var(--q-bg);color:var(--q)}
+button.lnk{border:0;background:transparent;padding:4px 6px;color:var(--accent);font-size:13.5px}button.lnk:hover{text-decoration:underline}button.lnk.warn{color:var(--red)}
+.lbl{color:var(--label)}.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13.5px}
+/* tables (Gates, Settings) */
+.gt-tw{overflow-x:auto}
+table.gt-t{border-collapse:collapse;width:100%;font-size:14px}
+.gt-t th{text-align:left;font:500 11.5px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--label);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.gt-t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.gt-t>tbody>tr:last-child>td{border-bottom:0}
+.gt-t .r{text-align:right;white-space:nowrap}
+.gt-t .k2{display:inline-block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:7px;color:var(--label);vertical-align:1px}
+.gt-t b{font-weight:500}
+
+/* ---------- Gates (Nov 2026): the airports, the map and rules of one, the gates sent ---------- */
+main#stands{max-width:1380px;grid-template-columns:240px minmax(0,1fr);align-items:start}main#stands[hidden]{display:none!important}
+main#stands>.gt-log{grid-column:1/-1}
+main#stands{--r0:#2a78d6;--r1:#eb6834;--r2:#1baf7a;--r3:#eda100;--r4:#e87ba4;--r5:#008300;--r6:#6250d6;--r7:#e34948;--rx:#7B8A8C;--rn:#BAC5C6;--n0:#fff;--n1:#fff;--n2:#0F2A2E;--n3:#0F2A2E;--n4:#0F2A2E;--n5:#fff;--n6:#fff;--n7:#fff;--nx:#fff;
+ --m-bg:#E8EDEC;--m-f:#DFE7E1;--m-a:#D2DADA;--m-r:#9CA8A9;--m-t:#BAC4C4;--m-b:#C6CFCF;--m-bt:#B4C1C2;--m-tx:#51696C;--m-no:#B1BCBD;--m-ink:#0F2A2E;--m-ring:#FFFFFF}
+:root[data-theme=dark] main#stands{--r0:#3987e5;--r1:#d95926;--r2:#199e70;--r3:#c98500;--r4:#d55181;--r5:#0ca30c;--r6:#9085e9;--r7:#e66767;--rx:#6C7477;--rn:#4C5457;--n3:#1A1A1C;--n6:#1A1A1C;--n7:#1A1A1C;--n2:#fff;--n4:#fff;
+ --m-bg:#141618;--m-f:#191C1E;--m-a:#25292C;--m-r:#40474B;--m-t:#33393D;--m-b:#2D3337;--m-bt:#363E43;--m-tx:#9C9CA1;--m-no:#4A5255;--m-ink:#E8E8E9;--m-ring:#141618}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) main#stands{--r0:#3987e5;--r1:#d95926;--r2:#199e70;--r3:#c98500;--r4:#d55181;--r5:#0ca30c;--r6:#9085e9;--r7:#e66767;--rx:#6C7477;--rn:#4C5457;--n3:#1A1A1C;--n6:#1A1A1C;--n7:#1A1A1C;--n2:#fff;--n4:#fff;
+ --m-bg:#141618;--m-f:#191C1E;--m-a:#25292C;--m-r:#40474B;--m-t:#33393D;--m-b:#2D3337;--m-bt:#363E43;--m-tx:#9C9CA1;--m-no:#4A5255;--m-ink:#E8E8E9;--m-ring:#141618}}
+.r0{--c:var(--r0);--cn:var(--n0)}.r1{--c:var(--r1);--cn:var(--n1)}.r2{--c:var(--r2);--cn:var(--n2)}.r3{--c:var(--r3);--cn:var(--n3)}.r4{--c:var(--r4);--cn:var(--n4)}.r5{--c:var(--r5);--cn:var(--n5)}.r6{--c:var(--r6);--cn:var(--n6)}.r7{--c:var(--r7);--cn:var(--n7)}.rx{--c:var(--rx);--cn:var(--nx)}.rn{--c:var(--rn);--cn:var(--ink)}
+.sw{display:inline-block;width:11px;height:11px;border-radius:50%;background:var(--c);flex:none;vertical-align:-1px}
+.sw.occ{background:var(--m-ink)}.sw.giv{background:transparent;box-shadow:0 0 0 2px var(--label) inset}
+.gt-apts{padding:14px;position:sticky;top:83px}
+.gt-al{display:flex;flex-direction:column;gap:1px;margin-top:10px;max-height:calc(100vh - 300px);min-height:120px;overflow:auto}
+.ga{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;align-items:baseline;text-align:left;border:0;background:transparent;padding:7px 9px;border-radius:6px;color:var(--ink);font-weight:400;width:100%}
+.ga:hover{background:var(--soft)}
+.ga b{font:600 13px "IBM Plex Mono",ui-monospace,Consolas,monospace}
+.ga span{font-size:12.5px;color:var(--label);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ga small{font-size:12px;color:var(--off);white-space:nowrap}.ga.has small{color:var(--label)}
+.ga[aria-pressed=true]{background:var(--mist)}.ga[aria-pressed=true] b{color:var(--accent)}
+.ga.add{border:1px dashed var(--line);margin-top:4px}.ga.add small{color:var(--accent);font-size:15px;line-height:1}
+.gt-apts>.hint{margin-top:10px}
+.gt-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.gt-h .pg-h{margin:0}
+.gt-h .kf button:disabled{opacity:.45}
+.gm-note{margin:0 0 10px!important}
+.gm-wait{padding:80px 0;text-align:center;color:var(--label);font-size:14px;background:var(--soft);border-radius:6px}
+/* the airport map */
+.gm{position:relative;border-radius:6px;overflow:hidden;background:var(--m-bg);border:1px solid var(--line)}
+#stSvg{display:block;width:100%;height:470px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#stSvg:active{cursor:grabbing}
+.gm .m-f{fill:var(--m-f)}.gm .m-a{fill:var(--m-a)}.gm .m-ra{fill:var(--m-r)}
+.gm .m-r{fill:none;stroke:var(--m-r)}.gm .m-r.s{opacity:.55}
+.gm .m-t{fill:none;stroke:var(--m-t);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.gm .m-b{fill:var(--m-b)}.gm .m-b.t{fill:var(--m-bt)}
+.gm .ml{font:500 11.5px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;fill:var(--m-tx);text-anchor:middle;dominant-baseline:middle;pointer-events:none;paint-order:stroke;stroke:var(--m-bg);stroke-width:3px;stroke-opacity:.7}
+.gm .ml.rw{font:500 10.5px "IBM Plex Mono",ui-monospace,monospace}
+.gm .nr{fill:var(--m-no)}
+.gs{cursor:pointer}.gs .hit{fill:transparent}
+.gs .d{fill:var(--c);stroke:var(--m-ring);stroke-width:1.5}
+.gs .dn{font:600 9.5px Jost,system-ui,sans-serif;fill:var(--cn);text-anchor:middle;pointer-events:none}
+.gs .lb{font:500 10.5px "IBM Plex Mono",ui-monospace,monospace;fill:var(--m-ink);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:var(--m-bg);stroke-width:3px}
+.gs .oc{fill:var(--m-ink);stroke:var(--m-ring);stroke-width:1.5}.gs .ox{stroke:var(--m-bg);stroke-width:1.7;fill:none;stroke-linecap:round}
+.gs .gv{fill:none;stroke:var(--c);stroke-width:2.5}.gs .gv.rn{stroke:var(--label)}
+.gs .hl{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:4 3}
+.gs.on .d,.gs.on .oc{stroke:var(--accent);stroke-width:3}
+.gm-z{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.gm-z button{border:0;border-radius:0;padding:3px 0;width:32px;height:32px;font-size:17px;line-height:1;background:var(--bg);color:var(--ink)}.gm-z button+button{border-top:1px solid var(--line)}.gm-z button:hover{background:var(--soft)}
+.gp{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.45;box-shadow:0 10px 28px -12px rgba(15,42,46,.45);color:var(--ink)}
+.gm-pop{position:absolute;z-index:3;width:260px}
+.gp-h{display:flex;align-items:center;gap:6px;margin-bottom:2px}.gp-h b{font:600 14px "IBM Plex Mono",ui-monospace,monospace}
+.gp-x{margin-left:auto;border:0;background:transparent;padding:0 4px;color:var(--label);font-size:14px}.gp-x:hover{color:var(--ink)}
+.gp-r{display:flex;gap:7px;align-items:center;margin-top:3px}.gp-r small{color:var(--label)}
+.gp-s{margin-top:4px;font-weight:500}.gp-s.giv{color:var(--q)}
+.gp-a{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}.gp-a span{font-size:12px;color:var(--label);margin:0 2px}
+.gp-a button{padding:3px 9px;font-size:12.5px;display:inline-flex;gap:5px;align-items:center}
+.gm-leg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12.5px;color:var(--ink)}.gm-leg>span{display:inline-flex;gap:6px;align-items:center}.gm-leg small{color:var(--label);font-size:12px}
+.gm-leg small::before{content:"· "}
+#stMiss{margin-top:8px}
+.gt-bad{color:var(--red);font-family:"IBM Plex Mono",ui-monospace,monospace}
+.gt-cg{color:var(--q);font-weight:500}
+/* the same stands as a list */
+.gl{display:flex;flex-direction:column;gap:14px}
+.gl-h{display:flex;gap:7px;align-items:center;margin-bottom:6px;font-size:13.5px;font-weight:500}.gl-h small{color:var(--label);font-weight:400;font-size:12.5px}.gl-h small::before{content:"· "}
+.gl-c{display:flex;flex-wrap:wrap;gap:5px}
+.gc{position:relative;font:500 12.5px "IBM Plex Mono",ui-monospace,monospace;padding:3px 8px 3px 21px;border-radius:5px;border:1px solid var(--line);background:var(--field);color:var(--ink)}
+.gc::before{content:"";position:absolute;left:7px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--c)}
+.gc.occ{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.gc.giv{border-color:var(--c);box-shadow:0 0 0 1px var(--c) inset}
+.gc.on{outline:2px solid var(--accent);outline-offset:1px}
+.gl-pop{max-width:340px}
+/* the rules */
+#stRules{margin-top:18px}
+.gt-r td:first-child{white-space:nowrap;width:52px;font:600 12.5px "IBM Plex Mono",ui-monospace,monospace;color:var(--label)}
+.gt-ch{display:inline-block;font:500 12.5px "IBM Plex Mono",ui-monospace,monospace;padding:1px 7px;border:1px solid var(--line);border-radius:5px;margin:2px 4px 2px 0;background:var(--field);white-space:nowrap}
+.gt-ch.bad{color:var(--red);border-color:var(--red-l)}
+.gt-er>td{background:var(--soft)}
+.gt-e>label:first-child{margin-top:4px}
+.gt-e input.sr{text-transform:uppercase;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.gt-e3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.gt-e input.tm{text-transform:uppercase}
+.gt-e .actions{margin-top:14px}
+.st-x{font-size:12px;color:var(--label);margin-top:5px;word-break:break-word}.st-x.bad{color:var(--red)}
+.gt-none{margin:0!important;font-size:13.5px!important}
+.gt-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}.gt-act .sp{flex:1}.gt-dirty{font-size:12.5px;color:var(--q);font-weight:500}
+.st-warn{margin:12px 0 0;padding:9px 12px;border-radius:6px;background:#FBF0DA;color:#5C4108;font-size:13px;border-left:3px solid #D9930D}
+:root[data-theme=dark] .st-warn{background:#3A2E19;color:#F0D9AE}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .st-warn{background:#3A2E19;color:#F0D9AE}}
+.gt-try{margin-top:18px;padding:12px 14px;background:var(--soft);border-radius:6px;display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;font-size:14px}
+.gt-try .l{color:var(--label);font-weight:500;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.gt-try select{width:auto;padding:5px 8px;font-size:13.5px}
+.gt-try b{font:600 14px "IBM Plex Mono",ui-monospace,monospace}
+.st-lb{display:flex;gap:8px;align-items:center}.st-lb button#stReload{padding:5px 12px;font-size:13px}
+.gt-lt .mono b,.gt-lt b.mono{font-weight:600}
+.gt-chg>td{background:var(--soft)}.chg{display:flex;gap:6px;flex-wrap:wrap}.chg input{width:120px;margin:0;text-transform:uppercase}.chg button{margin:0}
+@media(max-width:900px){main#stands{grid-template-columns:minmax(0,1fr)}.gt-apts{position:static}.gt-al{flex-direction:row;overflow-x:auto;max-height:none;min-height:0;padding-bottom:4px}.ga{grid-template-columns:auto auto;width:auto;flex:none}.ga span{display:none}}
+@media(max-width:600px){.gt-e3{grid-template-columns:1fr}.gm-pop{width:220px}}
+
+/* ---------- Automatic messages (Nov 2026) ---------- */
+main#auto{display:block;max-width:1120px}main#auto[hidden]{display:none!important}
+main#auto>*+*{margin-top:20px}main#auto>#auMsg{margin-top:0}
+.au-l{padding:0;overflow:hidden}
+.au-r+.au-r{border-top:1px solid var(--line)}
+.au-r.open{background:var(--soft)}
+.au-h{display:flex;align-items:center;gap:8px 16px;padding:14px 20px;flex-wrap:wrap}
+.au-sw{display:flex;gap:14px;align-items:center;flex:1 1 360px;margin:0;font-weight:400;font-size:15px;color:var(--ink);cursor:pointer}
+.au-sw b{display:block;font-weight:500}.au-sw small{display:block;color:var(--label);font-size:13px;line-height:1.4}
+.au-sw input{appearance:none;-webkit-appearance:none;flex:none;width:40px;height:23px;border-radius:12px;background:var(--off);position:relative;margin:0;cursor:pointer;transition:background .15s}
+.au-sw input::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.au-sw input:checked{background:var(--teal)}.au-sw input:checked::after{left:20px}
+.au-sw input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.au-sw input:disabled{opacity:.6}
+.au-last{font-size:13px;color:var(--label);min-width:160px}
+.au-ed{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:24px;padding:2px 20px 22px}
+.au-ec{display:grid;gap:12px;min-width:0;align-content:start}
+.au-tm{display:flex;gap:10px 20px;flex-wrap:wrap;align-items:flex-end}.au-tm label{margin:0 0 6px}.au-tm select{width:auto}.au-tm .lk{padding-bottom:9px}
+.au-n{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+#auto input[type=number]{width:84px;font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
+.au-when{margin:0!important}
+.au-more summary{cursor:pointer;color:var(--accent);font-size:13.5px;font-weight:500}.au-more summary small{color:var(--label);font-weight:400}
+.au-more[open]{display:grid;gap:12px}.au-more[open]>summary{margin-bottom:0}
+.au-pv{display:grid;gap:8px;align-content:start;min-width:0}
+#auto .at-f textarea,#auto .at-f input{font:13px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:none;min-height:0;white-space:pre;overflow-x:auto}
+.au-foot{font-size:13.5px!important}
+@media(max-width:860px){.au-ed{grid-template-columns:1fr}.au-last{min-width:0}}
+
+/* ---------- Settings (Nov 2026): People and Roles ---------- */
+main#settings{display:block;max-width:1120px}main#settings[hidden]{display:none!important}
+main#settings>*+*{margin-top:20px}
+.set-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.set-h .pg-h{margin:0}.set-h>span{font-size:13.5px}
+.set-h #rlNew{padding:6px 14px;font-size:13.5px}
+.rl-you{color:var(--label);font-size:12px;margin-left:8px}
+.rl-t select{width:auto;padding:4px 8px;font-size:13px}
+.rl-t td:first-child{overflow-wrap:anywhere}
+.rl-rt td:first-child{white-space:nowrap}
+#rlList{margin-bottom:14px}
+.set-moved{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap}.set-moved h2{margin:0}.set-moved p{margin:4px 0 0;color:var(--label);font-size:13.5px}
+.set-moved>div+div{display:flex;gap:18px;flex-wrap:wrap}
+#rlMail span:not(.bdg){font-size:13px}
+/* Messages › From names and templates */
+.cm-set{display:block;margin:0 18px 12px;border:0;background:transparent;padding:0;color:var(--accent);font-size:13px;font-weight:500;text-align:left}.cm-set:hover{text-decoration:underline}
 .set-froms{min-height:130px;font-size:14px}
 .set-tpl{display:flex;flex-direction:column;gap:10px}
 .set-t{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--soft);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px}
 .set-t input{font:600 13.5px "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:uppercase}
 .set-t textarea{grid-column:1/-1;min-height:70px;font:13px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:uppercase}
 .set-t .b{display:flex;gap:4px}.set-t .b button{padding:4px 9px;font-size:12.5px}
-@media(max-width:900px){main#settings{grid-template-columns:1fr}}
-
-/* ---------- Gates ---------- */
-.st-lb{display:flex;gap:8px;align-items:center}
-.st-l .k2{display:inline-block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:6px;color:var(--label)}
 
 /* ---------- Reports ---------- */
 #otNeed[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#fff}
@@ -523,9 +642,6 @@ body:has(.deny) header{margin-left:0}
 .side a:has(#fwN:not([hidden])) #lvCount{display:none}
 .fo-c input[type=text],.fo-c select,.fo-c textarea,.fo-r select{padding:7px 10px;font-size:14px}
 .fo-c .row{gap:10px}
-.st-lead input{font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
-.st-l .s,:root[data-theme=dark] .st-l .s{color:var(--ink)!important;font-weight:600}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .st-l .s{color:var(--ink)!important}}
 .ot-bar .help{margin-right:auto}
 @media(max-width:600px){.hm-k{display:grid;grid-template-columns:1fr 1fr;width:100%}.hm-c{min-width:0}}
 
@@ -635,15 +751,9 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-drop.busy{cursor:progress;border-style:solid;background:var(--soft)}
 .nd-c .msg{margin-top:2px;font-size:13px}
 @media(max-width:700px){.nd-cyc{grid-template-columns:1fr}.nd-sum{margin-left:0;width:100%}}
-/* Gates › Message wording */
-.at-k{margin-top:12px;flex-wrap:wrap}
-.at-k button{position:relative}
-.at-ch{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--brand,#1A6772);vertical-align:2px;margin-left:4px}
-.at-g{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;margin-top:14px;align-items:start}
-.at-ed{display:grid;gap:12px;min-width:0}
+/* Automatic messages › wording */
 .at-f{display:grid;gap:5px;min-width:0}
 .at-l{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--label)}
-#atSec .at-f textarea,#atSec .at-f input{font:13px/1.45 "IBM Plex Mono",ui-monospace,Consolas,monospace;text-transform:none;min-height:0;white-space:pre;overflow-x:auto}
 .at-tk{display:grid;gap:6px}
 .at-tk>div{display:flex;flex-wrap:wrap;gap:5px}
 .at-tk button{font:12px "IBM Plex Mono",ui-monospace,Consolas,monospace;padding:4px 7px;border:1px solid var(--line);border-radius:4px;background:var(--soft);color:var(--ink);cursor:pointer}
@@ -677,28 +787,20 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 }
 
 /* ---------- Roles (Nov 2026): what a role may not see or change is not offered (the server checks it as well) ---------- */
-html.no-p-fw .side a[data-tab="fw"],html.no-p-gates .side a[data-tab="gates"],html.no-p-reports .side a[data-tab="reports"],html.no-p-navdata .side a[data-tab="navdata"],html.no-p-pilots .side a[data-tab="pilots"],html.no-p-cal .side a[data-tab="cal"],html.no-p-comms .side a[data-tab="comms"],html.no-p-docs .side a[data-tab="docs"],html.no-p-settings .side a[data-tab="settings"]{display:none!important}
+html.no-p-fw .side a[data-tab="fw"],html.no-p-gates .side a[data-tab="gates"],html.no-p-reports .side a[data-tab="reports"],html.no-p-navdata .side a[data-tab="navdata"],html.no-p-pilots .side a[data-tab="pilots"],html.no-p-cal .side a[data-tab="cal"],html.no-p-comms .side a[data-tab="comms"],html.no-p-docs .side a[data-tab="docs"],html.no-p-settings .side a[data-tab="auto"],html.no-a-roles .side a[data-tab="settings"],html.no-p-settings .au-lk{display:none!important}
 html.no-a-msg :is([data-cmnew],[data-edit],[data-del],[data-acdel],[data-ibdone],.ib-r,[data-fwaoc],.fo-c,[data-plmail]){display:none!important}
-html.no-a-gates :is(#stSave,#stOther,#stOtherB,[data-st],[data-strm],[data-stup],[data-stchg],[data-stsend],[data-fog],.fo-ge){display:none!important}
-html.no-a-gates #stEd :is(input,select){pointer-events:none;opacity:.7}
+html.no-a-gates :is(#stSave,[data-st],[data-strm],[data-stup],[data-sted],[data-staadd],[data-stchg],[data-stsend],[data-fog],.fo-ge,.gp-a,.gt-act){display:none!important}
 html.no-a-delay :is([data-otr],#foReason){pointer-events:none;opacity:.6}
 html.no-a-cal :is([data-ca="new"],[data-ca="newday"],[data-ca="edit"],[data-ca="dup"],[data-ca="del"],[data-ca="save"],[data-ca="vsave"],[data-ca="addp"],[data-carm]){display:none!important}
 html.no-a-docs :is(main#docs>section:first-child,[data-dcedit],[data-dcrep]){display:none!important}
 html.no-a-docsdel [data-dcdel]{display:none!important}
 html.no-a-pilots [data-plout]{display:none!important}
 html.no-a-navdata :is(.nd-drop,[data-ndchk],#ndAll,[data-ndcndel],#ndRmTest){display:none!important}
-html.no-a-settings :is(#setAocSave,#setSave,#setTplAdd,[data-setrm],[data-setup],#atSave,#atReset){display:none!important}
-html.no-a-settings :is(main#settings>section:not(#rlCard),#atSec) :is(input,select,textarea,[data-attk]){pointer-events:none;opacity:.7}
-html.no-a-roles #rlCard{display:none!important}
-main#settings>#rlCard{grid-column:1/-1}
+html.no-a-settings :is([data-ausave],[data-aureset],#setSave,#setTplAdd,[data-setrm],[data-setup]){display:none!important}
+html.no-a-settings :is(#auto .au-ed,#cmSet) :is(input,select,textarea,[data-attk]){pointer-events:none;opacity:.7}
+html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 .rl-note{font-size:13px;color:var(--label);margin:0 0 6px}
 .rl-h{font:600 12px Jost,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--label);margin:18px 0 4px}
-.rl-list,.rl-roles{display:flex;flex-direction:column;margin:2px 0 12px}
-.rl-r{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
-.rl-r:first-child{border-top:0}
-.rl-r b{font-weight:500;overflow-wrap:anywhere}.rl-r small{display:block;color:var(--label);font-size:12px;line-height:1.45}
-.rl-r select{width:auto;padding:5px 8px;font-size:13px}.rl-r button{padding:5px 10px;font-size:12.5px}
-.rl-r.role{grid-template-columns:minmax(0,1fr) auto}
 .rl-add{display:flex;gap:8px;flex-wrap:wrap}.rl-add input{flex:1 1 220px;width:auto}.rl-add select{width:auto}
 .rl-ed{border:1px solid var(--accent);border-radius:8px;padding:14px 16px;margin:4px 0 10px;background:var(--soft)}
 .rl-ed label.n{margin-top:0}.rl-ed input[type=text]{max-width:340px}
@@ -707,7 +809,7 @@ main#settings>#rlCard{grid-column:1/-1}
 .rl-c{display:flex;gap:8px;align-items:flex-start;margin:0;padding:5px 0;font-size:13.5px;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
 .rl-c input{margin-top:3px}.rl-c small{display:block;color:var(--label);font-size:12px}
 .rl-ed .actions{margin-top:12px}
-@media(max-width:600px){.rl-r{grid-template-columns:minmax(0,1fr) auto}.rl-r>button{grid-column:2}.rl-r>select{grid-column:1}.rl-g:not(.acts){grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.rl-g:not(.acts){grid-template-columns:1fr 1fr}}
 </style></head><body>
 <header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Operations</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
 <!--DENIED-->
@@ -717,6 +819,7 @@ main#settings>#rlCard{grid-column:1/-1}
 <div class="sg" data-sg="ops">Operations</div>
 <a href="#fw" data-tab="fw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg><span>Flight Watch</span><span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a>
 <a href="#gates" data-tab="gates"><svg viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V8.5l6.5-4 6.5 4v12"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Gates</span></a>
+<a href="#auto" data-tab="auto"><svg viewBox="0 0 24 24"><path d="M20.5 3.5 3.5 10.6l6.9 2.5 2.5 6.9z"/><path d="M10.4 13.1 20.5 3.5"/></svg><span>Automatic messages</span></a>
 <a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-5M12 16.5V7M17 16.5v-8"/></svg><span>Reports</span></a>
 <a href="#navdata" data-tab="navdata"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15.6 8.4 13.4 13.4 8.4 15.6 10.6 10.6z"/><path d="M12 3.5v1.6M12 18.9v1.6M3.5 12h1.6M18.9 12h1.6"/></svg><span>Nav Data</span><span class="fw-n" id="ndN" hidden></span></a>
 <div class="sg" data-sg="crew">Crew</div>
@@ -752,6 +855,7 @@ main#settings>#rlCard{grid-column:1/-1}
 <section class="cm-side">
  <div class="cm-h"><h2>Messages</h2><details class="help"><summary aria-label="About messages">?</summary><div><p><b>Notice</b> is Polaris Mail: a subject, formatting and attachments, now or at a set time. Pilots read it in the EFB’s Mail and can answer; answers arrive in the Inbox.</p><p><b>AOC</b> is a short message on the flight deck’s AOC display, beside Hoppie ACARS. Pilots cannot answer it. It stays in the EFB under Flight › Messages for 30 days.</p><p>Messages between pilots are private and never appear here.</p></div></details></div>
  <div class="cm-new"><button type="button" class="primary" data-cmnew="mail"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg>New notice</button><button type="button" data-cmnew="aoc"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6"/></svg>New AOC</button></div>
+ <button type="button" class="cm-set" data-cmset>From names and AOC templates</button>
  <div class="cm-seg" role="group" aria-label="Show"><button type="button" data-cmv="inbox" aria-pressed="true">Inbox<span class="lv-n" id="cmIbN" hidden></span></button><button type="button" data-cmv="sent" aria-pressed="false">Sent</button><button type="button" data-cmv="later" aria-pressed="false">Scheduled<span class="lv-n q" id="cmLaterN" hidden></span></button></div>
  <div class="cm-f" id="cmFi"><div class="ib-seg" role="group" aria-label="Conversations"><button type="button" data-ibs="open" aria-pressed="true">Open</button><button type="button" data-ibs="done" aria-pressed="false">Done</button></div><select id="ibDept" aria-label="Department"><option value="">All departments</option></select></div>
  <div class="cm-f" id="cmFs" hidden><div class="kf" role="group" aria-label="Kind"><button type="button" data-kf="all" aria-pressed="true">All</button><button type="button" data-kf="mail" aria-pressed="false">Notices</button><button type="button" data-kf="aoc" aria-pressed="false">AOC</button></div></div>
@@ -762,6 +866,15 @@ main#settings>#rlCard{grid-column:1/-1}
  <div class="cm-empty" id="cmEmpty"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.8 7l8.2 6.2L20.2 7"/></svg><b>Nothing open</b><span>Pick a conversation or a sent message on the left, or write a new notice or AOC message.</span></div>
  <div id="ibView" hidden></div>
  <div id="cmItem" hidden></div>
+ <div id="cmSet" hidden>
+ <div class="cm-ch"><div class="pg-h" style="margin:0"><h2>From names and templates</h2><details class="help"><summary aria-label="About the composer">?</summary><div><p>From names are who a notice comes from. The first is the default.</p><p>AOC templates fill in the title and the message. <b>{CS}</b>, <b>{DEP}</b> and <b>{ARR}</b> become the flight’s callsign and airports; <b>___</b> marks what still has to be written, and a message is not sent while one is left.</p></div></details></div><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div>
+ <label for="setFroms">From names <span class="hint" style="margin:0">one per line</span></label>
+ <textarea id="setFroms" class="set-froms" spellcheck="false"></textarea>
+ <label>AOC templates</label>
+ <div class="set-tpl" id="setTpl"><span class="empty">Loading…</span></div>
+ <div class="actions"><button type="button" id="setTplAdd">Add template</button><button class="primary" id="setSave">Save</button></div>
+ <div id="setMsg"></div>
+ </div>
  <div id="cmCompose" hidden>
  <div class="cm-ch"><h2 id="formTitle">New notice</h2><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div>
  <div class="kind" id="kind" hidden><label class="kd"><input type="radio" name="kind" value="mail" checked><span><b>Notice</b></span></label><label class="kd"><input type="radio" name="kind" value="aoc"><span><b>AOC</b></span></label></div>
@@ -816,61 +929,33 @@ main#settings>#rlCard{grid-column:1/-1}
 <section class="ca-side" id="caSide"><span class="empty">Loading…</span></section>
 </main>
 <main id="stands" hidden>
-<section>
- <div class="pg-h"><h2>Gate plan</h2><details class="help"><summary aria-label="How the gate plan works">?</summary><div><p>Rules are tried from the top: the first gate of the first rule that fits the flight and is free is sent. A flight is <b>domestic</b> when both airports are in the same country (the US with Hawaii and Alaska); otherwise <b>international</b>.</p><p>A gate is taken while a pilot on VATSIM is parked on it, or while another Polaris arrival or departure has it within 45 minutes. Write gates as ranges, like <b>C1-C10, D5, 201-215</b> (M2-40 is M2 to M40). Gates the airport map does not show are not given, so a range may cover numbers that do not exist.</p><p><b>Normal</b> gates take the A320 family; <b>Heavy</b> gates take widebodies (A330, A350, 777, 787…) and any flight plan with wake category H. A heavy is never given a Normal gate. A gate that takes both can be <b>Any size</b>: put it after the Normal ones, so A320s fill their own gates first. If every gate is taken, the crew get “GATE: CONTACT GROUND”. Which messages go out automatically is set in Settings.</p></div></details></div>
- <p class="hint st-sub" id="stState"></p>
- <div class="st-apts" id="stApts"></div>
- <div class="st-add"><input type="text" id="stOther" maxlength="4" placeholder="Other ICAO" autocomplete="off" spellcheck="false"><button type="button" id="stOtherB">Add airport</button></div>
- <div class="st-ed" id="stEd"></div>
- <div class="actions"><button class="primary" id="stSave">Save</button></div>
- <div id="stMsg"></div>
-</section>
-<section><div class="lh"><h2 id="stLogT">Assignments</h2><div class="st-lb"><div class="kf" role="group" aria-label="Show"><button type="button" data-stv="apt" aria-pressed="true">This airport</button><button type="button" data-stv="all" aria-pressed="false">All airports</button></div><button type="button" id="stReload">Refresh</button></div></div><p class="hint" style="margin:6px 0 0">Gates sent in the last two days, by the time the gate is used. <b>Change</b> sends the crew a GATE CHANGE.</p><div id="stLog"><span class="empty">Loading…</span></div></section>
-<section id="atSec"><div class="pg-h"><h2>Message wording</h2><details class="help"><summary aria-label="How the wording works">?</summary><div><p>The text of each automatic AOC message. Write it as the crew should read it, with <b>{FIELDS}</b> where the flight’s own values go; tap a field below the box to put it in.</p><p><b>{ZFW:9}</b> sets a value to the right in 9 characters, for columns of figures. <b>[[ TERMINAL {TERMINAL}]]</b> is left out when a field inside it is empty. A line whose fields are all empty is left out too.</p><p>The preview uses sample values. Saving changes the messages sent from then on; <b>Default</b> puts the original wording back.</p></div></details></div>
- <div class="kf at-k" id="atKinds" role="tablist" aria-label="Message"></div>
- <p class="hint" id="atWhen"></p>
- <div class="at-g"><div class="at-ed" id="atEd"></div><div class="at-pv"><span class="at-l">Preview</span><div class="at-card"><b id="atPT"></b><pre id="atPB"></pre></div></div></div>
- <div class="actions"><button class="primary" id="atSave">Save</button><button type="button" id="atReset">Default</button></div>
- <div id="atMsg"></div>
-</section>
+<div class="pg-top"><div><h1>Gates</h1><p>Which gate an arriving or departing flight is given.</p></div><div class="pg-st" id="stState"></div></div>
+<section class="gt-apts"><input type="text" id="stFind" aria-label="Find or add an airport" placeholder="Find or add an airport" autocomplete="off" spellcheck="false"><div class="gt-al" id="stApts"></div><p class="hint">Airports with no rules get no gate.</p></section>
+<section class="gt-main" id="stMain"><p class="empty">Loading…</p></section>
+<section class="gt-log"><div class="lh"><h2>Sent in the last two days</h2><div class="st-lb"><div class="kf" role="group" aria-label="Show"><button type="button" data-stv="apt" aria-pressed="true">This airport</button><button type="button" data-stv="all" aria-pressed="false">All airports</button></div><button type="button" id="stReload">Refresh</button></div></div><p class="hint" style="margin:6px 0 10px">By the time the gate is used. <b>Change</b> sends the crew a GATE CHANGE.</p><div id="stLog"><span class="empty">Loading…</span></div></section>
+</main>
+<main id="auto" hidden>
+<div class="pg-top"><div><h1>Automatic messages</h1><p>AOC messages the server sends crews by itself.</p></div><details class="help"><summary aria-label="About automatic messages">?</summary><div><p>Each is an AOC message to the flight’s crew in the EFB, with a push notification. Off: it is not sent. A switch takes effect at once.</p><p>The arrival and departure gates come from the rules on the Gates page. <b>Edit</b> opens the timing and the wording: write the text as the crew should read it, with <b>{FIELDS}</b> where the flight’s own values go. A line whose fields are all empty is left out.</p></div></details></div>
+<section class="au-l" id="auList"><p class="empty" style="padding:16px 20px">Loading…</p></section>
+<div id="auMsg"></div>
+<p class="hint au-foot">Messages staff write by hand, the From names and the AOC templates are in <a class="lk" href="#templates">Messages</a>.</p>
 </main>
 <main id="settings" hidden>
-<section>
- <div class="pg-h"><h2>Automatic AOC messages</h2><details class="help"><summary aria-label="About automatic messages">?</summary><div><p>Each is an AOC message to the flight’s crew in the EFB, with a push notification. Off: nothing is sent.</p><p>The arrival and departure gates come from the gate plan on the Gates page. A flight is domestic when both airports are in the same country (the US with Hawaii and Alaska).</p></div></details></div>
- <div class="st-sw">
- <label class="st-on"><input type="checkbox" id="stOn"><span><b>Arrival gate</b><small>Shortly before landing: a free gate at the destination from the gate plan.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stDep"><span><b>Departure gate</b><small>When the crew check in for the flight in the EFB: a free gate at the departure airport.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stLs"><span><b>Final loadsheet</b><small>15 minutes before STD, to crews who checked in with their SimBrief plan loaded.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stSig"><span><b>SIGMET on the route</b><small>In flight, when a SIGMET at the flight’s level lies within the next 900 nm. Once per FIR and hazard.</small></span></label>
- <label class="st-on"><input type="checkbox" id="stInr"><span><b>Arrival report</b><small>At the gate after landing, every flight: OOOI times, block and air time, on time or late, the gate and the latest METAR.</small></span></label>
- </div>
- <div class="row"><div><label for="stLead">Arrival gate: send before landing</label><div class="st-lead"><input type="number" id="stLead" min="10" max="90" step="5" value="30"><span>minutes</span></div></div>
- <div><label for="stMiss">No gate rule for the flight</label><select id="stMiss"><option value="skip">Send nothing</option><option value="ground">Send “GATE: CONTACT GROUND”</option></select></div></div>
- <div class="actions"><button class="primary" id="setAocSave">Save</button></div>
- <div id="setAocMsg"></div>
-</section>
-<section>
- <div class="pg-h"><h2>Composer</h2><details class="help"><summary aria-label="About the composer">?</summary><div><p>From names are who a notice comes from. The first is the default.</p><p>AOC templates fill in the title and the message. <b>{CS}</b>, <b>{DEP}</b> and <b>{ARR}</b> become the flight’s callsign and airports; <b>___</b> marks what still has to be written, and a message is not sent while one is left.</p></div></details></div>
- <label for="setFroms">From names <span class="hint" style="margin:0">one per line</span></label>
- <textarea id="setFroms" class="set-froms" spellcheck="false"></textarea>
- <label>AOC templates</label>
- <div class="set-tpl" id="setTpl"><span class="empty">Loading…</span></div>
- <div class="actions"><button type="button" id="setTplAdd">Add template</button><button class="primary" id="setSave">Save</button></div>
- <div id="setMsg"></div>
-</section>
+<div class="pg-top"><div><h1>Settings</h1><p>Who can sign in, and what each role sees.</p></div><div class="pg-st" id="rlMail"></div></div>
 <section id="rlCard">
- <div class="pg-h"><h2>Roles</h2><details class="help"><summary aria-label="About roles">?</summary><div><p>Each person who signs in gets a role. A role decides which pages they see and what they may change; the server checks every change.</p><p><b>Administrator</b> is built in: everything, these roles, and staff diagnostics. Make other roles below and choose their pages and permissions.</p><p>Reading is open to every role, since pages use each other’s data (the Home page, the composer’s From names). Who can open this admin at all is still set in Cloudflare Access.</p></div></details></div>
- <div class="rl-note" id="rlNote"></div>
- <h3 class="rl-h">People</h3>
- <div class="rl-list" id="rlList"><span class="empty">Loading…</span></div>
- <div class="rl-add"><input type="email" id="rlEmail" placeholder="Email they sign in with" autocomplete="off" spellcheck="false"><select id="rlRole" aria-label="Role"></select><button class="primary" id="rlAdd" type="button">Add</button></div>
+ <div class="set-h"><div class="pg-h"><h2>People</h2><details class="help"><summary aria-label="About people">?</summary><div><p>Everyone who signs in gets a role, which decides the pages they see and what they may change; the server checks every change. Who can reach this admin at all is still set in Cloudflare Access.</p><p>Task and AIRAC emails go to these addresses. On the free Workers plan each must first be verified in Cloudflare › Email Routing › Destination addresses.</p><p><b>Last signed in</b> is kept from 24 Nov 2026.</p></div></details></div><span class="lbl" id="rlCount"></span></div>
+ <p class="rl-note" id="rlNote"></p>
+ <div id="rlList"><span class="empty">Loading…</span></div>
+ <div class="rl-add"><input type="email" id="rlEmail" placeholder="Email they sign in with" autocomplete="off" spellcheck="false" aria-label="Email"><select id="rlRole" aria-label="Role"></select><button class="primary" id="rlAdd" type="button">Add</button></div>
  <div id="rlMsg"></div>
- <h3 class="rl-h">Roles</h3>
- <div class="rl-roles" id="rlRoles"></div>
+</section>
+<section id="rlRoleCard">
+ <div class="set-h"><div class="pg-h"><h2>Roles</h2><details class="help"><summary aria-label="About roles">?</summary><div><p><b>Administrator</b> is built in: everything, these settings, and staff diagnostics. Make other roles and choose their pages and what they may change.</p><p>Every role has Home and Tasks. Pages use each other’s data (Home, the composer’s From names), so a role reads what its pages show.</p></div></details></div><button type="button" id="rlNew">New role</button></div>
+ <div id="rlRoles"></div>
  <div class="rl-ed" id="rlEd" hidden></div>
- <div class="actions" id="rlNewRow"><button type="button" id="rlNew">New role</button></div>
  <div id="rlRMsg"></div>
 </section>
+<section class="set-moved"><div><h2>Moved</h2><p>The automatic AOC messages have their own page; the From names and AOC templates are in Messages.</p></div><div><a class="lk" href="#auto">Automatic messages ›</a><a class="lk" href="#templates">From names and templates ›</a></div></section>
 </main>
 <main id="navdata" hidden>
 <section class="nd-top">
@@ -927,14 +1012,15 @@ const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"shor
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 /* ---------- pages: the sidebar's sections, one at a time (Nov 2026). Old addresses (#mail, #live, #ot, #inbox,
    #stands, #aoc) open the page that has their part now. ---------- */
-const PG={home:"home",tasks:"tasks",fw:"live",gates:"stands",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
-const PG_T={home:"Home",tasks:"Tasks",fw:"Flight Watch",gates:"Gates",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
-const PG_OLD={live:"fw",stands:"gates",ot:"reports",mail:"comms",inbox:"comms",aoc:"comms"};
+const PG={home:"home",tasks:"tasks",fw:"live",gates:"stands",auto:"auto",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
+const PG_T={home:"Home",tasks:"Tasks",fw:"Flight Watch",gates:"Gates",auto:"Automatic messages",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
+const PG_OLD={live:"fw",stands:"gates",ot:"reports",mail:"comms",inbox:"comms",aoc:"comms",templates:"comms",sent:"comms"};
 const PG_LOAD={},PG_TICK={};let pgNow="",pgTimer=0,pgAsk="";
 const pgOf=()=>{const h=location.hash.slice(1);return PG[h]?h:PG_OLD[h]||"home"};
 /* an old address: the new one in its place, without a new history entry */
 function pgFix(){const h=location.hash.slice(1);if(!PG_OLD[h])return;pgAsk=h;history.replaceState(null,"","#"+PG_OLD[h])}
 function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
+ if(p==="settings"&&!pgHas(p)&&pgHas("auto")){history.replaceState(null,"","#auto");p="auto"}
  if(!pgHas(p)){history.replaceState(null,"","#home");p="home"}
  for(const [k,id] of Object.entries(PG)){const m=document.getElementById(id);if(m)m.hidden=k!==p}
  document.querySelectorAll(".side [data-tab]").forEach(a=>a.setAttribute("aria-current",String(a.dataset.tab===p)));
@@ -950,9 +1036,10 @@ function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
    and is asked again (/admin/api/me) when the page comes back into view, so a role changed meanwhile shows. Data is
    asked for only from a page the role sees (the server checks the same: READS in mail.js). ---------- */
 let ROLE="admin",PERM=null,ME_AT=0,ROLES_ON=false;
-const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"],["settings","Settings"]];
-const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
-const pgHas=p=>!PERM||PERM.pages.has(p);
+const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["settings","Automatic messages"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"]];
+const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change automatic messages","On or off, timing and wording; the From names and AOC templates in Messages","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
+/* Automatic messages is the role page "settings" (its name before Nov 2026); Settings itself (People, Roles) is for administrators */
+const pgHas=p=>!PERM||(p==="settings"?PERM.can.has("roles"):PERM.pages.has(p==="auto"?"settings":p));
 function permSet(j){ROLE=j.role||"admin";ROLES_ON=!!j.roles;const R=document.documentElement;
  const pg=new Set(j.pages||["home","tasks"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
  RL_PAGES.forEach(x=>R.classList.toggle("no-p-"+x[0],!pg.has(x[0])));RL_ACTS.map(x=>x[0]).concat(["roles"]).forEach(k=>R.classList.toggle("no-a-"+k,!can.has(k)));
@@ -962,7 +1049,7 @@ function meLoad(){ME_AT=Date.now();return api("/admin/api/me").then(permApply).c
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-ME_AT>3e4)meLoad()});
 if(window.PM_PERM){permSet(window.PM_PERM);ME_AT=Date.now()}
 /* what several pages read (Home, Flight Watch): one request, kept a short while. Each is shown on these pages */
-const OPS_PG={live:["fw","pilots"],ooo:["fw","reports","pilots"],stands:["gates","settings","fw"],aoc:["comms","fw"],set:["settings","comms","fw"],nav:["navdata"]};
+const OPS_PG={live:["fw","pilots"],ooo:["fw","reports","pilots"],stands:["gates","auto","fw"],aoc:["comms","fw"],set:["auto","comms","fw"],nav:["navdata"]};
 const opsOk=k=>(OPS_PG[k]||[]).some(pgHas);
 const OPS={},OPS_URL={live:"/admin/api/live",ooo:"/admin/api/ooo",stands:"/admin/api/stands",aoc:"/admin/api/aoc",set:"/admin/api/settings",nav:"/admin/api/navdata"};
 function opsGet(k,age){if(!opsOk(k))return Promise.reject(new Error("Your role does not see this"));const o=OPS[k]||(OPS[k]={at:0,v:null,p:null,err:""});
@@ -1161,60 +1248,268 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-dced
  DC.edit=id;DC.file=null;DC.cover="";DC.pages=0;$("#dcFile").value="";$("#dcPre").hidden=true;$("#dcTitle").value=d.title;$("#dcFolder").value=d.folder||"";$("#dcRev").value=d.rev||"";$("#dcAck").checked=!!d.ack;dcForm();dcUi();dcSay("");
  scrollTo({top:0,behavior:"smooth"});if(b.dataset.dcrep)$("#dcFile").click();else $("#dcTitle").focus()});
 PG_LOAD.docs=()=>dcLoad();
-/* ---------- Stands tab: the stand plan for the automatic stand assignment (see stands.js) ---------- */
-const ST={plan:null,log:[],apts:{},sel:"",dirty:false,maps:{},err:""};
+/* ---------- Gates (Nov 2026): the gate plan of each airport drawn on its map from OpenStreetMap, the rules, a try-out,
+   and the gates sent in the last two days (stands.js on the server). Whether the gate messages go out, when, and
+   their wording are on the Automatic messages page. ---------- */
+const ST={plan:null,saved:null,log:[],apts:{},sel:"",dirty:false,maps:{},busy:{},err:"",view:"map",logAll:false,ed:-1,pop:"",q:"",tryAc:"narrow",tryFl:"intl",tryRes:null,M:null,ready:false};
 const stZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
-const stSay=(t,ok)=>{$("#stMsg").innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+const stSay=(t,ok)=>{const m=$("#stMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+const stClone=v=>JSON.parse(JSON.stringify(v));
+const stCan=()=>!PERM||PERM.can.has("gates");
 /* the same reading of "C1-C10, D5" as the server */
 function stExpand(text){const out=[],bad=[];for(let p of String(text||"").toUpperCase().split(/[,;]+/)){p=p.replace(/ /g,"");if(!p)continue;
  const m=p.match(/^([A-Z]*)([0-9]+)([A-Z]*)[-–~]([A-Z]*)([0-9]+)([A-Z]*)$/);
  if(m){const a=+m[2],b=+m[5];if((m[4]&&m[4]!==m[1])||(m[6]&&m[6]!==m[3])||b<a||b-a>200){bad.push(p);continue}const w=m[2].length>1&&m[2][0]==="0"?m[2].length:0;for(let n=a;n<=b;n++)out.push(m[1]+(w?String(n).padStart(w,"0"):String(n))+m[3])}
  else if(/^[A-Z0-9]{1,8}$/.test(p))out.push(p);else bad.push(p)}return {stands:[...new Set(out)],bad}}
 const stNorm=r=>String(r||"").toUpperCase().replace(/^(GATE|STAND|STAND NO.?|GATE NO.?) */,"").replace(/ /g,"").replace(/(^|[A-Z])0+([0-9])/g,"$1$2");
-/* Gates saves its gates with the switches as last saved; Settings saves its switches with the gates as last saved */
+/* a list of gates written short again: C1, C2, C3, C5 -> C1-C3, C5 (what the map's clicks write into a rule) */
+function stCompress(list){const G=new Map(),other=[],pad=new Map();
+ const P=list.map(s=>String(s).toUpperCase()).map(s=>[s,s.match(/^([A-Z]*)([0-9]+)([A-Z]*)$/)]);
+ for(const [,m] of P)if(m&&m[2].length>1&&m[2][0]==="0")pad.set(m[1]+"|"+m[3],m[2].length);
+ for(const [s,m] of P){if(!m){other.push(s);continue}const pw=pad.get(m[1]+"|"+m[3]),w=m[2].length>1&&m[2][0]==="0"?m[2].length:pw&&m[2].length===pw?pw:0,k=m[1]+"|"+m[3]+"|"+w;
+  if(!G.has(k))G.set(k,{p:m[1],s:m[3],w,n:new Set()});G.get(k).n.add(+m[2])}
+ const out=[],f=(g,n)=>g.p+(g.w?String(n).padStart(g.w,"0"):String(n))+g.s;
+ for(const g of G.values()){const N=[...g.n].sort((a,b)=>a-b);for(let i=0;i<N.length;){let j=i;while(j+1<N.length&&N[j+1]===N[j]+1&&N[j+1]-N[i]<=200)j++;
+  if(j-i>=2)out.push(f(g,N[i])+"-"+f(g,N[j]));else for(let k=i;k<=j;k++)out.push(f(g,N[k]));i=j+1}}
+ return out.concat([...new Set(other)]).join(", ")}
+const stNat=(a,b)=>{const x=String(a).match(/^([A-Z]*)([0-9]*)(.*)$/),y=String(b).match(/^([A-Z]*)([0-9]*)(.*)$/);return x[1].localeCompare(y[1])||(+x[2]||0)-(+y[2]||0)||x[3].localeCompare(y[3])};
+/* the rule colours: eight slots in a fixed order; a ninth rule and later share one */
+const stCol=k=>k<8?"r"+k:"rx";
+const ST_FL={all:"Any flight",dom:"Domestic",intl:"International"},ST_AC={all:"Any size",narrow:"Normal",wide:"Heavy"};
+const stRuleSum=r=>ST_AC[r.ac||"all"]+" · "+ST_FL[r.fl||"all"];
+const stRules=()=>(ST.plan&&ST.plan.apts[ST.sel])||[];
+const stSets=()=>stRules().map(r=>new Set(stExpand(r.stands).stands.map(stNorm)));
+const stAptName=i=>(ST.apts[i]||[])[3]||(ST.maps[i]&&ST.maps[i].name)||"";
+/* Gates saves its gates with the switches as last saved; Automatic messages saves its switches with the gates as last saved */
 function stPlanNow(){const v=ST.saved||{};return {on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",apts:ST.plan.apts}}
-function stSwNow(){return {on:$("#stOn").checked,dep:$("#stDep").checked,ls:$("#stLs").checked,sig:$("#stSig").checked,inr:$("#stInr").checked,lead:+$("#stLead").value||30,miss:$("#stMiss").value,apts:(ST.saved||ST.plan||{}).apts||{}}}
-function stStateUi(){const v=ST.saved,el=$("#stState");if(!el||!v)return;el.innerHTML="Automatic gate messages: arrival <b>"+(v.on?"on":"off")+"</b>"+(v.on?" ("+(v.lead||30)+" min before landing)":"")+", departure <b>"+(v.dep?"on":"off")+'</b>. <a class="lk" href="#settings">Change in Settings</a>'}
-function stAptsUi(){const P=ST.plan.apts,L=[...new Set([...Object.keys(ST.apts),...Object.keys(P)])];
- $("#stApts").innerHTML=L.map(i=>{const n=(P[i]||[]).reduce((a,r)=>a+stExpand(r.stands).stands.length,0);return '<button type="button" data-sta="'+esc(i)+'" class="'+(n?"has":"")+'" aria-pressed="'+(i===ST.sel)+'" title="'+esc((ST.apts[i]||[])[3]||"")+'">'+esc(i)+(n?"<small>"+n+"</small>":"")+"</button>"}).join("")}
-function stEdUi(){const el=$("#stEd"),i=ST.sel;if(!i){el.innerHTML='<p class="hint" style="margin:0">Pick an airport to write its gates.</p>';return}
- const R=ST.plan.apts[i]||[],map=ST.maps[i];
- el.innerHTML='<h3>'+esc(i)+'<small>'+esc((ST.apts[i]||[])[3]||"")+'</small></h3>'+(R.length?R.map((r,k)=>{const e=stExpand(r.stands),miss=map&&map.refs?e.stands.filter(s=>!map.refs.has(stNorm(s))):[];
-  return '<div class="st-r"><span class="n">'+(k+1)+'</span><input class="sr" data-str="'+k+'" data-f="stands" value="'+esc(r.stands)+'" placeholder="C1-C10, D5" spellcheck="false" autocomplete="off"><select data-str="'+k+'" data-f="fl"><option value="all"'+(!r.fl||r.fl==="all"?" selected":"")+'>Any flight</option><option value="dom"'+(r.fl==="dom"?" selected":"")+'>Domestic</option><option value="intl"'+(r.fl==="intl"?" selected":"")+'>International</option></select><select data-str="'+k+'" data-f="ac" title="Normal: the A320 family. Heavy: A330, A350, 777, 787 and other widebodies"><option value="all"'+(r.ac==="all"?" selected":"")+'>Any size</option><option value="narrow"'+(r.ac==="narrow"?" selected":"")+'>Normal</option><option value="wide"'+(r.ac==="wide"?" selected":"")+'>Heavy</option></select><input class="tm" data-str="'+k+'" data-f="term" value="'+esc(r.term||"")+'" placeholder="Terminal" maxlength="20" autocomplete="off"><span class="b">'+(k?'<button type="button" data-stup="'+k+'" title="Try this rule earlier">↑</button>':"")+'<button type="button" data-strm="'+k+'" title="Remove this rule">✕</button></span>'+
-  '<div class="st-x'+(e.bad.length?" bad":"")+'">'+(e.bad.length?"Cannot read: "+esc(e.bad.join(", ")):e.stands.length?esc(e.stands.slice(0,14).join(", "))+(e.stands.length>14?" … ":"")+" · "+e.stands.length+" gate"+(e.stands.length===1?"":"s")+(miss.length&&miss.length<e.stands.length?' · <span style="color:#B7791F">not on the airport map, so not given: '+esc(miss.slice(0,8).join(", "))+(miss.length>8?" …":"")+"</span>":miss.length?' · <span style="color:#B7791F">none on the airport map: given as written</span>':map&&map.refs&&e.stands.length?" · all on the airport map":""):"Write the gates")+"</div></div>"}).join(""):'<p class="hint" style="margin:6px 0 0">No gates yet at '+esc(i)+'.</p>')+
-  (R.length&&R.every(r=>!r.ac||r.ac==="all")?'<div class="st-warn">Every gate here is Any size, so a heavy (A330, A350…) can be given an A320 gate. Set the A320 gates to <b>Normal</b> and the big ones to <b>Heavy</b>.</div>':"")+
-  '<div class="actions"><button type="button" data-st="addr">Add gates</button>'+(R.length?'<button type="button" data-st="clr">Remove '+esc(i)+'</button>':"")+'</div>'+
-  '<div class="st-try" id="stTry">'+(map&&map.loading?"Reading the "+esc(i)+" airport map…":map&&map.err?esc(map.err):"")+'</div>';
- stTry()}
-let stTryT=0;function stTry(){clearTimeout(stTryT);const i=ST.sel;if(!i||!(ST.plan.apts[i]||[]).length)return;stTryT=setTimeout(async()=>{try{const R=ST.plan.apts[i]||[],q=(fl,wide)=>api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...stPlanNow(),icao:i,fl,wide})});
- /* the heavy line only when a rule tells the aircraft apart */
- const byAc=R.some(r=>r.ac&&r.ac!=="all"),C=byAc?[["dom",false,"domestic normal"],["dom",true,"domestic heavy"],["intl",false,"international normal"],["intl",true,"international heavy"]]:[["dom",false,"domestic"],["intl",false,"international"]];
- const A=await Promise.all(C.map(c=>q(c[0],c[1])));
- const f=x=>x.stand?"<b>"+esc(x.stand)+"</b>"+(x.term?" (terminal "+esc(x.term)+")":""):x.none==="full"?"none free":"no rule";const t=$("#stTry");if(t&&ST.sel===i)t.innerHTML="A flight landing now would get · "+C.map((c,k)=>c[2]+" "+f(A[k])).join(" · ")}catch(e){}},400)}
-async function stMap(i){if(ST.maps[i])return;ST.maps[i]={loading:true};stEdUi();
- try{const r=await fetch("/api/efb/airport-layout?icao="+encodeURIComponent(i));const j=await r.json();if(!r.ok)throw new Error(j.error||"HTTP "+r.status);ST.maps[i]={refs:new Set((j.stands||[]).map(s=>stNorm(s.ref)).filter(Boolean))}}
- catch(e){ST.maps[i]={err:"The airport map could not be read, so gates are not checked against it."}}if(ST.sel===i)stEdUi()}
-function stLogUi(){const el=$("#stLog");if(ST.err){el.innerHTML='<div class="msg err">'+esc(ST.err)+"</div>";return}
- const all=ST.view==="all"||!ST.sel,i=ST.sel,L=ST.log.filter(x=>all||(x.kind==="dep"?x.dep===i:x.arr===i)).slice().sort((a,b)=>(b.eta||b.t)-(a.eta||a.t));
- $("#stLogT").textContent=all?"Assignments · all airports":"Assignments at "+i;
- document.querySelectorAll("[data-stv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.stv===(all?"all":"apt"))));
- el.innerHTML=L.length?L.map(x=>{const dep=x.kind==="dep";return '<div class="st-l"><div><span class="k2">'+(dep?"DEP":"ARR")+"</span><b>"+esc(x.cs)+"</b> "+esc((x.dep||"----")+" → "+(x.arr||"----"))+' · <span class="s">'+(x.stand?"GATE "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):dep?"ANY FREE GATE":"CONTACT GROUND")+"</span></div>"+
-  '<div class="btns"><button type="button" data-stchg="'+esc(x.k)+'|'+x.t+'">Change</button></div><div class="meta">'+(dep?"STD ":"ETA ")+stZ(x.eta)+" · sent "+stZ(x.changed||x.t)+(dep&&!x.changed?" at check-in":"")+" · "+esc(x.ac||"")+(x.wide?" (heavy)":"")+(x.fl?" · "+(x.fl==="dom"?"domestic":"international"):"")+" · "+(x.by==="AUTO"?"automatic":(x.changed?"changed by ":"by ")+esc(String(x.by).split("@")[0]))+"</div></div>"}).join("")
-  :'<span class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</span>"}
-async function stLoad(){if(!["gates","settings","fw"].some(pgHas))return;ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=JSON.parse(JSON.stringify(j.plan));OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=j.plan;
- if(!SE.aocDirty){$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stInr").checked=j.plan.inr!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}stStateUi();
- if(!ST.sel){ST.sel=Object.keys(ST.plan.apts)[0]||"";if(ST.sel)stMap(ST.sel)}stAptsUi();stEdUi()}catch(e){ST.err=e.message}stLogUi()}
-/* ---------- Settings: the automatic AOC messages (saved with the gate plan), the From names and the AOC templates ---------- */
-const SE={tpl:null,dirty:false,aocDirty:false};
-const seSay=(id,t,ok)=>{$(id).innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
-function setTplUi(){const el=$("#setTpl");if(!SE.tpl){el.innerHTML='<span class="empty">Loading…</span>';return}
+/* gates given to Polaris flights around now (a ring on the map) */
+function stGiven(i){const now=Date.now(),G=new Map();for(const x of ST.log){if(!x.stand||(x.kind==="dep"?x.dep:x.arr)!==i)continue;const t=x.eta||x.t;if(t<now-45*6e4||t>now+12*36e5)continue;const n=stNorm(x.stand),o=G.get(n);if(!o||Math.abs(t-now)<Math.abs((o.eta||o.t)-now))G.set(n,x)}return G}
+const stVat=i=>(ST.busy[i]&&ST.busy[i].vat)||new Set();
+async function stBusy(i,force){if(!i)return;const b=ST.busy[i];if(!force&&b&&Date.now()-b.at<6e4)return;
+ try{const j=await api("/admin/api/stands/busy?icao="+encodeURIComponent(i));ST.busy[i]={vat:new Set(j.vat||[]),at:Date.now()}}catch(e){ST.busy[i]={vat:new Set(),at:Date.now()}}
+ if(ST.sel===i&&pgNow==="gates")stMapRefresh()}
+function stStateUi(){const v=ST.saved,el=$("#stState");if(!el||!v)return;const b=(on,t)=>"<span>"+t+' <span class="bdg '+(on?"on":"off")+'">'+(on?"On":"Off")+"</span></span>";
+ el.innerHTML=b(v.on,"Arrival gate")+b(v.dep,"Departure gate")+'<a class="lk au-lk" href="#auto">Automatic messages ›</a>'}
+function stAptsUi(){const el=$("#stApts");if(!el||!ST.plan)return;const P=ST.plan.apts,q=ST.q.trim().toUpperCase(),all=[...new Set([...Object.keys(P),...Object.keys(ST.apts)])];
+ const L=all.filter(i=>!q||i.includes(q)||stAptName(i).toUpperCase().includes(q)).sort((a,b)=>((P[b]||[]).length>0)-((P[a]||[]).length>0)||a.localeCompare(b));
+ let h=L.map(i=>{const n=(P[i]||[]).length;return '<button type="button" class="ga'+(n?" has":"")+'" data-sta="'+esc(i)+'" aria-pressed="'+(i===ST.sel)+'"><b>'+esc(i)+"</b><span>"+esc(stAptName(i))+"</span><small>"+(n?n+(n===1?" rule":" rules"):"No rules")+"</small></button>"}).join("");
+ if(/^[A-Z0-9]{4}$/.test(q)&&!all.includes(q))h+='<button type="button" class="ga add" data-staadd="'+esc(q)+'"><b>'+esc(q)+"</b><span>Add this airport</span><small>+</small></button>";
+ el.innerHTML=h||'<p class="empty" style="padding:6px 9px">No airport matches. Type its 4-letter ICAO code to add it.</p>'}
+function stPick(i){ST.sel=i;ST.ed=-1;ST.pop="";ST.tryRes=null;ST.M=null;stAptsUi();stMainUi();stMap(i);stBusy(i);stLogUi()}
+
+/* ---- the airport map ---- */
+async function stMap(i){if(!i||ST.maps[i])return;ST.maps[i]={loading:true};if(ST.sel===i)stMainUi();
+ try{const r=await fetch("/api/efb/airport-layout?icao="+encodeURIComponent(i));const j=await r.json();if(!r.ok)throw new Error(j.error||"HTTP "+r.status);ST.maps[i]=stMapMake(j)}
+ catch(e){ST.maps[i]={err:"The airport map could not be read, so the gates are shown from the rules alone."}}
+ if(ST.sel===i){ST.M=null;stMainUi();stAptsUi()}}
+/* the map drawn once per airport, in metres from the airport's reference point (x east, y south) */
+function stMapMake(L){const a=L.airport||{};if(L.notFound||!isFinite(a.lat)||!isFinite(a.lon))return {none:true,name:a.name||""};
+ const lat0=a.lat,lon0=a.lon,cx=Math.cos(lat0*Math.PI/180)*111320,P=p=>[Math.round((p[0]-lon0)*cx),Math.round((lat0-p[1])*110574)];
+ const d=pts=>pts.map((p,k)=>{const q=P(p);return (k?"L":"M")+q[0]+" "+q[1]}).join(""),ring=pts=>d(pts)+"Z";
+ let base="";const labs=[];
+ (L.outline||[]).forEach(r=>{base+='<path class="m-f" d="'+ring(r)+'"/>'});
+ (L.aprons||[]).forEach(r=>{base+='<path class="m-a" d="'+ring(r)+'"/>'});
+ (L.apronHoles||[]).forEach(r=>{base+='<path class="m-f" d="'+ring(r)+'"/>'});
+ (L.taxiways||[]).forEach(t=>{base+='<path class="m-t" d="'+d(t.pts)+'"/>'});
+ (L.runways||[]).forEach(r=>{if(!r.pts||r.pts.length<2)return;if(r.area){base+='<path class="m-ra" d="'+ring(r.pts)+'"/>';return}base+='<path class="m-r'+(r.stopway?" s":"")+'" stroke-width="'+(r.width||45)+'" d="'+d(r.pts)+'"/>';
+  if(r.ref&&!r.stopway){const p=P(r.pts[0]),q=P(r.pts[r.pts.length-1]);labs.push({x:(p[0]+q[0])/2,y:(p[1]+q[1])/2,t:r.ref,c:"rw"})}});
+ (L.buildings||[]).forEach(b=>{base+='<path class="m-b'+(b.kind==="terminal"?" t":"")+'" fill-rule="evenodd" d="'+ring(b.pts)+(b.holes||[]).map(ring).join("")+'"/>';
+  if(b.name&&b.kind==="terminal"){let x=0,y=0;b.pts.forEach(p=>{const q=P(p);x+=q[0];y+=q[1]});labs.push({x:x/b.pts.length,y:y/b.pts.length,t:b.name,c:""})}});
+ const S=[],by=new Map(),nr=[];
+ for(const s of L.stands||[]){if(!s.pt)continue;const q=P(s.pt),n=stNorm(s.ref);if(!n||n.length>8){nr.push(q);continue}
+  const o=by.get(n);if(o){if(s.kind==="parking_position"&&o.kind!=="parking_position"){o.x=q[0];o.y=q[1];o.kind=s.kind}continue}
+  const v={n,x:q[0],y:q[1],kind:s.kind};by.set(n,v);S.push(v)}
+ S.sort((p,q)=>stNat(p.n,q.n));
+ /* how close stands stand: the median distance to the nearest one decides when the numbers fit */
+ const nn=S.map(s=>{let b=1e9;for(const t of S)if(t!==s){const e=Math.hypot(t.x-s.x,t.y-s.y);if(e<b)b=e}return b}).filter(v=>v<1e9).sort((p,q)=>p-q);
+ const med=nn.length?nn[nn.length>>1]:60;
+ const pts=S.length>1?S.map(s=>[s.x,s.y]):[].concat(...(L.runways||[]).map(r=>(r.pts||[]).map(P)));
+ const bb=pts.length?pts.reduce((b,p)=>[Math.min(b[0],p[0]),Math.min(b[1],p[1]),Math.max(b[2],p[0]),Math.max(b[3],p[1])],[1e9,1e9,-1e9,-1e9]):[-1500,-1500,1500,1500];
+ return {name:a.name||"",S,refs:new Set(S.map(s=>s.n)),nr,base,labs,med,bb}}
+function stFit(W,H){const m=ST.maps[ST.sel],b=m.bb,bw=Math.max(200,b[2]-b[0]),bh=Math.max(200,b[3]-b[1]),k=Math.max(.01,Math.min(4,(W-70)/bw,(H-70)/bh));
+ ST.M={i:ST.sel,k,tx:W/2-k*(b[0]+b[2])/2,ty:H/2-k*(b[1]+b[3])/2,W,H}}
+function stZoomTo(k2,px,py){const M=ST.M;if(!M)return;k2=Math.max(.01,Math.min(8,k2));M.tx=px-(px-M.tx)*(k2/M.k);M.ty=py-(py-M.ty)*(k2/M.k);M.k=k2;gmDraw()}
+function stOvHtml(m,M,W,H){const i=ST.sel,sets=stSets(),vat=stVat(i),giv=stGiven(i),hl=ST.tryRes&&ST.tryRes.stand?stNorm(ST.tryRes.stand):"";
+ const dm=m.med*M.k,R=dm>=24?7:dm>=13?5:3.5,lab=dm>=30,inV=(X,Y)=>X>-30&&X<W+30&&Y>-30&&Y<H+30;let h="";
+ for(const l of m.labs){const X=M.k*l.x+M.tx,Y=M.k*l.y+M.ty;if(inV(X,Y)&&(l.c!=="rw"||M.k>.12))h+='<text class="ml '+l.c+'" x="'+X.toFixed(1)+'" y="'+Y.toFixed(1)+'">'+esc(l.t)+"</text>"}
+ if(dm>=13)for(const q of m.nr){const X=M.k*q[0]+M.tx,Y=M.k*q[1]+M.ty;if(inV(X,Y))h+='<circle class="nr" r="1.8" cx="'+X.toFixed(1)+'" cy="'+Y.toFixed(1)+'"/>'}
+ for(const s of m.S){const X=M.k*s.x+M.tx,Y=M.k*s.y+M.ty;if(!inV(X,Y))continue;
+  const k=sets.findIndex(z=>z.has(s.n)),c=k<0?"rn":stCol(k),oc=vat.has(s.n),g=giv.get(s.n),on=ST.pop===s.n;
+  h+='<g class="gs'+(on?" on":"")+'" data-sn="'+esc(s.n)+'" transform="translate('+X.toFixed(1)+" "+Y.toFixed(1)+')"><circle class="hit" r="'+Math.max(R+6,11)+'"/>'
+   +(s.n===hl?'<circle class="hl" r="'+(R+8)+'"/>':"")+(g?'<circle class="gv '+c+'" r="'+(R+4)+'"/>':"")
+   +(oc?'<circle class="oc" r="'+(R+1)+'"/><path class="ox" d="M-3 -3L3 3M3 -3L-3 3"/>':'<circle class="d '+c+'" r="'+R+'"/>')
+   +(R>=7&&k>=0&&!oc?'<text class="dn '+c+'" y="3.2">'+(k+1)+"</text>":"")
+   +(lab||s.n===hl||on?'<text class="lb" y="'+(R+12)+'">'+esc(s.n)+"</text>":"")+"</g>"}
+ return h}
+const GM={p:new Map(),down:null,moved:false,pinch:null,raf:0};
+function gmDraw(){if(GM.raf)return;GM.raf=requestAnimationFrame(()=>{GM.raf=0;stMapDraw()})}
+function stMapDraw(){const svg=$("#stSvg"),box=$("#stGm");if(!svg||!box)return;const m=ST.maps[ST.sel];if(!m||!m.S)return;
+ const W=box.clientWidth||800,H=W<600?360:470;svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.style.height=H+"px";
+ if(!ST.M||ST.M.i!==ST.sel)stFit(W,H);else if(ST.M.W!==W||ST.M.H!==H){ST.M.tx+=(W-ST.M.W)/2;ST.M.ty+=(H-ST.M.H)/2;ST.M.W=W;ST.M.H=H}
+ const M=ST.M;$("#stBase").setAttribute("transform","matrix("+M.k+" 0 0 "+M.k+" "+M.tx.toFixed(2)+" "+M.ty.toFixed(2)+")");
+ $("#stOv").innerHTML=stOvHtml(m,M,W,H);
+ const pop=$("#stPop"),s=ST.pop&&m.S.find(x=>x.n===ST.pop);
+ if(!s){pop.hidden=true;pop.innerHTML="";return}
+ const X=M.k*s.x+M.tx,Y=M.k*s.y+M.ty;if(X<0||X>W||Y<0||Y>H){pop.hidden=true;return}
+ pop.innerHTML=stPopHtml(ST.pop);pop.hidden=false;const pw=pop.offsetWidth,ph=pop.offsetHeight;
+ pop.style.left=Math.max(6,X+18+pw>W-6?X-18-pw:X+18)+"px";pop.style.top=Math.max(6,Math.min(H-ph-6,Y-24))+"px"}
+/* what a stand is: its rules, VATSIM, a Polaris flight; and, for those who may change gates, into or out of a rule */
+function stPopHtml(n){const i=ST.sel,R=stRules(),sets=stSets(),g=stGiven(i).get(n),ins=R.map((r,k)=>sets[k].has(n)?k:-1).filter(k=>k>=0),f=ins[0];
+ let h='<div class="gp-h"><b>'+esc(n)+"</b>"+(f!=null&&R[f].term?'<span class="lbl">· '+esc(R[f].term)+"</span>":"")+'<button type="button" class="gp-x" data-gpx aria-label="Close">✕</button></div>';
+ h+=ins.length?ins.map((k,x)=>'<div class="gp-r"><i class="sw '+stCol(k)+'"></i><span>Rule '+(k+1)+" · "+esc(stRuleSum(R[k]))+(x?" <small>(after rule "+(f+1)+")</small>":"")+"</span></div>").join(""):'<div class="gp-r"><i class="sw rn"></i><span>In no rule: never given</span></div>';
+ if(stVat(i).has(n))h+='<div class="gp-s occ">A pilot on VATSIM is parked here now</div>';
+ if(g)h+='<div class="gp-s giv">Given to '+esc(g.cs)+" · "+(g.kind==="dep"?"STD ":"ETA ")+stZ(g.eta||g.t)+"</div>";
+ if(stCan()){const out=R.map((r,k)=>k).filter(k=>!ins.includes(k));
+  h+='<div class="gp-a">'+ins.map(k=>'<button type="button" data-gpout="'+k+'">Take out of rule '+(k+1)+"</button>").join("")
+   +(out.length?"<span>Add to</span>"+out.map(k=>'<button type="button" data-gpin="'+k+'"><i class="sw '+stCol(k)+'"></i>Rule '+(k+1)+"</button>").join(""):"")
+   +'<button type="button" data-gpnew>New rule</button></div>'}
+ return h}
+function stListHtml(){const i=ST.sel,m=ST.maps[i],R=stRules(),sets=stSets(),vat=stVat(i),giv=stGiven(i),onMap=m&&m.S&&m.S.length?m.S.map(s=>s.n):null;
+ const chip=n=>{const k=sets.findIndex(z=>z.has(n));return '<button type="button" class="gc '+(k<0?"rn":stCol(k))+(vat.has(n)?" occ":"")+(giv.has(n)?" giv":"")+(ST.pop===n?" on":"")+'" data-sn="'+esc(n)+'"'+(vat.has(n)?' title="A pilot on VATSIM is parked here"':"")+">"+esc(n)+"</button>"};
+ let h="";
+ R.forEach((r,k)=>{const L=[...new Set(stExpand(r.stands).stands.map(stNorm))].filter(n=>!onMap||m.refs.has(n)).sort(stNat);
+  h+='<div class="gl-g"><div class="gl-h"><i class="sw '+stCol(k)+'"></i>Rule '+(k+1)+"<small>"+esc(stRuleSum(r))+(r.term?" · "+esc(r.term):"")+'</small></div><div class="gl-c">'+(L.length?L.map(chip).join(""):'<span class="empty">'+(onMap?"None on the airport map":"No gates")+"</span>")+"</div></div>"});
+ if(onMap){const none=onMap.filter(n=>!sets.some(z=>z.has(n)));if(none.length)h+='<div class="gl-g"><div class="gl-h"><i class="sw rn"></i>In no rule<small>'+none.length+' on the map</small></div><div class="gl-c">'+none.map(chip).join("")+"</div></div>"}
+ if(!R.length&&!onMap)h+='<p class="empty">No rules yet.</p>';
+ if(ST.pop)h+='<div class="gp gl-pop">'+stPopHtml(ST.pop)+"</div>";
+ return '<div class="gl">'+h+"</div>"}
+function stLegUi(){const el=$("#stLeg");if(!el)return;const R=stRules(),m=ST.maps[ST.sel],map=m&&m.S&&m.S.length;
+ let h=R.slice(0,8).map((r,k)=>'<span><i class="sw '+stCol(k)+'"></i>Rule '+(k+1)+"<small>"+esc(stRuleSum(r))+"</small></span>").join("")+(R.length>8?'<span><i class="sw rx"></i>Rules 9–'+R.length+"</span>":"");
+ if(map)h+='<span><i class="sw rn"></i>In no rule</span><span><i class="sw occ"></i>VATSIM aircraft on it</span><span><i class="sw giv"></i>Given to a Polaris flight</span>';
+ el.innerHTML=h;
+ const x=$("#stMiss");if(!x)return;if(!map){x.innerHTML="";return}const out=[],asW=[];
+ R.forEach((r,k)=>{const L=stExpand(r.stands).stands,miss=L.filter(s=>!m.refs.has(stNorm(s)));if(!miss.length)return;if(miss.length===L.length)asW.push(k+1);else out.push(...miss)});
+ x.innerHTML=(ST.view==="map"?"Drawn from OpenStreetMap. ":"")+(stCan()?(ST.view==="map"?"Click a stand":"Click a gate")+" to put it in a rule or take it out. ":"")
+  +(out.length?'Not on the map, so never given: <span class="gt-bad">'+esc(stCompress([...new Set(out)]).replace(/-/g,"–"))+"</span>. ":"")
+  +(asW.length?"No gate of rule "+asW.join(", ")+" is on the map, so "+(asW.length>1?"they are":"it is")+" given as written. ":"")}
+function stViewUi(){const el=$("#stView");if(!el)return;const i=ST.sel,m=ST.maps[i],map=m&&m.S&&m.S.length;
+ if(ST.view==="map"&&map){if(!$("#stGm")||$("#stGm").dataset.i!==i){el.innerHTML='<div class="gm" id="stGm" data-i="'+esc(i)+'"><svg id="stSvg" role="img" aria-label="Stands at '+esc(i)+' on the airport map, coloured by rule. The List view has the same."><g id="stBase">'+m.base+'</g><g id="stOv"></g></svg><div class="gm-z"><button type="button" data-gmz="in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-gmz="out" aria-label="Zoom out" title="Zoom out">−</button><button type="button" data-gmz="fit" aria-label="Show all stands" title="Show all stands">⤢</button></div><div class="gp gm-pop" id="stPop" hidden></div></div><div class="gm-leg" id="stLeg"></div><p class="hint" id="stMiss"></p>'}
+  stMapDraw()}
+ else el.innerHTML=stListHtml()+'<div class="gm-leg" id="stLeg"></div><p class="hint" id="stMiss"></p>';
+ stLegUi()}
+const stMapRefresh=()=>{if(pgNow!=="gates")return;const m=ST.maps[ST.sel];if(ST.view==="map"&&m&&m.S&&m.S.length&&$("#stGm"))stMapDraw();else stViewUi();stLegUi()};
+
+/* ---- the rules ---- */
+function stGatesCell(r){const e=stExpand(r.stands),m=ST.maps[ST.sel],refs=m&&m.refs&&m.S.length?m.refs:null;
+ if(e.bad.length)return '<span class="gt-bad">Cannot read: '+esc(e.bad.join(", "))+"</span>";if(!e.stands.length)return '<span class="lbl">No gates yet</span>';
+ const ok=refs?e.stands.filter(s=>refs.has(stNorm(s))):e.stands,miss=refs?e.stands.filter(s=>!refs.has(stNorm(s))):[];
+ const ch=(L,bad)=>L.length?stCompress(L).split(", ").map(x=>'<span class="gt-ch'+(bad?" bad":"")+'"'+(bad?' title="Not on the airport map"':"")+">"+esc(x.replace(/-/g,"–"))+"</span>").join(""):"";
+ return ok.length?ch(ok)+ch(miss,true):ch(miss)}
+function stEdHtml(r,k){return '<tr class="gt-er"><td></td><td colspan="5"><div class="gt-e">'
+ +'<label for="stEdS">Gates</label><input type="text" id="stEdS" class="sr" data-str="'+k+'" data-f="stands" value="'+esc(r.stands)+'" placeholder="C1-C10, D5, 201-215" spellcheck="false" autocomplete="off"><div class="st-x" id="stX"></div>'
+ +'<div class="gt-e3"><div><label>Flights</label><select data-str="'+k+'" data-f="fl">'+Object.entries(ST_FL).map(([v,t])=>'<option value="'+v+'"'+((r.fl||"all")===v?" selected":"")+">"+t+"</option>").join("")+"</select></div>"
+ +'<div><label>Aircraft</label><select data-str="'+k+'" data-f="ac" title="Normal: the A320 family. Heavy: A330, A350, 777, 787 and other widebodies">'+[["narrow","Normal (A320 family)"],["wide","Heavy (widebodies)"],["all","Any size"]].map(([v,t])=>'<option value="'+v+'"'+((r.ac||"all")===v?" selected":"")+">"+t+"</option>").join("")+"</select></div>"
+ +'<div><label>Terminal</label><input type="text" class="tm" data-str="'+k+'" data-f="term" value="'+esc(r.term||"")+'" placeholder="T1" maxlength="20" autocomplete="off"></div></div>'
+ +'<div class="actions"><button type="button" class="primary" data-sted="-1">Done</button>'+(k?'<button type="button" data-stup="'+k+'">Try before rule '+k+"</button>":"")+'<button type="button" class="warn" data-strm="'+k+'">Remove rule</button></div></div></td></tr>'}
+function stXUi(){const x=$("#stX"),R=stRules();if(!x||ST.ed<0||!R[ST.ed])return;const e=stExpand(R[ST.ed].stands);
+ x.className="st-x"+(e.bad.length?" bad":"");x.textContent=e.bad.length?"Cannot read: "+e.bad.join(", ")+" (write gates like D1-D10, C5)":e.stands.length?e.stands.length+(e.stands.length===1?" gate: ":" gates: ")+e.stands.slice(0,16).join(", ")+(e.stands.length>16?" …":""):"Write the gates, or click stands on the map"}
+function stRulesUi(){const el=$("#stRules");if(!el)return;const i=ST.sel,R=stRules();
+ let h=R.length?'<div class="gt-tw"><table class="gt-t gt-r"><thead><tr><th>#</th><th>Gates</th><th>Flights</th><th>Aircraft</th><th>Terminal</th><th></th></tr></thead><tbody>'
+  +R.map((r,k)=>'<tr data-k="'+k+'"><td><i class="sw '+stCol(k)+'"></i> '+(k+1)+'</td><td class="gc-cell">'+stGatesCell(r)+"</td><td>"+ST_FL[r.fl||"all"]+"</td><td>"+ST_AC[r.ac||"all"]+'</td><td class="tm-cell">'+esc(r.term||"")+'</td><td class="r">'+(stCan()?'<button type="button" class="lnk" data-sted="'+(ST.ed===k?-1:k)+'">'+(ST.ed===k?"Close":"Edit")+"</button>":"")+"</td></tr>"+(ST.ed===k&&stCan()?stEdHtml(r,k):"")).join("")+"</tbody></table></div>"
+  :'<p class="hint gt-none">No rules at '+esc(i)+" yet, so no gate is given here."+(stCan()?" Add a rule, or click a stand on the map.":"")+"</p>";
+ if(R.length&&R.every(r=>!r.ac||r.ac==="all"))h+='<div class="st-warn">Every rule here is Any size, so a heavy (A330, A350…) can be given an A320 gate. Set the A320 gates to <b>Normal</b> and the big ones to <b>Heavy</b>.</div>';
+ h+='<div class="gt-act"><button type="button" data-st="addr">Add rule</button><span class="sp"></span><span class="gt-dirty"'+(ST.dirty?"":" hidden")+'>Not saved</span><button type="button" data-st="discard"'+(ST.dirty?"":" disabled")+'>Discard</button><button type="button" class="primary" id="stSave"'+(ST.dirty?"":" disabled")+">Save</button></div>";
+ el.innerHTML=h;stXUi()}
+function stActUi(){const d=$(".gt-dirty"),a=$('[data-st="discard"]'),s=$("#stSave");if(d)d.hidden=!ST.dirty;if(a)a.disabled=!ST.dirty;if(s)s.disabled=!ST.dirty}
+function stMainUi(){const el=$("#stMain");if(!el)return;const i=ST.sel;if(!i){el.innerHTML='<p class="empty">Pick an airport.</p>';return}
+ const m=ST.maps[i],map=m&&m.S&&m.S.length,nm=stAptName(i);
+ el.innerHTML='<div class="gt-h"><div class="pg-h"><h2>'+esc(i)+(nm?" · "+esc(nm):"")+'</h2><details class="help"><summary aria-label="How the gates are given">?</summary><div><p>Rules are tried from the top: the first gate of the first rule that fits the flight and is free is given. A flight is <b>domestic</b> when both airports are in the same country (the US with Hawaii and Alaska); otherwise <b>international</b>.</p><p>A gate is taken while a pilot on VATSIM is parked on it, or while another Polaris arrival or departure has it within 45 minutes. Write gates as ranges, like <b>C1-C10, D5, 201-215</b>. Gates the airport map does not show are not given, so a range may cover numbers that do not exist.</p><p><b>Normal</b> gates take the A320 family; <b>Heavy</b> gates take widebodies and any flight plan with wake category H. A heavy is never given a Normal gate. Put <b>Any size</b> rules after the Normal ones, so A320s fill their own gates first. If every gate is taken, the crew get “GATE: CONTACT GROUND”.</p></div></details></div>'
+  +'<div class="kf" role="group" aria-label="Show"><button type="button" data-stmv="map" aria-pressed="'+(ST.view==="map"&&!!map)+'"'+(map?"":" disabled")+'>Map</button><button type="button" data-stmv="list" aria-pressed="'+(ST.view==="list"||!map)+'">List</button></div></div>'
+  +(m&&m.loading?'<div class="gm-wait">Reading the '+esc(i)+" airport map…</div>":m&&(m.err||m.none)?'<p class="hint gm-note">'+esc(m.err||"OpenStreetMap has no map of "+i+", so the gates are shown from the rules alone.")+"</p>":m&&m.S&&!m.S.length?'<p class="hint gm-note">The '+esc(i)+" airport map has no numbered stands, so the gates are shown from the rules alone.</p>":"")
+  +'<div id="stView"></div><div id="stRules"></div><div id="stMsg"></div>'
+  +'<div class="gt-try"><span class="l">Try it</span><select id="stTryAc" aria-label="Aircraft"><option value="narrow"'+(ST.tryAc==="narrow"?" selected":"")+'>Normal (A320 family)</option><option value="wide"'+(ST.tryAc==="wide"?" selected":"")+'>Heavy (widebody)</option></select><select id="stTryFl" aria-label="Flight"><option value="dom"'+(ST.tryFl==="dom"?" selected":"")+'>Domestic</option><option value="intl"'+(ST.tryFl==="intl"?" selected":"")+'>International</option></select><span id="stTryR"></span></div>';
+ if(!(m&&m.loading))stViewUi();stRulesUi();stTry()}
+/* the gates a flight would have got before the one given, but which are taken now (as the server reckons it) */
+function stTakenBefore(res){const i=ST.sel,m=ST.maps[i],refs=m&&m.refs&&m.S.length?m.refs:null,H=ST.tryAc==="wide",fl=ST.tryFl,at=Date.now()+30*6e4,vat=stVat(i),want=stNorm(res.stand);
+ const pol=new Set(ST.log.filter(x=>x.stand&&(x.kind==="dep"?x.dep:x.arr)===i&&Math.abs((x.eta||x.t)-at)<45*6e4).map(x=>stNorm(x.stand))),out=[];
+ for(const r of stRules()){if(!(r.ac==="all"||!r.ac||(r.ac==="wide")===H))continue;if(r.fl&&r.fl!=="all"&&r.fl!==fl)continue;let L=stExpand(r.stands).stands;if(refs&&L.some(x=>refs.has(stNorm(x))))L=L.filter(x=>refs.has(stNorm(x)));
+  for(const s of L){const n=stNorm(s);if(n===want)return out;if(vat.has(n)||pol.has(n))out.push(s)}}return out}
+let stTryT=0;function stTry(){clearTimeout(stTryT);const i=ST.sel,el=$("#stTryR");if(!el||!i)return;if(!stRules().length){el.innerHTML='<span class="lbl">→ no rules, so no gate</span>';if(ST.tryRes){ST.tryRes=null;stMapRefresh()}return}
+ stTryT=setTimeout(async()=>{try{const r=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...stPlanNow(),icao:i,fl:ST.tryFl,wide:ST.tryAc==="wide"})});if(ST.sel!==i)return;
+  ST.tryRes=r;const t=$("#stTryR");if(!t)return;
+  if(r.stand){const tb=stTakenBefore(r);t.innerHTML="→ gets <b>"+esc(r.stand)+"</b>"+(r.term?" · "+esc(r.term):"")+(tb.length?' <span class="lbl">('+esc(tb.slice(0,6).join(", "))+(tb.length>6?" …":"")+" taken)</span>":"")+(ST.view==="map"?' <span class="lbl">· ringed on the map</span>':"")}
+  else t.innerHTML=r.none==="full"?'→ <span class="gt-cg">every gate is taken</span> <span class="lbl">(the crew are told to contact ground)</span>':'→ <span class="lbl">no rule fits this flight, so no gate</span>';
+  stMapRefresh()}catch(e){const t=$("#stTryR");if(t)t.innerHTML='<span class="gt-bad">'+esc(e.message)+"</span>"}},350)}
+
+/* ---- the gates sent ---- */
+function stLogUi(){const el=$("#stLog");if(!el)return;if(ST.err){el.innerHTML='<div class="msg err">'+esc(ST.err)+"</div>";return}
+ const all=ST.logAll||!ST.sel,i=ST.sel,L=ST.log.filter(x=>all||(x.kind==="dep"?x.dep===i:x.arr===i)).slice().sort((a,b)=>(b.eta||b.t)-(a.eta||a.t));
+ document.querySelectorAll("[data-stv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.stv===(all?"all":"apt"))));const ab=$('[data-stv="apt"]');if(ab)ab.textContent=i||"This airport";
+ el.innerHTML=L.length?'<div class="gt-tw"><table class="gt-t gt-lt"><thead><tr><th>Flight</th><th>Route</th><th>Gate</th><th>Time</th><th>Sent</th><th>By</th><th></th></tr></thead><tbody>'+L.map(x=>{const dep=x.kind==="dep",key=esc(x.k)+"|"+x.t;
+  return '<tr><td><span class="k2">'+(dep?"DEP":"ARR")+'</span><b class="mono">'+esc(x.cs)+"</b></td><td>"+esc((x.dep||"----")+" → "+(x.arr||"----"))+'</td><td class="mono">'+(x.stand?esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):'<span class="gt-cg">'+(dep?"ANY FREE GATE":"CONTACT GROUND")+"</span>")
+   +'</td><td class="mono">'+(dep?"STD ":"ETA ")+stZ(x.eta)+'</td><td class="mono">'+stZ(x.changed||x.t)+(x.changed?' <small class="lbl">changed</small>':"")+'</td><td class="lbl">'+(x.by==="AUTO"?"Automatic":esc(String(x.by).split("@")[0]))+'</td><td class="r"><button type="button" class="lnk" data-stchg="'+key+'">Change</button></td></tr>'}).join("")+"</tbody></table></div>"
+  :'<p class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</p>"}
+/* full: the page opened (draw it all); otherwise only what may have moved (a rule being written stays as it is) */
+async function stLoad(full){if(!["gates","auto","fw"].some(pgHas))return;ST.err="";
+ try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=stClone(j.plan);OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=stClone(j.plan);
+  stStateUi();if(pgNow==="auto")auUi();
+  if(!ST.sel){const k=Object.keys(ST.plan.apts).sort();ST.sel=k[0]||Object.keys(ST.apts)[0]||""}
+  if(pgNow==="gates"){if(full||!ST.ready){ST.ready=true;stAptsUi();stMainUi();stMap(ST.sel);stBusy(ST.sel)}else{stAptsUi();stMapRefresh()}}}
+ catch(e){ST.err=e.message}if(pgNow==="gates")stLogUi()}
+const stDirty=()=>{ST.dirty=true;stSay("");stActUi()};
+function stChanged(){stDirty();stAptsUi();stMapRefresh();stTry()}
+document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#stands"))return;
+ if(t.id==="stFind"){ST.q=t.value;stAptsUi();return}
+ if(t.dataset.str!=null){const r=stRules()[+t.dataset.str];if(!r)return;r[t.dataset.f]=t.value;
+  const row=document.querySelector('#stRules tr[data-k="'+t.dataset.str+'"]');if(row){if(t.dataset.f==="stands")row.querySelector(".gc-cell").innerHTML=stGatesCell(r);if(t.dataset.f==="term")row.querySelector(".tm-cell").textContent=t.value.toUpperCase()}
+  stXUi();stChanged()}});
+document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest("#stands"))return;
+ if(t.tagName==="SELECT"&&t.dataset.str!=null){const r=stRules()[+t.dataset.str];if(r){r[t.dataset.f]=t.value;stRulesUi();stChanged()}return}
+ if(t.id==="stTryAc"){ST.tryAc=t.value;stTry();return}if(t.id==="stTryFl"){ST.tryFl=t.value;stTry()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ST.pop&&pgNow==="gates"){ST.pop="";stMapRefresh();return}
+ if(e.key==="Enter"&&e.target.id==="stFind"){const b=document.querySelector("#stApts [data-staadd],#stApts [data-sta]");if(b){e.preventDefault();b.click()}}});
+/* the map: drag to move, the wheel or two fingers to zoom, a click on a stand for what it is */
+document.addEventListener("pointerdown",e=>{const svg=e.target.closest&&e.target.closest("#stSvg");if(!svg||!ST.M)return;GM.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(GM.p.size===1){GM.down={x:e.clientX,y:e.clientY,tx:ST.M.tx,ty:ST.M.ty,t:e.target};GM.moved=false}
+ else if(GM.p.size===2){const [a,b]=[...GM.p.values()];GM.pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,k:ST.M.k};GM.moved=true}
+ try{svg.setPointerCapture(e.pointerId)}catch(x){}});
+document.addEventListener("pointermove",e=>{if(!GM.p.has(e.pointerId)||!ST.M)return;GM.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(GM.p.size>=2&&GM.pinch){const [a,b]=[...GM.p.values()],svg=$("#stSvg");if(!svg)return;const r=svg.getBoundingClientRect();stZoomTo(GM.pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/GM.pinch.d,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);return}
+ const D=GM.down;if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(!GM.moved&&Math.hypot(dx,dy)<5)return;GM.moved=true;ST.M.tx=D.tx+dx;ST.M.ty=D.ty+dy;gmDraw()});
+document.addEventListener("pointerup",e=>{if(!GM.p.has(e.pointerId))return;GM.p.delete(e.pointerId);if(GM.p.size<2)GM.pinch=null;
+ if(!GM.p.size){const D=GM.down;GM.down=null;if(D&&!GM.moved&&ST.M){const g=D.t.closest&&D.t.closest("[data-sn]");ST.pop=g?(ST.pop===g.dataset.sn?"":g.dataset.sn):"";stMapDraw()}}
+ else if(ST.M){const [a]=[...GM.p.values()];GM.down={x:a.x,y:a.y,tx:ST.M.tx,ty:ST.M.ty,t:e.target};GM.moved=true}});
+document.addEventListener("pointercancel",e=>{GM.p.delete(e.pointerId);if(!GM.p.size){GM.down=null;GM.pinch=null}});
+document.addEventListener("wheel",e=>{const svg=e.target.closest&&e.target.closest("#stSvg");if(!svg||!ST.M)return;e.preventDefault();const r=svg.getBoundingClientRect();stZoomTo(ST.M.k*Math.exp(-e.deltaY*(e.deltaMode?.05:.0015)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+window.addEventListener("resize",()=>{if(pgNow==="gates"&&$("#stGm"))gmDraw()});
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#stands button");if(!b||!ST.plan)return;const P=ST.plan.apts,R=stRules(),d=b.dataset;
+ if(d.sta){stPick(d.sta);return}
+ if(d.staadd){const i=d.staadd;if(!P[i])P[i]=[];ST.q="";$("#stFind").value="";stPick(i);return}
+ if(d.stmv){ST.view=d.stmv;ST.pop="";document.querySelectorAll("[data-stmv]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.stmv===ST.view)));stViewUi();return}
+ if(d.gmz){const M=ST.M;if(!M)return;if(d.gmz==="fit"){ST.M=null;stMapDraw()}else stZoomTo(M.k*(d.gmz==="in"?1.6:1/1.6),M.W/2,M.H/2);return}
+ if(d.sn!=null){ST.pop=ST.pop===d.sn?"":d.sn;stViewUi();return}
+ if(d.gpx!=null){ST.pop="";stMapRefresh();return}
+ if(d.gpout!=null){const r=R[+d.gpout];if(!r)return;r.stands=stCompress(stExpand(r.stands).stands.filter(x=>stNorm(x)!==ST.pop));stRulesUi();stChanged();return}
+ if(d.gpin!=null){const r=R[+d.gpin];if(!r)return;r.stands=stCompress([...stExpand(r.stands).stands,ST.pop]);stRulesUi();stChanged();return}
+ if(d.gpnew!=null){(P[ST.sel]=P[ST.sel]||[]).push({stands:ST.pop,fl:"all",ac:"narrow",term:""});ST.ed=P[ST.sel].length-1;stRulesUi();stChanged();return}
+ if(d.sted!=null){ST.ed=+d.sted;stRulesUi();const s=$("#stEdS");if(s&&ST.ed>=0){s.focus();s.setSelectionRange(s.value.length,s.value.length)}return}
+ if(d.st==="addr"){(P[ST.sel]=P[ST.sel]||[]).push({stands:"",fl:"all",ac:"narrow",term:""});ST.ed=P[ST.sel].length-1;stRulesUi();stChanged();const s=$("#stEdS");if(s)s.focus();return}
+ if(d.st==="discard"){if(!confirm("Discard the changes to the gate plan?"))return;ST.plan=stClone(ST.saved);ST.dirty=false;ST.ed=-1;stSay("");stAptsUi();stMainUi();return}
+ if(d.strm!=null){const k=+d.strm;if(R[k]&&R[k].stands&&!confirm("Remove rule "+(k+1)+" at "+ST.sel+"?"))return;R.splice(k,1);ST.ed=-1;stRulesUi();stChanged();return}
+ if(d.stup!=null){const k=+d.stup;[R[k-1],R[k]]=[R[k],R[k-1]];ST.ed=k-1;stRulesUi();stChanged();return}
+ if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});
+   ST.saved=stClone(j.plan);ST.plan=stClone(j.plan);ST.dirty=false;ST.ed=-1;opsDrop("stands");stStateUi();stAptsUi();stRulesUi();stMapRefresh();stTry();
+   stSay("Saved. "+(j.plan.on||j.plan.dep?"Gates are given from this plan from now on.":"The gate messages are off, so nothing is sent until they are turned on in Automatic messages."),true)}
+  catch(er){stSay(er.message);b.disabled=false}return}
+ if(d.stv){ST.logAll=d.stv==="all";stLogUi();return}
+ if(b.id==="stReload"){stLoad();stBusy(ST.sel,true);return}
+ if(d.stchg){const tr=b.closest("tr");if(tr.nextElementSibling&&tr.nextElementSibling.classList.contains("gt-chg"))return;tr.insertAdjacentHTML("afterend",'<tr class="gt-chg"><td colspan="7"><div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off"><button type="button" class="primary" data-stsend="'+esc(d.stchg)+'">Send GATE CHANGE</button><button type="button" data-stchgx>Cancel</button></div></td></tr>');tr.nextElementSibling.querySelector("input").focus();return}
+ if(d.stchgx!=null){b.closest("tr").remove();return}
+ if(d.stsend){const [k,t]=d.stsend.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}b.disabled=true;
+  try{await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,t:+t,stand,term:I[1].value.trim()||undefined})});await stLoad()}catch(er){alert(er.message);b.disabled=false}return}});
+window.addEventListener("beforeunload",e=>{if(ST.dirty){e.preventDefault();e.returnValue=""}});
+PG_LOAD.gates=()=>stLoad(true);PG_TICK.gates=[()=>{stLoad();if(ST.sel)stBusy(ST.sel,true)},120000];
+/* ---------- Messages › From names and AOC templates (was Settings › Composer) ---------- */
+const SE={tpl:null,dirty:false};
+const seSay=(id,t,ok)=>{const m=$(id);if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+function setTplUi(){const el=$("#setTpl");if(!el)return;if(!SE.tpl){el.innerHTML='<span class="empty">Loading…</span>';return}
  el.innerHTML=SE.tpl.length?SE.tpl.map((t,i)=>'<div class="set-t"><input type="text" data-sett="'+i+'" data-f="title" value="'+esc(t.title)+'" maxlength="40" placeholder="TITLE" spellcheck="false" aria-label="Title"><span class="b">'+(i?'<button type="button" data-setup="'+i+'" title="Move up" aria-label="Move up">↑</button>':"")+'<button type="button" data-setrm="'+i+'" title="Remove" aria-label="Remove">✕</button></span><textarea data-sett="'+i+'" data-f="body" maxlength="2000" placeholder="{CS} {DEP}-{ARR} … (empty: staff write it all)" spellcheck="false" aria-label="Message">'+esc(t.body)+"</textarea></div>").join(""):'<p class="hint" style="margin:0">No templates.</p>'}
 async function setLoad(){try{const j=await opsGet("set",0);setApply(j.settings);if(!SE.dirty){SE.tpl=j.settings.tpl.map(t=>({...t}));$("#setFroms").value=j.settings.froms.join("\\n")}seSay("#setMsg","")}
  catch(e){seSay("#setMsg",e.message)}setTplUi()}
-document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#settings"))return;
+document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#cmSet"))return;
  if(t.dataset.sett!=null){SE.tpl[+t.dataset.sett][t.dataset.f]=t.value;SE.dirty=true;seSay("#setMsg","");return}
  if(t.id==="setFroms"){SE.dirty=true;seSay("#setMsg","")}});
-document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#settings button");if(!b)return;
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#cmSet button");if(!b)return;
  if(b.id==="setTplAdd"){SE.tpl=SE.tpl||[];SE.tpl.push({title:"",body:""});SE.dirty=true;setTplUi();const L=document.querySelectorAll("#setTpl input");if(L.length)L[L.length-1].focus();return}
  if(b.dataset.setrm!=null){SE.tpl.splice(+b.dataset.setrm,1);SE.dirty=true;setTplUi();return}
  if(b.dataset.setup!=null){const k=+b.dataset.setup;[SE.tpl[k-1],SE.tpl[k]]=[SE.tpl[k],SE.tpl[k-1]];SE.dirty=true;setTplUi();return}
@@ -1222,80 +1517,59 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
   if(!froms.length){seSay("#setMsg","Keep at least one From name.");return}
   b.disabled=true;try{const j=await api("/admin/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({froms,tpl})});
    OPS.set={at:Date.now(),v:{settings:j.settings},p:null,err:""};SE.dirty=false;SE.tpl=j.settings.tpl.map(t=>({...t}));$("#setFroms").value=j.settings.froms.join("\\n");setTplUi();setApply(j.settings);seSay("#setMsg","Saved. The composers use these now.",true)}
-  catch(er){seSay("#setMsg",er.message)}finally{b.disabled=false}return}
- if(b.id==="setAocSave"){if(!ST.saved){seSay("#setAocMsg","Still loading. Try again in a moment.");return}
-  b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stSwNow())});
-   ST.saved=JSON.parse(JSON.stringify(j.plan));if(!ST.dirty)ST.plan=j.plan;SE.aocDirty=false;opsDrop("stands");stStateUi();
-   seSay("#setAocMsg",(n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route",j.plan.inr!==false&&"arrival report"].filter(Boolean)),true)}
-  catch(er){seSay("#setAocMsg",er.message)}finally{b.disabled=false}return}});
-window.addEventListener("beforeunload",e=>{if(SE.dirty||SE.aocDirty){e.preventDefault();e.returnValue=""}});
-PG_LOAD.settings=()=>{stLoad();setLoad()};
-/* ---------- Roles (Nov 2026) ----------
+  catch(er){seSay("#setMsg",er.message)}finally{b.disabled=false}}});
+window.addEventListener("beforeunload",e=>{if(SE.dirty){e.preventDefault();e.returnValue=""}});
+/* ---------- Settings: People and Roles (Nov 2026) ----------
    Which pages a role sees (no-p-*) and what it may change (no-a-*): classes on the page that hide what is not
-   theirs. The server checks every change as well. Administrators make and edit roles in Settings › Roles. */
-const RL={on:false,people:[],roles:[],me:"",busy:false,ed:null};
+   theirs. The server checks every change as well. Only administrators see Settings. */
+const RL={on:false,people:[],roles:[],me:"",busy:false,ed:null,chg:"",mail:null};
 const rlName=id=>{const r=RL.roles.find(x=>x.id===id);return r?r.name:id};
 async function rlLoad(){if(PERM&&!PERM.can.has("roles"))return;try{rlSetData(await api("/admin/api/roles"))}catch(e){seSay("#rlMsg",e.message)}rlUi()}
-function rlSetData(j){RL.on=!!j.on;RL.people=j.people||[];RL.roles=j.roles||[];RL.me=j.me||RL.me}
+function rlSetData(j){RL.on=!!j.on;RL.people=j.people||[];RL.roles=j.roles||[];RL.me=j.me||RL.me;RL.mail=j.mail||RL.mail}
 function rlOpts(sel){return RL.roles.map(r=>'<option value="'+esc(r.id)+'"'+(r.id===sel?" selected":"")+">"+esc(r.name)+"</option>").join("")}
-function rlSum(r){if(r.builtin)return"Everything, the roles, and staff diagnostics";
- const pg=RL_PAGES.filter(x=>r.pages.includes(x[0])).map(x=>x[1]),can=RL_ACTS.filter(x=>r.can.includes(x[0])).map(x=>x[1].toLowerCase());
- return "Sees: Home"+(pg.length?", "+pg.join(", "):" only")+"<br>"+(can.length?"Can: "+can.join(", "):"Changes nothing")}
+function rlSees(r){if(r.builtin)return"Everything";const pg=RL_PAGES.filter(x=>r.pages.includes(x[0])).map(x=>x[1]);return pg.length===RL_PAGES.length?"Every page":pg.length?pg.join(", "):"Home and Tasks only"}
+function rlCan(r){if(r.builtin)return"Everything, and these roles";const can=RL_ACTS.filter(x=>r.can.includes(x[0])).map(x=>x[1]);return can.length?can.map((x,i)=>i?x.toLowerCase():x).join(", "):"Changes nothing"}
+function rlSeen(t){if(!t)return"—";const d=new Date(t),day=x=>x.toISOString().slice(0,10),now=new Date(),y=new Date(Date.now()-864e5),n=Math.floor((Date.now()-t)/864e5);
+ return day(d)===day(now)?"Today "+stZ(t):day(d)===day(y)?"Yesterday":n<7?n+" days ago":d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:d.getUTCFullYear()===now.getUTCFullYear()?undefined:"numeric",timeZone:"UTC"})}
 function rlUi(){const el=$("#rlList");if(!el)return;
- $("#rlNote").textContent=RL.on?"Roles are on: everyone below has a role, and anyone else who signs in through Cloudflare Access is turned away.":"Roles are off: everyone who can sign in is an administrator. Adding someone turns them on, and you are added as an administrator first.";
- el.innerHTML=RL.people.length?RL.people.map(p=>'<div class="rl-r"><div><b>'+esc(p.email)+"</b>"+(p.email===RL.me?"<small>You</small>":p.by&&p.by!==p.email?"<small>Added by "+esc(p.by)+"</small>":"")+'</div><select data-rlset="'+esc(p.email)+'" aria-label="Role">'+rlOpts(p.role)+'</select><button type="button" data-rlrm="'+esc(p.email)+'">Remove</button></div>').join(""):'<span class="empty">No one yet.</span>';
+ const ml=$("#rlMail");if(ml&&RL.mail)ml.innerHTML=RL.mail.ready?'<span class="bdg on">Email on</span><span>from '+esc(RL.mail.from)+"</span>":'<span class="bdg bad">Email not set up</span><a class="lk" href="https://github.com/KOZ8738/home/blob/main/workers/polaris-efb-api/README.md" target="_blank" rel="noopener">How to set it up ›</a>';
+ $("#rlNote").textContent=RL.on?"Anyone who signs in through Cloudflare Access without a role here is turned away.":"Roles are off: everyone who can sign in is an administrator. Adding someone turns them on, and you are added as an administrator first.";
+ $("#rlCount").textContent=RL.people.length?RL.people.length+(RL.people.length===1?" person":" people"):"";
+ el.innerHTML=RL.people.length?'<div class="gt-tw"><table class="gt-t rl-t"><thead><tr><th>Email</th><th>Role</th><th>Last signed in</th><th></th></tr></thead><tbody>'+RL.people.map(p=>{const ch=RL.chg===p.email;
+  return "<tr><td><b>"+esc(p.email)+"</b>"+(p.email===RL.me?'<small class="rl-you">You</small>':"")+"</td><td>"+(ch?'<select data-rlset="'+esc(p.email)+'" aria-label="Role">'+rlOpts(p.role)+"</select>":'<span class="bdg '+(p.role==="admin"?"adm":"role")+'">'+esc(rlName(p.role))+"</span>")
+   +'</td><td class="lbl"'+(p.seen?' title="'+esc(fmt(p.seen))+'"':"")+">"+rlSeen(p.seen)+'</td><td class="r">'+(ch?'<button type="button" class="lnk warn" data-rlrm="'+esc(p.email)+'">Remove</button><button type="button" class="lnk" data-rlchg="">Done</button>':'<button type="button" class="lnk" data-rlchg="'+esc(p.email)+'">Change</button>')+"</td></tr>"}).join("")+"</tbody></table></div>":'<p class="empty">No one yet.</p>';
  const ar=$("#rlRole"),keep=ar.value;ar.innerHTML=rlOpts(keep||(RL.roles.find(r=>!r.builtin)||{id:"admin"}).id);
- $("#rlRoles").innerHTML=RL.roles.map(r=>'<div class="rl-r role"><div><b>'+esc(r.name)+"</b> <small>"+(r.n?r.n+(r.n===1?" person":" people"):"No one yet")+"</small><small>"+rlSum(r)+"</small></div>"+(r.builtin?"<span></span>":'<button type="button" data-rled="'+esc(r.id)+'">Edit</button>')+"</div>").join("");
- const E=RL.ed,box=$("#rlEd");box.hidden=!E;$("#rlNewRow").hidden=!!E;if(!E){box.innerHTML="";return}
+ $("#rlRoles").innerHTML='<div class="gt-tw"><table class="gt-t rl-t rl-rt"><thead><tr><th>Role</th><th>People</th><th>Sees</th><th>Can</th><th></th></tr></thead><tbody>'+RL.roles.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+(r.n||'<span class="lbl">—</span>')+'</td><td class="lbl">'+esc(rlSees(r))+'</td><td class="lbl">'+esc(rlCan(r))+'</td><td class="r">'+(r.builtin?"":'<button type="button" class="lnk" data-rled="'+esc(r.id)+'">Edit</button>')+"</td></tr>").join("")+"</tbody></table></div>";
+ const E=RL.ed,box=$("#rlEd");box.hidden=!E;$("#rlNew").hidden=!!E;if(!E){box.innerHTML="";return}
  const cur=RL.roles.find(r=>r.id===E.id);
  box.innerHTML='<label class="n" for="rlEdName">'+(E.id?"Role":"New role")+'</label><input type="text" id="rlEdName" maxlength="40" placeholder="Dispatcher" value="'+esc(E.name)+'" autocomplete="off">'
-  +'<div class="rl-h">Pages they see</div><p class="rl-note">Their Home shows only what is on these pages, and the server keeps the other pages’ data from them.</p><div class="rl-g"><label class="rl-c"><input type="checkbox" checked disabled><span>Home</span></label>'+RL_PAGES.map(x=>'<label class="rl-c"><input type="checkbox" data-rlpg="'+x[0]+'"'+(E.pages.has(x[0])?" checked":"")+"><span>"+esc(x[1])+"</span></label>").join("")+"</div>"
+  +'<div class="rl-h">Pages they see</div><p class="rl-note">Their Home shows only what is on these pages, and the server keeps the other pages’ data from them.</p><div class="rl-g"><label class="rl-c"><input type="checkbox" checked disabled><span>Home and Tasks</span></label>'+RL_PAGES.map(x=>'<label class="rl-c"><input type="checkbox" data-rlpg="'+x[0]+'"'+(E.pages.has(x[0])?" checked":"")+"><span>"+esc(x[1])+"</span></label>").join("")+"</div>"
   +'<div class="rl-h">What they can change</div><div class="rl-g acts">'+RL_ACTS.map(x=>'<label class="rl-c"><input type="checkbox" data-rlact="'+x[0]+'"'+(E.can.has(x[0])?" checked":"")+"><span>"+esc(x[1])+(x[2]?"<small>"+esc(x[2])+"</small>":"")+"</span></label>").join("")+"</div>"
   +'<div class="actions"><button class="primary" type="button" id="rlEdSave">'+(E.id?"Save":"Make role")+'</button><button type="button" id="rlEdCancel">Cancel</button>'+(E.id?'<button type="button" class="warn" id="rlEdDel"'+(cur&&cur.n?' title="Give its people another role first"':"")+">Delete role</button>":"")+"</div>"}
 async function rlPost(body,el,ok){if(RL.busy)return false;RL.busy=true;if(el)el.disabled=true;
  try{const j=await api("/admin/api/roles",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});rlSetData(j);
   if(ok)ok();meLoad();return true}
  catch(e){seSay(body.op?"#rlRMsg":"#rlMsg",e.message);return false}finally{RL.busy=false;if(el)el.disabled=false;rlUi()}}
-document.addEventListener("click",async e=>{const b=e.target.closest("#rlAdd,[data-rlrm],#rlNew,[data-rled],#rlEdSave,#rlEdCancel,#rlEdDel");if(!b)return;
+document.addEventListener("click",async e=>{const b=e.target.closest("#rlAdd,[data-rlrm],[data-rlchg],#rlNew,[data-rled],#rlEdSave,#rlEdCancel,#rlEdDel");if(!b)return;
  if(b.id==="rlAdd"){const em=$("#rlEmail").value.trim().toLowerCase(),r=$("#rlRole").value;if(!em){seSay("#rlMsg","Write the email they sign in with");return}
   if(await rlPost({email:em,role:r},b,()=>seSay("#rlMsg",em+" is now "+rlName(r)+".",true)))$("#rlEmail").value="";return}
- if(b.dataset.rlrm!=null){const em=b.dataset.rlrm;if(!confirm("Take away the role of "+em+"? They will not be able to open this admin."))return;rlPost({email:em,role:null},b,()=>seSay("#rlMsg",em+" no longer has a role.",true));return}
+ if(b.dataset.rlchg!=null){RL.chg=b.dataset.rlchg;seSay("#rlMsg","");rlUi();return}
+ if(b.dataset.rlrm!=null){const em=b.dataset.rlrm;if(!confirm("Take away the role of "+em+"? They will not be able to open this admin."))return;RL.chg="";rlPost({email:em,role:null},b,()=>seSay("#rlMsg",em+" no longer has a role.",true));return}
  if(b.id==="rlNew"){RL.ed={id:"",name:"",pages:new Set(["fw"]),can:new Set()};seSay("#rlRMsg","");rlUi();$("#rlEdName").focus();return}
- if(b.dataset.rled!=null){const r=RL.roles.find(x=>x.id===b.dataset.rled);if(!r)return;RL.ed={id:r.id,name:r.name,pages:new Set(r.pages.filter(p=>p!=="home")),can:new Set(r.can)};seSay("#rlRMsg","");rlUi();$("#rlEd").scrollIntoView({block:"nearest",behavior:"smooth"});return}
+ if(b.dataset.rled!=null){const r=RL.roles.find(x=>x.id===b.dataset.rled);if(!r)return;RL.ed={id:r.id,name:r.name,pages:new Set(r.pages.filter(p=>p!=="home"&&p!=="tasks")),can:new Set(r.can)};seSay("#rlRMsg","");rlUi();$("#rlEd").scrollIntoView({block:"nearest",behavior:"smooth"});return}
  if(b.id==="rlEdCancel"){RL.ed=null;rlUi();return}
  const E=RL.ed;if(!E)return;
  if(b.id==="rlEdSave"){const name=$("#rlEdName").value.trim();if(!name){seSay("#rlRMsg","Give the role a name");return}
   rlPost({op:"role",id:E.id||undefined,name,pages:[...E.pages],can:[...E.can]},b,()=>{seSay("#rlRMsg",(E.id?"Saved ":"Made ")+name+".",true);RL.ed=null});return}
  if(b.id==="rlEdDel"){if(!confirm("Delete the role "+E.name+"?"))return;rlPost({op:"delrole",id:E.id},b,()=>{seSay("#rlRMsg","Deleted "+E.name+".",true);RL.ed=null})}});
 document.addEventListener("change",e=>{const t=e.target;if(!t.dataset)return;
- if(t.dataset.rlset!=null){const em=t.dataset.rlset,r=t.value;rlPost({email:em,role:r},t,()=>seSay("#rlMsg",em+" is now "+rlName(r)+".",true));return}
+ if(t.dataset.rlset!=null){const em=t.dataset.rlset,r=t.value;rlPost({email:em,role:r},t,()=>{RL.chg="";seSay("#rlMsg",em+" is now "+rlName(r)+".",true)});return}
  const E=RL.ed;if(!E)return;
  if(t.dataset.rlpg!=null){if(t.checked)E.pages.add(t.dataset.rlpg);else E.pages.delete(t.dataset.rlpg);return}
  /* a permission brings the page it is used on with it */
  if(t.dataset.rlact!=null){const k=t.dataset.rlact;if(t.checked){E.can.add(k);const a=RL_ACTS.find(x=>x[0]===k);if(a&&a[3]&&!E.pages.has(a[3])){E.pages.add(a[3]);const c=document.querySelector('[data-rlpg="'+a[3]+'"]');if(c)c.checked=true}}else E.can.delete(k)}});
 document.addEventListener("input",e=>{if(e.target.id==="rlEdName"&&RL.ed)RL.ed.name=e.target.value});
-{const _l=PG_LOAD.settings;PG_LOAD.settings=f=>{_l(f);rlLoad()}}
-
-const stDirty=()=>{ST.dirty=true;stSay("")};
-document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!(t.closest("#stands")||t.closest("#settings")))return;
- if(t.dataset.str!=null){const r=ST.plan.apts[ST.sel][+t.dataset.str];r[t.dataset.f]=t.value;stDirty();if(t.dataset.f==="stands"){const x=t.closest(".st-r").querySelector(".st-x");const e2=stExpand(t.value);x.className="st-x"+(e2.bad.length?" bad":"");x.textContent=e2.bad.length?"Cannot read: "+e2.bad.join(", "):e2.stands.length+" gates: "+e2.stands.slice(0,14).join(", ")+(e2.stands.length>14?" …":"")}stAptsUi();stTry();return}
- if(["stOn","stDep","stLs","stSig","stInr","stLead","stMiss"].includes(t.id)){SE.aocDirty=true;$("#setAocMsg").innerHTML=""}});
-document.addEventListener("change",e=>{const t=e.target;if(t.tagName==="SELECT"&&t.closest("#stEd")&&t.dataset.str!=null)stEdUi()});
-document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#stands button");if(!b)return;const P=ST.plan&&ST.plan.apts;
- if(b.dataset.sta){ST.sel=b.dataset.sta;stAptsUi();stEdUi();stMap(ST.sel);stLogUi();return}
- if(b.dataset.stv){ST.view=b.dataset.stv;stLogUi();return}
- if(b.id==="stOtherB"){const i=$("#stOther").value.toUpperCase().replace(/[^A-Z0-9]/g,"");if(!/^[A-Z0-9]{4}$/.test(i)){stSay("Write the airport's 4-letter ICAO code.");return}$("#stOther").value="";if(!P[i])P[i]=[];ST.sel=i;stAptsUi();stEdUi();stMap(i);return}
- if(b.dataset.st==="addr"){(P[ST.sel]=P[ST.sel]||[]).push({stands:"",fl:"all",ac:"narrow",term:""});stDirty();stEdUi();const L=document.querySelectorAll("#stEd input.sr");if(L.length)L[L.length-1].focus();return}
- if(b.dataset.st==="clr"){if(!confirm("Remove every gate at "+ST.sel+"?"))return;delete P[ST.sel];stDirty();stAptsUi();stEdUi();return}
- if(b.dataset.strm!=null){P[ST.sel].splice(+b.dataset.strm,1);stDirty();stAptsUi();stEdUi();return}
- if(b.dataset.stup!=null){const k=+b.dataset.stup,R=P[ST.sel];[R[k-1],R[k]]=[R[k],R[k-1]];stDirty();stEdUi();return}
- if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});ST.plan=j.plan;ST.saved=JSON.parse(JSON.stringify(j.plan));ST.dirty=false;opsDrop("stands");stStateUi();stSay((n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route",j.plan.inr!==false&&"arrival report"].filter(Boolean)),true);stAptsUi();stEdUi()}catch(er){stSay(er.message)}finally{b.disabled=false}return}
- if(b.id==="stReload"){stLoad();return}
- if(b.dataset.stchg){const row=b.closest(".st-l");if(row.querySelector(".chg"))return;row.insertAdjacentHTML("beforeend",'<div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off" style="width:100px"><button type="button" class="primary" data-stsend="'+esc(b.dataset.stchg)+'">Send GATE CHANGE</button></div>');row.querySelector(".chg input").focus();return}
- if(b.dataset.stsend){const [k,t]=b.dataset.stsend.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}b.disabled=true;
-  try{await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,t:+t,stand,term:I[1].value.trim()||undefined})});await stLoad()}catch(er){alert(er.message);b.disabled=false}return}});
-window.addEventListener("beforeunload",e=>{if(ST.dirty){e.preventDefault();e.returnValue=""}});
-PG_LOAD.gates=()=>stLoad();
+PG_LOAD.settings=()=>rlLoad();
 /* ---------- On-time tab: OOOI times and on-time performance (see ooo.js) ---------- */
 const OT={live:[],log:[],reasons:[],p:1,q:"",err:"",timer:0,loaded:false};
 const otZ=t=>t?new Date(t).toISOString().slice(11,16)+"Z":"–";
@@ -1535,7 +1809,7 @@ function foGatesHtml(f){const G=foGates(f),plan=(opsV("stands")||{}).plan,lead=(
  return '<div class="fo-s"><h4>Gates</h4>'+row("dep")+row("arr")+'<div id="foGSay"></div></div>'}
 function foLsHtml(f,r){const L=foAoc(f).find(m=>m.title==="LOADSHEET FINAL"),plan=(opsV("stands")||{}).plan,now=Date.now();let h;
  if(L)h='<span class="ok">Sent '+foZ(L.t)+"</span>"+akChip(L,opsV("aoc"))+'<details class="fo-a" data-aid="ls'+esc(L.id)+'"><summary><b>LOADSHEET FINAL</b><small>show</small></summary><pre>'+esc(L.body)+"</pre></details>";
- else if(plan&&plan.ls===false)h="Off<small>Automatic final loadsheets are off in Settings.</small>";
+ else if(plan&&plan.ls===false)h="Off<small>Automatic final loadsheets are off in Automatic messages.</small>";
  else if(r&&r.std&&now<r.std-15*6e4)h="Not yet<small>Goes at "+foZ(r.std-15*6e4)+", 15 minutes before STD, if the crew checked in with their SimBrief plan loaded.</small>";
  else if(r&&r.std)h="Not sent<small>The crew did not check in with a SimBrief plan loaded, so there were no weights to send.</small>";
  else h="Not sent<small>No booking (STD) for this flight.</small>";
@@ -1604,7 +1878,7 @@ const CM={seg:"inbox",pane:"empty",item:""};
 function cmUi(){const s=CM.seg,P=CM.pane;
  document.querySelectorAll("[data-cmv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.cmv===s)));
  $("#cmFi").hidden=s!=="inbox";$("#cmFs").hidden=s!=="sent";$("#ibList").hidden=s!=="inbox";$("#list").hidden=s==="inbox";
- $("#cmEmpty").hidden=P!=="empty";$("#ibView").hidden=P!=="thread";$("#cmItem").hidden=P!=="item";$("#cmCompose").hidden=P!=="compose"}
+ $("#cmEmpty").hidden=P!=="empty";$("#ibView").hidden=P!=="thread";$("#cmItem").hidden=P!=="item";$("#cmCompose").hidden=P!=="compose";$("#cmSet").hidden=P!=="set"}
 function cmPane(p){CM.pane=p;if(p!=="thread"&&IB.sel){IB.sel="";ibUi()}if(p!=="item")CM.item="";cmUi();listUi()}
 function cmSeg(s){CM.seg=s;cmUi();listUi()}
 /* something written in the composer that would be lost */
@@ -1614,7 +1888,8 @@ function cmNew(k){if(CM.pane==="compose"&&cmDirty()&&!confirm("Discard the messa
  reset();kindSet(k);if(k==="aoc")toSet({crew:true,cs:"",m:[]});$("#acTitle").value="CREW MESSAGE";$("#acBody").value="";acPreview();say("");cmPane("compose");if(innerWidth<900)requestAnimationFrame(()=>$("#cmCompose").scrollIntoView({behavior:"smooth",block:"start"}));
  setTimeout(()=>{const e=k==="aoc"?$("#crCs"):$("#subject");if(e)e.focus()},50)}
 /* an old address: #aoc opens a new AOC message, #inbox the Inbox */
-function cmAsk(a){if(a==="aoc")cmNew("aoc");else if(a==="inbox")cmSeg("inbox")}
+function cmAsk(a){if(a==="aoc")cmNew("aoc");else if(a==="inbox")cmSeg("inbox");else if(a==="templates"){cmPane("set");setLoad()}
+ else if(a==="sent"){S.kf="aoc";document.querySelectorAll("[data-kf]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.kf==="aoc")));cmSeg("sent")}}
 /* a conversation (Home's "waiting for a reply") */
 function ibOpen(th){IB.sel=th;const t=(IB.threads||[]).find(x=>x.th===th);if(t&&t.done!==(IB.show==="done")){IB.show=t.done?"done":"open";document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.ibs===IB.show)))}
  CM.seg="inbox";CM.pane="thread";cmUi();ibUi();
@@ -1637,14 +1912,15 @@ function cmItemUi(){const i=CM.item.indexOf(":"),k=CM.item.slice(0,i),id=CM.item
   (m.att.length?'<ul class="atts">'+m.att.map(a=>"<li>📎 "+esc(a.name)+' <span class="hint" style="margin:0">'+kb(a.size)+"</span></li>").join("")+"</ul>":"")+
   '<div class="actions"><button data-edit="'+esc(m.id)+'">Edit</button><button class="warn" data-del="'+esc(m.id)+'">Delete</button></div></div>'}
 const cmZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
-document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-cmv],[data-cmnew],[data-cmi],[data-cmclose],[data-ib],[data-edit]");if(!b)return;const d=b.dataset;
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-cmv],[data-cmnew],[data-cmi],[data-cmclose],[data-cmset],[data-ib],[data-edit]");if(!b)return;const d=b.dataset;
+ if(d.cmset!=null){if(CM.pane==="compose"&&cmDirty()&&!confirm("Discard the message you are writing?"))return;cmPane("set");setLoad();return}
  if(d.cmv){cmSeg(d.cmv);return}
  if(d.cmnew){cmNew(d.cmnew);return}
  if(d.cmi){CM.item=d.cmi;CM.pane="item";if(IB.sel){IB.sel="";ibUi()}cmUi();listUi();if(innerWidth<900)$("#cmItem").scrollIntoView({behavior:"smooth",block:"start"});return}
- if(d.cmclose!=null){if(CM.pane==="compose"&&cmDirty()){if(!confirm("Discard this message?"))return;reset();say("")}cmPane("empty");return}
+ if(d.cmclose!=null){if(CM.pane==="compose"&&cmDirty()){if(!confirm("Discard this message?"))return;reset();say("")}if(CM.pane==="set"&&SE.dirty){if(!confirm("Discard the changes to the From names and templates?"))return;SE.dirty=false;SE.tpl=null}cmPane("empty");return}
  if(d.ib){CM.pane="thread";CM.item="";cmUi();listUi();if(innerWidth<900)setTimeout(()=>$("#ibView").scrollIntoView({behavior:"smooth",block:"start"}),30);return}
  if(d.edit){CM.pane="compose";CM.item="";cmUi();return}});
-/* a template fills in the title and the message (Settings › Composer) */
+/* a template fills in the title and the message (Messages › From names and templates) */
 $("#acTpl").addEventListener("change",e=>{const t=SETV.tpl[+e.target.value];e.target.value="";if(!t)return;
  if($("#acBody").value.trim()&&$("#acBody").value.trim()!==tplFill(t.body,{}).trim()&&!confirm("Replace what you wrote with the "+t.title+" template?"))return;
  const to=toGet(),cs=to&&to.crew?to.cs:to&&to.cs||"",f=cs&&window.pmLive?window.pmLive.flights().find(x=>x.cs===cs):null;
@@ -2298,32 +2574,66 @@ async function dcCovFill(){if(DCC.busy||!DC.list||!Array.isArray(DC.list.docs))r
    catch(e){}finally{try{if(task)task.destroy()}catch(e){}}}}
  catch(e){}DCC.busy=false;if(made){try{DC.list=await api("/admin/api/docs")}catch(e){}dcUi()}}
 {const _l=dcLoad;dcLoad=async function(){const r=await _l.apply(this,arguments);dcCovFill();return r}}
-/* ---------- Gates › Message wording: the text of the automatic AOC messages (aoctpl.js on the server) ---------- */
-const AT={v:null,k:"gate",ed:{},dirty:{},busy:false,pt:0,foc:null};
-const atK=()=>AT.v&&AT.v.kinds.find(x=>x.k===AT.k);
-const atSay=(t,ok)=>{const m=$("#atMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
-function atUi(){const box=$("#atKinds");if(!box)return;if(!AT.v){box.innerHTML="";$("#atEd").innerHTML='<span class="empty">Loading…</span>';return}
- const K=atK();box.innerHTML=AT.v.kinds.map(x=>'<button type="button" role="tab" data-atk="'+x.k+'" aria-pressed="'+(x.k===AT.k)+'">'+esc(x.name)+(x.changed?' <i class="at-ch" title="Changed from the default"></i>':"")+(AT.dirty[x.k]?" *":"")+"</button>").join("");
- $("#atWhen").textContent=K.when+".";const F=AT.ed[K.k];
- $("#atEd").innerHTML=K.fields.map(f=>'<label class="at-f"><span class="at-l">'+esc(f[1])+"</span>"+(f[2]===1?'<input type="text" data-atf="'+f[0]+'" maxlength="60" value="'+esc(F[f[0]])+'" autocomplete="off" spellcheck="false">':'<textarea data-atf="'+f[0]+'" rows="'+Math.min(18,Math.max(f[2],String(F[f[0]]).split("\\n").length+1))+'" spellcheck="false" wrap="off">'+esc(F[f[0]])+"</textarea>")+"</label>").join("")
-  +'<div class="at-tk"><span class="at-l">Fields</span><div>'+K.tokens.map(t=>'<button type="button" data-attk="'+t[0]+'" title="'+esc(t[1])+'">{'+t[0]+"}</button>").join("")+"</div></div>";
- $("#atReset").disabled=AT.busy||!K.changed&&!AT.dirty[K.k];$("#atSave").disabled=AT.busy;atPrev(K.preview&&!AT.dirty[K.k]?K.preview:null)}
-function atPrev(p){if(p){$("#atPT").textContent=p.title;$("#atPB").textContent=p.body;$("#atPB").classList.remove("err");return}
- clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{const k=AT.k;try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(k!==AT.k)return;$("#atPT").textContent=r.title;$("#atPB").textContent=r.body;$("#atPB").classList.remove("err")}
-  catch(e){if(k!==AT.k)return;$("#atPB").textContent=e.message;$("#atPB").classList.add("err")}},350)}
-async function atLoad(){if(!["gates","settings"].some(pgHas))return;if(AT.v&&Object.keys(AT.dirty).length)return;try{const v=await api("/admin/api/aoctpl");AT.v=v;AT.ed={};v.kinds.forEach(x=>{AT.ed[x.k]={...v.tpl[x.k]}});AT.dirty={};atSay("")}catch(e){atSay(e.message)}atUi()}
-document.addEventListener("input",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.atf)return;AT.ed[AT.k][t.dataset.atf]=t.value;if(!AT.dirty[AT.k]){AT.dirty[AT.k]=1;const b=document.querySelector('[data-atk="'+AT.k+'"]');if(b&&!/\\*$/.test(b.textContent))b.append(" *");$("#atReset").disabled=false}atPrev(null)});
+/* ---------- Automatic messages (Nov 2026): the AOC messages the server sends crews by itself. Each is on or off (kept
+   with the gate plan, stands.js), the arrival gate has its timing, and each has its wording (aoctpl.js). ---------- */
+const AU_K=[["gate","on","Arrival gate","Before landing: a free gate at the destination, from the gate plan"],["dep","dep","Departure gate","When the crew check in: a free gate at the departure airport"],["ls","ls","Final loadsheet","15 minutes before STD, to crews who checked in with their SimBrief plan"],["sig","sig","SIGMET on the route","In flight: a SIGMET at their level within the next 900 nm, once per FIR and hazard"],["inr","inr","Arrival report","At the gate: OOOI times, block and air time, on time or late, the gate and the METAR"]];
+const AT={v:null,ed:{},dirty:{},pt:0,foc:null,open:"",more:{},err:""};
+const auSay=(t,ok)=>{const m=$("#auEdMsg")||$("#auMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+const auTop=(t,ok)=>{const m=$("#auMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+const auKind=k=>AT.v&&AT.v.kinds.find(x=>x.k===k);
+const auOn=(v,sw)=>sw==="on"?!!v.on:sw==="dep"?!!v.dep:v[sw]!==false;
+function auLast(l){if(!l)return"Not sent lately";const d=new Date(l.t),today=d.toISOString().slice(0,10)===new Date().toISOString().slice(0,10);
+ return "Last: "+(l.cs?l.cs+" · ":"")+(today?"":d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})+" ")+stZ(l.t)}
+async function atLoad(){if(!["gates","auto"].some(pgHas))return;if(AT.v&&Object.keys(AT.dirty).length)return;
+ try{const v=await api("/admin/api/aoctpl");AT.v=v;AT.ed={};v.kinds.forEach(x=>{AT.ed[x.k]={...v.tpl[x.k]}});AT.dirty={};AT.err=""}catch(e){AT.err=e.message}if(pgNow==="auto")auUi()}
+function auFld(k,f){const F=AT.ed[k],v=F[f[0]]==null?"":F[f[0]];return '<label class="at-f"><span class="at-l">'+esc(f[1])+"</span>"+(f[2]===1?'<input type="text" data-atf="'+f[0]+'" maxlength="60" value="'+esc(v)+'" autocomplete="off" spellcheck="false">':'<textarea data-atf="'+f[0]+'" rows="'+Math.min(18,Math.max(f[2],String(v).split("\\n").length+1))+'" spellcheck="false" wrap="off">'+esc(v)+"</textarea>")+"</label>"}
+function auEdHtml(k){const K=auKind(k),v=ST.saved,sec=f=>/(Chg|None)$/.test(f[0]),main=K.fields.filter(f=>!sec(f)),more=K.fields.filter(sec),gate=k==="gate"||k==="dep";
+ return '<div class="au-ed"><div class="au-ec">'
+  +(k==="gate"?'<div class="au-tm"><div><label for="auLead">Send before landing</label><span class="au-n"><input type="number" id="auLead" min="10" max="90" step="5" value="'+(v.lead||30)+'"> minutes</span></div><div><label for="auMiss">No gate rule for the flight</label><select id="auMiss"><option value="skip"'+(v.miss!=="ground"?" selected":"")+'>Send nothing</option><option value="ground"'+(v.miss==="ground"?" selected":"")+'>Send “GATE: CONTACT GROUND”</option></select></div><a class="lk" href="#gates">Gate rules ›</a></div>':k==="dep"?'<div class="au-tm"><a class="lk" href="#gates">Gate rules ›</a></div>':"")
+  +'<p class="hint au-when">'+esc(K.when)+".</p>"+main.map(f=>auFld(k,f)).join("")
+  +(more.length?'<details class="au-more" data-aumore="'+k+'"'+(AT.more[k]?" open":"")+"><summary>More wording <small>("+more.map(f=>esc(f[1].replace(/^Title|^Message/,x=>x.toLowerCase()))).join("; ")+")</small></summary>"+more.map(f=>auFld(k,f)).join("")+"</details>":"")
+  +'<div class="at-tk"><span class="at-l">Insert a field</span><div>'+K.tokens.map(t=>'<button type="button" data-attk="'+t[0]+'" title="'+esc(t[1])+'">{'+t[0]+"}</button>").join("")+"</div></div>"
+  +'<div class="actions"><button class="primary" type="button" data-ausave="'+k+'">Save</button><button type="button" data-aureset="'+k+'"'+(K.changed||AT.dirty[k]?"":" disabled")+'>Default wording</button></div><div id="auEdMsg"></div></div>'
+  +'<div class="au-pv"><span class="at-l">Preview</span><div class="at-card"><b id="auPT"></b><pre id="auPB"></pre></div><p class="hint" style="margin:0">With sample values. <b>{ZFW:9}</b> sets a value to the right in 9 characters; <b>[[ TERMINAL {TERMINAL}]]</b> is left out when a field in it is empty.</p>'
+  +'<a class="lk" href="'+(gate?"#gates":"#sent")+'">'+(gate?"Gates sent ›":"AOC messages sent ›")+"</a></div></div>"}
+function auUi(){const el=$("#auList");if(!el)return;const v=ST.saved;
+ if(!v||!AT.v){el.innerHTML=AT.err||ST.err?'<div class="msg err" style="margin:16px 20px">'+esc(AT.err||ST.err)+"</div>":'<p class="empty" style="padding:16px 20px">Loading…</p>';return}
+ el.innerHTML=AU_K.map(([k,sw,name,sub])=>{const on=auOn(v,sw),open=AT.open===k;
+  return '<div class="au-r'+(open?" open":"")+'" data-auk="'+k+'"><div class="au-h"><label class="au-sw"><input type="checkbox" role="switch" data-ausw="'+sw+'"'+(on?" checked":"")+"><span><b>"+esc(name)+"</b><small>"+esc(sub)+(k==="gate"&&on?" · "+(v.lead||30)+" min before landing":"")+"</small></span></label>"
+   +'<span class="bdg '+(on?"on":"off")+'">'+(on?"On":"Off")+'</span><span class="au-last">'+esc(auLast((AT.v.last||{})[k]))+'</span><button type="button" class="lnk" data-aued="'+k+'" aria-expanded="'+open+'">'+(open?"Close":"Edit")+"</button></div>"
+   +(open?auEdHtml(k):"")+"</div>"}).join("");
+ if(AT.open)auPrev(AT.open)}
+function auPrev(k){const K=auKind(k);if(!K)return;if(K.preview&&!AT.dirty[k]){$("#auPT").textContent=K.preview.title;$("#auPB").textContent=K.preview.body;$("#auPB").classList.remove("err");return}
+ clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(AT.open!==k)return;$("#auPT").textContent=r.title;$("#auPB").textContent=r.body;$("#auPB").classList.remove("err")}
+  catch(e){if(AT.open!==k)return;$("#auPB").textContent=e.message;$("#auPB").classList.add("err")}},350)}
+/* on and off, and the arrival gate's timing: saved with the gate plan as last saved */
+async function auPlan(patch){const v=ST.saved,b={on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",...patch,apts:v.apts||{}};
+ const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});ST.saved=stClone(j.plan);if(!ST.dirty)ST.plan=stClone(j.plan);opsDrop("stands");stStateUi();return j.plan}
+document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||t.dataset.ausw==null)return;if(!ST.saved){t.checked=!t.checked;return}
+ const sw=t.dataset.ausw,on=t.checked,name=AU_K.find(x=>x[1]===sw)[2];t.disabled=true;
+ try{await auPlan({[sw]:on});auUi();auTop(name+(on?" is on.":" is off: it is not sent."),true)}catch(er){t.checked=!on;t.disabled=false;auTop(er.message)}});
+document.addEventListener("input",e=>{const t=e.target;if(!t.dataset||!t.dataset.atf||!AT.open||!t.closest("#auto"))return;const k=AT.open;AT.ed[k][t.dataset.atf]=t.value;
+ if(!AT.dirty[k]){AT.dirty[k]=1;const r=$('[data-aureset="'+k+'"]');if(r)r.disabled=false}auSay("");auPrev(k)});
 document.addEventListener("focusin",e=>{const t=e.target;if(t&&t.dataset&&t.dataset.atf)AT.foc=t.dataset.atf});
-document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-atk],[data-attk],#atSave,#atReset");if(!t||t.disabled)return;
- if(t.dataset.atk){AT.k=t.dataset.atk;AT.foc=null;atSay("");atUi();return}
- if(t.dataset.attk){const K=atK(),f=AT.foc&&K.fields.some(x=>x[0]===AT.foc)?AT.foc:(K.fields.find(x=>x[2]>1)||K.fields[0])[0],el=document.querySelector('[data-atf="'+f+'"]');if(!el)return;
-  const a=el.selectionStart==null?el.value.length:el.selectionStart,b=el.selectionEnd==null?a:el.selectionEnd,ins="{"+t.dataset.attk+"}";el.value=el.value.slice(0,a)+ins+el.value.slice(b);el.focus();el.setSelectionRange(a+ins.length,a+ins.length);
+document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.dataset&&d.dataset.aumore)AT.more[d.dataset.aumore]=d.open},true);
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#auto [data-aued],#auto [data-attk],#auto [data-ausave],#auto [data-aureset]");if(!t||t.disabled)return;const d=t.dataset;
+ if(d.aued){const k=d.aued;if(AT.open&&AT.dirty[AT.open]){if(!confirm("Discard the changes to the wording of “"+auKind(AT.open).name+"”?"))return;AT.ed[AT.open]={...AT.v.tpl[AT.open]};delete AT.dirty[AT.open]}
+  AT.open=AT.open===k?"":k;AT.foc=null;auTop("");auUi();if(AT.open){const r=$('[data-auk="'+k+'"]');if(r)r.scrollIntoView({block:"nearest",behavior:"smooth"})}return}
+ const k=AT.open,K=auKind(k);if(!K)return;
+ if(d.attk){const f=AT.foc&&K.fields.some(x=>x[0]===AT.foc)?AT.foc:(K.fields.find(x=>x[2]>1)||K.fields[0])[0],el=document.querySelector('#auto [data-atf="'+f+'"]');if(!el)return;
+  const a=el.selectionStart==null?el.value.length:el.selectionStart,b=el.selectionEnd==null?a:el.selectionEnd,ins="{"+d.attk+"}";el.value=el.value.slice(0,a)+ins+el.value.slice(b);el.focus();el.setSelectionRange(a+ins.length,a+ins.length);
   el.dispatchEvent(new Event("input",{bubbles:true}));return}
- const K=atK(),reset=t.id==="atReset";if(reset&&!confirm("Put the original wording of “"+K.name+"” back?"))return;
- AT.busy=true;atUi();try{const r=await api("/admin/api/aoctpl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(reset?{kind:K.k,reset:true}:{kind:K.k,fields:AT.ed[K.k]})});
-  AT.ed[K.k]={...r.fields};K.changed=r.changed;K.preview=r.preview;delete AT.dirty[K.k];atSay(reset?"The original wording is back.":"Saved. “"+K.name+"” is sent with this wording from now on.",true)}
- catch(er){atSay(er.message)}AT.busy=false;atUi()});
-{const _g=PG_LOAD.gates;PG_LOAD.gates=function(){if(_g)_g.apply(this,arguments);atLoad()}}
+ if(d.aureset){if(!confirm("Put the original wording of “"+K.name+"” back?"))return;t.disabled=true;
+  try{const r=await api("/admin/api/aoctpl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,reset:true})});AT.ed[k]={...r.fields};AT.v.tpl[k]={...r.fields};K.changed=r.changed;K.preview=r.preview;delete AT.dirty[k];auUi();auSay("The original wording is back.",true)}
+  catch(er){t.disabled=false;auSay(er.message)}return}
+ if(d.ausave){t.disabled=true;const done=[];
+  try{if(k==="gate"){const lead=Math.round(+$("#auLead").value),miss=$("#auMiss").value;if(!(lead>=10&&lead<=90))throw new Error("Send between 10 and 90 minutes before landing");
+    if(lead!==(ST.saved.lead||30)||miss!==(ST.saved.miss||"skip")){await auPlan({lead,miss});done.push("timing")}}
+   if(AT.dirty[k]){const r=await api("/admin/api/aoctpl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});AT.ed[k]={...r.fields};AT.v.tpl[k]={...r.fields};K.changed=r.changed;K.preview=r.preview;delete AT.dirty[k];done.push("wording")}
+   auUi();auSay(done.length?"Saved. “"+K.name+"” is sent with this "+done.join(" and ")+" from now on.":"Nothing was changed.",true)}
+  catch(er){t.disabled=false;auSay(er.message)}}});
+window.addEventListener("beforeunload",e=>{if(Object.keys(AT.dirty).length){e.preventDefault();e.returnValue=""}});
+PG_LOAD.auto=()=>{auUi();stLoad();atLoad()};
 
 /* on a phone the section tabs scroll: keep the open one in view */
 const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);

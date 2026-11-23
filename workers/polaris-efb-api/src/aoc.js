@@ -120,9 +120,9 @@ export async function hoppiePeek(req, env, h, sess) {
 
 /* keep an AOC message and tell its pilots' devices (staff on /admin, or the automatic stand assignment, see stands.js) */
 /* notify(to, cat, payload): how to push it (the crew object passes its own outbox; by default a call to the object) */
-export async function aocSend(env, { title, body, to, push, by }, notify) {
+export async function aocSend(env, { title, body, to, push, by, auto }, notify) {
   const kv = env.STORE;
-  const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '' };
+  const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '', ...(auto ? { auto: String(auto).slice(0, 8) } : {}) };
   await writeIndex(kv, [m, ...(await readIndex(kv))]);
   if (push !== false) {
     const payload = { title: 'AOC · ' + m.title, body: m.body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
@@ -130,6 +130,19 @@ export async function aocSend(env, { title, body, to, push, by }, notify) {
     try { if (notify) await notify(mailTo(m), 'mail', payload); else await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
   }
   return m;
+}
+
+/* the last automatic message of each kind (Automatic messages page): { kind: { t, cs } }. Messages sent before they
+   carried their kind (auto) are told apart by their title (titles: { kind: [titles] }) */
+export async function aocAutoLast(env, titles) {
+  const kv = env && env.STORE; if (!kv) return {};
+  const out = {}, T = Object.entries(titles || {});
+  for (const m of await readIndex(kv)) {
+    if (m.by !== 'AUTO') continue;
+    const k = m.auto || (T.find(([, L]) => L.includes(m.title)) || [])[0];
+    if (k && (!out[k] || out[k].t < m.t)) out[k] = { t: m.t, cs: (m.to && m.to.cs) || '' };
+  }
+  return out;
 }
 
 /* ---- /admin, Messages tab (sent as AOC) ---- */

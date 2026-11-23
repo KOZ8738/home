@@ -22,6 +22,7 @@ import { aocTplAdmin } from './aoctpl.js';
 import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 import { tasksAdmin } from './tasks.js';
+import { taskMailReady } from './taskmail.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -136,7 +137,7 @@ function cleanSettings(b) {
 const ROLES = 'admin:v1:roles';
 export const ROLE_PAGES = ['fw', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
 export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings', 'tasks'];
-const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change settings', tasks: 'publish tasks' };
+const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change automatic messages or the message templates', tasks: 'publish tasks' };
 /* the role there was before roles could be edited, kept until an administrator changes or deletes it */
 const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
@@ -170,7 +171,7 @@ export async function taskStaff(env) {
   for (const [e, p] of Object.entries(R.people)) if (p && (p.role === 'admin' || own(R.roles, p.role))) ppl[e] = p.role;
   return { ppl, names: { admin: 'Administrator', ...Object.fromEntries(Object.entries(R.roles).map(([id, r]) => [id, (r && r.name) || id])) } };
 }
-const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Settings' };
+const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Automatic messages' };
 /* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
    (also opened from Flight Watch) needs the From names and templates; the pilot list picks recipients (Messages,
    Calendar) and shows who confirmed a document; a pilot's profile shows their flight and recent flights.
@@ -213,13 +214,30 @@ function roleNeeds(method, path) {
   if (path === '/admin/api/tasks') return 'task';   /* checked in tasks.js: publishers, and a department's own people */
   return 'admin';
 }
+/* when each person last opened the admin (Settings › People): kept in KV admin:v1:seen { email: ms }, written at
+   most every half hour a person */
+const SEEN = 'admin:v1:seen';
+let SEEN_MEM = { at: 0, v: null };
+async function readSeen(kv) {
+  if (SEEN_MEM.v && Date.now() - SEEN_MEM.at < 60_000) return SEEN_MEM.v;
+  let v = null; try { v = await kv.get(SEEN, 'json'); } catch (e) { v = null; }
+  SEEN_MEM = { at: Date.now(), v: v && typeof v === 'object' ? v : {} }; return SEEN_MEM.v;
+}
+async function markSeen(kv, who) {
+  if (!kv || !who || who === 'unknown') return;
+  try {
+    const v = await readSeen(kv), now = Date.now(); if (now - (v[who] || 0) < 30 * 60_000) return;
+    v[who] = now; for (const [e, t] of Object.entries(v)) if (now - t > 400 * 86400_000) delete v[e];
+    await kv.put(SEEN, JSON.stringify(v));
+  } catch (e) { /* only a convenience */ }
+}
 const lineR = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
-async function rolesApi(req, kv, who) {
-  const R = await readRoles(kv);
+async function rolesApi(req, kv, who, env) {
+  const R = await readRoles(kv), seen = await readSeen(kv);
   const list = () => {
     const n = {}; for (const p of Object.values(R.people)) n[p.role] = (n[p.role] || 0) + 1;
-    return { on: Object.keys(R.people).length > 0, me: who,
-      people: Object.entries(R.people).filter(([, p]) => p.role === 'admin' || own(R.roles, p.role)).map(([email, p]) => ({ email, role: p.role, by: p.by || '', at: p.at || 0 }))
+    return { on: Object.keys(R.people).length > 0, me: who, mail: { ready: taskMailReady(env), from: String((env && env.MAIL_FROM) || '') },
+      people: Object.entries(R.people).filter(([, p]) => p.role === 'admin' || own(R.roles, p.role)).map(([email, p]) => ({ email, role: p.role, by: p.by || '', at: p.at || 0, seen: seen[email] || 0 }))
         .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : b.role === 'admin' ? 1 : roleName(R, a.role).localeCompare(roleName(R, b.role)))),
       roles: [{ id: 'admin', name: 'Administrator', builtin: true, ...permsOf(R, 'admin'), n: n.admin || 0 },
         ...Object.entries(R.roles).map(([id, r]) => ({ id, name: r.name, builtin: false, ...permsOf(R, id), n: n[id] || 0, by: r.by || '', at: r.at || 0 })).sort((a, b) => a.name.localeCompare(b.name))] };
@@ -277,7 +295,7 @@ export async function mailAdmin(req, url, env, opts) {
   if (env && env.STORE && path !== '/admin/signin') {
     RR = await readRoles(env.STORE); role = roleOf(RR, who);
     if (!role) {
-      const msg = 'Your email (' + who + ') has no role in this admin yet. Ask a Polaris administrator to add you under Settings \u203a Roles.';
+      const msg = 'Your email (' + who + ') has no role in this admin yet. Ask a Polaris administrator to add you under Settings \u203a People.';
       if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>Not given a role.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
       return jsonRes({ error: msg }, 403);
     }
@@ -298,6 +316,7 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* the EFB's Admin app shows this page inside the EFB (koz8738.com); no other site may frame it */
   if (path === '/admin') {
+    if (env && env.STORE) await markSeen(env.STORE, who);
     /* the role, already applied: nothing shows, and nothing is asked for, that it does not see */
     const me = { email: who, role, roleName: RR ? roleName(RR, role) : 'Administrator', roles: !!RR && Object.keys(RR.people).length > 0, pages: perm.pages, can: perm.can };
     const cls = permClass(perm), js = JSON.stringify(me).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
@@ -364,8 +383,8 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/navdata' || path.startsWith('/admin/api/navdata/')) return opts && opts.navdata ? opts.navdata(req, path, who) : jsonRes({ error: 'Not available' }, 503);
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
-    if (path === '/admin/api/me') { const R = await readRoles(kv), P = permsOf(R, role); return jsonRes({ email: who, role, roleName: roleName(R, role), roles: Object.keys(R.people).length > 0, pages: P.pages, can: P.can }); }
-    if (path === '/admin/api/roles') return await rolesApi(req, kv, who);
+    if (path === '/admin/api/me') { await markSeen(kv, who); const R = await readRoles(kv), P = permsOf(R, role); return jsonRes({ email: who, role, roleName: roleName(R, role), roles: Object.keys(R.people).length > 0, pages: P.pages, can: P.can }); }
+    if (path === '/admin/api/roles') return await rolesApi(req, kv, who, env);
     /* Settings page: From names and AOC templates (written only when staff press Save) */
     if (path === '/admin/api/settings' && req.method === 'GET') return jsonRes({ settings: await readSettings(kv) });
     if (path === '/admin/api/settings' && req.method === 'POST') {

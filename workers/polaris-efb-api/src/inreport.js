@@ -57,5 +57,5 @@ export async function inReport(env, r, deps) {
     aocTpl(env).catch(() => null),
   ]);
   const vars = inVars(r, { gate: g && g.stand, term: g && g.term, metar });
-  return aocSend(env, { ...aocMsg(T, 'inr', vars), to: crewOf(r), push: true, by: 'AUTO' });
+  return aocSend(env, { ...aocMsg(T, 'inr', vars), to: crewOf(r), push: true, by: 'AUTO', auto: 'inr' });
 }

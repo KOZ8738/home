@@ -115,7 +115,7 @@ export async function sigRouteWatch(env, live, deps, now = Date.now()) {
     if (!hits.length) continue;
     const use = hits.slice(0, PER_FLIGHT - rec.ids.length);
     try {
-      const m = await aocSend(env, { ...sigMsg(f, use, now, await aocTpl(env).catch(() => null)), to: crewOf(f), push: true, by: 'AUTO' });
+      const m = await aocSend(env, { ...sigMsg(f, use, now, await aocTpl(env).catch(() => null)), to: crewOf(f), push: true, by: 'AUTO', auto: 'sig' });
       sent[k] = { t: now, ids: [...rec.ids, ...use.map((h) => sigId(h.s))] }; out.push({ k, aoc: m.id, ids: sent[k].ids });
     } catch (e) { console.warn('[sigroute]', e && e.message); }
   }

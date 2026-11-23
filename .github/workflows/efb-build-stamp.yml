@@ -1,0 +1,49 @@
+# Keeps the EFB's build stamp in step with its script.
+# Open EFBs (above all the iPad home-screen app) find a new version only by comparing
+# <meta name="efb-build" content="MMDD.HHMM"> in efb/index.html with their own. When a deploy changes the script
+# (app-MMDD.HHMM.js) but not the stamp, they never notice and keep running the old build until fully closed.
+# On every push that touches efb/index.html, this sets the stamp (and the preload link) to the script's MMDD.HHMM,
+# commits that, and asks GitHub Pages to publish again.
+name: EFB build stamp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'efb/index.html'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: efb-build-stamp
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Match the stamp to the script
+        id: fix
+        run: |
+          f=efb/index.html
+          app=$(grep -o '<script src="app-[0-9]\{4\}\.[0-9]\{4\}\.js"' "$f" | head -1 | grep -o '[0-9]\{4\}\.[0-9]\{4\}')
+          meta=$(grep -o '<meta name="efb-build" content="[^"]*"' "$f" | head -1 | sed 's/.*content="//;s/"$//')
+          echo "script $app, stamp $meta"
+          if [ -z "$app" ]; then echo "::warning::No app-MMDD.HHMM.js script in $f"; exit 0; fi
+          if [ ! -f "efb/app-$app.js" ]; then echo "::error::efb/index.html loads app-$app.js, which is not in efb/"; exit 1; fi
+          sed -i "s|<meta name=\"efb-build\" content=\"[^\"]*\"|<meta name=\"efb-build\" content=\"$app\"|; s|<link rel=\"preload\" href=\"app-[0-9.]*\.js\"|<link rel=\"preload\" href=\"app-$app.js\"|" "$f"
+          if git diff --quiet; then echo "Stamp already $app"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git commit -am "EFB build stamp $app (follows app-$app.js, so open EFBs reload onto it)"
+          for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 5; done
+          echo "pushed=1" >> "$GITHUB_OUTPUT"
+      - name: Publish again
+        if: steps.fix.outputs.pushed == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "::notice::Pages will publish with the next push"

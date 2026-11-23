@@ -118,7 +118,7 @@ npm run build
 EFB 的主程式放在 `efb/app-MMDD.HHMM.js`，每次改版都會用新的檔名，這樣瀏覽器一定會抓到新版。
 
 改版時：
-1. `efb/index.html` 裡有三處要一起改：`<link rel="preload" href="app-….js">` 和 `<script src="app-….js">` 改成新檔名，`<meta name="efb-build" content="…">` 改成新的版本號（檔名中間那段，例如 `1121.1108`）。版本號沒改的話，已經開著的 EFB 不會自動重新載入新版。
+1. `efb/index.html` 裡有三處要一起改：`<link rel="preload" href="app-….js">` 和 `<script src="app-….js">` 改成新檔名，`<meta name="efb-build" content="…">` 改成新的版本號（檔名中間那段，例如 `1121.1108`）。版本號沒改的話，已經開著的 EFB 不會自動重新載入新版。（GitHub Actions 的 `efb-build-stamp.yml` 會在每次推送 `efb/index.html` 後自動把版本號和 preload 對齊 `<script src>` 的檔名，忘了改也會補上，但仍建議一起改。）
 2. 上一版的檔案先留著，因為瀏覽器或 CDN 可能還快取著指向舊檔名的 `index.html`。
 3. 同時把上上一版以前的檔案刪掉。`efb/` 裡最多只放「目前版」和「上一版」兩個 `app-*.js`。
 

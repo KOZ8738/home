@@ -59,7 +59,7 @@ class Cloud {
       this.key = key; this.kid = String(j.kid || ''); this.auto = j.auto !== false; if (Array.isArray(j.cal)) this.cal = [j.cal[0] === -1 ? -1 : 1, j.cal[1] === -1 ? -1 : 1];
       if (!this.fixed && okServer(j.server)) this.server = j.server;
       this.o.log('Sends to your iPad by itself when no EFB is open on this PC (set on the EFB, Ground › Simulator PC).');
-      this.start();
+      this.start(); this.o.paired();
     } catch (e) { /* not paired */ }
   }
   async save() {

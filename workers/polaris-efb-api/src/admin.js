@@ -388,6 +388,7 @@ main#tasks{display:block;max-width:1380px}main#tasks[hidden]{display:none!import
 .tk-top{margin-bottom:16px}
 .tk-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px 16px;flex-wrap:wrap}.tk-h h2{margin-bottom:4px}
 .tk-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.tk-tools select{width:auto;min-width:190px;padding:7px 10px}
+.tk-mail{margin-top:6px;font-size:12.5px;color:var(--label)}.tk-mail label{display:inline-flex;gap:6px;align-items:center;cursor:pointer;margin:0;font-weight:400;color:var(--ink)}.tk-mail input{width:auto;margin:0}.tk-mail small{color:var(--off)}
 html.no-a-tasks [data-tknew]{display:none!important}
 .tk-form{margin-top:16px;border-top:1px solid var(--line)}.tk-form textarea{min-height:110px}.tk-form label small{font-weight:400;color:var(--off)}
 .tk-f2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px}
@@ -740,7 +741,7 @@ main#settings>#rlCard{grid-column:1/-1}
 </main>
 <main id="tasks" hidden>
 <section class="tk-top">
- <div class="tk-h"><div><h2>Tasks</h2><p class="hint" id="tkSub" style="margin:0"></p></div>
+ <div class="tk-h"><div><h2>Tasks</h2><p class="hint" id="tkSub" style="margin:0"></p><div class="tk-mail" id="tkMail"></div></div>
  <div class="tk-tools"><select id="tkDept" aria-label="Department" hidden></select><div class="ib-seg" role="group" aria-label="Whose tasks"><button type="button" data-tkmine="0" aria-pressed="true">Everyone</button><button type="button" data-tkmine="1" aria-pressed="false">Mine</button></div><button class="primary" type="button" data-tknew>New task</button></div></div>
  <div id="tkMsg"></div>
  <div class="tk-form" id="tkForm" hidden></div>
@@ -1729,7 +1730,7 @@ PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
 /* ---------- Tasks (Nov 2026): published to a department (a role) by an administrator, or a role with "Publish tasks",
    and worked on by that department's people: start, finish, take or pass on, add notes. The server keeps a member to
    their own department's tasks (tasks.js). TK.list: open tasks, and those finished in the last 14 days. ---------- */
-const TK={list:null,depts:[],people:[],me:"",role:"",pub:false,err:"",dept:"",mine:false,sel:"",det:null,form:null,busy:false,say:null};
+const TK={list:null,depts:[],people:[],me:"",role:"",pub:false,err:"",dept:"",mine:false,sel:"",det:null,form:null,busy:false,say:null,mail:null};
 const TK_ST=[["todo","To do"],["doing","In progress"],["done","Done"]],TK_PRI=["Normal","High","Urgent"];
 const tkName=e=>e?String(e).split("@")[0]:"";
 const tkInit=e=>tkName(e).replace(/[^a-z0-9]/gi,"").slice(0,2).toUpperCase()||"?";
@@ -1739,7 +1740,7 @@ const tkLate=(t,now)=>t.state!=="done"&&!!t.due&&t.due<now;
 /* for me: on me, or nobody's yet in my department */
 const tkMineOf=t=>t.state!=="done"&&(t.who===TK.me||(!t.who&&t.dept===TK.role));
 async function tkLoad(){if(document.querySelector(".deny"))return;
- try{const j=await api("/admin/api/tasks");TK.list=j.tasks||[];TK.depts=j.depts||[];TK.people=j.people||[];TK.me=j.me||"";TK.role=j.role||"";TK.pub=!!j.pub;TK.err=""}
+ try{const j=await api("/admin/api/tasks");TK.list=j.tasks||[];TK.depts=j.depts||[];TK.people=j.people||[];TK.me=j.me||"";TK.role=j.role||"";TK.pub=!!j.pub;TK.mail=j.mail||null;TK.err=""}
  catch(e){TK.err=e.message}
  tkCount();if(pgNow==="tasks")tkUi(1);if(pgNow==="home")hmUi()}
 function tkCount(){const n=(TK.list||[]).filter(tkMineOf).length,b=$("#tkCount");if(b){b.hidden=!n;b.textContent=n}}
@@ -1752,6 +1753,8 @@ function tkUi(bg){if(!$("#tkBoard"))return;tkToolsUi();tkBoardUi();if(!bg||!tkBu
 function tkToolsUi(){const sel=$("#tkDept");sel.hidden=!TK.pub;
  if(TK.pub){if(TK.dept&&!TK.depts.some(d=>d.id===TK.dept))TK.dept="";sel.innerHTML='<option value="">All departments</option>'+TK.depts.map(d=>'<option value="'+esc(d.id)+'"'+(d.id===TK.dept?" selected":"")+">"+esc(d.name)+"</option>").join("")}
  document.querySelectorAll("[data-tkmine]").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.tkmine==="1")===TK.mine)));
+ /* task emails (taskmail.js): each person turns them off for themselves */
+ {const M=TK.mail,el=$("#tkMail");if(el)el.innerHTML=!M?"":'<label title="When a task is published or passed to you (or to your department while nobody is on it), when one you published is done, and a day before one of yours is due"><input type="checkbox" data-tkmail'+(M.on?" checked":"")+(M.ready?"":" disabled")+"> Email me about my tasks</label>"+(M.ready?(M.on?"<small> · to "+esc(TK.me)+"</small>":""):"<small> · email isn’t set up on the server yet</small>")}
  $("#tkSub").textContent=!TK.list?"":TK.pub?"Publish tasks to a department; its people start them, finish them and add notes.":TK.depts[0]?"The tasks for "+TK.depts[0].name+": start one, finish it, or pass it to someone else in the department.":""}
 function tkCard(t,now){const late=tkLate(t,now);
  return '<button type="button" class="tk-c p'+t.pri+(t.state==="done"?" done":"")+(t.id===TK.sel?" sel":"")+'" data-tk="'+esc(t.id)+'"><span class="t">'+esc(t.title)+'</span><span class="tk-m">'
@@ -1831,6 +1834,9 @@ document.addEventListener("change",e=>{const t=e.target;
  if(t.id==="tkDept"){TK.dept=t.value;tkUi();return}
  if(t.id==="tkFDept"){tkFormRead();TK.form.who="";tkFormUi();return}
  if(t.id==="tkWho"){const k=TK.det&&TK.det.task;if(k)tkPost({op:"who",id:k.id,who:t.value},t)}});
+document.addEventListener("change",async e=>{const c=e.target;if(!c||!c.matches||!c.matches("[data-tkmail]"))return;
+ try{const j=await api("/admin/api/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({op:"mail",on:c.checked})});TK.mail=Object.assign(TK.mail||{},j.mail||{});tkSay(c.checked?"You get task emails again.":"No more task emails for you.",true)}
+ catch(er){c.checked=!c.checked;tkSay(er.message,false)}tkUi()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&pgNow==="tasks"&&TK.sel&&!(e.target.closest&&e.target.closest("input,textarea,select"))){TK.sel="";TK.det=null;tkUi()}});
 PG_LOAD.tasks=()=>{tkUi();tkLoad().then(()=>{if(TK.sel&&(!TK.det||TK.det.task.id!==TK.sel))tkOpen(TK.sel)})};PG_TICK.tasks=[tkTick,30000];
 /* the count beside Tasks in the menu, while another page is open (Home asks for the tasks itself) */

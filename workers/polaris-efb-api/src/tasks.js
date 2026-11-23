@@ -10,7 +10,9 @@
            state (todo | doing | done), started, done (ms)
      ev    what happened to a task: id, t, by, k (made | edit | dept | who | state | note), v
    A finished task goes 90 days after it was finished. The Worker decides who may do what (roles live in KV, see
-   mail.js); it tells the object which department a member is in (only) and who is in which department (ppl). */
+   mail.js); it tells the object which department a member is in (only) and who is in which department (ppl).
+   The Worker also emails the people a change concerns (taskmail.js); rem marks a task whose due-soon email went. */
+import { taskMailReady, mailOffList, setMailOff, taskMail, taskSend, taskNotices } from './taskmail.js';
 
 const DAY = 86_400_000, KEEP = 90 * DAY, SHOW_DONE = 14 * DAY, MAX = 2000, TITLE_MAX = 120, BODY_MAX = 4000, NOTE_MAX = 2000;
 export const TASK_STATES = ['todo', 'doing', 'done'];
@@ -33,6 +35,8 @@ export class Taskboard {
     this.sql.exec('CREATE INDEX IF NOT EXISTS task_dept ON task (dept)');
     this.sql.exec('CREATE INDEX IF NOT EXISTS task_state ON task (state, done)');
     this.sql.exec('CREATE INDEX IF NOT EXISTS ev_id ON ev (id, t)');
+    /* (Nov 2026: the due-soon email) */
+    try { this.sql.exec('ALTER TABLE task ADD COLUMN rem INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* there already */ }
   }
   rows(q, ...b) { return this.sql.exec(q, ...b).toArray(); }
   one(q, ...b) { return this.rows(q, ...b)[0] || null; }
@@ -53,6 +57,7 @@ export class Taskboard {
       case 'state': return this.setState(a);
       case 'who': return this.setWho(a);
       case 'note': return this.note(a);
+      case 'due': return this.dueSoon(a);
       default: throw new TaskError(400, 'Unknown call');
     }
   }
@@ -101,8 +106,9 @@ export class Taskboard {
     const n = this.one('SELECT COUNT(*) AS n FROM task').n;
     if (n >= MAX) throw new TaskError(409, 'There are ' + MAX + ' tasks already. Delete some finished ones first');
     const f = this.fields(a, ''), id = newId();
-    this.sql.exec(`INSERT INTO task (id, t, at, by, title, body, dept, who, pri, due, state, started, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'todo', 0, 0)`,
-      id, now, now, String(a.by || ''), f.title, f.body, f.dept, f.who, f.pri, f.due);
+    /* (due within a day: the email it is published with says so, so no due-soon email besides) */
+    this.sql.exec(`INSERT INTO task (id, t, at, by, title, body, dept, who, pri, due, state, started, done, rem) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'todo', 0, 0, ?)`,
+      id, now, now, String(a.by || ''), f.title, f.body, f.dept, f.who, f.pri, f.due, f.due && f.due - now <= DAY ? 1 : 0);
     this.ev(id, a.by, 'made', '', now);
     if (f.who) this.ev(id, a.by, 'who', f.who, now);
     return { ok: true, ...this.full(id) };
@@ -111,7 +117,7 @@ export class Taskboard {
     const r = this.task(a.id), now = Date.now(), f = this.fields(a, r.dept);
     const ch = ['title', 'body', 'pri', 'due'].filter((k) => f[k] !== r[k]);
     if (!ch.length && f.dept === r.dept && f.who === r.who) return { ok: true, ...this.full(r.id) };
-    this.sql.exec('UPDATE task SET title = ?, body = ?, dept = ?, who = ?, pri = ?, due = ?, at = ? WHERE id = ?', f.title, f.body, f.dept, f.who, f.pri, f.due, now, r.id);
+    this.sql.exec('UPDATE task SET title = ?, body = ?, dept = ?, who = ?, pri = ?, due = ?, at = ?, rem = ? WHERE id = ?', f.title, f.body, f.dept, f.who, f.pri, f.due, now, f.due === r.due ? r.rem || 0 : 0, r.id);
     if (ch.length) this.ev(r.id, a.by, 'edit', ch.join(','), now);
     if (f.dept !== r.dept) this.ev(r.id, a.by, 'dept', f.dept, now);
     if (f.who !== r.who) this.ev(r.id, a.by, 'who', f.who, now);
@@ -146,6 +152,13 @@ export class Taskboard {
     this.ev(r.id, a.by, 'who', who, now);
     return { ok: true, ...this.full(r.id) };
   }
+  /* not done, due within the next day (or up to an hour ago), and not emailed about yet: those, now marked */
+  dueSoon(a) {
+    const now = Number(a.now) || Date.now(), soon = Number(a.soon) || DAY;
+    const L = this.rows(`SELECT * FROM task WHERE state != 'done' AND due > ? AND due <= ? AND rem = 0 ORDER BY due LIMIT 50`, now - 3600_000, now + soon);
+    for (const r of L) this.sql.exec('UPDATE task SET rem = 1 WHERE id = ?', r.id);
+    return { tasks: L.map((r) => this.view(r)) };
+  }
   note(a) {
     const r = this.task(a.id, a.only), text = clean(a.text, NOTE_MAX).trim();
     if (!text) throw new TaskError(400, 'Write the note first');
@@ -157,7 +170,7 @@ export class Taskboard {
 }
 
 /* ---------- Worker side: /admin/api/tasks ---------- */
-async function board(env, a) {
+export async function board(env, a) {
   if (!env || !env.TASKS) throw new TaskError(503, 'Tasks are not set up on the server yet');
   const stub = env.TASKS.get(env.TASKS.idFromName('polaris'));
   const r = await stub.fetch('https://tasks/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a) });
@@ -167,7 +180,8 @@ async function board(env, a) {
 }
 
 /* who: the staff member signed in. ctx (from mail.js): role (their role id), roleName, pub (may publish: an
-   administrator, or a role with "Publish tasks"), people ({ email: { role } }), roles ({ id: { name } }) */
+   administrator, or a role with "Publish tasks"), people ({ email: { role } }), roles ({ id: { name } }), wait (to
+   finish the emails after answering) */
 export async function tasksAdmin(req, url, env, who, ctx) {
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   try {
@@ -183,16 +197,26 @@ export async function tasksAdmin(req, url, env, who, ctx) {
       const L = await board(env, { op: 'list', only });
       return res({ ...L, depts: ctx.pub ? depts : depts.filter((d) => d.id === only),
         people: Object.entries(ppl).filter(([, r]) => ctx.pub || r === only).map(([email, role]) => ({ email, role })).sort((a, b) => a.email.localeCompare(b.email)),
-        me: who, role: ctx.role, roleName: ctx.roleName || '', pub: !!ctx.pub, now: Date.now() });
+        me: who, role: ctx.role, roleName: ctx.roleName || '', pub: !!ctx.pub, now: Date.now(),
+        mail: { ready: taskMailReady(env), on: !(await mailOffList(env)).includes(String(who || '').toLowerCase()), from: String(env.MAIL_FROM || '') } });
     }
     if (req.method !== 'POST') throw new TaskError(405, 'Method not allowed');
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new TaskError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new TaskError(400, 'Bad body'); }
     const op = String(b.op || '');
+    /* my task emails, on or off */
+    if (op === 'mail') { if (!(await setMailOff(env, who, b.on === false))) throw new TaskError(400, 'Not saved'); return res({ ok: true, mail: { ready: taskMailReady(env), on: b.on !== false } }); }
     if (['new', 'edit', 'del'].includes(op)) { if (!ctx.pub) throw new TaskError(403, 'Your role (' + (ctx.roleName || ctx.role) + ') cannot publish tasks. An administrator can change that under Settings › Roles.'); }
     else if (!['state', 'who', 'note'].includes(op)) throw new TaskError(400, 'Unknown change');
     const a = { op, by: who, only, ppl, depts: depts.map((d) => d.id) };
     for (const k of ['id', 'title', 'body', 'dept', 'who', 'pri', 'due', 'state', 'text']) if (b[k] !== undefined) a[k] = b[k];
-    return res(await board(env, a));
+    const out = await board(env, a);
+    /* the emails this change means (after the answer, when the Worker lets them finish then) */
+    if (taskMailReady(env)) {
+      const names = Object.fromEntries(depts.map((d) => [d.id, d.name])), N = taskNotices(op, out, ppl, names, who);
+      const go = Promise.all(N.map((n) => taskSend(env, n.to, taskMail(n.kind, out.task, n.dept, who), who))).catch((e) => console.warn('[task mail]', e && e.message));
+      if (N.length) { if (typeof ctx.wait === 'function') ctx.wait(go); else await go; }
+    }
+    return res(out);
   } catch (e) { return res({ error: e.message || 'Error' }, e.status || 500); }
 }

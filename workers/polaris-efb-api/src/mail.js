@@ -163,6 +163,13 @@ export async function navRecipients(env) {
   if (!people.length) return { rolesOff: true, list: [...new Set(String((env && env.ADMIN_EMAILS) || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))] };
   return { list: people.filter((e) => { const id = roleOf(R, e); return !!id && permsOf(R, id).can.includes('navdata'); }) };
 }
+/* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
+export async function taskStaff(env) {
+  const kv = env && env.STORE; if (!kv) return { ppl: {}, names: {} };
+  const R = await readRoles(kv), ppl = {};
+  for (const [e, p] of Object.entries(R.people)) if (p && (p.role === 'admin' || own(R.roles, p.role))) ppl[e] = p.role;
+  return { ppl, names: { admin: 'Administrator', ...Object.fromEntries(Object.entries(R.roles).map(([id, r]) => [id, (r && r.name) || id])) } };
+}
 const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Settings' };
 /* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
    (also opened from Flight Watch) needs the From names and templates; the pilot list picks recipients (Messages,
@@ -337,7 +344,7 @@ export async function mailAdmin(req, url, env, opts) {
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
   /* Tasks: published to a department (a role); its people work on them */
-  if (path === '/admin/api/tasks') return tasksAdmin(req, url, env, who, { role, roleName: RR ? roleName(RR, role) : 'Administrator', pub: role === 'admin' || perm.can.includes('tasks'), people: RR ? RR.people : {}, roles: RR ? RR.roles : {} });
+  if (path === '/admin/api/tasks') return tasksAdmin(req, url, env, who, { role, roleName: RR ? roleName(RR, role) : 'Administrator', pub: role === 'admin' || perm.can.includes('tasks'), people: RR ? RR.people : {}, roles: RR ? RR.roles : {}, wait: opts && opts.ctx ? (p) => opts.ctx.waitUntil(p) : null });
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
   if (path === '/admin/api/docs' || path.startsWith('/admin/api/docs/')) return docsAdmin(req, url, path, env, who, opts && opts.ctx);
   /* On-time tab: OOOI times and on-time performance (see ooo.js) */

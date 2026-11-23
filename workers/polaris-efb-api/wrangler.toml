@@ -49,7 +49,8 @@ class_name = "PfdRelay"
 name = "TASKS"
 class_name = "Taskboard"
 
-# EMAIL  the AIRAC reminder emails to the staff who may update Nav Data (src/airacmail.js), Cloudflare Email Service.
+# EMAIL  the AIRAC reminder emails to the staff who may update Nav Data (src/airacmail.js), and the task emails to the
+#        staff a task concerns (src/taskmail.js), Cloudflare Email Service.
 #        Sent from MAIL_FROM below. One-time setup in Cloudflare: koz8738.com › Email › Email Routing turned on, and, on the
 #        Workers Free plan, each staff address added and verified under Destination addresses (the binding can send
 #        only to verified addresses there; on Workers Paid with Email Sending, to anyone).

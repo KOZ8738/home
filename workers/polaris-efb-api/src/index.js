@@ -58,7 +58,9 @@ import { liveFlights } from './live.js';
 import { siteRoute, siteLive, siteEvents } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
-import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
+import { mailPublic, mailAttachment, mailAdmin, taskStaff } from './mail.js';
+import { board as taskBoard } from './tasks.js';
+import { taskDueCron } from './taskmail.js';
 import { docsPublic, docFile, docCover, docAckPublic } from './docs.js';
 import { aocPublic, aocAckPublic, hoppiePeek } from './aoc.js';
 import { standWatch, autoPlan, departureGate, arrivalGate } from './stands.js';
@@ -1572,6 +1574,8 @@ export default {
     ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
     /* every 6 hours: is each source of navigation data current (Nav Data on /admin, see navdata.js) */
     ctx.waitUntil(navCron(env, navDeps(env)));
+    /* staff tasks due within a day: an email to whoever is on them (taskmail.js) */
+    ctx.waitUntil(taskDueCron(env, taskBoard, taskStaff).catch((e) => console.warn('[task due]', e && e.message)));
   },
   async fetch(req, env, ctx) {
     /* the EFB privacy policy (linked from the "Login with vAMSYS" consent screen) */

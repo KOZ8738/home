@@ -5,7 +5,12 @@ export const ADMIN_HTML = `<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Marcellus&display=swap" rel="stylesheet">
 <script>try{const t=localStorage.getItem("pmTheme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}
 /* inside the EFB's Admin app: tell the EFB the admin opened (it shows Sign in otherwise) */
-if(window.parent!==window){document.documentElement.classList.add("in-efb");try{parent.postMessage({pmAdmin:1},"*")}catch(e){}}</script>
+if(window.parent!==window){document.documentElement.classList.add("in-efb");try{parent.postMessage({pmAdmin:1},"*")}catch(e){}
+ /* the EFB's day or night (Nov 2026): given with the address when the EFB opens the admin (&theme=) and sent again when it
+    changes, so the EFB's own top bar and the admin match; the admin's own Light/Auto/Dark buttons go while it does */
+ const efbThm=t=>{if(t!=="dark"&&t!=="light"&&t!=="auto")return;const R=document.documentElement;R.classList.add("efb-thm");if(t==="auto")delete R.dataset.theme;else R.dataset.theme=t};
+ try{efbThm(new URLSearchParams(location.search).get("theme"))}catch(e){}
+ window.addEventListener("message",e=>{if(e.source!==window.parent||!/^https:\\/\\/(www\\.)?koz8738\\.com$/.test(e.origin)||!e.data||typeof e.data.pmTheme!=="string")return;efbThm(e.data.pmTheme)})}</script>
 <style>
 :root{color-scheme:light;--teal:#1A6772;--teal-d:#124C55;--accent:#1A6772;--mist:#E3E9E9;--bronze:#A78970;--ink:#0F2A2E;--label:#51696C;--line:#D5DEDE;--bg:#FFFFFF;--soft:#F5F8F8;--field:#FFFFFF;--off:#9aa8aa;--red:#B42828;--red-l:#e6c4c4;--green:#2C7A4B;--ok-bg:#E6F0E9;--err-bg:#F6E5E5;--q-bg:#F4ECE3;--q:#8A6744}
 :root[data-theme=dark]{--logo:#8FCBD0;--logo2:#C2A88F;color-scheme:dark;--teal:#1A6772;--teal-d:#22808D;--accent:#7CC2C9;--mist:#222225;--bronze:#A78970;--ink:#E8E8E9;--label:#9C9CA1;--line:#2E2E32;--bg:#1A1A1C;--soft:#121213;--field:#222225;--off:#5C5C61;--red:#F2A3A3;--red-l:#4A2427;--green:#8FCFA6;--ok-bg:#1D2A23;--err-bg:#3A1C1E;--q-bg:#2E2A24;--q:#D9C2AD}
@@ -438,6 +443,7 @@ main#comms{max-width:1380px;grid-template-columns:minmax(0,380px) minmax(0,1fr);
 .bdg{display:inline-block;padding:0 9px;border-radius:99px;font:500 12px/1.75 Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;white-space:nowrap;background:var(--mist);color:var(--label)}
 .bdg.on{background:var(--ok-bg);color:var(--green)}.bdg.bad{background:var(--err-bg);color:var(--red)}.bdg.adm{background:var(--mist);color:var(--accent)}.bdg.role{background:var(--q-bg);color:var(--q)}
 button.lnk{border:0;background:transparent;padding:4px 6px;color:var(--accent);font-size:13.5px}button.lnk:hover{text-decoration:underline}button.lnk.warn{color:var(--red)}
+html.efb-thm header .thm{display:none!important}
 .lbl{color:var(--label)}.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13.5px}
 /* tables (Gates, Settings) */
 .gt-tw{overflow-x:auto}

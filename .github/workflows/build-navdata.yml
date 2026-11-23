@@ -1,0 +1,52 @@
+# Builds Polaris Navdata for Windows (PolarisNavdata.exe) whenever its files change on main, or by hand
+# (Actions > Build Polaris Navdata > Run workflow).
+# The .exe is kept with the run for 90 days: Actions > Build Polaris Navdata > the latest run > Artifacts >
+# PolarisNavdata-<version> (a .zip with PolarisNavdata.exe in it). Signed in to GitHub to download it.
+name: Build Polaris Navdata
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/polaris-navdata/**'
+      - '.github/workflows/build-navdata.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-navdata
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: tools/polaris-navdata
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Test (the MSFS reader, and X-Plane 12 against a stand-in for its Web API)
+        run: npm test
+      - name: Build PolarisNavdata.exe
+        run: npm run build
+      - name: Test the .exe itself
+        run: node test_xplane.js
+        env:
+          NAVDATA_EXE: dist/PolarisNavdata.exe
+      - name: Version
+        id: v
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: PolarisNavdata-${{ steps.v.outputs.v }}
+          path: tools/polaris-navdata/dist/PolarisNavdata.exe
+          if-no-files-found: error
+          retention-days: 90

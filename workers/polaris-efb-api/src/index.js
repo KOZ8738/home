@@ -61,10 +61,11 @@ import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './a
 import { mailPublic, mailAttachment, mailAdmin } from './mail.js';
 import { docsPublic, docFile, docCover, docAckPublic } from './docs.js';
 import { aocPublic, aocAckPublic, hoppiePeek } from './aoc.js';
-import { standWatch, autoPlan, departureGate } from './stands.js';
+import { standWatch, autoPlan, departureGate, arrivalGate } from './stands.js';
 import { flightWatch } from './watch.js';
 import { calPublic } from './cal.js';
 import { oooWatch } from './ooo.js';
+import { inReport } from './inreport.js';
 import { sigRouteWatch } from './sigroute.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
@@ -1057,7 +1058,8 @@ async function opsTick(env, ctx) {
   const plan = await autoPlan(env).catch(() => null), sigTick = Math.floor(Date.now() / 60_000) % 10 === 0;
   await Promise.all([
     plan ? standWatch(env, { ...d, live, plan }).catch((e) => console.warn('[stands]', e && e.message)) : null,
-    live().then((l) => oooWatch(env, l, { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [] })).catch((e) => console.warn('[ooo]', e && e.message)),
+    live().then((l) => oooWatch(env, l, { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [],
+      arrived: plan && plan.inr ? (r) => inReport(env, r, { gate: (cs, arr) => arrivalGate(env, cs, arr) }) : null })).catch((e) => console.warn('[ooo]', e && e.message)),
     sigTick && plan && plan.sig ? live().then((l) => sigRouteWatch(env, l, { sigmets: () => sigmetRoute(), on: true })).catch((e) => console.warn('[sigroute]', e && e.message)) : null,
   ]);
 }

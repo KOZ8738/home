@@ -13,11 +13,12 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 - AOC 訊息：工作人員在後台 Messages 分頁選「AOC」（或從 Live 航班卡片的 AOC 按鈕）發給全部、單一飛行員或整個機組（呼號加上機組成員，雙人機組兩位都收得到；正在飛這個呼號的 EFB 在 18 小時內也收得到），飛行員在 EFB 的 Flight › Messages 看（不能回覆）；同一頁也顯示 Hoppie ACARS 等著這個呼號的訊息（只用 type=peek 讀取，不會發送，也不會把訊息從 Hoppie 拿走，見 `src/aoc.js`）
 - 公司行事曆：後台 Calendar 分頁排行程（團體飛行、訓練、會議、公告、維護；一次或每週；給所有人、部分飛行員或某個機組；開始前推播提醒；可選是否放進 EFB）。vAMSYS Events 一起顯示，預設都放進 EFB，可隱藏或加 Polaris 備註（只讀 vAMSYS，不寫回）。EFB 日曆讀 `/api/efb/cal`（見 `src/cal.js`）
 - Flight Watch：後台 Live 分頁上方列出需要注意的航班（緊急應答機 7700/7600/7500、超過 ETA 20 分鐘還在飛、VATSIM 飛行計畫目的地和訂位不同、訂 VATSIM 卻沒連線、ACARS 位置停住、等待航線、在 SIGMET 內、落地前 2 小時目的地 IFR/LIFR 或雷雨凍雨大雪冰雹），可以一鍵看航班或發 AOC（見 `src/watch.js`）
-- 自動 AOC（後台 Auto AOC 分頁，原本的 Gates 分頁）：四個開關。到達登機門、出發登機門、最終艙單（Final Loadsheet）、航路 SIGMET；最終艙單和 SIGMET 預設開啟，兩個登機門預設關閉
+- 自動 AOC（後台 Auto AOC 分頁，原本的 Gates 分頁）：五個開關。到達登機門、出發登機門、最終艙單（Final Loadsheet）、航路 SIGMET、到達報告；最終艙單、SIGMET 和到達報告預設開啟，兩個登機門預設關閉
 - 出發登機門：飛行員在 EFB 報到（check-in）時，依登機門計畫在出發機場挑一個空的登機門，用 AOC 發給機組（`departureGate`，在 `src/stands.js`）
 - 最終艙單：飛行員報到後，EFB 把載入的 SimBrief 計畫重量送到 `/api/efb/crew/ofp`；STD 前 15 分鐘 crew Durable Object 用 AOC 發「LOADSHEET FINAL」（計畫數字加上少量變動：少幾位 no-show 或多一位候補、貨物 ±2%，絕不超過限制，並列出和 OFP 的差異；見 `src/loadsheet.js`）
 - 自動登機門（AOC）：後台 Auto AOC 分頁設定每個機場的登機門範圍（例如 `C1-C10, D5`，分國內／國際、窄體／寬體、航廈）；開啟後每 2 分鐘檢查一次 Polaris 航班，落地前 30 分鐘（可調）用 AOC 發停機位給機組，避開 VATSIM 上停著飛機的位置和前後 45 分鐘派給其他 Polaris 班機的位置（見 `src/stands.js`，cron `*/2 * * * *`）。預設關閉
 - OOOI 和準點率：同一個每 2 分鐘的 cron 記下每個 Polaris 航班的 OUT（離開停機位）、OFF（離地）、ON（落地）、IN（停妥）時間，和 vAMSYS 訂位的 STD／STA 比較（D15／A15：15 分鐘內算準點）。後台 On-time 分頁看今天、7、30、90 天的準點率、進行中的航班、已完成航班的時間表，可以替誤點航班選延誤原因（IATA 延誤代碼分組），也能下載 CSV。只在時間有變時寫入 KV（`ooo:v1:live`、`ooo:v1:log`，保留 90 天；見 `src/ooo.js`）
+- 到達報告（IN report）自動 AOC：OOOI 記到 IN（停到登機門）時，不分國內外，發給機組一則 AOC：OUT／OFF／ON／IN 時間、輪擋和空中時間、滑入分鐘、和 STA 比是否準點（±15 分鐘內算準點）、AOC 給的登機門、到達機場最新 METAR，並推播到機組裝置，落地時 EFB 沒開也收得到。每個航班一次；斷線前已落地的航班在消失 10 分鐘後補發。預設開啟，文字可在訊息範本裡改（見 `src/inreport.js`，在 `src/ooo.js` 的 `oooWatch` 呼叫）
 - 航路 SIGMET 自動 AOC：每 10 分鐘看一次在空中的 Polaris 航班，沿著飛機到目的地的大圓航線往前看 900 nm／2.5 小時，用巡航高度（VATSIM 飛行計畫，否則目前高度）推算每一點的高度（爬升約 200 ft/nm、下降 3 度），航線穿過有效的 SIGMET（不含 AIRMET）而且高度在範圍內時，用 AOC 發給機組（附 SIGMET 原文），同一班機同一個 FIR 和天氣現象只發一次，一個航班最多 3 次。預設開啟，可在後台 Auto AOC 分頁關閉（見 `src/sigroute.js`，KV `sigroute:v1:sent`）
 - 推播通知、報到（check-in）、Kneeboard 同步，以及 Backup PFD 的轉送
 

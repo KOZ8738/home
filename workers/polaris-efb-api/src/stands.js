@@ -65,8 +65,14 @@ const nmBetween = (a, b, c, d) => { const R = 3440.065, r = Math.PI / 180, x = M
 
 /* ---- storage ---- */
 /* the plan also holds the other automatic AOC switches: dep (departure gate at check-in, off unless turned on),
-   ls (final loadsheet before departure) and sig (SIGMET on the route), both on unless turned off */
-async function readPlan(kv) { const v = await kv.get(PLAN, 'json'), o = v && typeof v === 'object' ? v : {}; return { on: !!o.on, dep: o.dep === true, ls: o.ls !== false, sig: o.sig !== false, lead: o.lead || LEAD_DEF, miss: o.miss === 'ground' ? 'ground' : 'skip', apts: o.apts || {}, at: o.at || 0, by: o.by || '' }; }
+   ls (final loadsheet before departure), sig (SIGMET on the route) and inr (arrival report at the gate), on unless turned off */
+async function readPlan(kv) { const v = await kv.get(PLAN, 'json'), o = v && typeof v === 'object' ? v : {}; return { on: !!o.on, dep: o.dep === true, ls: o.ls !== false, sig: o.sig !== false, inr: o.inr !== false, lead: o.lead || LEAD_DEF, miss: o.miss === 'ground' ? 'ground' : 'skip', apts: o.apts || {}, at: o.at || 0, by: o.by || '' }; }
+/* the arrival gate AOC gave a flight in the last 12 hours: { stand, term } or null (the arrival report) */
+export async function arrivalGate(env, cs, arr, now = Date.now()) {
+  const kv = env && env.STORE; if (!kv) return null;
+  const x = (await readLog(kv)).find((r) => r.kind !== 'dep' && r.cs === cs && r.arr === arr && now - r.t < 12 * 3600_000 && r.stand);
+  return x ? { stand: x.stand, term: x.term || '' } : null;
+}
 export const autoPlan = (env) => (env && env.STORE ? readPlan(env.STORE) : Promise.resolve(null));
 async function readLog(kv) { const v = await kv.get(LOG, 'json'); return Array.isArray(v) ? v : []; }
 async function writeLog(kv, list) { const since = Date.now() - 2 * 86400_000; await kv.put(LOG, JSON.stringify(list.filter((x) => x.t > since).sort((a, b) => b.t - a.t).slice(0, 300))); }
@@ -176,7 +182,7 @@ function cleanPlan(b) {
     }
     if (R.length) apts[I] = R;
   }
-  return { on: !!b.on, dep: !!b.dep, ls: b.ls !== false, sig: b.sig !== false, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
+  return { on: !!b.on, dep: !!b.dep, ls: b.ls !== false, sig: b.sig !== false, inr: b.inr !== false, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
 }
 export async function standsAdmin(req, url, path, env, who, deps, lim) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
@@ -189,7 +195,7 @@ export async function standsAdmin(req, url, path, env, who, deps, lim) {
     /* the plan's gates are Gates, its automatic-message switches Settings: what this person's role may not change
        is kept as it is (lim, from the admin's roles) */
     if (path === '/admin/api/stands' && lim && (lim.sw || lim.apts)) { const o = await readPlan(kv);
-      if (lim.sw) b = { ...b, on: !!o.on, dep: !!o.dep, ls: o.ls !== false, sig: o.sig !== false, lead: o.lead || 30, miss: o.miss || 'skip' };
+      if (lim.sw) b = { ...b, on: !!o.on, dep: !!o.dep, ls: o.ls !== false, sig: o.sig !== false, inr: o.inr !== false, lead: o.lead || 30, miss: o.miss || 'skip' };
       if (lim.apts) b = { ...b, apts: o.apts || {} }; }
     if (path === '/admin/api/stands') { const p = { ...cleanPlan(b), at: Date.now(), by: who }; await kv.put(PLAN, JSON.stringify(p)); return jsonRes({ ok: true, plan: p }); }
     /* which stand a flight would get now (nothing is sent) */

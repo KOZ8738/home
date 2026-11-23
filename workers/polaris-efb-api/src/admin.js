@@ -834,6 +834,7 @@ main#settings>#rlCard{grid-column:1/-1}
  <label class="st-on"><input type="checkbox" id="stDep"><span><b>Departure gate</b><small>When the crew check in for the flight in the EFB: a free gate at the departure airport.</small></span></label>
  <label class="st-on"><input type="checkbox" id="stLs"><span><b>Final loadsheet</b><small>15 minutes before STD, to crews who checked in with their SimBrief plan loaded.</small></span></label>
  <label class="st-on"><input type="checkbox" id="stSig"><span><b>SIGMET on the route</b><small>In flight, when a SIGMET at the flight’s level lies within the next 900 nm. Once per FIR and hazard.</small></span></label>
+ <label class="st-on"><input type="checkbox" id="stInr"><span><b>Arrival report</b><small>At the gate after landing, every flight: OOOI times, block and air time, on time or late, the gate and the latest METAR.</small></span></label>
  </div>
  <div class="row"><div><label for="stLead">Arrival gate: send before landing</label><div class="st-lead"><input type="number" id="stLead" min="10" max="90" step="5" value="30"><span>minutes</span></div></div>
  <div><label for="stMiss">No gate rule for the flight</label><select id="stMiss"><option value="skip">Send nothing</option><option value="ground">Send “GATE: CONTACT GROUND”</option></select></div></div>
@@ -1162,8 +1163,8 @@ function stExpand(text){const out=[],bad=[];for(let p of String(text||"").toUppe
  else if(/^[A-Z0-9]{1,8}$/.test(p))out.push(p);else bad.push(p)}return {stands:[...new Set(out)],bad}}
 const stNorm=r=>String(r||"").toUpperCase().replace(/^(GATE|STAND|STAND NO.?|GATE NO.?) */,"").replace(/ /g,"").replace(/(^|[A-Z])0+([0-9])/g,"$1$2");
 /* Gates saves its gates with the switches as last saved; Settings saves its switches with the gates as last saved */
-function stPlanNow(){const v=ST.saved||{};return {on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,lead:v.lead||30,miss:v.miss||"skip",apts:ST.plan.apts}}
-function stSwNow(){return {on:$("#stOn").checked,dep:$("#stDep").checked,ls:$("#stLs").checked,sig:$("#stSig").checked,lead:+$("#stLead").value||30,miss:$("#stMiss").value,apts:(ST.saved||ST.plan||{}).apts||{}}}
+function stPlanNow(){const v=ST.saved||{};return {on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",apts:ST.plan.apts}}
+function stSwNow(){return {on:$("#stOn").checked,dep:$("#stDep").checked,ls:$("#stLs").checked,sig:$("#stSig").checked,inr:$("#stInr").checked,lead:+$("#stLead").value||30,miss:$("#stMiss").value,apts:(ST.saved||ST.plan||{}).apts||{}}}
 function stStateUi(){const v=ST.saved,el=$("#stState");if(!el||!v)return;el.innerHTML="Automatic gate messages: arrival <b>"+(v.on?"on":"off")+"</b>"+(v.on?" ("+(v.lead||30)+" min before landing)":"")+", departure <b>"+(v.dep?"on":"off")+'</b>. <a class="lk" href="#settings">Change in Settings</a>'}
 function stAptsUi(){const P=ST.plan.apts,L=[...new Set([...Object.keys(ST.apts),...Object.keys(P)])];
  $("#stApts").innerHTML=L.map(i=>{const n=(P[i]||[]).reduce((a,r)=>a+stExpand(r.stands).stands.length,0);return '<button type="button" data-sta="'+esc(i)+'" class="'+(n?"has":"")+'" aria-pressed="'+(i===ST.sel)+'" title="'+esc((ST.apts[i]||[])[3]||"")+'">'+esc(i)+(n?"<small>"+n+"</small>":"")+"</button>"}).join("")}
@@ -1192,7 +1193,7 @@ function stLogUi(){const el=$("#stLog");if(ST.err){el.innerHTML='<div class="msg
   '<div class="btns"><button type="button" data-stchg="'+esc(x.k)+'|'+x.t+'">Change</button></div><div class="meta">'+(dep?"STD ":"ETA ")+stZ(x.eta)+" · sent "+stZ(x.changed||x.t)+(dep&&!x.changed?" at check-in":"")+" · "+esc(x.ac||"")+(x.wide?" (heavy)":"")+(x.fl?" · "+(x.fl==="dom"?"domestic":"international"):"")+" · "+(x.by==="AUTO"?"automatic":(x.changed?"changed by ":"by ")+esc(String(x.by).split("@")[0]))+"</div></div>"}).join("")
   :'<span class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</span>"}
 async function stLoad(){if(!["gates","settings","fw"].some(pgHas))return;ST.err="";try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=JSON.parse(JSON.stringify(j.plan));OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=j.plan;
- if(!SE.aocDirty){$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}stStateUi();
+ if(!SE.aocDirty){$("#stOn").checked=!!j.plan.on;$("#stDep").checked=!!j.plan.dep;$("#stLs").checked=j.plan.ls!==false;$("#stSig").checked=j.plan.sig!==false;$("#stInr").checked=j.plan.inr!==false;$("#stLead").value=j.plan.lead||30;$("#stMiss").value=j.plan.miss||"skip"}stStateUi();
  if(!ST.sel){ST.sel=Object.keys(ST.plan.apts)[0]||"";if(ST.sel)stMap(ST.sel)}stAptsUi();stEdUi()}catch(e){ST.err=e.message}stLogUi()}
 /* ---------- Settings: the automatic AOC messages (saved with the gate plan), the From names and the AOC templates ---------- */
 const SE={tpl:null,dirty:false,aocDirty:false};
@@ -1216,7 +1217,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  if(b.id==="setAocSave"){if(!ST.saved){seSay("#setAocMsg","Still loading. Try again in a moment.");return}
   b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stSwNow())});
    ST.saved=JSON.parse(JSON.stringify(j.plan));if(!ST.dirty)ST.plan=j.plan;SE.aocDirty=false;opsDrop("stands");stStateUi();
-   seSay("#setAocMsg",(n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route"].filter(Boolean)),true)}
+   seSay("#setAocMsg",(n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route",j.plan.inr!==false&&"arrival report"].filter(Boolean)),true)}
   catch(er){seSay("#setAocMsg",er.message)}finally{b.disabled=false}return}});
 window.addEventListener("beforeunload",e=>{if(SE.dirty||SE.aocDirty){e.preventDefault();e.returnValue=""}});
 PG_LOAD.settings=()=>{stLoad();setLoad()};
@@ -1269,7 +1270,7 @@ document.addEventListener("input",e=>{if(e.target.id==="rlEdName"&&RL.ed)RL.ed.n
 const stDirty=()=>{ST.dirty=true;stSay("")};
 document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!(t.closest("#stands")||t.closest("#settings")))return;
  if(t.dataset.str!=null){const r=ST.plan.apts[ST.sel][+t.dataset.str];r[t.dataset.f]=t.value;stDirty();if(t.dataset.f==="stands"){const x=t.closest(".st-r").querySelector(".st-x");const e2=stExpand(t.value);x.className="st-x"+(e2.bad.length?" bad":"");x.textContent=e2.bad.length?"Cannot read: "+e2.bad.join(", "):e2.stands.length+" gates: "+e2.stands.slice(0,14).join(", ")+(e2.stands.length>14?" …":"")}stAptsUi();stTry();return}
- if(["stOn","stDep","stLs","stSig","stLead","stMiss"].includes(t.id)){SE.aocDirty=true;$("#setAocMsg").innerHTML=""}});
+ if(["stOn","stDep","stLs","stSig","stInr","stLead","stMiss"].includes(t.id)){SE.aocDirty=true;$("#setAocMsg").innerHTML=""}});
 document.addEventListener("change",e=>{const t=e.target;if(t.tagName==="SELECT"&&t.closest("#stEd")&&t.dataset.str!=null)stEdUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#stands button");if(!b)return;const P=ST.plan&&ST.plan.apts;
  if(b.dataset.sta){ST.sel=b.dataset.sta;stAptsUi();stEdUi();stMap(ST.sel);stLogUi();return}
@@ -1279,7 +1280,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  if(b.dataset.st==="clr"){if(!confirm("Remove every gate at "+ST.sel+"?"))return;delete P[ST.sel];stDirty();stAptsUi();stEdUi();return}
  if(b.dataset.strm!=null){P[ST.sel].splice(+b.dataset.strm,1);stDirty();stAptsUi();stEdUi();return}
  if(b.dataset.stup!=null){const k=+b.dataset.stup,R=P[ST.sel];[R[k-1],R[k]]=[R[k],R[k-1]];stDirty();stEdUi();return}
- if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});ST.plan=j.plan;ST.saved=JSON.parse(JSON.stringify(j.plan));ST.dirty=false;opsDrop("stands");stStateUi();stSay((n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route"].filter(Boolean)),true);stAptsUi();stEdUi()}catch(er){stSay(er.message)}finally{b.disabled=false}return}
+ if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});ST.plan=j.plan;ST.saved=JSON.parse(JSON.stringify(j.plan));ST.dirty=false;opsDrop("stands");stStateUi();stSay((n=>"Saved. "+(n.length?"On: "+n.join(", ")+".":"Nothing is sent automatically."))([j.plan.on&&"arrival gate",j.plan.dep&&"departure gate",j.plan.ls!==false&&"final loadsheet",j.plan.sig!==false&&"SIGMET on the route",j.plan.inr!==false&&"arrival report"].filter(Boolean)),true);stAptsUi();stEdUi()}catch(er){stSay(er.message)}finally{b.disabled=false}return}
  if(b.id==="stReload"){stLoad();return}
  if(b.dataset.stchg){const row=b.closest(".st-l");if(row.querySelector(".chg"))return;row.insertAdjacentHTML("beforeend",'<div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off" style="width:100px"><button type="button" class="primary" data-stsend="'+esc(b.dataset.stchg)+'">Send GATE CHANGE</button></div>');row.querySelector(".chg input").focus();return}
  if(b.dataset.stsend){const [k,t]=b.dataset.stsend.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}b.disabled=true;

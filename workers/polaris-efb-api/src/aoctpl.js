@@ -1,5 +1,5 @@
 /* ---------- The wording of the automatic AOC messages, set on /admin › Gates (Nov 2026) ----------
-   Each automatic message (gate assignment, departure gate, final loadsheet, SIGMET on the route) is written from a
+   Each automatic message (gate assignment, departure gate, final loadsheet, SIGMET on the route, arrival report) is written from a
    template staff can change. A template is plain text with fields in braces:
 
      {GATE}            the value
@@ -47,9 +47,19 @@ export const AOC_KINDS = [
     def: { title: 'SIGMET ON ROUTE', body: '{CALLSIGN} {DEP}-{ARR}[[  {CRUISE}]]', item: '\n[[{N}. ]]{SUMMARY}\n{POSITION}\n{RAW}', foot: '\nSEE THE SIGMET LAYER ON THE EFB MAP. COORDINATE ANY DEVIATION OR LEVEL CHANGE WITH ATC.' },
     sample: { CALLSIGN: 'PAW703', DEP: 'KSFO', ARR: 'KLAX', CRUISE: 'FL370', N: '', SUMMARY: 'KZLA LOS ANGELES FIR  SEV TURB  FL300-FL410  VALID 0900Z-1300Z  MOV E 20KT', FIR: 'KZLA LOS ANGELES FIR', HAZARD: 'SEV TURB', LEVELS: 'FL300-FL410',
       VALID: 'VALID 0900Z-1300Z', MOVE: 'MOV E 20KT', POSITION: 'ABOUT 140 NM AHEAD, IN ABOUT 18 MIN, NEAR N3542 W12018, YOUR LEVEL ABOUT FL370', RAW: 'KZLA SIGMET B2 VALID 220900/221300 KKCI- LOS ANGELES FIR SEV TURB FCST…' } },
+  { k: 'inr', name: 'Arrival report', when: 'At the gate after landing, with the flight’s times (inreport.js)',
+    fields: [['title', 'Title', 1], ['body', 'Message', 8]],
+    tokens: [['CALLSIGN', 'Callsign'], ['DEP', 'Departure airport'], ['ARR', 'Arrival airport'], ['DATE', 'Date, as 23NOV'],
+      ['OUT', 'Off the gate, as 0814Z'], ['OFF', 'Airborne'], ['ON', 'Landed'], ['IN', 'At the gate'], ['BLOCK', 'Block time, as 1:23'], ['AIR', 'Air time'],
+      ['TAXIOUT', 'Taxi-out minutes'], ['TAXIIN', 'Taxi-in minutes'], ['STA', 'Scheduled arrival'], ['ONTIME', 'ON TIME, or so many MIN LATE / EARLY'],
+      ['GATE', 'The gate AOC gave it'], ['TERMINAL', 'Its terminal'], ['METAR', 'The arrival airport’s latest METAR']],
+    def: { title: 'ARRIVAL REPORT', body: ['{CALLSIGN} {DEP}-{ARR}  {DATE}', '[[OUT {OUT}  ]][[OFF {OFF}  ]]ON {ON}  IN {IN}', '[[BLOCK {BLOCK}  ]][[AIR {AIR}  ]][[TAXI IN {TAXIIN} MIN]]',
+      '[[STA {STA}  {ONTIME}]]', '[[GATE {GATE}[[  TERMINAL {TERMINAL}]]]]', '[[METAR {METAR}]]', '', 'THANK YOU FOR FLYING POLARIS. HAVE A GOOD REST.'].join('\n') },
+    sample: { CALLSIGN: 'PAW703', DEP: 'KSFO', ARR: 'KLAX', DATE: '23NOV', OUT: '0931Z', OFF: '0944Z', ON: '1052Z', IN: '1101Z', BLOCK: '1:30', AIR: '1:08', TAXIOUT: '13', TAXIIN: '9',
+      STA: '1105Z', ONTIME: 'ON TIME (-4 MIN)', GATE: '52A', TERMINAL: '5', METAR: 'KLAX 231053Z 25008KT 10SM FEW020 18/12 A2996' } },
 ];
 const KIND = Object.fromEntries(AOC_KINDS.map((x) => [x.k, x]));
-const LEN = { 1: 60, 2: 300, 3: 600, 4: 800, 5: 800, 20: 3000 };
+const LEN = { 1: 60, 2: 300, 3: 600, 4: 800, 5: 800, 8: 1500, 20: 3000 };
 
 const val = (v) => String(v == null ? '' : v).replace(/[{}]/g, '').replace(/\[\[|\]\]/g, '');
 /* one line of a template with its fields filled in; null when the line is to be left out */

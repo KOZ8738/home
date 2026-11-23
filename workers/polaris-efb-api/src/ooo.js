@@ -37,12 +37,13 @@ export function oooStep(r, f, now) {
 /* the minutes late (positive) or early of a departure / arrival, when both times are known */
 export const late = (act, sched) => (act && sched ? Math.round((act - sched) / 60_000) : null);
 
-/* every 2 minutes, with the Polaris flights the Live tab sees; deps.checkins() -> [{ u, to, std, sta, fl }].
+/* every 2 minutes, with the Polaris flights the Live tab sees; deps.checkins() -> [{ u, to, std, sta, fl }];
+   deps.arrived(record), when given, is called once for each flight that reaches its gate (the arrival report).
    KV is written only when something changed (a new flight, a new time, a flight gone), never just to note "still here":
    a flight missing from the picture gets miss = the first tick it was missing, and is gone ten minutes after that. */
 export async function oooWatch(env, live, deps, now = Date.now()) {
   const kv = env && env.STORE; if (!kv || !live) return { off: true };
-  const L = await readLive(kv), here = new Set(), src = live.sources || {}; let changed = false, ci = null;
+  const L = await readLive(kv), here = new Set(), src = live.sources || {}, arrived = []; let changed = false, ci = null;
   for (const f of live.flights || []) {
     if (!f.cs || !f.arr) continue;
     const k = f.cs + ':' + (f.dep || '') + ':' + f.arr; here.add(k);
@@ -51,7 +52,9 @@ export async function oooWatch(env, live, deps, now = Date.now()) {
     if (r && r.tomb) continue;                   // finished, still on the map: not a new flight
     if (!r) { r = L[k] = { k, cs: f.cs, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '', dep: f.dep || '', arr: f.arr, ac: f.ac || '', src: f.src || '', first: now }; changed = true; }
     if (!r.pilot && f.pilot) { r.pilot = f.pilot; changed = true; }
+    const hadIn = r.in != null;
     if (oooStep(r, f, now)) changed = true;
+    if (!hadIn && r.in != null && r.on) arrived.push(r);
     /* the schedule: the flight map's booking times, else the pilot's EFB check-in (by pilot, or by callsign for a
        flight seen only on VATSIM). Looked for when the flight first shows and again when it leaves the gate, as a
        pilot may check in after connecting; both are ticks that write anyway. */
@@ -77,14 +80,17 @@ export async function oooWatch(env, live, deps, now = Date.now()) {
     const gone = !here.has(k) && r.miss && now - r.miss >= GONE_MS;
     if (r.tomb) { if (gone) { delete L[k]; changed = true; } continue; }
     if (r.in == null && !gone) continue;
-    if (r.in == null && r.on) r.in = r.still || r.miss;
+    if (r.in == null && r.on) { r.in = r.still || r.miss; arrived.push(r); }
     if (r.on) { const { schedTried, still, miss, ...keep } = r; log.push({ ...keep, done: now }); }
     if (gone) delete L[k]; else L[k] = { k, tomb: 1 };
     changed = true;
   }
   if (log.length) { const old = await readLog(kv); await kv.put(LOG, JSON.stringify([...log, ...old].filter((r) => now - (r.in || r.done) < KEEP_MS).slice(0, 2000))); }
   if (changed) await kv.put(LIVE, JSON.stringify(L));
-  return { live: Object.keys(L).length, logged: log.length };
+  /* the arrival report to each crew that reached the gate (inreport.js), after the times are kept */
+  let reports = 0;
+  if (deps && deps.arrived) for (const r of arrived) { try { if (await deps.arrived({ ...r })) reports++; } catch (e) { console.warn('[ooo arrival]', e && e.message); } }
+  return { live: Object.keys(L).length, logged: log.length, reports };
 }
 
 /* ---- /admin: Reports (on-time performance) and Flight Watch (OOOI of the flights in progress) ---- */

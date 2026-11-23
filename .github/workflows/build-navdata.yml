@@ -1,7 +1,8 @@
 # Builds Polaris Navdata for Windows (PolarisNavdata.exe) whenever its files change on main, or by hand
 # (Actions > Build Polaris Navdata > Run workflow).
-# The .exe is kept with the run for 90 days: Actions > Build Polaris Navdata > the latest run > Artifacts >
-# PolarisNavdata-<version> (a .zip with PolarisNavdata.exe in it). Signed in to GitHub to download it.
+# From main, the .exe goes on the repository's "navdata" release (replacing the one before), so
+# https://github.com/KOZ8738/home/releases/download/navdata/PolarisNavdata.exe is always the newest build: the EFB's
+# App Store links it. Each run also keeps it as an artifact for 90 days.
 name: Build Polaris Navdata
 
 on:
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-navdata
@@ -50,3 +51,18 @@ jobs:
           path: tools/polaris-navdata/dist/PolarisNavdata.exe
           if-no-files-found: error
           retention-days: 90
+      # the "navdata" tag moves to this commit; the release keeps its name, with this version in its title
+      - name: Publish to the navdata release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.v }}
+        run: |
+          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe, open it on the simulator PC and keep its window open. SIDs, STARs and approaches from MSFS or X-Plane 12; with X-Plane 12.1.1 or later also the Backup PFD, the landing rate and the block times."
+          git tag -f navdata "$GITHUB_SHA" && git push -f origin refs/tags/navdata
+          if gh release view navdata >/dev/null 2>&1; then
+            gh release edit navdata --title "Polaris Navdata $V" --notes "$notes" --latest=false
+          else
+            gh release create navdata --title "Polaris Navdata $V" --notes "$notes" --latest=false
+          fi
+          gh release upload navdata dist/PolarisNavdata.exe --clobber

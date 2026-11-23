@@ -44,6 +44,11 @@ class_name = "Kneeboard"
 name = "PFD"
 class_name = "PfdRelay"
 
+# TASKS staff tasks in the Operations admin, published to a department (src/tasks.js)
+[[durable_objects.bindings]]
+name = "TASKS"
+class_name = "Taskboard"
+
 [[migrations]]
 tag = "pm-v1"
 new_sqlite_classes = ["Mailbox"]
@@ -59,6 +64,10 @@ new_sqlite_classes = ["Kneeboard"]
 [[migrations]]
 tag = "pfd-v1"
 new_sqlite_classes = ["PfdRelay"]
+
+[[migrations]]
+tag = "tasks-v1"
+new_sqlite_classes = ["Taskboard"]
 
 [triggers]
 crons = ["*/20 * * * *", "*/2 * * * *"]   # */2: automatic stand assignment (src/stands.js)

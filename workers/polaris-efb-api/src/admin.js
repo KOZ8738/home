@@ -374,11 +374,61 @@ main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
 #hmFl,#hmUp{margin-top:8px}
 /* a role's Home (Settings › Roles): only the parts of the pages it sees; a menu heading with none of its pages goes */
 html.no-p-fw.no-p-gates.no-p-reports.no-p-navdata .sg[data-sg=ops],html.no-p-pilots.no-p-cal .sg[data-sg=crew],html.no-p-comms.no-p-docs .sg[data-sg=comm]{display:none}
-#hmNone{display:none;grid-column:1/-1}
 html.no-p-fw #hmFlS,html.no-p-cal #hmUpS,html.no-p-fw.no-p-cal .hm-col,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata .hm-act{display:none}
 html.no-p-fw.no-p-cal main#home,html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata main#home{grid-template-columns:minmax(0,1fr)}
-html.no-p-fw.no-p-reports.no-p-comms.no-p-navdata.no-p-cal #hmNone{display:block}
 @media(max-width:900px){main#home{grid-template-columns:1fr}.hm-k{justify-content:flex-start}}
+
+/* ---------- Tasks: a board per state; the open task beside it (like a pilot's profile) ---------- */
+:root{--tk-todo:#8CBDC3;--tk-doing:#1A6772}
+:root[data-theme=dark]{--tk-todo:#3D767C;--tk-doing:#7CC2C9}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--tk-todo:#3D767C;--tk-doing:#7CC2C9}}
+main#tasks{display:block;max-width:1380px}main#tasks[hidden]{display:none!important}
+.tk-top{margin-bottom:16px}
+.tk-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px 16px;flex-wrap:wrap}.tk-h h2{margin-bottom:4px}
+.tk-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.tk-tools select{width:auto;min-width:190px;padding:7px 10px}
+html.no-a-tasks [data-tknew]{display:none!important}
+.tk-form{margin-top:16px;border-top:1px solid var(--line)}.tk-form textarea{min-height:110px}.tk-form label small{font-weight:400;color:var(--off)}
+.tk-f2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px}
+.tk-body{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}.tk-body.on{grid-template-columns:minmax(0,1fr) 400px}
+.tk-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+.tk-col{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:14px 12px 6px}
+.tk-col h3{margin:0 0 10px;font:500 12px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--label);display:flex;align-items:center;gap:8px}
+.tk-col h3 i{width:9px;height:9px;border-radius:50%;background:var(--off);flex:none}.tk-col.todo h3 i{background:var(--tk-todo)}.tk-col.doing h3 i{background:var(--tk-doing)}.tk-col.done h3 i{background:var(--green)}
+.tk-col h3 b{font-weight:600;color:var(--ink);letter-spacing:0}.tk-col h3 small{margin-left:auto;font-size:11px;letter-spacing:0;text-transform:none;color:var(--off)}
+.tk-col .empty{display:block;padding:4px 2px 12px;font-size:13px}
+.tk-c{display:block;width:100%;text-align:left;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:6px;background:var(--bg);padding:10px 12px;margin:0 0 8px;font:inherit;color:var(--ink);cursor:pointer}
+.tk-c:hover{background:var(--soft)}.tk-c.p1{border-left-color:#D9930D}.tk-c.p2{border-left-color:var(--red)}.tk-c.sel{outline:2px solid var(--accent);outline-offset:-1px}
+.tk-c .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;font-size:14.5px;line-height:1.35}
+.tk-c.done .t{color:var(--label)}
+.tk-m{display:flex;gap:4px 10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px;color:var(--label)}
+.tk-dp{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--bronze)}
+.tk-p{display:inline-flex;align-items:center;gap:5px}
+.tk-av{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;font:600 9.5px/1 Jost,system-ui,sans-serif;font-style:normal;background:color-mix(in srgb,var(--accent) 16%,var(--bg));color:var(--accent);flex:none}
+.tk-late{color:var(--red);font-weight:600}
+.tk-pri{font-size:11px;font-weight:600;letter-spacing:.03em;padding:0 7px;border-radius:9px;line-height:18px}.tk-pri.p1{color:#8A5A06;background:#FBEFD6}.tk-pri.p2{color:var(--red);background:var(--err-bg)}
+:root[data-theme=dark] .tk-pri.p1{color:#E8B86A;background:#3A2E19}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .tk-pri.p1{color:#E8B86A;background:#3A2E19}}
+.tk-det{position:sticky;top:83px}.tk-det .pf-h h3{margin:2px 0 0;font:600 18px/1.3 Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;overflow-wrap:anywhere}
+.tk-st{display:flex;margin-top:14px}.tk-st button{flex:1}
+.tk-kv{display:grid;grid-template-columns:88px minmax(0,1fr);gap:9px 12px;font-size:13.5px;margin:14px 0 4px;align-items:center}.tk-kv>span{color:var(--label);font-size:12.5px}.tk-kv select{padding:6px 9px;font-size:13.5px}
+.tk-md{font-size:14px;margin-top:10px;overflow-wrap:anywhere}.tk-md p{margin:0 0 8px}.tk-md ul{margin:0 0 8px;padding-left:20px}.tk-md h4{margin:10px 0 4px;font-size:14px}
+.tk-ev{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}.tk-e{font-size:13px;color:var(--label)}.tk-e b{color:var(--ink);font-weight:600}.tk-e time{margin-left:8px;font-size:12px;color:var(--off)}
+.tk-e.note{padding:8px 10px;border-radius:6px;background:var(--soft);color:var(--ink)}.tk-e.note .tk-md{margin-top:4px;font-size:13.5px}.tk-e.note .tk-md p:last-child{margin-bottom:0}
+#tkNote{min-height:70px;font-size:14px}
+@media(max-width:1100px){.tk-body.on{grid-template-columns:1fr}.tk-det{position:static;order:-1}}
+@media(max-width:760px){.tk-board{grid-template-columns:1fr}.tk-f2{grid-template-columns:1fr 1fr}.tk-tools{width:100%}.tk-tools select{flex:1;min-width:0}}
+/* Home: what each department is doing (publishers), or the department's own tasks */
+.hm-tk{grid-column:1/-1}
+.tk-lg{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--label);margin:2px 0 4px}.tk-lg i{display:inline-block;width:10px;height:8px;border-radius:2px;margin-right:6px}
+i.doing,.hm-i.doing>i{background:var(--tk-doing)}i.todo,.hm-i.todo>i{background:var(--tk-todo)}
+.tk-dr{display:grid;grid-template-columns:minmax(130px,200px) minmax(0,1fr) minmax(0,280px);gap:6px 18px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.tk-dr:nth-child(2){border-top:0}
+.tk-dn{border:0;background:transparent;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0}.tk-dn b{display:block;font-weight:600;font-size:14.5px}.tk-dn small{color:var(--label);font-size:12px}.tk-dn:hover b{color:var(--accent)}
+.tk-bar{display:flex;gap:2px;height:8px}.tk-bar span{height:8px;min-width:6px}.tk-bar span.doing{background:var(--tk-doing)}.tk-bar span.todo{background:var(--tk-todo)}
+.tk-bar span:first-child{border-radius:4px 0 0 4px}.tk-bar span:last-child{border-radius:0 4px 4px 0}.tk-bar span:only-child{border-radius:4px}
+.tk-fig{font-size:13px;color:var(--ink);display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline}.tk-fig small{color:var(--label);font-size:12px}.tk-fig .none{color:var(--label)}
+.tk-now{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--label);align-items:baseline}
+.tk-now button{border:0;background:transparent;padding:0;font:inherit;font-weight:500;color:var(--ink);cursor:pointer;text-align:left}.tk-now button:hover{color:var(--accent);text-decoration:underline}
+@media(max-width:700px){.tk-dr{grid-template-columns:minmax(0,1fr)}.tk-now{grid-column:1}.tk-bar:empty{display:none}}
 
 /* ---------- Messages: the Inbox and what was sent, with the conversation or the composer beside ---------- */
 main#comms{max-width:1380px;grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start}
@@ -653,6 +703,7 @@ main#settings>#rlCard{grid-column:1/-1}
 <!--DENIED-->
 <nav class="side" id="side" aria-label="Sections">
 <a href="#home" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.5l8.5 6.7"/><path d="M5.8 9.6V20h12.4V9.6"/><path d="M10 20v-5.5h4V20"/></svg><span>Home</span></a>
+<a href="#tasks" data-tab="tasks"><svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M7.8 9.2l1.5 1.5 2.7-2.7M7.8 15.2l1.5 1.5 2.7-2.7M14.6 9.6h2.6M14.6 15.6h2.6"/></svg><span>Tasks</span><span class="lv-n" id="tkCount" hidden></span></a>
 <div class="sg" data-sg="ops">Operations</div>
 <a href="#fw" data-tab="fw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg><span>Flight Watch</span><span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a>
 <a href="#gates" data-tab="gates"><svg viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V8.5l6.5-4 6.5 4v12"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Gates</span></a>
@@ -671,12 +722,21 @@ main#settings>#rlCard{grid-column:1/-1}
  <div class="hm-clock"><b id="hmClock">--:--:--Z</b><span id="hmDate"></span></div>
  <div class="hm-k" id="hmK"></div>
 </section>
+<section class="hm-tk" id="hmTk"><div class="lh"><h2 id="hmTkH">Tasks</h2><a class="lk" href="#tasks">Tasks ›</a></div><div id="hmTkB"><span class="empty">Loading…</span></div></section>
 <section class="hm-act"><div class="lh"><h2>Action needed</h2><span class="hint" id="hmAt"></span></div><div id="hmAct"><span class="empty">Loading…</span></div></section>
 <div class="hm-col">
 <section id="hmFlS"><div class="lh"><h2>Flights now</h2><a class="lk" href="#fw">Flight Watch ›</a></div><div id="hmFl"><span class="empty">Loading…</span></div></section>
 <section id="hmUpS"><div class="lh"><h2>Coming up</h2><a class="lk" href="#cal">Calendar ›</a></div><div id="hmUp"><span class="empty">Loading…</span></div></section>
 </div>
-<section id="hmNone"><h2>Home</h2><p class="hint" style="margin:6px 0 0">Home shows flights, alerts, messages waiting and the calendar, none of which your role sees. Your pages are in the menu.</p></section>
+</main>
+<main id="tasks" hidden>
+<section class="tk-top">
+ <div class="tk-h"><div><h2>Tasks</h2><p class="hint" id="tkSub" style="margin:0"></p></div>
+ <div class="tk-tools"><select id="tkDept" aria-label="Department" hidden></select><div class="ib-seg" role="group" aria-label="Whose tasks"><button type="button" data-tkmine="0" aria-pressed="true">Everyone</button><button type="button" data-tkmine="1" aria-pressed="false">Mine</button></div><button class="primary" type="button" data-tknew>New task</button></div></div>
+ <div id="tkMsg"></div>
+ <div class="tk-form" id="tkForm" hidden></div>
+</section>
+<div class="tk-body" id="tkBody"><div class="tk-board" id="tkBoard"><span class="empty">Loading…</span></div><section class="tk-det" id="tkDet" hidden></section></div>
 </main>
 <main id="comms" hidden>
 <section class="cm-side">
@@ -855,8 +915,8 @@ const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"shor
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 /* ---------- pages: the sidebar's sections, one at a time (Nov 2026). Old addresses (#mail, #live, #ot, #inbox,
    #stands, #aoc) open the page that has their part now. ---------- */
-const PG={home:"home",fw:"live",gates:"stands",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
-const PG_T={home:"Home",fw:"Flight Watch",gates:"Gates",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
+const PG={home:"home",tasks:"tasks",fw:"live",gates:"stands",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
+const PG_T={home:"Home",tasks:"Tasks",fw:"Flight Watch",gates:"Gates",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
 const PG_OLD={live:"fw",stands:"gates",ot:"reports",mail:"comms",inbox:"comms",aoc:"comms"};
 const PG_LOAD={},PG_TICK={};let pgNow="",pgTimer=0,pgAsk="";
 const pgOf=()=>{const h=location.hash.slice(1);return PG[h]?h:PG_OLD[h]||"home"};
@@ -879,10 +939,10 @@ function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
    asked for only from a page the role sees (the server checks the same: READS in mail.js). ---------- */
 let ROLE="admin",PERM=null,ME_AT=0;
 const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"],["settings","Settings"]];
-const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"]];
+const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
 const pgHas=p=>!PERM||PERM.pages.has(p);
 function permSet(j){ROLE=j.role||"admin";const R=document.documentElement;
- const pg=new Set(j.pages||["home"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
+ const pg=new Set(j.pages||["home","tasks"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
  RL_PAGES.forEach(x=>R.classList.toggle("no-p-"+x[0],!pg.has(x[0])));RL_ACTS.map(x=>x[0]).concat(["roles"]).forEach(k=>R.classList.toggle("no-a-"+k,!can.has(k)));
  PERM={pages:pg,can};const w=$("#who");if(w&&j.email)w.textContent="Signed in as "+j.email+(j.roles?" · "+(j.roleName||j.role):"")}
 function permApply(j){const was=PERM?[...PERM.pages].join():"";permSet(j);if(!PERM.pages.has(pgOf())||(was&&was!==[...PERM.pages].join()))route()}
@@ -1199,7 +1259,7 @@ document.addEventListener("change",e=>{const t=e.target;if(!t.dataset)return;
  const E=RL.ed;if(!E)return;
  if(t.dataset.rlpg!=null){if(t.checked)E.pages.add(t.dataset.rlpg);else E.pages.delete(t.dataset.rlpg);return}
  /* a permission brings the page it is used on with it */
- if(t.dataset.rlact!=null){const k=t.dataset.rlact;if(t.checked){E.can.add(k);const a=RL_ACTS.find(x=>x[0]===k);if(a&&!E.pages.has(a[3])){E.pages.add(a[3]);const c=document.querySelector('[data-rlpg="'+a[3]+'"]');if(c)c.checked=true}}else E.can.delete(k)}});
+ if(t.dataset.rlact!=null){const k=t.dataset.rlact;if(t.checked){E.can.add(k);const a=RL_ACTS.find(x=>x[0]===k);if(a&&a[3]&&!E.pages.has(a[3])){E.pages.add(a[3]);const c=document.querySelector('[data-rlpg="'+a[3]+'"]');if(c)c.checked=true}}else E.can.delete(k)}});
 document.addEventListener("input",e=>{if(e.target.id==="rlEdName"&&RL.ed)RL.ed.name=e.target.value});
 {const _l=PG_LOAD.settings;PG_LOAD.settings=f=>{_l(f);rlLoad()}}
 
@@ -1595,7 +1655,7 @@ setInterval(hmClock,1000);
 /* what Home shows of each page the role sees */
 const hmNeed=()=>{const f=pgHas("fw");return [f&&"live",(f||pgHas("reports"))&&"ooo",f&&"stands",(f||pgHas("comms"))&&"aoc",pgHas("navdata")&&"nav"].filter(Boolean)};
 async function hmLoad(){const age={live:15000,ooo:30000,stands:30000,aoc:30000,nav:600000};
- await Promise.allSettled(hmNeed().map(k=>opsGet(k,age[k])).concat([ibLoad(),CA.loaded?null:caLoad()]));hmUi()}
+ await Promise.allSettled(hmNeed().map(k=>opsGet(k,age[k])).concat([ibLoad(),CA.loaded?null:caLoad(),tkLoad()]));hmUi()}
 function hmUi(){if(pgNow!=="home")return;const P=pgHas,N=hmNeed(),v=k=>N.includes(k)?opsV(k):null;
  const lv=v("live"),oo=v("ooo"),st=v("stands"),F=(lv&&lv.flights)||[],now=Date.now(),d0=hmDay0();
  const air=F.filter(f=>!hmGround(f)).length,logs=(oo&&oo.log)||[],live=((oo&&oo.live)||[]).filter(r=>!r.tomb);
@@ -1607,7 +1667,11 @@ function hmUi(){if(pgNow!=="home")return;const P=pgHas,N=hmNeed(),v=k=>N.include
  $("#hmK").innerHTML=(P("fw")?card("#fw","In the air",lv?String(air):"–",!lv?"loading…":F.length?(F.length-air)+" on the ground":"no Polaris flight now"):"")+
   (P("reports")?card("#reports","On-time departures",pc(d15,deps.length),deps.length?d15+" of "+deps.length+" today (D15)":"none today yet",fr(d15,deps.length))+
   card("#reports","On-time arrivals",pc(a15,arrs.length),arrs.length?a15+" of "+arrs.length+" today (A15)":"none today yet",fr(a15,arrs.length)):"")+
-  (P("fw")?card("#fw","Flight Watch",FW.loaded?(al.length?String(al.length):"Normal"):"–",FW.loaded?(al.length?"alert"+(al.length>1?"s":"")+" to look at":"no alerts"):"loading…",al.length?(red?"red":"mid"):FW.loaded?"good":""):"");
+  (P("fw")?card("#fw","Flight Watch",FW.loaded?(al.length?String(al.length):"Normal"):"–",FW.loaded?(al.length?"alert"+(al.length>1?"s":"")+" to look at":"no alerts"):"loading…",al.length?(red?"red":"mid"):FW.loaded?"good":""):"")+
+  (()=>{const L=TK.list||[],op=L.filter(t=>t.state!=="done"),lt=op.filter(t=>tkLate(t,now)).length;
+   return TK.pub?card("#tasks","Open tasks",TK.list?String(op.length):"–",!TK.list?"loading…":lt?lt+" overdue":"none overdue",lt?"red":"")
+    :card("#tasks","My tasks",TK.list?String(L.filter(tkMineOf).length):"–",!TK.list?"loading…":op.filter(t=>t.state==="doing").length+" in progress in "+(TK.depts[0]?esc(TK.depts[0].name):"the department"))})();
+ hmTkUi();
  /* what needs someone, the most urgent first */
  const A=[];
  al.slice().sort((a,b)=>(a.sev==="red"?0:1)-(b.sev==="red"?0:1)).forEach(a=>A.push({sev:a.sev,t:"<b>"+esc(a.cs)+"</b> "+esc(a.title),s:esc(a.detail),go:"fw:"+a.cs,l:"Flight Watch"}));
@@ -1650,6 +1714,136 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
  if(g.startsWith("aoc:")){location.hash="#comms";setTimeout(()=>{cmSeg("sent");CM.item="aoc:"+g.slice(4);CM.pane="item";cmUi();listUi()},60);return}
  if(g==="need"){OT.need=true;OT.p=7;document.querySelectorAll("[data-otp]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.otp==="7")));const n=$("#otNeed");if(n)n.setAttribute("aria-pressed","true");location.hash="#reports"}});
 PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
+/* ---------- Tasks (Nov 2026): published to a department (a role) by an administrator, or a role with "Publish tasks",
+   and worked on by that department's people: start, finish, take or pass on, add notes. The server keeps a member to
+   their own department's tasks (tasks.js). TK.list: open tasks, and those finished in the last 14 days. ---------- */
+const TK={list:null,depts:[],people:[],me:"",role:"",pub:false,err:"",dept:"",mine:false,sel:"",det:null,form:null,busy:false,say:null};
+const TK_ST=[["todo","To do"],["doing","In progress"],["done","Done"]],TK_PRI=["Normal","High","Urgent"];
+const tkName=e=>e?String(e).split("@")[0]:"";
+const tkInit=e=>tkName(e).replace(/[^a-z0-9]/gi,"").slice(0,2).toUpperCase()||"?";
+const tkDept=id=>{const d=TK.depts.find(x=>x.id===id);return d?d.name:"(role deleted)"};
+const tkZ=t=>new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})+" "+new Date(t).toISOString().slice(11,16)+"Z";
+const tkLate=(t,now)=>t.state!=="done"&&!!t.due&&t.due<now;
+/* for me: on me, or nobody's yet in my department */
+const tkMineOf=t=>t.state!=="done"&&(t.who===TK.me||(!t.who&&t.dept===TK.role));
+async function tkLoad(){if(document.querySelector(".deny"))return;
+ try{const j=await api("/admin/api/tasks");TK.list=j.tasks||[];TK.depts=j.depts||[];TK.people=j.people||[];TK.me=j.me||"";TK.role=j.role||"";TK.pub=!!j.pub;TK.err=""}
+ catch(e){TK.err=e.message}
+ tkCount();if(pgNow==="tasks")tkUi(1);if(pgNow==="home")hmUi()}
+function tkCount(){const n=(TK.list||[]).filter(tkMineOf).length,b=$("#tkCount");if(b){b.hidden=!n;b.textContent=n}}
+function tkSort(L,st){return L.slice().sort(st==="done"?(a,b)=>b.done-a.done:(a,b)=>(b.pri-a.pri)||((a.due||9e15)-(b.due||9e15))||(st==="doing"?a.started-b.started:b.t-a.t))}
+function tkMerge(t){if(!TK.list)return;const i=TK.list.findIndex(x=>x.id===t.id);if(i>=0)TK.list[i]=t;else TK.list.unshift(t);tkCount()}
+function tkSay(t,ok,d){TK.say=t?{t,ok:!!ok,d:!!d}:null}
+const tkBusyIn=()=>{const a=document.activeElement,d=$("#tkDet");return !!(a&&d&&d.contains(a)&&a.matches("textarea,select"))};
+function tkUi(bg){if(!$("#tkBoard"))return;tkToolsUi();tkBoardUi();if(!bg||!tkBusyIn())tkDetUi();
+ const S=TK.say;$("#tkMsg").innerHTML=S&&!S.d?'<div class="msg '+(S.ok?"ok":"err")+'">'+esc(S.t)+"</div>":"";const dm=$("#tkDMsg");if(dm)dm.innerHTML=S&&S.d?'<div class="msg '+(S.ok?"ok":"err")+'">'+esc(S.t)+"</div>":""}
+function tkToolsUi(){const sel=$("#tkDept");sel.hidden=!TK.pub;
+ if(TK.pub){if(TK.dept&&!TK.depts.some(d=>d.id===TK.dept))TK.dept="";sel.innerHTML='<option value="">All departments</option>'+TK.depts.map(d=>'<option value="'+esc(d.id)+'"'+(d.id===TK.dept?" selected":"")+">"+esc(d.name)+"</option>").join("")}
+ document.querySelectorAll("[data-tkmine]").forEach(b=>b.setAttribute("aria-pressed",String((b.dataset.tkmine==="1")===TK.mine)));
+ $("#tkSub").textContent=!TK.list?"":TK.pub?"Publish tasks to a department; its people start them, finish them and add notes.":TK.depts[0]?"The tasks for "+TK.depts[0].name+": start one, finish it, or pass it to someone else in the department.":""}
+function tkCard(t,now){const late=tkLate(t,now);
+ return '<button type="button" class="tk-c p'+t.pri+(t.state==="done"?" done":"")+(t.id===TK.sel?" sel":"")+'" data-tk="'+esc(t.id)+'"><span class="t">'+esc(t.title)+'</span><span class="tk-m">'
+  +(TK.pub&&!TK.dept?'<span class="tk-dp">'+esc(tkDept(t.dept))+"</span>":"")+(t.pri?'<span class="tk-pri p'+t.pri+'">'+TK_PRI[t.pri]+"</span>":"")
+  +'<span class="tk-p">'+(t.who?'<i class="tk-av">'+esc(tkInit(t.who))+"</i>"+esc(tkName(t.who)):"Not taken")+"</span>"
+  +(t.state==="done"?"<span>Done "+esc(cmWhen(t.done))+"</span>":t.due?'<span class="'+(late?"tk-late":"")+'">'+(late?"Overdue · ":"Due ")+esc(tkZ(t.due))+"</span>":"")
+  +(t.notes?"<span>"+t.notes+" note"+(t.notes>1?"s":"")+"</span>":"")+"</span></button>"}
+function tkBoardUi(){const el=$("#tkBoard");
+ if(!TK.list){el.innerHTML=TK.err?'<div class="msg err">'+esc(TK.err)+"</div>":'<span class="empty">Loading…</span>';return}
+ const now=Date.now(),L=TK.list.filter(t=>(!TK.dept||t.dept===TK.dept)&&(!TK.mine||t.who===TK.me));
+ el.innerHTML=TK_ST.map(([s,n])=>{const C=tkSort(L.filter(t=>t.state===s),s);
+  return '<div class="tk-col '+s+'"><h3><i></i>'+n+" <b>"+C.length+"</b>"+(s==="done"?"<small>last 14 days</small>":"")+"</h3>"
+   +(C.length?C.map(t=>tkCard(t,now)).join(""):'<span class="empty">'+(s==="todo"?"Nothing waiting.":s==="doing"?"Nobody is on a task.":"Nothing finished lately.")+"</span>")+"</div>"}).join("")}
+function tkEvHtml(e){const who="<b>"+esc(tkName(e.by)||"Someone")+"</b>",w="<time>"+esc(cmWhen(e.t))+"</time>";
+ if(e.k==="note")return '<div class="tk-e note">'+who+w+'<div class="tk-md">'+md(e.v)+"</div></div>";
+ const F={title:"the title",body:"the details",pri:"the priority",due:"the due time"};
+ const s=e.k==="made"?"published it":e.k==="edit"?"changed "+String(e.v||"").split(",").map(k=>F[k]||k).join(", "):e.k==="dept"?"moved it to "+tkDept(e.v)
+  :e.k==="who"?(!e.v?"left it for anyone":e.v===e.by?"took it":"gave it to "+tkName(e.v)):e.k==="state"?(e.v==="doing"?"started it":e.v==="done"?"finished it":"put it back to To do"):e.k;
+ return '<div class="tk-e">'+who+" "+esc(s)+w+"</div>"}
+function tkDetUi(){const box=$("#tkDet"),on=!!TK.sel;$("#tkBody").classList.toggle("on",on);box.hidden=!on;if(!on){box.innerHTML="";return}
+ const D=TK.det;if(!D||D.task.id!==TK.sel){box.innerHTML='<span class="empty">Loading…</span>';return}
+ const t=D.task,now=Date.now(),late=tkLate(t,now),mem=TK.pub||t.dept===TK.role,ppl=TK.people.filter(p=>p.role===t.dept),old=$("#tkNote"),keep=old?old.value:"";
+ box.innerHTML='<div class="pf-h"><div><div class="tk-dp">'+esc(tkDept(t.dept))+"</div><h3>"+esc(t.title)+'</h3></div><button type="button" class="cm-x" data-tkx aria-label="Close">✕</button></div>'
+  +'<div class="ib-seg tk-st" role="group" aria-label="State">'+TK_ST.map(([s,n])=>'<button type="button" data-tkst="'+s+'" aria-pressed="'+(t.state===s)+'"'+(mem?"":" disabled")+">"+n+"</button>").join("")+"</div>"
+  +'<div class="tk-kv"><span>Person</span><select id="tkWho" aria-label="Person"'+(mem?"":" disabled")+'><option value="">Not taken</option>'
+   +ppl.map(p=>'<option value="'+esc(p.email)+'"'+(p.email===t.who?" selected":"")+">"+esc(p.email)+(p.email===TK.me?" (you)":"")+"</option>").join("")
+   +(t.who&&!ppl.some(p=>p.email===t.who)?'<option value="'+esc(t.who)+'" selected>'+esc(t.who)+"</option>":"")+"</select>"
+  +"<span>Priority</span><div>"+(t.pri?'<span class="tk-pri p'+t.pri+'">'+TK_PRI[t.pri]+"</span>":"Normal")+"</div>"
+  +"<span>Due</span><div"+(late?' class="tk-late"':"")+">"+(t.due?(late?"Overdue · ":"")+esc(tkZ(t.due)):"No due time")+"</div>"
+  +"<span>Published</span><div>"+esc(tkZ(t.t))+" by "+esc(tkName(t.by))+"</div></div>"
+  +(t.body?'<div class="tk-md">'+md(t.body)+"</div>":"")
+  +(TK.pub?'<div class="actions" style="margin-top:12px"><button type="button" data-tkedit>Edit</button><button type="button" class="warn" data-tkdel>Delete</button></div>':"")
+  +'<div id="tkDMsg"></div><div class="fo-s" style="margin-top:14px"><h4>Activity</h4><div class="tk-ev">'+D.evs.map(tkEvHtml).join("")+"</div>"
+  +'<textarea id="tkNote" maxlength="2000" placeholder="A note for the department"></textarea><div class="actions" style="margin-top:8px"><button type="button" id="tkNoteAdd">Add note</button></div></div>';
+ const n=$("#tkNote");if(n&&keep)n.value=keep}
+function tkFormUi(){const f=$("#tkForm"),F=TK.form;f.hidden=!F;if(!F){f.innerHTML="";return}
+ const ppl=TK.people.filter(p=>p.role===F.dept),gone=F.dept&&!TK.depts.some(d=>d.id===F.dept);
+ f.innerHTML='<label for="tkTitle">'+(F.id?"Edit the task":"New task")+'</label><input type="text" id="tkTitle" maxlength="120" placeholder="What needs doing" value="'+esc(F.title)+'" autocomplete="off">'
+  +'<label for="tkBodyIn">Details <small>optional · **bold**, - lists</small></label><textarea id="tkBodyIn" maxlength="4000" placeholder="Anything they need to know">'+esc(F.body)+"</textarea>"
+  +'<div class="tk-f2"><div><label for="tkFDept">Department</label><select id="tkFDept">'+TK.depts.map(d=>'<option value="'+esc(d.id)+'"'+(d.id===F.dept?" selected":"")+">"+esc(d.name)+"</option>").join("")+(gone?'<option value="'+esc(F.dept)+'" selected>(role deleted)</option>':"")+"</select></div>"
+  +'<div><label for="tkFWho">Person</label><select id="tkFWho"><option value="">Anyone in the department</option>'+ppl.map(p=>'<option value="'+esc(p.email)+'"'+(p.email===F.who?" selected":"")+">"+esc(p.email)+"</option>").join("")+"</select></div>"
+  +'<div><label for="tkFPri">Priority</label><select id="tkFPri">'+TK_PRI.map((n,i)=>'<option value="'+i+'"'+(i===F.pri?" selected":"")+">"+n+"</option>").join("")+"</select></div>"
+  +'<div><label for="tkFDue">Due <small>UTC, optional</small></label><input type="datetime-local" id="tkFDue" value="'+(F.due?new Date(F.due).toISOString().slice(0,16):"")+'"></div></div>'
+  +'<div class="actions"><button class="primary" type="button" id="tkFSave">'+(F.id?"Save":"Publish")+'</button><button type="button" id="tkFCancel">Cancel</button></div>'}
+function tkFormRead(){const F=TK.form;if(!F||!$("#tkTitle"))return;F.title=$("#tkTitle").value;F.body=$("#tkBodyIn").value;F.dept=$("#tkFDept").value;F.who=$("#tkFWho").value;F.pri=+$("#tkFPri").value||0;
+ const v=$("#tkFDue").value,d=v?Date.parse(v+":00Z"):0;F.due=isFinite(d)?d:0}
+async function tkOpen(id){TK.sel=id;if(!TK.det||TK.det.task.id!==id)TK.det=null;tkSay(null);tkUi();
+ if(innerWidth<=1100)setTimeout(()=>{const b=$("#tkDet");if(b&&!b.hidden)b.scrollIntoView({block:"start",behavior:"smooth"})},30);
+ try{const j=await api("/admin/api/tasks?id="+encodeURIComponent(id));if(TK.sel===id){TK.det=j;tkMerge(j.task)}}
+ catch(e){if(TK.sel===id){TK.sel="";TK.det=null;tkSay(e.message)}}
+ if(pgNow==="tasks")tkUi()}
+async function tkPost(body,el,ok){if(TK.busy)return null;TK.busy=true;if(el)el.disabled=true;
+ try{const j=await api("/admin/api/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  tkSay(null);if(j.task){tkMerge(j.task);if(TK.sel===j.task.id)TK.det={task:j.task,evs:j.evs||[]}}
+  if(body.op==="del"){TK.list=(TK.list||[]).filter(t=>t.id!==body.id);if(TK.sel===body.id){TK.sel="";TK.det=null}}
+  if(ok)ok(j);return j}
+ catch(e){tkSay(e.message,false,["state","who","note"].includes(body.op)&&!!TK.sel);return null}
+ finally{TK.busy=false;if(el)el.disabled=false;tkCount();tkUi();if(pgNow==="home")hmUi()}}
+async function tkTick(){await tkLoad();if(!TK.sel||pgNow!=="tasks")return;
+ try{const id=TK.sel,j=await api("/admin/api/tasks?id="+encodeURIComponent(id));if(TK.sel===id&&!TK.busy){TK.det=j;tkMerge(j.task);if(!tkBusyIn())tkDetUi()}}catch(e){}}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-tk],[data-tknew],[data-tkmine],[data-tkx],[data-tkst],[data-tkedit],[data-tkdel],#tkNoteAdd,#tkFSave,#tkFCancel,[data-hmtk],[data-hmdept]");if(!b)return;
+ if(b.dataset.tk){tkOpen(b.dataset.tk);return}
+ if(b.dataset.hmtk){TK.sel=b.dataset.hmtk;TK.det=null;location.hash="#tasks";return}
+ if(b.dataset.hmdept!=null){TK.dept=b.dataset.hmdept;TK.mine=false;TK.sel="";TK.det=null;location.hash="#tasks";return}
+ if(b.hasAttribute("data-tknew")){const d=TK.dept||(TK.depts.find(x=>x.id!=="admin")||TK.depts[0]||{}).id||"";TK.form={id:"",title:"",body:"",dept:d,who:"",pri:0,due:0};tkSay(null);tkFormUi();tkUi();$("#tkTitle").focus();return}
+ if(b.dataset.tkmine!=null){TK.mine=b.dataset.tkmine==="1";tkUi();return}
+ if(b.hasAttribute("data-tkx")){TK.sel="";TK.det=null;tkSay(null);tkUi();return}
+ const t=TK.det&&TK.det.task;
+ if(b.dataset.tkst){if(t)tkPost({op:"state",id:t.id,state:b.dataset.tkst},b);return}
+ if(b.hasAttribute("data-tkedit")){if(!t)return;TK.form={id:t.id,title:t.title,body:t.body,dept:t.dept,who:t.who,pri:t.pri,due:t.due};tkSay(null);tkFormUi();tkUi();$("#tkForm").scrollIntoView({block:"nearest"});$("#tkTitle").focus();return}
+ if(b.hasAttribute("data-tkdel")){if(!t||!confirm('Delete the task "'+t.title+'"? Its notes go with it.'))return;tkPost({op:"del",id:t.id},b,()=>tkSay("Deleted "+t.title+".",true));return}
+ if(b.id==="tkNoteAdd"){if(!t)return;const v=$("#tkNote").value.trim();if(!v){tkSay("Write the note first",false,true);tkUi();return}tkPost({op:"note",id:t.id,text:v},b,()=>{$("#tkNote").value=""});return}
+ if(b.id==="tkFSave"){tkFormRead();const F=TK.form;if(!F.title.trim()){tkSay("Give the task a title");tkUi();$("#tkTitle").focus();return}
+  tkPost({op:F.id?"edit":"new",id:F.id||undefined,title:F.title,body:F.body,dept:F.dept,who:F.who,pri:F.pri,due:F.due},b,j=>{TK.form=null;tkFormUi();tkSay(F.id?"Saved.":"Published to "+tkDept(F.dept)+".",true);if(j.task&&!F.id&&innerWidth>1100){TK.sel=j.task.id;TK.det={task:j.task,evs:j.evs||[]}}});return}
+ if(b.id==="tkFCancel"){TK.form=null;tkSay(null);tkFormUi();tkUi();return}});
+document.addEventListener("change",e=>{const t=e.target;
+ if(t.id==="tkDept"){TK.dept=t.value;tkUi();return}
+ if(t.id==="tkFDept"){tkFormRead();TK.form.who="";tkFormUi();return}
+ if(t.id==="tkWho"){const k=TK.det&&TK.det.task;if(k)tkPost({op:"who",id:k.id,who:t.value},t)}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&pgNow==="tasks"&&TK.sel&&!(e.target.closest&&e.target.closest("input,textarea,select"))){TK.sel="";TK.det=null;tkUi()}});
+PG_LOAD.tasks=()=>{tkUi();tkLoad().then(()=>{if(TK.sel&&(!TK.det||TK.det.task.id!==TK.sel))tkOpen(TK.sel)})};PG_TICK.tasks=[tkTick,30000];
+/* the count beside Tasks in the menu, while another page is open (Home asks for the tasks itself) */
+if(!document.querySelector(".deny")){tkLoad();setInterval(()=>{if(!document.hidden&&pgNow!=="tasks"&&pgNow!=="home")tkLoad()},60000)}
+/* Home: what each department is doing (for those who publish tasks), or the department's own tasks */
+function hmTkUi(){const el=$("#hmTkB");if(!el)return;
+ if(!TK.list){el.innerHTML=TK.err?'<div class="msg err" style="margin:0">'+esc(TK.err)+"</div>":'<span class="empty">Loading…</span>';return}
+ const now=Date.now(),wk=now-7*864e5;
+ if(TK.pub){$("#hmTkH").textContent="Departments";
+  const R=TK.depts.map(d=>{const L=TK.list.filter(t=>t.dept===d.id),op=L.filter(t=>t.state!=="done");
+   return {d,doing:tkSort(op.filter(t=>t.state==="doing"),"doing"),todo:op.filter(t=>t.state==="todo").length,late:op.filter(t=>tkLate(t,now)).length,done:L.filter(t=>t.state==="done"&&t.done>=wk).length,n:op.length}});
+  const gone=TK.list.filter(t=>t.state!=="done"&&!TK.depts.some(d=>d.id===t.dept));
+  if(gone.length)R.push({d:{id:"",name:"Roles deleted",n:0},doing:tkSort(gone.filter(t=>t.state==="doing"),"doing"),todo:gone.filter(t=>t.state==="todo").length,late:gone.filter(t=>tkLate(t,now)).length,done:0,n:gone.length,gone:true});
+  const max=Math.max(4,...R.map(r=>r.n)),w=k=>(k/max*100).toFixed(2)+"%";
+  el.innerHTML='<div class="tk-lg" aria-hidden="true"><span><i class="doing"></i>In progress</span><span><i class="todo"></i>To do</span></div>'+R.map(r=>{
+   const name='<button type="button" class="tk-dn" data-hmdept="'+esc(r.d.id)+'"><b>'+esc(r.d.name)+"</b><small>"+(r.gone?"move these to a department":r.d.n?r.d.n+(r.d.n===1?" person":" people"):"No one in this role yet")+"</small></button>";
+   const bar='<div class="tk-bar"'+(r.n?' role="img" aria-label="'+esc(r.d.name)+": "+r.doing.length+" in progress, "+r.todo+' to do"':"")+">"+(r.doing.length?'<span class="doing" style="width:'+w(r.doing.length)+'" title="'+r.doing.length+' in progress"></span>':"")+(r.todo?'<span class="todo" style="width:'+w(r.todo)+'" title="'+r.todo+' to do"></span>':"")+"</div>";
+   const fig='<div class="tk-fig">'+(r.n?"<span>"+r.doing.length+" in progress · "+r.todo+" to do</span>":'<span class="none">Nothing open</span>')+(r.late?'<span class="tk-late">⚠ '+r.late+" overdue</span>":"")+(r.done?"<small>"+r.done+" done this week</small>":"")+"</div>";
+   const now2=r.doing.length?'<div class="tk-now"><span>Now</span>'+r.doing.slice(0,3).map(t=>'<span><button type="button" data-hmtk="'+esc(t.id)+'">'+esc(t.title)+"</button> · "+esc(t.who?tkName(t.who):"not taken")+"</span>").join("")+(r.doing.length>3?"<span>+"+(r.doing.length-3)+" more</span>":"")+"</div>":"";
+   return '<div class="tk-dr">'+name+bar+fig+now2+"</div>"}).join("");return}
+ $("#hmTkH").textContent=(TK.depts[0]?TK.depts[0].name+" tasks":"Your tasks");
+ const L=tkSort(TK.list.filter(t=>t.state!=="done"),"todo").sort((a,b)=>(a.state==="doing"?0:1)-(b.state==="doing"?0:1));
+ el.innerHTML=L.length?L.slice(0,8).map(t=>'<button type="button" class="hm-i '+t.state+'" data-hmtk="'+esc(t.id)+'"><i></i><span class="t">'+esc(t.title)+"<small>"+(t.who?esc(tkName(t.who))+(t.who===TK.me?" (you)":""):"Not taken")+(t.due?" · "+(tkLate(t,now)?'<b class="tk-late">Overdue</b> ':"Due ")+esc(tkZ(t.due)):"")+"</small></span><em>"+(t.state==="doing"?"In progress":"To do")+" ›</em></button>").join("")+(L.length>8?'<a class="lk" href="#tasks">'+(L.length-8)+" more in Tasks ›</a>":"")
+  :'<p class="empty" style="margin:6px 0">Nothing for your department right now.</p>'}
+
 /* ---------- China AIP data set (CAAC eAIP AIP-DS, AIXM 5.1.1), read in this browser (Nov 2026) ----------
    The zip is opened here, every Baseline file is checked against the SHA-256 in its checksum.xml, and the AIXM is
    reduced to what the EFB uses: R, D, P, TMA, CTA and ADIZ airspace, airways, fixes and navaids, and for each

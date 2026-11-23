@@ -43,6 +43,7 @@
  *   GET /api/efb/aip/ifr?lv=&cell=, /cn/asp, /jp/asp, /cn/apt?icao= -> China and Japan airways, airspace, China's airports;
  *       signed-in pilots only. AIP Japan charts (RJxx, ROxx) come through /charts and /chart-pdf (see jpcharts.js)
  *   GET/POST /admin/api/settings        -> Settings: From names and AOC templates (see mail.js); GET /admin/api/checkins -> Pilots
+ *   GET/POST /admin/api/tasks           -> Tasks: published to a department (a role), worked on by its people (see tasks.js)
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
  *   GET/POST /api/efb/chartnotes?k=     -> the signed-in pilot's pen marks on a chart (ICAO|chart name|page)
@@ -72,6 +73,7 @@ export { Crew } from './crew.js';
 import { kbPublic, appsPublic, wxPrefsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
+export { Taskboard } from './tasks.js';
 import { pfdRoute } from './pfd.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';

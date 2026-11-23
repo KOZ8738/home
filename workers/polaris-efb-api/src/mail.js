@@ -21,6 +21,7 @@ import { standsAdmin } from './stands.js';
 import { aocTplAdmin } from './aoctpl.js';
 import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
+import { tasksAdmin } from './tasks.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -134,8 +135,8 @@ function cleanSettings(b) {
    Home shows the parts of those pages, so it has none of its own), changing things by what it may change. */
 const ROLES = 'admin:v1:roles';
 export const ROLE_PAGES = ['fw', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
-export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings'];
-const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change settings' };
+export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings', 'tasks'];
+const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change settings', tasks: 'publish tasks' };
 /* the role there was before roles could be edited, kept until an administrator changes or deletes it */
 const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
@@ -151,8 +152,8 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const roleOf = (R, email) => { if (!Object.keys(R.people).length) return 'admin'; const p = own(R.people, email) ? R.people[email] : null; if (!p) return null; return p.role === 'admin' || own(R.roles, p.role) ? p.role : null; };
 const roleName = (R, id) => id === 'admin' ? 'Administrator' : (own(R.roles, id) && R.roles[id].name) || id;
 function permsOf(R, id) {
-  if (id === 'admin') return { pages: ['home', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
-  const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
+  if (id === 'admin') return { pages: ['home', 'tasks', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
+  const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', 'tasks', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
 }
 const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Settings' };
 /* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
@@ -161,6 +162,7 @@ const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navd
    A read not listed here is for administrators only. */
 const READS = [
   [/^\/admin\/api\/me$/, []],
+  [/^\/admin\/api\/tasks$/, []],
   [/^\/admin\/api\/live$/, ['fw', 'pilots']],
   [/^\/admin\/api\/ooo(\/|$)/, ['fw', 'reports', 'pilots']],
   [/^\/admin\/api\/stands\/try$/, ['gates', 'fw']],
@@ -193,6 +195,7 @@ function roleNeeds(method, path) {
   if (path === '/admin/api/pilots/signout') return 'pilots';
   if (/^\/admin\/api\/navdata(\/|$)/.test(path)) return 'navdata';
   if (path === '/admin/api/settings' || path === '/admin/api/aoctpl') return 'settings';
+  if (path === '/admin/api/tasks') return 'task';   /* checked in tasks.js: publishers, and a department's own people */
   return 'admin';
 }
 const lineR = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -325,6 +328,8 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
+  /* Tasks: published to a department (a role); its people work on them */
+  if (path === '/admin/api/tasks') return tasksAdmin(req, url, env, who, { role, roleName: RR ? roleName(RR, role) : 'Administrator', pub: role === 'admin' || perm.can.includes('tasks'), people: RR ? RR.people : {}, roles: RR ? RR.roles : {} });
   /* Documents tab: manuals and SOPs for the EFB's Documents (see docs.js) */
   if (path === '/admin/api/docs' || path.startsWith('/admin/api/docs/')) return docsAdmin(req, url, path, env, who, opts && opts.ctx);
   /* On-time tab: OOOI times and on-time performance (see ooo.js) */

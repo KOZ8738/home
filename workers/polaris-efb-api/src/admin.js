@@ -937,11 +937,11 @@ function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
    server sends them with the page (window.PM_PERM) with the classes on <html> that hide the rest (no-p-*, no-a-*),
    and is asked again (/admin/api/me) when the page comes back into view, so a role changed meanwhile shows. Data is
    asked for only from a page the role sees (the server checks the same: READS in mail.js). ---------- */
-let ROLE="admin",PERM=null,ME_AT=0;
+let ROLE="admin",PERM=null,ME_AT=0,ROLES_ON=false;
 const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"],["settings","Settings"]];
 const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change settings","Automatic messages, From names, AOC templates","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
 const pgHas=p=>!PERM||PERM.pages.has(p);
-function permSet(j){ROLE=j.role||"admin";const R=document.documentElement;
+function permSet(j){ROLE=j.role||"admin";ROLES_ON=!!j.roles;const R=document.documentElement;
  const pg=new Set(j.pages||["home","tasks"].concat(RL_PAGES.map(x=>x[0]))),can=new Set(j.can||RL_ACTS.map(x=>x[0]).concat(["roles"]));
  RL_PAGES.forEach(x=>R.classList.toggle("no-p-"+x[0],!pg.has(x[0])));RL_ACTS.map(x=>x[0]).concat(["roles"]).forEach(k=>R.classList.toggle("no-a-"+k,!can.has(k)));
  PERM={pages:pg,can};const w=$("#who");if(w&&j.email)w.textContent="Signed in as "+j.email+(j.roles?" · "+(j.roleName||j.role):"")}
@@ -1834,7 +1834,7 @@ function hmTkUi(){const el=$("#hmTkB");if(!el)return;
   if(gone.length)R.push({d:{id:"",name:"Roles deleted",n:0},doing:tkSort(gone.filter(t=>t.state==="doing"),"doing"),todo:gone.filter(t=>t.state==="todo").length,late:gone.filter(t=>tkLate(t,now)).length,done:0,n:gone.length,gone:true});
   const max=Math.max(4,...R.map(r=>r.n)),w=k=>(k/max*100).toFixed(2)+"%";
   el.innerHTML='<div class="tk-lg" aria-hidden="true"><span><i class="doing"></i>In progress</span><span><i class="todo"></i>To do</span></div>'+R.map(r=>{
-   const name='<button type="button" class="tk-dn" data-hmdept="'+esc(r.d.id)+'"><b>'+esc(r.d.name)+"</b><small>"+(r.gone?"move these to a department":r.d.n?r.d.n+(r.d.n===1?" person":" people"):"No one in this role yet")+"</small></button>";
+   const name='<button type="button" class="tk-dn" data-hmdept="'+esc(r.d.id)+'"><b>'+esc(r.d.name)+"</b><small>"+(r.gone?"move these to a department":r.d.id==="admin"&&!ROLES_ON?"Everyone, while roles are off":r.d.n?r.d.n+(r.d.n===1?" person":" people"):"No one in this role yet")+"</small></button>";
    const bar='<div class="tk-bar"'+(r.n?' role="img" aria-label="'+esc(r.d.name)+": "+r.doing.length+" in progress, "+r.todo+' to do"':"")+">"+(r.doing.length?'<span class="doing" style="width:'+w(r.doing.length)+'" title="'+r.doing.length+' in progress"></span>':"")+(r.todo?'<span class="todo" style="width:'+w(r.todo)+'" title="'+r.todo+' to do"></span>':"")+"</div>";
    const fig='<div class="tk-fig">'+(r.n?"<span>"+r.doing.length+" in progress · "+r.todo+" to do</span>":'<span class="none">Nothing open</span>')+(r.late?'<span class="tk-late">⚠ '+r.late+" overdue</span>":"")+(r.done?"<small>"+r.done+" done this week</small>":"")+"</div>";
    const now2=r.doing.length?'<div class="tk-now"><span>Now</span>'+r.doing.slice(0,3).map(t=>'<span><button type="button" data-hmtk="'+esc(t.id)+'">'+esc(t.title)+"</button> · "+esc(t.who?tkName(t.who):"not taken")+"</span>").join("")+(r.doing.length>3?"<span>+"+(r.doing.length-3)+" more</span>":"")+"</div>":"";

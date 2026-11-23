@@ -2,7 +2,7 @@
    About half an hour before a Polaris flight lands, Polaris operations sends its crew the arrival gate as an AOC
    message (EFB › Flight › Messages; see aoc.js). Staff keep a gate plan per airport on /admin (Gates tab): rules in
    order, each a set of gates written as ranges ("D1-D10, C5, 201-215"), for domestic or international flights (or
-   both), narrowbodies, widebodies or both, with a terminal. A flight is domestic when both airports are in the same
+   both), normal aircraft, heavies or both, with a terminal. A flight is domestic when both airports are in the same
    country (the United States with Hawaii, Alaska and its territories). The first gate of the first rule that fits the
    flight and is free is taken; when the airport's map (OpenStreetMap) is at hand, only gates on it are given, so a range
    that covers a number the airport does not have never sends a crew there. A stand is not free while
@@ -12,6 +12,7 @@
    message per flight once the time to go falls under the lead time. Off until staff turn it on.
 
    KV (STORE):  stands:v1:plan -> { on, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, fl: 'all'|'dom'|'intl', ac: 'all'|'narrow'|'wide', term }] }, at, by }
+                (ac: 'narrow' is shown as Normal, 'wide' as Heavy)
                 stands:v1:log  -> [{ k, t, cs, dep, arr, ac, wide, fl, eta, stand, term, by, aoc, pilot, cid, name }] (two days) */
 import { aocSend } from './aoc.js';
 import { aocTpl, aocMsg } from './aoctpl.js';
@@ -40,8 +41,15 @@ export function expandStands(text) {
   }
   return { stands: out, bad };
 }
-/* a widebody needs a widebody stand; everything else Polaris flies (A320 family) is a narrowbody */
-export const isWide = (ac) => /(A30\d|A310|A33\d|A34\d|A35\d|A38\d|B74\d|B76\d|B77\d|B78\d|B74|B76|B77|B78|74[78]|767|77[7W]|78[789]|MD11|DC10|IL96)/.test(String(ac || '').toUpperCase().replace(/[\s-]+/g, ''));
+/* a heavy needs a heavy gate; everything else Polaris flies (the A320 family) is normal. Heavy: a widebody, written
+   any of the ways vAMSYS or a flight plan has it: ICAO ("A339", "A35K", "B77W"), IATA ("339", "351", "77W") or a
+   name ("Airbus A330-900neo", "787-9") */
+const WIDE_ANY = /(A30[0-9B]|A310|A33[0-9X]|A34[0-9]|A35[0-9K]|A38[0-9]|B74[0-9A-Z]|B76[0-9]|B77[0-9A-Z]|B78[0-9X]|MD11|DC10|IL96|IL86)/;
+const WIDE_NUM = /^(30[0-9]|310|33[0-9X]|34[0-9]|35[0-9K]|38[0-9]|74[0-9A-Z]|76[0-9]|77[0-9A-Z]|78[0-9X])/;
+export const isWide = (ac) => { const s = String(ac || '').toUpperCase().replace(/[\s-]+/g, '').replace(/^(AIRBUS|BOEING|MCDONNELLDOUGLAS)/, ''); return WIDE_ANY.test(s) || WIDE_NUM.test(s); };
+/* a flight is heavy when any of what is known of its aircraft says so: vAMSYS's code and name, the VATSIM flight plan's
+   type, or its wake category H or J (live.js). A normal aircraft fits a heavy gate; a heavy never a normal one */
+export const isHeavy = (f) => !!f && (f.wake === 'H' || f.wake === 'J' || [f.ac, f.acName, f.fpAc].some(isWide));
 /* the country an airport is in, from its ICAO code: enough to tell a domestic flight from an international one */
 const US = /^(K|P[AHGFJKMOPW]|TJ|TI)/, RU = /^U[EHILNORSUW]/, BR = /^S[BDNSW]/, IN = /^V[AEIO]/, ID = /^W[AIQR]/, CN = /^Z[BGHJLPSUWY]/;
 export function countryOf(icao) {
@@ -90,9 +98,10 @@ async function takenAt(icao, etaMs, log, deps, skipKey) {
   } catch (e) { /* no map or no VATSIM: the Polaris arrivals still count */ }
   return taken;
 }
-/* the stand for an aircraft at icao: { stand, term } | { none: 'noplan' | 'full' } */
-export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl) {
-  const rules = (plan.apts[icao] || []).filter((r) => (r.ac === 'all' || !r.ac || (r.ac === 'wide') === isWide(ac)) && (!fl || !r.fl || r.fl === 'all' || r.fl === fl));
+/* the stand for an aircraft at icao: { stand, term } | { none: 'noplan' | 'full' }. heavy: from isHeavy (else from ac) */
+export async function pickStand(plan, icao, ac, etaMs, log, deps, skipKey, fl, heavy) {
+  const H = heavy != null ? !!heavy : isWide(ac);
+  const rules = (plan.apts[icao] || []).filter((r) => (r.ac === 'all' || !r.ac || (r.ac === 'wide') === H) && (!fl || !r.fl || r.fl === 'all' || r.fl === fl));
   if (!rules.length) return { none: 'noplan' };
   const taken = await takenAt(icao, etaMs, log, deps, skipKey);
   /* a range may cover numbers the airport does not have (D1-D14 without D13): with the airport map, only the gates on it */
@@ -121,11 +130,11 @@ export async function standWatch(env, deps) {
     const k = f.cs + ':' + f.arr;
     if (log.some((x) => x.k === k && now - x.t < 12 * 3600_000)) continue; // once a flight (a diversion is a new arrival airport)
     const ttg = minutesToGo(f, apts, now); if (ttg == null || ttg > plan.lead) continue;
-    const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || '', fl = flightType(f.dep, f.arr);
-    const p = await pickStand(plan, f.arr, ac, eta, log, deps, null, fl);
+    const eta = Math.round(now + Math.max(0, ttg) * 60_000), ac = f.ac || f.acName || f.fpAc || '', fl = flightType(f.dep, f.arr), heavy = isHeavy(f);
+    const p = await pickStand(plan, f.arr, ac, eta, log, deps, null, fl, heavy);
     if (p.none === 'noplan' && plan.miss !== 'ground') continue;
     const m = await aocSend(env, { ...standMsg(await aocTpl(env), f, eta, p), to: crewOf(f), push: true, by: 'AUTO' });
-    const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: isWide(ac), fl, eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
+    const rec = { k, t: now, cs: f.cs, dep: f.dep || '', arr: f.arr, ac, wide: heavy, fl, eta, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot || '', cid: f.cid ? String(f.cid) : '', name: f.name || '' };
     log.unshift(rec); sent.push(rec);
   }
   if (sent.length) await writeLog(kv, log);
@@ -141,12 +150,12 @@ export async function departureGate(env, b, deps, now = Date.now()) {
   if (!/^[A-Z0-9]{2,10}$/.test(cs) || !okIcao(dep)) return null;
   const std = b.std && b.std > now - 3600_000 ? b.std : now + 3600_000, k = 'dep:' + cs + ':' + dep, log = await readLog(kv);
   if (log.some((x) => x.k === k && Math.abs((x.eta || x.t) - std) < 6 * 3600_000)) return { dup: true }; // once a departure
-  const ac = String(b.ac || '').toUpperCase(), fl = flightType(dep, arr);
-  const p = await pickStand(plan, dep, ac, std, log, deps || {}, null, fl);
+  const ac = String(b.ac || '').toUpperCase(), fl = flightType(dep, arr), heavy = isHeavy({ ac });
+  const p = await pickStand(plan, dep, ac, std, log, deps || {}, null, fl, heavy);
   if (p.none === 'noplan') return { none: 'noplan' };
   const f = { cs, dep, arr, pilot: b.pilot || '', cid: b.cid ? String(b.cid) : '', name: b.name || '' };
   const m = await aocSend(env, { ...depMsg(await aocTpl(env), f, b.std || 0, p, ac), to: crewOf(f), push: true, by: 'AUTO' });
-  const rec = { k, kind: 'dep', t: now, cs, dep, arr, ac, wide: isWide(ac), fl, eta: std, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
+  const rec = { k, kind: 'dep', t: now, cs, dep, arr, ac, wide: heavy, fl, eta: std, stand: p.stand || '', term: p.term || '', by: 'AUTO', aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
   log.unshift(rec); await writeLog(kv, log);
   return rec;
 }
@@ -187,7 +196,10 @@ export async function standsAdmin(req, url, path, env, who, deps, lim) {
     if (path === '/admin/api/stands/try') {
       const I = String(b.icao || '').toUpperCase(); if (!okIcao(I)) throw new StandError(400, 'Pick an airport');
       const plan = b.apts ? { ...cleanPlan({ ...b, lead: LEAD_DEF }) } : await readPlan(kv);
-      return jsonRes(await pickStand(plan, I, b.wide ? 'A359' : 'A21N', Date.now() + 30 * 60_000, await readLog(kv), deps, null, ['dom', 'intl'].includes(b.fl) ? b.fl : ''));
+      /* heavy as asked (the Gates page's preview), or from the flight's aircraft (Flight Watch) */
+      const heavy = b.wide != null ? !!b.wide : isHeavy({ ac: line(b.ac, 40), acName: line(b.acName, 60), fpAc: line(b.fpAc, 40), wake: line(b.wake, 1).toUpperCase() });
+      const fl = ['dom', 'intl'].includes(b.fl) ? b.fl : b.dep && b.arr ? flightType(String(b.dep).toUpperCase(), String(b.arr).toUpperCase()) : '';
+      return jsonRes({ ...(await pickStand(plan, I, '', Date.now() + 30 * 60_000, await readLog(kv), deps, null, fl, heavy)), heavy });
     }
     /* staff give a flight its gate by hand (Flight Watch), when none was sent: the gate written, or the plan's first
        free one; the crew get GATE ASSIGNMENT (arrival) or DEPARTURE GATE */
@@ -197,17 +209,17 @@ export async function standsAdmin(req, url, path, env, who, deps, lim) {
       if (!/^[A-Z0-9]{2,10}$/.test(cs)) throw new StandError(400, 'Bad callsign');
       if (!okIcao(icao)) throw new StandError(400, 'The flight has no ' + (kind === 'dep' ? 'departure' : 'arrival') + ' airport');
       const log = await readLog(kv), k = kind === 'dep' ? 'dep:' + cs + ':' + dep : cs + ':' + arr, now = Date.now();
-      const ac = line(b.ac, 8).toUpperCase(), eta = +b.eta > now - 6 * 3600_000 && +b.eta < now + 24 * 3600_000 ? Math.round(+b.eta) : now + (kind === 'dep' ? 3600_000 : 30 * 60_000);
+      const ac = line(b.ac, 8).toUpperCase(), heavy = isHeavy({ ac, acName: line(b.acName, 60), fpAc: line(b.fpAc, 40), wake: line(b.wake, 1).toUpperCase() }), eta = +b.eta > now - 6 * 3600_000 && +b.eta < now + 24 * 3600_000 ? Math.round(+b.eta) : now + (kind === 'dep' ? 3600_000 : 30 * 60_000);
       let stand = line(b.stand, 8).toUpperCase().replace(/\s+/g, ''), term = line(b.term, 20).toUpperCase();
       if (!stand) {
-        const p = await pickStand(await readPlan(kv), icao, ac, eta, log, deps || {}, k, flightType(dep, arr));
+        const p = await pickStand(await readPlan(kv), icao, ac, eta, log, deps || {}, k, flightType(dep, arr), heavy);
         if (!p.stand) throw new StandError(400, p.none === 'full' ? 'Every gate in the plan at ' + icao + ' is taken: write one' : 'No gate plan for ' + icao + ': write the gate');
         stand = p.stand; term = p.term || '';
       }
       if (!/^[A-Z0-9]{1,8}$/.test(stand)) throw new StandError(400, 'Write the gate');
       const f = { cs, dep, arr, pilot: up(b.pilot, 12), cid: String(b.cid || '').replace(/\D/g, '').slice(0, 9), name: line(b.name, 60) };
       const T = await aocTpl(env), m = await aocSend(env, { ...(kind === 'dep' ? depMsg(T, f, eta, { stand, term }, ac) : standMsg(T, f, eta, { stand, term })), to: crewOf(f), push: true, by: who });
-      const rec = { k, ...(kind === 'dep' ? { kind: 'dep' } : {}), t: now, cs, dep, arr, ac, wide: isWide(ac), fl: flightType(dep, arr), eta, stand, term, by: who, aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
+      const rec = { k, ...(kind === 'dep' ? { kind: 'dep' } : {}), t: now, cs, dep, arr, ac, wide: heavy, fl: flightType(dep, arr), eta, stand, term, by: who, aoc: m.id, pilot: f.pilot, cid: f.cid, name: f.name };
       log.unshift(rec); await writeLog(kv, log);
       return jsonRes({ ok: true, rec });
     }

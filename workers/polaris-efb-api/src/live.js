@@ -49,6 +49,8 @@ function cruiseFt(s) {
 
 /** d = vatsimFeed() result: { upd, rows: [cs, cid, name, lat, lon, alt, gs, hdg, sq, logon, ac, dep, arr, plannedAlt, rules], routes, det }
     va = siteLive() result: { flights: LiveFlightDto[], updatedAt } (either may be null when that source is down) */
+/* the ICAO wake category from a VATSIM flight plan: "A339/H-SDE3…" (ICAO) or "H/A339/L" (FAA, heavy and super only) */
+const wakeOf = (det) => { const m = String(det.acl || '').toUpperCase().match(/^[A-Z0-9]{2,4}\/([LMHJ])\b/) || String(det.faa || '').toUpperCase().match(/^([HJ])\//); return m ? m[1] : ''; };
 export function liveFlights(d, va) {
   const flights = [], apts = { ...PAW_APTS };
   const vsRow = {};
@@ -62,7 +64,7 @@ export function liveFlights(d, va) {
     seen.add(cs);
     /* on VATSIM too: position, altitude, speed and heading from VATSIM, which is fresher; but only the same flight (its
        flight plan, if filed, to or from the booked airports, and not far from where vAMSYS has it) */
-    const fp = v && [v[11], v[12]].filter(Boolean), apt = [(f.dep && f.dep.icao) || '', (f.arr && f.arr.icao) || ''];
+    const fp = v && [v[11], v[12]].filter(Boolean), apt = [(f.dep && f.dep.icao) || '', (f.arr && f.arr.icao) || ''], det = (d && d.det && d.det[cs]) || {};
     const useV = !!v && isFinite(v[3]) && isFinite(v[4]) && (!fp.length || fp.some((x) => apt.includes(x))) && !(isFinite(f.lat) && km(f.lat, f.lon, v[3], v[4]) > 500);
     const trail = (f.trail || []).map((p) => [p[0], p[1]]);
     if (useV && trail.length) trail.pop(); // vAMSYS's own last position: the page joins the track to the VATSIM one
@@ -73,6 +75,7 @@ export function liveFlights(d, va) {
       sq: v ? v[8] : '', logon: v && v[9] ? v[9] * 1000 : 0, ac: f.aircraft || '', dep: (f.dep && f.dep.icao) || '', arr: (f.arr && f.arr.icao) || '',
       cruise: v ? cruiseFt(v[13]) : null, fl: v ? v[13] || '' : '', rules: v ? v[14] || '' : '', altn: '', tas: '', dt: '', ete: '', route: f.route || '',
       src: 'vAMSYS', vphase: f.phase || '', pilot: f.pilot || '', rank: f.pilotRank || '', reg: f.registration || '', acName: f.aircraftName || '', net: f.network || '',
+      fpAc: useV ? v[10] || '' : '', wake: useV ? wakeOf(det) : '',
       departed: f.departedAt || '', eta: f.eta || '', std: f.std || '', sta: f.sta || '', remain: f.distanceRemaining ?? null, trail,
     });
   }
@@ -85,7 +88,7 @@ export function liveFlights(d, va) {
     flights.push({
       cs, cid: r[1], name: r[2], lat: r[3], lon: r[4], alt: r[5], gs: r[6], hdg: r[7], sq: r[8], logon: r[9] ? r[9] * 1000 : 0,
       ac: r[10], dep, arr, cruise: cruiseFt(r[13]), fl: r[13] || '', rules: r[14] || '',
-      altn: det.altn || '', tas: det.tas || '', dt: det.dt || '', ete: det.ete || '', route: (d.routes && d.routes[cs]) || '', src: 'VATSIM', pt: vt, ps: 'VATSIM',
+      altn: det.altn || '', tas: det.tas || '', dt: det.dt || '', ete: det.ete || '', route: (d.routes && d.routes[cs]) || '', src: 'VATSIM', pt: vt, ps: 'VATSIM', wake: wakeOf(det),
     });
   }
   flights.sort((a, b) => a.cs.localeCompare(b.cs));

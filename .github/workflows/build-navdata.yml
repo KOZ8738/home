@@ -34,14 +34,24 @@ jobs:
           node-version: 22
       - name: Install
         run: npm install --no-audit --no-fund
-      - name: Test (the MSFS reader, and X-Plane 12 against a stand-in for its Web API)
+      - name: Test (MSFS's procedures and live values, X-Plane 12 against a stand-in for its Web API, its own life)
         run: npm test
       - name: Build PolarisNavdata.exe
         run: npm run build
       - name: Test the .exe itself
-        run: node test_xplane.js
+        run: node test_xplane.js && node test_life.js
         env:
           NAVDATA_EXE: dist/PolarisNavdata.exe
+      # the .exe, started above, set up the polaris-navdata: link the EFB starts it with
+      - name: Check the polaris-navdata link
+        shell: pwsh
+        run: |
+          $k = 'HKCU:\Software\Classes\polaris-navdata'
+          $cmd = (Get-ItemProperty "$k\shell\open\command").'(default)'
+          $want = '"' + (Resolve-Path 'dist\PolarisNavdata.exe').Path + '" --from-link "%1"'
+          Write-Output "polaris-navdata: opens $cmd"
+          if ($cmd -ne $want) { throw "the link opens '$cmd', not '$want'" }
+          if ((Get-ItemProperty $k).'URL Protocol' -ne '') { throw 'the link is not marked as a URL protocol' }
       - name: Version
         id: v
         run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
@@ -58,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.v.outputs.v }}
         run: |
-          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe, open it on the simulator PC and keep its window open. SIDs, STARs and approaches from MSFS or X-Plane 12; with X-Plane 12.1.1 or later also the Backup PFD, the landing rate and the block times."
+          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe and open it once on the simulator PC; from then on the EFB there starts it, and it closes by itself 10 minutes after the EFB. SIDs, STARs and approaches, the Backup PFD, the landing rate, GSX and the block times from MSFS 2020/2024 (SimConnect, no FSUIPC needed) or X-Plane 12.1.1 and later."
           git tag -f navdata "$GITHUB_SHA" && git push -f origin refs/tags/navdata
           if gh release view navdata >/dev/null 2>&1; then
             gh release edit navdata --title "Polaris Navdata $V" --notes "$notes" --latest=false

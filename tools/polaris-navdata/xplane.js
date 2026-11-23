@@ -1,8 +1,9 @@
 /* Polaris Navdata for X-Plane 12.
    - Live values (Backup PFD, landing rate, the OOOI times): read through X-Plane's own Web API (X-Plane 12.1.1 and
      later, http and ws on localhost:8086; nothing to install in the simulator). The datarefs are looked up by name once
-     a flight is loaded, subscribed to over the WebSocket (X-Plane sends what changed, 10 times a second), and handed
-     to the EFB as frames in the same units as the EFB reads from FSUIPC for MSFS (see bpDecode in the EFB).
+     a flight is loaded, subscribed to over the WebSocket only while an EFB wants them (X-Plane then sends what changed,
+     10 times a second), and handed to the EFB as frames in the same units as the EFB reads from FSUIPC for MSFS (see
+     bpDecode in the EFB).
      /api/capabilities came with 12.1.4: before it there is only the first API (v1). With "Disable Incoming Traffic"
      (X-Plane's Settings > Network) every request is answered 403.
    - SIDs, STARs and approaches: read from the X-Plane folder's own navigation data, CIFP/<ICAO>.dat (the
@@ -92,10 +93,21 @@ class XpLink {
   constructor(o = {}) {
     this.port = o.port || 8086; this.onState = o.onState || (() => {}); this.onFrame = o.onFrame || (() => {}); this.log = o.log || (() => {});
     this.st = 'off'; this.ver = ''; this.api = ''; this.err = ''; this.ids = {}; this.byId = {}; this.vals = {}; this.td = null; this.ws = null; this.timer = null; this.tick = null; this.said = '';
+    this.wantLive = false; this.req = 10;
   }
   get on() { return this.st === 'on'; }
   name() { return 'X-Plane ' + (this.ver || '12'); }
   start() { this.probe(); }
+  /* an EFB wants the live values (or none does any more): subscribed, or unsubscribed, while connected */
+  want(on) {
+    on = !!on; if (on === this.wantLive) return; this.wantLive = on;
+    if (this.ws && this.ws.readyState === 1) { if (on) this.subscribe(this.ws); else this.unsubscribe(this.ws); }
+  }
+  subscribe(w) {
+    this.vals = {}; this.td = null;
+    w.send(JSON.stringify({ req_id: 1, type: 'dataref_subscribe_values', params: { datarefs: Object.values(this.ids).map((id) => ({ id })) } }));
+  }
+  unsubscribe(w) { this.vals = {}; this.td = null; try { w.send(JSON.stringify({ req_id: 2, type: 'dataref_unsubscribe_values', params: { datarefs: 'all' } })); } catch (e) { /* closed */ } }
   stop() { clearTimeout(this.timer); clearInterval(this.tick); this.tick = null; const w = this.ws; this.ws = null; if (w) try { w.close(); } catch (e) { /* closed */ } }
   base() { return 'http://localhost:' + this.port; }
   async get(p) {
@@ -143,23 +155,23 @@ class XpLink {
       let opened = false;
       w.on('open', () => {
         opened = true; this.ws = w; this.vals = {}; this.td = null;
-        w.send(JSON.stringify({ req_id: 1, type: 'dataref_subscribe_values', params: { datarefs: Object.values(this.ids).map((id) => ({ id })) } }));
+        if (this.wantLive) this.subscribe(w);
         this.set('on'); this.say('Connected to ' + this.name() + ' (Web API ' + this.api + ')');
         /* a steady 10 a second for the EFB, even while nothing changes (X-Plane sends only what changed) */
-        clearInterval(this.tick); this.tick = setInterval(() => { if (this.ws === w && Object.keys(this.vals).length) this.onFrame(frameOf(this.vals, Date.now(), this.td)); }, 100);
+        clearInterval(this.tick); this.tick = setInterval(() => { if (this.ws === w && this.wantLive && Object.keys(this.vals).length) this.onFrame(frameOf(this.vals, Date.now(), this.td)); }, 100);
         resolve();
       });
       w.on('message', (raw) => {
         let j; try { j = JSON.parse(String(raw)); } catch (e) { return; }
-        if (j.type === 'dataref_update_values' && j.data && typeof j.data === 'object') {
+        if (j.type === 'dataref_update_values' && j.data && typeof j.data === 'object' && this.wantLive) {
           /* touchdown: the vertical speed X-Plane last gave in the air (at most a tenth of a second before the wheels touch) */
           const air = this.vals.gnd != null && !Number(this.vals.gnd), vs = this.vals.vs;
           for (const [id, val] of Object.entries(j.data)) { const k = this.byId[id]; if (k) this.vals[k] = val; }
           if (air && Number(this.vals.gnd)) this.td = { v: Math.round(n(vs) || 0), at: Date.now() };
         } else if (j.type === 'result' && j.success === false) {
           /* one id it does not know spoils the whole set: ask for each on its own, so the others still come */
-          if (j.req_id === 1) { let i = 100; for (const id of Object.values(this.ids)) w.send(JSON.stringify({ req_id: i++, type: 'dataref_subscribe_values', params: { datarefs: [{ id }] } })); }
-          else this.say('X-Plane refused one value: ' + (j.error_message || j.error_code || 'subscribe'));
+          if (j.req_id === 1 && this.wantLive) { let i = 100; for (const id of Object.values(this.ids)) w.send(JSON.stringify({ req_id: i++, type: 'dataref_subscribe_values', params: { datarefs: [{ id }] } })); }
+          else if (j.req_id >= 100) this.say('X-Plane refused one value: ' + (j.error_message || j.error_code || 'subscribe'));
         }
       });
       w.on('error', (e) => { if (!opened) reject(new Error('no WebSocket: ' + (e && e.message))); });

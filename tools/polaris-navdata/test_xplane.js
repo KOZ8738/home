@@ -88,7 +88,7 @@ const V0 = { theta: 2.5, phi: -10, psi: 75, mag_psi: 77, hpath: 76, airspeed_kts
 const val = (n) => V0[n.split('/').pop()];
 /* mode: '' X-Plane 12.1.4 and later (capabilities, v1 and v2); 'old' 12.1.1 to 12.1.3 (v1 only, no capabilities);
    '403' Disable Incoming Traffic ticked (every request refused) */
-const X = { flight: false, subs: [], conns: new Set(), refuseOne: false, mode: '', wsPath: '', apis: new Set() };
+const X = { flight: false, subs: [], unsubs: [], conns: new Set(), refuseOne: false, mode: '', wsPath: '', apis: new Set() };
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'), ok = X.mode === 'old' ? ['v1'] : ['v1', 'v2'], m = u.pathname.match(/^\/api\/(v\d)\/datarefs$/);
   if (X.mode === '403') { res.statusCode = 403; res.end('{"error_code":"forbidden"}'); return; }
@@ -110,7 +110,9 @@ server.on('upgrade', (req, sock, head) => {
 wsx.on('connection', (w) => {
   X.conns.add(w); w.on('close', () => X.conns.delete(w));
   w.on('message', (raw) => {
-    const j = JSON.parse(String(raw)); if (j.type !== 'dataref_subscribe_values') return;
+    const j = JSON.parse(String(raw));
+    if (j.type === 'dataref_unsubscribe_values') { X.unsubs.push(j); w.send(JSON.stringify({ type: 'result', req_id: j.req_id, success: true })); return; }
+    if (j.type !== 'dataref_subscribe_values') return;
     X.subs.push(j);
     if (X.refuseOne && j.req_id === 1) { w.send(JSON.stringify({ type: 'result', req_id: j.req_id, success: false, error_code: 'invalid_dataref_id' })); return; }
     w.send(JSON.stringify({ type: 'result', req_id: j.req_id, success: true }));
@@ -147,6 +149,8 @@ wsx.on('connection', (w) => {
     const h = await until(() => { const x = last('hello'); return x && x.xp ? x : null; }, 15000);
     ck('hello: X-Plane connected', h && h.xp && h.sim && h.simName === 'X-Plane 12.1.4' && h.xpData === true, h);
     ck('the newest API it offers (v2 here)', X.wsPath === '/api/v2' && X.apis.has('v2') && !X.apis.has('v1'), { ws: X.wsPath, rest: [...X.apis] });
+    await sleep(600);
+    ck('no EFB wants live values yet: nothing asked of X-Plane', X.subs.length === 0 && !msgs.some((m) => m.cmd === 'live'), X.subs.length);
     efb.send(JSON.stringify({ cmd: 'live', on: true }));
     const f = await until(() => { const x = last('live'); return x && x.f; });
     ck('live frames come', !!f, f);
@@ -170,6 +174,7 @@ wsx.on('connection', (w) => {
     ck('a steady 10 a second while nothing changes', rate >= 6 && rate <= 13, rate);
     efb.send(JSON.stringify({ cmd: 'live', on: false })); await sleep(300); const n1 = msgs.filter((m) => m.cmd === 'live').length; await sleep(500);
     ck('live off: no more frames', msgs.filter((m) => m.cmd === 'live').length === n1);
+    ck('live off: X-Plane told to stop sending', X.unsubs.length === 1 && X.unsubs[0].params.datarefs === 'all', X.unsubs);
     /* the procedures */
     efb.send(JSON.stringify({ cmd: 'procs', icao: 'VHHH', id: 1 }));
     const pr = await until(() => msgs.find((m) => m.cmd === 'procs' && m.id === 1));
@@ -219,6 +224,7 @@ wsx.on('connection', (w) => {
     const pz = await until(() => msgs.find((m) => m.cmd === 'procs' && m.id === 2));
     ck('an airport X-Plane has no procedures for: said so', pz && !pz.ok && /no procedures/.test(pz.error), pz && pz.error);
     /* X-Plane refuses the set (one id it does not know): each value asked for on its own */
+    efb.send(JSON.stringify({ cmd: 'live', on: true })); await sleep(300);
     X.refuseOne = true; X.subs = []; for (const w of X.conns) w.close();
     await until(() => X.subs.length > 5, 10000);
     ck('refused set: asked for value by value', X.subs.length >= NAMES.length && X.subs.slice(1).every((s) => s.params.datarefs.length === 1), X.subs.length);

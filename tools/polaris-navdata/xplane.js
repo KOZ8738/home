@@ -93,7 +93,7 @@ class XpLink {
   constructor(o = {}) {
     this.port = o.port || 8086; this.onState = o.onState || (() => {}); this.onFrame = o.onFrame || (() => {}); this.log = o.log || (() => {});
     this.st = 'off'; this.ver = ''; this.api = ''; this.err = ''; this.ids = {}; this.byId = {}; this.vals = {}; this.td = null; this.ws = null; this.timer = null; this.tick = null; this.said = '';
-    this.wantLive = false; this.req = 10;
+    this.wantLive = false; this.req = 10; this.seenAt = Date.now();
   }
   get on() { return this.st === 'on'; }
   name() { return 'X-Plane ' + (this.ver || '12'); }
@@ -106,8 +106,12 @@ class XpLink {
   subscribe(w) {
     this.vals = {}; this.td = null;
     w.send(JSON.stringify({ req_id: 1, type: 'dataref_subscribe_values', params: { datarefs: Object.values(this.ids).map((id) => ({ id })) } }));
+    /* a steady 10 a second for the EFB while it wants them, even while nothing changes (X-Plane sends only what changed) */
+    clearInterval(this.tick); this.tick = setInterval(() => { if (this.ws === w && this.wantLive && Object.keys(this.vals).length) this.onFrame(frameOf(this.vals, Date.now(), this.td)); }, 100);
   }
-  unsubscribe(w) { this.vals = {}; this.td = null; try { w.send(JSON.stringify({ req_id: 2, type: 'dataref_unsubscribe_values', params: { datarefs: 'all' } })); } catch (e) { /* closed */ } }
+  unsubscribe(w) { clearInterval(this.tick); this.tick = null; this.vals = {}; this.td = null; try { w.send(JSON.stringify({ req_id: 2, type: 'dataref_unsubscribe_values', params: { datarefs: 'all' } })); } catch (e) { /* closed */ } }
+  /* X-Plane not there: looked for every 5 s at first, every 15 s once it has not been seen for 2 minutes */
+  later() { return Date.now() - this.seenAt < 120000 ? 5000 : 15000; }
   stop() { clearTimeout(this.timer); clearInterval(this.tick); this.tick = null; const w = this.ws; this.ws = null; if (w) try { w.close(); } catch (e) { /* closed */ } }
   base() { return 'http://localhost:' + this.port; }
   async get(p) {
@@ -123,10 +127,11 @@ class XpLink {
     let cap = null;
     try { cap = await this.get('/api/capabilities'); }
     catch (e) {
-      if (!e.status) { if (this.st !== 'off') this.say('X-Plane closed. Waiting for it again...'); this.set('off'); this.timer = setTimeout(() => this.probe(), 5000); return; }
+      if (!e.status) { if (this.st !== 'off') { this.say('X-Plane closed. Waiting for it again...'); this.seenAt = Date.now(); } this.set('off'); this.timer = setTimeout(() => this.probe(), this.later()); return; }
       if (e.status === 403) { this.ver = this.ver || '12'; const m = 'its Web API is turned off: in X-Plane, Settings > Network, untick Disable Incoming Traffic'; this.set('wait', m); this.say('X-Plane: ' + m); this.timer = setTimeout(() => this.probe(), 5000); return; }
       /* 12.1.1 to 12.1.3: no capabilities yet, the first API only */
     }
+    this.seenAt = Date.now();
     const vs = (cap && cap.api && cap.api.versions) || ['v1'];
     this.api = ['v3', 'v2', 'v1'].find((v) => vs.includes(v)) || 'v1';
     this.ver = String((cap && cap['x-plane'] && cap['x-plane'].version) || '12');
@@ -157,8 +162,6 @@ class XpLink {
         opened = true; this.ws = w; this.vals = {}; this.td = null;
         if (this.wantLive) this.subscribe(w);
         this.set('on'); this.say('Connected to ' + this.name() + ' (Web API ' + this.api + ')');
-        /* a steady 10 a second for the EFB, even while nothing changes (X-Plane sends only what changed) */
-        clearInterval(this.tick); this.tick = setInterval(() => { if (this.ws === w && this.wantLive && Object.keys(this.vals).length) this.onFrame(frameOf(this.vals, Date.now(), this.td)); }, 100);
         resolve();
       });
       w.on('message', (raw) => {

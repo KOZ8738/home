@@ -32,7 +32,12 @@ const within = (p, ms) => Promise.race([p.then(() => true), sleep(ms).then(() =>
     const look = await open(port, { origin: 'https://koz8738.com.evil.example' });
     ck('a look-alike address: refused', look.refused === 401, look);
     const efb = await open(port, { origin: 'https://koz8738.com' });
-    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.3.0' && efb.hello.live === '' && efb.hello.sim === false, efb.hello);
+    ck('the EFB (koz8738.com): connects, hello with nothing to read yet', efb.w && efb.hello.cmd === 'hello' && efb.hello.v === '1.4.0' && efb.hello.live === '' && efb.hello.sim === false && efb.hello.bg === false, efb.hello);
+    ck('starting with Windows: not to be chosen here (not the Windows program, or --no-link)', efb.hello.autostart === null, efb.hello.autostart);
+    const ans = new Promise((r) => efb.w.on('message', (m) => { const j = JSON.parse(String(m)); if (j.cmd === 'autostart') r(j); }));
+    efb.w.send(JSON.stringify({ cmd: 'autostart', on: true }));
+    const an = await Promise.race([ans, sleep(3000).then(() => null)]);
+    ck('asked to: says it cannot', an && an.ok === false && an.on === null && /Windows/.test(an.error), an);
     const local = await open(port, { origin: 'http://127.0.0.1:8796' }), prog = await open(port);
     ck('a page on this PC, and a program on this PC: connect', local.w && prog.w);
     local.w.close(); prog.w.close();
@@ -57,7 +62,9 @@ const within = (p, ms) => Promise.race([p.then(() => true), sleep(ms).then(() =>
     const port2 = port + 1, s = run(port2, ['--idle-sec', '1', '--stay']);
     await upBy(port2, 15000); await sleep(3000);
     ck('--stay: stays open with no EFB', s.exitCode === null);
-    s.kill();
+    /* closed from the EFB */
+    const q = await open(port2, { origin: 'https://koz8738.com' }); q.w.send(JSON.stringify({ cmd: 'quit' }));
+    ck('quit (from the EFB): closes', await within(s.exited, 4000) && s.code === 0 && /Closed from the EFB/.test(s.out), { code: s.code });
   } catch (e) { ck('no error', false, e.stack); }
   finally { try { a.kill(); } catch (e) { /* gone */ } }
   if (!ok) console.log('--- Polaris Navdata said:\n' + a.out);

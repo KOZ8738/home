@@ -6,17 +6,22 @@
    - the live values for the EFB's Backup PFD, landing rate, Ground (GSX) and OOOI times: MSFS's through SimConnect
      (msfs.js; no FSUIPC needed), X-Plane 12's through its own Web API (12.1.1 and later; xplane.js). Read from the
      simulator only while an EFB asks for them ({ cmd:"live", on, gsx })
-   It runs only while the EFB does: on Windows it sets up a polaris-navdata: link, so the EFB on this PC can start it
-   (one tap, the browser asking once), and it closes by itself 10 minutes after the last EFB on this PC went away. Only
-   the EFB's own pages (and programs on this PC) may connect. Nothing leaves this PC from here: the EFB keeps what it
-   receives for its signed-in pilot only.
+   The pilot chooses, on the EFB (Ground › Simulator PC), how it runs on this PC:
+   - with the EFB (the default): on Windows it sets up a polaris-navdata: link, so the EFB on this PC can start it (one
+     tap, the browser asking once), and it closes by itself 10 minutes after the last EFB on this PC went away;
+   - with Windows: it starts when the pilot signs in to Windows (HKCU\...\Run, "--startup": a copy without a window,
+     its messages in %LOCALAPPDATA%\Polaris Navdata\navdata.log) and keeps running, ready for the EFB.
+   Only the EFB's own pages (and programs on this PC) may connect. Nothing leaves this PC from here: the EFB keeps what
+   it receives for its signed-in pilot only.
    Options: --safe       MSFS: read fix positions one by one instead of with the legs (for a simulator that stalls on that)
             --port N     listen on another port (the EFB uses 2050)
             --xplane DIR the X-Plane 12 folder (found by itself from X-Plane's list of installs otherwise)
             --xp-port N  X-Plane's Web API port (8086 unless X-Plane was started with --web_server_port)
             --stay       do not close when no EFB is connected
-            --no-link    do not set up the polaris-navdata: link */
+            --no-link    do not set up the polaris-navdata: link (nor read or change starting with Windows)
+            --startup    (as Windows starts it) run a copy without a window and go */
 'use strict';
+const fs = require('fs'), os = require('os'), path = require('path');
 const { WebSocketServer } = require('ws');
 const { XpLink, CifpReader, findXPlane } = require('./xplane');
 const { MsfsLive } = require('./msfs');
@@ -24,16 +29,29 @@ const { MsfsLive } = require('./msfs');
 let SC = null, ProcReader = null;
 try { SC = require('node-simconnect'); ({ ProcReader } = require('./navdata')); } catch (e) { SC = null; }
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
-const SAFE = args.includes('--safe'), STAY = args.includes('--stay'), FROM_LINK = args.includes('--from-link');
+const SAFE = args.includes('--safe'), STAY = args.includes('--stay'), FROM_LINK = args.includes('--from-link'), BG = args.includes('--background');
+/* started by Windows at sign-in: the same program again, without a window (no console at all), and this one goes. The
+   copy is started with its own entry point first, as Node is (pkg's .exe takes it the same way) */
+if (args.includes('--startup') && !BG) {
+  const c = require('child_process').spawn(process.execPath, [process.argv[1], ...args.filter((a) => a !== '--startup'), '--background'], { detached: true, stdio: 'ignore', windowsHide: true });
+  c.unref(); process.exit(0);
+}
 const PORT = +(opt('--port') || 0) || 2050;
 const XP_PORT = +(opt('--xp-port') || 0) || 8086;
 /* (for the tests: shorter waits) */
 const IDLE_MS = (+(opt('--idle-sec') || 0) || 600) * 1000, PING_MS = (+(opt('--ping-sec') || 0) || 30) * 1000;
 const S = { handle: null, reader: null, live: null, sim: '', connecting: false, cache: new Map(), clients: new Set(), lastEfb: Date.now(), closing: false };
 const stamp = () => new Date().toTimeString().slice(0, 8);
+/* without a window, the messages go to a file (kept to its last 256 KB) */
+const LOG_DIR = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Polaris Navdata') : path.join(os.homedir(), '.polaris-navdata'), LOG_FILE = path.join(LOG_DIR, 'navdata.log');
+if (BG) {
+  try { fs.mkdirSync(LOG_DIR, { recursive: true }); const st = fs.statSync(LOG_FILE); if (st.size > 512 * 1024) { const b = fs.readFileSync(LOG_FILE); fs.writeFileSync(LOG_FILE, b.subarray(b.length - 256 * 1024)); } } catch (e) { /* a new file */ }
+  console.log = (...a) => { try { fs.appendFileSync(LOG_FILE, a.map(String).join(' ') + '\n'); } catch (e) { /* no file */ } };
+  console.log('--- ' + new Date().toISOString() + ' started with Windows');
+}
 const log = (...a) => console.log(stamp(), ...a);
 
 /* X-Plane: its folder (for the procedures) and its Web API (for the live values) */
@@ -46,13 +64,16 @@ const XP = new XpLink({ port: XP_PORT, log, onFrame: (f) => live(f), onState: ()
   tell(hello());
 } });
 
+/* starting with Windows: true or false, or null where it cannot be chosen (not the Windows program) */
+let AUTO = null;
+const stayNow = () => STAY || AUTO === true;
 /* sim: a simulator to read procedures from (X-Plane's are in its files, so from its main menu on); live: the simulator
    whose live values Navdata can give now ('msfs', or 'xp' once a flight is loaded in X-Plane), liveName its name */
 function hello() {
   const xpUp = XP.st !== 'off', liveSim = S.handle ? 'msfs' : XP.on ? 'xp' : '';
   return { cmd: 'hello', app: 'Polaris Navdata', v: VERSION, sim: !!S.handle || xpUp, simName: S.handle ? S.sim : xpUp ? XP.name() : '', safe: SAFE,
     msfs: !!S.handle, xp: XP.on, xpName: xpUp ? XP.name() : '', xpWait: XP.st === 'wait' ? XP.err : '', xpData: !!CIFP,
-    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '' };
+    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '', autostart: AUTO, bg: BG };
 }
 function tell(msg) { const s = JSON.stringify(msg); for (const c of S.clients) try { c.send(s); } catch (e) { /* gone */ } }
 /* the live values, to the pages that asked for them (MSFS's while it runs, X-Plane's otherwise) */
@@ -68,6 +89,9 @@ function applyWant() {
   if (S.live) try { S.live.want(L, G); } catch (e) { log('MSFS:', e.message); }
 }
 
+/* MSFS not there: looked for every 5 s at first, every 15 s once it has not been seen for 2 minutes */
+let simSeenAt = Date.now();
+const simLater = () => (Date.now() - simSeenAt < 120000 ? 5000 : 15000);
 async function connect() {
   if (!SC || S.handle || S.connecting || S.closing) return; S.connecting = true;
   try {
@@ -76,13 +100,13 @@ async function connect() {
     S.reader = new ProcReader(handle, { coords: !SAFE });
     S.live = new MsfsLive(handle, SC, { log, onFrame: (f) => live(f, 'msfs'), onGsx: gsxOut });
     log('Connected to', S.sim + (SAFE ? ' (safe mode)' : ''));
-    const lost = () => { if (!S.handle) return; S.handle = null; S.reader = null; S.live = null; S.cache.clear(); if (S.closing) return; log('The simulator closed. Waiting for it again...'); tell(hello()); applyWant(); setTimeout(connect, 5000); };
+    const lost = () => { if (!S.handle) return; S.handle = null; S.reader = null; S.live = null; S.cache.clear(); simSeenAt = Date.now(); if (S.closing) return; log('The simulator closed. Waiting for it again...'); tell(hello()); applyWant(); setTimeout(connect, 5000); };
     handle.on('quit', lost); handle.on('close', lost);
     handle.on('error', (e) => log('SimConnect:', e && e.message));
     handle.on('exception', (x) => { if (process.env.NAVDATA_DEBUG) log('SimConnect exception', x.exception, 'packet', x.sendId, 'index', x.index); });
     applyWant(); tell(hello());
   } catch (e) {
-    if (!S.closing) setTimeout(connect, 5000);
+    if (!S.closing) setTimeout(connect, simLater());
   } finally { S.connecting = false; }
 }
 
@@ -104,12 +128,29 @@ async function procs(icao) {
    Origin). Another website is refused. */
 const okOrigin = (o) => !o || /^https:\/\/([a-z0-9-]+\.)*koz8738\.com$/i.test(o) || /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(o);
 
-/* Windows: the polaris-navdata: link the EFB starts this program with, in this user's own settings (no administrator
-   rights), pointing at this copy of the program (set again if the program was moved) */
+/* Windows, in this user's own settings (no administrator rights), pointing at this copy of the program (set again if
+   the program was moved): the polaris-navdata: link the EFB starts it with, and starting with Windows if chosen */
+const WIN = process.platform === 'win32' && !!process.pkg && !args.includes('--no-link');
+const reg = (a) => new Promise((r) => require('child_process').execFile('reg', a, { windowsHide: true }, (e, out) => r(e ? null : String(out))));
+const RUN = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', RUN_NAME = 'Polaris Navdata', RUN_CMD = () => `"${process.execPath}" --startup`;
+async function autoRead() {
+  if (!WIN) { AUTO = null; return; }
+  const out = await reg(['query', RUN, '/v', RUN_NAME]);
+  AUTO = !!out;
+  /* chosen for a copy that was moved: this copy from now on */
+  if (out && !out.includes(RUN_CMD())) await reg(['add', RUN, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', RUN_CMD(), '/f']);
+}
+async function autoSet(on) {
+  if (!WIN) return 'Only the Windows program can start with Windows';
+  const ok = on ? (await reg(['add', RUN, '/v', RUN_NAME, '/t', 'REG_SZ', '/d', RUN_CMD(), '/f'])) !== null : (await reg(['delete', RUN, '/v', RUN_NAME, '/f'])) !== null || (await reg(['query', RUN, '/v', RUN_NAME])) === null;
+  await autoRead();
+  if (!ok || AUTO !== on) return 'Windows did not take the change';
+  log(on ? 'Starts with Windows from now on, and keeps running, ready for the EFB.' : 'No longer starts with Windows: the EFB starts it, and it closes 10 minutes after the EFB.');
+  return '';
+}
 function registerLink() {
-  if (process.platform !== 'win32' || !process.pkg || args.includes('--no-link')) return;
-  const { execFile } = require('child_process'), exe = process.execPath, K = 'HKCU\\Software\\Classes\\polaris-navdata', cmd = `"${exe}" --from-link "%1"`;
-  const reg = (a) => new Promise((r) => execFile('reg', a, { windowsHide: true }, (e, out) => r(e ? null : String(out))));
+  if (!WIN) return;
+  const exe = process.execPath, K = 'HKCU\\Software\\Classes\\polaris-navdata', cmd = `"${exe}" --from-link "%1"`;
   (async () => {
     const now = await reg(['query', K + '\\shell\\open\\command', '/ve']);
     if (now && now.includes(cmd)) return;
@@ -131,8 +172,9 @@ const idleText = () => (IDLE_MS >= 60000 ? Math.round(IDLE_MS / 60000) + ' minut
 
 const wss = new WebSocketServer({ host: '127.0.0.1', port: PORT, verifyClient: (info) => okOrigin(info.origin) });
 wss.on('listening', () => {
-  log(`Polaris Navdata ${VERSION} ready for the EFB on ws://localhost:${PORT}`);
+  log(`Polaris Navdata ${VERSION} ready for the EFB on ws://localhost:${PORT}` + (BG ? ' (started with Windows, no window)' : ''));
   registerLink();
+  autoRead().then(() => { if (AUTO) log('Starts with Windows (chosen on the EFB, Ground › Simulator PC): it keeps running, ready for the EFB.'); tell(hello()); });
   connect();
   XP.start();
   /* a page that stopped answering (a browser that froze, or closed without a goodbye) is let go; a page in the
@@ -141,14 +183,15 @@ wss.on('listening', () => {
   /* no EFB on this PC for 10 minutes: close (the EFB starts it again when it is needed) */
   setInterval(() => {
     if (S.clients.size) S.lastEfb = Date.now();
-    else if (!STAY && Date.now() - S.lastEfb > IDLE_MS) shutdown(`No EFB on this PC for ${idleText()}: closing. The EFB starts Polaris Navdata again when you need it.`);
+    else if (!stayNow() && Date.now() - S.lastEfb > IDLE_MS) shutdown(`No EFB on this PC for ${idleText()}: closing. The EFB starts Polaris Navdata again when you need it.`);
   }, Math.min(5000, Math.max(250, IDLE_MS / 4)));
 });
 wss.on('error', (e) => {
   if (e.code === 'EADDRINUSE') {
-    /* already open: this copy goes (at once when the EFB started it) */
-    if (!FROM_LINK) log(`Polaris Navdata is already open (port ${PORT} is in use). This window closes.`);
-    setTimeout(() => process.exit(0), FROM_LINK ? 0 : 4000);
+    /* already open (perhaps in the background): this copy goes (at once when the EFB or Windows started it) */
+    const quiet = FROM_LINK || BG;
+    if (!quiet) log(`Polaris Navdata is already open (port ${PORT} is in use; it may be running in the background). This window closes.`);
+    setTimeout(() => process.exit(0), quiet ? 0 : 4000);
     return;
   }
   log('Server: ' + e.message);
@@ -161,6 +204,9 @@ wss.on('connection', (ws) => {
     let j; try { j = JSON.parse(String(raw)); } catch (e) { return; }
     if (j.cmd === 'hello') return ws.send(JSON.stringify(hello()));
     if (j.cmd === 'live') { ws.live = j.on === true; ws.gsx = j.gsx === true; applyWant(); return; }
+    /* the pilot's choice on the EFB: start with Windows, or with the EFB */
+    if (j.cmd === 'autostart') { const err = await autoSet(j.on === true); ws.send(JSON.stringify({ cmd: 'autostart', ok: !err, on: AUTO, error: err })); tell(hello()); return; }
+    if (j.cmd === 'quit') { shutdown('Closed from the EFB.'); return; }
     if (j.cmd === 'procs') {
       try { const data = await procs(j.icao); ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: data.icao, ok: true, data })); }
       catch (e) { ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: String(j.icao || '').toUpperCase(), ok: false, error: e.message })); log(String(j.icao), '-', e.message); }
@@ -169,5 +215,5 @@ wss.on('connection', (ws) => {
 });
 
 console.log('Polaris Navdata ' + VERSION + ' for the Polaris EFB: SIDs, STARs and approaches from ' + (SC ? 'MSFS or X-Plane 12' : 'X-Plane 12 (no MSFS on this system)') + ', and the live values for the Backup PFD, Ground and the block times. '
-  + (STAY ? 'Keep this window open while you fly.' : 'It closes by itself ' + idleText() + ' after the EFB on this PC closes, and the EFB starts it again.'));
-log('Waiting for the simulator (start ' + (SC ? 'MSFS or X-Plane 12' : 'X-Plane 12') + '; this window can stay open)...' + (XP_DIR ? ' X-Plane folder: ' + XP_DIR : ''));
+  + (BG ? 'Started with Windows, without a window: it keeps running, ready for the EFB.' : STAY ? 'Keep this window open while you fly.' : 'Unless you chose to start it with Windows (on the EFB, Ground › Simulator PC), it closes by itself ' + idleText() + ' after the EFB on this PC closes, and the EFB starts it again.'));
+log('Waiting for the simulator (start ' + (SC ? 'MSFS or X-Plane 12' : 'X-Plane 12') + (BG ? '' : '; this window can stay open') + ')...' + (XP_DIR ? ' X-Plane folder: ' + XP_DIR : ''));

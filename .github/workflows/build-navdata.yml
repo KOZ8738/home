@@ -38,8 +38,8 @@ jobs:
         run: npm test
       - name: Build PolarisNavdata.exe
         run: npm run build
-      - name: Test the .exe itself
-        run: node test_xplane.js && node test_life.js
+      - name: Test the .exe itself (and starting with Windows, and its copy without a window)
+        run: node test_xplane.js && node test_life.js && node test_win.js
         env:
           NAVDATA_EXE: dist/PolarisNavdata.exe
       # the .exe, started above, set up the polaris-navdata: link the EFB starts it with
@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.v.outputs.v }}
         run: |
-          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe and open it once on the simulator PC; from then on the EFB there starts it, and it closes by itself 10 minutes after the EFB. SIDs, STARs and approaches, the Backup PFD, the landing rate, GSX and the block times from MSFS 2020/2024 (SimConnect, no FSUIPC needed) or X-Plane 12.1.1 and later."
+          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe and open it once on the simulator PC; from then on the EFB there starts it, and it closes by itself 10 minutes after the EFB (or choose, in the EFB's Ground, to start it with Windows and keep it running in the background). SIDs, STARs and approaches, the Backup PFD, the landing rate, GSX and the block times from MSFS 2020/2024 (SimConnect, no FSUIPC needed) or X-Plane 12.1.1 and later."
           git tag -f navdata "$GITHUB_SHA" && git push -f origin refs/tags/navdata
           if gh release view navdata >/dev/null 2>&1; then
             gh release edit navdata --title "Polaris Navdata $V" --notes "$notes" --latest=false

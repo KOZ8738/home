@@ -49,6 +49,13 @@ class_name = "PfdRelay"
 name = "TASKS"
 class_name = "Taskboard"
 
+# EMAIL  the AIRAC reminder emails to the staff who may update Nav Data (src/airacmail.js), Cloudflare Email Service.
+#        Sent from MAIL_FROM below. One-time setup in Cloudflare: koz8738.com › Email › Email Routing turned on, and, on the
+#        Workers Free plan, each staff address added and verified under Destination addresses (the binding can send
+#        only to verified addresses there; on Workers Paid with Email Sending, to anyone).
+[[send_email]]
+name = "EMAIL"
+
 [[migrations]]
 tag = "pm-v1"
 new_sqlite_classes = ["Mailbox"]
@@ -73,6 +80,8 @@ new_sqlite_classes = ["Taskboard"]
 crons = ["*/20 * * * *", "*/2 * * * *"]   # */2: automatic stand assignment (src/stands.js)
 
 [vars]
+# the sender of the AIRAC reminder emails (src/airacmail.js); must be on a domain set up for email in Cloudflare
+MAIL_FROM = "noreply@koz8738.com"
 # EFB 只需要唯讀權限
 VAMSYS_SCOPE = "ops:read"
 # 只有這些網站的網頁可以讀這個 Worker

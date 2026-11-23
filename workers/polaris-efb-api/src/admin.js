@@ -583,6 +583,13 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-cyc span{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
 .nd-cyc b{font:600 22px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--ink)}
 .nd-cyc small{color:var(--label);font-size:12.5px}
+.nd-rm{border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:grid;gap:6px;margin-top:12px}
+.nd-rm .rm-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.nd-rm .rm-h span{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
+.nd-rm .rm-h button{margin-left:auto}
+.nd-rm p{margin:0;font-size:13px;color:var(--ink)}.nd-rm p small{color:var(--label);font-size:12.5px}
+.nd-rm .rm-to{display:flex;flex-wrap:wrap;gap:6px}.nd-rm .rm-to i{font-style:normal;font-size:12.5px;padding:2px 9px;border-radius:10px;background:var(--soft);color:var(--ink)}
+.nd-rm .rm-to i.no{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
+.nd-rm .rm-warn{color:#9A5B00}.nd-rm .rm-bad{color:var(--red)}
 .nd-reg h3{margin:0 0 12px;font:500 18px Georgia,serif;color:var(--ink)}
 .nd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
 .nd-c{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0;transition:box-shadow .3s}
@@ -678,7 +685,7 @@ html.no-a-cal :is([data-ca="new"],[data-ca="newday"],[data-ca="edit"],[data-ca="
 html.no-a-docs :is(main#docs>section:first-child,[data-dcedit],[data-dcrep]){display:none!important}
 html.no-a-docsdel [data-dcdel]{display:none!important}
 html.no-a-pilots [data-plout]{display:none!important}
-html.no-a-navdata :is(.nd-drop,[data-ndchk],#ndAll,[data-ndcndel]){display:none!important}
+html.no-a-navdata :is(.nd-drop,[data-ndchk],#ndAll,[data-ndcndel],#ndRmTest){display:none!important}
 html.no-a-settings :is(#setAocSave,#setSave,#setTplAdd,[data-setrm],[data-setup],#atSave,#atReset){display:none!important}
 html.no-a-settings :is(main#settings>section:not(#rlCard),#atSec) :is(input,select,textarea,[data-attk]){pointer-events:none;opacity:.7}
 html.no-a-roles #rlCard{display:none!important}
@@ -868,6 +875,7 @@ main#settings>#rlCard{grid-column:1/-1}
 <section class="nd-top">
  <div class="pg-h"><h2>Nav Data</h2><details class="help"><summary aria-label="About Nav Data">?</summary><div><p>Where the EFB’s navigation data comes from, region by region, and whether each source is current. Most sources update themselves; China’s AIP data set is uploaded here each AIRAC, because the CAAC eAIP needs a sign-in.</p><p>The sources are checked every 6 hours. Check asks one again now; nothing here changes the data itself.</p></div></details><span class="nd-sum" id="ndSum"></span><button type="button" id="ndAll">Check all</button></div>
  <div class="nd-cyc" id="ndCyc"></div>
+ <div class="nd-rm" id="ndRm" hidden></div>
 </section>
 <div id="ndList"><section><span class="empty">Loading…</span></section></div>
 </main>
@@ -2110,6 +2118,7 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  if(!v){$("#ndList").innerHTML='<section>'+(o&&o.err?'<div class="msg err">'+esc(o.err)+"</div>":'<span class="empty">Loading…</span>')+"</section>";return}
  const now=v.now||Date.now(),cur=v.airac.cur,nx=v.airac.next,c=ndCnt(v);ndBadge(v);
  $("#ndCyc").innerHTML='<div><span>AIRAC in force</span><b>'+esc(cur.cycle)+'</b><small>'+ndDay(Date.parse(cur.from))+" – "+ndDay(Date.parse(cur.to))+'</small></div><div><span>Next</span><b>'+esc(nx.cycle)+"</b><small>from "+ndDay(Date.parse(nx.from))+" "+new Date(nx.from).toISOString().slice(11,16)+"Z · "+ndIn(Date.parse(nx.from),now)+'</small></div><div><span>Checked</span><b>'+(v.at?akZ(v.at):"–")+"</b><small>"+(v.at?ndDay(v.at)+" · every 6 h":"not yet")+"</small></div>";
+ ndRmUi(v);
  $("#ndSum").innerHTML=[c.ok?'<i class="ok">'+c.ok+" current</i>":"",c.warn?'<i class="warn">'+c.warn+" to look at</i>":"",c.bad?'<i class="bad">'+c.bad+" not working</i>":"",c.off?'<i class="off">'+c.off+" not set up</i>":""].join("");
  const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s)});
  const chk=new Set(["us-charts","us-enroute","tw-charts","openaip","layouts","navproc"]),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
@@ -2118,6 +2127,25 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
    +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s,"jpc"):s.id==="cn-charts"?ndJcHtml(s,"cnc"):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
    +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":"")+"</div></article>").join("")+"</div></section>").join("")}
+/* the AIRAC reminder emails (airacmail.js): who gets them, what was sent for this cycle and the next, a test */
+const RM_KIND={pre:"7 days before",due:"on the day",late:"3 days after",test:"test"};
+function ndRmUi(v){const el=$("#ndRm"),R=v&&v.remind;if(!el)return;if(!R){el.hidden=true;return}el.hidden=false;
+ const now=v.now||Date.now(),cys=[v.airac.cur.cycle,v.airac.next.cycle],bad=new Set();
+ cys.forEach(cy=>{const c=(R.c||{})[cy]||{};Object.values(c).forEach(x=>(x&&x.res||[]).forEach(r=>{if(!r.ok)bad.add(r.to)}))});
+ const sent=[];cys.forEach(cy=>{const c=(R.c||{})[cy]||{};["pre","due","late"].forEach(k=>{const x=c[k]||c[k+"Last"];if(!x)return;const ok=(x.res||[]).filter(r=>r.ok).length,n=(x.res||[]).length;
+   sent.push("AIRAC "+esc(cy)+" · "+RM_KIND[k]+" · "+ndDay(x.t)+" "+akZ(x.t)+" · "+(n?ok+" of "+n+" delivered":"nobody to send to")+(c[k]?"":" · trying again every 2 h")+(!ok&&n&&x.res[0].err?" ("+esc(x.res[0].err)+")":""))})});
+ const T=R.test;
+ el.innerHTML='<div class="rm-h"><span>AIRAC reminders by email</span><button type="button" id="ndRmTest"'+(ND.rm?" disabled":"")+'>'+(ND.rm?"Sending…":"Send me a test")+"</button></div>"
+  +"<p><small>To everyone whose role may update Nav Data: 7 days before an AIRAC, on the day and 3 days after, only while China’s or Japan’s uploads for it are missing.</small></p>"
+  +(R.to.length?'<div class="rm-to">'+R.to.map(e=>'<i'+(bad.has(e)?' class="no" title="Last email to this address was not delivered"':"")+">"+esc(e)+"</i>").join("")+"</div>"
+   :'<p class="rm-warn">'+(R.rolesOff?"Nobody yet: roles are off, so add people under Settings › Roles (or list them in ADMIN_EMAILS on the server).":"Nobody: no role may update Nav Data.")+"</p>")
+  +(R.ready?"":'<p class="rm-bad">Email is not set up on the server yet: the EMAIL binding and MAIL_FROM (see the server README).</p>')
+  +(sent.length?"<p><small>"+sent.join("<br>")+"</small></p>":"")
+  +(T?'<p class="'+(T.ok?"":"rm-bad")+'"><small>Test to '+esc(T.to)+" · "+ndDay(T.t)+" "+akZ(T.t)+" · "+(T.ok?"sent":esc(T.err||"not sent"))+"</small></p>":"")
+  +(ND.rmMsg?'<p class="rm-bad"><small>'+esc(ND.rmMsg)+"</small></p>":"")}
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#ndRmTest");if(!b||b.disabled||ND.rm)return;ND.rm=true;ND.rmMsg="";ndUi();
+ try{const j=await api("/admin/api/navdata/remind-test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});if(j.status)OPS.nav={at:Date.now(),v:j.status,p:null,err:""};if(!j.ok)ND.rmMsg=j.err||"Not sent"}
+ catch(er){ND.rmMsg=er.message}finally{ND.rm=false;ndUi()}});
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
 async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#ndAll");if(b){b.disabled=true;b.textContent="Checking…"}
  try{const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(id?{id}:{})});OPS.nav={at:Date.now(),v,p:null,err:""}}

@@ -3,6 +3,7 @@
    GET  /admin/api/navdata           -> { now, airac: { cur, next }, src: [ source… ], at }
    POST /admin/api/navdata/check {id} -> asks one source (or all, without id) again now, then the same answer
    POST /admin/api/navdata/cn, /cn/delete -> China's AIP data set, uploaded from this page (cnaip.js)
+   POST /admin/api/navdata/remind-test -> the AIRAC reminder email, as a test, to the person asking (airacmail.js)
    A source: { id, region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
    The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA Taiwan eAIP's list, one
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
@@ -12,6 +13,7 @@
 
 import { cnAdmin } from './cnaip.js';
 import { AIPCH } from './jpcharts.js';
+import { airacRemind, remindStatus, remindTest } from './airacmail.js';
 
 const CHK = 'nav:v1:chk', H6 = 6 * 3600_000, DAY = 86400_000;
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
@@ -99,6 +101,8 @@ export async function navCron(env, d) {
   if (!env || !env.STORE) return;
   const chk = await readChk(env.STORE);
   if (Date.now() - (chk.at || 0) > H6) await navCheck(env, d).catch((e) => console.warn('[navdata]', e && e.message));
+  /* the AIRAC reminders by email (airacmail.js) */
+  await airacRemind(env, d).catch((e) => console.warn('[airac remind]', e && e.message));
 }
 
 /* ---- the page's answer ---- */
@@ -215,7 +219,7 @@ async function navStatus(env, d) {
     }
     return o;
   });
-  return { now, airac: { cur, next }, src: out, at: chk.at || 0 };
+  return { now, airac: { cur, next }, src: out, at: chk.at || 0, remind: await remindStatus(env).catch(() => null) };
 }
 
 export async function navdataAdmin(req, path, env, d, who) {
@@ -225,6 +229,13 @@ export async function navdataAdmin(req, path, env, d, who) {
     if (path === '/admin/api/navdata/cncharts' || path.startsWith('/admin/api/navdata/cncharts/')) return await AIPCH.cn.admin(req, path, env, who);
     if (/^\/admin\/api\/navdata\/(cn|jp)(\/delete)?$/.test(path)) return await cnAdmin(req, path, env, who);
     if (path === '/admin/api/navdata' && req.method === 'GET') return jsonRes(await navStatus(env, d));
+    /* the AIRAC reminder, as a test, to the person asking */
+    if (path === '/admin/api/navdata/remind-test' && req.method === 'POST') {
+      if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
+      const email = typeof who === 'string' ? who : (who && who.email) || '';
+      if (!email) return jsonRes({ error: 'Who you are is not known' }, 400);
+      return jsonRes({ ...(await remindTest(env, d, email)), status: await navStatus(env, d) });
+    }
     if (path === '/admin/api/navdata/check' && req.method === 'POST') {
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
       let b = {}; try { b = await req.json(); } catch (e) { b = {}; }

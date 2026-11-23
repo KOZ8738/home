@@ -155,6 +155,14 @@ function permsOf(R, id) {
   if (id === 'admin') return { pages: ['home', 'tasks', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
   const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', 'tasks', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
 }
+/* who may update Nav Data (the AIRAC reminders, airacmail.js): Administrators and the roles allowed 'navdata'; while
+   roles are off (everyone signed in is an administrator), the ADMIN_EMAILS list, as no one else is known by name */
+export async function navRecipients(env) {
+  const kv = env && env.STORE; if (!kv) return { list: [] };
+  const R = await readRoles(kv), people = Object.keys(R.people);
+  if (!people.length) return { rolesOff: true, list: [...new Set(String((env && env.ADMIN_EMAILS) || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))] };
+  return { list: people.filter((e) => { const id = roleOf(R, e); return !!id && permsOf(R, id).can.includes('navdata'); }) };
+}
 const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Settings' };
 /* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
    (also opened from Flight Watch) needs the From names and templates; the pilot list picks recipients (Messages,

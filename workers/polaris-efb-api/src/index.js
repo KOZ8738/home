@@ -48,6 +48,7 @@
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
  *   GET/POST /api/efb/chartnotes?k=     -> the signed-in pilot's pen marks on a chart (ICAO|chart name|page)
  *   GET/POST /api/efb/mapnotes          -> the signed-in pilot's own drawing on the Map (lines, pins, words)
+ *   POST/GET/DELETE /api/efb/share      -> Share my flight: the pilot's public link (see share.js); GET /s/<t> the page
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
  *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
@@ -79,6 +80,7 @@ export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
 export { Taskboard } from './tasks.js';
 import { pfdRoute } from './pfd.js';
+import { shareRoute } from './share.js';
 import { navRoute } from './nav.js';
 import { officialFirs, trimShared } from './fir.js';
 import { navdataAdmin, navCron } from './navdata.js';
@@ -1703,6 +1705,8 @@ export default {
     }
     /* Polaris Navdata on the pilot's simulator PC, sending without an EFB open there (see nav.js) */
     if (/^\/api\/(efb\/nav\/(pair|pairs|unpair|want)|nav\/(ticket|flight|gsx|navproc))\/?$/.test(new URL(req.url).pathname)) { try { return await navRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
+    /* Share my flight: the pilot's link and the public page (see share.js) */
+    if (/^\/(api\/efb\/share|s\/[A-Za-z0-9_-]+(\/data)?)\/?$/.test(new URL(req.url).pathname)) { try { const r = await shareRoute(req, new URL(req.url), env, h, { pawLive }); if (r) return r; } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
     if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */

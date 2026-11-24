@@ -92,6 +92,8 @@ table{width:100%;border-collapse:collapse;font-size:14.5px;margin:10px 0}th,td{t
  <p>What you draw on a chart with the pen in the chart viewer is kept on the EFB server under your Pilot ID, so it appears on your other devices. Only you can read it; it is never shared with other pilots, and it is deleted a year after you last change it, or when you clear the chart's marks.</p></section>
 <section id="mapnotes"><h2>Your drawing on the Map</h2>
  <p>Lines, pins and words you draw on the EFB's Map are kept on the EFB server under your Pilot ID, so they appear on your other devices. Only you can read them; they are never shared with other pilots, and they are deleted a year after you last change them, or when you clear them.</p></section>
+<section id="share"><h2>Sharing your flight</h2>
+ <p>If you turn on Share my flight, the EFB server makes a link that anyone who has it can open without signing in. It shows your callsign, your departure and destination airports, your planned route, your aircraft's position, altitude, speed and heading, and the track flown since you started sharing. While sharing is on, a point of your track is kept every 30 seconds. Everything is deleted when you stop sharing or the link runs out (your flight time plus 3 hours, 24 hours at most).</p></section>
 <section id="device"><h2>Stored on your device</h2>
  <p>The EFB keeps the following in your browser's storage. It stays on your device unless the EFB needs to send part of it to the EFB server to work (for example your sign-in).</p>
  <div class="wrap-t"><table><thead><tr><th>Item</th><th>Why</th><th>Kept until</th></tr></thead><tbody>

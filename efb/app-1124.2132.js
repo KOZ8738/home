@@ -6663,7 +6663,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket|nav\/(pair|pairs|unpair|want)|navproc|chartnotes|mapnotes|cn\/(ifr|asp|apt)|jp\/asp|aip\/ifr|charts(?=\?icao=([Rr][JjOo]|[Zz]|[Vv][HhMm]|[Ww][Ss]|[Ee][GgNn]))|chart-pdf(?=\?cycle=(JP|CN|HK|SG|UK|NO))|chart-fixes)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket|nav\/(pair|pairs|unpair|want)|navproc|chartnotes|mapnotes|share|cn\/(ifr|asp|apt)|jp\/asp|aip\/ifr|charts(?=\?icao=([Rr][JjOo]|[Zz]|[Vv][HhMm]|[Ww][Ss]|[Ee][GgNn]))|chart-pdf(?=\?cycle=(JP|CN|HK|SG|UK|NO))|chart-fixes)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -16733,6 +16733,104 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 #mapSvg .an-l{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}#mapSvg .an-v{stroke:#fff;stroke-width:1.5}
 #mapSvg .an-pin path{stroke:#fff;stroke-width:1.5}#mapSvg .an-t{font:700 13px var(--f-os);fill:var(--ink);paint-order:stroke;stroke:var(--panel,#fff);stroke-width:3.5px;stroke-linejoin:round}
 #mapSvg .an-big{font-size:16px}
+</style>`);
+
+/* ---------- Set departure / arrival / approach: a suggestion at the top (Nov 2026) ----------
+   Which runway and which procedure, with the reason, and a button for each:
+   - the runway: the one a VATSIM ATIS (or the real airport's D-ATIS) gives for departures or arrivals; without one,
+     the runway with the most headwind in the newest METAR (crosswind under 30 kt, never a tailwind over 5 kt); in calm
+     wind (under 5 kt) the flight plan's runway; the longest when nothing else decides;
+   - the procedure: for a departure or an arrival, the one from (to) that runway that joins the route, the flight
+     plan's own SID or STAR first; for an approach, the most precise one to that runway (ILS, then RNAV/GPS, LOC, VOR,
+     NDB). It is a suggestion: ATC and the charts decide. */
+const PA={at:{}};
+const PA_APP=["ILS","GLS","RNAV","GPS","LOC","LDA","SDF","VOR/DME","VOR","NDB/DME","NDB","LOC BC"];
+/* runways named in an ATIS, for departures ("d") and arrivals ("a") */
+function paAtisRwys(txt){const out={d:[],a:[],x:[]};const t=" "+String(txt||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ")+" ";
+  const re=/(RWYS?|RUNWAYS?)( IN USE| FOR (DEPARTURE|DEPARTURES|ARRIVAL|ARRIVALS|LANDING|TAKE OFF|TAKEOFF))?( (\d{1,2}[LRC]?)( (AND|&) (\d{1,2}[LRC]?))?)/g;let m;
+  while((m=re.exec(t))){const ctx=t.slice(0,m.index).trim().split(" ").slice(-2).join(" ")+" "+(m[3]||""),rr=[m[5],m[8]].filter(Boolean).map(v=>npRwyN(v));
+    const dep=/DEP|TAKE ?OFF/.test(ctx),arr=/ARR|LAND|LDG|APCH|APPROACH|ILS|EXPECT/.test(ctx);(dep&&!arr?out.d:arr&&!dep?out.a:out.x).push(...rr)}
+  return out}
+function paAtis(ic,kind,rws){const a=(typeof RS!=="undefined"&&RS.atis[ic])||{},L=[...(a.vatsim||[]).map(x=>({t:(x.text||""),src:"VATSIM ATIS"+(x.cs?" ("+x.cs+(x.code?" · "+x.code:"")+")":"")})),...(a.real||[]).slice(0,1).map(x=>({t:x.datis,src:"Real-world D-ATIS"+(x.code?" · "+x.code:"")}))];
+  for(const q of L){const r=paAtisRwys(q.t),pick=(kind==="sid"?r.d:r.a).concat(r.x).find(n=>rws.some(w=>w.n===n));if(pick)return{R:pick,why:`${q.src}: runway ${pick} in use`}}return null}
+function paMetar(ic){const w=(typeof RS!=="undefined"&&RS.wx[ic])||{},a=typeof AS!=="undefined"&&AS.data&&AS.data[ic],x=O();
+  const raw=(w.metar&&(w.metar.raw||w.metar))||(a&&a.metar&&(a.metar.raw||a.metar))||(ic===S(x.o.icao_code).toUpperCase()?S(x.o.metar):ic===S(x.d.icao_code).toUpperCase()?S(x.d.metar):"");return typeof raw==="string"?raw:""}
+/* the runway, and why */
+function paRunway(kind,d){const ic=npIcao(kind),rws=(d.rw||[]).filter(r=>r&&r.n);if(!rws.length)return null;
+  const at=paAtis(ic,kind,rws);if(at)return at;
+  const x=O(),plan=npRwyN(kind==="sid"?x.o.plan_rwy:x.d.plan_rwy),m=decodeMetar(paMetar(ic)),wd=m&&m.wind,len=r=>+r.len||0;
+  const hdg=r=>r.h!=null?+r.h:((parseInt(r.n,10)||36)*10+(+d.mv||0));
+  if(wd&&wd.dir!=null&&wd.spd>=5){const sc=rws.map(r=>{const a=(wd.dir-hdg(r))*Math.PI/180,g=wd.gust||wd.spd;return{r,hw:wd.spd*Math.cos(a),xw:Math.abs(g*Math.sin(a))}}).filter(q=>q.xw<30&&q.hw>-5);
+    if(sc.length){sc.sort((a,b)=>Math.abs(b.hw-a.hw)>=1?b.hw-a.hw:((b.r.n===plan)-(a.r.n===plan))||(len(b.r)-len(a.r)));const q=sc[0],hw=Math.round(q.hw),xw=Math.round(q.xw);
+      return{R:q.r.n,why:`Wind ${String(wd.dir).padStart(3,"0")}° ${wd.spd}${wd.gust?"G"+wd.gust:""} kt: ${hw>=0?"headwind "+hw:"tailwind "+(-hw)} kt, crosswind ${xw} kt`}}}
+  if(plan&&rws.some(r=>r.n===plan))return{R:plan,why:wd&&wd.spd<5?`Light wind (${wd.spd} kt): the flight plan's runway`:"No wind report: the flight plan's runway"};
+  const lg=rws.slice().sort((a,b)=>len(b)-len(a))[0];return{R:lg.n,why:"The longest runway"}}
+/* the procedure for that runway, and why */
+function paProc(kind,d,R){const {from}=npRows(kind,d,R);if(!from.length)return null;
+  if(kind==="app"){const rank=r=>{const ty=String(r.p.ty||r.p.n||"").toUpperCase();const i=PA_APP.findIndex(t=>ty.startsWith(t));return i<0?99:i};
+    const L=from.filter(r=>!r.t).sort((a,b)=>rank(a)-rank(b));const r=L[0]||from[0];return{r,why:`${String(r.p.ty||"").toUpperCase()==="ILS"?"Precision approach":"Most precise approach listed"} to runway ${R}`}}
+  const route=new Set(rePts().map(q=>q.n)),orig=rpOrig(kind),join=from.filter(r=>route.has(npEnd(kind,r)));
+  const r=join.find(q=>q.p.n===orig)||join[0];if(!r)return{r:null,why:`No ${kind==="sid"?"departure from":"arrival to"} runway ${R} joins your route`};
+  return{r,why:`${r.p.n===orig?"Your flight plan's "+(kind==="sid"?"SID":"STAR")+", ":""}${kind==="sid"?"ends at":"starts at"} ${npEnd(kind,r)} on your route`}}
+function paHtml(kind,d){const ic=npIcao(kind);if(typeof rsWx==="function"&&!PA.at[ic]){PA.at[ic]=1;rsWx(ic);setTimeout(()=>{if(NP.kind)npRefresh()},2500);setTimeout(()=>{if(NP.kind)npRefresh()},8000)}
+  const rw=paRunway(kind,d);if(!rw)return"";const R=NP.rwy[kind]||"",same=rw.R===R,pr=paProc(kind,d,rw.R),o=rpGet();
+  const added=pr&&pr.r&&o[kind]!=null&&o[kind]===(kind==="app"?pr.r.p.id:pr.r.p.n)&&(o[kind+"T"]||"")===(pr.r.t||pr.r.p.nf||"");
+  return `<div class="pa-card"><div class="pa-h"><b>Suggested</b><span>ATC and the charts decide</span></div>
+    <div class="pa-row"><div><small>Runway</small><b>RW${esc(rw.R)}</b><span>${esc(rw.why)}</span></div>${same?'<em class="pa-ok">Showing</em>':`<button class="pa-b" data-paadv="rwy:${esc(rw.R)}">Use RW${esc(rw.R)}</button>`}</div>
+    ${pr?`<div class="pa-row"><div><small>${kind==="sid"?"Departure":kind==="star"?"Arrival":"Approach"}</small><b>${pr.r?esc(kind==="app"?pr.r.p.n:npLab(pr.r)):"–"}</b><span>${esc(pr.why)}</span></div>${pr.r?(added?'<em class="pa-ok">In route</em>':`<button class="pa-b pri" data-paadv="add:${esc(rw.R)}">Add</button>`):""}</div>`:""}</div>`}
+{const _h=npHtml;npHtml=function(){const h=_h.apply(this,arguments),kind=NP.kind,d=kind&&NP.data[npIcao(kind)];if(!d)return h;let c="";try{c=paHtml(kind,d)}catch(e){}
+  return c?h.replace('<div class="fp-body np-body">','<div class="fp-body np-body">'+c):h}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-paadv]");if(!t||!NP.kind)return;const [a,R]=t.dataset.paadv.split(":"),kind=NP.kind,d=NP.data[npIcao(kind)];if(!d)return;
+  if(a==="rwy"){NP.rwy[kind]=R;NP.sel=null;NP.open=null;npFitSoon=1;npRefresh();return}
+  if(a==="add"){NP.rwy[kind]=R;const pr=paProc(kind,d,R);if(pr&&pr.r){npApply(kind,pr.r);toast((kind==="app"?pr.r.p.n:npLab(pr.r))+" added")}npRefresh()}},true);
+document.head.insertAdjacentHTML("beforeend",`<style>
+.pa-card{margin:10px 12px 4px;border-radius:12px;background:color-mix(in srgb,var(--brand) 9%,var(--panel,#fff));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brand) 30%,transparent);padding:8px 12px}
+.pa-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:2px}.pa-h b{font:700 11px var(--f-os);letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}.pa-h span{font:500 11px var(--f-os);color:var(--label)}
+.pa-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.pa-row:first-of-type{border-top:0}
+.pa-row>div{flex:1;min-width:0;display:flex;flex-direction:column}.pa-row small{font:600 10.5px var(--f-os);letter-spacing:.06em;text-transform:uppercase;color:var(--label)}.pa-row b{font:700 15px var(--f-mono);color:var(--ink)}.pa-row span{font:400 12.5px/1.35 var(--f-os);color:var(--label)}
+.pa-b{flex:none;border:0;border-radius:9px;padding:7px 12px;background:rgba(127,127,127,.16);color:var(--ink);font:600 13px var(--f-os);cursor:pointer}.pa-b.pri{background:var(--brand);color:var(--brand-ink,#fff)}
+.pa-ok{flex:none;font:600 12px var(--f-os);font-style:normal;color:#1FA347}
+</style>`);
+
+/* ---------- Map › ⋯ › Share my flight (Nov 2026) ----------
+   A link anyone can open (no sign-in) to see this flight on a map: the route, the track flown so far and the aircraft,
+   with its altitude and speed, live from the simulator (through the Backup PFD link, so the EFB on the simulator PC or
+   Polaris Navdata must be running) or else from VATSIM / vAMSYS by the callsign. It runs until you stop it or the flight
+   time plus 3 hours (24 hours at most). The page shows nothing else about you. See the EFB server's share.js. */
+const SH={on:false,st:null,busy:false,err:""};
+function shReq(method,body){return fetch(authSrv()+"/api/efb/share",{method,headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined}).then(r=>r.json().then(j=>{if(!r.ok)throw new Error(j.error||"HTTP "+r.status);return j}))}
+function shCity(a){const ic=S(a&&a.icao_code).toUpperCase();try{if(typeof APTS!=="undefined"&&APTS.a){const r=APTS.a.find(q=>q[0]===ic);if(r&&r[7])return r[7]}}catch(e){}return S(a&&a.name).replace(/\s+(Intl|International|Airport).*$/i,"")||ic}
+function shPlan(){const x=O(),P=typeof bpRoute==="function"?bpRoute():[],step=Math.max(1,Math.ceil(P.length/380));const route=P.filter((p,i)=>i%step===0||i===P.length-1).map(p=>[+p.la.toFixed(4),+p.lo.toFixed(4)]);
+  return{cs:S((ofp.atc||{}).callsign)||x.flight,dep:S(x.o.icao_code),arr:S(x.d.icao_code),depN:shCity(x.o),arrN:shCity(x.d),route,ete:N((ofp.times||{}).est_time_enroute)||0}}
+function shLoad(){if(typeof authOn!=="function"||!authOn()){SH.st=null;shUi();return}SH.busy=true;shUi();shReq("GET").then(j=>{SH.st=j.none?null:j;SH.err=""}).catch(e=>{SH.err=e.message}).finally(()=>{SH.busy=false;shUi()})}
+function shUi(){const w=$("#view .mapwrap"),b=$("#shBtn");if(b)b.setAttribute("aria-pressed",String(!!(SH.st&&SH.st.t)));if(!w)return;let el=$("#shPanel");if(!SH.on){if(el)el.remove();return}
+  if(!el){el=document.createElement("div");el.id="shPanel";el.className="mspanel anpanel shpanel";w.appendChild(el)}const signed=typeof authOn==="function"&&authOn(),st=SH.st,ok=bpPlan();
+  const end=st&&st.exp?new Date(st.exp).toISOString().slice(11,16)+"Z":"";
+  el.innerHTML=`<div class="ms-h"><b>Share my flight</b><span>${st?"Sharing until "+end:"A link anyone can open"}</span></div>
+    ${!signed?`<p class="sh-p">Sign in to share your flight.</p>`:st?`<div class="sh-link"><input readonly value="${esc(st.url)}" aria-label="Link" id="shUrl"></div>
+      <p class="sh-p">Anyone with this link sees ${esc(st.cs||"your flight")} on a map: the route, the track so far, altitude and speed. Nothing else about you.</p>
+      <div class="ms-btns"><button type="button" data-sh="copy">Copy link</button>${navigator.share?`<button type="button" data-sh="share">Share…</button>`:""}<button type="button" data-sh="stop" class="sh-stop">Stop sharing</button></div>`
+    :`<p class="sh-p">Friends or viewers open the link (no sign-in) and see your aircraft on a map with its route, the track flown so far, altitude and speed: live from the simulator while the EFB on the simulator PC or Polaris Navdata runs, else from VATSIM or vAMSYS by your callsign. It ends when you stop it, or the flight time plus 3 hours.</p>
+      <div class="ms-btns"><button type="button" data-sh="start" class="pri"${!ok||SH.busy?" disabled":""}>${SH.busy?"…":ok?"Start sharing":"Load a flight plan first"}</button><button type="button" data-sh="close">Close</button></div>`}
+    ${st?`<div class="ms-btns" style="margin-top:6px"><button type="button" data-sh="close">Close</button></div>`:""}${SH.err?`<p class="sh-err">${esc(SH.err)}</p>`:""}`}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#shBtn,[data-sh]");if(!t||cur!=="map")return;
+  if(t.id==="shBtn"){SH.on=!SH.on;if(SH.on){if(typeof AN!=="undefined"&&AN.on)anToggle(false);if(typeof MS!=="undefined"&&MS.on)msToggle(false);shLoad()}shUi();return}
+  const a=t.dataset.sh;
+  if(a==="close"){SH.on=false;shUi();return}
+  if(a==="start"){if(!bpPlan())return;SH.busy=true;SH.err="";shUi();shReq("POST",shPlan()).then(j=>{SH.st=j;toast("Your flight is shared: copy the link to send it")}).catch(er=>{SH.err=er.message}).finally(()=>{SH.busy=false;shUi()});return}
+  if(a==="stop"){SH.busy=true;shUi();shReq("POST",{off:true}).then(()=>{SH.st=null;toast("Sharing stopped: the link no longer works")}).catch(er=>{SH.err=er.message}).finally(()=>{SH.busy=false;shUi()});return}
+  if(a==="copy"&&SH.st){(navigator.clipboard?navigator.clipboard.writeText(SH.st.url):Promise.reject()).then(()=>toast("Link copied")).catch(()=>{const i=$("#shUrl");if(i){i.select();toast("Select and copy the link")}});return}
+  if(a==="share"&&SH.st&&navigator.share){navigator.share({title:"Follow my flight",text:(SH.st.cs||"My flight")+" live",url:SH.st.url}).catch(()=>{})}});
+MC_MORE.push(["shBtn","Share my flight"]);
+{const _p=mcPlace;mcPlace=function(){if(cur==="map"){const ctl=$("#view .mapwrap .mapctl");if(ctl&&!ctl.querySelector("#shBtn")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="shBtn";b.setAttribute("aria-label","Share my flight");b.setAttribute("aria-pressed",String(!!(SH.st&&SH.st.t)));
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 12v6.5A1.5 1.5 0 0 0 7.5 20h9a1.5 1.5 0 0 0 1.5-1.5V12"/></svg>';ctl.insertBefore(b,ctl.querySelector("#mcMore"))}}
+  const r=_p.apply(this,arguments);if(cur==="map"&&SH.on&&!$("#shPanel"))shUi();return r}}
+window.addEventListener("hashchange",()=>{if(cur!=="map")SH.on=false});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.screen[data-app="map"] .mapctl>#shBtn{display:none!important}
+.shpanel .sh-p{margin:6px 0 10px;font:400 13px/1.45 var(--f-os);color:var(--label)}.shpanel .sh-err{margin:8px 0 0;font:500 12.5px var(--f-os);color:#D70015}
+.shpanel .sh-link input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font:500 12.5px var(--f-mono);background:var(--bg);color:var(--ink);margin-top:8px}
+.shpanel .sh-stop{color:#D70015!important}
 </style>`);
 
 })();

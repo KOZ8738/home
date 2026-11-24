@@ -1128,6 +1128,22 @@ async function vatsimRoute(req, url, ctx, h) {
   return new Response(JSON.stringify({ upd: d.upd, f: VS_FIELDS, p: d.rows }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag } });
 }
 /* ATIS for one airport: real-world D-ATIS (atis.info, FAA airports) and VATSIM ATIS (network data feed). Cached 60-120 s. */
+/* VATSIM's own events (my.vatsim.net, public), for the EFB's Calendar ("VATSIM Events"): those not over yet, slimmed
+   to what the Calendar shows, kept 30 minutes */
+async function vatsimEvents() {
+  return cached('vatsim:events', 1800_000, () => edgeCache('vatsim/events/v1', 1800, async () => {
+    const r = await fetchT('https://my.vatsim.net/api/v2/events/latest', 20000, { headers: { Accept: 'application/json', 'User-Agent': 'PolarisEFB/1.0 (+https://koz8738.com/efb/)' } });
+    if (!r.ok) throw new HttpError(502, 'VATSIM events answered HTTP ' + r.status);
+    const j = await r.json(), now = Date.now(), cut = (v, n) => String(v == null ? '' : v).replace(/\r/g, '').slice(0, n);
+    const events = (Array.isArray(j && j.data) ? j.data : []).filter((e) => e && Date.parse(e.end_time || e.start_time) > now - 86400_000).slice(0, 400).map((e) => ({
+      id: e.id, name: cut(e.name, 120), link: /^https:\/\/my\.vatsim\.net\//.test(e.link || '') ? e.link : '', start: e.start_time, end: e.end_time,
+      airports: (e.airports || []).map((a) => String((a && a.icao) || '').toUpperCase()).filter((x) => /^[A-Z0-9]{3,4}$/.test(x)).slice(0, 20),
+      routes: (e.routes || []).map((x) => ({ from: String(x.departure || '').toUpperCase().slice(0, 4), to: String(x.arrival || '').toUpperCase().slice(0, 4) })).slice(0, 10),
+      short: cut(e.short_description, 300), desc: cut(e.description, 1200),
+      org: (e.organisers || []).map((o) => [o.division, o.subdivision].filter(Boolean).join(' ') || o.region || '').filter(Boolean).slice(0, 3) }));
+    return { events, at: new Date().toISOString() };
+  }, (v) => v && v.events && v.events.length));
+}
 async function fetchT(u, ms, init) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms); try { return await fetch(u, { ...(init || {}), signal: ac.signal }); } finally { clearTimeout(tm); } }
 async function vatsimAtisAll(ctx) {
   const cache = caches.default, ck = new Request('https://vatsim-atis-cache.local/all');
@@ -1809,6 +1825,7 @@ export default {
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
+        case '/api/efb/vatsim-events': return json(await vatsimEvents(), 200, { ...h, 'Cache-Control': 'public, max-age=900' });
         case '/api/efb/cal': return await calPublic(req, env, h, await sessionOf(req, env), () => siteEvents(siteDeps), async (sess) => {
           /* a pilot who is also on the staff: their tasks (Settings › People links the two) */
           const st = await staffOfPilot(env, sess && sess.u); if (!st) return null;

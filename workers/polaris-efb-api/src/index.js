@@ -47,6 +47,7 @@
  *   GET/POST /api/efb/wx                -> the signed-in pilot's Weather settings (saved airports, units)
  *   GET/POST /api/efb/navproc?icao=     -> the signed-in pilot's SIDs/STARs read from their own simulator (Polaris Navdata)
  *   GET/POST /api/efb/chartnotes?k=     -> the signed-in pilot's pen marks on a chart (ICAO|chart name|page)
+ *   GET/POST /api/efb/mapnotes          -> the signed-in pilot's own drawing on the Map (lines, pins, words)
  *   GET /api/site/live, /api/site/events -> the Polaris website's Network and Events pages, any origin (see site.js)
  *   GET /privacy                        -> the EFB privacy policy (shown on the Login with vAMSYS consent screen)
  *   /auth/start, /auth/callback, /auth/me, /auth/logout -> pilot sign-in with vAMSYS (see auth.js)
@@ -1659,6 +1660,36 @@ export default {
           p: (Array.isArray(x && x.p) ? x.p.slice(0, 6000) : []).map(Number).filter(Number.isFinite).map(v => Math.round(v * 10) / 10) })).filter(x => x.p.length >= 2 && x.p.length % 2 === 0) };
       await env.STORE.put('cn:' + me.u + ':' + k, JSON.stringify({ k, n: clean, t: clean.t }), { expirationTtl: 365 * 86400 });
       return res({ ok: true, k, t: clean.t });
+    }
+    /* each pilot's own drawing on the Map (lines, pins, words; EFB Map › Draw): one record per pilot, only theirs,
+       gone a year after the last change; an empty drawing deletes it */
+    if (/^\/api\/efb\/mapnotes\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {
+      const me = await sessionOf(req, env);
+      const res = (b, st = 200) => new Response(JSON.stringify(b), { status: st, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      if (!me) return res({ error: 'Sign in first' }, 401);
+      if (!env.STORE) return res({ error: 'Not set up on the server' }, 503);
+      const key = 'mn:' + me.u;
+      if (req.method === 'GET') {
+        const v = await env.STORE.get(key);
+        return v ? new Response(v, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } }) : res({ error: 'Nothing drawn' }, 404);
+      }
+      if (req.method !== 'POST') return res({ error: 'Method not allowed' }, 405);
+      const t = await req.text(); if (t.length > 400_000) return res({ error: 'Too large' }, 413);
+      let b; try { b = JSON.parse(t); } catch (e) { return res({ error: 'Bad body' }, 400); }
+      const a = b && Array.isArray(b.a) ? b.a : null;
+      if (!a) return res({ error: 'Not a drawing' }, 400);
+      if (!a.length) { await env.STORE.delete(key); return res({ ok: true, gone: true }); }
+      if (a.length > 400) return res({ error: 'Too many items' }, 400);
+      const clean = a.map(x => {
+        const k = ['line', 'pin', 'text'].includes(x && x.k) ? x.k : null;
+        const p = (Array.isArray(x && x.p) ? x.p.slice(0, k === 'line' ? 2000 : 2) : []).map(Number);
+        const ok = p.length >= 2 && p.length % 2 === 0 && p.every((v, i) => Number.isFinite(v) && Math.abs(v) <= (i % 2 ? 180 : 90));
+        if (!k || !ok || (k === 'line' && p.length < 4)) return null;
+        return { k, c: /^#[0-9A-Fa-f]{6}$/.test(String(x.c)) ? x.c : '#E5197E', p: p.map(v => Math.round(v * 1e5) / 1e5), l: String(x.l || '').replace(/[\u0000-\u001f<>]/g, '').slice(0, 60) };
+      }).filter(Boolean);
+      const tt = Number.isFinite(+b.t) && +b.t > 0 ? +b.t : Date.now();
+      await env.STORE.put(key, JSON.stringify({ t: tt, a: clean }), { expirationTtl: 365 * 86400 });
+      return res({ ok: true, t: tt, n: clean.length });
     }
     /* each pilot's Weather settings (see kb.js): saved airports and units, on every device */
     if (/^\/api\/efb\/wx\/?$/.test(new URL(req.url).pathname) && req.method !== 'OPTIONS') {

@@ -324,6 +324,25 @@ main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
 .hm-clock{display:flex;flex-direction:column;min-width:150px}
 .hm-clock b{font:500 30px/1.05 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:-.01em;color:var(--ink)}
 .hm-clock span{font-size:12.5px;color:var(--label);margin-top:3px}
+/* the UTC clock as a split-flap board: each digit flips when it changes (top half falls, bottom half lands) */
+.hm-clock{--fl-bg:#1C2A2D;--fl-ink:#F2F5F5}
+:root[data-theme=dark] .hm-clock{--fl-bg:#2B2B2F;--fl-ink:#EDEDEF}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .hm-clock{--fl-bg:#2B2B2F;--fl-ink:#EDEDEF}}
+.hm-clock b.flapclk{display:flex;align-items:center;gap:2px;font-weight:600}
+.hm-clock b.flapclk span{font-size:inherit;margin-top:0}.hm-clock b.flapclk .fs,.hm-clock b.flapclk .fz{color:var(--ink)}
+.flapclk .fd{position:relative;display:inline-block;width:.9em;height:1.2em;perspective:240px;border-radius:5px}
+.flapclk .fh{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:var(--fl-bg);color:var(--fl-ink);display:flex;justify-content:center;backface-visibility:hidden}
+.flapclk .fh i{font-style:normal;display:block;height:200%;line-height:1.2em}
+.flapclk .ft{top:0;border-radius:5px 5px 0 0;transform-origin:50% 100%}
+.flapclk .fb{bottom:0;border-radius:0 0 5px 5px;transform-origin:50% 0}
+.flapclk .fb i{transform:translateY(-50%)}
+.flapclk .fd::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg);z-index:5}
+.flapclk .fl1{z-index:3;animation:hmFlT .16s ease-in forwards}
+.flapclk .fl2{z-index:3;transform:rotateX(90deg);animation:hmFlB .16s .16s ease-out forwards}
+@keyframes hmFlT{to{transform:rotateX(-90deg)}}
+@keyframes hmFlB{to{transform:rotateX(0)}}
+.flapclk .fs{display:inline-block;width:.42em;text-align:center}
+.flapclk .fz{margin-left:3px}
+@media(prefers-reduced-motion:reduce){.flapclk .fl1,.flapclk .fl2{animation:none;display:none}}
 .hm-k{display:flex;gap:10px;flex-wrap:wrap;flex:1;justify-content:flex-end}
 .hm-c{min-width:118px;padding:9px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft);text-decoration:none;color:inherit;display:flex;flex-direction:column}
 .hm-c:hover{border-color:var(--accent)}
@@ -1954,9 +1973,24 @@ function hmTtg(f,apts){if(hmGround(f))return null;
  if(f.remain!=null&&isFinite(f.remain)&&f.remain>=0&&f.gs>100)return f.remain/f.gs*60+4;
  const e=Date.parse(f.eta||"");if(isFinite(e))return (e-Date.now())/6e4;
  const a=apts&&apts[f.arr];return a&&f.gs>100?hmNm(f.lat,f.lon,a[0],a[1])/f.gs*60+8:null}
-function hmClock(){const c=$("#hmClock");if(!c||pgNow!=="home")return;const d=new Date();c.textContent=d.toISOString().slice(11,19)+"Z";
+/* the clock: six split-flap digits; a digit that changes flips (0.32 s), the others stay still. Reduce Motion, or a
+   page in the background, just changes them */
+const HMC={last:"",cells:null};
+const hmHalf=(k,ch)=>'<span class="fh '+k+'"><i>'+ch+'</i></span>';
+function hmFlapBuild(c){let h="";for(let i=0;i<6;i++){if(i===2||i===4)h+='<span class="fs">:</span>';h+='<span class="fd"></span>'}
+ c.className="flapclk";c.innerHTML='<span aria-hidden="true" style="display:contents">'+h+'<span class="fz">Z</span></span>';HMC.cells=[...c.querySelectorAll(".fd")];HMC.last=""}
+function hmClock(){const c=$("#hmClock");if(!c||pgNow!=="home")return;const d=new Date(),t=d.toISOString().slice(11,19).split(":").join("");
+ if(!HMC.cells||!c.contains(HMC.cells[0]))hmFlapBuild(c);
+ const calm=document.hidden||matchMedia("(prefers-reduced-motion: reduce)").matches;
+ for(let i=0;i<6;i++){const ch=t[i],old=HMC.last?HMC.last[i]:"";if(ch===old)continue;const el=HMC.cells[i];el.dataset.v=ch;
+  if(!old||calm){el.innerHTML=hmHalf("ft",ch)+hmHalf("fb",ch);continue}
+  el.innerHTML=hmHalf("ft",ch)+hmHalf("fb",old)+hmHalf("ft fl1",old)+hmHalf("fb fl2",ch);
+  setTimeout(()=>{if(el.dataset.v===ch)el.innerHTML=hmHalf("ft",ch)+hmHalf("fb",ch)},380)}
+ if(!HMC.last||HMC.last.slice(0,4)!==t.slice(0,4))c.setAttribute("aria-label","UTC "+t.slice(0,2)+":"+t.slice(2,4));
+ HMC.last=t;
  $("#hmDate").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"})+" · UTC"}
-setInterval(hmClock,1000);
+/* on the second, so each flip lands as the second changes */
+(function hmTick(){hmClock();setTimeout(hmTick,1005-Date.now()%1000)})();
 /* what Home shows of each page the role sees */
 const hmNeed=()=>{const f=pgHas("fw");return [f&&"live",(f||pgHas("reports"))&&"ooo",f&&"stands",(f||pgHas("comms"))&&"aoc",pgHas("navdata")&&"nav"].filter(Boolean)};
 async function hmLoad(){const age={live:15000,ooo:30000,stands:30000,aoc:30000,nav:600000};

@@ -165,6 +165,18 @@ export async function navRecipients(env) {
   return { list: people.filter((e) => { const id = roleOf(R, e); return !!id && permsOf(R, id).can.includes('navdata'); }) };
 }
 /* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
+/* the staff member a pilot ID is linked to (Settings › People), for the EFB's Calendar: { email, role, roleName,
+   names: { role id: name } }, or null */
+export async function staffOfPilot(env, pilot) {
+  const kv = env && env.STORE, P = String(pilot || '').toUpperCase(); if (!kv || !P) return null;
+  const R = await readRoles(kv);
+  for (const [email, p] of Object.entries(R.people)) {
+    if (!p || p.pilot !== P || !(p.role === 'admin' || own(R.roles, p.role))) continue;
+    const names = { admin: 'Administrator', ...Object.fromEntries(Object.entries(R.roles).map(([id, r]) => [id, (r && r.name) || id])) };
+    return { email, role: p.role, roleName: names[p.role] || p.role, names };
+  }
+  return null;
+}
 export async function taskStaff(env) {
   const kv = env && env.STORE; if (!kv) return { ppl: {}, names: {} };
   const R = await readRoles(kv), ppl = {};
@@ -237,7 +249,7 @@ async function rolesApi(req, kv, who, env) {
   const list = () => {
     const n = {}; for (const p of Object.values(R.people)) n[p.role] = (n[p.role] || 0) + 1;
     return { on: Object.keys(R.people).length > 0, me: who, mail: { ready: taskMailReady(env), from: String((env && env.MAIL_FROM) || '') },
-      people: Object.entries(R.people).filter(([, p]) => p.role === 'admin' || own(R.roles, p.role)).map(([email, p]) => ({ email, role: p.role, by: p.by || '', at: p.at || 0, seen: seen[email] || 0 }))
+      people: Object.entries(R.people).filter(([, p]) => p.role === 'admin' || own(R.roles, p.role)).map(([email, p]) => ({ email, role: p.role, pilot: p.pilot || '', by: p.by || '', at: p.at || 0, seen: seen[email] || 0 }))
         .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : b.role === 'admin' ? 1 : roleName(R, a.role).localeCompare(roleName(R, b.role)))),
       roles: [{ id: 'admin', name: 'Administrator', builtin: true, ...permsOf(R, 'admin'), n: n.admin || 0 },
         ...Object.entries(R.roles).map(([id, r]) => ({ id, name: r.name, builtin: false, ...permsOf(R, id), n: n[id] || 0, by: r.by || '', at: r.at || 0 })).sort((a, b) => a.name.localeCompare(b.name))] };
@@ -271,8 +283,17 @@ async function rolesApi(req, kv, who, env) {
     if (!/^[^@\s<>"]{1,64}@[^@\s<>"]{1,100}\.[a-z]{2,24}$/.test(email)) throw new MailError(400, 'That is not an email address');
     if (role && role !== 'admin' && !own(RS, role)) throw new MailError(404, 'That role no longer exists');
     if (!role && !own(P, email)) throw new MailError(404, email + ' has no role');
+    /* their pilot ID (PAW0006): the EFB signed in as that pilot shows their tasks in its Calendar. Kept when only the
+       role changes; '' takes it away */
+    let pilot = (P[email] && P[email].pilot) || '';
+    if (b.pilot !== undefined) {
+      pilot = String(b.pilot || '').toUpperCase().replace(/\s+/g, '');
+      if (pilot && !/^[A-Z]{2,4}[0-9]{1,6}$/.test(pilot)) throw new MailError(400, 'A pilot ID looks like PAW0006');
+      const other = pilot && Object.entries(P).find(([e, p]) => e !== email && p && p.pilot === pilot);
+      if (other) throw new MailError(409, pilot + ' is already linked to ' + other[0]);
+    }
     if (!Object.keys(P).length && who && who !== 'unknown') P[who] = { role: 'admin', by: who, at: now };
-    if (role) P[email] = { role, by: who, at: now }; else delete P[email];
+    if (role) P[email] = { role, by: who, at: now, ...(pilot ? { pilot } : {}) }; else delete P[email];
     if (!Object.values(P).some((p) => p.role === 'admin')) throw new MailError(409, 'Keep at least one administrator');
   }
   const v = { people: P, roles: RS, at: now, by: who }; await kv.put(ROLES, JSON.stringify(v)); ROLES_MEM = { at: Date.now(), v };

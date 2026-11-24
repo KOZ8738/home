@@ -58,7 +58,7 @@ import { liveFlights } from './live.js';
 import { siteRoute, siteLive, siteEvents } from './site.js';
 import { PRIVACY_HTML } from './privacy.js';
 import { authRoute, sessionOf, linkSig, signedInPilots, signOutPilot } from './auth.js';
-import { mailPublic, mailAttachment, mailAdmin, taskStaff } from './mail.js';
+import { mailPublic, mailAttachment, mailAdmin, taskStaff, staffOfPilot } from './mail.js';
 import { board as taskBoard } from './tasks.js';
 import { taskDueCron } from './taskmail.js';
 import { docsPublic, docFile, docCover, docAckPublic } from './docs.js';
@@ -1774,7 +1774,12 @@ export default {
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
-        case '/api/efb/cal': return await calPublic(req, env, h, await sessionOf(req, env), () => siteEvents(siteDeps));
+        case '/api/efb/cal': return await calPublic(req, env, h, await sessionOf(req, env), () => siteEvents(siteDeps), async (sess) => {
+          /* a pilot who is also on the staff: their tasks (Settings › People links the two) */
+          const st = await staffOfPilot(env, sess && sess.u); if (!st) return null;
+          const j = await taskBoard(env, { op: 'mine', email: st.email, dept: st.role });
+          return { dept: st.roleName, tasks: (j.tasks || []).map((t) => ({ ...t, deptName: st.names[t.dept] || t.dept })) };
+        });
         case '/api/efb/aoc': return await aocPublic(req, env, h, await sessionOf(req, env));
         case '/api/efb/docs': return await docsPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/doc-file': return await docFile(url, env, h, linkSig);

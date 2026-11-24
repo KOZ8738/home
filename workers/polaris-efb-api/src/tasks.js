@@ -58,6 +58,7 @@ export class Taskboard {
       case 'who': return this.setWho(a);
       case 'note': return this.note(a);
       case 'due': return this.dueSoon(a);
+      case 'mine': return this.mine(a);
       default: throw new TaskError(400, 'Unknown call');
     }
   }
@@ -87,6 +88,15 @@ export class Taskboard {
     return { tasks: L.map((r) => this.view(r)) };
   }
   get(a) { const r = this.task(a.id, a.only); return this.full(r.id); }
+  /* for the EFB's Calendar: open tasks with a due time that are this person's, or their department's with no one on
+     them yet (from 60 days back) */
+  mine(a) {
+    const email = String(a.email || ''), dept = String(a.dept || ''), now = Date.now();
+    if (!email) return { tasks: [] };
+    const L = this.rows(`SELECT * FROM task WHERE state != 'done' AND due > ? AND due < ? AND (who = ? OR (who = '' AND dept = ?)) ORDER BY due LIMIT 200`,
+      now - 60 * DAY, now + 400 * DAY, email, dept);
+    return { tasks: L.map((r) => ({ id: r.id, title: r.title, due: r.due, pri: r.pri, state: r.state, dept: r.dept, mine: r.who === email })) };
+  }
 
   /* a task's details as a publisher gives them; depts = the roles there are, ppl = { email: role id } */
   fields(a, keepDept) {

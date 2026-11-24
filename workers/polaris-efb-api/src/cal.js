@@ -27,8 +27,9 @@ const live = (v, now) => (v.rep === 'weekly' ? !v.until || +v.until > now - 200 
 const pub = (v) => ({ id: v.id, title: v.title, type: v.type, s: v.s, e: v.e, allDay: !!v.allDay, rep: v.rep || '', until: v.until || 0, loc: v.loc || '', body: v.body || '', remind: v.remind || 0,
   to: v.to ? (v.to.crew ? { crew: 1, cs: v.to.cs } : { list: 1 }) : null });
 
-/* GET /api/efb/cal?cs=: the signed-in pilot's company calendar: Polaris's entries for them, and the vAMSYS events */
-export async function calPublic(req, env, h, sess, events) {
+/* GET /api/efb/cal?cs=: the signed-in pilot's company calendar: Polaris's entries for them, and the vAMSYS events.
+   staff(sess): for a pilot linked to a staff member (Settings › People), { tasks, dept }; else null (tasks: null) */
+export async function calPublic(req, env, h, sess, events, staff) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503, h);
   if (!sess) return jsonRes({ error: 'Sign in to see the Polaris calendar' }, 401, h);
   const cs = String(new URL(req.url).searchParams.get('cs') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8), now = Date.now();
@@ -38,7 +39,9 @@ export async function calPublic(req, env, h, sess, events) {
   let vamsys = [];
   try { const j = await events(); vamsys = [].concat((j && j.current) || [], (j && j.past) || []).filter((x) => !(mem.vam[x.id] && mem.vam[x.id].hide)).map((x) => (mem.vam[x.id] && mem.vam[x.id].note ? { ...x, note: mem.vam[x.id].note } : x)); }
   catch (e) { /* vAMSYS slow: Polaris's own entries still come */ }
-  return jsonRes({ items, vamsys, at: new Date(now).toISOString() }, 200, { ...h, 'Cache-Control': 'no-cache' });
+  let tasks; let dept = '';
+  if (staff) { try { const st = await staff(sess); tasks = st ? st.tasks : null; dept = st ? st.dept : ''; } catch (e) { tasks = undefined; /* tasks not reachable: the EFB keeps the last */ } }
+  return jsonRes({ items, vamsys, ...(tasks !== undefined ? { tasks, dept } : {}), at: new Date(now).toISOString() }, 200, { ...h, 'Cache-Control': 'no-cache' });
 }
 
 /* a reminder push before the next occurrence (the crew object rings it, and sets the one after for a weekly entry) */

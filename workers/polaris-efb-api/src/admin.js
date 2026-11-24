@@ -13,6 +13,9 @@ if(window.parent!==window){document.documentElement.classList.add("in-efb");try{
  const efbThm=t=>{if(t!=="dark"&&t!=="light"&&t!=="auto")return;const R=document.documentElement;R.classList.add("efb-thm");if(t==="auto")delete R.dataset.theme;else R.dataset.theme=t;topSend()};
  try{efbThm(new URLSearchParams(location.search).get("theme"))}catch(e){}
  window.addEventListener("message",e=>{if(e.source!==window.parent||!/^https:\\/\\/(www\\.)?koz8738\\.com$/.test(e.origin)||!e.data||typeof e.data.pmTheme!=="string")return;efbThm(e.data.pmTheme)});
+ /* the EFB's Calendar opens a task here (pmGo: { task }) */
+ window.addEventListener("message",e=>{if(e.source!==window.parent||!/^https:\\/\\/(www\\.)?koz8738\\.com$/.test(e.origin)||!e.data||!e.data.pmGo)return;const id=String(e.data.pmGo.task||"").replace(/[^a-z0-9]/gi,"").slice(0,24);
+  if(location.hash!=="#tasks")location.hash="#tasks";if(id){const go=n=>{if(typeof tkOpen==="function")tkOpen(id);else if(n<20)setTimeout(()=>go(n+1),150)};setTimeout(()=>go(0),200)}});
  document.addEventListener("DOMContentLoaded",topSend);document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-thm]"))topSend()});
  try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",topSend)}catch(e){}}</script>
 <style>
@@ -589,6 +592,7 @@ main#settings>*+*{margin-top:20px}
 .set-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.set-h .pg-h{margin:0}.set-h>span{font-size:13.5px}
 .set-h #rlNew{padding:6px 14px;font-size:13.5px}
 .rl-you{color:var(--label);font-size:12px;margin-left:8px}
+input.rl-pid{width:120px;padding:4px 8px;font:13px "IBM Plex Mono",ui-monospace,monospace;text-transform:uppercase}.rl-add input.rl-pid{width:170px;padding:8px 10px}
 .rl-t select{width:auto;padding:4px 8px;font-size:13px}
 .rl-t td:first-child{overflow-wrap:anywhere}
 .rl-rt td:first-child{white-space:nowrap}
@@ -953,10 +957,10 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 <main id="settings" hidden>
 <div class="pg-top"><div><h1>Settings</h1><p>Who can sign in, and what each role sees.</p></div><div class="pg-st" id="rlMail"></div></div>
 <section id="rlCard">
- <div class="set-h"><div class="pg-h"><h2>People</h2><details class="help"><summary aria-label="About people">?</summary><div><p>Everyone who signs in gets a role, which decides the pages they see and what they may change; the server checks every change. Who can reach this admin at all is still set in Cloudflare Access.</p><p>Task and AIRAC emails go to these addresses. On the free Workers plan each must first be verified in Cloudflare › Email Routing › Destination addresses.</p><p><b>Last signed in</b> is kept from 24 Nov 2026.</p></div></details></div><span class="lbl" id="rlCount"></span></div>
+ <div class="set-h"><div class="pg-h"><h2>People</h2><details class="help"><summary aria-label="About people">?</summary><div><p>Everyone who signs in gets a role, which decides the pages they see and what they may change; the server checks every change. Who can reach this admin at all is still set in Cloudflare Access.</p><p><b>Pilot ID</b> links someone to their EFB: signed in there as that pilot, the EFB’s Calendar shows the open tasks with a due time that are theirs or their department’s.</p><p>Task and AIRAC emails go to these addresses. On the free Workers plan each must first be verified in Cloudflare › Email Routing › Destination addresses.</p><p><b>Last signed in</b> is kept from 24 Nov 2026.</p></div></details></div><span class="lbl" id="rlCount"></span></div>
  <p class="rl-note" id="rlNote"></p>
  <div id="rlList"><span class="empty">Loading…</span></div>
- <div class="rl-add"><input type="email" id="rlEmail" placeholder="Email they sign in with" autocomplete="off" spellcheck="false" aria-label="Email"><select id="rlRole" aria-label="Role"></select><button class="primary" id="rlAdd" type="button">Add</button></div>
+ <div class="rl-add"><input type="email" id="rlEmail" placeholder="Email they sign in with" autocomplete="off" spellcheck="false" aria-label="Email"><select id="rlRole" aria-label="Role"></select><input type="text" id="rlPilot" class="rl-pid" placeholder="Pilot ID (optional)" maxlength="10" autocomplete="off" spellcheck="false" aria-label="Pilot ID, optional"><button class="primary" id="rlAdd" type="button">Add</button></div>
  <div id="rlMsg"></div>
 </section>
 <section id="rlRoleCard">
@@ -1545,8 +1549,9 @@ function rlUi(){const el=$("#rlList");if(!el)return;
  const ml=$("#rlMail");if(ml&&RL.mail)ml.innerHTML=RL.mail.ready?'<span class="bdg on">Email on</span><span>from '+esc(RL.mail.from)+"</span>":'<span class="bdg bad">Email not set up</span><a class="lk" href="https://github.com/KOZ8738/home/blob/main/workers/polaris-efb-api/README.md" target="_blank" rel="noopener">How to set it up ›</a>';
  $("#rlNote").textContent=RL.on?"Anyone who signs in through Cloudflare Access without a role here is turned away.":"Roles are off: everyone who can sign in is an administrator. Adding someone turns them on, and you are added as an administrator first.";
  $("#rlCount").textContent=RL.people.length?RL.people.length+(RL.people.length===1?" person":" people"):"";
- el.innerHTML=RL.people.length?'<div class="gt-tw"><table class="gt-t rl-t"><thead><tr><th>Email</th><th>Role</th><th>Last signed in</th><th></th></tr></thead><tbody>'+RL.people.map(p=>{const ch=RL.chg===p.email;
+ el.innerHTML=RL.people.length?'<div class="gt-tw"><table class="gt-t rl-t"><thead><tr><th>Email</th><th>Role</th><th>Pilot ID</th><th>Last signed in</th><th></th></tr></thead><tbody>'+RL.people.map(p=>{const ch=RL.chg===p.email;
   return "<tr><td><b>"+esc(p.email)+"</b>"+(p.email===RL.me?'<small class="rl-you">You</small>':"")+"</td><td>"+(ch?'<select data-rlset="'+esc(p.email)+'" aria-label="Role">'+rlOpts(p.role)+"</select>":'<span class="bdg '+(p.role==="admin"?"adm":"role")+'">'+esc(rlName(p.role))+"</span>")
+   +"</td><td>"+(ch?'<input type="text" class="rl-pid" data-rlpid="'+esc(p.email)+'" data-role="'+esc(p.role)+'" value="'+esc(p.pilot||"")+'" placeholder="PAW0006" maxlength="10" autocomplete="off" spellcheck="false" aria-label="Pilot ID">':p.pilot?'<span class="mono">'+esc(p.pilot)+"</span>":'<span class="lbl">—</span>')
    +'</td><td class="lbl"'+(p.seen?' title="'+esc(fmt(p.seen))+'"':"")+">"+rlSeen(p.seen)+'</td><td class="r">'+(ch?'<button type="button" class="lnk warn" data-rlrm="'+esc(p.email)+'">Remove</button><button type="button" class="lnk" data-rlchg="">Done</button>':'<button type="button" class="lnk" data-rlchg="'+esc(p.email)+'">Change</button>')+"</td></tr>"}).join("")+"</tbody></table></div>":'<p class="empty">No one yet.</p>';
  const ar=$("#rlRole"),keep=ar.value;ar.innerHTML=rlOpts(keep||(RL.roles.find(r=>!r.builtin)||{id:"admin"}).id);
  $("#rlRoles").innerHTML='<div class="gt-tw"><table class="gt-t rl-t rl-rt"><thead><tr><th>Role</th><th>People</th><th>Sees</th><th>Can</th><th></th></tr></thead><tbody>'+RL.roles.map(r=>"<tr><td><b>"+esc(r.name)+"</b></td><td>"+(r.n||'<span class="lbl">—</span>')+'</td><td class="lbl">'+esc(rlSees(r))+'</td><td class="lbl">'+esc(rlCan(r))+'</td><td class="r">'+(r.builtin?"":'<button type="button" class="lnk" data-rled="'+esc(r.id)+'">Edit</button>')+"</td></tr>").join("")+"</tbody></table></div>";
@@ -1561,8 +1566,8 @@ async function rlPost(body,el,ok){if(RL.busy)return false;RL.busy=true;if(el)el.
   if(ok)ok();meLoad();return true}
  catch(e){seSay(body.op?"#rlRMsg":"#rlMsg",e.message);return false}finally{RL.busy=false;if(el)el.disabled=false;rlUi()}}
 document.addEventListener("click",async e=>{const b=e.target.closest("#rlAdd,[data-rlrm],[data-rlchg],#rlNew,[data-rled],#rlEdSave,#rlEdCancel,#rlEdDel");if(!b)return;
- if(b.id==="rlAdd"){const em=$("#rlEmail").value.trim().toLowerCase(),r=$("#rlRole").value;if(!em){seSay("#rlMsg","Write the email they sign in with");return}
-  if(await rlPost({email:em,role:r},b,()=>seSay("#rlMsg",em+" is now "+rlName(r)+".",true)))$("#rlEmail").value="";return}
+ if(b.id==="rlAdd"){const em=$("#rlEmail").value.trim().toLowerCase(),r=$("#rlRole").value,pid=$("#rlPilot").value.trim();if(!em){seSay("#rlMsg","Write the email they sign in with");return}
+  if(await rlPost({email:em,role:r,...(pid?{pilot:pid}:{})},b,()=>seSay("#rlMsg",em+" is now "+rlName(r)+".",true))){$("#rlEmail").value="";$("#rlPilot").value=""}return}
  if(b.dataset.rlchg!=null){RL.chg=b.dataset.rlchg;seSay("#rlMsg","");rlUi();return}
  if(b.dataset.rlrm!=null){const em=b.dataset.rlrm;if(!confirm("Take away the role of "+em+"? They will not be able to open this admin."))return;RL.chg="";rlPost({email:em,role:null},b,()=>seSay("#rlMsg",em+" no longer has a role.",true));return}
  if(b.id==="rlNew"){RL.ed={id:"",name:"",pages:new Set(["fw"]),can:new Set()};seSay("#rlRMsg","");rlUi();$("#rlEdName").focus();return}
@@ -1573,6 +1578,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest("#rlAdd,[da
   rlPost({op:"role",id:E.id||undefined,name,pages:[...E.pages],can:[...E.can]},b,()=>{seSay("#rlRMsg",(E.id?"Saved ":"Made ")+name+".",true);RL.ed=null});return}
  if(b.id==="rlEdDel"){if(!confirm("Delete the role "+E.name+"?"))return;rlPost({op:"delrole",id:E.id},b,()=>{seSay("#rlRMsg","Deleted "+E.name+".",true);RL.ed=null})}});
 document.addEventListener("change",e=>{const t=e.target;if(!t.dataset)return;
+ if(t.dataset.rlpid!=null){const em=t.dataset.rlpid,v=t.value.trim().toUpperCase();rlPost({email:em,role:t.dataset.role,pilot:v},t,()=>seSay("#rlMsg",v?em+" is linked to pilot "+v+": their tasks show in that pilot's EFB Calendar.":em+" is no longer linked to a pilot.",true));return}
  if(t.dataset.rlset!=null){const em=t.dataset.rlset,r=t.value;rlPost({email:em,role:r},t,()=>{RL.chg="";seSay("#rlMsg",em+" is now "+rlName(r)+".",true)});return}
  const E=RL.ed;if(!E)return;
  if(t.dataset.rlpg!=null){if(t.checked)E.pages.add(t.dataset.rlpg);else E.pages.delete(t.dataset.rlpg);return}

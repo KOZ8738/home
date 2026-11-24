@@ -212,7 +212,7 @@ function section(html) {
   const b = hs.slice(a + 1).find((h) => /\bAD 2\.(?:2[5-9]|[3-9]\d)\b/.test(h.t) || /^\s*[A-Z]{4} AD 2\.\d/.test(h.t) && !/2\.24/.test(h.t));
   return html.slice(hs[a].i, b ? b.i : Math.min(html.length, hs[a].i + 600_000));
 }
-/** a chart's group in the EFB's Charts (the same groups as the FAA's and AIP Taiwan's) */
+/** a chart's group in the EFB's Charts (the same groups as the FAA's and AIP ROC's) */
 export function eaGroup(name, id) {
   const u = name.toUpperCase(), d = String(id || '').toUpperCase();
   if (/CODING|TABULAR|WAYPOINT LIST|\bTABLES?\b|\bDATA\b/.test(u)) return ['DATA', 'Procedure data'];

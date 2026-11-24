@@ -59,7 +59,7 @@ export function remindMail(kind, cy, needs, now) {
     : 'AIRAC ' + cy.cycle + ' took effect on ' + when + '. Until the uploads below are made, pilots see the previous cycle’s data for these regions.';
   const parts = [head, needs.need.length ? 'Still to upload on Nav Data:\n' + list(needs.need) : 'Everything for AIRAC ' + cy.cycle + ' is uploaded.'];
   if (needs.done.length) parts.push('Already uploaded for AIRAC ' + cy.cycle + ':\n' + list(needs.done));
-  parts.push('Open Nav Data: ' + ADMIN_URL, 'The FAA (United States), CAA Taiwan and the worldwide sources switch by themselves.\nYou get this because your role in Polaris Operations may update Nav Data.');
+  parts.push('Open Nav Data: ' + ADMIN_URL, 'The FAA (United States), CAA (ROC) and the worldwide sources switch by themselves.\nYou get this because your role in Polaris Operations may update Nav Data.');
   const text = parts.join('\n\n');
   return { subject, text };
 }

@@ -5,7 +5,7 @@
    POST /admin/api/navdata/cn, /cn/delete -> China's AIP data set, uploaded from this page (cnaip.js)
    POST /admin/api/navdata/remind-test -> the AIRAC reminder email, as a test, to the person asking (airacmail.js)
    A source: { id, region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
-   The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA Taiwan eAIP's list, one
+   The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA eAIP (ROC)'s list, one
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
    every 6 hours from the 20-minute cron, or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
    changes the data itself: each source keeps updating itself as before.
@@ -31,7 +31,7 @@ const day = (t) => new Date(t).toISOString().slice(0, 10);
 const SRC = [
   { id: 'us-charts', region: 'United States', name: 'Charts', by: 'FAA d-TPP', link: 'https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/', what: 'Airport diagrams, SIDs, STARs and approach charts (Charts app)', how: 'Automatic: the cycle in force, every AIRAC' },
   { id: 'us-enroute', region: 'United States', name: 'En-route data', by: 'FAA AIS open data', link: 'https://adds-faa.opendata.arcgis.com/', what: 'Airways, fixes, navaids, airspace and US runways (Map, IFR layers)', how: 'Automatic: asked live, the FAA keeps it current' },
-  { id: 'tw-charts', region: 'Taiwan', name: 'AIP charts', by: 'CAA eAIP', link: 'https://ais.caa.gov.tw/eaip/', what: 'Charts for the RCxx airports (Charts app)', how: 'Automatic: each AIP amendment on its effective date' },
+  { id: 'tw-charts', region: 'ROC', name: 'AIP charts', by: 'CAA eAIP', link: 'https://ais.caa.gov.tw/eaip/', what: 'Charts for the RCxx airports (Charts app)', how: 'Automatic: each AIP amendment on its effective date' },
   { id: 'cn-charts', region: 'China', name: 'AIP charts', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/', what: 'AD 2.24 charts for the Zxxx airports (Charts app)', how: 'Uploaded here each AIRAC from the eAIP Full Package; only aerodromes not uploaded yet are sent' },
   { id: 'cn-aip', region: 'China', name: 'AIP data set', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/dataset', what: 'Airspace, airways, fixes, navaids and runways (AIXM 5.1.1)', how: 'Uploaded here each AIRAC (the eAIP needs a sign-in)' },
   { id: 'jp-aip', region: 'Japan', name: 'AIP map data', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'Airspace, airways, fixes and navaids (KML)', how: 'Uploaded here each AIRAC (SWIM needs a sign-in)' },
@@ -196,7 +196,7 @@ async function navStatus(env, d) {
         if (!r) { o.state = 'off'; o.line = 'Not checked yet'; break; }
         if (r.err) { fail(r.err); break; }
         o.line = 'Answering · updated continuously by openAIP';
-        o.rows.push(['Test', 'A map tile over Taiwan · ' + Math.round(r.bytes / 1024) + ' KB · ' + r.ms + ' ms']);
+        o.rows.push(['Test', 'A map tile over the ROC · ' + Math.round(r.bytes / 1024) + ' KB · ' + r.ms + ' ms']);
         break;
       case 'fir': {
         const st = fir && fir.v && fir.v.stat;

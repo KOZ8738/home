@@ -442,7 +442,7 @@ async function airportRoute(icaoIn, ctx) {
 /* ---------- FAA d-TPP charts ---------- */
 const DAY = 86_400_000;
 /* what Nav Data on /admin reads (see navdata.js) */
-const navDeps = (env) => ({ airac, twEdition, major: () => majorRoute(env) });
+const navDeps = (env, ctx) => ({ airac, twEdition, major: () => majorRoute(env), ea: eaDeps(env, ctx) });
 /** AIRAC cycle in effect at `t` (cycles start 0901Z every 28 days; 2401 began 25 Jan 2024). */
 function airac(t = Date.now()) {
   const ref = Date.UTC(2024, 0, 25, 9, 1), period = 28 * DAY;
@@ -1576,7 +1576,7 @@ export default {
     if (event.cron === STAND_CRON) { ctx.waitUntil(opsTick(env, ctx)); ctx.waitUntil(trackTick(env, ctx)); return; }
     ctx.waitUntil(refreshMajor(env, ctx)); ctx.waitUntil(wxWatch(env, ctx).catch((e) => console.warn('[wxWatch]', e && e.message)));
     /* every 6 hours: is each source of navigation data current (Nav Data on /admin, see navdata.js) */
-    ctx.waitUntil(navCron(env, navDeps(env)));
+    ctx.waitUntil(navCron(env, navDeps(env, ctx)));
     /* staff tasks due within a day: an email to whoever is on them (taskmail.js) */
     ctx.waitUntil(taskDueCron(env, taskBoard, taskStaff).catch((e) => console.warn('[task due]', e && e.message)));
   },
@@ -1750,7 +1750,7 @@ export default {
           l.pdfTest = { name: c.name, file: c.pdf, status: r.status, type: r.headers.get('content-type'), bytes: b.byteLength, head: new TextDecoder().decode(new Uint8Array(b, 0, Math.min(120, b.byteLength))) };
         }
         return l;
-      }, watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env), who), ctx }); }
+      }, watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env, ctx), who), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

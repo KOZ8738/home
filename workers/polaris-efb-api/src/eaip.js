@@ -41,7 +41,7 @@ const PDF_MAX = 40 * 1024 * 1024;
 
 export const EA = {
   HK: {
-    apt: /^V[HM][A-Z]{2}$/, label: 'AIP Hong Kong', host: 'CAD eAIP', site: 'https://www.ais.gov.hk/',
+    country: 'Hong Kong and Macau', pre: 'VHxx, VMxx', test: 'VHHH', apt: /^V[HM][A-Z]{2}$/, label: 'AIP Hong Kong', host: 'CAD eAIP', site: 'https://www.ais.gov.hk/',
     /* the front page builds its links from ais.json: every recent edition is in the newest package, eaip_<its publication date> */
     home: 'https://www.ais.gov.hk/ais.json',
     eds: (t) => {
@@ -53,27 +53,27 @@ export const EA = {
     page: (i) => `html/eAIP/VH-AD-2-${i}-en-US.html`, enr: (n) => `html/eAIP/VH-ENR-${n}-en-US.html`,
   },
   SG: {
-    apt: /^WS[A-Z]{2}$/, label: 'AIP Singapore', host: 'CAAS AIM-SG', home: 'https://aim-sg.caas.gov.sg/aip/',
+    country: 'Singapore', pre: 'WSxx', test: 'WSSS', apt: /^WS[A-Z]{2}$/, label: 'AIP Singapore', host: 'CAAS AIM-SG', home: 'https://aim-sg.caas.gov.sg/aip/',
     eds: (t) => [...t.matchAll(/aim-content\/uploads\/aip\/([^/"'<>\s]+)\/AIP\/(\d{4}-\d{2}-\d{2})-000000\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://aim-sg.caas.gov.sg/aim-content/uploads/aip/${m[1]}/AIP/${m[2]}-000000/`, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/SG-AD-2-${i}-en-GB.html`, enr: (n) => `html/eAIP/SG-ENR-${n}-en-GB.html`,
     skip: /\/old\//,
   },
   UK: {
-    apt: /^EG[A-Z]{2}$/, label: 'UK AIP', host: 'NATS eAIP', home: 'https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/',
+    country: 'United Kingdom', pre: 'EGxx', test: 'EGLL', apt: /^EG[A-Z]{2}$/, label: 'UK AIP', host: 'NATS eAIP', home: 'https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/',
     eds: (t) => [...t.matchAll(/aurora\.nats\.co\.uk\/htmlAIP\/Publications\/(\d{4}-\d{2}-\d{2})-AIRAC\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[1], pub: m[1], base: `https://www.aurora.nats.co.uk/htmlAIP/Publications/${m[1]}-AIRAC/`, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EG-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EG-ENR-${n}-en-GB.html`,
   },
   MY: {
-    apt: /^(WM[A-Z]{2}|WB[GK][A-Z])$/, label: 'AIP Malaysia', host: 'CAAM eAIP', home: 'https://aip.caam.gov.my/aip/eAIP/history-en-MS.html',
+    country: 'Malaysia', pre: 'WMxx, WBGx, WBKx', test: 'WMKK', apt: /^(WM[A-Z]{2}|WB[GK][A-Z])$/, label: 'AIP Malaysia', host: 'CAAM eAIP', home: 'https://aip.caam.gov.my/aip/eAIP/history-en-MS.html',
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-MS\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: new URL(m[1] + '/', at).href, index: 'html/index-en-MS.html' })),
     page: (i) => `html/eAIP/WM-AD-2.${i}-en-MS.html`, enr: (n) => `html/eAIP/WM-ENR-${n}-en-MS.html`,
   },
-  SE: { kind: 'ix', apt: /^ES[A-Z]{2}$/, label: 'AIP Sweden', host: 'LFV eAIP', home: 'https://aro.lfv.se/content/eaip/default_offline.html', idx: 'index-v2.html' },
-  FI: { kind: 'ix', apt: /^EF[A-Z]{2}$/, label: 'AIP Finland', host: 'Fintraffic eAIP', home: 'https://www.ais.fi/eaip/', idx: 'index.html' },
-  NL: { kind: 'ix', apt: /^EH[A-Z]{2}$/, label: 'AIP Netherlands', host: 'LVNL eAIP', home: 'https://eaip.lvnl.nl/', idx: 'index.html' },
-  DK: { kind: 'dk', apt: /^(EK|BG)[A-Z]{2}$/, label: 'AIP Denmark', host: 'Naviair AIM', home: 'https://aim.naviair.dk/' },
+  SE: { country: 'Sweden', pre: 'ESxx', test: 'ESSA', kind: 'ix', apt: /^ES[A-Z]{2}$/, label: 'AIP Sweden', host: 'LFV eAIP', home: 'https://aro.lfv.se/content/eaip/default_offline.html', idx: 'index-v2.html' },
+  FI: { country: 'Finland', pre: 'EFxx', test: 'EFHK', kind: 'ix', apt: /^EF[A-Z]{2}$/, label: 'AIP Finland', host: 'Fintraffic eAIP', home: 'https://www.ais.fi/eaip/', idx: 'index.html' },
+  NL: { country: 'Netherlands', pre: 'EHxx', test: 'EHAM', kind: 'ix', apt: /^EH[A-Z]{2}$/, label: 'AIP Netherlands', host: 'LVNL eAIP', home: 'https://eaip.lvnl.nl/', idx: 'index.html' },
+  DK: { country: 'Denmark, Faroe Islands, Greenland', pre: 'EKxx, BGxx', test: 'EKCH', kind: 'dk', apt: /^(EK|BG)[A-Z]{2}$/, label: 'AIP Denmark', host: 'Naviair AIM', home: 'https://aim.naviair.dk/' },
   NO: {
-    apt: /^EN[A-Z]{2}$/, label: 'AIP Norway', host: 'Avinor eAIP', home: 'https://aim-prod.avinor.no/no/AIP/',
+    country: 'Norway', pre: 'ENxx', test: 'ENGM', apt: /^EN[A-Z]{2}$/, label: 'AIP Norway', host: 'Avinor eAIP', home: 'https://aim-prod.avinor.no/no/AIP/',
     /* relative to the history page the front page goes on to */
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})-AIRAC)\/html\/index-(?:no-NO|en-GB)\.html/g)].map((m) => ({ eff: m[2], pub: m[2], base: new URL(m[1] + '/', at).href, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EN-ENR-${n}-en-GB.html`,
@@ -385,6 +385,19 @@ export async function eaFixes(icao, env, me, d) {
   }, (v) => v && v.arp);
   const arp = ad.arp, near = arp ? (enr.pts || []).filter((p) => km(arp[0], arp[1], p[1], p[2]) <= 300) : [];
   return { icao, cycle, arp, pts: [...ad.pts, ...near] };
+}
+
+/* ---------- Nav Data (/admin, navdata.js): the edition in force and a test aerodrome's chart list ---------- */
+export async function eaStatus(k, d, t = Date.now()) {
+  const R = EA[k];
+  if (R.kind === 'dk') {
+    const A = (await dkAirports(d)).apts, l = await eaChartsList(R.test, {}, { u: 'navdata' }, d);
+    return { kind: 'dk', apts: Object.keys(A).length, eff: airacEff(t), test: R.test, n: (l.charts || []).length, nf: !!l.notFound };
+  }
+  const { cur, next, all } = await edition(k, d, t);
+  let n = null, nf = false, err = '';
+  try { const l = await eaChartsList(R.test, {}, { u: 'navdata' }, d); n = (l.charts || []).length; nf = !!l.notFound; } catch (e) { err = String((e && e.message) || e).slice(0, 160); }
+  return { eff: cur.eff, amdt: cur.amdt || '', next: next ? { eff: next.eff } : null, eds: all.length, test: R.test, n, nf, err };
 }
 
 /* the editions and lists of these airports, so the first pilot to open them doesn't wait (the 20-minute cron) */

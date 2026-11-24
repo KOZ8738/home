@@ -9,11 +9,15 @@
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
    every 6 hours from the 20-minute cron, or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
    changes the data itself: each source keeps updating itself as before.
-   deps (from index.js): { airac(t), twEdition(), major() -> { airports: [{ icao, layoutAt }] }, majorCount } */
+   deps (from index.js): { airac(t), twEdition(), major() -> { airports: [{ icao, layoutAt }] }, majorCount, ea (eaip.js deps) }
+   The eAIP charts (eaip.js: Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands, Denmark)
+   each have a card "ea-<region>": the edition in force on the State's own site and the next one, and one aerodrome's
+   chart list read the way pilots get it (ESSA, EHAM…), so a site that changes its layout or turns the server away shows. */
 
 import { cnAdmin } from './cnaip.js';
 import { AIPCH } from './jpcharts.js';
 import { airacRemind, remindStatus, remindTest } from './airacmail.js';
+import { EA, eaStatus } from './eaip.js';
 
 const CHK = 'nav:v1:chk', H6 = 6 * 3600_000, DAY = 86400_000;
 const AIS_FS = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/ArcGIS/rest/services/';
@@ -32,6 +36,8 @@ const SRC = [
   { id: 'cn-aip', region: 'China', name: 'AIP data set', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/dataset', what: 'Airspace, airways, fixes, navaids and runways (AIXM 5.1.1)', how: 'Uploaded here each AIRAC (the eAIP needs a sign-in)' },
   { id: 'jp-aip', region: 'Japan', name: 'AIP map data', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'Airspace, airways, fixes and navaids (KML)', how: 'Uploaded here each AIRAC (SWIM needs a sign-in)' },
   { id: 'jp-charts', region: 'Japan', name: 'AIP charts', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'AD 2 charts for the RJxx and ROxx airports (Charts app)', how: 'Uploaded here each AIRAC; only new aerodrome folders are sent' },
+  ...Object.keys(EA).sort((a, b) => EA[a].country.localeCompare(EA[b].country)).map((k) => ({ id: 'ea-' + k.toLowerCase(), region: EA[k].country, name: 'AIP charts', by: EA[k].host, link: EA[k].site || EA[k].home,
+    what: 'Charts for the ' + EA[k].pre + ' airports (Charts app), for signed-in pilots', how: EA[k].kind === 'dk' ? 'Automatic: Naviair lists the charts in force' : 'Automatic: each AIP amendment on its effective date' })),
   { id: 'openaip', region: 'Worldwide', name: 'Airspace and navaids', by: 'openAIP', link: 'https://www.openaip.net/', what: 'Airspace, navaids and reporting points on the Map, FIR outlines', how: 'Automatic: openAIP updates continuously' },
   { id: 'fir', region: 'Worldwide', name: 'FIR boundaries', by: 'openAIP, VATSpy Data Project', link: 'https://github.com/vatsimnetwork/vatspy-data-project', what: 'FIR outlines and codes on the Map', how: 'Automatic: rebuilt weekly' },
   { id: 'apts', region: 'Worldwide', name: 'Airports', by: 'OurAirports', link: 'https://ourairports.com/data/', what: 'Airport names, positions and runways (search, Map)', how: 'Automatic: rebuilt every 14 days' },
@@ -83,6 +89,8 @@ const CHECKS = {
   },
 };
 
+for (const k of Object.keys(EA)) CHECKS['ea-' + k.toLowerCase()] = (env, d) => eaStatus(k, d.ea);
+
 async function readChk(kv) { try { return (await kv.get(CHK, 'json')) || { at: 0, r: {} }; } catch (e) { return { at: 0, r: {} }; } }
 /* ask one source (or all) again and keep the answers */
 export async function navCheck(env, d, only) {
@@ -101,6 +109,10 @@ export async function navCron(env, d) {
   if (!env || !env.STORE) return;
   const chk = await readChk(env.STORE);
   if (Date.now() - (chk.at || 0) > H6) await navCheck(env, d).catch((e) => console.warn('[navdata]', e && e.message));
+  else {
+    /* a source added since the last full round is checked at once, not up to 6 hours later */
+    for (const id of Object.keys(CHECKS).filter((i) => !chk.r[i]).slice(0, 3)) await navCheck(env, d, id).catch((e) => console.warn('[navdata]', id, e && e.message));
+  }
   /* the AIRAC reminders by email (airacmail.js) */
   await airacRemind(env, d).catch((e) => console.warn('[airac remind]', e && e.message));
 }
@@ -215,6 +227,23 @@ async function navStatus(env, d) {
         o.line = r.apts + ' airport' + (r.apts === 1 ? '' : 's') + ' from ' + r.pilots + ' pilot' + (r.pilots === 1 ? '' : 's') + "' simulators";
         o.rows.push(['Kept', r.n + ' airport lists · the newest ' + ago(r.last, now)]);
         if (r.top && r.top.length) o.rows.push(['Airports', r.top.join(' ')]);
+        break;
+      default:
+        if (!s.id.startsWith('ea-')) break;
+        if (!r) { o.state = 'off'; o.line = 'Not checked yet'; break; }
+        if (r.err && r.n == null && !r.eff) { fail('The site did not answer: ' + r.err); break; }
+        if (r.kind === 'dk') {
+          o.line = r.apts + ' aerodromes · ' + r.test + ' ' + r.n + ' charts';
+          o.rows.push(['In use', 'The charts in force on Naviair AIM (AIRAC of ' + r.eff + ')']);
+          o.rows.push(['Test', r.test + ': ' + (r.nf ? 'no charts found' : r.n + ' charts')]);
+          if (r.nf || !r.n) { o.state = 'warn'; o.line = 'The list answers, but no charts were found for ' + r.test; }
+          break;
+        }
+        o.line = 'Edition of ' + r.eff + ' in use';
+        o.rows.push(['In use', (r.amdt ? 'AMDT ' + r.amdt + ' · ' : '') + 'effective ' + r.eff]);
+        o.rows.push(['Next', r.next ? r.next.eff + ' · switches by itself' : 'None announced yet']);
+        o.rows.push(['Test', r.test + ': ' + (r.err ? r.err : r.nf ? 'no charts found' : r.n + ' charts')]);
+        if (r.err || r.nf || !r.n) { o.state = 'warn'; o.line = 'The edition answers, but the charts of ' + r.test + ' could not be read'; }
         break;
     }
     return o;

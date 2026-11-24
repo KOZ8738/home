@@ -2419,7 +2419,7 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  ndRmUi(v);
  $("#ndSum").innerHTML=[c.ok?'<i class="ok">'+c.ok+" current</i>":"",c.warn?'<i class="warn">'+c.warn+" to look at</i>":"",c.bad?'<i class="bad">'+c.bad+" not working</i>":"",c.off?'<i class="off">'+c.off+" not set up</i>":""].join("");
  const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s)});
- const chk=new Set(["us-charts","us-enroute","tw-charts","openaip","layouts","navproc"]),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
+ const chk=new Set(["us-charts","us-enroute","tw-charts","openaip","layouts","navproc",...v.src.map(s=>s.id).filter(i=>/^ea-/.test(i))]),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
  $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")

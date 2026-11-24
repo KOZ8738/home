@@ -6663,7 +6663,7 @@ function authApply(){if(!authOn())return;vam.user=AUTH.tok.u;if(!vam.url&&EFB_HO
   if(p&&p.exp>Date.now()){AUTH.tok=p;store.set("auth",p);AUTH.fresh=true}else AUTH.msg="That sign-in didn’t work. Please try again."}}
 
 /* the server's sign-in only rides on the requests that need it */
-const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket|nav\/(pair|pairs|unpair|want)|navproc|chartnotes|cn\/(ifr|asp|apt)|jp\/asp|aip\/ifr|charts(?=\?icao=([Rr][JjOo]|[Zz]|[Vv][HhMm]|[Ww][Ss]|[Ee][GgNn]))|chart-pdf(?=\?cycle=(JP|CN|HK|SG|UK|NO))|chart-fixes)|auth\/(me|logout))(\?|$)/;
+const AUTH_PATHS=/^\/(api\/efb\/(mail|pilot|bookings|ovgeo|pm|pm\/online|pm\/state|push\/(sub|unsub|state|test|dnd)|crew|crew\/(checkin|checkout|alarms|ofp|sync|sync\/ofp)|kb|apps|pirep|docs|docs\/ack|aoc|aoc\/ack|hoppie|cal|gsx|wx|pfd\/ticket|nav\/(pair|pairs|unpair|want)|navproc|chartnotes|mapnotes|cn\/(ifr|asp|apt)|jp\/asp|aip\/ifr|charts(?=\?icao=([Rr][JjOo]|[Zz]|[Vv][HhMm]|[Ww][Ss]|[Ee][GgNn]))|chart-pdf(?=\?cycle=(JP|CN|HK|SG|UK|NO))|chart-fixes)|auth\/(me|logout))(\?|$)/;
 {const _f=window.fetch.bind(window);window.fetch=function(input,init){
   const url=typeof input==="string"?input:input&&input.url,srv=authSrv();
   if(!url||!srv||!authOn()||url.indexOf(srv+"/")!==0||!AUTH_PATHS.test(url.slice(srv.length)))return _f(input,init);
@@ -7465,7 +7465,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
       if(q.toc)marks+=`<circle class="toc" cx="${X}" cy="${Y}" r="3.5"/>`;else if(q.u)marks+=`<rect class="ufix" x="${X-4.5}" y="${Y-4.5}" width="9" height="9" transform="rotate(45 ${X} ${Y})"/>`;else marks+=`<path class="fix" d="M${X} ${Y-5}l4.5 8h-9z"/>`;
       boxes.push([X-6,Y-6,X+6,Y+6]);
       if(z>=6||RE.on){const wd=q.n.length*7.4+2,p=place(X,Y,wd,15,8,false);if(p)labs+=tx(p,q.toc?"tocl":"fixl",X,Y,wd,15,esc(q.n))}})}
-  s+=wnDraw(P,z,w,h,V)+prDraw(P,z,w,h,V)+marks+labs+msSvg(P,w,h)+reSvg(P,w,h);
+  s+=wnDraw(P,z,w,h,V)+prDraw(P,z,w,h,V)+marks+labs+(typeof anSvg==="function"?anSvg(P,w,h):"")+msSvg(P,w,h)+reSvg(P,w,h);
   if(ML.traffic&&MAP.live)MAP.live.forEach((f,i)=>{let lo=f.lon;while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const [X,Y]=P(f.lat,lo);if(X<-40||Y<-40||X>w+40||Y>h+40)return;
     const mine=!!(vam.user&&f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase());const sel=MAP.sel&&MAP.sel.t==="ac"&&MAP.sel.i===i;
     s+=`<g class="ac${mine?" mine":""}${sel?" sel":""}" data-ac="${i}" transform="translate(${X} ${Y}) rotate(${+f.heading||0})"><circle r="15" fill="transparent"/><path d="M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z"/></g><text class="acl${mine?" mine":""}" x="${X+12}" y="${Y-9}">${esc(f.callsign)}</text>`});
@@ -7507,7 +7507,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=m0x,m1y=m0y;
       if(MAP.follow){MAP.z=z}else{const n=munpx((c0[0]-w/2+m0x)*k-m1x+w/2,(c0[1]-h/2+m0y)*k-m1y+h/2,z);MAP.z=z;MAP.c={lat:Math.max(-80,Math.min(80,n[0])),lon:n[1]}}}
     mapSched()});
-  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{let g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");if(!g&&ML.sig){const si=sigPick(e.clientX,e.clientY);if(si>=0)g={dataset:{sig:String(si)}}}const vsk=(!g||g.dataset.sig!=null)&&typeof vsPick==="function"&&vsPick(e.clientX,e.clientY);if(vsk)g=null;const apk=!vsk&&(!g||g.dataset.sig!=null)&&typeof aptPick==="function"&&aptPick(e.clientX,e.clientY);if(apk){g=null;asOpen(apk,"info")}MAP.sel=vsk?{t:"vs",id:vsk}:g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac,id:acId((MAP.live||[])[+g.dataset.ac])}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig,id:sigId((SIG.list||[])[+g.dataset.sig])}):null;mapInfo();drawMap()}}st=null}else{const af=!!(was&&(was.after||was.p.size>=2));st=snap();st.moved=true;if(af)st.after=1}};
+  const end=e=>{if(!pts.has(e.pointerId))return;const was=st;pts.delete(e.pointerId);if(OV.edit&&OV.img)ovSave();if(!pts.size){if(was&&!was.moved&&typeof AN!=="undefined"&&AN.on){anTap(e.clientX,e.clientY)}else if(was&&!was.moved&&MS.on){msTap(e.clientX,e.clientY)}else if(was&&!was.moved&&RE.on){reTapEmpty(e.clientX,e.clientY)}else if(was&&!was.moved&&!(OV.edit&&OV.img)){const hit=document.elementFromPoint(e.clientX,e.clientY);const ap=hit&&hit.closest&&hit.closest("[data-apt]");if(ap){asOpen(ap.dataset.apt,ap.dataset.aptab||"info")}else{let g=hit&&hit.closest&&hit.closest("[data-ac],[data-sig],[data-pr]");if(!g&&ML.sig){const si=sigPick(e.clientX,e.clientY);if(si>=0)g={dataset:{sig:String(si)}}}const vsk=(!g||g.dataset.sig!=null)&&typeof vsPick==="function"&&vsPick(e.clientX,e.clientY);if(vsk)g=null;const apk=!vsk&&(!g||g.dataset.sig!=null)&&typeof aptPick==="function"&&aptPick(e.clientX,e.clientY);if(apk){g=null;asOpen(apk,"info")}MAP.sel=vsk?{t:"vs",id:vsk}:g?(g.dataset.ac!=null?{t:"ac",i:+g.dataset.ac,id:acId((MAP.live||[])[+g.dataset.ac])}:g.dataset.pr!=null?{t:"pr",i:+g.dataset.pr,id:PR.list[+g.dataset.pr]?prId(PR.list[+g.dataset.pr]):null}:{t:"sig",i:+g.dataset.sig,id:sigId((SIG.list||[])[+g.dataset.sig])}):null;mapInfo();drawMap()}}st=null}else{const af=!!(was&&(was.after||was.p.size>=2));st=snap();st.moved=true;if(af)st.after=1}};
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect(),dz=-e.deltaY/(e.deltaMode===1?4:e.deltaMode===2?1:160);mapZoomSmooth(Math.max(-1.5,Math.min(1.5,dz)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -16647,6 +16647,151 @@ window.addEventListener("popstate",()=>{if(SUBB.skip){SUBB.skip--;return}
 {const _s=bpSay;bpSay=function(){if(BP.set.snd===false)return;return _s.apply(this,arguments)}}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-mapsnd]");if(!t)return;
   BP.set.snd=t.dataset.mapsnd==="1";bpSetSave();if(!BP.set.snd)try{speechSynthesis.cancel()}catch(er){}render()});
+/* ---------- Map › Draw: your own lines, pins and words on the Map (Nov 2026) ----------
+   ⋯ › Draw on map opens a small panel beside the tool column:
+   - Line: tap the map point by point (a drag still moves the map), Finish ends it;
+   - Pin: a marker with a name (typed in the panel first), tap to place;
+   - Text: a word or two on the map, tap to place;
+   - Erase: tap a line, pin or text to remove it; Undo and Clear all.
+   Four colours. What you draw stays on the Map after Done (hide it with "Show on the map"), on this device and, signed
+   in, on the EFB server under your Pilot ID so your other devices show it too (/api/efb/mapnotes; the newer copy
+   wins). Lines are drawn as straight lines on the map, as you tapped them. */
+const AN={on:false,mode:"line",col:store.get("anCol","#E5197E"),show:store.get("anShow",true),items:null,cur:null,lbl:"",t:0,d:0,pushT:0,pulled:0,sure:0};
+const AN_COL=[["#E5197E","Magenta"],["#FF453A","Red"],["#1E6FFF","Blue"],["#13A35B","Green"],["#FFB000","Amber"]];
+const AN_MODES=[["line","Line"],["pin","Pin"],["text","Text"],["erase","Erase"]];
+function anLoad(){if(AN.items)return AN.items;const v=store.get("mapNotes",null);AN.items=v&&Array.isArray(v.a)?v.a:[];AN.t=v&&v.t||0;AN.d=v&&v.d?1:0;return AN.items}
+function anSave(){AN.t=Date.now();AN.d=1;store.set("mapNotes",{a:AN.items,t:AN.t,d:1});clearTimeout(AN.pushT);AN.pushT=setTimeout(anPush,1500)}
+function anPush(){if(typeof authOn!=="function"||!authOn())return;const t=AN.t;
+  fetch(authSrv()+"/api/efb/mapnotes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({t,a:AN.items})}).then(r=>{if(r.ok&&AN.t===t){AN.d=0;store.set("mapNotes",{a:AN.items,t:AN.t,d:0})}}).catch(()=>{})}
+/* the newer of this device's drawing and the server's, at most every 30 s */
+function anPull(){if(typeof authOn!=="function"||!authOn()||Date.now()-AN.pulled<30000)return;AN.pulled=Date.now();anLoad();
+  fetch(authSrv()+"/api/efb/mapnotes").then(r=>r.status===404?{none:1}:r.ok?r.json():null).then(j=>{if(!j)return;
+    if(j.none){if(AN.d&&AN.items.length)anPush();return}
+    if(Array.isArray(j.a)&&(+j.t||0)>AN.t&&!AN.cur){AN.items=j.a;AN.t=+j.t;AN.d=0;store.set("mapNotes",{a:AN.items,t:AN.t,d:0});if(cur==="map")drawMap()}
+    else if(AN.d)anPush()}).catch(()=>{})}
+/* screen point -> latitude/longitude, as Measure does */
+function anLL(cx,cy){const sv=$("#mapSvg");if(!sv||!MAP.c)return null;const r=sv.getBoundingClientRect(),{w,h}=mapSize(),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z),n=munpx(c[0]-w/2+(cx-r.left),c[1]-h/2+(cy-r.top),z);
+  return{la:+n[0].toFixed(5),lo:+(((n[1]+540)%360)-180).toFixed(5),x:cx-r.left,y:cy-r.top}}
+/* where an item sits on screen now (longitudes kept near the map's centre) */
+function anXY(la,lo){const {w,h}=mapSize(),z=MAP.z,c=mpx(MAP.c.lat,MAP.c.lon,z);while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;const q=mpx(la,lo,z);return[q[0]-c[0]+w/2,q[1]-c[1]+h/2]}
+function anTap(cx,cy){const p=anLL(cx,cy);if(!p)return;anLoad();
+  if(AN.mode==="line"){if(!AN.cur){AN.cur={k:"line",c:AN.col,p:[]};}AN.cur.p.push(p.la,p.lo)}
+  else if(AN.mode==="pin"||AN.mode==="text"){const l=AN.lbl.trim().slice(0,60);if(AN.mode==="text"&&!l){toast("Type the words first, then tap the map");return}
+    AN.items.push({k:AN.mode,c:AN.col,p:[p.la,p.lo],l});anSave()}
+  else if(AN.mode==="erase"){let best=-1,bd=16;AN.items.forEach((it,i)=>{const P=[];for(let j=0;j<it.p.length;j+=2)P.push(anXY(it.p[j],it.p[j+1]));
+      let d=1e9;if(P.length===1)d=Math.hypot(P[0][0]-p.x,P[0][1]-p.y);else for(let j=1;j<P.length;j++){const [ax,ay]=P[j-1],[bx,by]=P[j],dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((p.x-ax)*dx+(p.y-ay)*dy)/L));d=Math.min(d,Math.hypot(ax+t*dx-p.x,ay+t*dy-p.y))}
+      if(d<bd){bd=d;best=i}});if(best>=0){AN.items.splice(best,1);anSave()}else toast("Nothing drawn there")}
+  anUi();drawMap()}
+function anFinish(){if(AN.cur&&AN.cur.p.length>=4){anLoad();AN.items.push(AN.cur);anSave()}AN.cur=null}
+/* the drawing, in the Map's SVG (above the route, under the Measure tool) */
+const anEsc=t=>esc(String(t||""));
+function anSvg(P,w,h){if(!MAP.c)return"";const L=anLoad().concat(AN.cur?[AN.cur]:[]);if(!L.length||(!AN.show&&!AN.on))return"";let s="";
+  const xy=(la,lo)=>{while(lo-MAP.c.lon>180)lo-=360;while(lo-MAP.c.lon<-180)lo+=360;return P(la,lo)};
+  for(const it of L){const c=/^#[0-9A-F]{6}$/i.test(it.c)?it.c:"#E5197E";
+    if(it.k==="line"){const pts=[];for(let j=0;j<it.p.length;j+=2)pts.push(xy(it.p[j],it.p[j+1]));if(!pts.length)continue;const ps=pts.map(q=>q[0].toFixed(1)+","+q[1].toFixed(1)).join(" ");
+      s+=`<polyline class="an-hl" points="${ps}"/><polyline class="an-l" points="${ps}" style="stroke:${c}"/>`;if(it===AN.cur)pts.forEach(q=>s+=`<circle class="an-v" cx="${q[0]}" cy="${q[1]}" r="4" style="fill:${c}"/>`)}
+    else if(it.k==="pin"){const [x,y]=xy(it.p[0],it.p[1]);s+=`<g class="an-pin" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><path d="M0 0C-2-6-8-9-8-15a8 8 0 0 1 16 0c0 6-6 9-8 15z" style="fill:${c}"/><circle cy="-15" r="3" fill="#fff"/>${it.l?`<text class="an-t" x="10" y="-12">${anEsc(it.l)}</text>`:""}</g>`}
+    else if(it.k==="text"){const [x,y]=xy(it.p[0],it.p[1]);s+=`<text class="an-t an-big" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" style="fill:${c}">${anEsc(it.l)}</text>`}}
+  return `<g class="an-g">${s}</g>`}
+function anUi(){const w=$("#view .mapwrap"),b=$("#anBtn");if(b)b.setAttribute("aria-pressed",String(AN.on));if(!w)return;let el=$("#anPanel");
+  w.classList.toggle("drawing",AN.on);if(!AN.on){if(el)el.remove();return}
+  if(!el){el=document.createElement("div");el.id="anPanel";el.className="mspanel anpanel";w.appendChild(el)}const n=anLoad().length,c=AN.cur;
+  const hint={line:c&&c.p.length?`${c.p.length/2} point${c.p.length>2?"s":""} · tap to add, Finish to end`:"Tap the map point by point",pin:"Name it (optional), then tap the map",text:"Type the words, then tap the map",erase:"Tap a line, pin or text to remove it"}[AN.mode];
+  el.innerHTML=`<div class="ms-h"><b>Draw</b><span>${hint}</span></div>
+    <div class="an-seg" role="group" aria-label="Draw">${AN_MODES.map(m=>`<button type="button" data-an="m:${m[0]}" aria-pressed="${AN.mode===m[0]}">${m[1]}</button>`).join("")}</div>
+    ${AN.mode!=="erase"?`<div class="an-cols" role="group" aria-label="Colour">${AN_COL.map(k=>`<button type="button" data-an="c:${k[0]}" aria-label="${k[1]}" aria-pressed="${AN.col===k[0]}" style="--c:${k[0]}"></button>`).join("")}</div>`:""}
+    ${AN.mode==="pin"||AN.mode==="text"?`<input class="an-in" id="anIn" type="text" maxlength="60" placeholder="${AN.mode==="pin"?"Name (optional)":"Words"}" value="${anEsc(AN.lbl)}" autocomplete="off" spellcheck="false" enterkeyhint="done">`:""}
+    <label class="an-show"><input type="checkbox" data-an="show"${AN.show?" checked":""}> Show on the map after Done</label>
+    <div class="ms-btns">${AN.mode==="line"&&c?`<button type="button" data-an="fin" class="pri"${c.p.length<4?" disabled":""}>Finish</button>`:""}<button type="button" data-an="undo"${n||c?"":" disabled"}>Undo</button><button type="button" data-an="clear"${n?"":" disabled"}>${AN.sure&&Date.now()-AN.sure<4000?"Sure?":"Clear all"}</button><button type="button" data-an="done"${AN.mode==="line"&&c?"":' class="pri"'}>Done</button></div>`}
+function anToggle(on){AN.on=on==null?!AN.on:on;if(AN.on){if(typeof MS!=="undefined"&&MS.on)msToggle(false);if(typeof RE!=="undefined"&&RE.on){RE.on=false;RE.sel=null;RE.dct=null}anPull()}else anFinish();anUi();if(cur==="map")drawMap()}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#anBtn,[data-an]");if(!t||cur!=="map")return;if(t.id==="anBtn"){anToggle();return}
+  const a=t.dataset.an;if(a==="show"){AN.show=t.checked;store.set("anShow",AN.show);drawMap();return}
+  if(a.startsWith("m:")){anFinish();AN.mode=a.slice(2)}else if(a.startsWith("c:")){AN.col=a.slice(2);store.set("anCol",AN.col);if(AN.cur)AN.cur.c=AN.col}
+  else if(a==="fin")anFinish();else if(a==="undo"){if(AN.cur){AN.cur.p.splice(-2,2);if(!AN.cur.p.length)AN.cur=null}else if(anLoad().length){AN.items.pop();anSave()}}
+  else if(a==="clear"){if(AN.sure&&Date.now()-AN.sure<4000){AN.items=[];AN.cur=null;AN.sure=0;anSave()}else{AN.sure=Date.now();setTimeout(()=>{if(AN.on)anUi()},4100)}}
+  else if(a==="done"){anToggle(false);return}anUi();drawMap()});
+document.addEventListener("input",e=>{if(e.target&&e.target.id==="anIn")AN.lbl=e.target.value});
+document.addEventListener("keydown",e=>{if(e.target&&e.target.id==="anIn"&&e.key==="Enter")e.target.blur()});
+/* its button sits hidden in the tool column (as Measure's does) and shows as a row under ⋯ */
+MC_MORE.splice(2,0,["anBtn","Draw on map"]);
+{const _p=mcPlace;mcPlace=function(){if(cur==="map"){const ctl=$("#view .mapwrap .mapctl");if(ctl&&!ctl.querySelector("#anBtn")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="anBtn";b.setAttribute("aria-label","Draw on map");b.setAttribute("aria-pressed",String(AN.on));
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.8 4.8a2 2 0 0 1 2.9 0l.5.5a2 2 0 0 1 0 2.9L8.6 18.8 4 20z"/><path d="M14 6.6l3.4 3.4"/></svg>';ctl.insertBefore(b,ctl.querySelector("#mcMore"))}}
+  const r=_p.apply(this,arguments);if(cur==="map"&&AN.on&&!$("#anPanel"))anUi();return r}}
+window.addEventListener("hashchange",()=>{if(cur!=="map"&&AN.on){anFinish();AN.on=false}else if(cur==="map")anPull()});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.screen[data-app="map"] .mapctl>#anBtn{display:none!important}
+.screen[data-app="map"] .mapwrap .anpanel{left:calc(var(--tbx) + var(--tbw) + 8px)!important;right:auto!important;top:var(--tbc,var(--tbt))!important;bottom:auto!important;width:min(300px,calc(100% - var(--tbx) - var(--tbw) - 24px))}
+@container screen (max-width:640px){.screen[data-app="map"] .mapwrap .anpanel{left:8px!important;right:8px!important;top:auto!important;bottom:10px!important;width:auto}.anpanel .ms-h span{display:block}}
+.anpanel .an-seg{display:flex;background:rgba(127,127,127,.15);border-radius:9px;padding:2px;margin:8px 0}.anpanel .an-seg button{flex:1;border:0;background:none;color:var(--ink);font:600 12.5px var(--f-os);padding:6px 4px;border-radius:7px;cursor:pointer}
+.anpanel .an-seg button[aria-pressed="true"]{background:var(--panel,#fff);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.anpanel .an-cols{display:flex;gap:8px;margin:4px 0 8px}.anpanel .an-cols button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;background:var(--c);cursor:pointer;box-shadow:inset 0 0 0 2px var(--panel,#fff)}
+.anpanel .an-cols button[aria-pressed="true"]{border-color:var(--ink)}
+.anpanel .an-in{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:500 14px var(--f-os);background:var(--bg);color:var(--ink);margin-bottom:8px}
+.anpanel .an-show{display:flex;align-items:center;gap:7px;font:500 12.5px var(--f-os);color:var(--label);margin-bottom:4px}
+.mapwrap.drawing #mapSvg{cursor:crosshair}
+#mapSvg .an-g{pointer-events:none}#mapSvg .an-hl{fill:none;stroke:rgba(255,255,255,.85);stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+#mapSvg .an-l{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}#mapSvg .an-v{stroke:#fff;stroke-width:1.5}
+#mapSvg .an-pin path{stroke:#fff;stroke-width:1.5}#mapSvg .an-t{font:700 13px var(--f-os);fill:var(--ink);paint-order:stroke;stroke:var(--panel,#fff);stroke-width:3.5px;stroke-linejoin:round}
+#mapSvg .an-big{font-size:16px}
+</style>`);
+
+/* ---------- Set departure / arrival / approach: a suggestion at the top (Nov 2026) ----------
+   Which runway and which procedure, with the reason, and a button for each:
+   - the runway: the one a VATSIM ATIS (or the real airport's D-ATIS) gives for departures or arrivals; without one,
+     the runway with the most headwind in the newest METAR (crosswind under 30 kt, never a tailwind over 5 kt); in calm
+     wind (under 5 kt) the flight plan's runway; the longest when nothing else decides;
+   - the procedure: for a departure or an arrival, the one from (to) that runway that joins the route, the flight
+     plan's own SID or STAR first; for an approach, the most precise one to that runway (ILS, then RNAV/GPS, LOC, VOR,
+     NDB). It is a suggestion: ATC and the charts decide. */
+const PA={at:{}};
+const PA_APP=["ILS","GLS","RNAV","GPS","LOC","LDA","SDF","VOR/DME","VOR","NDB/DME","NDB","LOC BC"];
+/* runways named in an ATIS, for departures ("d") and arrivals ("a") */
+function paAtisRwys(txt){const out={d:[],a:[],x:[]};const t=" "+String(txt||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ")+" ";
+  const re=/(RWYS?|RUNWAYS?)( IN USE| FOR (DEPARTURE|DEPARTURES|ARRIVAL|ARRIVALS|LANDING|TAKE OFF|TAKEOFF))?( (\d{1,2}[LRC]?)( (AND|&) (\d{1,2}[LRC]?))?)/g;let m;
+  while((m=re.exec(t))){const ctx=t.slice(0,m.index).trim().split(" ").slice(-2).join(" ")+" "+(m[3]||""),rr=[m[5],m[8]].filter(Boolean).map(v=>npRwyN(v));
+    const dep=/DEP|TAKE ?OFF/.test(ctx),arr=/ARR|LAND|LDG|APCH|APPROACH|ILS|EXPECT/.test(ctx);(dep&&!arr?out.d:arr&&!dep?out.a:out.x).push(...rr)}
+  return out}
+function paAtis(ic,kind,rws){const a=(typeof RS!=="undefined"&&RS.atis[ic])||{},L=[...(a.vatsim||[]).map(x=>({t:(x.text||""),src:"VATSIM ATIS"+(x.cs?" ("+x.cs+(x.code?" · "+x.code:"")+")":"")})),...(a.real||[]).slice(0,1).map(x=>({t:x.datis,src:"Real-world D-ATIS"+(x.code?" · "+x.code:"")}))];
+  for(const q of L){const r=paAtisRwys(q.t),pick=(kind==="sid"?r.d:r.a).concat(r.x).find(n=>rws.some(w=>w.n===n));if(pick)return{R:pick,why:`${q.src}: runway ${pick} in use`}}return null}
+function paMetar(ic){const w=(typeof RS!=="undefined"&&RS.wx[ic])||{},a=typeof AS!=="undefined"&&AS.data&&AS.data[ic],x=O();
+  const raw=(w.metar&&(w.metar.raw||w.metar))||(a&&a.metar&&(a.metar.raw||a.metar))||(ic===S(x.o.icao_code).toUpperCase()?S(x.o.metar):ic===S(x.d.icao_code).toUpperCase()?S(x.d.metar):"");return typeof raw==="string"?raw:""}
+/* the runway, and why */
+function paRunway(kind,d){const ic=npIcao(kind),rws=(d.rw||[]).filter(r=>r&&r.n);if(!rws.length)return null;
+  const at=paAtis(ic,kind,rws);if(at)return at;
+  const x=O(),plan=npRwyN(kind==="sid"?x.o.plan_rwy:x.d.plan_rwy),m=decodeMetar(paMetar(ic)),wd=m&&m.wind,len=r=>+r.len||0;
+  const hdg=r=>r.h!=null?+r.h:((parseInt(r.n,10)||36)*10+(+d.mv||0));
+  if(wd&&wd.dir!=null&&wd.spd>=5){const sc=rws.map(r=>{const a=(wd.dir-hdg(r))*Math.PI/180,g=wd.gust||wd.spd;return{r,hw:wd.spd*Math.cos(a),xw:Math.abs(g*Math.sin(a))}}).filter(q=>q.xw<30&&q.hw>-5);
+    if(sc.length){sc.sort((a,b)=>Math.abs(b.hw-a.hw)>=1?b.hw-a.hw:((b.r.n===plan)-(a.r.n===plan))||(len(b.r)-len(a.r)));const q=sc[0],hw=Math.round(q.hw),xw=Math.round(q.xw);
+      return{R:q.r.n,why:`Wind ${String(wd.dir).padStart(3,"0")}° ${wd.spd}${wd.gust?"G"+wd.gust:""} kt: ${hw>=0?"headwind "+hw:"tailwind "+(-hw)} kt, crosswind ${xw} kt`}}}
+  if(plan&&rws.some(r=>r.n===plan))return{R:plan,why:wd&&wd.spd<5?`Light wind (${wd.spd} kt): the flight plan's runway`:"No wind report: the flight plan's runway"};
+  const lg=rws.slice().sort((a,b)=>len(b)-len(a))[0];return{R:lg.n,why:"The longest runway"}}
+/* the procedure for that runway, and why */
+function paProc(kind,d,R){const {from}=npRows(kind,d,R);if(!from.length)return null;
+  if(kind==="app"){const rank=r=>{const ty=String(r.p.ty||r.p.n||"").toUpperCase();const i=PA_APP.findIndex(t=>ty.startsWith(t));return i<0?99:i};
+    const L=from.filter(r=>!r.t).sort((a,b)=>rank(a)-rank(b));const r=L[0]||from[0];return{r,why:`${String(r.p.ty||"").toUpperCase()==="ILS"?"Precision approach":"Most precise approach listed"} to runway ${R}`}}
+  const route=new Set(rePts().map(q=>q.n)),orig=rpOrig(kind),join=from.filter(r=>route.has(npEnd(kind,r)));
+  const r=join.find(q=>q.p.n===orig)||join[0];if(!r)return{r:null,why:`No ${kind==="sid"?"departure from":"arrival to"} runway ${R} joins your route`};
+  return{r,why:`${r.p.n===orig?"Your flight plan's "+(kind==="sid"?"SID":"STAR")+", ":""}${kind==="sid"?"ends at":"starts at"} ${npEnd(kind,r)} on your route`}}
+function paHtml(kind,d){const ic=npIcao(kind);if(typeof rsWx==="function"&&!PA.at[ic]){PA.at[ic]=1;rsWx(ic);setTimeout(()=>{if(NP.kind)npRefresh()},2500);setTimeout(()=>{if(NP.kind)npRefresh()},8000)}
+  const rw=paRunway(kind,d);if(!rw)return"";const R=NP.rwy[kind]||"",same=rw.R===R,pr=paProc(kind,d,rw.R),o=rpGet();
+  const added=pr&&pr.r&&o[kind]!=null&&o[kind]===(kind==="app"?pr.r.p.id:pr.r.p.n)&&(o[kind+"T"]||"")===(pr.r.t||pr.r.p.nf||"");
+  return `<div class="pa-card"><div class="pa-h"><b>Suggested</b><span>ATC and the charts decide</span></div>
+    <div class="pa-row"><div><small>Runway</small><b>RW${esc(rw.R)}</b><span>${esc(rw.why)}</span></div>${same?'<em class="pa-ok">Showing</em>':`<button class="pa-b" data-paadv="rwy:${esc(rw.R)}">Use RW${esc(rw.R)}</button>`}</div>
+    ${pr?`<div class="pa-row"><div><small>${kind==="sid"?"Departure":kind==="star"?"Arrival":"Approach"}</small><b>${pr.r?esc(kind==="app"?pr.r.p.n:npLab(pr.r)):"–"}</b><span>${esc(pr.why)}</span></div>${pr.r?(added?'<em class="pa-ok">In route</em>':`<button class="pa-b pri" data-paadv="add:${esc(rw.R)}">Add</button>`):""}</div>`:""}</div>`}
+{const _h=npHtml;npHtml=function(){const h=_h.apply(this,arguments),kind=NP.kind,d=kind&&NP.data[npIcao(kind)];if(!d)return h;let c="";try{c=paHtml(kind,d)}catch(e){}
+  return c?h.replace('<div class="fp-body np-body">','<div class="fp-body np-body">'+c):h}}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-paadv]");if(!t||!NP.kind)return;const [a,R]=t.dataset.paadv.split(":"),kind=NP.kind,d=NP.data[npIcao(kind)];if(!d)return;
+  if(a==="rwy"){NP.rwy[kind]=R;NP.sel=null;NP.open=null;npFitSoon=1;npRefresh();return}
+  if(a==="add"){NP.rwy[kind]=R;const pr=paProc(kind,d,R);if(pr&&pr.r){npApply(kind,pr.r);toast((kind==="app"?pr.r.p.n:npLab(pr.r))+" added")}npRefresh()}},true);
+document.head.insertAdjacentHTML("beforeend",`<style>
+.pa-card{margin:10px 12px 4px;border-radius:12px;background:color-mix(in srgb,var(--brand) 9%,var(--panel,#fff));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--brand) 30%,transparent);padding:8px 12px}
+.pa-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:2px}.pa-h b{font:700 11px var(--f-os);letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}.pa-h span{font:500 11px var(--f-os);color:var(--label)}
+.pa-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}.pa-row:first-of-type{border-top:0}
+.pa-row>div{flex:1;min-width:0;display:flex;flex-direction:column}.pa-row small{font:600 10.5px var(--f-os);letter-spacing:.06em;text-transform:uppercase;color:var(--label)}.pa-row b{font:700 15px var(--f-mono);color:var(--ink)}.pa-row span{font:400 12.5px/1.35 var(--f-os);color:var(--label)}
+.pa-b{flex:none;border:0;border-radius:9px;padding:7px 12px;background:rgba(127,127,127,.16);color:var(--ink);font:600 13px var(--f-os);cursor:pointer}.pa-b.pri{background:var(--brand);color:var(--brand-ink,#fff)}
+.pa-ok{flex:none;font:600 12px var(--f-os);font-style:normal;color:#1FA347}
+</style>`);
+
 })();
 
 document.head.insertAdjacentHTML("beforeend",`<style>

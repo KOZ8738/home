@@ -8,9 +8,13 @@ export const ADMIN_HTML = `<!doctype html>
 if(window.parent!==window){document.documentElement.classList.add("in-efb");try{parent.postMessage({pmAdmin:1},"*")}catch(e){}
  /* the EFB's day or night (Nov 2026): given with the address when the EFB opens the admin (&theme=) and sent again when it
     changes, so the EFB's own top bar and the admin match; the admin's own Light/Auto/Dark buttons go while it does */
- const efbThm=t=>{if(t!=="dark"&&t!=="light"&&t!=="auto")return;const R=document.documentElement;R.classList.add("efb-thm");if(t==="auto")delete R.dataset.theme;else R.dataset.theme=t};
+ /* and the colour of its top bar, so the EFB colours the strips above it the same (after the .25s colour change) */
+ let topT=0;const topSend=()=>{clearTimeout(topT);topT=setTimeout(()=>{try{const h=document.querySelector("header");if(h)parent.postMessage({pmTop:getComputedStyle(h).backgroundColor},"*")}catch(e){}},320)};
+ const efbThm=t=>{if(t!=="dark"&&t!=="light"&&t!=="auto")return;const R=document.documentElement;R.classList.add("efb-thm");if(t==="auto")delete R.dataset.theme;else R.dataset.theme=t;topSend()};
  try{efbThm(new URLSearchParams(location.search).get("theme"))}catch(e){}
- window.addEventListener("message",e=>{if(e.source!==window.parent||!/^https:\\/\\/(www\\.)?koz8738\\.com$/.test(e.origin)||!e.data||typeof e.data.pmTheme!=="string")return;efbThm(e.data.pmTheme)})}</script>
+ window.addEventListener("message",e=>{if(e.source!==window.parent||!/^https:\\/\\/(www\\.)?koz8738\\.com$/.test(e.origin)||!e.data||typeof e.data.pmTheme!=="string")return;efbThm(e.data.pmTheme)});
+ document.addEventListener("DOMContentLoaded",topSend);document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("[data-thm]"))topSend()});
+ try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",topSend)}catch(e){}}</script>
 <style>
 :root{color-scheme:light;--teal:#1A6772;--teal-d:#124C55;--accent:#1A6772;--mist:#E3E9E9;--bronze:#A78970;--ink:#0F2A2E;--label:#51696C;--line:#D5DEDE;--bg:#FFFFFF;--soft:#F5F8F8;--field:#FFFFFF;--off:#9aa8aa;--red:#B42828;--red-l:#e6c4c4;--green:#2C7A4B;--ok-bg:#E6F0E9;--err-bg:#F6E5E5;--q-bg:#F4ECE3;--q:#8A6744}
 :root[data-theme=dark]{--logo:#8FCBD0;--logo2:#C2A88F;color-scheme:dark;--teal:#1A6772;--teal-d:#22808D;--accent:#7CC2C9;--mist:#222225;--bronze:#A78970;--ink:#E8E8E9;--label:#9C9CA1;--line:#2E2E32;--bg:#1A1A1C;--soft:#121213;--field:#222225;--off:#5C5C61;--red:#F2A3A3;--red-l:#4A2427;--green:#8FCFA6;--ok-bg:#1D2A23;--err-bg:#3A1C1E;--q-bg:#2E2A24;--q:#D9C2AD}

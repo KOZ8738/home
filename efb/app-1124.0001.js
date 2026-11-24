@@ -12584,7 +12584,7 @@ function admFrame(){if(ADM.fr&&ADM.fr.isConnected)return ADM.fr;const v=$("#view
 function admPlace(){const f=ADM.fr,v=$("#view");if(!f||!v)return;const on=cur==="admin"&&ADM.st==="ok";f.hidden=!on;if(!on)return;
   f.style.top=v.offsetTop+"px";f.style.left=v.offsetLeft+"px";f.style.width=v.offsetWidth+"px";f.style.height=v.offsetHeight+"px"}
 function admOpen(force){const f=admFrame();if(!f)return;if(!force&&(ADM.st==="ok"||ADM.st==="wait"))return admPlace();
-  ADM.st="wait";clearTimeout(ADM.t);f.hidden=true;f.src=admBase()+"/admin?efb="+Date.now();
+  ADM.st="wait";clearTimeout(ADM.t);f.hidden=true;f.src=admBase()+"/admin?efb="+Date.now()+"&theme="+admThemeNow();
   ADM.t=setTimeout(()=>{if(ADM.st==="wait"){ADM.st="in";if(cur==="admin")render()}},9000);
   f.onload=()=>{clearTimeout(ADM.t);ADM.t=setTimeout(()=>{if(ADM.st==="wait"){ADM.st="in";if(cur==="admin")render()}},1600)}}
 window.addEventListener("message",e=>{if(!ADM.fr||e.source!==ADM.fr.contentWindow||!e.data||!e.data.pmAdmin)return;if(e.origin!==new URL(admBase()).origin)return;
@@ -16467,6 +16467,43 @@ npFromServer = function (ic) {
     return h.replace(/<p(?:\s[^>]*)?>[\s\S]*?<\/p>/, msg);
   };
 }
+/* Operations (the staff admin) takes the EFB's day or night (Nov 2026): with the address when it opens, and again
+   whenever the theme changes, so the EFB's own top bar and the admin inside it match. "auto" lets both follow the
+   device. The admin hides its own Light/Auto/Dark buttons while the EFB sets them. */
+function admThemeNow(){const t=document.documentElement.getAttribute("data-theme");return t==="dark"||t==="light"?t:"auto"}
+function admThemeSend(){const f=ADM.fr;if(!f||!f.contentWindow)return;try{f.contentWindow.postMessage({pmTheme:admThemeNow()},new URL(admBase()).origin)}catch(e){}}
+window.addEventListener("message",e=>{if(ADM.fr&&e.source===ADM.fr.contentWindow&&e.data&&e.data.pmAdmin)admThemeSend()});
+new MutationObserver(admThemeSend).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+/* iPhone (Nov 2026): the strips above an app take the app's own colour, so the screen reads as one piece. The row the
+   island sits in (an app with no title bar) takes the colour just below it; the status bar strip, and the theme colour
+   iOS may tint it with, take it too when it is dark enough for the status bar's white text. Operations tells the EFB
+   its own top colour (pmTop). Apps with their own colours there (Mail, Settings, Clock, Weather) keep them. */
+(function(){
+  const R=document.documentElement,meta=document.querySelector('meta[name="theme-color"]'),base=meta?meta.content:"";
+  const solid=c=>c&&c!=="transparent"&&!/rgba\([^)]*,\s*0\)$/.test(c);
+  const bgOf=e=>{for(;e&&e!==R&&e!==document.body;e=e.parentElement){const c=getComputedStyle(e).backgroundColor;if(solid(c))return c}return ""};
+  const rgb=c=>{const m=String(c).match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);return m?[+m[1],+m[2],+m[3]]:null};
+  const dark=c=>{const v=rgb(c);if(!v)return false;const L=v.map(x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)});return .2126*L[0]+.7152*L[1]+.0722*L[2]<.2};
+  let admTop="",last="";
+  window.addEventListener("message",e=>{if(typeof ADM!=="undefined"&&ADM.fr&&e.source===ADM.fr.contentWindow&&e.data&&typeof e.data.pmTop==="string"&&rgb(e.data.pmTop)){admTop=e.data.pmTop;run()}});
+  /* the colour most of the width has at height y */
+  function below(y){const C=[.12,.5,.88].map(f=>{const e=document.elementFromPoint(f*innerWidth,Math.max(0,Math.min(innerHeight-1,y)));if(!e)return "";
+      if(e.id==="admFrame")return admTop||bgOf(e);return bgOf(e)}).filter(Boolean);
+    if(!C.length)return "";return C.find((c,i)=>C.indexOf(c)!==i)||C[1]||C[0]}
+  function off(){if(!last)return;R.classList.remove("top-c","top-dk");R.style.removeProperty("--top-c");if(meta)meta.content=base;last=""}
+  function run(){const sc=screenEl;if(!sc||!sc.classList.contains("in-app")||sc.clientWidth>640||/^(mail|prefs|timer|wx)$/.test(sc.dataset.app||""))return off();
+    const nav=sc.querySelector(".appwin>.nav"),win=sc.querySelector(".appwin");if(!win)return off();
+    const n=nav&&nav.offsetHeight?nav.getBoundingClientRect():null,bare=sc.classList.contains("no-tools");
+    const c=n&&!bare?bgOf(nav):below((n?n.bottom:win.getBoundingClientRect().top)+3);if(!c)return off();
+    const dk=dark(c),k=c+"|"+dk;if(k===last)return;last=k;
+    R.style.setProperty("--top-c",c);R.classList.add("top-c");R.classList.toggle("top-dk",dk);if(meta)meta.content=dk?c:base}
+  setInterval(()=>{if(!document.hidden)run()},700);addEventListener("hashchange",()=>setTimeout(run,150));addEventListener("resize",()=>setTimeout(run,150));
+  try{new MutationObserver(()=>setTimeout(run,60)).observe(R,{attributes:true,attributeFilter:["data-theme"]})}catch(e){}
+  setTimeout(run,300);})();
+document.head.insertAdjacentHTML("beforeend",`<style>
+html.top-c .screen.isl-on.in-app.no-tools:not([data-app="mail"]):not([data-app="prefs"]):not([data-app="timer"]):not([data-app="wx"]) .appwin>.nav{background:var(--top-c)!important;border-bottom:0!important}
+html.top-c.top-dk.x-in body::before{background:var(--top-c)}
+</style>`);
 })();
 
 document.head.insertAdjacentHTML("beforeend",`<style>

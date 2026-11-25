@@ -1,2 +1,1 @@
-ro-en https://www.aisro.ro/aip/2026-10-29/html/en/index.html
-ro-cfg https://www.aisro.ro/aip/2026-10-29/config.js
+ro-toc https://www.aisro.ro/aip/2026-10-29/html/en/toc.html

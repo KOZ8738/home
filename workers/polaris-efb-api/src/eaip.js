@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
-   Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro and
-   Poland (Nov 2026) ----------
+   Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
+   Poland and France (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -145,6 +145,28 @@ export const EA = {
     country: 'Poland', pre: 'EPxx', test: 'EPWA', kind: 'ix', apt: /^EP[A-Z]{2}$/, label: 'AIP Poland', host: 'PANSA eAIP', home: 'https://ais.pansa.pl/en/publications/aip-poland/', idx: 'index-v2.html',
     /* the AIS page links the IFR eAIP's own list, named for its date: docs.pansa.pl/ais/eaipifr/default_offline_2026-10-29.html */
     hop: (t) => (String(t).match(/https:\/\/docs\.pansa\.pl\/ais\/eaipifr\/default_offline_[\d-]+\.html/) || [])[0],
+  },
+  FR: {
+    country: 'France', pre: 'LFxx', test: 'LFPG', kind: 'fr', apt: /^LF[A-Z]{2}$/, label: 'AIP France', host: 'SIA eAIP', site: 'https://www.sia.aviation-civile.gouv.fr/',
+    home: 'https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html',
+    /* no list of editions to read: each AIRAC's eAIP is at media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/ */
+    eds: () => frEds(), page: (i) => `html/eAIP/FR-AD-2.${i}-fr-FR.html`, enr: (n) => `html/eAIP/FR-ENR-${n}-fr-FR.html`,
+    charts: (t, icao) => frCharts(t, icao),
+  },
+  PT: {
+    country: 'Portugal', pre: 'LPxx', test: 'LPPT', apt: /^LP[A-Z]{2}$/, label: 'AIP Portugal', host: 'NAV Portugal eAIP', site: 'https://ais.nav.pt/',
+    home: 'https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/LP-cover-en-PT.html', fixed: true,
+    eds: coverEds('https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/', 'html/index.html'),
+    page: (i) => `html/eAIP/LP-AD-2.${i}-en-PT.html`, enr: (n) => `html/eAIP/LP-ENR-${n}-en-PT.html`,
+  },
+  BA: {
+    country: 'Bosnia and Herzegovina', pre: 'LQxx', test: 'LQSA', apt: /^LQ[A-Z]{2}$/, label: 'AIP Bosnia and Herzegovina', host: 'BHANSA eAIP', site: 'https://eaip.bhansa.gov.ba/',
+    /* the front page builds its list from updates.json: [{ effectiveDate: '26 NOV 2026', ... }], each at <yyyy-mm-dd>-AIRAC/ */
+    home: 'https://eaip.bhansa.gov.ba/updates.json',
+    eds: (t) => { let j; try { j = JSON.parse(t); } catch (e) { return []; }
+      return (Array.isArray(j) ? j : []).map((u) => String(u && u.effectiveDate || '').match(/(\d{1,2})\s+([A-Z]{3})\s+(\d{4})/i)).filter((m) => m && MON[m[2].toUpperCase()])
+        .map((m) => { const d = `${m[3]}-${MON[m[2].toUpperCase()]}-${m[1].padStart(2, '0')}`; return { eff: d, pub: d, base: `https://eaip.bhansa.gov.ba/${d}-AIRAC/`, index: 'html/index.html' }; }); },
+    page: (i) => `html/eAIP/LQ-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LQ-ENR-${n}-en-GB.html`,
   },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
@@ -484,6 +506,57 @@ export function esCharts(html, icao) {
 /* the section's heading: <a id="LEMD" … migapan="<a href=…>…"></a> … <h1>LEMD</h1> <h2>MADRID/Adolfo Suárez Madrid-Barajas</h2> */
 const esName = (html, icao) => { const m = html.match(new RegExp(`<a id="${icao}"[\\s\\S]{0,900}?<h1[^>]*>\\s*${icao}\\s*</h1>\\s*<h2[^>]*>([\\s\\S]*?)</h2>`)); return m ? text(m[1]) : ''; };
 
+/* ---------- France (SIA) ----------
+   AD 2.24 is figures only, each a PDF under Cartes/<ICAO>/ named for what it is: AD_2_LFPG_IAC_RWY08L_FNA_ILS_CAT123_LOC.pdf,
+   AD_2_LFPG_SID_RWY08L-08R-09L-09R_RNAV_AGOPA_ERIXU.pdf, AD_2_LFPG_ADC_01.pdf. The name is built from the file's. */
+function frEds(t = Date.now()) {
+  const MO = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'], cur = Date.parse(airacEff(t) + 'T00:00:00Z'), out = [];
+  for (const k of [-1, 0, 1]) {
+    const d = new Date(cur + k * 28 * 86400_000), iso = d.toISOString().slice(0, 10), dd = iso.slice(8, 10);
+    out.push({ eff: iso, pub: iso, base: `https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_${dd}_${MO[d.getUTCMonth()]}_${iso.slice(0, 4)}/FRANCE/AIRAC-${iso}/`, index: 'html/index-fr-FR.html' });
+  }
+  return out;
+}
+const FR_KIND = {
+  ADC: ['APD', 'Airport diagram', 'Aerodrome Chart'], APDC: ['HOT', 'Hot spots', 'Parking/Docking Chart'], GMC: ['HOT', 'Hot spots', 'Ground Movement Chart'],
+  AOC: ['DAU', 'Other', 'Aerodrome Obstacle Chart'], PATC: ['DAU', 'Other', 'Precision Approach Terrain Chart'], MIA: ['MIN', 'Minimums', 'Minimum Altitude Chart'],
+  MVA: ['MIN', 'Minimums', 'Minimum Vectoring Altitude Chart'], SID: ['DP', 'Departures', 'SID'], STAR: ['STR', 'Arrivals', 'STAR'], IAC: ['IAP', 'Approaches', ''],
+  VAC: ['IAP', 'Approaches', 'Visual Approach Chart'], DATA: ['DATA', 'Procedure data', 'Coding table'], COM: ['DAU', 'Other', 'Communications'],
+};
+function frName(code, rest) {
+  const tk = rest.split('_').filter(Boolean), rwy = [], words = [];
+  let ina = false;
+  for (const x of tk) {
+    let m;
+    if ((m = x.match(/^RWY((?:\d{2}[LRC]?)(?:-\d{2}[LRC]?)*)$/))) rwy.push('RWY ' + m[1].replace(/-/g, '/'));
+    else if (x === 'RWY') rwy.push('RWY');
+    else if (rwy[rwy.length - 1] === 'RWY' && /^[A-Z]+$/.test(x)) rwy[rwy.length - 1] = 'RWY ' + x;
+    else if (x === 'FNA') continue;
+    else if (x === 'INA') ina = true;
+    else if ((m = x.match(/^CAT(1?2?3?)$/))) words.push('CAT ' + m[1].split('').map((n) => ['', 'I', 'II', 'III'][n]).join('-'));
+    else words.push(/^\d+$/.test(x) ? String(+x) : x);
+  }
+  if (code === 'IAC') {
+    const w = words.join(' ').replace(/\bILS(.*?) LOC\b/, 'ILS$1 or LOC');
+    return [w || 'Approach', ...rwy].join(' ') + (ina ? ' – initial' : '');
+  }
+  const K = FR_KIND[code];
+  return [K ? K[2] : code, ...rwy, ...words].join(' ').replace(/\s+/g, ' ').trim();
+}
+export function frCharts(html, icao) {
+  const out = [], seen = new Set();
+  for (const m of html.matchAll(new RegExp(`href\\s*=\\s*["'](Cartes\\/${icao}\\/AD_2_${icao}_([A-Z]+)_?([\\w.\\-]*?)\\.pdf)["']`, 'g'))) {
+    const p = html.slice(Math.max(0, m.index - 400), m.index), k = p.lastIndexOf('<div');
+    if (k >= 0 && /class\s*=\s*["'][^"']*AmdtDeleted/i.test(p.slice(k))) continue;
+    const file = 'html/eAIP/' + m[1];
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const K = FR_KIND[m[2]] || ['DAU', 'Other'];
+    out.push({ code: K[0], group: K[1], name: frName(m[2], m[3]), pdf: file, changed: false });
+  }
+  return out;
+}
+
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
@@ -523,6 +596,7 @@ export async function eaChartPdf(url, env, h, me, d) {
   const res = (body, status) => new Response(JSON.stringify(body), { status, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   const R = EA[k], fileOk = !R ? false : R.kind === 'ix' ? /^documents\/[^"'<>\\?#]{1,300}\.pdf$/i.test(file) : R.kind === 'dk' ? /^media\/files\/[a-z0-9]{4,24}\/[^"'<>\\?#/]{1,200}\.pdf$/i.test(file)
     : R.kind === 'kr' ? /^\d{4}-\d{2}-\d{2}(?:-AIRAC)?\/pdf\/(AD|ENR|GEN)\/[A-Z]{4}\/[^"'<>\\]{1,250}\.pdf$/i.test(file)
+    : R.kind === 'fr' ? /^html\/eAIP\/Cartes\/[A-Z]{4}\/AD_2_[A-Z]{4}_[\w.\-]{1,160}\.pdf$/.test(file)
     : R.kind === 'es' ? /^contenido_AIP\/AD\/AD2\/[A-Z]{4}\/LE_AD_2_[A-Z]{4}[\w.\-]{0,40}_en\.pdf$/.test(file)
     : /^(pdf|graphics)\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file);
   if (!R || !/^[A-Z]{2}\d{8}$/.test(cycle) || !fileOk || file.includes('..')) return res({ error: 'Invalid chart' }, 400);

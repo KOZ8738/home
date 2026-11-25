@@ -1,1 +1,14 @@
-
+ge-hist	200	text/html; charset=UTF-8	18761	https://airnav.ge/eaip/history-en-GB.html
+ge-hist2	200	text/html; charset=UTF-8	18761	https://ais.airnav.ge/eaip/history-en-GB.html
+ge-dl	200	text/html; charset=UTF-8	21644	https://ais.airnav.ge/en/aip-downloadable
+am-cat	200	text/html; charset=UTF-8	55239	https://armats.am/category/eaip/
+am-act	404	text/html; charset=UTF-8	47420	https://armats.am/activities/ais/eaip
+am-acten	404	text/html; charset=UTF-8	46496	https://armats.am/en/activities/ais/eaip
+am-ais	200	text/html; charset=UTF-8	49028	https://armats.am/en/ais/
+mt-tm	403	text/html; charset=UTF-8	6022	https://www.transport.gov.mt/Aviation/Air-Navigation-Services-Aerodromes/
+mt-mats	404	text/html; charset=UTF-8	548	https://www.maltats.com/aim/
+mt-mats2	200	text/html; charset=UTF-8	32160	https://maltats.com/?p=10079
+si-hist	ERR	fetch failed		https://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+si-histh	ERR	fetch failed		http://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+si-old	200	text/html	1300	https://www.sloveniacontrol.si/acrobat/aip/Operations/history-en-GB.html
+si-www	200	text/html; charset=utf-8	124030	https://www.sloveniacontrol.si/en

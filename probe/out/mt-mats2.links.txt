@@ -1,0 +1,4 @@
+https://fonts.googleapis.com
+https://fonts.gstatic.com
+https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Poppins:wght@400;500&display=swap
+https://flyingmalta.com/onlineflightpan/

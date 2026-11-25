@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MATS | Under Maintenance</title>
+  <meta name="description" content="The MATS website is currently down for maintenance. Flight plans can still be submitted online.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#3c4655">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+/* ==========================================================
+   MATS maintenance page
+   Brand: Grey Blue #3c4655 (primary) / Light Blue #6588a8 (secondary)
+   Type:  DIN Bold (titles) / Poppins Regular (body)
+   ========================================================== */
+
+:root {
+  --grey-blue: #3c4655;
+  --light-blue: #6588a8;
+
+  /* tones from the manual (80 / 60 / 40 / 20%) */
+  --gb-80: #636b77;
+  --gb-60: #8a9099;
+  --lb-40: #c1cfdc;
+  --lb-20: #e0e7ee;
+
+  --bg: #eef2f6;
+  --bg-2: #ffffff;
+  --ink: var(--grey-blue);
+  --ink-soft: var(--gb-80);
+  --accent: var(--light-blue);
+  --logo-main: var(--grey-blue);
+  --logo-accent: var(--light-blue);
+  --line: rgba(60, 70, 85, .12);
+  --radar: 101, 136, 168;         /* rgb of light blue for canvas */
+  --radar-ink: 60, 70, 85;
+  --btn-bg: var(--grey-blue);
+  --btn-ink: #ffffff;
+  --btn-icon-bg: var(--light-blue);
+  --marker: rgba(101, 136, 168, .38);
+
+  --font-title: "DIN", "DIN Pro", "DIN Next", "D-DIN", "Barlow", "Arial Narrow", sans-serif;
+  --font-body: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --gutter: clamp(16px, 4vw, 48px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #2a313c;
+    --bg-2: #3c4655;
+    --ink: #ffffff;
+    --ink-soft: #c1cfdc;
+    --accent: #8fabc4;
+    --logo-main: #ffffff;
+    --logo-accent: #6588a8;
+    --line: rgba(255, 255, 255, .12);
+    --radar: 143, 171, 196;
+    --radar-ink: 255, 255, 255;
+    --btn-bg: #ffffff;
+    --btn-ink: #3c4655;
+    --btn-icon-bg: #6588a8;
+    --marker: rgba(101, 136, 168, .6);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 80% at 50% 38%, var(--bg-2) 0%, var(--bg) 62%);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#radar {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .35;
+  background-image: radial-gradient(rgba(var(--radar-ink), .09) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+}
+
+/* ---------- stage ---------- */
+.stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: clamp(24px, 4vh, 56px) var(--gutter);
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ---------- logo ---------- */
+.logo-wrap {
+  width: min(400px, 72vw, 36vh);
+  margin-bottom: clamp(20px, 4vh, 44px);
+  transition: transform .6s var(--ease);
+  will-change: transform;
+}
+.logo { display: block; width: 100%; height: auto; overflow: visible; animation: float 6s ease-in-out 2.6s infinite; }
+
+.logo .l, .logo .l-a2 { transform-box: fill-box; }
+.logo .l { fill: var(--logo-main); }
+.logo .l2 { fill: var(--logo-accent); }
+
+
+.logo .letters > * {
+  opacity: 0;
+  transform: translateY(40px);
+  animation: rise .9s var(--ease) forwards;
+}
+.logo .l-m  { animation-delay: .10s; }
+.logo .l-a1 { animation-delay: .22s; }
+.logo .l-a2 { animation-delay: .30s; }
+.logo .l-t  { animation-delay: .38s; }
+.logo .l-s  { animation-delay: .46s; }
+
+.logo .reveal {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 90;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1.1s var(--ease) forwards;
+}
+.logo .reveal-inner { animation-delay: .8s; }
+.logo .reveal-outer { animation-delay: 1.05s; }
+
+/* transmission pulses from the antenna apex */
+.logo .pulse {
+  fill: none;
+  stroke: var(--logo-accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+  opacity: 0;
+  transform-origin: 790px 303px;
+  animation: transmit 3.6s ease-out infinite;
+  animation-delay: 2.2s;
+}
+.logo .pulse:nth-child(2) { animation-delay: 3.4s; }
+.logo .pulse:nth-child(3) { animation-delay: 4.6s; }
+
+/* ---------- status line ---------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: clamp(12px, 1.1vw, 14px);
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--ink-soft);
+  opacity: 0;
+  animation: up .9s var(--ease) 1.4s forwards;
+}
+.ellipsis { display: inline-flex; margin-left: -8px; }
+.ellipsis i { font-style: normal; animation: blink 1.4s infinite both; }
+.ellipsis i:nth-child(2) { animation-delay: .2s; }
+.ellipsis i:nth-child(3) { animation-delay: .4s; }
+.status__dot {
+  position: relative;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #e0a13a;
+}
+.status__dot::after {
+  content: "";
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #e0a13a;
+  animation: ring 1.8s ease-out infinite;
+}
+
+/* ---------- headline ---------- */
+.title {
+  margin: clamp(18px, 3vh, 28px) 0 0;
+  font-family: var(--font-title);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.title__line {
+  display: block;
+  opacity: 0;
+  animation: up 1s var(--ease) forwards;
+}
+.title__line.is-split { opacity: 1; animation: none; }
+.word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(.45em) rotate(2deg);
+  filter: blur(6px);
+  animation: word .9s var(--ease) forwards;
+}
+.word--hl { color: inherit; position: relative; z-index: 0; }
+.word--hl::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -.12em; right: -.1em;
+  top: .5em; bottom: .02em;
+  background: var(--marker);
+  border-radius: .12em .5em .18em .45em / .5em .2em .5em .25em;
+  transform: scaleX(0) rotate(-1.5deg) skewX(-8deg);
+  transform-origin: left center;
+  animation: marker .9s cubic-bezier(.65, 0, .35, 1) 2.9s forwards;
+}
+.title__line:first-child {
+  font-size: clamp(18px, 2.4vw, 26px);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: .6em;
+  animation-delay: 1.55s;
+}
+.title__line:last-child {
+  font-size: clamp(30px, min(6vw, 7.2vh), 66px);
+  max-width: 16ch;
+  margin: 0 auto;
+  text-wrap: balance;
+  animation-delay: 1.7s;
+}
+
+.lead {
+  margin: clamp(16px, 2.6vh, 24px) auto 0;
+  max-width: 46ch;
+  font-size: clamp(15px, 1.5vw, 17px);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+  opacity: 0;
+  animation: up 1s var(--ease) 1.9s forwards;
+}
+
+/* ---------- CTA ---------- */
+.cta-block {
+  margin-top: clamp(28px, 5vh, 44px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  animation: up 1s var(--ease) 2.1s forwards;
+}
+.cta-label {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.cta {
+  --pad: 8px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: var(--pad) 22px var(--pad) var(--pad);
+  min-height: 60px;
+  border-radius: 999px;
+  background: var(--btn-bg);
+  color: var(--btn-ink);
+  text-decoration: none;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: clamp(16px, 1.6vw, 18px);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 12px 30px -12px rgba(60, 70, 85, .55);
+  transition: transform .4s var(--ease), box-shadow .4s var(--ease);
+  transform: translate(var(--mx, 0px), var(--my, 0px));
+}
+.cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--btn-icon-bg);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .55s var(--ease);
+}
+.cta::after { /* shine */
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -40%;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+  transform: skewX(-20deg);
+  animation: shine 4.5s ease-in-out 3s infinite;
+}
+.cta__icon {
+  display: grid;
+  place-items: center;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--btn-icon-bg);
+  flex-shrink: 0;
+  transition: background .4s var(--ease);
+}
+.cta__icon svg { width: 22px; height: 22px; fill: #fff; transform: rotate(45deg); transition: transform .6s var(--ease); }
+.cta__arrow svg {
+  width: 20px; height: 20px;
+  fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+  display: block;
+  transition: transform .4s var(--ease);
+}
+.cta:hover, .cta:focus-visible { transform: translate(var(--mx, 0px), calc(var(--my, 0px) - 2px)); box-shadow: 0 18px 40px -14px rgba(60, 70, 85, .7); color: #fff; }
+.cta:hover::before, .cta:focus-visible::before { transform: scaleX(1); }
+.cta:hover .cta__icon, .cta:focus-visible .cta__icon { background: var(--grey-blue); }
+.cta:hover .cta__icon svg, .cta:focus-visible .cta__icon svg { transform: rotate(45deg) translateY(-3px); animation: takeoff .8s var(--ease); }
+.cta:hover .cta__arrow svg, .cta:focus-visible .cta__arrow svg { transform: translateX(4px); }
+.cta:active { transform: translateY(0) scale(.98); }
+.cta:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+
+/* ---------- footer ---------- */
+.footer {
+  position: relative;
+  z-index: 2;
+  padding: 0 var(--gutter) max(20px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+  opacity: 0;
+  animation: fade 1s var(--ease) 2.3s forwards;
+}
+.footer p { margin: 14px 0 0; letter-spacing: .04em; }
+.progress {
+  height: 2px;
+  max-width: 280px;
+  margin: 0 auto;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: indeterminate 2.4s ease-in-out infinite;
+}
+
+/* ---------- keyframes ---------- */
+@keyframes word { to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes marker { to { transform: scaleX(1) rotate(-1.5deg) skewX(-8deg); } }
+@keyframes blink { 0%, 80%, 100% { opacity: .15; } 40% { opacity: 1; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes fade { to { opacity: 1; } }
+@keyframes transmit {
+  0%   { opacity: 0;   transform: scale(1); }
+  10%  { opacity: .7; }
+  100% { opacity: 0;   transform: scale(1.9); }
+}
+@keyframes ping {
+  0% { box-shadow: 0 0 0 0 rgba(var(--radar), .6); }
+  80%, 100% { box-shadow: 0 0 0 10px rgba(var(--radar), 0); }
+}
+@keyframes ring {
+  0% { transform: scale(.6); opacity: .9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes shine { 0%, 60% { left: -40%; } 100% { left: 130%; } }
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(290%); }
+}
+@keyframes takeoff {
+  0% { transform: rotate(45deg) translate(0, 0); opacity: 1; }
+  45% { transform: rotate(45deg) translate(0, -26px); opacity: 0; }
+  46% { transform: rotate(45deg) translate(0, 26px); opacity: 0; }
+  100% { transform: rotate(45deg) translate(0, -3px); opacity: 1; }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 560px) {
+  .title__line:last-child { max-width: 13ch; }
+  .cta { width: 100%; max-width: 360px; justify-content: space-between; }
+  .cta-block { width: 100%; }
+}
+@media (max-height: 640px) and (orientation: landscape) {
+  .logo-wrap { width: min(260px, 40vw); margin-bottom: 18px; }
+  .title__line:last-child { font-size: clamp(26px, 4.4vw, 44px); max-width: 22ch; }
+  .stage { padding-top: 20px; padding-bottom: 20px; }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .logo .pulse, .cta::after { display: none; }
+}
+
+  </style>
+</head>
+<body>
+  <canvas id="radar" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+
+  <main class="stage">
+    <div class="logo-wrap" id="logoWrap">
+      <svg class="logo" viewBox="80 10 1760 806" role="img" aria-labelledby="logoTitle">
+        <title id="logoTitle">MATS</title>
+        <defs>
+          <mask id="mInner" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="826">
+            <path class="reveal reveal-inner" pathLength="1" d="M645 303A145 145 0 0 1 935 303"/>
+          </mask>
+          <mask id="mOuter" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="826">
+            <path class="reveal reveal-outer" pathLength="1" d="M565 203A247 247 0 1 1 985 455"/>
+          </mask>
+        </defs>
+        <g class="pulses" aria-hidden="true">
+          <path class="pulse" d="M565 203A247 247 0 1 1 985 455"/>
+          <path class="pulse" d="M565 203A247 247 0 1 1 985 455"/>
+          <path class="pulse" d="M565 203A247 247 0 1 1 985 455"/>
+        </g>
+        <g class="letters">
+          <path class="l l-m" d="m190.15,479.52l97.51,210.35c3.02,7.06,10.01,12.06,18.21,12.06s15.2-5,18.21-12.06l97.58-210.35v315.14h95.04V270.01h-95.04l-115.79,265.05-115.73-265.05h-95.11v524.65h95.11v-315.14Z"/>
+          <path class="l2 l-a2" d="m998.91,794.66l-147.32-485.36v-.31c-8.11-25.95-32.55-44.86-61.33-44.86s-53.15,18.91-61.25,44.86v.31l-.91,2.99c22.01,6.41,52.08,23.91,62.16,71.59l113.53,410.78h95.12Z"/>
+          <path class="l l-a1" d="m728.1,312.29l-4.31,14.2-142.12,468.17h95.11l113.48-410.78c-10.08-47.68-40.15-65.18-62.16-71.59Z"/>
+          <path class="l l-t" d="m1177.32,365.77v429.36h95.01l.18-429.36h131.82v-95.32h-301.05c1.45,12.75,2.13,25.67,2.13,38.8,0,19.08-1.49,37.93-4.51,56.51h76.42Z"/>
+          <path class="l l-s" d="m1701.56,702.36c-10.6,6.66-22.35,11.55-35.34,14.44-13.01,2.95-25.94,4.34-38.49,4.34-29.65,0-54.14-6.16-73.43-18.78-19.4-12.37-37.11-29.26-53.31-50.48l-65.37,52.8c24.62,36.73,52.25,61.92,82.82,75.42,30.53,13.51,67.01,20.41,109.28,20.41,24.59,0,48.65-3.08,72.27-8.92,23.49-5.83,44.66-15.2,63.24-28.07,18.64-12.75,33.64-29.52,44.83-50.05,11.3-20.6,16.9-45.46,16.9-74.78,0-25.82-4.15-47.48-12.64-65.12-8.41-17.53-20.02-32.29-34.77-43.91-14.9-11.87-32.04-21.22-51.83-28.14-19.58-7.03-40.3-12.74-62.28-17.08-16.14-2.89-31.71-6.59-46.92-10.99-15.19-4.45-28.5-9.54-40.05-15.39-11.64-6.02-20.8-12.74-27.51-20.41-6.6-7.65-10.06-17.07-10.06-28.12,0-11.69,3.02-22.11,9.05-31.34,6.03-9.16,13.43-16.7,22.61-22.54,9.17-5.97,19.59-10.3,31.21-13.19,11.62-2.95,23.04-4.46,34.35-4.46,24.49,0,45.53,5.65,62.73,17.01,17.27,11.38,31.15,26.26,41.64,44.72l68.56-47.46c-16.76-33.04-40.24-56.83-70.14-71.59-29.95-14.57-62.41-21.92-97.52-21.92-23.3,0-45.78,3.21-67.52,9.8-21.91,6.65-41.57,16.32-59.15,28.76-17.58,12.43-31.77,28.26-42.19,47.29-10.62,19.02-15.9,41.13-15.9,66,0,26.43,4.71,48.1,14.32,64.99,9.42,16.83,22.16,30.71,37.93,41.31,15.88,10.56,34.34,19.34,55.39,25.94,21.15,6.6,43.32,12.43,66.56,17.46,13.3,3.07,26.31,6.34,39.06,10.04,12.63,3.65,23.92,8.61,33.67,14.89,9.83,6.16,17.88,13.62,23.73,22.55,6.01,8.79,9.05,20.16,9.05,34.1s-3.16,25.94-9.49,35.8c-6.42,9.79-14.89,18.08-25.32,24.67Z"/>
+        </g>
+        <path class="l arc-inner" mask="url(#mInner)" d="m965.86,295.21c0-.56,0-1.18-.05-1.75-.12-2.48-.34-4.91-.56-7.33-.28-2.71-.56-5.41-1.01-8.18-.28-2.08-.62-4.18-1.07-6.32-.51-3.34-1.24-6.6-2.09-9.88-.63-2.65-1.36-5.3-2.14-7.95-1.54-5.3-3.34-10.6-5.48-15.79-1.07-2.7-2.26-5.41-3.44-8.07-.06-.11-.12-.28-.18-.39-2.37-5.19-5.01-10.21-7.9-15.06-1.36-2.37-2.77-4.69-4.28-7-3.16-4.96-6.6-9.7-10.33-14.33-1.74-2.25-3.61-4.45-5.53-6.6-1.87-2.13-3.83-4.23-5.82-6.25-1.97-2.03-4.04-4.01-6.15-5.98-2.08-1.97-4.21-3.89-6.42-5.64-6.35-5.4-13.15-10.24-20.25-14.65-.27-.17-.52-.36-.79-.52-2.98-1.84-6.07-3.53-9.18-5.19-.91-.48-1.8-.99-2.71-1.47-2.61-1.34-5.27-2.55-7.96-3.76-1.11-.5-2.17-1.08-3.29-1.56-1.41-.62-2.75-1.18-4.16-1.75-1.42-.62-2.84-1.19-4.3-1.69-.56-.23-1.13-.4-1.7-.57-1.63-.62-3.26-1.18-4.9-1.64-2.02-.73-4.11-1.35-6.2-1.92-1.32-.4-2.61-.73-3.9-1.07-2.09-.56-4.18-1.07-6.32-1.52-2.37-.57-4.74-1.02-7.11-1.47-1.41-.28-2.87-.5-4.33-.68-2.93-.51-5.87-.9-8.81-1.12-1.48-.17-2.93-.28-4.41-.4-2.92-.22-5.85-.39-8.79-.45-2.61-.07-5.21-.08-7.81-.03-18.3.33-36.49,3.56-54.07,9.68-4.28,1.41-8.51,3.1-12.75,4.96-1.17.51-2.43,1.02-3.6,1.58-4.69,2.15-9.25,4.52-13.65,7.05-1.52.85-2.93,1.7-4.4,2.59-1.46.85-2.87,1.75-4.29,2.71-1.46.9-2.81,1.81-4.24,2.76-1.35.96-2.75,1.97-4.11,2.93-1.29,1.02-2.65,2.03-4,3.05-3.95,3.04-7.79,6.32-11.45,9.7-1.08,1.02-2.2,2.09-3.33,3.16-2.49,2.43-4.85,4.91-7.17,7.45-1.13,1.18-2.2,2.42-3.32,3.72-1.36,1.58-2.71,3.28-4.07,4.92-.91,1.13-1.8,2.25-2.66,3.44-1.01,1.36-1.96,2.65-2.93,4.01-.96,1.35-1.92,2.7-2.82,4.06-.96,1.41-1.87,2.76-2.72,4.17-.89,1.41-1.74,2.82-2.59,4.29-.9,1.41-1.7,2.88-2.49,4.35-1.52,2.65-2.93,5.36-4.23,8.11-.28.63-.61,1.25-.89,1.87-.51,1.13-1.08,2.31-1.58,3.5-.69,1.52-1.35,3.04-1.98,4.62-1.18,2.82-2.25,5.7-3.26,8.57-.23.57-.4,1.13-.56,1.69-.46,1.36-.91,2.72-1.36,4.12-.5,1.64-1.01,3.27-1.47,4.91-.84,2.93-1.58,5.86-2.25,8.85-1.13,4.8-2.09,9.59-2.72,14.44-.79,5.02-1.29,10.04-1.58,15.06-.05.79-.05,1.52,0,2.31-.17,2.26-.22,4.57-.22,6.83-.06,17.15,13.82,31.09,30.97,31.09h.06c17.09,0,30.96-13.82,31.02-30.91,0-1.92.06-3.84.17-5.81.05-.96.11-1.91.23-2.93.05-1.19.22-2.42.34-3.66.5-4.01,1.18-8.01,2.08-12.02.05-.17.05-.28.11-.45.46-1.92.9-3.89,1.47-5.75.5-1.81,1.08-3.61,1.68-5.42,1.08-3.22,2.27-6.38,3.62-9.48.61-1.41,1.24-2.77,1.91-4.12,5.58-11.5,13.03-21.94,22.11-30.91,1.19-1.18,2.43-2.31,3.66-3.44,3.5-3.22,7.22-6.21,11.17-8.91.97-.68,1.92-1.3,2.88-1.91,1.02-.74,2.08-1.35,3.16-2.04,3.49-2.14,7.17-4.11,11-5.86,1.98-.96,4.01-1.81,6.1-2.65,1.7-.73,3.43-1.35,5.18-1.92,1.48-.56,2.93-1.07,4.46-1.47.35-.12.75-.22,1.08-.33,1.18-.34,2.42-.68,3.62-.96.79-.23,1.51-.4,2.25-.56,1.47-.34,2.92-.62,4.35-.91,1.8-.34,3.55-.68,5.35-.9,1.41-.23,2.87-.4,4.29-.56,1.86-.17,3.78-.34,5.7-.45,2.02-.11,4.06-.17,6.09-.17,1.91,0,3.83.05,5.7.17,1.58.06,3.15.17,4.73.34.74.06,1.48.12,2.15.23,1.52.17,2.99.34,4.45.57h.17c1.59.28,3.11.56,4.69.84,2.25.45,4.51.96,6.76,1.53,1.75.5,3.57,1.01,5.3,1.58,3.33,1.01,6.59,2.22,9.83,3.59.51.21,1.01.41,1.52.63,1.31.55,2.6,1.15,3.87,1.77,2.02.97,4.04,1.94,6,3.04,1.64.85,3.27,1.81,4.84,2.82,4.8,2.93,9.31,6.2,13.6,9.76,2.88,2.37,5.59,4.9,8.12,7.56,5.19,5.3,9.82,11.12,13.88,17.37,4.06,6.26,7.49,12.92,10.33,20.03,2.7,6.77,4.73,13.65,6.14,20.59.4,1.74.68,3.49.91,5.24.48,3,.76,6.05.93,9.11.14,2.26.26,4.53.26,6.79,0,17.09,13.87,30.91,31.02,30.91h.06c17.15,0,30.96-13.93,30.96-31.08,0-2.48-.05-4.97-.24-7.45Z"/>
+        <path class="l2 arc-outer" mask="url(#mOuter)" d="m552.02,230.23c15.64,7.05,33.99.07,41.03-15.56,6.8-15.09,15.47-29.49,25.83-42.85,41.18-53.34,103.41-83.95,170.72-83.95,118.91,0,215.64,96.75,215.64,215.66,0,28.29-5.37,55.77-15.96,81.65-7.36,17.99-17.1,34.83-28.9,50.05-10.51,13.54-8.05,33.03,5.49,43.53,5.66,4.39,12.35,6.52,19,6.52,9.25,0,18.41-4.13,24.52-12.01,15.26-19.66,27.82-41.38,37.32-64.59,13.66-33.39,20.59-68.78,20.59-105.16,0-153.12-124.58-277.7-277.7-277.7-86.69,0-166.82,39.39-219.8,108.02-13.31,17.17-24.53,35.79-33.32,55.35-7.04,15.63-.07,34,15.55,41.03Z"/>
+      </svg>
+    </div>
+
+    <p class="status" role="status">
+      <span class="status__dot" aria-hidden="true"></span>
+      <span>Scheduled maintenance in progress</span><span class="ellipsis" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
+    </p>
+
+    <h1 class="title">
+      <span class="title__line">We&rsquo;re sorry.</span>
+      <span class="title__line">This website is currently down for maintenance.</span>
+    </h1>
+
+    <p class="lead">We&rsquo;re carrying out essential work and will be back shortly. Flight plan submission is not affected.</p>
+
+    <div class="cta-block">
+      <p class="cta-label">If you&rsquo;d like to submit a flight plan, click here</p>
+      <a class="cta" id="cta" href="https://flyingmalta.com/onlineflightpan/" rel="noopener">
+        <span class="cta__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+        </span>
+        <span class="cta__text">Submit a flight plan</span>
+        <span class="cta__arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="progress" aria-hidden="true"><span></span></div>
+    <p>&copy; <span id="year">2026</span> Malta Air Traffic Services</p>
+  </footer>
+
+  <script>
+/* MATS maintenance page: radar background, UTC clock */
+(function () {
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var finePointer = window.matchMedia("(pointer: fine)").matches;
+
+  // ---------- footer year ----------
+  var yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  // ---------- headline: word by word reveal ----------
+  var lines = document.querySelectorAll(".title__line");
+  var base = 1.55, step = 0.07, n = 0;
+  Array.prototype.forEach.call(lines, function (line) {
+    if (reduceMotion) return;
+    var words = line.textContent.trim().split(/\s+/);
+    line.textContent = "";
+    words.forEach(function (w, i) {
+      var span = document.createElement("span");
+      span.className = "word" + (/^maintenance/i.test(w) ? " word--hl" : "");
+      span.textContent = w;
+      span.style.animationDelay = (base + n * step) + "s";
+      line.appendChild(span);
+      if (i < words.length - 1) line.appendChild(document.createTextNode(" "));
+      n++;
+    });
+    line.classList.add("is-split");
+  });
+
+  // ---------- pointer parallax (desktop) ----------
+  var logoWrap = document.getElementById("logoWrap");
+  var pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (finePointer && !reduceMotion) {
+    window.addEventListener("pointermove", function (e) {
+      pointer.tx = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.ty = (e.clientY / window.innerHeight) * 2 - 1;
+      if (logoWrap) {
+        logoWrap.style.transform =
+          "perspective(900px) rotateY(" + (pointer.tx * 6) + "deg) rotateX(" + (-pointer.ty * 6) + "deg) translate(" + (pointer.tx * 6) + "px," + (pointer.ty * 4) + "px)";
+      }
+    }, { passive: true });
+    document.addEventListener("pointerleave", function () {
+      pointer.tx = pointer.ty = 0;
+      if (logoWrap) logoWrap.style.transform = "";
+    });
+  }
+
+  // ---------- magnetic button (desktop) ----------
+  var cta = document.getElementById("cta");
+  if (cta && finePointer && !reduceMotion) {
+    cta.addEventListener("pointermove", function (e) {
+      var r = cta.getBoundingClientRect();
+      var mx = (e.clientX - (r.left + r.width / 2)) * 0.18;
+      var my = (e.clientY - (r.top + r.height / 2)) * 0.3;
+      cta.style.setProperty("--mx", mx.toFixed(1) + "px");
+      cta.style.setProperty("--my", my.toFixed(1) + "px");
+    });
+    cta.addEventListener("pointerleave", function () {
+      cta.style.setProperty("--mx", "0px");
+      cta.style.setProperty("--my", "0px");
+    });
+  }
+
+  // ---------- radar canvas ----------
+  var canvas = document.getElementById("radar");
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext("2d");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var dpr, W, H, cx, cy, R;
+  var sweep = -Math.PI / 2;
+  var blips = [];
+  var planes = [];
+  var colour = "101,136,168";
+  var ink = "60,70,85";
+  var last = performance.now();
+
+  function readColours() {
+    var s = getComputedStyle(document.documentElement);
+    colour = (s.getPropertyValue("--radar") || colour).trim();
+    ink = (s.getPropertyValue("--radar-ink") || ink).trim();
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W / 2;
+    cy = H * 0.42;
+    R = Math.max(W, H) * 0.62;
+    seedPlanes();
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function seedPlanes() {
+    var count = W < 600 ? 4 : 7;
+    planes = [];
+    for (var i = 0; i < count; i++) planes.push(makePlane(true));
+  }
+
+  function makePlane(anywhere) {
+    var ang = rand(0, Math.PI * 2);
+    var dist = anywhere ? rand(R * 0.18, R * 0.85) : R * 0.95;
+    var heading = anywhere ? rand(0, Math.PI * 2) : ang + Math.PI + rand(-0.6, 0.6);
+    return {
+      x: cx + Math.cos(ang) * dist,
+      y: cy + Math.sin(ang) * dist,
+      h: heading,
+      v: rand(8, 18),          // px per second
+      trail: [],
+      seen: 0                  // brightness when swept
+    };
+  }
+
+  function angleDiff(a, b) {
+    var d = (a - b) % (Math.PI * 2);
+    if (d < 0) d += Math.PI * 2;
+    return d; // how far behind the sweep line
+  }
+
+  function draw(now) {
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    ctx.clearRect(0, 0, W, H);
+    pointer.x += (pointer.tx - pointer.x) * 0.05;
+    pointer.y += (pointer.ty - pointer.y) * 0.05;
+    cx = W / 2 - pointer.x * 24;
+    cy = H * 0.42 - pointer.y * 18;
+
+    // rings
+    ctx.lineWidth = 1;
+    for (var i = 1; i <= 6; i++) {
+      var r = (R / 6) * i;
+      ctx.strokeStyle = "rgba(" + colour + "," + (0.16 - i * 0.015) + ")";
+      ctx.setLineDash(i % 2 ? [] : [2, 6]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // cross hairs + bearing ticks
+    ctx.strokeStyle = "rgba(" + colour + ",0.10)";
+    ctx.beginPath();
+    ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+    ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+    ctx.stroke();
+    var tickR = (R / 6) * 3;
+    ctx.strokeStyle = "rgba(" + colour + ",0.22)";
+    for (var t = 0; t < 72; t++) {
+      var a = (t / 72) * Math.PI * 2;
+      var len = t % 6 === 0 ? 10 : 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * tickR, cy + Math.sin(a) * tickR);
+      ctx.lineTo(cx + Math.cos(a) * (tickR + len), cy + Math.sin(a) * (tickR + len));
+      ctx.stroke();
+    }
+
+    // sweep
+    if (!reduce.matches) sweep += dt * 0.55;
+    var tail = 0.9;
+    var steps = 24;
+    for (var s = 0; s < steps; s++) {
+      var a0 = sweep - (tail * s) / steps;
+      var a1 = sweep - (tail * (s + 1)) / steps;
+      ctx.fillStyle = "rgba(" + colour + "," + (0.09 * (1 - s / steps)) + ")";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a1, a0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(" + colour + ",0.3)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(sweep) * R, cy + Math.sin(sweep) * R);
+    ctx.stroke();
+
+    // planes
+    for (var p = 0; p < planes.length; p++) {
+      var pl = planes[p];
+      if (!reduce.matches) {
+        pl.x += Math.cos(pl.h) * pl.v * dt;
+        pl.y += Math.sin(pl.h) * pl.v * dt;
+      }
+      var pa = Math.atan2(pl.y - cy, pl.x - cx);
+      var pd = Math.hypot(pl.x - cx, pl.y - cy);
+      var behind = angleDiff(sweep, pa);
+      if (behind < 0.06) {
+        pl.seen = 1;
+        pl.trail.push({ x: pl.x, y: pl.y });
+        if (pl.trail.length > 6) pl.trail.shift();
+      }
+      pl.seen = Math.max(0.18, pl.seen - dt * 0.22);
+
+      // trail dots
+      for (var k = 0; k < pl.trail.length; k++) {
+        var tp = pl.trail[k];
+        ctx.fillStyle = "rgba(" + colour + "," + (0.08 + (k / pl.trail.length) * 0.25) * pl.seen + ")";
+        ctx.beginPath();
+        ctx.arc(tp.x, tp.y, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // target
+      var alpha = 0.25 + pl.seen * 0.6;
+      ctx.strokeStyle = "rgba(" + ink + "," + alpha * 0.55 + ")";
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(pl.x - 4, pl.y - 4, 8, 8);
+      // leader line (heading vector)
+      ctx.beginPath();
+      ctx.moveTo(pl.x, pl.y);
+      ctx.lineTo(pl.x + Math.cos(pl.h) * 22, pl.y + Math.sin(pl.h) * 22);
+      ctx.stroke();
+
+      if (pd > R * 1.02 || pl.x < -60 || pl.x > W + 60 || pl.y < -60 || pl.y > H + 60) {
+        planes[p] = makePlane(false);
+      }
+    }
+
+    // flight route: dashed great-circle style arc with a small aircraft
+    drawRoute(now, dt);
+
+    // centre
+    ctx.fillStyle = "rgba(" + colour + ",0.5)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(draw);
+  }
+
+  var route = { t: 0, delay: 1.5, p0: null, p1: null, p2: null };
+  function newRoute() {
+    var fromLeft = Math.random() > 0.5;
+    var y0 = rand(H * 0.15, H * 0.85), y2 = rand(H * 0.15, H * 0.85);
+    route.p0 = { x: fromLeft ? -40 : W + 40, y: y0 };
+    route.p2 = { x: fromLeft ? W + 40 : -40, y: y2 };
+    route.p1 = { x: W / 2 + rand(-W * 0.15, W * 0.15), y: Math.min(y0, y2) - rand(H * 0.2, H * 0.4) };
+    route.t = 0;
+    route.dur = rand(11, 16);
+  }
+  function qp(a, b, c, t) { var u = 1 - t; return u * u * a + 2 * u * t * b + t * t * c; }
+  function drawRoute(now, dt) {
+    if (!route.p0) newRoute();
+    if (route.delay > 0) { route.delay -= dt; return; }
+    if (!reduce.matches) route.t += dt / route.dur;
+    var t = Math.min(route.t, 1);
+    var p0 = route.p0, p1 = route.p1, p2 = route.p2;
+
+    // dashed route drawn up to the aircraft, fading behind it
+    ctx.save();
+    ctx.setLineDash([3, 7]);
+    ctx.lineDashOffset = -now / 60;
+    ctx.lineWidth = 1.4;
+    var segs = 60;
+    for (var i = 0; i < segs * t; i++) {
+      var a = i / segs, b = Math.min((i + 1) / segs, t);
+      var alpha = 0.05 + 0.35 * (a / Math.max(t, 0.001));
+      ctx.strokeStyle = "rgba(" + colour + "," + alpha + ")";
+      ctx.beginPath();
+      ctx.moveTo(qp(p0.x, p1.x, p2.x, a), qp(p0.y, p1.y, p2.y, a));
+      ctx.lineTo(qp(p0.x, p1.x, p2.x, b), qp(p0.y, p1.y, p2.y, b));
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // aircraft
+    var x = qp(p0.x, p1.x, p2.x, t), y = qp(p0.y, p1.y, p2.y, t);
+    var dx = 2 * (1 - t) * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+    var dy = 2 * (1 - t) * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan2(dy, dx));
+    ctx.fillStyle = "rgba(" + colour + ",0.75)";
+    ctx.beginPath();            // simple top-down airliner silhouette, nose pointing +x
+    ctx.moveTo(11, 0);
+    ctx.quadraticCurveTo(9, -1.6, 4, -1.6);
+    ctx.lineTo(-1, -9); ctx.lineTo(-3.5, -9); ctx.lineTo(-1, -1.6);
+    ctx.lineTo(-7, -1.6); ctx.lineTo(-9.5, -4.5); ctx.lineTo(-11, -4.5); ctx.lineTo(-9.5, 0);
+    ctx.lineTo(-11, 4.5); ctx.lineTo(-9.5, 4.5); ctx.lineTo(-7, 1.6);
+    ctx.lineTo(-1, 1.6); ctx.lineTo(-3.5, 9); ctx.lineTo(-1, 9); ctx.lineTo(4, 1.6);
+    ctx.quadraticCurveTo(9, 1.6, 11, 0);
+    ctx.fill();
+    ctx.restore();
+
+    if (route.t >= 1) { newRoute(); route.delay = rand(2, 5); }
+  }
+
+  readColours();
+  resize();
+  window.addEventListener("resize", resize, { passive: true });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var onChange = function () { readColours(); };
+    if (mq.addEventListener) mq.addEventListener("change", onChange); else if (mq.addListener) mq.addListener(onChange);
+  }
+  requestAnimationFrame(draw);
+})();
+
+  </script>
+</body>
+</html>

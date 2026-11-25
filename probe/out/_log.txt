@@ -1,4 +1,2 @@
-xk-menu	200	text/html	113882	https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/eAIP/menu.html
-xk-idx	200	text/html	1998	https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/index.html
-ro-idx	200	text/html	1401	https://www.aisro.ro/aip/2026-10-29/index.html
-ro-lrop	404	text/html; charset=iso-8859-1	196	https://www.aisro.ro/aip/2026-10-29/html/eAIP/LR-AD-2.LROP-en-GB.html
+ro-en	200	text/html	454	https://www.aisro.ro/aip/2026-10-29/html/en/index.html
+ro-cfg	200	text/javascript	8133	https://www.aisro.ro/aip/2026-10-29/config.js

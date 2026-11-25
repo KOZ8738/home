@@ -1,0 +1,148 @@
+// Acesta este fisierul de configurarea pentru publicarea 
+// AIP Romania pe suport CD
+
+// REGULI GENERALE DE UTILIZARE
+// ============================
+// Liniile care incep cu doua slash-uri (//) sunt linii de comentarii
+// Editarea se va face numai intre urmatoarele linii de comentarii:
+// 	// ---------------------- INCEPUT ZONA EDITARE ----------------------
+// 	// ---------------------- SFARSIT ZONA EDITARE ---------------------- 
+// Orice modificare in afara zoneli dilimitate de cele 2 linii de comentarii 
+// poate atrage disfunctinalitati ale sistemului
+// ATENTIE!
+// In cazul in care doriti ca in text sa apara semnul de ghilimene (")
+// trebuie sa folositi urmatoarea varianta (\")
+// De exemplu, pentru a afisa textul de mai jos:
+//      Modificarea datelor "AIP Romania"
+// se va folosi urmatorul continut de variabila:
+//      Modificarea datelor \"AIP Romania\"
+
+// Data efectiva a amendamentului
+var EFFCTIVE_DATE="29 OCT 2026"
+
+
+// ============================================================================
+// Configurarea listei de AMDT-uri
+var AMDT = [
+// Pentru a adauga o noua inregistrare in lista de amendamente
+// copiati o linie de tipul 
+//      [ "file", "id", "title"],
+// si inlocuiti datele dupa cum urmeaza:
+//      - file cu numele fisierului corespunzator
+//      - id cu identificatorul documentului, asa cum va aparea in pagina
+//      - title cu numele
+// Fisierele trebuie sa se gaseasca in directorul ..\DOCS\AMDT. 
+// Exemplu:
+//     [ "LR_Amdt_2008_329_en.pdf", "329/08", "AIRAC AIP AMENDMENT 04 / 01 JAN 2008"],
+// ------------------ ZONA EDITARE AMENDAMENTE --------------------------------
+// ---------------------- INCEPUT ZONA EDITARE --------------------------------
+
+//["LR_Amdt_A_2014_11_en.pdf", "11/14", "AIRAC AIP AMENDMENT 11 / 11 DEC 2014"],
+//[ "LR_Amdt_2015_342_en.pdf", "342/15", "AIP AMENDMENT 342 / 01 JAN 2015"],
+//["LR_Amdt_A_2019_10_en.pdf", "10/19", "AIRAC AIP AMENDMENT 10 / 05 DEC 2019"],
+
+["LR_Amdt_A_2026_11_en.pdf", "11/26", "AIRAC AIP AMENDMENT 11 / 29 OCT 2026"],
+
+// ---------------------- SFARSIT ZONA EDITARE -------------------------------- 
+]
+// ============================================================================
+// Configurarea listei de suplimente
+var SUP = [
+// Configurarea listei de suplimente AIRAC
+// Exemplu:
+// [ "nume fisier 1 (fara cale)", "LR_AIC_01", "SUP 1"],
+// [ "nume fisier 2 (fara cale)", "LR_AIC_02", "SUP 2"],
+// Fisierele trebuie sa se gaseasca in ..\DOCS\SUP\
+// ------------------ ZONA EDITARE SUPLIMENTE ---------------------------------
+// ---------------------- INCEPUT ZONA EDITARE --------------------------------
+
+// [ "LR_Sup_1997_01_en.pdf", "01/97", "AIP SUP 01 / 15 MAR 1997" ],
+
+// [ "LR_Sup_2021_01_en.pdf", "01/21", "AIP SUP 01 / 26 FEB 2021" ],
+[ "LR_Sup_2025_01_en.pdf", "01/25", "AIP SUP 01 / 20 FEB 2025 - LRCL" ],
+[ "LR_Sup_2025_03_en.pdf", "03/25", "AIP SUP 03 / 20 MAR 2025 - LRBM" ],
+[ "LR_Sup_2025_04_en.pdf", "04/25", "AIP SUP 04 / 17 APR 2025 - LRBS" ],
+[ "LR_Sup_2026_01_en.pdf", "01/26", "AIP SUP 01 / 01 JAN 2026 - LRIA" ],
+// ---------------------- SFARSIT ZONA EDITARE -------------------------------- 
+]
+// ============================================================================
+// Configurarea listei de suplimente AIRAC
+var SUP_AIRAC = [
+// Configurarea listei de suplimente AIRAC
+// Exemplu:
+// [ "nume fisier (fara cale)", "LR_AIC_01", "AIC 01"],
+// [ "nume fisier (fara cale)", "LR_AIC_02", "AIC 02"],
+// fisierele trebuie sa se gaseasca in ..\DOCS\SUP AIRAC\
+// ------------------ ZONA EDITARE SUPLIMENTE AIRAC ---------------------------
+// ---------------------- INCEPUT ZONA EDITARE --------------------------------
+
+[ "LR_Sup_A_2018_02_en.pdf", "02/18", "AIRAC AIP SUP 02 / 16 AUG 2018 - LROP" ],
+[ "LR_Sup_A_2024_03_en.pdf", "03/24", "AIRAC AIP SUP 03 / 28 NOV 2024 - ENR 5.4" ],
+[ "LR_Sup_A_2024_04_en.pdf", "04/24", "AIRAC AIP SUP 04 / 28 NOV 2024 - ENR 5.4" ],
+[ "LR_Sup_A_2024_05_en.pdf", "05/24", "AIRAC AIP SUP 05 / 28 NOV 2024 - ENR 5.4" ],
+[ "LR_Sup_A_2024_06_en.pdf", "06/24", "AIRAC AIP SUP 06 / 28 NOV 2024 - ENR 5.4" ],
+[ "LR_Sup_A_2024_08_en.pdf", "08/24", "AIRAC AIP SUP 08 / 28 NOV 2024 - ENR 5.4" ],
+[ "LR_Sup_A_2025_03_en.pdf", "03/25", "AIRAC AIP SUP 03 / 17 APR 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_07_en.pdf", "07/25", "AIRAC AIP SUP 07 / 12 JUN 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_09_en.pdf", "09/25", "AIRAC AIP SUP 09 / 10 JUL 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_10_en.pdf", "10/25", "AIRAC AIP SUP 10 / 10 JUL 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_12_en.pdf", "12/25", "AIRAC AIP SUP 12 / 10 JUL 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_13_en.pdf", "13/25", "AIRAC AIP SUP 13 / 02 OCT 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_14_en.pdf", "14/25", "AIRAC AIP SUP 14 / 02 OCT 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_17_en.pdf", "17/25", "AIRAC AIP SUP 17 / 27 NOV 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_18_en.pdf", "18/25", "AIRAC AIP SUP 18 / 27 NOV 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2025_19_en.pdf", "19/25", "AIRAC AIP SUP 19 / 25 DEC 2025 - ENR 5.4" ],
+[ "LR_Sup_A_2026_01_en.pdf", "01/26", "AIRAC AIP SUP 01 / 11 JUN 2026 - LRSM" ],
+[ "LR_Sup_A_2026_02_en.pdf", "02/26", "AIRAC AIP SUP 02 / 11 JUN 2026 - ENR 5.4" ],
+[ "LR_Sup_A_2026_03_en.pdf", "03/26", "AIRAC AIP SUP 03 / 09 JUL 2026 - ENR 5.4" ],
+[ "LR_Sup_A_2026_04_en.pdf", "04/26", "AIRAC AIP SUP 04 / 06 AUG 2026 - LRCL" ],
+[ "LR_Sup_A_2026_05_en.pdf", "05/26", "AIRAC AIP SUP 05 / 06 AUG 2026 - ENR 5.4" ],
+[ "LR_Sup_A_2026_06_en.pdf", "06/26", "AIRAC AIP SUP 06 / 03 SEP 2026 - ENR 5.4" ],
+[ "LR_Sup_A_2026_07_en.pdf", "07/26", "AIRAC AIP SUP 07 / 03 SEP 2026 - ENR 5.4" ],
+[ "LR_Sup_A_2026_08_en.pdf", "08/26", "AIRAC AIP SUP 08 / 29 OCT 2026 - ENR 5.4" ],
+
+// ---------------------- SFARSIT ZONA EDITARE -------------------------------- 
+]
+
+// ============================================================================
+var AICA = [
+// Configurarea listei de AIC-uri
+// Exemplu:
+// [ "nume fisier (fara cale)", "LR_AIC_01", "Circular 1"],
+// [ "nume fisier (fara cale)", "LR_AIC_02", "Circular 2"],
+// fisierele trebuie sa se gaseasca in ..\DOCS\AIC\
+// ------------------ ZONA EDITARE CIRCULARE ----------------------------------
+// ---------------------- INCEPUT ZONA EDITARE --------------------------------
+
+[ "LR_Circ_2005_A_01_en.pdf", "A01/05", "AIC A01 / 15 FEB 2005" ], 
+[ "LR_Circ_2017_A_01_en.pdf", "A01/17", "AIC A01 / 01 JAN 2017" ],
+[ "LR_Circ_2017_A_05_en.pdf", "A05/17", "AIC A05 / 11 MAY 2017" ],
+[ "LR_Circ_2019_A_01_en.pdf", "A01/19", "AIC A01 / 01 JAN 2019" ],
+[ "LR_Circ_2020_A_06_en.pdf", "A06/20", "AIC A06 / 16 JUL 2020" ],
+[ "LR_Circ_2020_A_08_en.pdf", "A08/20", "AIC A08 / 05 NOV 2020" ],
+[ "LR_Circ_2021_A_05_en.pdf", "A05/21", "AIC A05 / 15 JUL 2021" ],
+[ "LR_Circ_2021_A_06_en.pdf", "A06/21", "AIC A06 / 12 AUG 2021" ],
+[ "LR_Circ_2023_A_05_en.pdf", "A05/23", "AIC A05 / 15 JUL 2023" ],
+[ "LR_Circ_2023_A_07_en.pdf", "A07/23", "AIC A07 / 05 OCT 2023" ],
+[ "LR_Circ_2024_A_02_en.pdf", "A02/24", "AIC A02 / 08 AUG 2024" ],
+[ "LR_Circ_2025_A_02_en.pdf", "A02/25", "AIC A02 / 01 MAR 2025" ],
+[ "LR_Circ_2026_A_02_en.pdf", "A02/26", "AIC A02 / 11 JUN 2026" ],
+[ "LR_Circ_2026_A_03_en.pdf", "A03/26", "AIC A03 / 11 JUN 2026" ],
+// ---------------------- SFARSIT ZONA EDITARE ---------------------- 
+]
+var AICB = [
+// Configurarea listei de AIC-uri
+// Exemplu:
+// [ "nume fisier (fara cale)", "LR_AIC_01", "Circular 1"],
+// [ "nume fisier (fara cale)", "LR_AIC_02", "Circular 2"],
+// fisierele trebuie sa se gaseasca in ..\DOCS\AIC\
+// ------------------ ZONA EDITARE CIRCULARE ----------------------------------
+// ---------------------- INCEPUT ZONA EDITARE --------------------------------
+
+[ "LR_Circ_2011_B_02_ro.pdf", "B02/11", "AIC B02 / 01 SEP 2011" ],
+[ "LR_Circ_2013_B_02_ro.pdf", "B02/13", "AIC B02 / 02 MAY 2013" ],
+[ "LR_Circ_2026_B_01_ro.pdf", "B01/26", "AIC B01 / 01 JAN 2026" ],
+[ "LR_Circ_2026_B_02_ro.pdf", "B02/26", "AIC B02 / 01 JAN 2026" ],
+// ---------------------- SFARSIT ZONA EDITARE ---------------------- 
+]
+  

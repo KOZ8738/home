@@ -1,5 +1,1 @@
-ie-menu	200	text/html	195915	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-menu-en-IE.html
-ie-eidw	200	text/html	418557	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-AD-2.EIDW-en-IE.html
-ie-enr44	200	text/html	64930	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-ENR-4.4-en-IE.html
-ie-next	200	text/html	418587	https://www.airnav.ie/AIRAC/2026-11-26-AIRAC/html/eAIP/EI-AD-2.EIDW-en-IE.html
-ie-cover	200	text/html	3498	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/EI-cover-en-IE.html
+

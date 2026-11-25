@@ -1,0 +1,9 @@
+al-menu https://www.albcontrol.al/al/aip/01-OCT-2026-A/2026-10-01-AIRAC/html/eAIP/LA-menu-en-GB.html
+bg-flip https://b-flip.bulatsa.com/publications/aip/home
+it-enav https://www.enav.it/sites/public/en/Servizi/areonautical-information.html
+tr-dhmi https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx
+cy-ais http://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/index_en/index_en
+ro-right https://www.aisro.ro/start_rightv02.php
+mk-menu https://ais.m-nav.info/eAIP/current/en/menu.htm
+am-eaip http://www.armats.am/activities/ais/eaip
+xk-ais https://www.ashna-ks.org/en/services/ais/

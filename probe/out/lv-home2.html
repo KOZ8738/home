@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="lv-lv" lang="lv-lv">
+<head>
+        <script id="Cookiebot" data-culture="EN"
+            src="https://consent.cookiebot.com/uc.js" data-cbid="efbad7f9-4492-44d8-bb9a-8b1e0fca3328" data-blockingmode="auto" type="text/javascript"></script>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>AIS of Latvia</title>
+    <meta name="viewport" content="width&#x3D;device-width,&#x20;initial-scale&#x3D;1.0,&#x20;maximum-scale&#x3D;1,&#x20;user-scalable&#x3D;yes">
+<meta http-equiv="X-UA-Compatible" content="IE&#x3D;edge">
+    <!-- CSS -->
+     <link href="&#x2F;css&#x2F;sunny&#x2F;jquery-ui-1.10.4.custom.min.css" media="screen" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;css2&#x2F;print.css" media="print" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;assets&#x2F;base_css.1795527073.css" media="screen" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;favicon.ico" rel="shortcut&#x20;icon" type="image&#x2F;vnd.microsoft.icon">
+    <!-- Scripts -->
+    <script  src="&#x2F;js&#x2F;jquery-1.11.0.min.js"></script>
+<script  src="&#x2F;js&#x2F;jquery.alerts.js"></script>
+<script  src="&#x2F;js&#x2F;jquery-ui-1.10.4.custom.min.js"></script>
+<script  src="&#x2F;js&#x2F;plupload&#x2F;js&#x2F;plupload.full.min.js"></script>
+<script  src="&#x2F;js&#x2F;plupload&#x2F;js&#x2F;jquery.ui.plupload&#x2F;jquery.ui.plupload.min.js"></script>
+<script  src="&#x2F;js&#x2F;lodash.min.js"></script>
+<script  src="&#x2F;js&#x2F;crypto-js.js"></script>
+<script  src="&#x2F;js&#x2F;crc.min.js"></script>
+<script  src="&#x2F;js&#x2F;jquery.quicksearch.js"></script>
+<script  src="&#x2F;js&#x2F;jquery.multi-select.js"></script>
+<script  src="&#x2F;js&#x2F;jquery.diuploader.min.js"></script>
+<script  src="&#x2F;js&#x2F;functions_doconfirm.js"></script></head>
+<body class="page">
+<!-- script id="CookieDeclaration" src="https://consent.cookiebot.com/efbad7f9-4492-44d8-bb9a-8b1e0fca3328/cd.js" type="text/javascript" async></script> -->
+<div id="searchPopup" class="no-print">
+    <div class="page-container">
+        <header class="page-header">
+            <div class="page-header-grid grid">
+                <div class="page-header-aside grid-col-4">
+                    <a class="no-style-link" href="/">
+                        <div class="page-header-blue-line"></div>
+                        <div class="page-header-logo-container">
+                            <div class="page-header-logo"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </header>
+        <section class="page-body">
+            <div class="page-row">
+                <input type="text" autocomplete="off" name="keyWords" placeholder="Enter search text here..." id="keyWords" class="search-input" />
+                Please start typing and we will search our website for you            </div>
+            <h1 class="page-body-title">
+                Search results                <a class="btn btn-icon btn-search-close" href="#">&nbsp;</a>
+            </h1>
+            <div class="page-row" id="searchResults"
+                data-result="Found 0 records!"
+                data-noresult="Sorry, no results match your search.">
+                <span class="search-small-text grey">
+                    Sorry, no results match your search.                </span>
+            </div>
+            <div id="searchSpinner" style="display:none;">
+                <svg viewBox="0 0 64 64">
+                    <g>
+                        <circle cx="16" cy="32" stroke-width="0" r="3.03921">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".5;.6;.8;1;.8;.6;.5;.5" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="3;3;4;5;6;5;4;3" repeatCount="indefinite"></animate>
+                        </circle>
+                        <circle cx="32" cy="32" stroke-width="0" r="3">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".5;.5;.6;.8;1;.8;.6;.5" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="4;3;3;4;5;6;5;4" repeatCount="indefinite"></animate>
+                        </circle>
+                        <circle cx="48" cy="32" stroke-width="0" r="3.96079">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".6;.5;.5;.6;.8;1;.8;.6" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="5;4;3;3;4;5;6;5" repeatCount="indefinite"></animate>
+                        </circle>
+                    </g>
+                </svg>
+            </div>
+        </section>
+    </div>
+</div>    <div class="page-wrapper">
+        <div class="page-overlay"></div>
+        <div class="page-container" style="padding:7px 15px!important;">
+            <header class="page-header">
+                <div id="fileUploadTranslation" data-filetrans="File" data-existstrans="already exists!" style="display: none;"></div>
+                <div class="page-header-grid grid">
+    <div class="page-header-aside grid-col-4">
+        <a class="no-style-link" href="/">
+            <div class="page-header-blue-line"></div>
+            <div class="page-header-logo-container">
+                <div class="page-header-logo"></div>
+            </div>
+        </a>
+    </div>
+    <div class="page-header-content grid-col-8">
+        
+<a class="btn btn-icon btn-menu-open push-right" href="#">
+    <span>Menu</span>
+</a>
+<div class="page-header-nav grid">
+    <div class="page-header-nav-wrapper" style="margin:-15px -15px 0;">
+        <div class="page-header-nav-col grid-col">
+            <a class="btn btn-icon btn-menu-close push-right" href="#">&nbsp;</a>
+            <nav class="nav nav-main">
+                <ul class="nav-main-0 horizontal">
+                                                            <li><a id='info-menu-link' href="#">Info</a>
+                        <div class="nav-main-1">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/aiseaip">eAIP</a></li>
+                                    <li><a href="/page/Valid AIC">AIC</a></li>
+                                    <li><a href="/page/Valid SUP">AIP SUP</a></li>
+                                    <li><a href="/page/VFR_Suport">VFR Chart</a></li>
+                                    <li><a href="/page/Accessibility">Accessibility</a></li>
+                                </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/notam">NOTAM</a></li>
+                                                                        <li><a href="/aipcalendar">Planned AIP AMDT</a></li>
+                                    <li><a href="javascript:showATMDialog(true);">AIRSPACE.LV</a></li>
+                                    <li>
+                                                                                
+                                        <a href="https://www.airspace.lv/drones/" target="_blank">
+                                            Unmanned aircraft                                        </a>
+                                    </li>
+                                    <li><a href="/page/UAS_geozones">UAS geozones</a></li>
+                                </ul>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                    <li>
+                        <a id='tools-menu-link' href="#">
+                            Tools                        </a>
+                        <div class="nav-main-1 tools-menu">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li>
+                                        <a href="/datadistribution">
+                                            Data distribution                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="https://ibs.lgs.lv/">
+                                            LGS Internet Briefing                                        </a>
+                                    </li>
+                                                                    </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/dataorigination">Data/Information submission</a></li>
+                                    <li>
+                                        <a href="https://dnotam.lgs.lv">DNOTAM</a>
+                                    </li>                                    
+                                                                        <li><a href="/products">Services and products</a></li>
+                                </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                                                        <li>
+                                        <a style="padding-right: 0px;" href="/page/AIS_Data_Validation_Tool">
+                                            Data validation tool                                        </a>
+                                    </li>
+                                    <li>
+                                        <a style="padding-right: 0px;" href="/dataorigination/checkcrc">
+                                            Check CRC32Q                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                                        <li style="padding-bottom:0">
+                        <a class="rounded-border" style="margin-bottom: 10px;" href="#">
+                            Login                        </a>
+                        <div class="nav-main-1">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-login-col">
+                                                                                                                                <form method="post" name="login" class="login-form" action="&#x2F;user&#x2F;login" id="login">                                <div class="page-row">
+                                    <div class="input input-text"><input name="identity" type="text" id="username" placeholder="Username&#x20;..." autofocus value=""></div>                                </div>
+                                <div class="page-row">
+                                    <div class="input input-password"><input name="credential" type="password" id="password" placeholder="Password&#x20;..." value=""></div>                                </div>
+                                <div class="page-row">
+                                    <span class='code-number'><input name="codeNumber" type="text" id="codeNumber" readonly tabindex="-1" value="5"></span>
+                                    <div class="input input-password"><input name="code" type="password" id="code" placeholder="Code&#x20;..." value=""></div>                                </div>
+                                <div class="page-row">
+                                    <button type="submit" name="submitbutton" id="submitbutton" class="btn&#x20;btn-submit" value="">LOG IN</button>                                </div>
+                                <div class="page-row">
+                                    <div class="login-form-item-left">
+                                        <a href="/user/forgot-password" >RESTORE PASSWORD</a>
+                                    </div>
+                                    <div class="login-form-item-right">
+                                        <a href="/user/register" >REGISTER</a>
+                                    </div>
+                                </div>
+                                </form>                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                                    </ul>
+            </nav>
+        </div>
+        <div class="page-header-nav-col grid-col push-right">
+
+            <nav class="nav nav-icons">
+                <ul class="horizontal items-list">
+                                        <li id="item-help">
+                        <a title="Help section" class="btn btn-icon btn-help" href="#">Help</a>
+                        <div class="nav-main-1" style="width: 100%">
+                            <div class="nav-triangle"></div>
+                            <div style="">
+                                <div class="page-row" style="padding-top: 50px;">
+                                    <div class=help-text></div>                                </div>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                    <li id="item-search">
+                        <a title="Search in website" class="btn btn-icon btn-search" href="#">
+                            Search                        </a>
+                    </li>
+                    <li id="item-langLV" class="">
+                        <a href="/change-language/lv_LV">LV</a>
+                    </li>
+                    <li id="item-langEN" class="active">
+                        <a href="/change-language/en_US">EN</a>
+                    </li>
+
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <div id="dialog" title='Info!' style="display: none; min-height: 100px;">
+        <p class='info-dialog-paragraph'>
+            Please use the latest version of the Chrome, Safari or Firefox browser!        </p>
+        <!--
+        <p class='info-dialog-paragraph'>
+            You will be redirected to Latvian AIXM 5.1 Web Portal - Experimental AIM Environment for Global ATM Community<br/>
+            Web Portal system requirements:        </p>
+        <ul class='info-dialog-paragraph'>
+            <li>latest version of Google Chrome browser with WebGL support            <li>OS Windows 7 (or newer)        </ul>
+        <p class='info-dialog-paragraph'>
+            Initial web portal loading can take from one to three minutes depending on your PC and network speed. It can use up to 20 MB of network traffic during initial loading. <br/>
+        </p>
+        -->
+        <div class='info-dialog-buttons'>
+            <button class="closeDialog btn-text">Close</button>
+             
+            <button data-link="https://www.airspace.lv/lgs" class="showAirspace btn-submit">
+                Open digital aeronautical data viewer            </button>
+        </div>
+    </div>
+</div>    </div>
+</div>
+<script type="text/javascript">
+    var plupload_url = '';
+</script>            </header>
+            <section class="page-body">
+                <div class="grid">
+                    <aside class="page-body-aside grid-col-3">
+                        <div class="mod mod-aside-nav"><nav class="nav"><ul><li class="item"></li><li class="item"></li><li class="item"></li><li class="item"><a href="/dschecklist">Checklist of available data sets</a></li><li class="item"></li><li class="item"><a href="/news">News</a></li><li class="item"></li><li class="item active"><a href="/aiseaip">eAIP</a></li><li class="item"><a href="/page/Valid AIC">AIC</a></li><li class="item"><a href="/page/Valid SUP">AIP SUP</a></li><li class="item"><a href="/page/VFR_Suport">VFR Chart</a></li><li class="item"><a href="/notam">NOTAM/SNOWTAM Provision</a></li><li class="item"><a href="/products">Services and products</a></li><li class="item"></li><li class="item"><a href="/aipcalendar">Planned AIP AMDT</a></li><li class="item"></li><li class="item"></li><li class="item"><a href="/page/AIS_Data_Validation_Tool">Data validation tool</a></li><li class="item"><a href="/feedback">Feedback</a></li><li class="item"></li><li class="item"></li><li class="item"></li><li class="item"></li><li class="item"><a href="/page/inspire">INSPIRE</a></li><li class="item"><a href="/page/eatoc">eATOC</a></li><li class="item"><a href="/page/etod">eTOD</a></li><li class="item"><a href="/page/ADC">Aeronautical Data Catalogue</a></li><li class="item"></li><li class="item"><a href="/page/UAS_geozones">UAS geozones</a></li><li class="item"><a href="/page/Accessibility">Accessibility Statement</a></li></ul></nav></div>                    </aside>
+                    <article class="page-body-content grid-col-9">
+    <h1 class="page-body-title">
+        eAIP    </h1>
+        <div class="page-row">
+        <table class="eaip-table">
+                        <tr>
+                <td colspan="2" class="declaration">PREVIOUS ISSUE:</td>
+            </tr>
+                                                <tr>
+                        <td style="width:95%">
+                                                            <a class="btn btn-custom btn-stripes" href="eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/index.html ">
+                                    <span>AIRAC AMDT 008/2026 26-NOV-2026</span>
+                                </a>
+                                                    </td>
+                        <td class="eaipicon">
+                                                            <a class="eaip-icon" href="eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/index.html" target="_blank">
+                                    <img title="View in new tab" src="/images-v2/icons/tab_win_ikona-45.png" alt="">
+                                </a>
+                                                    </td>
+                                            </tr>
+                                                                <tr>
+                <td colspan="2" class="declaration">CURRENT ISSUE:</td>
+            </tr>
+                                                <tr>
+                        <td style="width:95%">
+                                                            <a class="btn btn-custom btn-stripes" href="eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/index.html ">
+                                    <span>Non-AIRAC AMDT 004/2026 26-NOV-2026</span>
+                                </a>
+                                                    </td>
+                        <td class="eaipicon">
+                                                            <a class="eaip-icon" href="eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/index.html" target="_blank">
+                                    <img title="View in new tab" src="/images-v2/icons/tab_win_ikona-45.png" alt="">
+                                </a>
+                                                    </td>
+                                            </tr>
+                                        <tr>
+                <td>
+                    <h7>
+                        Consult AIP SUP and NOTAM for latest information.                    </h7>
+                </td>
+            </tr>
+                        <tr>
+                <td colspan="2" class="declaration">NEXT ISSUES:</td>
+            </tr>
+                    </table>
+    </div>
+    </article>
+<script>
+document.getElementById('eaipLink').addEventListener('click', function(event) {
+    // Check if the error message already exists
+    var existingMessage = document.querySelector('.messages-flash');
+    
+    if (!existingMessage) {
+        // Prevent default behavior of the link
+        event.preventDefault();
+
+        // Show the error message
+        var errorMessage = document.createElement('ul');
+        errorMessage.className = 'messages messages-flash';
+        errorMessage.innerHTML = '<li class="message message-error"><img src="/images-v2/pzinojuma_ikona-07.png"><div class="flash-message-text">ERROR!<br>eAIP files You are trying to view doesn\'t exist!</div></li>';
+
+        // Insert the error message before the table
+        var table = document.querySelector('.eaip-table');
+        table.parentNode.insertBefore(errorMessage, table);
+    }
+});
+
+document.getElementById('eaipIcon').addEventListener('click', function(event) {
+    // Check if the error message already exists
+    var existingMessage = document.querySelector('.messages-flash');
+    
+    if (!existingMessage) {
+        // Prevent default behavior of the link
+        event.preventDefault();
+
+        // Show the error message
+        var errorMessage = document.createElement('ul');
+        errorMessage.className = 'messages messages-flash';
+        errorMessage.innerHTML = '<li class="message message-error"><img src="/images-v2/pzinojuma_ikona-07.png"><div class="flash-message-text">ERROR!<br>eAIP files You are trying to view doesn\'t exist!</div></li>';
+
+        // Insert the error message before the table
+        var table = document.querySelector('.eaip-table');
+        table.parentNode.insertBefore(errorMessage, table);
+    }
+});
+
+</script>
+                </div>
+            </section>
+            <footer class="page-footer">
+                <div class="grid" style="width: 100%">
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Contacts</h2>
+        <b>
+        SJSC "Latvijas gaisa satiksme"<br />
+        Aeronautical Information Service<br />
+        Muzeju iela 3, Lidosta “Rīga”, Mārupes pagasts, Mārupes novads, LV-1053, Latvija</b><br />
+        AIS Phone: +371 67 300664<br />
+        Fax: +371 67 300660<br />
+        E-mail: <a href="mailto:ais@lgs.lv">ais@lgs.lv</a>        
+            </div>
+    <div class="page-footer-col grid-col-3">
+        <div class="push-down"></div>
+        International NOTAM office<br />
+        Phone: +371 67 300 665<br />
+        E-mail: nof@lgs.lv<br />
+        Website administrator phone: +371 67 300661<br/>
+        Information on using the Unmanned Aircraft Restrictions Viewer: +371 67 300686 (working hours)
+        
+    </div>
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Newsletter</h2>
+        <p class="p2">Enter your e-mail to join our Mailing List</p>
+
+        <!--SubscripeForm saved into variable $form-->    
+         
+        <form action="/news/subscribe" method="post">    
+            <div class="input input-email" id="newsletter-footer-email">
+                <div class="input input-text"><input name="email" type="text" id="email" placeholder="Enter&#x20;email&#x20;here..." value=""></div>            </div>
+            <div id="newsletter-footer-recaptcha">
+                <script type="text/javascript" src="https://www.google.com/recaptcha/api.js" async defer></script>
+<div class="g-recaptcha" data-sitekey="6Lfkx0oUAAAAAE2alHJF6dfOvopt74COm1lOXHBn" data-theme="light" data-type="image" data-size="normal"></div>            </div>
+            <div id="newsletter-footer-submit">
+                <button type="submit" name="submitbutton" id="submitbutton" class="btn&#x20;btn-submit" value="">Submit</button>            </div>
+        </form>      
+
+    </div>
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Feedback</h2>
+        <p class="p2">Your feedback is really important to us</p>
+        <a class="btn btn-custom btn-arrow" href="/feedback">Leave feedback</a>
+    </div>
+</div>
+
+<script>
+    $(document).ready( function() {
+        //shows captcha when footer email input is clicked
+        $("#newsletter-footer-email").click(function () {
+            var $recaptchaWrap = $('#newsletter-footer-recaptcha');
+            $recaptchaWrap.show();
+            $('#newsletter-footer-submit').show();
+
+            var scale = $recaptchaWrap.width() / 304;
+            $recaptchaWrap.find('.g-recaptcha').css('transform', 'scale(' + scale + ')');
+            $recaptchaWrap.height(Math.ceil(78 * scale));
+        });
+    });
+</script>            </footer>
+        </div>
+        <div class="cookie-message" style="display: none;">
+    <div class="page-container">
+        This site is using cookies to collect anonymised statistics about the user activity on the site. Cookies are used in accordance to <a href="https://www.google.com/analytics/terms/us.html">Google Terms of Service</a> and <a href="https://www.google.com/analytics/terms/us.html">Google Analytics Terms of Service.</a> 
+        </br>More about cookies <a href="http://www.allaboutcookies.org">http://www.allaboutcookies.org</a> </br>
+        </br>You can opt-out on cookies for Google Analytics by downloading and installing <a href="https://support.google.com/analytics/answer/181881">Google Analytics Opt-out Browser Add-on.</a>
+        <button type="button" name="cookieagree" id="cookieAgree" onclick="closeCookieMessage()" class="btn btn-submit">
+            Understood        </button>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // sets cookies
+    function setCookie(key, value) {
+        var expires = new Date();
+        expires.setTime(expires.getTime() + (360 * 24 * 60 * 60 * 1000));
+        document.cookie = key + '=' + value + ';expires=' + expires.toUTCString() + ';SameSite=Lax;';
+    }
+
+    // get cookie value
+    function getCookie(key) {
+        var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');
+        return keyValue ? keyValue[2] : null;
+    }
+    
+    // delete cookie
+    function delete_cookie(name) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    }    
+    
+    // close cookie message and set cookie message cookie
+    function closeCookieMessage() {
+        //remove old cookie
+        delete_cookie('showCookieMessage');
+        setCookie('showCookieMessage', 1);
+        $('.cookie-message').hide();
+    }
+    
+    //checks if cookie messege has to be shown
+    function checkCookieMessage() {
+        var cookieMessageValue = getCookie('showCookieMessage');
+        if(cookieMessageValue != 1) {
+            $('.cookie-message').show();
+        }
+    }
+    
+    $('document').ready(function(){
+        //checkCookieMessage();
+    });
+</script>        <a href="#" class="scrollup">Scroll</a>
+    </div>
+    <script  src="&#x2F;assets&#x2F;base_js.1795527074.js"></script>            <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3QBZ65MZG"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            
+            gtag('config', 'G-X3QBZ65MZG');
+        </script>
+        <script>
+        $(document).ready(function () {
+
+            
+            // call action that extends session
+            function extendSession() {
+                var ajax = $.ajax({
+                    method: 'get',
+                    url: "/extendsession",
+                    dataType: 'json'
+                });
+
+                ajax.done(function(result) {
+                    if (result['timeTillLogoutTimer'] != null) {
+                        sessionEndingWarning(result['timeTillLogoutTimer']);
+                    }
+                });
+            }
+
+            // show popup with session ending warning
+            function sessionEndingWarning(timeTillLogout) {
+                if (timeTillLogout > -3) {    
+                    setTimeout(function(){
+                        jSession(
+                            'Session time is coming to an end! You will be automatically logged out of the system after 10 minutes!',
+                            'Notice',
+                            'Continue work',
+                            'Logout of the system',
+                            '600000',
+                            function(res){
+                                if (res === true) {
+                                    extendSession();
+                                }
+
+                                if (res === false) {
+                                    window.location.href = "/user/logout";
+                                }
+                            }
+                        );
+                    }, parseInt(timeTillLogout));
+                }
+            }
+        });
+    </script>
+</body>
+</html>

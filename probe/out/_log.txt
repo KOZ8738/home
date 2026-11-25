@@ -1,1 +1,3 @@
-
+ee-hist	200	text/html; charset=UTF-8	40516	https://eaip.eans.ee/history-en-GB.html
+lv-home2	200	text/html; charset=UTF-8	29114	https://ais.lgs.lv/aiseaip
+pt-cover2	200	text/html	40476	https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/LP-cover-en-PT.html

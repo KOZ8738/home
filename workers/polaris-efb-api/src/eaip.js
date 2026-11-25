@@ -78,6 +78,12 @@ export const EA = {
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})-AIRAC)\/html\/index-(?:no-NO|en-GB)\.html/g)].map((m) => ({ eff: m[2], pub: m[2], base: new URL(m[1] + '/', at).href, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EN-ENR-${n}-en-GB.html`,
   },
+  IS: {
+    country: 'Iceland', pre: 'BIxx', test: 'BIKF', kind: 'ix', apt: /^BI[A-Z]{2}$/, label: 'AIP Iceland', host: 'Avians eAIP', home: 'https://eaip.avians.is/',
+    /* the front page links each edition's folder ("https://eaip.avians.is/A_11-2026_2026_11_26/"), some still on the old eaip.isavia.is */
+    eds: (t, at) => [...t.matchAll(/href\s*=\s*["']((?:https?:\/\/eaip\.(?:avians|isavia)\.is\/)?([^"'<>\/\\]*?_(\d{4})_(\d{2})_(\d{2})))\/?(?:index[^"'<>]*?\.html)?["']/gi)]
+      .map((m) => ({ eff: `${m[3]}-${m[4]}-${m[5]}`, pub: m[2], base: new URL(m[1] + '/', at).href, index: '' })),
+  },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
     eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
@@ -124,17 +130,20 @@ const cycleOf = (k, eff) => k + eff.replace(/-/g, '');
 /* an address made of names with spaces ("AIRAC AMDT 11-2026_2026_10_29/eAIP/EH-AD 2 EHAM 1-en-GB.html"), each part escaped once */
 const encPath = (p) => String(p).split('/').map((x) => { try { return encodeURIComponent(decodeURIComponent(x)); } catch (e) { return encodeURIComponent(x); } }).join('/');
 
-/* ---------- Sweden, Finland, the Netherlands ("ix") ---------- */
+/* ---------- Sweden, Finland, the Netherlands, Iceland ("ix") ---------- */
 /** the editions on the front page: "AIRAC AMDT 11-2026_2026_10_29\index.html" */
 const ixEds = (R) => (t, at) => [...t.matchAll(/href\s*=\s*["']([^"'<>]*?_(\d{4})_(\d{2})_(\d{2}))[\\/]index[^"'<>]*?\.html["']/gi)].map((m) => {
   const folder = m[1].replace(/\\/g, '/'), eff = `${m[2]}-${m[3]}-${m[4]}`;
   return { eff, pub: folder, base: new URL(encPath(folder) + '/', at).href, index: R.idx || 'index.html' };
 });
 /** each aerodrome's first AD 2 page, and the ENR 4.1 / 4.4 pages, from the edition's menu (several MB, read as it comes) */
+/* Iceland names a page "BI-AD BIKF KEFLAVÍK - KEFLAVIK 1", without the "2 "; a space may come as %20, a letter as an entity */
+const IX_AD = /href\s*=\s*["'](?:\.\/)?([A-Z]{2}-AD(?: |%20)(?:2(?: |%20))?([A-Z]{4})(?=[ %&"'<>]|$)[^"'<>]*?)(?: |%20)1-[a-z]{2}-[A-Z]{2}\.html/g;
+const IX_ENR = /href\s*=\s*["'](?:\.\/)?([A-Z]{2}-ENR(?: |%20)4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g;
 export function ixMenu(t) {
   const pages = {}, enr = {};
-  for (const m of t.matchAll(/href\s*=\s*["']([A-Z]{2}-AD 2 ([A-Z]{4})\b[^"'#<>]*?) 1-[a-z]{2}-[A-Z]{2}\.html/g)) if (!pages[m[2]]) pages[m[2]] = m[1] + ' 1-en-GB.html';
-  for (const m of t.matchAll(/href\s*=\s*["']([A-Z]{2}-ENR 4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g)) if (!enr[m[2]]) enr[m[2]] = m[1] + '-en-GB.html';
+  for (const m of t.matchAll(IX_AD)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + ' 1-en-GB.html';
+  for (const m of t.matchAll(IX_ENR)) if (!enr[m[2]]) enr[m[2]] = m[1] + '-en-GB.html';
   return { pages, enr };
 }
 async function ixMenuOf(k, cur, d) {
@@ -145,7 +154,7 @@ async function ixMenuOf(k, cur, d) {
   }, (v) => v && v.pages && Object.keys(v.pages).length > 2);
 }
 /** page 1 of an aerodrome: every row with a PDF is a chart, its name in the first cell */
-export function ixCharts(html) {
+export function ixCharts(html, icao) {
   const out = [], seen = new Set();
   for (const m of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const row = m[1], links = [...row.matchAll(/href\s*=\s*["']([^"']+?\.pdf)["']/gi)].map((x) => unent(x[1]));
@@ -154,7 +163,9 @@ export function ixCharts(html) {
     const file = links[links.length - 1].replace(/^(\.\.\/)+/, '').replace(/^\.\//, '');
     if (!/^documents\/[^"'<>\\?#]{1,300}\.pdf$/i.test(file) || file.includes('..') || seen.has(file)) continue;
     seen.add(file);
-    const nm = (cells[0] || decodeURIComponent(file.split('/').pop()).replace(/\.pdf$/i, '')).replace(/\s+/g, ' ').trim();
+    let nm = (cells[0] || decodeURIComponent(file.split('/').pop()).replace(/\.pdf$/i, '')).replace(/\s+/g, ' ').trim();
+    /* Iceland starts each name with the aerodrome: "BIKF Instrument Approach Chart - ICAO RNP RWY 01" */
+    if (icao && nm.startsWith(icao + ' ') && nm.length > 10) nm = nm.slice(5);
     const [code, group] = eaGroup(nm, file);
     out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
   }
@@ -227,8 +238,8 @@ function section(html) {
 /** a chart's group in the EFB's Charts (the same groups as the FAA's and AIP ROC's) */
 export function eaGroup(name, id) {
   const u = name.toUpperCase(), d = String(id || '').toUpperCase();
-  if (/CODING|TABULAR|WAYPOINT LIST|\bTABLES?\b|\bDATA\b/.test(u)) return ['DATA', 'Procedure data'];
-  if (/AERODROME( ?\/ ?HELIPORT)? CHART|\bAD CHART\b|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE/.test(u)) return ['APD', 'Airport diagram'];
+  if (/CODING|TABULAR|WAYPOINT LIST|WAYPOINT COORDINATES|\bTABLES?\b|\bDATA\b/.test(u)) return ['DATA', 'Procedure data'];
+  if (/AERODROME( ?\/ ?HELIPORT)? CHART|\bAD CHART\b|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE|GROUND MOVEMENT/.test(u)) return ['APD', 'Airport diagram'];
   if (/PARKING|DOCKING|GROUND MOVEMENT|TAXI|HOT ?SPOT|PUSH ?BACK|INTERSECTION TAKE|\bSTANDS?\b|DE-?ICING/.test(u) || /-(?:PBP|GMC|APDC)-/.test(d)) return ['HOT', 'Hot spots'];
   if (/\bSID\b|DEPARTURE/.test(u) || /-SID-/.test(d)) return ['DP', 'Departures'];
   if (/\bSTAR\b|ARRIVAL/.test(u) || /-STAR-/.test(d)) return ['STR', 'Arrivals'];
@@ -244,13 +255,15 @@ export function eaGroup(name, id) {
 }
 /** shorter names in the list: the group says what kind of chart it is */
 export function eaName(name, group) {
-  let n = name.replace(/\s*\(\s*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  let n = name.replace(/\s*\(\s*\)\s*/g, ' ').replace(/\s+/g, ' ').replace(/\b(RNAV|RNP) \1\b/gi, '$1').trim();
+  /* Iceland: "Military Instrument Approach Chart - VORTAC RWY 01 (CAT A-B)" */
+  if (group === 'Approaches') n = n.replace(/^MILITARY INSTRUMENT APPROACH CHART\s*[-–:]?\s*(ICAO\s*[-–:]?\s*)?/i, 'MIL ');
   if (group === 'Approaches') n = n.replace(/^INSTRUMENT APPROACH CHART\s*[-–:]?\s*(ICAO\s*[-–:]?\s*)?/i, '').replace(/^APPROACH CHART\s*[-–:]\s*/i, '');
   if (group === 'Departures') n = n.replace(/\bSTANDARD (INSTRUMENT )?DEPARTURE CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(SID\)\s*)?[-–:]?\s*/i, '');
   if (group === 'Arrivals') n = n.replace(/\bSTANDARD (INSTRUMENT )?ARRIVAL CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(STAR\)\s*)?[-–:]?\s*/i, '');
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
   n = n.replace(/^(IAC|VAC|SID|STAR)\s*[-–]\s*ICAO\s+/i, (m, c) => (/^(SID|STAR)$/i.test(c) && !new RegExp('\\b' + c + '\\b', 'i').test(n.slice(m.length)) ? c.toUpperCase() + ' ' : ''));
-  n = n.replace(/\s*[-–]\s*ICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ');
+  n = n.replace(/\s*[-–]?\s*\bICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ').replace(/\s*[-–]\s*ICAO\s+/i, ' – ');
   return n.trim() || name;
 }
 export function eaCharts(html, k) {
@@ -319,7 +332,7 @@ export async function eaChartsList(icao, env, me, d) {
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
     const t = await r.text();
     if (notFoundPage(t)) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const charts = R.kind === 'ix' ? ixCharts(t) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
+    const charts = R.kind === 'ix' ? ixCharts(t, icao) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
     return { airport: { icao, name: aptName(t, icao) }, charts, notFound: !charts.length };
   }), (x) => x && !x.notFound), (x) => x && !x.notFound);
   return { ...head, ...v, cycle, eff: cur.eff, from: cur.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null,

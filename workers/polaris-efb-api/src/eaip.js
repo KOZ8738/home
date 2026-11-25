@@ -1,5 +1,5 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
-   Denmark, Korea, Estonia, Iceland and Latvia (Nov 2026) ----------
+   Denmark, Korea, Estonia, Iceland, Latvia and Spain (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -93,6 +93,15 @@ export const EA = {
     page: (i) => `html/eAIP/EV-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EV-ENR-${n}-en-GB.html`,
     charts: (t, icao) => lvCharts(t, icao),
   },
+  ES: {
+    country: 'Spain', pre: 'LExx, GCxx, GExx', test: 'LEMD', kind: 'es', apt: /^(LE|GC|GE)[A-Z]{2}$/, label: 'AIP Spain', host: 'ENAIRE AIP', home: 'https://aip.enaire.es/AIP/AIP-en.html',
+    /* no edition folders: one page lists every chart of the country, each PDF at a fixed address replaced in place;
+       the page's date ("29-OCT-26 (Incorporados AIRAC 10/26 and AMDT 412/26)") names the edition */
+    eds: (t) => { const m = t.match(/(\d{2})-([A-Z]{3})-(\d{2})\s*\(\s*Incorporad/i), mo = m && MON[m[2].toUpperCase()];
+      return mo ? [{ eff: `20${m[3]}-${mo}-${m[1]}`, pub: m[0], base: 'https://aip.enaire.es/AIP/', index: 'AIP-en.html' }] : []; },
+    list: () => 'AIP-en.html', page: (i) => `contenido_AIP/AD/AD2/${i}/LE_AD_2_${i}_en.html`, enr: (n) => `contenido_AIP/ENR/LE_ENR_${n.replace('.', '_')}_en.html`,
+    charts: (t, icao) => esCharts(t, icao), name: (t, icao) => esName(t, icao),
+  },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
     eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
@@ -106,6 +115,7 @@ export const EA = {
     page: (i) => `html/eAIP/KR-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/KR-ENR-${n}-en-GB.html`,
   },
 };
+const MON = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
 export const eaRegion = (icao) => Object.keys(EA).find((k) => EA[k].apt.test(String(icao || ''))) || null;
 
 class EaError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -370,6 +380,44 @@ export function lvCharts(html, icao) {
   return out;
 }
 
+/* ---------- Spain (ENAIRE) ----------
+   aip.enaire.es/AIP/AIP-en.html: per aerodrome a table of rows "AD 2 LEMD IAC 5" | "IAC 5 - RNP Z RWY 18L (LPV ONLY)" |
+   contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_5_en.pdf. The chart code gives the group. */
+const ES_KIND = {
+  ADC: ['APD', 'Airport diagram', 'Aerodrome Chart'], PDC: ['HOT', 'Hot spots', 'Parking/Docking Chart'], GMC: ['HOT', 'Hot spots', 'Ground Movement Chart'],
+  AOC: ['DAU', 'Other', 'Aerodrome Obstacle Chart'], PATC: ['DAU', 'Other', 'Precision Approach Terrain Chart'], ATCSMAC: ['MIN', 'Minimums', 'ATC Surveillance Minimum Altitude Chart'],
+  SID: ['DP', 'Departures', 'SID'], DEP: ['DP', 'Departures', 'Departure'], CDEP: ['DP', 'Departures', 'Departure'],
+  STAR: ['STR', 'Arrivals', 'STAR'], ARR: ['STR', 'Arrivals', 'Arrival'], CARR: ['STR', 'Arrivals', 'Arrival'], CDA: ['STR', 'Arrivals', 'CDA'],
+  IAC: ['IAP', 'Approaches', ''], TRAN: ['IAP', 'Approaches', 'Transition'], VAC: ['IAP', 'Approaches', 'Visual Approach Chart'], VPT: ['IAP', 'Approaches', 'Visual Prescribed Track'],
+};
+export function esCharts(html, icao) {
+  const dir = `contenido_AIP/AD/AD2/${icao}/`, out = [], seen = new Set(), n = {};
+  const a = html.indexOf(dir); if (a < 0) return [];
+  const sec = html.slice(html.lastIndexOf('<table', a), html.indexOf('</table>', a) + 8);
+  const rows = [];
+  for (const m of sec.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const r = m[1], pdf = (r.match(new RegExp(`href\\s*=\\s*["'](${dir}[^"'<>\\\\?#]{1,120}?\\.pdf)["']`, 'i')) || [])[1];
+    if (!pdf || seen.has(pdf)) continue;
+    seen.add(pdf);
+    const desc = text((r.match(/<td\b[^>]*class="desc"[^>]*>([\s\S]*?)<\/td>/i) || [])[1] || '');
+    const km = pdf.match(new RegExp(`LE_AD_2_${icao}_([A-Z]+)_([\\w.\\-]+?)_en\\.pdf$`));
+    rows.push({ pdf, desc, code: km ? km[1] : '', num: km ? km[2] : '' });
+    if (km) n[km[1]] = (n[km[1]] || 0) + 1;
+  }
+  for (const { pdf, desc, code, num } of rows) {
+    if (!code) { out.push({ code: 'DAU', group: 'Other', name: 'Aerodrome information (AD 2 text)', pdf, changed: false }); continue; }
+    const K = ES_KIND[code] || ['DAU', 'Other', code];
+    /* "IAC 5 - RNP Z RWY 18L (LPV ONLY)" -> "RNP Z RWY 18L (LPV ONLY)"; "GMC 1 - NORTH CONFIGURATION" -> "Ground Movement Chart 1 – NORTH CONFIGURATION" */
+    /* the file's "1_1" is the chart's "1.1" */
+    const no = num.replace(/_/g, '.'), rest = desc.replace(new RegExp(`^${code}\\s*${no.replace(/\./g, '[._]')}\\s*(?:[-–—]\\s*)?`, 'i'), '').replace(/\s+/g, ' ').trim();
+    const name = code === 'IAC' ? (rest || `IAC ${no}`) : `${K[2]}${n[code] > 1 || code === 'SID' || code === 'STAR' ? ' ' + no : ''}${rest ? ' – ' + rest : ''}`;
+    out.push({ code: K[0], group: K[1], name, pdf, changed: false });
+  }
+  return out;
+}
+/* the section's heading: <a id="LEMD" … migapan="<a href=…>…"></a> … <h1>LEMD</h1> <h2>MADRID/Adolfo Suárez Madrid-Barajas</h2> */
+const esName = (html, icao) => { const m = html.match(new RegExp(`<a id="${icao}"[\\s\\S]{0,900}?<h1[^>]*>\\s*${icao}\\s*</h1>\\s*<h2[^>]*>([\\s\\S]*?)</h2>`)); return m ? text(m[1]) : ''; };
+
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
@@ -387,16 +435,16 @@ export async function eaChartsList(icao, env, me, d) {
   if (R.kind === 'dk') return dkChartsList(icao, head, d);
   const { cur, next } = await edition(k, d), cycle = cycleOf(k, cur.eff);
   const v = await d.cached('ea4:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v4:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v4/${cycle}/${icao}`, 86400, async () => {
-    let pg = R.page ? R.page(icao) : null;
+    let pg = R.list ? R.list(icao) : R.page ? R.page(icao) : null;
     if (R.kind === 'ix') { const mn = await ixMenuOf(k, cur, d); pg = mn.pages[icao] ? 'eAIP/' + encPath(mn.pages[icao]) : null; }
     if (!pg) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const r = await get(cur.base + pg, 86400);
+    const r = await get(cur.base + pg + (R.kind === 'es' ? '?v=' + cycle : ''), R.kind === 'es' ? 3600 : 86400);
     if (r.status === 404) return { airport: { icao, name: '' }, charts: [], notFound: true };
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
     const t = await r.text();
     if (notFoundPage(t)) return { airport: { icao, name: '' }, charts: [], notFound: true };
     const charts = R.charts ? R.charts(t, icao) : R.kind === 'ix' ? ixCharts(t, icao) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
-    return { airport: { icao, name: aptName(t, icao) }, charts, notFound: !charts.length };
+    return { airport: { icao, name: R.name ? R.name(t, icao) : aptName(t, icao) }, charts, notFound: !charts.length };
   }), (x) => x && !x.notFound), (x) => x && !x.notFound);
   return { ...head, ...v, cycle, eff: cur.eff, from: cur.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null,
     next: next ? { eff: next.eff } : null, aip: cur.base + cur.index };
@@ -409,6 +457,7 @@ export async function eaChartPdf(url, env, h, me, d) {
   const res = (body, status) => new Response(JSON.stringify(body), { status, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   const R = EA[k], fileOk = !R ? false : R.kind === 'ix' ? /^documents\/[^"'<>\\?#]{1,300}\.pdf$/i.test(file) : R.kind === 'dk' ? /^media\/files\/[a-z0-9]{4,24}\/[^"'<>\\?#/]{1,200}\.pdf$/i.test(file)
     : R.kind === 'kr' ? /^\d{4}-\d{2}-\d{2}(?:-AIRAC)?\/pdf\/(AD|ENR|GEN)\/[A-Z]{4}\/[^"'<>\\]{1,250}\.pdf$/i.test(file)
+    : R.kind === 'es' ? /^contenido_AIP\/AD\/AD2\/[A-Z]{4}\/LE_AD_2_[A-Z]{4}[\w.\-]{0,40}_en\.pdf$/.test(file)
     : /^(pdf|graphics)\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file);
   if (!R || !/^[A-Z]{2}\d{8}$/.test(cycle) || !fileOk || file.includes('..')) return res({ error: 'Invalid chart' }, 400);
   if (!me) return res({ error: 'Sign in to see ' + EA[k].label + ' charts' }, 401);
@@ -422,7 +471,7 @@ export async function eaChartPdf(url, env, h, me, d) {
     try { ed = (await editions(k, d)).find((e) => e.eff === eff); } catch (e) { return res({ error: e.message }, 502); }
     if (!ed) return res({ error: `That ${EA[k].label} edition is no longer listed. Open the chart list again.` }, 404);
   }
-  const r = await get(ed.base + encPath(file), 7 * 86400).catch((e) => ({ ok: false, status: 0, err: e }));
+  const r = await get(ed.base + encPath(file) + (R.kind === 'es' ? '?v=' + cycle : ''), 7 * 86400).catch((e) => ({ ok: false, status: 0, err: e }));
   if (!r.ok) return res({ error: `${EA[k].host} answered ${r.status ? 'HTTP ' + r.status : 'nothing'} for this chart` }, 502);
   const buf = await r.arrayBuffer();
   if (buf.byteLength < 5 || new TextDecoder().decode(new Uint8Array(buf, 0, 5)) !== '%PDF-') return res({ error: `${EA[k].host} did not send a PDF for this chart` }, 502);

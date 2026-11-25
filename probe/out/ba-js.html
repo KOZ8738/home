@@ -1,0 +1,125 @@
+document.addEventListener('DOMContentLoaded', function () {
+    function fetchUpdates() {
+        fetch('updates.json')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Fetched updates:', data);
+                updateTables(data);
+            })
+            .catch(error => console.error('Error fetching updates:', error));
+    }
+
+    function formatDate(dateString) {
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        let [day, month, year] = dateString.split(' ');
+        day = parseInt(day);
+        month = months.indexOf(month.toUpperCase());
+        year = parseInt(year);
+        return new Date(year, month, day);
+    }
+
+    function formatEffectiveDate(dateString) {
+        const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        let [day, month, year] = dateString.split(' ');
+        day = day.padStart(2, '0');
+        month = (months.indexOf(month.toUpperCase()) + 1).toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function updateTables(updates) {
+        let today = new Date(); // Current date
+        let currentTable = document.getElementById('current-issue');
+        let nextTable = document.getElementById('next-issues');
+        let expiredTable = document.getElementById('expired-issues');
+
+        clearTable(currentTable);
+        clearTable(nextTable);
+        clearTable(expiredTable);
+
+        let currentIssue = null;
+        let nextIssues = [];
+        let expiredIssues = [];
+
+        updates.forEach(update => {
+            let effectiveDate = formatDate(update.effectiveDate);
+            let formattedEffectiveDate = formatEffectiveDate(update.effectiveDate);
+
+            console.log(`Processing update:`, update);
+            console.log(`Effective date: ${effectiveDate}`);
+            console.log(`Formatted effective date: ${formattedEffectiveDate}`);
+
+            let row = document.createElement('tr');
+            let effectiveCell = document.createElement('td');
+
+            if (effectiveDate > today) {
+                // Next Issues
+                effectiveCell.innerHTML = `<a href="../../${formattedEffectiveDate}-AIRAC/html/index.html">${update.effectiveDate}</a>`;
+                effectiveCell.classList.add('next-issue-date');
+                nextIssues.push({ row: row, effectiveDate: effectiveDate });
+            } else {
+                if (currentIssue === null || effectiveDate > currentIssue.effectiveDate) {
+                    // Move the previous current issue to expired issues
+                    if (currentIssue !== null) {
+                        expiredIssues.push(currentIssue);
+                    }
+                    // Update current issue
+                    effectiveCell.innerHTML = `<a href="../../${formattedEffectiveDate}-AIRAC/html/index.html">${update.effectiveDate}</a>`;
+                    effectiveCell.classList.add('current-effective-date');
+                    currentIssue = { row: row, effectiveDate: effectiveDate };
+                } else {
+                    // Expired Issues
+                    effectiveCell.innerHTML = update.effectiveDate;
+                    effectiveCell.classList.add('expired-issue-date');
+                    expiredIssues.push({ row: row, effectiveDate: effectiveDate });
+                }
+            }
+
+            effectiveCell.style.fontSize = '14px';
+            row.appendChild(effectiveCell);
+
+            let publicationCell = document.createElement('td');
+            let publicationDates = update.publicationDate
+                .split('\n\n')
+                .map(part => part.split('\n').map(date => date.trim()).join('<br>'))
+                .join('<br><br>');
+            publicationCell.innerHTML = publicationDates;
+            publicationCell.style.fontSize = '14px';
+            row.appendChild(publicationCell);
+
+            let descriptionCell = document.createElement('td');
+            let descriptionText = update.description
+                .split('\n\n')
+                .map(part => part.split('\n').map(line => line.trim()).join('<br>'))
+                .join('<br><br>');
+            descriptionCell.innerHTML = descriptionText;
+            descriptionCell.style.fontSize = '14px';
+            row.appendChild(descriptionCell);
+
+            if (effectiveDate <= today && (currentIssue === null || effectiveDate > currentIssue.effectiveDate)) {
+                currentIssue.row = row;
+            }
+        });
+
+        // Ensure the most recent effective issue is shown
+        if (currentIssue !== null) {
+            currentTable.appendChild(currentIssue.row);
+        }
+
+        // Append all future issues to the 'Next Issues' table
+        nextIssues.sort((a, b) => a.effectiveDate - b.effectiveDate);
+        nextIssues.forEach(issue => nextTable.appendChild(issue.row));
+
+        // Append all past issues to the 'Expired Issues' table
+        expiredIssues.sort((a, b) => b.effectiveDate - a.effectiveDate);
+        expiredIssues.forEach(issue => expiredTable.appendChild(issue.row));
+    }
+
+    function clearTable(table) {
+        let rows = table.querySelectorAll('tr');
+        for (let i = 1; i < rows.length; i++) {
+            table.removeChild(rows[i]);
+        }
+    }
+
+    fetchUpdates();
+});

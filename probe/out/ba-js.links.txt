@@ -1,0 +1,2 @@
+../../${formattedEffectiveDate}-AIRAC/html/index.html
+../../${formattedEffectiveDate}-AIRAC/html/index.html

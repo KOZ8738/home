@@ -1,11 +1,3 @@
-fr-lfpo	200	text/html; charset=UTF-8	1578261	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-AD-2.LFPO-fr-FR.html
-fr-lfmn	200	text/html; charset=UTF-8	1054205	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-AD-2.LFMN-fr-FR.html
-fr-lfbo	200	text/html; charset=UTF-8	745940	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-AD-2.LFBO-fr-FR.html
-fr-lfsb	200	text/html; charset=UTF-8	867760	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-AD-2.LFSB-fr-FR.html
-fr-menu	200	text/html; charset=UTF-8	2325261	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-menu-fr-FR.html
-fr-next	200	text/html; charset=UTF-8	2186639	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_26_NOV_2026/FRANCE/AIRAC-2026-11-26/html/eAIP/FR-AD-2.LFPG-fr-FR.html
-fr-enr44	200	text/html; charset=UTF-8	1576661	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-ENR-4.4-fr-FR.html
-fr-pdf	200	application/pdf	133544	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/Cartes/LFPG/AD_2_LFPG_ADC_01.pdf
-at-lowwidx	200	text/html	9906	https://eaip.austrocontrol.at/lo/261030/ad_2_loww.htm
-pt-idx	200	text/html	2300	https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/index.html
-ba-upd	200	application/json	10957	https://eaip.bhansa.gov.ba/updates.json
+pt-cover	200	text/html	31731	https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/LP-cover-en-PT.html
+pt-menu	200	text/html	232333	https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/eAIP/LP-menu-en-PT.html
+ba-menu	200	text/html	133881	https://eaip.bhansa.gov.ba/2026-10-01-AIRAC/html/eAIP/LQ-menu-en-GB.html

@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland, France, Portugal, Bosnia and Herzegovina, Austria and Albania (Nov 2026) ----------
+   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania and Kosovo (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -182,6 +182,7 @@ export const EA = {
       .map((m) => ({ eff: m[3], pub: m[1], base: `https://www.albcontrol.al/al/aip/${m[1]}/${m[2]}/`, index: 'html/index.html' })),
     page: (i) => `html/eAIP/LA-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LA-ENR-${n}-en-GB.html`,
   },
+  XK: { country: 'Kosovo', pre: 'BKxx', test: 'BKPR', kind: 'ix', apt: /^BK[A-Z]{2}$/, label: 'AIP Kosovo', host: 'ANSA eAIP', home: 'https://kans-ks.org/eAIP/default.html', idx: 'index.html' },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
     eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
@@ -246,10 +247,13 @@ const ixEds = (R) => (t, at) => [...t.matchAll(/href\s*=\s*["']([^"'<>]*?_(\d{4}
 /* Iceland names a page "BI-AD BIKF KEFLAVÍK - KEFLAVIK 1", without the "2 ", Poland "AD 2 EPWA 1", without the country; a space
    may come as %20, a letter as an entity */
 const IX_AD = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?AD(?: |%20)(?:2(?: |%20))?([A-Z]{4})(?=[ %&"'<>]|$)[^"'<>]*?)(?: |%20)1-[a-z]{2}-[A-Z]{2}\.html/g;
+const IX_AD1 = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?AD(?: |%20)(?:2(?: |%20))?([A-Z]{4}))-[a-z]{2}-[A-Z]{2}\.html/g;
 const IX_ENR = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?ENR(?: |%20)4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g;
 export function ixMenu(t) {
   const pages = {}, enr = {};
   for (const m of t.matchAll(IX_AD)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + ' 1-en-GB.html';
+  /* Kosovo keeps an aerodrome on one page: "BK-AD 2 BKPR-en-GB.html" */
+  for (const m of t.matchAll(IX_AD1)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + '-en-GB.html';
   for (const m of t.matchAll(IX_ENR)) if (!enr[m[2]]) enr[m[2]] = m[1] + '-en-GB.html';
   return { pages, enr };
 }
@@ -273,6 +277,8 @@ export function ixCharts(html, icao) {
     let nm = (cells[0] || decodeURIComponent(file.split('/').pop()).replace(/\.pdf$/i, '')).replace(/\s+/g, ' ').trim();
     /* Iceland starts each name with the aerodrome: "BIKF Instrument Approach Chart - ICAO RNP RWY 01" */
     if (icao && nm.startsWith(icao + ' ') && nm.length > 10) nm = nm.slice(5);
+    /* Kosovo lists only the file: "STANDARD_DEPARTURE_CHART_INSTRUMENT_SID_ICAO_RWY17_KUKAD1B", "iac_ILS_Z_or_LOC_Z_RWY_17" */
+    if (!/\s/.test(nm) && nm.includes('_')) nm = nm.replace(/_/g, ' ').replace(/\bICAO\b/g, ' ').replace(/^IAC\s+/i, '').replace(/\s+/g, ' ').trim();
     const [code, group] = eaGroup(nm, file);
     out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
   }
@@ -348,7 +354,7 @@ function section(html) {
 export function eaGroup(name, id) {
   const u = name.toUpperCase(), d = String(id || '').toUpperCase();
   if (/CODING|TABULAR|WAYPOINT LIST|WAYPOINT COORDINATES|\bTABLES?\b|\bDATA\b/.test(u)) return ['DATA', 'Procedure data'];
-  if (/AERODROME( ?\/ ?HELIPORT)? CHART|\bAD CHART\b|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE|GROUND MOVEMENT/.test(u)) return ['APD', 'Airport diagram'];
+  if (/AERODROME(\s*\/?\s*HELIPORT)? CHART|\bAD CHART\b|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE|GROUND MOVEMENT/.test(u)) return ['APD', 'Airport diagram'];
   if (/PARKING|DOCKING|GROUND MOVEMENT|TAXI|HOT ?SPOT|PUSH ?BACK|INTERSECTION TAKE|\bSTANDS?\b|DE-?ICING/.test(u) || /-(?:PBP|GMC|APDC)-/.test(d)) return ['HOT', 'Hot spots'];
   if (/\bSID\b|DEPARTURE/.test(u) || /-SID-/.test(d)) return ['DP', 'Departures'];
   if (/\bSTAR\b|ARRIVAL/.test(u) || /-STAR-/.test(d)) return ['STR', 'Arrivals'];

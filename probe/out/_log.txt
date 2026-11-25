@@ -1,9 +1,51 @@
-bg-main	200	application/javascript	20323	https://b-flip.bulatsa.com/main-D5OUP5XC.js
-mk-tree	200	text/javascript	10032	https://ais.m-nav.info/eAIP/current/en/tree_items.js
-ro-aipf	200	text/html	600	https://www.aisro.ro/aip/2026-10-29/html/en/aip_frames.html
-sk-200	200	text/html; charset=windows-1250	24603	https://aim.lps.sk/web/index.php?fn=200&lng=en
-sk-203	200	text/html; charset=windows-1250	23806	https://aim.lps.sk/web/index.php?fn=203&lng=en
-sk-215	200	text/html; charset=windows-1250	41841	https://aim.lps.sk/web/index.php?fn=215&lng=en
-sk-211	200	text/html; charset=windows-1250	32992	https://aim.lps.sk/web/index.php?fn=211&lng=en
-sk-209	200	text/html; charset=windows-1250	19600	https://aim.lps.sk/web/index.php?fn=209&lng=en&stpg=210
-sk-206	200	text/html; charset=windows-1250	31441	https://aim.lps.sk/web/index.php?fn=206&lng=en
+bgc-chunk-2K6X3BLR	200	application/javascript	2982	https://b-flip.bulatsa.com/chunk-2K6X3BLR.js
+bgc-chunk-2PPFUFFT	200	application/javascript	4249	https://b-flip.bulatsa.com/chunk-2PPFUFFT.js
+bgc-chunk-3H6N7ZZL	200	application/javascript	20533	https://b-flip.bulatsa.com/chunk-3H6N7ZZL.js
+bgc-chunk-3NODYUN2	200	application/javascript	111828	https://b-flip.bulatsa.com/chunk-3NODYUN2.js
+bgc-chunk-44KSA22P	200	application/javascript	733	https://b-flip.bulatsa.com/chunk-44KSA22P.js
+bgc-chunk-54GLSAJT	200	application/javascript	48483	https://b-flip.bulatsa.com/chunk-54GLSAJT.js
+bgc-chunk-5Q2TDGYN	200	application/javascript	17546	https://b-flip.bulatsa.com/chunk-5Q2TDGYN.js
+bgc-chunk-66ZDULDR	200	application/javascript	4986	https://b-flip.bulatsa.com/chunk-66ZDULDR.js
+bgc-chunk-6TNT4NUT	200	application/javascript	1103	https://b-flip.bulatsa.com/chunk-6TNT4NUT.js
+bgc-chunk-7XVD4ZVQ	200	application/javascript	293	https://b-flip.bulatsa.com/chunk-7XVD4ZVQ.js
+bgc-chunk-B4NF6DWA	200	application/javascript	47061	https://b-flip.bulatsa.com/chunk-B4NF6DWA.js
+bgc-chunk-B4Q4UFEH	200	application/javascript	595	https://b-flip.bulatsa.com/chunk-B4Q4UFEH.js
+bgc-chunk-BEX4VGX4	200	application/javascript	7070	https://b-flip.bulatsa.com/chunk-BEX4VGX4.js
+bgc-chunk-CVWOR3DE	200	application/javascript	71403	https://b-flip.bulatsa.com/chunk-CVWOR3DE.js
+bgc-chunk-DVCUG6SN	200	application/javascript	975	https://b-flip.bulatsa.com/chunk-DVCUG6SN.js
+bgc-chunk-E5HROSSB	200	application/javascript	1792	https://b-flip.bulatsa.com/chunk-E5HROSSB.js
+bgc-chunk-FY2MWVM4	200	application/javascript	3525	https://b-flip.bulatsa.com/chunk-FY2MWVM4.js
+bgc-chunk-GYGXQNRX	200	application/javascript	11513	https://b-flip.bulatsa.com/chunk-GYGXQNRX.js
+bgc-chunk-HTIYGK4R	200	application/javascript	108022	https://b-flip.bulatsa.com/chunk-HTIYGK4R.js
+bgc-chunk-I6TSCRDR	200	application/javascript	1729	https://b-flip.bulatsa.com/chunk-I6TSCRDR.js
+bgc-chunk-J4MJR5J7	200	application/javascript	215	https://b-flip.bulatsa.com/chunk-J4MJR5J7.js
+bgc-chunk-JNU7VTBE	200	application/javascript	801	https://b-flip.bulatsa.com/chunk-JNU7VTBE.js
+bgc-chunk-KTHAO3XX	200	application/javascript	65171	https://b-flip.bulatsa.com/chunk-KTHAO3XX.js
+bgc-chunk-KXY4XSJE	200	application/javascript	20688	https://b-flip.bulatsa.com/chunk-KXY4XSJE.js
+bgc-chunk-LJLZUP4D	200	application/javascript	2350	https://b-flip.bulatsa.com/chunk-LJLZUP4D.js
+bgc-chunk-M2CQXJHL	200	application/javascript	80366	https://b-flip.bulatsa.com/chunk-M2CQXJHL.js
+bgc-chunk-NEZJ6QXI	200	application/javascript	5677	https://b-flip.bulatsa.com/chunk-NEZJ6QXI.js
+bgc-chunk-NFYEDKL2	200	application/javascript	1296	https://b-flip.bulatsa.com/chunk-NFYEDKL2.js
+bgc-chunk-NLUGE7PX	200	application/javascript	25386	https://b-flip.bulatsa.com/chunk-NLUGE7PX.js
+bgc-chunk-PHJ6OGFE	200	application/javascript	1213	https://b-flip.bulatsa.com/chunk-PHJ6OGFE.js
+bgc-chunk-RAR4MKEY	200	application/javascript	995	https://b-flip.bulatsa.com/chunk-RAR4MKEY.js
+bgc-chunk-S5OVNHMY	200	application/javascript	64018	https://b-flip.bulatsa.com/chunk-S5OVNHMY.js
+bgc-chunk-SECM3DXY	200	application/javascript	55350	https://b-flip.bulatsa.com/chunk-SECM3DXY.js
+bgc-chunk-T4F6JE5O	200	application/javascript	1485	https://b-flip.bulatsa.com/chunk-T4F6JE5O.js
+bgc-chunk-TG326IDM	200	application/javascript	1505944	https://b-flip.bulatsa.com/chunk-TG326IDM.js
+bgc-chunk-TS3CTYGK	200	application/javascript	40834	https://b-flip.bulatsa.com/chunk-TS3CTYGK.js
+bgc-chunk-TTTIYQYU	200	application/javascript	234827	https://b-flip.bulatsa.com/chunk-TTTIYQYU.js
+bgc-chunk-VI2C2KCS	200	application/javascript	212317	https://b-flip.bulatsa.com/chunk-VI2C2KCS.js
+bgc-chunk-W37U7X4U	200	application/javascript	526424	https://b-flip.bulatsa.com/chunk-W37U7X4U.js
+bgc-chunk-WSVGGR4U	200	application/javascript	1446	https://b-flip.bulatsa.com/chunk-WSVGGR4U.js
+bgc-chunk-YCYNVX7N	200	application/javascript	1294	https://b-flip.bulatsa.com/chunk-YCYNVX7N.js
+bgc-chunk-YZPYUADF	200	application/javascript	471	https://b-flip.bulatsa.com/chunk-YZPYUADF.js
+bgc-chunk-ZLANKZBN	200	application/javascript	341757	https://b-flip.bulatsa.com/chunk-ZLANKZBN.js
+bgc-chunk-ZYV26T56	200	application/javascript	16248	https://b-flip.bulatsa.com/chunk-ZYV26T56.js
+ro-tocgen	200	text/html	9884	https://www.aisro.ro/aip/2026-10-29/html/en/aip_toc_gen.html
+sk-frame	200	text/html	578	https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_29OCT2026_amdt/html/LZ-frameset-en-SK.html
+sk-menu	404	text/html	1245	https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_29OCT2026_amdt/html/eAIP/LZ-menu-en-SK.html
+sk-lzib	404	text/html	1245	https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_29OCT2026_amdt/html/eAIP/LZ-AD-2.LZIB-en-SK.html
+mk-top	200	text/html	1777	https://ais.m-nav.info/eAIP/current/en/top.htm
+mk-content	200	text/html	1556	https://ais.m-nav.info/eAIP/current/en/content.htm
+mk-pdf	200	application/pdf	221157	https://ais.m-nav.info/eAIP/current/aipcharts/LWSK/LW_AD_2_LWSK_24_9_en.pdf

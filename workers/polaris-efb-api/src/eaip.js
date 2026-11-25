@@ -1,5 +1,5 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
-   Denmark, Korea, Estonia, Iceland, Latvia and Spain (Nov 2026) ----------
+   Denmark, Korea, Estonia, Iceland, Latvia, Spain and Ireland (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -92,6 +92,13 @@ export const EA = {
       .map((m) => ({ eff: m[2], pub: (/Non-AIRAC/i.test(m[1]) ? '1' : '0') + m[1], base: `https://ais.lgs.lv/eAIPfiles/${m[1]}/data/${m[2]}/`, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EV-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EV-ENR-${n}-en-GB.html`,
     charts: (t, icao) => lvCharts(t, icao),
+  },
+  IE: {
+    country: 'Ireland', pre: 'EIxx', test: 'EIDW', apt: /^EI[A-Z]{2}$/, label: 'AIP Ireland', host: 'AirNav Ireland eAIP', home: 'https://www.airnav.ie/air-traffic-management/aeronautical-information-management',
+    /* the AIM page links each issue: "AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html", once "26-07-09-AIRAC" */
+    eds: (t) => [...t.matchAll(/https?:\/\/www\.airnav\.ie\/([A-Za-z0-9_\-]+)\/((?:20)?(\d{2})-(\d{2})-(\d{2}))-AIRAC\/html\/index(?:-en-[A-Z]{2})?\.html/g)]
+      .map((m) => ({ eff: `20${m[3]}-${m[4]}-${m[5]}`, pub: m[1], base: `https://www.airnav.ie/${m[1]}/${m[2]}-AIRAC/`, index: 'html/index.html' })),
+    page: (i) => `html/eAIP/EI-AD-2.${i}-en-IE.html`, enr: (n) => `html/eAIP/EI-ENR-${n}-en-IE.html`,
   },
   ES: {
     country: 'Spain', pre: 'LExx, GCxx, GExx', test: 'LEMD', kind: 'es', apt: /^(LE|GC|GE)[A-Z]{2}$/, label: 'AIP Spain', host: 'ENAIRE AIP', home: 'https://aip.enaire.es/AIP/AIP-en.html',
@@ -299,7 +306,8 @@ export function eaCharts(html, k) {
     const first = cells.length ? text(cells[0]) : text(row);
     if (!links.length) { if (first && !/^(chart name|name of chart|page|side\/page)\b/i.test(first) && first.length > 2) title = first; continue; }
     /* the UK puts the name in a row of its own and the page reference (AD 2.EGLL-2-1) with the link in the next */
-    const idLike = /^AD[\s-]?2[\s.-]/i.test(first);
+    /* … and Ireland the name in a row of its own and, in the next, only the link (its text the file's path) */
+    const idLike = /^AD[\s-]?2[\s.-]/i.test(first) || (cells.length === 1 && /\.pdf$/i.test(first));
     const name = idLike ? title : first;
     const id = idLike ? first : cells.length > 1 ? text(cells[1]) : '';
     for (const h of links.slice(-1)) {

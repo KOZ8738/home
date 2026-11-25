@@ -20,5 +20,5 @@ for (const w of want) {
     out[icao] = res;
   } catch (e) { out[icao] = { error: String(e.message || e), status: e.status }; }
 }
-fs.mkdirSync('probe/out', { recursive: true }); fs.writeFileSync('probe/out/_ea.json', JSON.stringify(out, null, 1));
+fs.mkdirSync('probe/out', { recursive: true }); fs.writeFileSync('probe/out/' + (process.env.OUT || '_ea.json'), JSON.stringify(out, null, 1));
 for (const [k, v] of Object.entries(out)) console.log(k, v.error || `${v.cycle} n=${v.n} nf=${v.notFound} pdf=${JSON.stringify(v.pdf)} fixes=${JSON.stringify(v.fixes && v.fixes.n)}`);

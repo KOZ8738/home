@@ -16,7 +16,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: node probe/fetch.mjs || true
+      - uses: actions/checkout@v4
+        with: { ref: c94c01a, path: base }
       - run: node probe/ea.mjs || true
+      - run: EA_SRC=base OUT=_ea_base.json node probe/ea.mjs || true
       - name: keep the results on this branch
         run: |
           git config user.name probe; git config user.email probe@users.noreply.github.com

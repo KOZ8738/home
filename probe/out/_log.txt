@@ -1,14 +1,14 @@
-lv-home	200	text/html; charset=UTF-8	30739	https://ais.lgs.lv/aiseaip
-lv-root	200	text/html; charset=UTF-8	44578	https://ais.lgs.lv/
-lv-evra	200	text/html	292872	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-AD-2.EVRA-en-GB.html
-lv-menu	200	text/html	143793	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-menu-en-GB.html
-lv-idx	200	text/html	1125	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html
-ie-root	200	text/html; charset=utf-8	54438	https://www.airnav.ie/
-ie-aip	200	text/html; charset=utf-8	38688	https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package
-ie-aip2	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-es-aip	200	text/html	979526	https://aip.enaire.es/AIP/AIP-en.html
-es-lemd	200	text/html	234759	https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_en.html
-es-root	200	text/html	983031	https://aip.enaire.es/AIP/
-is-home	200	text/html	5904	https://eaip.avians.is/
-is-menu	200	text/html	5180183	https://eaip.avians.is/A_11-2026_2026_11_26/eAIP/menu.html
-is-menu-cur	200	text/html	5180183	https://eaip.avians.is/A_10-2026_2026_10_29/eAIP/menu.html
+ie-addjs	200	text/javascript	1827	https://www.airnav.ie/App_Themes/main/js/jquery.additional.min.js?v=36
+ie-mainjs	200	text/javascript	82939	https://www.airnav.ie/App_Themes/main/js/jquery.main.min.js?v=36
+ie-aim	200	text/html; charset=utf-8	44411	https://www.airnav.ie/air-traffic-management/aeronautical-information-management
+ie-pub	200	text/html; charset=utf-8	47487	https://www.airnav.ie/publications
+ie-sitemap	200	text/html; charset=utf-8	77924	https://www.airnav.ie/sitemap
+ie-smxml	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
+lv-n008	200	text/html	278889	https://ais.lgs.lv/eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/eAIP/EV-AD-2.EVRA-en-GB.html
+lv-n004	200	text/html	276849	https://ais.lgs.lv/eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/eAIP/EV-AD-2.EVRA-en-GB.html
+lv-c008	200	text/html	18159	https://ais.lgs.lv/eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/eAIP/EV-cover-en-GB.html
+lv-c004	200	text/html	18351	https://ais.lgs.lv/eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/eAIP/EV-cover-en-GB.html
+lv-evla	200	text/html	127149	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-AD-2.EVLA-en-GB.html
+lv-pdf	200	application/pdf	1185139	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/graphics/eAIP/1598_EVRA_2_24_1_20250710.pdf
+is-bikf	200	text/html	711283	https://eaip.avians.is/A_10-2026_2026_10_29/eAIP/BI-AD%20BIKF%20KEFLAV%C3%8DK%20-%20KEFLAVIK%201-en-GB.html
+es-pdf	200	application/pdf	1688871	https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_5_en.pdf

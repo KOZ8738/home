@@ -182,6 +182,7 @@ export const EA = {
       .map((m) => ({ eff: m[3], pub: m[1], base: `https://www.albcontrol.al/al/aip/${m[1]}/${m[2]}/`, index: 'html/index.html' })),
     page: (i) => `html/eAIP/LA-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LA-ENR-${n}-en-GB.html`,
   },
+  XK: { country: 'Kosovo', pre: 'BKxx', test: 'BKPR', kind: 'ix', apt: /^BK[A-Z]{2}$/, label: 'AIP Kosovo', host: 'ANSA eAIP', home: 'https://kans-ks.org/eAIP/default.html', idx: 'index.html' },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
     eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
@@ -373,6 +374,7 @@ export function eaName(name, group) {
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
   n = n.replace(/^(IAC|VAC|SID|STAR)\s*[-–]\s*ICAO\s+/i, (m, c) => (/^(SID|STAR)$/i.test(c) && !new RegExp('\\b' + c + '\\b', 'i').test(n.slice(m.length)) ? c.toUpperCase() + ' ' : ''));
   n = n.replace(/^ICAO\s*[:\-–]?\s*(?=\S)/i, '').replace(/^\((.*)\)$/, (m, x) => { let d = 0; for (const c of x) { d += c === '(' ? 1 : c === ')' ? -1 : 0; if (d < 0) return m; } return d ? m : x; });
+  n = n.replace(/^\((?:IAC|SID|STAR|ADC|VAC)\)\s*[-–]\s*/i, '');  /* Albania: "(IAC) – ILS or LOC RWY 17" */
   if (/^RWY\b/i.test(n) && (group === 'Departures' || group === 'Arrivals')) n = (group === 'Departures' ? 'SID ' : 'STAR ') + n;
   n = n.replace(/\s*[-–]?\s*\bICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ').replace(/\s*[-–]\s*ICAO\s+/i, ' – ');
   return n.trim() || name;

@@ -1,4 +1,3 @@
-xk-def https://kans-ks.org/eAIP/default.html
-mk-nonframe https://ais.m-nav.info/eAIP/current/en/index-nonframe.htm
-cy-aipp https://www.gov.cy/mtcw-dca-ais/documents/aipp/
-ro-left https://www.aisro.ro/start_left.php
+mk-lwsk https://ais.m-nav.info/eAIP/current/html/lwsk.htm
+mk-aero https://ais.m-nav.info/eAIP/current/html/aerodromes.htm
+ro-aip https://www.aisro.ro/aip/aip.php

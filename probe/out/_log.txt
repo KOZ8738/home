@@ -1,6 +1,1 @@
-bg-ad	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/AD.htm
-bg-start	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/Start.htm
-bg-amdts	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/AMDTs.htm
-ro-tocad	200	text/html	251155	https://www.aisro.ro/aip/2026-10-29/html/en/aip_toc_ad.html
-ro-aipphp	200	text/html; charset=UTF-8	665	https://www.aisro.ro/aip/aip.php
-sk-200	200	text/html; charset=windows-1250	24603	https://aim.lps.sk/web/index.php?fn=200&lng=en
+

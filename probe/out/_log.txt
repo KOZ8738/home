@@ -1,41 +1,6 @@
-bgd-chunk-4GKHFX4C	200	application/javascript	138	https://b-flip.bulatsa.com/chunk-4GKHFX4C.js
-bgd-chunk-4REVGLG4	200	application/javascript	24627	https://b-flip.bulatsa.com/chunk-4REVGLG4.js
-bgd-chunk-4RFPMHHM	200	application/javascript	63809	https://b-flip.bulatsa.com/chunk-4RFPMHHM.js
-bgd-chunk-4WF4JHDO	200	application/javascript	20425	https://b-flip.bulatsa.com/chunk-4WF4JHDO.js
-bgd-chunk-6ENFUK5L	200	application/javascript	204	https://b-flip.bulatsa.com/chunk-6ENFUK5L.js
-bgd-chunk-6NK3MY74	200	application/javascript	23613	https://b-flip.bulatsa.com/chunk-6NK3MY74.js
-bgd-chunk-AWZFNO2R	200	application/javascript	15414	https://b-flip.bulatsa.com/chunk-AWZFNO2R.js
-bgd-chunk-CH77EQAJ	200	application/javascript	10889	https://b-flip.bulatsa.com/chunk-CH77EQAJ.js
-bgd-chunk-DOGYSGVL	200	application/javascript	467	https://b-flip.bulatsa.com/chunk-DOGYSGVL.js
-bgd-chunk-DWOXIJS2	200	application/javascript	4669	https://b-flip.bulatsa.com/chunk-DWOXIJS2.js
-bgd-chunk-EMK7TF2R	200	application/javascript	965	https://b-flip.bulatsa.com/chunk-EMK7TF2R.js
-bgd-chunk-FN54WPFU	200	application/javascript	22710	https://b-flip.bulatsa.com/chunk-FN54WPFU.js
-bgd-chunk-GM5X7FEW	200	application/javascript	4943	https://b-flip.bulatsa.com/chunk-GM5X7FEW.js
-bgd-chunk-GQDOIS4V	200	application/javascript	1988	https://b-flip.bulatsa.com/chunk-GQDOIS4V.js
-bgd-chunk-H34PTNWR	200	application/javascript	41346	https://b-flip.bulatsa.com/chunk-H34PTNWR.js
-bgd-chunk-HHNBKX7V	200	application/javascript	792	https://b-flip.bulatsa.com/chunk-HHNBKX7V.js
-bgd-chunk-I5CVZVDG	200	application/javascript	18064	https://b-flip.bulatsa.com/chunk-I5CVZVDG.js
-bgd-chunk-L4UC2H22	200	application/javascript	13769	https://b-flip.bulatsa.com/chunk-L4UC2H22.js
-bgd-chunk-LE7EFLRM	200	application/javascript	924	https://b-flip.bulatsa.com/chunk-LE7EFLRM.js
-bgd-chunk-MYO7CAQR	200	application/javascript	18357	https://b-flip.bulatsa.com/chunk-MYO7CAQR.js
-bgd-chunk-NCWOFOR6	200	application/javascript	7133	https://b-flip.bulatsa.com/chunk-NCWOFOR6.js
-bgd-chunk-NFQZA356	200	application/javascript	43915	https://b-flip.bulatsa.com/chunk-NFQZA356.js
-bgd-chunk-NTBY2DJY	200	application/javascript	8858	https://b-flip.bulatsa.com/chunk-NTBY2DJY.js
-bgd-chunk-OW63PPGB	200	application/javascript	9554	https://b-flip.bulatsa.com/chunk-OW63PPGB.js
-bgd-chunk-PFLTM573	200	application/javascript	16218	https://b-flip.bulatsa.com/chunk-PFLTM573.js
-bgd-chunk-PXYIU2QX	200	application/javascript	2540	https://b-flip.bulatsa.com/chunk-PXYIU2QX.js
-bgd-chunk-RDZCOXQ5	200	application/javascript	115601	https://b-flip.bulatsa.com/chunk-RDZCOXQ5.js
-bgd-chunk-SAS7ULFJ	200	application/javascript	64842	https://b-flip.bulatsa.com/chunk-SAS7ULFJ.js
-bgd-chunk-SISHPPLK	200	application/javascript	8111	https://b-flip.bulatsa.com/chunk-SISHPPLK.js
-bgd-chunk-SV63SHQT	200	application/javascript	743	https://b-flip.bulatsa.com/chunk-SV63SHQT.js
-bgd-chunk-T7FCD3ZT	200	application/javascript	12693	https://b-flip.bulatsa.com/chunk-T7FCD3ZT.js
-bgd-chunk-U7RROSQ6	200	application/javascript	40512	https://b-flip.bulatsa.com/chunk-U7RROSQ6.js
-bgd-chunk-UFI2KZYS	200	application/javascript	370	https://b-flip.bulatsa.com/chunk-UFI2KZYS.js
-bgd-chunk-V7Q75NTV	200	application/javascript	30197	https://b-flip.bulatsa.com/chunk-V7Q75NTV.js
-bgd-chunk-VHUK4PEU	200	application/javascript	1407	https://b-flip.bulatsa.com/chunk-VHUK4PEU.js
-bgd-chunk-W47XKTSZ	200	application/javascript	2615	https://b-flip.bulatsa.com/chunk-W47XKTSZ.js
-bgd-chunk-WHYE3JQP	200	application/javascript	7155	https://b-flip.bulatsa.com/chunk-WHYE3JQP.js
-bgd-chunk-Z6HKFCGT	200	application/javascript	41657	https://b-flip.bulatsa.com/chunk-Z6HKFCGT.js
-ro-topf	200	text/html	2168	https://www.aisro.ro/aip/2026-10-29/html/en/aip_top_frame.html
-sk-menu	200	text/html	89705	https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_29OCT2026_amdt/html/LZ-menu-en-SK.html
-sk-lzib	200	text/html	601127	https://aim.lps.sk/web/eAIP_SR/AIP_SR_EFF_29OCT2026_amdt/html/LZ-AD-2.LZIB-en-SK.html
+bg-ad	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/AD.htm
+bg-start	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/Start.htm
+bg-amdts	403	text/plain; charset=utf-8	13	https://b-flip.bulatsa.com/_aip/AMDTs.htm
+ro-tocad	200	text/html	251155	https://www.aisro.ro/aip/2026-10-29/html/en/aip_toc_ad.html
+ro-aipphp	200	text/html; charset=UTF-8	665	https://www.aisro.ro/aip/aip.php
+sk-200	200	text/html; charset=windows-1250	24603	https://aim.lps.sk/web/index.php?fn=200&lng=en

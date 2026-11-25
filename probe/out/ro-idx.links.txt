@@ -1,0 +1,5 @@
+config.js
+html/css/common.css
+http://www.romatsa.ro
+./html/en/index.html
+./html/ro/index.html

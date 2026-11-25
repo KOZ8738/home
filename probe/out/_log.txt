@@ -1,3 +1,4 @@
-mk-lwsk	404	text/html; charset=iso-8859-1	355	https://ais.m-nav.info/eAIP/current/html/lwsk.htm
-mk-aero	200	text/html	575	https://ais.m-nav.info/eAIP/current/html/aerodromes.htm
-ro-aip	200	text/html; charset=UTF-8	665	https://www.aisro.ro/aip/aip.php
+xk-menu	200	text/html	113882	https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/eAIP/menu.html
+xk-idx	200	text/html	1998	https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/index.html
+ro-idx	200	text/html	1401	https://www.aisro.ro/aip/2026-10-29/index.html
+ro-lrop	404	text/html; charset=iso-8859-1	196	https://www.aisro.ro/aip/2026-10-29/html/eAIP/LR-AD-2.LROP-en-GB.html

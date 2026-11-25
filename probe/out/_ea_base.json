@@ -1,29 +1,14 @@
 {
- "LFPG": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
- "LFPO": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
- "LFMN": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
- "LFBO": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
- "LFLL": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
- "LFML": {
-  "error": "Cannot read properties of null (reading 'cycle')"
- },
  "LPPT": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
  "LPPR": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
- "LQSA": {
+ "LPFR": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "LPMA": {
   "error": "Cannot read properties of null (reading 'cycle')"
  }
 }

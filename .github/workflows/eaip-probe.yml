@@ -1,0 +1,19 @@
+# Temporary: fetches eAIP pages from a GitHub runner so their raw HTML can be studied (branch deleted after use)
+name: eAIP probe
+on:
+  push:
+    branches: [claude/eaip-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { ref: main, path: mainsrc }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node probe/fetch.mjs || true
+      - run: node probe/ea.mjs || true
+      - uses: actions/upload-artifact@v4
+        with: { name: out, path: probe/out, retention-days: 1 }

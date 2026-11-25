@@ -1,0 +1,14 @@
+lv-home https://ais.lgs.lv/aiseaip
+lv-root https://ais.lgs.lv/
+lv-evra https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-AD-2.EVRA-en-GB.html
+lv-menu https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-menu-en-GB.html
+lv-idx https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html
+ie-root https://www.airnav.ie/
+ie-aip https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package
+ie-aip2 https://www.airnav.ie/aip
+es-aip https://aip.enaire.es/AIP/AIP-en.html
+es-lemd https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_en.html
+es-root https://aip.enaire.es/AIP/
+is-home https://eaip.avians.is/
+is-menu https://eaip.avians.is/A_11-2026_2026_11_26/eAIP/menu.html
+is-menu-cur https://eaip.isavia.is/A_10-2026_2026_10_29/eAIP/menu.html

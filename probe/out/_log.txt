@@ -1,14 +1,5 @@
-ie-addjs	200	text/javascript	1827	https://www.airnav.ie/App_Themes/main/js/jquery.additional.min.js?v=36
-ie-mainjs	200	text/javascript	82939	https://www.airnav.ie/App_Themes/main/js/jquery.main.min.js?v=36
-ie-aim	200	text/html; charset=utf-8	44411	https://www.airnav.ie/air-traffic-management/aeronautical-information-management
-ie-pub	200	text/html; charset=utf-8	47487	https://www.airnav.ie/publications
-ie-sitemap	200	text/html; charset=utf-8	77924	https://www.airnav.ie/sitemap
-ie-smxml	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-lv-n008	200	text/html	278889	https://ais.lgs.lv/eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/eAIP/EV-AD-2.EVRA-en-GB.html
-lv-n004	200	text/html	276849	https://ais.lgs.lv/eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/eAIP/EV-AD-2.EVRA-en-GB.html
-lv-c008	200	text/html	18159	https://ais.lgs.lv/eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/eAIP/EV-cover-en-GB.html
-lv-c004	200	text/html	18351	https://ais.lgs.lv/eAIPfiles/2026_004_26-NOV-2026-Non-AIRAC/data/2026-11-26/html/eAIP/EV-cover-en-GB.html
-lv-evla	200	text/html	127149	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/eAIP/EV-AD-2.EVLA-en-GB.html
-lv-pdf	200	application/pdf	1185139	https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/graphics/eAIP/1598_EVRA_2_24_1_20250710.pdf
-is-bikf	200	text/html	711283	https://eaip.avians.is/A_10-2026_2026_10_29/eAIP/BI-AD%20BIKF%20KEFLAV%C3%8DK%20-%20KEFLAVIK%201-en-GB.html
-es-pdf	200	application/pdf	1688871	https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_5_en.pdf
+ie-dub	200	text/html; charset=utf-8	37925	https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/dublin-chart-information
+ie-snn	200	text/html; charset=utf-8	38043	https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/shannon-chart-information
+ie-ork	200	text/html; charset=utf-8	38022	https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/cork-chart-information
+ie-amd	200	text/html; charset=utf-8	47752	https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/published-amendments
+ie-iaip	200	text/html; charset=utf-8	39167	https://www.airnav.ie/what-we-do/air-traffic-management/integrated-aeronautical-information-package

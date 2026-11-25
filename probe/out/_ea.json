@@ -1,4 +1,229 @@
 {
+ "EVRA": {
+  "cycle": "LV20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html",
+  "name": "RIGA",
+  "notFound": false,
+  "n": 29,
+  "charts": [
+   "Airport diagram | Aerodrome chart | graphics/eAIP/1598_EVRA_2_24_1_20250710.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – S | graphics/eAIP/1633_EVRA_2_24_2_S_20250904.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – N | graphics/eAIP/1629_EVRA_2_24_2_N_20250904.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart | graphics/eAIP/1597_EVRA_2_24_3_20250710.pdf",
+   "Other | Aerodrome Obstacle Chart Type A (for each runway) – RWY 18/36 | graphics/eAIP/1599_EVRA_2_24_4_RWY18_36_20250710.pdf",
+   "Other | Precision Approach Terrain Chart | graphics/eAIP/1610_EVRA_2_24_7_20250710.pdf",
+   "Departures | SID RWY 18 (E) | graphics/eAIP/1861_EVRA_2_24_9_RWY18E_20261029.pdf",
+   "Departures | SID RWY 18 (W) | graphics/eAIP/1856_EVRA_2_24_9_RWY18W_20261029.pdf",
+   "Departures | SID RWY 36 (E) | graphics/eAIP/1857_EVRA_2_24_9_RWY36E_20261029.pdf",
+   "Departures | SID RWY 36 (W) | graphics/eAIP/1850_EVRA_2_24_9_RWY36W_20261029.pdf",
+   "Departures | SID RWY 36 (WJ) | graphics/eAIP/1849_EVRA_2_24_9_RWY36WJ_20261029.pdf",
+   "Arrivals | STAR RWY 18 (WL) | graphics/eAIP/1844_EVRA_2_24_11_RWY18WL_20261029.pdf",
+   "Arrivals | STAR RWY 18 (WT) | graphics/eAIP/1862_EVRA_2_24_11_RWY18WT_20261029.pdf",
+   "Arrivals | STAR RWY 18 (E) | graphics/eAIP/1847_EVRA_2_24_11_RWY18E_20261029.pdf",
+   "Arrivals | STAR RWY 36 (W) | graphics/eAIP/1859_EVRA_2_24_11_RWY36W_20261029.pdf",
+   "Arrivals | STAR RWY 36 (N) | graphics/eAIP/1843_EVRA_2_24_11_RWY36N_20261029.pdf",
+   "Arrivals | STAR RWY 36 (S) | graphics/eAIP/1854_EVRA_2_24_11_RWY36S_20261029.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/1814_EVRA_2_24_12_20260903.pdf",
+   "Approaches | ILS Y or LOC Y RWY 18 | graphics/eAIP/1851_EVRA_2_24_13_RWY18_ILSY_LOCY_20261029.pdf",
+   "Approaches | ILS Z or LOC Z RWY 18 | graphics/eAIP/1863_EVRA_2_24_13_RWY18_ILSZ_LOCZ_20261029.pdf",
+   "Approaches | RNP Y RWY 18 | graphics/eAIP/1855_EVRA_2_24_13_RWY18_RNPY_20261029.pdf",
+   "Approaches | RNP Z RWY 18 | graphics/eAIP/1793_EVRA_2_24_13_RWY18_RNPZ_20260903.pdf",
+   "Approaches | VOR RWY 18 | graphics/eAIP/1858_EVRA_2_24_13_RWY18_VOR_20261029.pdf",
+   "Approaches | ILS Y or LOC Y RWY 36 | graphics/eAIP/1846_EVRA_2_24_13_RWY36_ILSY_LOCY_20261029.pdf",
+   "Approaches | ILS Z or LOC Z RWY 36 | graphics/eAIP/1852_EVRA_2_24_13_RWY36_ILSZ_LOCZ_20261029.pdf",
+   "Approaches | RNP Y RWY 36 | graphics/eAIP/1864_EVRA_2_24_13_RWY36_RNPY_20261029.pdf",
+   "Approaches | RNP Z RWY 36 | graphics/eAIP/1773_EVRA_2_24_13_RWY36_RNPZ_20260903.pdf",
+   "Approaches | VOR RWY 36 | graphics/eAIP/1853_EVRA_2_24_13_RWY36_VOR_20261029.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/1817_EVRA_2_24_14_20260903.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome chart",
+    "status": 200,
+    "bytes": 1185139,
+    "head": "%PDF-1.6\r%����\r\n7769 0 obj\r<</Filter/FlateDecode/First 10/Le"
+   },
+   {
+    "i": 19,
+    "name": "ILS Y or LOC Y RWY 18",
+    "status": 200,
+    "bytes": 503834,
+    "head": "%PDF-1.5\n%�쏢\n%%Invocation: path/gswin64c.exe -dDisplayForm"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    56.923611,
+    23.971111
+   ],
+   "n": 110,
+   "some": [
+    [
+     "18",
+     56.935069,
+     23.973078
+    ],
+    [
+     "36",
+     56.90645,
+     23.968356
+    ],
+    [
+     "RIA",
+     56.920861,
+     23.965194
+    ],
+    [
+     "IRV",
+     56.901194,
+     23.9675
+    ],
+    [
+     "IRV",
+     56.932306,
+     23.970639
+    ]
+   ]
+  }
+ },
+ "EVLA": {
+  "cycle": "LV20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html",
+  "name": "LIEPAJA",
+  "notFound": false,
+  "n": 19,
+  "charts": [
+   "Airport diagram | Aerodrome chart | graphics/eAIP/1600_EVLA_2_24_1_20250710.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart | graphics/eAIP/1606_EVLA_2_24_3_20250710.pdf",
+   "Other | Aerodrome Obstacle Chart Type A (for each runway) – RWY 06/24 | graphics/eAIP/1612_EVLA_2_24_4_RWY06_24_20250710.pdf",
+   "Departures | SID RWY 06 (A) | graphics/eAIP/1819_EVLA_2_24_9_RWY06_A_20260903.pdf",
+   "Departures | SID RWY 06 | graphics/eAIP/1764_EVLA_2_24_9_RWY06_20260903.pdf",
+   "Departures | SID RWY 24 (A) | graphics/eAIP/1772_EVLA_2_24_9_RWY24_A_20260903.pdf",
+   "Departures | SID RWY 24 | graphics/eAIP/1816_EVLA_2_24_9_RWY24_20260903.pdf",
+   "Arrivals | STAR RWY 06 | graphics/eAIP/1762_EVLA_2_24_11_RWY06_20260903.pdf",
+   "Arrivals | STAR RWY 24 | graphics/eAIP/1820_EVLA_2_24_11_RWY24_20260903.pdf",
+   "Approaches | RNP RWY 06 | graphics/eAIP/1822_EVLA_2_24_13_RWY06_RNP_20260903.pdf",
+   "Approaches | VOR Y RWY 06 | graphics/eAIP/1761_EVLA_2_24_13_RWY06_VOR_Y_20260903.pdf",
+   "Approaches | VOR Z RWY 06 | graphics/eAIP/1794_EVLA_2_24_13_RWY06_VOR_Z_20260903.pdf",
+   "Approaches | ILS Y RWY 24 | graphics/eAIP/1791_EVLA_2_24_13_RWY24_ILS_Y_20260903.pdf",
+   "Approaches | ILS Z RWY 24 | graphics/eAIP/1765_EVLA_2_24_13_RWY24_ILS_Z_20260903.pdf",
+   "Approaches | LOC RWY 24 | graphics/eAIP/1785_EVLA_2_24_13_RWY24_LOC_20260903.pdf",
+   "Approaches | RNP RWY 24 | graphics/eAIP/1783_EVLA_2_24_13_RWY24_RNP_20260903.pdf",
+   "Approaches | VOR Y RWY 24 | graphics/eAIP/1788_EVLA_2_24_13_RWY24_VOR_Y_20260903.pdf",
+   "Approaches | VOR Z RWY 24 | graphics/eAIP/1767_EVLA_2_24_13_RWY24_VOR_Z_20260903.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/1787_EVLA_2_24_14_20260903.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome chart",
+    "status": 200,
+    "bytes": 411762,
+    "head": "%PDF-1.6\r%����\r\n1282 0 obj\r<</Filter/FlateDecode/First 10/Le"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    56.5175,
+    21.096944
+   ],
+   "n": 84,
+   "some": [
+    [
+     "06",
+     56.514494,
+     21.081733
+    ],
+    [
+     "24",
+     56.520553,
+     21.112356
+    ],
+    [
+     "LEP",
+     56.512778,
+     21.08475
+    ],
+    [
+     "LPJ",
+     56.512028,
+     21.069417
+    ],
+    [
+     "LPJ",
+     56.520611,
+     21.106806
+    ]
+   ]
+  }
+ },
+ "EVVA": {
+  "cycle": "LV20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html",
+  "name": "VENTSPILS",
+  "notFound": false,
+  "n": 2,
+  "charts": [
+   "Airport diagram | Aerodrome chart | graphics/eAIP/1613_EVVA_2_24_1_20250710.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/1778_EVVA_2_24_14_20260903.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome chart",
+    "status": 200,
+    "bytes": 607544,
+    "head": "%PDF-1.6\r%����\r\n1079 0 obj\r<</Filter/FlateDecode/First 10/Le"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    57.357778,
+    21.544167
+   ],
+   "n": 83,
+   "some": [
+    [
+     "03",
+     57.353053,
+     21.537906
+    ],
+    [
+     "21",
+     57.362547,
+     21.550425
+    ],
+    [
+     "ADAXA",
+     56.297778,
+     18.898333
+    ],
+    [
+     "AMOLI",
+     57.105833,
+     25.254167
+    ],
+    [
+     "ASKOR",
+     56.382778,
+     22.612778
+    ]
+   ]
+  }
+ },
  "BIKF": {
   "cycle": "IS20261029",
   "eff": "2026-10-29",
@@ -12,8 +237,8 @@
   "charts": [
    "Airport diagram | Aerodrome Chart | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_Aerodrome_Chart.pdf",
    "Hot spots | Aerodrome Chart - CODE F Ground Movement | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_AD_CODEF_GMC.pdf",
-   "Hot spots | Aircraft Parking Parking/Docking Docking Chart – Terminal Aprons | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_TERM_APRON.pdf",
-   "Hot spots | Aircraft Parking Parking/Docking Docking Chart – East Apron | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_EAST_APRON.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – Terminal Aprons | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_TERM_APRON.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – East Apron | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_EAST_APRON.pdf",
    "Other | Precision Approach Terrain Chart – RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_01.pdf",
    "Other | Precision Approach Terrain Chart – RWY 10 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_10.pdf",
    "Other | Precision Approach Terrain Chart – RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_19.pdf",
@@ -74,18 +299,11 @@
   ],
   "pdf": [
    {
-    "i": 1,
-    "name": "Aerodrome Chart",
+    "i": 3,
+    "name": "Aircraft Parking/Docking Chart – Terminal Aprons",
     "status": 200,
-    "bytes": 468463,
+    "bytes": 450761,
     "head": "%PDF-1.7\n%����\n1 0 obj\n<<\n/Metadata 2 0 R\n/Names 3 0 R\n/Outl"
-   },
-   {
-    "i": 22,
-    "name": "RNP RWY 01",
-    "status": 200,
-    "bytes": 331626,
-    "head": "%PDF-1.7\r%����\r\n474 0 obj\r<</Linearized 1/L 331626/O 476/E 2"
    }
   ],
   "fixes": {
@@ -119,164 +337,6 @@
      "IKO",
      63.963139,
      -22.605444
-    ]
-   ]
-  }
- },
- "BIRK": {
-  "cycle": "IS20261029",
-  "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://eaip.isavia.is/A_10-2026_2026_10_29/",
-  "name": "REYKJAVÍK / REYKJAVIK",
-  "notFound": false,
-  "n": 19,
-  "charts": [
-   "Airport diagram | Aerodrome Chart | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_2/BIRK_2_Aerodrome_Chart.pdf",
-   "Hot spots | Intersection Take Off Chart | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_2/BIRK_2_Intersection_Take_Off.pdf",
-   "Arrivals | ICAO RNAV STAR RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_5/BIRK_5_RNAV_STAR_RWY_19.pdf",
-   "Procedure data | Waypoint coordinates / Route descriptions | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_5/BIRK_5_Coding_Route_table.pdf",
-   "Approaches | RNP RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_RNP_RWY_01.pdf",
-   "Approaches | RNP RWY 13 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_RNP_RWY_13.pdf",
-   "Approaches | LOC Z RWY 13 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_LOC_Z_RWY_13_A.pdf",
-   "Approaches | LOC Y RWY 13 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_LOC_Y_RWY_13.pdf",
-   "Approaches | NDB RWY 13 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_NDB_RWY_13.pdf",
-   "Approaches | RNP RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_RNP_RWY_19.pdf",
-   "Approaches | ILS or LOC Z RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_ILS_or_LOC_Z_RWY_19.pdf",
-   "Approaches | ILS or LOC Y RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_ILS_or_LOC_Y_RWY_19.pdf",
-   "Approaches | RNP RWY 31 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_6/BIRK_6_RNP_RWY_31.pdf",
-   "Other | VFR Routes | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_8/BIRK_8_VFR_Routes.pdf",
-   "Other | Reykjavik Inbound and Outbound VFR Routes chart for single engine aircraft - RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_8/BIRK_8_VFR_Routes_RWY_01.pdf",
-   "Other | Reykjavik Inbound and Outbound VFR Routes chart for single engine aircraft - RWY 13 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_8/BIRK_8_VFR_Routes_RWY_13.pdf",
-   "Other | Reykjavik Inbound and Outbound VFR Routes chart for single engine aircraft - RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_8/BIRK_8_VFR_Routes_RWY_19.pdf",
-   "Other | Reykjavik Inbound and Outbound VFR Routes chart for single engine aircraft - RWY 31 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIRK/PART_8/BIRK_8_VFR_Routes_RWY_31.pdf",
-   "Minimums | ATC Surveillance Minimum Altitude Chart - FAXI TMA | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF_&_BIRK/MVA/BIRK_8_MVA.pdf"
-  ],
-  "pdf": [
-   {
-    "i": 1,
-    "name": "Aerodrome Chart",
-    "status": 200,
-    "bytes": 327798,
-    "head": "%PDF-1.7\n%����\n1 0 obj\n<<\n/Metadata 2 0 R\n/Names 3 0 R\n/Outl"
-   }
-  ],
-  "fixes": {
-   "arp": [
-    64.131522,
-    -21.946167
-   ],
-   "n": 144,
-   "some": [
-    [
-     "IRE",
-     64.126944,
-     -21.929556
-    ],
-    [
-     "IRE",
-     64.126556,
-     -21.93
-    ],
-    [
-     "IRK",
-     64.120694,
-     -21.935944
-    ],
-    [
-     "IRK",
-     64.133611,
-     -21.940778
-    ],
-    [
-     "RK",
-     64.151472,
-     -22.028833
-    ]
-   ]
-  }
- },
- "BIAR": {
-  "cycle": "IS20261029",
-  "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://eaip.isavia.is/A_10-2026_2026_10_29/",
-  "name": "AKUREYRI / AKUREYRI",
-  "notFound": false,
-  "n": 27,
-  "charts": [
-   "Airport diagram | Aerodrome Chart | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_2/BIAR_2_Aerodrome_Chart.pdf",
-   "Procedure data | WAYPOINT COORDINATES | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_4/BIAR_4_RNAV_WPT.pdf",
-   "Arrivals | RNP STAR RWY 19 M | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_5/BIAR_5_RNP_STAR_RWY_19_M.pdf",
-   "Arrivals | RNP STAR RWY 19 N | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_5/BIAR_5_RNP_STAR_RWY_19_N.pdf",
-   "Procedure data | RNP STAR RWY 19 - Recommended Coding Tables | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_5/BIAR_5_RNP_STAR_RWY_19_Coding_tables.pdf",
-   "Approaches | ILS RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_ILS_RWY_01.pdf",
-   "Approaches | LOC RWY 01 CAT A and CAT B | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_LOC_RWY_01_CAT-A_AND_CAT-B.pdf",
-   "Approaches | LOC A RWY 01 CAT C and CAT D | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_LOC_RWY_01_CAT-C_AND_CAT-D.pdf",
-   "Approaches | RNP Y RWY 01 (AR) | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_RNP_Y_RWY01_AR.pdf",
-   "Approaches | RNP Z RWY 01 (AR) | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_RNP_Z_RWY01_AR.pdf",
-   "Approaches | ILS or LOC RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_ILS_or_LOC_RWY_19.pdf",
-   "Approaches | RNP X RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_RNP_X_RWY_19.pdf",
-   "Approaches | RNP Y RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_RNP_Y_RWY_19.pdf",
-   "Approaches | NDB RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_6/BIAR_6_NDB_RWY_19.pdf",
-   "Departures | ICAO RNP SID RWY 01 PERUR A ASKUR A | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_01_PERUR-A_ASKUR-A.pdf",
-   "Departures | ICAO RNP SID RWY 01 PERUR B ASKUR B | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_01_PERUR-B_ASKUR-B.pdf",
-   "Departures | ICAO RNP SID RWY 01 MAMEP A UTISU A | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_01_MAMEP-A_UTISU-A.pdf",
-   "Departures | ICAO RNP SID RWY 01 CUBAS F DORFA F JARRI F MAMEP F PERUR F | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_01_CUBAS_DORFA_JARRI_MAMEP_PERUR.pdf",
-   "Departures | ICAO SID RWY 01 AKI F | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_SID_RWY_01_AKI-F.pdf",
-   "Departures | ICAO RNP SID RWY 19 ASKUR C JARRI C | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_19_ASKUR_JARRI.pdf",
-   "Departures | ICAO RNP SID RWY 19 PERUR D ASKUR D JARRI D RETUR D | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_19_PERUR_ASKUR_JARRI_RETUR.pdf",
-   "Departures | ICAO SID RWY 19 ASKUR E JARRI E | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_SID_RWY_19_ASKUR_JARRI.pdf",
-   "Procedure data | RNP SID RWY 01 - Recommended Coding Tables | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_01_Coding_tables.pdf",
-   "Procedure data | RNP SID RWY 19 - Recommended Coding Tables | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_7/BIAR_7_RNP_SID_RWY_19_Coding_tables.pdf",
-   "Other | Lead-in lights RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_8/BIAR_8_LEAD_IN_LIGHTS_RWY_01.pdf",
-   "Other | Akureyri MILITARY TACAN RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_8/BIAR_8_MIL_TACAN_RWY_01.pdf",
-   "Other | Akureyri MILITARY TACAN RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIAR/PART_8/BIAR_8_MIL_TACAN_RWY_19.pdf"
-  ],
-  "pdf": [
-   {
-    "i": 1,
-    "name": "Aerodrome Chart",
-    "status": 200,
-    "bytes": 188105,
-    "head": "%PDF-1.7\n%����\n1 0 obj\n<<\n/Metadata 2 0 R\n/Names 3 0 R\n/Outl"
-   }
-  ],
-  "fixes": {
-   "arp": [
-    65.654961,
-    -18.074756
-   ],
-   "n": 157,
-   "some": [
-    [
-     "AKI",
-     65.759806,
-     -18.004111
-    ],
-    [
-     "AR",
-     65.755944,
-     -18.089611
-    ],
-    [
-     "HJ",
-     65.851667,
-     -18.191611
-    ],
-    [
-     "IAL",
-     65.669694,
-     -18.07125
-    ],
-    [
-     "IAL",
-     65.648444,
-     -18.068056
     ]
    ]
   }

@@ -256,9 +256,11 @@ async function editions(k, d) {
 }
 async function edition(k, d, t = Date.now()) {
   const all = await editions(k, d), today = new Date(t).toISOString().slice(0, 10);
-  const live = all.filter((e) => e.eff <= today), cur = live[live.length - 1];
+  /* some sites list only the coming edition once it is out (Estonia, Latvia; Portugal replaces its folder ahead of the
+     date): until that date it is the only one there is to read */
+  const live = all.filter((e) => e.eff <= today), cur = live[live.length - 1] || all[0];
   if (!cur) throw new EaError(502, `No ${EA[k].label} edition is in force yet`);
-  return { cur, next: all.find((e) => e.eff > today) || null, all };
+  return { cur, next: all.find((e) => e.eff > cur.eff) || null, all };
 }
 const cycleOf = (k, eff) => k + eff.replace(/-/g, '');
 /* an address made of names with spaces ("AIRAC AMDT 11-2026_2026_10_29/eAIP/EH-AD 2 EHAM 1-en-GB.html"), each part escaped once */

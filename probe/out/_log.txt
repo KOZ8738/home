@@ -1,2 +1,1 @@
-ba-lqsa	200	text/html	163669	https://eaip.bhansa.gov.ba/2026-10-01-AIRAC/html/eAIP/LQ-AD-2.LQSA-en-GB.html
-pt-lppt	200	text/html	315581	https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/eAIP/LP-AD-2.LPPT-en-PT.html
+

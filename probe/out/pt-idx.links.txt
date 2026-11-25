@@ -1,0 +1,7 @@
+menu.js
+amendments.js
+commands.js
+commands-en-PT.html
+eAIP/LP-menu-en-PT.html
+LP-cover-en-PT.html
+https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092

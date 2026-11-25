@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>AIP Online</title>
+    <link href="/lib/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/basicIFR/css/basicAIP.css" rel="stylesheet">
+	<link rel="icon" type="image/png" href="/basicIFR/img/DFSIcon.png">												 
+	<script defer src="/lib/fontawesome/5.0.0/svg-with-js/js/fontawesome-all.min.js"></script>
+	<script>
+
+	var lang = localStorage.getItem('uiLanguage');
+	 window.onload = function () {
+		if (lang != 'de' && lang != 'en' ) lang = 'de';	
+		setLanguage(lang);	
+		document.body.style.visibility = "visible"; // Licht an 						   
+	}
+	
+	function setLanguage(newLang) {
+		localStorage.setItem('uiLanguage',newLang);
+		if (document.body.className != newLang)
+				document.body.className = newLang;	
+	}	
+	
+	window.onscroll = function() {
+			mybutton = document.getElementById("back-to-top");
+			  if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+				mybutton.style.display = "block";
+			  } else {
+				mybutton.style.display = "none";
+			  }
+			};
+
+	function topFunction() {
+	  document.body.scrollTop = 0;
+	  document.documentElement.scrollTop = 0;
+	}	
+	
+
+	</script>
+</head>
+<body class="de" style="visibility:hidden;">
+	<header class="bg-white sticky-top">
+        <div class="row g-0">
+            <div class="col float-start">
+            </div>
+            <div class="col-auto float-end">
+                <img class="logo" src="/basicIFR/img/DFS_Logo.svg"/>
+            </div>
+        </div>
+		
+		<div class="row align-items-center g-0">
+			<div class="col float-start">
+				<div class="breadcrumb"></div>
+			</div>
+			<div class="col-auto float-end">
+			</div>
+        </div>
+		<div class="headline">
+			<div class="container">
+			<div class="headlineText left"><span lang="en">Aeronautical Information Publication Germany</span><span lang="de">Luftfahrthandbuch Deutschland</span></div>
+			</div>
+		</div>
+
+
+	</header>
+	<main role="main" class="container">
+	<ul>
+		
+		<li class="folder-item"><a class="folder-link" href="/basicIFR">
+		<span lang="de" class="folder-name">AIP IFR Online</span>
+		<span lang="en" class="folder-name">AIP IFR Online</span>
+		<span class="folder-arrow">&raquo;</span></a></li>
+
+
+		<li class="folder-item"><a class="folder-link" href="/basicVFR">
+		<span lang="de" class="folder-name">AIP VFR Online</span>
+		<span lang="en" class="folder-name">AIP VFR Online</span>
+		<span class="folder-arrow">&raquo;</span></a></li>
+		
+		<li class="folder-item"><a class="folder-link" href="/datasets">
+		<span lang="de" class="folder-name">Digitale Datensätze (AIXM 5.1)</span>
+		<span lang="en" class="folder-name">Digital Datasets (AIXM 5.1)</span>
+		<span class="folder-arrow">&raquo;</span></a></li>				
+		
+		<li class="folder-item"><a class="folder-link" href="/MilAIP">
+		<span lang="de" class="folder-name">Militärische Luftfahrtdaten (MilAIP)</span>
+		<span lang="en" class="folder-name">Military Aeronautical Data (MilAIP)</span>
+		<span class="folder-arrow">&raquo;</span></a></li>
+		
+		<li class="folder-item"><a class="folder-link" href="https://nfl.dfs.de/basic">
+		<span lang="de" class="folder-name">Nachrichten für Luftfahrer (NfL basic)</span>
+		<span lang="en" class="folder-name">Nachrichten für Luftfahrer (NfL basic)</span>
+		<span class="folder-arrow">&raquo;</span></a></li>		
+		
+		
+	</ul>		
+	<p/><p>
+	<span lang="de">	
+	Bitte beachten Sie die <a href="https://ais.dfs.de/pilotservice/service/information/disclaimer/disclaimer.jsp" title="Disclamer" target="_blank">
+	Nutzungsbedingungen und den Haftungsausschluss</a> dieser Veröffentlichungen.
+	</span>
+	<span lang="en">	
+	Please attend to the <a href="https://ais.dfs.de/pilotservice/service/information/disclaimer/disclaimer.jsp" title="Disclamer" target="_blank">
+	Terms of Use and Disclaimer</a> for these publications.	
+	</span>	
+	<p>
+	
+	</main>
+
+    <footer class="footer">
+		<div class="container align-items-center">
+			<div class="row g-0">
+				<div class="col float-start">
+				&copy; DFS Deutsche Flugsicherung GmbH
+				</div>	
+				<div class="col-auto float-end">
+				  <span lang="en">
+					<a href="https://www.dfs.de/:id/dbd8cfcb-64b4-4867-abb0-ba9f5c06dbf4" title="Legal Notice" target="_blank">Legal Notice</a>&nbsp;
+					<a href="https://ais.dfs.de/pilotservice/service/information/disclaimer/disclaimer.jsp" title="Disclamer" target="_blank">Disclamer</a>&nbsp;				
+					<a href="https://www.dfs.de/:id/827a614a-991f-4cc0-a216-7d93b2d2a266" title="Privacy Policy" target="_blank">Privacy Policy</a>
+				  </span>
+				  <span lang="de">
+					<a href="https://www.dfs.de/:id/dbd8cfcb-64b4-4867-abb0-ba9f5c06dbf3" title="Impressum" target="_blank">Impressum</a>&nbsp;
+					<a href="https://ais.dfs.de/pilotservice/service/information/disclaimer/disclaimer.jsp" title="Disclamer" target="_blank">Disclamer</a>&nbsp;					
+					<a href="https://www.dfs.de/:id/827a614a-991f-4cc0-a216-7d93b2d2a265" title="Datenschutz" target="_blank">Datenschutz</a>
+				  </span>
+				  &nbsp;&nbsp;
+				  <img class="imgButton" onclick="setLanguage('de')" src="/basicIFR/img/de.png"/>
+				  &nbsp;
+				  <img class="imgButton" lang="de" onclick="setLanguage('en')" src="/basicIFR/img/en.png"/>
+				</div>		  
+			</div>				
+	    </div>
+    </footer>
+
+  <a id="back-to-top" href="javascript:topFunction()" class="btn btn-light btn-md back-to-top" role="button"><i class="fas fa-chevron-up"></i></a>
+  <script src="/lib/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

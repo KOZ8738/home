@@ -1,11 +1,30 @@
-ais-online	200	text/html; charset=utf-8	214272	https://www.eurocontrol.int/articles/ais-online
-hu-root	200	text/html; charset=UTF-8	107212	https://ais-en.hungarocontrol.hu/aip/
-hr-aim	200	text/html; charset=UTF-8	97037	https://www.crocontrol.hr/en/services/aeronautical-information-management/
-si-hist	ERR	fetch failed		https://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
-cz-idx	200	text/html; charset=UTF-8	850	https://aim.rlp.cz/eaip/html/index-en-GB.html
-cz-lkpr	200	text/html; charset=UTF-8	978321	https://aim.rlp.cz/eaip/html/eAIP/LK-AD-2.LKPR-en-GB.html
-be-idx	200	text/html; charset=UTF-8	1497	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html
-be-ebbr	200	text/html; charset=UTF-8	1926978	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/eAIP/EB-AD-2.EBBR-en-GB.html
-fr-eaip	200	text/html; charset=UTF-8	80666	https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html
-pl-aip	200	text/html; charset=UTF-8	54150	https://ais.pansa.pl/en/publications/aip-poland/
-at-root	200	text/html	9375	https://eaip.austrocontrol.at/
+cz-cover	200	text/html; charset=UTF-8	2803	https://aim.rlp.cz/eaip/html/LK-cover-en-GB.html
+cz-menu	200	text/html; charset=UTF-8	138580	https://aim.rlp.cz/eaip/html/eAIP/LK-menu-en-GB.html
+cz-toc	200	text/html; charset=UTF-8	781	https://aim.rlp.cz/eaip/html/toc-frameset-en-GB.html
+be-cover	200	text/html; charset=UTF-8	4057	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/EB-cover-en-GB.html
+be-menu	200	text/html; charset=UTF-8	1226262	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/eAIP/EB-menu-en-GB.html
+be-next	200	text/html; charset=UTF-8	4234	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Next/html/EB-cover-en-GB.html
+hu-idx	200	text/html; charset=utf-8	1185	https://ais-en.hungarocontrol.hu/aip/2026-09-03/
+hu-lhbp	200	text/html; charset=utf-8	512223	https://ais-en.hungarocontrol.hu/aip/2026-09-03/2026-09-03-AIRAC/html/eAIP/LH-AD-2.LHBP-en-HU.html
+hu-menu	200	text/html; charset=utf-8	106622	https://ais-en.hungarocontrol.hu/aip/2026-09-03/2026-09-03-AIRAC/html/eAIP/LH-menu-en-HU.html
+pl-off	200	text/html	3569	https://docs.pansa.pl/ais/eaipifr/default_offline_2026-10-29.html
+pl-home	404	text/html	321	https://docs.pansa.pl/ais/eaipifr/
+at-idx	200	text/html	3376	https://eaip.austrocontrol.at/lo/261030/index.htm
+at-ad2	200	text/html	12420	https://eaip.austrocontrol.at/lo/261030/ad_2.htm
+fr-zip	200	text/html; charset=UTF-8	63876	https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip/zip-eaip-complet-airac-11-26.html
+fr-lfpg	200	text/html; charset=UTF-8	2186639	https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_29_OCT_2026/FRANCE/AIRAC-2026-10-29/html/eAIP/FR-AD-2.LFPG-fr-FR.html
+hr-guess	404	text/html; charset=UTF-8	82553	https://www.crocontrol.hr/UserDocsImages/AIS%20produkti/eAIP/2026-10-29-AIRAC/html/index-en-HR.html
+ba-root	200	text/html	2247	https://eaip.bhansa.gov.ba/
+bg-ais	200	text/html; charset=UTF-8	229711	https://www.bulatsa.com/en/services/aeronautical-information-services/
+rs-start	200	text/html	2208	https://smatsa.rs/upload/aip/published/start_page.html
+sk-web	200	text/html; charset=windows-1250	22023	https://aim.lps.sk/web/
+si-prod	ERR	fetch failed		https://aim.sloveniacontrol.si/aim/products/
+ro-root	200	text/html; charset=UTF-8	848	https://www.aisro.ro/
+pt-root	200	text/html; charset=UTF-8	89872	https://ais.nav.pt/
+gr-root	403	text/html	375	https://aisgr.hasp.gov.gr/
+mk-idx	200	text/html	1030	https://ais.m-nav.info/eAIP/current/en/index.htm
+de-basic	200	text/html	5683	https://aip.dfs.de/basicAIP/
+mt-aim	404	text/html; charset=UTF-8	548	https://www.maltats.com/aim/
+al-aip	200	text/html; charset=UTF-8	269270	https://www.albcontrol.al/aip/
+md-aim	403	text/html; charset=UTF-8	5778	https://aim.moldatsa.md/
+ge-ais	200	text/html; charset=UTF-8	177511	https://ais.airnav.ge/en/saaernaosno-informatsiis-samsakhuri

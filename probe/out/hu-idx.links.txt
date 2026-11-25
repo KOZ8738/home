@@ -1,0 +1,6 @@
+menu.js
+amendments.js
+commands.js
+2026-09-03-AIRAC/html/commands-en-HU.html
+2026-09-03-AIRAC/html/eAIP/LH-menu-en-HU.html
+2026-09-03-AIRAC/html/LH-cover-en-HU.html

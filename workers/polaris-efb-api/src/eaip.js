@@ -78,6 +78,11 @@ export const EA = {
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})-AIRAC)\/html\/index-(?:no-NO|en-GB)\.html/g)].map((m) => ({ eff: m[2], pub: m[2], base: new URL(m[1] + '/', at).href, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EN-ENR-${n}-en-GB.html`,
   },
+  EE: {
+    country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
+    eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
+    page: (i) => `html/eAIP/EE-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EE-ENR-${n}-en-GB.html`,
+  },
   KR: {
     country: 'South Korea', pre: 'RKxx', test: 'RKSI', kind: 'kr', apt: /^RK[A-Z]{2}$/, label: 'AIP Korea', host: 'KOCA AIM', site: 'https://aim.koca.go.kr/',
     /* the history page lists every edition; a chart's own PDF is an absolute address at the package where it was last amended */

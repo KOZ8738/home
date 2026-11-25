@@ -1,333 +1,866 @@
 {
- "EIDW": {
-  "cycle": "IE20261029",
+ "LKPR": {
+  "cycle": "CZ20261029",
   "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
-  "name": "DUBLIN INTERNATIONAL",
+  "next": null,
+  "aip": "https://aim.rlp.cz/eaip/html/index-en-GB.html",
+  "name": "PRAHA/Ruzyně",
   "notFound": false,
-  "n": 43,
+  "n": 33,
   "charts": [
-   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-1_en.pdf",
-   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-2_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 10R/28L | graphics/eAIP/EI_AD_2_EIDW_24-3_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 10L/28R | graphics/eAIP/EI_AD_2_EIDW_24-4_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 16/34 | graphics/eAIP/EI_AD_2_EIDW_24-5_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-6_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 28R | graphics/eAIP/EI_AD_2_EIDW_24-7_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-8_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-9_en.pdf",
-   "Departures | RNAV RWY 28L CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-10.1_en.pdf",
-   "Departures | RNAV RWY 28L CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-11.1_en.pdf",
-   "Departures | RNAV RWY 28R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-12_en.pdf",
-   "Departures | RNAV RWY 28R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-13.1_en.pdf",
-   "Departures | RNAV RWY 10L CAT A,B | graphics/eAIP/EI_AD_2_EIDW_24-14.1_en.pdf",
-   "Departures | RNAV RWY 10L CAT C,D | graphics/eAIP/EI_AD_2_EIDW_24-15_en.pdf",
-   "Departures | RNAV RWY 10R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-16.1_en.pdf",
-   "Departures | RNAV RWY 10R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-17.1_en.pdf",
-   "Departures | RNAV RWY 16 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-18.1_en.pdf",
-   "Departures | RNAV RWY 16 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-19.1_en.pdf",
-   "Departures | RNAV RWY 34 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-20.1_en.pdf",
-   "Departures | RNAV RWY 34 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-21.1_en.pdf",
-   "Arrivals | RNAV RWY 28L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-22.1_en.pdf",
-   "Arrivals | RNAV RWY 10L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-23.1_en.pdf",
-   "Arrivals | RNAV RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-24.1_en.pdf",
-   "Arrivals | RNAV RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-25.1_en.pdf",
-   "Approaches | RNP RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-26.1_en.pdf",
-   "Approaches | ILS CAT I + II or LOC RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-27.1_en.pdf",
-   "Approaches | VOR RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-28.1_en.pdf",
-   "Approaches | RNP RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-29.1_en.pdf",
-   "Approaches | ILS CAT I and II or LOC RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-30.1_en.pdf",
-   "Approaches | RNP RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-32.1_en.pdf",
-   "Approaches | ILS CAT I + II or LOC RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-33.1_en.pdf",
-   "Approaches | RNP RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-35.1_en.pdf",
-   "Approaches | ILS CAT I + II or LOC RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-36.1_en.pdf",
-   "Approaches | VOR RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-37.1_en.pdf",
-   "Approaches | RNP RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-38_en.pdf",
-   "Approaches | ILS CAT I or LOC RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-39.1_en.pdf",
-   "Approaches | VOR RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-40.1_en.pdf",
-   "Approaches | RNP RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-41_en.pdf",
-   "Approaches | VOR RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-42.1_en.pdf",
-   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/EI_AD_2_EIDW_24-43.1_en.pdf",
-   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EIDW_24-44_en.pdf",
-   "Approaches | RNP T RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-46_en.pdf"
+   "Airport diagram | Aerodrome chart | graphics/a2-pr-adc.pdf",
+   "Hot spots | Taxi Routes for A340-600, A350-1000, A380, AN124, B747-8, B777-300/300ER, C5 | graphics/a2-pr-trca.pdf",
+   "Hot spots | Aircraft Parking / Docking Chart | graphics/a2-pr-pdc1.pdf",
+   "Hot spots | Parking Stands and Taxiing on Apron South | graphics/a2-pr-pdc5.pdf",
+   "Hot spots | Parking Stands and Taxiing on Apron East | graphics/a2-pr-pdc7.pdf",
+   "Hot spots | Parking Stands and Taxiing on Apron of Bell Helicopter | graphics/a2-pr-pdc9.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A RWY 24 | graphics/a2-pr-aoc24.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A RWY 30 | graphics/a2-pr-aoc30.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A RWY 12 | graphics/a2-pr-aoc12.pdf",
+   "Other | Precision Approach Terrain Chart – RWY 24 | graphics/a2-pr-patc24.pdf",
+   "Other | Precision Approach Terrain Chart – RWY 30 | graphics/a2-pr-patc30.pdf",
+   "Departures | RNAV SID RWY 24 | graphics/a2-pr-sid24n.pdf",
+   "Departures | RNAV SID RWY 30 | graphics/a2-pr-sid30n.pdf",
+   "Departures | RNAV SID RWY 06 | graphics/a2-pr-sid06n.pdf",
+   "Departures | RNAV SID RWY 12 | graphics/a2-pr-sid12n.pdf",
+   "Departures | Omnidirectional and visual departures chart | graphics/a2-pr-omnv.pdf",
+   "Arrivals | RNAV STAR RWY 24 | graphics/a2-pr-star24n.pdf",
+   "Arrivals | RNAV STAR RWY 30 | graphics/a2-pr-star30n.pdf",
+   "Arrivals | RNAV STAR RWY 06 | graphics/a2-pr-star06n.pdf",
+   "Arrivals | RNAV STAR RWY 12 | graphics/a2-pr-star12n.pdf",
+   "Approaches | ILS RWY 24 | graphics/a2-pr-ils24.pdf",
+   "Approaches | RNP RWY 24 | graphics/a2-pr-rnp24.pdf",
+   "Approaches | ILS RWY 30 | graphics/a2-pr-ils30.pdf",
+   "Approaches | RNP RWY 30 | graphics/a2-pr-rnp30.pdf",
+   "Approaches | VOR RWY 30 | graphics/a2-pr-vor30.pdf",
+   "Approaches | ILS RWY 06 | graphics/a2-pr-ils06.pdf",
+   "Approaches | RNP RWY 06 | graphics/a2-pr-rnp06.pdf",
+   "Approaches | ILS RWY 12 | graphics/a2-pr-ils12.pdf",
+   "Approaches | RNP RWY 12 | graphics/a2-pr-rnp12.pdf",
+   "Approaches | VOR RWY 12 | graphics/a2-pr-vor12.pdf",
+   "Departures | VFR Arrivals and Departures Chart | graphics/a2-pr-vfrc.pdf",
+   "Other | Bird Hazard Concentration Areas | graphics/a2-pr-bird.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart within CTA1 Praha, CTR Ruzyně and TMA Praha | graphics/a2-pr-asma.pdf"
   ],
   "pdf": [
    {
     "i": 1,
-    "name": "Aerodrome Chart",
+    "name": "Aerodrome chart",
     "status": 200,
-    "bytes": 799316,
-    "head": "%PDF-1.7\n%ޭ��\n3 0 obj\n<<  /Length 3350 /Filter /FlateDecode"
+    "bytes": 5763128,
+    "head": "%PDF-1.7\r\n%����\r\n4 0 obj\r\n<<\r\n/Type /Page\r\n/Parent 2 0 R\r\n/C"
    },
    {
-    "i": 27,
-    "name": "ILS CAT I + II or LOC RWY 28L",
+    "i": 21,
+    "name": "ILS RWY 24",
     "status": 200,
-    "bytes": 452244,
-    "head": "%PDF-1.6\r%����\r\n681 0 obj\r<</Linearized 1/L 452244/O 683/E 2"
+    "bytes": 905427,
+    "head": "%PDF-1.7\r%����\r\n7 0 obj\r<</Linearized 1/L 905427/O 9/E 90103"
    }
   ],
   "fixes": {
    "arp": [
-    53.421389,
-    -6.27
+    50.100833,
+    14.26
    ],
-   "n": 131,
-   "some": [
-    [
-     "10R",
-     53.422431,
-     -6.290075
-    ],
-    [
-     "28L",
-     53.420261,
-     -6.250578
-    ],
-    [
-     "10L",
-     53.437164,
-     -6.280617
-    ],
-    [
-     "28R",
-     53.435203,
-     -6.244964
-    ],
-    [
-     "16",
-     53.436989,
-     -6.261978
-    ]
-   ]
-  }
- },
- "EINN": {
-  "cycle": "IE20261029",
-  "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
-  "name": "SHANNON",
-  "notFound": false,
-  "n": 14,
-  "charts": [
-   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EINN_24_1_en.pdf",
-   "Hot spots | Aircraft Parking/Docking Chart | graphics/eAIP/EI_AD_2_EINN_24-2_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 24 | graphics/eAIP/EI_AD_2_EINN_24-3_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 06/24 – TYPE A | graphics/eAIP/EI_AD_2_EINN_24-4_en.pdf",
-   "Departures | RNAV RWY 06 | graphics/eAIP/EI_AD_2_EINN_24-5_en.pdf",
-   "Departures | RNAV RWY 24 | graphics/eAIP/EI_AD_2_EINN_24-6_en.pdf",
-   "Arrivals | RNAV RWY 06 | graphics/eAIP/EI_AD_2_EINN_24-7_en.pdf",
-   "Arrivals | RNAV RWY 24 | graphics/eAIP/EI_AD_2_EINN_24-8_en.pdf",
-   "Approaches | ILS or LOC RWY 06 | graphics/eAIP/EI_AD_2_EINN_24-10_en.pdf",
-   "Approaches | VOR RWY 06 | graphics/eAIP/EI_AD_2_EINN_24-11_en.pdf",
-   "Approaches | ILS CAT I + II or LOC 24 | graphics/eAIP/EI_AD_2_EINN_24-13_en.pdf",
-   "Approaches | VOR RWY 24 | graphics/eAIP/EI_AD_2_EINN_24-14_en.pdf",
-   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EINN_24-15_en.pdf",
-   "Minimums | ATC Surveillance Minimum Chart | graphics/eAIP/EI_AD_2_EINN_24-16_en.pdf"
-  ],
-  "pdf": [
-   {
-    "i": 1,
-    "name": "Aerodrome Chart",
-    "status": 200,
-    "bytes": 147751,
-    "head": "%PDF-1.6\r%����\r\n10 0 obj\r<</Linearized 1/L 147751/O 12/E 143"
-   }
-  ],
-  "fixes": {
-   "arp": [
-    52.701944,
-    -8.924722
-   ],
-   "n": 132,
+   "n": 225,
    "some": [
     [
      "06",
-     52.693172,
-     -8.943519
+     50.101836,
+     14.2263
     ],
     [
      "24",
-     52.710008,
-     -8.907742
+     50.11595,
+     14.273367
     ],
     [
-     "SHA",
-     52.721,
-     -8.885222
+     "12",
+     50.108011,
+     14.245367
     ],
     [
-     "FOY",
-     52.56625,
-     -9.195417
+     "30",
+     50.090467,
+     14.281672
     ],
     [
-     "ISE",
-     52.712583,
-     -8.902278
+     "OKL",
+     50.095867,
+     14.265608
     ]
    ]
   }
  },
- "EICK": {
-  "cycle": "IE20261029",
+ "LKTB": {
+  "cycle": "CZ20261029",
   "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
-  "name": "CORK",
+  "next": null,
+  "aip": "https://aim.rlp.cz/eaip/html/index-en-GB.html",
+  "name": "BRNO/Tuřany",
   "notFound": false,
-  "n": 29,
+  "n": 17,
   "charts": [
-   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EICK_24-1_en.pdf",
-   "Hot spots | Aircraft Parking/Docking Chart | graphics/eAIP/EI_AD_2_EICK_24-2_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 07/25 – TYPE A | graphics/eAIP/EI_AD_2_EICK_24-3_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY 16/34 – TYPE A | graphics/eAIP/EI_AD_2_EICK_24-4_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY 16 | graphics/eAIP/EI_AD_2_EICK_24-5_en.pdf",
-   "Departures | RNAV (GNSS) RWY16 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-6_en.pdf",
-   "Departures | RNAV (GNSS) RWY16 Cat C,D | graphics/eAIP/EI_AD_2_EICK_24-7_en.pdf",
-   "Departures | RNAV (GNSS) RWY34 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-8_en.pdf",
-   "Departures | RNAV (GNSS) RWY34 Cat C,D | graphics/eAIP/EI_AD_2_EICK_24-9_en.pdf",
-   "Departures | RNAV (GNSS) RWY07 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-10_en.pdf",
-   "Departures | RNAV (GNSS) RWY07 Cat C,D | graphics/eAIP/EI_AD_2_EICK_24-11_en.pdf",
-   "Departures | RNAV (GNSS) RWY25 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-12_en.pdf",
-   "Departures | RNAV (GNSS) RWY25 Cat C,D | graphics/eAIP/EI_AD_2_EICK_24-13_en.pdf",
-   "Arrivals | RNAV (GNSS) RWY16 | graphics/eAIP/EI_AD_2_EICK_24-14_en.pdf",
-   "Arrivals | RNAV (GNSS) RWY34 | graphics/eAIP/EI_AD_2_EICK_24-15_en.pdf",
-   "Arrivals | RNAV (GNSS) RWY07 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-16_en.pdf",
-   "Arrivals | RNAV (GNSS) RWY25 Cat A,B | graphics/eAIP/EI_AD_2_EICK_24-17_en.pdf",
-   "Approaches | RNP RWY16 | graphics/eAIP/EI_AD_2_EICK_24-18_en.pdf",
-   "Approaches | ILS Cat I + II or LOC RWY16 | graphics/eAIP/EI_AD_2_EICK_24-19.1_en.pdf",
-   "Approaches | VOR RWY16 | graphics/eAIP/EI_AD_2_EICK_24-20_en.pdf",
-   "Approaches | RNP RWY34 | graphics/eAIP/EI_AD_2_EICK_24-21_en.pdf",
-   "Approaches | ILS CAT I or LOC RWY34 | graphics/eAIP/EI_AD_2_EICK_24-22_en.pdf",
-   "Approaches | VOR RWY 34 | graphics/eAIP/EI_AD_2_EICK_24-23_en.pdf",
-   "Approaches | RNP RWY07 | graphics/eAIP/EI_AD_2_EICK_24-24_en.pdf",
-   "Approaches | VOR RWY 07 | graphics/eAIP/EI_AD_2_EICK_24-25.1_en.pdf",
-   "Approaches | RNP RWY25 (LNAV Only) | graphics/eAIP/EI_AD_2_EICK_24-26_en.pdf",
-   "Approaches | VOR RWY 25 | graphics/eAIP/EI_AD_2_EICK_24-27.1_en.pdf",
-   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EICK_24-28_en.pdf",
-   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/EI_AD_2_EICK_24-29_en.pdf"
+   "Airport diagram | Aerodrome chart | graphics/a2-tb-adc.pdf",
+   "Hot spots | Taxi Routes for Critical Aircraft Types | graphics/a2-tb-trca.pdf",
+   "Hot spots | Parking Stands and Taxiing on Apron MIDDLE BRNO/Tuřany | graphics/a2-tb-pdc1.pdf",
+   "Hot spots | General Aviation Stands and Taxiing on Apron WEST BRNO/Tuřany | graphics/a2-tb-pdc3.pdf",
+   "Departures | RNAV SID RWY 27 | graphics/a2-tb-sid27n.pdf",
+   "Departures | RNAV SID RWY 09 | graphics/a2-tb-sid09n.pdf",
+   "Departures | Omnidirectional departures chart | graphics/a2-tb-omni.pdf",
+   "Arrivals | RNAV STAR RWY 27 | graphics/a2-tb-star27n.pdf",
+   "Arrivals | RNAV STAR RWY 09 | graphics/a2-tb-star09n.pdf",
+   "Approaches | ILS RWY 27 | graphics/a2-tb-ils27.pdf",
+   "Approaches | RNP RWY 27 | graphics/a2-tb-rnp27.pdf",
+   "Approaches | VOR RWY 27 | graphics/a2-tb-vor27.pdf",
+   "Approaches | RNP RWY 09 | graphics/a2-tb-rnp09.pdf",
+   "Approaches | VOR RWY 09 | graphics/a2-tb-vor09.pdf",
+   "Departures | VFR Arrivals and Departures Chart | graphics/a2-tb-vfrc.pdf",
+   "Other | Bird Hazard Concentration Areas | graphics/a2-tb-bird.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart within CTR Tuřany and TMA Brno and part of CTA 2 Praha | graphics/a2-tb-asma.pdf"
   ],
   "pdf": [
    {
     "i": 1,
-    "name": "Aerodrome Chart",
+    "name": "Aerodrome chart",
     "status": 200,
-    "bytes": 183391,
-    "head": "%PDF-1.6\r%����\r\n7 0 obj\r<</Linearized 1/L 183391/O 9/E 17929"
+    "bytes": 2338271,
+    "head": "%PDF-1.6\r%����\r\n42 0 obj\r<</Linearized 1/L 2338271/O 44/E 21"
    }
   ],
   "fixes": {
    "arp": [
-    51.841389,
-    -8.491111
+    49.151389,
+    16.693889
    ],
-   "n": 127,
+   "n": 162,
    "some": [
     [
-     "16",
-     51.850269,
-     -8.496439
+     "09",
+     49.152869,
+     16.675864
     ],
     [
-     "34",
-     51.832267,
-     -8.485789
+     "27",
+     49.149756,
+     16.711894
     ],
-    [
-     "07",
-     51.841606,
-     -8.495997
-    ],
-    [
-     "25",
-     51.847019,
-     -8.479122
-    ],
-    [
-     "CRK",
-     51.840608,
-     -8.494269
-    ]
-   ]
-  }
- },
- "EIKN": {
-  "cycle": "IE20261029",
-  "eff": "2026-10-29",
-  "next": {
-   "eff": "2026-11-26"
-  },
-  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
-  "name": "IRELAND WEST",
-  "notFound": false,
-  "n": 16,
-  "charts": [
-   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIKN_24-1_en.pdf",
-   "Other | Aerodrome Obstacle Chart RWY08/26 – TYPE A | graphics/eAIP/EI_AD_2_EIKN_24-2_en.pdf",
-   "Other | Precision Approach Terrain Chart RWY26 | graphics/eAIP/EI_AD_2_EIKN_24-3_en.pdf",
-   "Departures | RNAV RWY26 | graphics/eAIP/EI_AD_2_EIKN_24-4_en.pdf",
-   "Departures | RNAV RWY 08 | graphics/eAIP/EI_AD_2_EIKN_24-5_en.pdf",
-   "Arrivals | RNAV RWY 26 | graphics/eAIP/EI_AD_2_EIKN_24-6_en.pdf",
-   "Arrivals | RNAV RWY 08 | graphics/eAIP/EI_AD_2_EIKN_24-7_en.pdf",
-   "Approaches | RNP RWY 26 CAT A, B, C, D | graphics/eAIP/EI_AD_2_EIKN_24-8_en.pdf",
-   "Approaches | ILS Z CAT I & II or LOC RWY 26 | graphics/eAIP/EI_AD_2_EIKN_24-9_en.pdf",
-   "Approaches | ILS Y CAT I & II or LOC RWY 26 | graphics/eAIP/EI_AD_2_EIKN_24-10_en.pdf",
-   "Approaches | VOR RWY 26 | graphics/eAIP/EI_AD_2_EIKN_24-11_en.pdf",
-   "Approaches | NDB RWY 26 | graphics/eAIP/EI_AD_2_EIKN_24-12_en.pdf",
-   "Approaches | RNP RWY 08 | graphics/eAIP/EI_AD_2_EIKN_24-13_en.pdf",
-   "Approaches | NDB RWY 08 | graphics/eAIP/EI_AD_2_EIKN_24-14_en.pdf",
-   "Approaches | VOR RWY08 | graphics/eAIP/EI_AD_2_EIKN_24-15_en.pdf",
-   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EIKN_24-16_en.pdf"
-  ],
-  "pdf": [
-   {
-    "i": 1,
-    "name": "Aerodrome Chart",
-    "status": 200,
-    "bytes": 557034,
-    "head": "%PDF-1.7\r%����\r\n7 0 obj\r<</Linearized 1/L 557034/O 9/E 55294"
-   }
-  ],
-  "fixes": {
-   "arp": [
-    53.910278,
-    -8.818611
-   ],
-   "n": 124,
-   "some": [
     [
      "08",
-     53.908544,
-     -8.833369
+     49.1513,
+     16.685653
     ],
     [
      "26",
-     53.912314,
-     -8.801328
+     49.150358,
+     16.696544
     ],
     [
-     "CON",
-     53.908028,
-     -8.820111
+     "BNO",
+     49.150064,
+     16.692581
+    ]
+   ]
+  }
+ },
+ "EBBR": {
+  "cycle": "BE20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+  "name": "BRUSSELS / Brussels-National",
+  "notFound": false,
+  "n": 60,
+  "charts": [
+   "Airport diagram | Aerodrome Chart – ADC.01 | graphics/eAIP/EBBR_ADC01_v66.pdf",
+   "Airport diagram | Aerodrome Chart - ICAO: Appendix 1: Runway Marking Aids | graphics/eAIP/EBBR_ADC02_v26.pdf",
+   "Airport diagram | Aerodrome Chart - ICAO. Appendix 2: Runway Lighting Aids | graphics/eAIP/EBBR_ADC03_v08.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart – GMC.01 | graphics/eAIP/EBBR_GMC01_v74.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways, Aircraft Stand Taxi Lanes and Holding Platforms (a) | graphics/eAIP/EBBR_GMC02a_v35.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways, Aircraft Stand Taxi Lanes and Holding Platforms (b) | graphics/eAIP/EBBR_GMC02b_v49.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways, Aircraft Stand Taxi Lanes and Holding Platforms (c) | graphics/eAIP/EBBR_GMC02c_v43.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways, Aircraft Stand Taxi Lanes and Holding Platforms (d) | graphics/eAIP/EBBR_GMC02d_v09.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways, Aircraft Stand Taxi Lanes and Holding Platforms (e) | graphics/eAIP/EBBR_GMC02e_v01.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 2: Ground Movement Responsibilities | graphics/eAIP/EBBR_GMC03_v23.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 3: Low Visibility Procedures | graphics/eAIP/EBBR_GMC04_v30.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 4: Hot Spots | graphics/eAIP/EBBR_GMC05_v13.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 5: A380 Ground Movements | graphics/eAIP/EBBR_GMC06a_v28.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 6: B747-8/-8F Ground Movements | graphics/eAIP/EBBR_GMC06b_v31.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 7: De-icing | graphics/eAIP/EBBR_GMC07_v20.pdf",
+   "Hot spots | Aircraft Parking Docking Chart – APDC.01 | graphics/eAIP/EBBR_APDC01_v93.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Apron 9 | graphics/eAIP/EBBR_APDC02_v34.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: General Aviation – APDC.03 | graphics/eAIP/EBBR_APDC03_v27.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Mil Apron – APDC.04 | graphics/eAIP/EBBR_APDC04_v13.pdf",
+   "Other | Aerodrome Obstacle Chart. Type A (Operating Limitations): RWY 01/19 | graphics/eAIP/EBBR_AOC01_v13.pdf",
+   "Other | Aerodrome Obstacle Chart. Type A (Operating Limitations): RWY 07L/25R | graphics/eAIP/EBBR_AOC02_v12.pdf",
+   "Other | Aerodrome Obstacle Chart. Type A (Operating Limitations): RWY 07R/25L | graphics/eAIP/EBBR_AOC03_v12.pdf",
+   "Other | Precision Approach Terrain Chart - ICAO: RWY 25L | graphics/eAIP/EBBR_PATC01_v03.pdf",
+   "Other | Precision Approach Terrain Chart - ICAO: RWY 25R | graphics/eAIP/EBBR_PATC02_v03.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart – ATCSMAC.01 | graphics/eAIP/EBBR_ATCSMAC01_v13.pdf",
+   "Arrivals | STAR.01 | graphics/eAIP/EBBR_STAR01_v31.pdf",
+   "Arrivals | RNAV TRANSITION (E) TO RWY 01 | graphics/eAIP/EBBR_STAR02_v20.pdf",
+   "Arrivals | RNAV TRANSITION (F) TO RWY 19 | graphics/eAIP/EBBR_STAR03_v04.pdf",
+   "Arrivals | RNAV TRANSITION (H-J) TO RWY 25L | graphics/eAIP/EBBR_STAR04_v05.pdf",
+   "Arrivals | RNAV TRANSITION (R-S) TO RWY 25R | graphics/eAIP/EBBR_STAR05_v04.pdf",
+   "Arrivals | RNAV TRANSITION (Q) TO RWY 07L | graphics/eAIP/EBBR_STAR06_v01.pdf",
+   "Departures | SID RWY 01 (X Departures) | graphics/eAIP/EBBR_SID01_v37.pdf",
+   "Departures | SID RWY 01 (F Departures) | graphics/eAIP/EBBR_SID01a_v06.pdf",
+   "Departures | SID RWY 07L (T-Y Departures) | graphics/eAIP/EBBR_SID02_v34.pdf",
+   "Departures | SID RWY 07R (V-W Departures) | graphics/eAIP/EBBR_SID03_v33.pdf",
+   "Departures | SID RWY 19 (L-N Departures) | graphics/eAIP/EBBR_SID04_v10.pdf",
+   "Departures | SID RWY 25L (E Departures) | graphics/eAIP/EBBR_SID05_v09.pdf",
+   "Departures | SID RWY 25L (P Departures) | graphics/eAIP/EBBR_SID06_v11.pdf",
+   "Departures | SID RWY 25R (G Departures) | graphics/eAIP/EBBR_SID07_v10.pdf",
+   "Departures | SID RWY 25R (K Departures) | graphics/eAIP/EBBR_SID08_v11.pdf",
+   "Departures | SID RWY 25R (M Departures) | graphics/eAIP/EBBR_SID09_v11.pdf",
+   "Approaches | ILS CAT II & III or LOC RWY 25R | graphics/eAIP/EBBR_IAC01_v41.pdf",
+   "Approaches | ILS CAT II & III or LOC X RWY 25L | graphics/eAIP/EBBR_IAC03_v38.pdf",
+   "Approaches | ILS CAT II & III or LOC W RWY 25L | graphics/eAIP/EBBR_IAC04_v40.pdf",
+   "Approaches | VOR RWY 25L | graphics/eAIP/EBBR_IAC05_v37.pdf",
+   "Approaches | ILS or LOC RWY 01 | graphics/eAIP/EBBR_IAC07a_v20.pdf",
+   "Approaches | VOR RWY 07R | graphics/eAIP/EBBR_IAC08_v33.pdf",
+   "Approaches | ILS or LOC RWY 19 | graphics/eAIP/EBBR_IAC09_v34.pdf",
+   "Approaches | VOR RWY 07L | graphics/eAIP/EBBR_IAC10_v25.pdf",
+   "Approaches | RNP RWY 01 | graphics/eAIP/EBBR_IAC11_v17.pdf",
+   "Approaches | RNP RWY 01. Appendix: FAS Datablock | graphics/eAIP/EBBR_IAC11a_v03.pdf",
+   "Approaches | RNP RWY 25L | graphics/eAIP/EBBR_IAC12_v20.pdf",
+   "Approaches | RNP RWY 25L. Appendix: FAS Datablock | graphics/eAIP/EBBR_IAC12a_v04.pdf",
+   "Approaches | RNP RWY 25R | graphics/eAIP/EBBR_IAC13_v16.pdf",
+   "Approaches | RNP RWY 25R. Appendix: FAS Datablock | graphics/eAIP/EBBR_IAC13a_v04.pdf",
+   "Approaches | RNP RWY 19 | graphics/eAIP/EBBR_IAC14_v15.pdf",
+   "Approaches | RNP RWY 19. Appendix: FAS Datablock | graphics/eAIP/EBBR_IAC14a_v03.pdf",
+   "Approaches | RNP RWY 07L | graphics/eAIP/EBBR_IAC15_v11.pdf",
+   "Approaches | RNP RWY 07L. Appendix: FAS Datablock | graphics/eAIP/EBBR_IAC15a_v05.pdf",
+   "Approaches | Visual Approach Chart – VAC.01 | graphics/eAIP/EBBR_VAC01_v29.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart – ADC.01",
+    "status": 200,
+    "bytes": 746974,
+    "head": "%PDF-1.5\r%����\r\n10 0 obj\r<</Linearized 1/L 746974/O 12/E 742"
+   },
+   {
+    "i": 42,
+    "name": "ILS CAT II & III or LOC RWY 25R",
+    "status": 200,
+    "bytes": 650451,
+    "head": "%PDF-1.5\r%����\r\n10 0 obj\r<</Linearized 1/L 650451/O 12/E 646"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    50.901389,
+    4.484444
+   ],
+   "n": 353,
+   "some": [
+    [
+     "01",
+     50.887331,
+     4.491578
     ],
     [
-     "OK",
-     53.923972,
-     -8.699806
+     "19",
+     50.911011,
+     4.501239
     ],
     [
-     "KNK",
-     53.8965,
-     -8.937
+     "07R",
+     50.889414,
+     4.482056
+    ],
+    [
+     "25L",
+     50.898939,
+     4.523289
+    ],
+    [
+     "07L",
+     50.90015,
+     4.459944
+    ]
+   ]
+  }
+ },
+ "ELLX": {
+  "cycle": "BE20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html",
+  "name": "LUXEMBOURG / Luxembourg",
+  "notFound": false,
+  "n": 33,
+  "charts": [
+   "Airport diagram | Aerodrome Chart – ADC.01 | graphics/eAIP/ELLX_ADC01_v54.pdf",
+   "Airport diagram | Aerodrome Chart - ICAO. Appendix 1: Runway Markings and Lighting Aids | graphics/eAIP/ELLX_ADC02_v24.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart – GMC.01 | graphics/eAIP/ELLX_GMC01_v51.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 1: Taxiways | graphics/eAIP/ELLX_GMC02_v22.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 2: Hot Spots | graphics/eAIP/ELLX_GMC03_v33.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart - ICAO. Appendix 3: Ground Movement Responsibilities | graphics/eAIP/ELLX_GMC04_v03.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Apron P1 & P2 | graphics/eAIP/ELLX_APDC01_v50.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Apron P5 | graphics/eAIP/ELLX_APDC02_v27.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Apron P8 & P9 | graphics/eAIP/ELLX_APDC03_v07.pdf",
+   "Hot spots | Aircraft Parking Docking Chart - ICAO: Apron P7 & P10 | graphics/eAIP/ELLX_APDC04_v02.pdf",
+   "Other | Aerodrome Obstacle Chart – ICAO: Type A (Operating Limitations): RWY 06/24 | graphics/eAIP/ELLX_AOC01_v10.pdf",
+   "Other | Precision Approach Terrain Chart - ICAO: RWY 24 | graphics/eAIP/ELLX_PATC01_v08.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart – ATCSMAC.01 | graphics/eAIP/ELLX_ATCSMAC01_v17.pdf",
+   "Arrivals | Conventional – STAR.01 | graphics/eAIP/ELLX_STAR01_v46.pdf",
+   "Arrivals | RNAV – STAR.02 | graphics/eAIP/ELLX_STAR02_v46.pdf",
+   "Arrivals | RNAV TRANSITION TO RWY 06 | graphics/eAIP/ELLX_STAR03_v21.pdf",
+   "Arrivals | RNAV TRANSITION TO RWY 24 | graphics/eAIP/ELLX_STAR04_v21.pdf",
+   "Departures | SID RWY 06 | graphics/eAIP/ELLX_SID01_v44.pdf",
+   "Departures | SID RWY 24 | graphics/eAIP/ELLX_SID02_v46.pdf",
+   "Departures | RNAV RWY 06 | graphics/eAIP/ELLX_SID03_v08.pdf",
+   "Departures | RNAV RWY 24 | graphics/eAIP/ELLX_SID04_v15.pdf",
+   "Approaches | ILS or LOC z RWY 06 | graphics/eAIP/ELLX_IAC01a_v08.pdf",
+   "Approaches | ILS or LOC y RWY 06 | graphics/eAIP/ELLX_IAC01b_v08.pdf",
+   "Approaches | ILS CAT II & III or LOC z RWY 24 | graphics/eAIP/ELLX_IAC02a_v10.pdf",
+   "Approaches | ILS CAT II & III or LOC y RWY 24 | graphics/eAIP/ELLX_IAC02b_v10.pdf",
+   "Approaches | VOR RWY 06 | graphics/eAIP/ELLX_IAC03_v35.pdf",
+   "Approaches | VOR RWY 24 | graphics/eAIP/ELLX_IAC04_v34.pdf",
+   "Approaches | RNP RWY 06 | graphics/eAIP/ELLX_IAC05_v18.pdf",
+   "Approaches | RNP RWY 06. Appendix: FAS Datablock | graphics/eAIP/ELLX_IAC05a_v03.pdf",
+   "Approaches | RNP RWY 24 | graphics/eAIP/ELLX_IAC06_v17.pdf",
+   "Approaches | RNP RWY 24. Appendix: FAS Datablock | graphics/eAIP/ELLX_IAC06a_v02.pdf",
+   "Approaches | Visual Approach Chart – VAC.01 | graphics/eAIP/ELLX_VAC01_v36.pdf",
+   "Approaches | Visual Approach Chart - ICAO. Appendix 1: Aerodrome Traffic Circuit | graphics/eAIP/ELLX_VAC02_v20.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart – ADC.01",
+    "status": 200,
+    "bytes": 406983,
+    "head": "%PDF-1.7\r%����\r\n11 0 obj\r<</Linearized 1/L 406983/O 13/E 402"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    49.623333,
+    6.204444
+   ],
+   "n": 328,
+   "some": [
+    [
+     "06",
+     49.617522,
+     6.187514
+    ],
+    [
+     "24",
+     49.635394,
+     6.235603
+    ],
+    [
+     "DIK",
+     49.861306,
+     6.12975
+    ],
+    [
+     "LUX",
+     49.639528,
+     6.247278
+    ],
+    [
+     "ILE",
+     49.6385,
+     6.244
+    ]
+   ]
+  }
+ },
+ "LHBP": {
+  "cycle": "HU20260903",
+  "eff": "2026-09-03",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais-en.hungarocontrol.hu/aip/2026-09-03/2026-09-03-AIRAC/html/index-en-HU.html",
+  "name": "BUDAPEST/LISZT FERENC INTERNATIONAL AIRPORT",
+  "notFound": false,
+  "n": 33,
+  "charts": [
+   "Airport diagram | AERODROME CHART | graphics/eAIP/LH_AD_2_LHBP_ADC_en.pdf",
+   "Hot spots | TAXI PROCEDURES FOR ARRIVING AIRCRAFT - INDEX CHART | graphics/eAIP/LH_AD_2_LHBP_TAXI_ARR_en.pdf",
+   "Hot spots | TAXI PROCEDURES FOR DEPARTING AIRCRAFT - INDEX CHART | graphics/eAIP/LH_AD_2_LHBP_TAXI_DEP_en.pdf",
+   "Hot spots | AIRCRAFT PARKING/DOCKING CHART – PDC-1 | graphics/eAIP/LH_AD_2_LHBP_PDC_1_en.pdf",
+   "Hot spots | AIRCRAFT PARKING/DOCKING CHART – PDC-2 | graphics/eAIP/LH_AD_2_LHBP_PDC_2_en.pdf",
+   "Hot spots | AIRCRAFT PARKING/DOCKING CHART – PDC-3 | graphics/eAIP/LH_AD_2_LHBP_PDC_3_en.pdf",
+   "Hot spots | AIRCRAFT PARKING/DOCKING CHART – PDC-4 | graphics/eAIP/LH_AD_2_LHBP_PDC_4_en.pdf",
+   "Other | AERODROME OBSTACLE CHART – TYPE A OPERATING LIMITATIONS – AOCA-13L31R | graphics/eAIP/LH_AD_2_LHBP_AOCA_13L31R_en.pdf",
+   "Other | AERODROME OBSTACLE CHART – TYPE A OPERATING LIMITATIONS – AOCA-13R31L | graphics/eAIP/LH_AD_2_LHBP_AOCA_13R31L_en.pdf",
+   "Other | PRECISION APPROACH TERRAIN CHART – PATC-13L31R | graphics/eAIP/LH_AD_2_LHBP_PATC_13L31R_en.pdf",
+   "Other | PRECISION APPROACH TERRAIN CHART – PATC-13R31L | graphics/eAIP/LH_AD_2_LHBP_PATC_13R31L_en.pdf",
+   "Departures | SID-13L | graphics/eAIP/LH_AD_2_LHBP_SID_13L_en.pdf",
+   "Departures | SID-13R | graphics/eAIP/LH_AD_2_LHBP_SID_13R_en.pdf",
+   "Departures | SID-31L | graphics/eAIP/LH_AD_2_LHBP_SID_31L_en.pdf",
+   "Departures | SID-31R | graphics/eAIP/LH_AD_2_LHBP_SID_31R_en.pdf",
+   "Arrivals | STAR-13L13R | graphics/eAIP/LH_AD_2_LHBP_STAR_13L13R_en.pdf",
+   "Arrivals | STAR-31L31R | graphics/eAIP/LH_AD_2_LHBP_STAR_31L31R_en.pdf",
+   "Other | BUDAPEST TMA - INDEX CHART | graphics/eAIP/LH_AD_2_LHBP_TMA_en.pdf",
+   "Other | HOLDING PROCEDURES - INDEX CHART | graphics/eAIP/LH_AD_2_LHBP_HLDG_en.pdf",
+   "Minimums | ATC SURVEILLANCE MINIMUM ALTITUDE CHART | graphics/eAIP/LH_AD_2_LHBP_ATCSMAC_en.pdf",
+   "Approaches | ILS-LOC-13L | graphics/eAIP/LH_AD_2_LHBP_ILS_OR_LOC_13L_en.pdf",
+   "Approaches | ILS-LOC-13R | graphics/eAIP/LH_AD_2_LHBP_ILS_OR_LOC_13R_en.pdf",
+   "Approaches | ILS-LOC-31L | graphics/eAIP/LH_AD_2_LHBP_ILS_OR_LOC_31L_en.pdf",
+   "Approaches | ILS-LOC-31R | graphics/eAIP/LH_AD_2_LHBP_ILS_OR_LOC_31R_en.pdf",
+   "Approaches | RNP-13L | graphics/eAIP/LH_AD_2_LHBP_RNP_13L_en.pdf",
+   "Approaches | RNP-13R | graphics/eAIP/LH_AD_2_LHBP_RNP_13R_en.pdf",
+   "Approaches | RNP-31L | graphics/eAIP/LH_AD_2_LHBP_RNP_31L_en.pdf",
+   "Approaches | RNP-Y-31R | graphics/eAIP/LH_AD_2_LHBP_RNP_Y_31R_en.pdf",
+   "Approaches | RNP-Z-31R | graphics/eAIP/LH_AD_2_LHBP_RNP_Z_31R_en.pdf",
+   "Approaches | VOR-13L | graphics/eAIP/LH_AD_2_LHBP_VOR_13L_en.pdf",
+   "Approaches | VOR-31R | graphics/eAIP/LH_AD_2_LHBP_VOR_31R_en.pdf",
+   "Approaches | VISUAL APPROACH CHART | graphics/eAIP/LH_AD_2_LHBP_VAC_en.pdf",
+   "Other | BIRD CONCENTRATIONS IN THE VICINITY OF THE AERODROME - INDEX CHART | graphics/eAIP/LH_AD_2_LHBP_BIRD_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "AERODROME CHART",
+    "status": 200,
+    "bytes": 1331071,
+    "head": "%PDF-1.7\r%����\r\n31 0 obj\r<</Linearized 1/L 1331071/O 33/E 13"
+   },
+   {
+    "i": 21,
+    "name": "ILS-LOC-13L",
+    "status": 200,
+    "bytes": 682728,
+    "head": "%PDF-1.7\r%����\r\n32 0 obj\r<</Linearized 1/L 682728/O 34/E 559"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    47.439444,
+    19.261944
+   ],
+   "n": 110,
+   "some": [
+    [
+     "13R",
+     47.448706,
+     19.220758
+    ],
+    [
+     "31L",
+     47.430475,
+     19.250247
+    ],
+    [
+     "13L",
+     47.445422,
+     19.25755
+    ],
+    [
+     "31R",
+     47.42295,
+     19.293856
+    ],
+    [
+     "FER",
+     47.428139,
+     19.254028
+    ]
+   ]
+  }
+ },
+ "LHDC": {
+  "cycle": "HU20260903",
+  "eff": "2026-09-03",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais-en.hungarocontrol.hu/aip/2026-09-03/2026-09-03-AIRAC/html/index-en-HU.html",
+  "name": "DEBRECEN INTERNATIONAL AIRPORT",
+  "notFound": false,
+  "n": 10,
+  "charts": [
+   "Airport diagram | AERODROME CHART | graphics/eAIP/LH_AD_2_LHDC_ADC_en.pdf",
+   "Other | AERODROME OBSTACLE CHART – TYPE A OPERATING LIMITATIONS – AOCA-04R22L | graphics/eAIP/LH_AD_2_LHDC_AOCA_04R22L_en.pdf",
+   "Departures | SID-04R | graphics/eAIP/LH_AD_2_LHDC_SID_04R_en.pdf",
+   "Departures | SID-22L | graphics/eAIP/LH_AD_2_LHDC_SID_22L_en.pdf",
+   "Arrivals | STAR-04R22L | graphics/eAIP/LH_AD_2_LHDC_STAR_04R22L_en.pdf",
+   "Approaches | ILS-LOC-04R | graphics/eAIP/LH_AD_2_LHDC_ILS_OR_LOC_04R_en.pdf",
+   "Approaches | NDB-22L | graphics/eAIP/LH_AD_2_LHDC_NDB_22L_en.pdf",
+   "Approaches | RNP-04R | graphics/eAIP/LH_AD_2_LHDC_RNP_04R_en.pdf",
+   "Approaches | RNP-22L | graphics/eAIP/LH_AD_2_LHDC_RNP_22L_en.pdf",
+   "Approaches | VISUAL APPROACH CHART | graphics/eAIP/LH_AD_2_LHDC_VAC_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "AERODROME CHART",
+    "status": 200,
+    "bytes": 556139,
+    "head": "%PDF-1.7\r%����\r\n31 0 obj\r<</Linearized 1/L 556139/O 33/E 534"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    47.488889,
+    21.615278
+   ],
+   "n": 15,
+   "some": [
+    [
+     "04R",
+     47.481386,
+     21.602997
+    ],
+    [
+     "22L",
+     47.49465,
+     21.624681
+    ],
+    [
+     "EN",
+     47.53325,
+     21.688028
+    ],
+    [
+     "DC",
+     47.45675,
+     21.563056
+    ],
+    [
+     "DCN",
+     47.498194,
+     21.630444
+    ]
+   ]
+  }
+ },
+ "LYBE": {
+  "cycle": "RS20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://smatsa.rs/upload/aip/published/29-Oct-2026-A/2026-10-29-AIRAC/html/index_commands.html",
+  "name": "BEOGRAD/Nikola Tesla",
+  "notFound": false,
+  "n": 30,
+  "charts": [
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/7116087_LY_AD_2_LYBE_01-1-1_en.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart | graphics/eAIP/7116086_LY_AD_2_LYBE_02-1-1_en.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A (RWY 12L) | graphics/eAIP/6920191_LY_AD_2_LYBE_04-1-1_en.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A (RWY 12R) | graphics/eAIP/6920065_LY_AD_2_LYBE_04-1-3_en.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A (RWY 30L) | graphics/eAIP/7037769_LY_AD_2_LYBE_04-1-5_en.pdf",
+   "Other | Aerodrome Obstacle Chart – Type A (RWY 30R) | graphics/eAIP/6920154_LY_AD_2_LYBE_04-1-7_en.pdf",
+   "Other | Precision Approach Terrain Chart – (RWY 12L) | graphics/eAIP/6920190_LY_AD_2_LYBE_06-1-1_en.pdf",
+   "Other | Precision Approach Terrain Chart – (RWY 12R) | graphics/eAIP/6920064_LY_AD_2_LYBE_06-1-3_en.pdf",
+   "Departures | SID RWY 12L/12R | graphics/eAIP/7237303_LY_AD_2_LYBE_08-1-1_en.pdf",
+   "Departures | SID RWY 12L/12R – TISAK 4Z | graphics/eAIP/6920063_LY_AD_2_LYBE_08-1-3_en.pdf",
+   "Departures | SID RWY 30L/30R | graphics/eAIP/7237865_LY_AD_2_LYBE_08-1-5_en.pdf",
+   "Departures | RNAV RWY 12L/12R | graphics/eAIP/7237302_LY_AD_2_LYBE_08-2-1_en.pdf",
+   "Departures | RNAV RWY 30L/30R | graphics/eAIP/7237294_LY_AD_2_LYBE_08-2-3_en.pdf",
+   "Arrivals | STAR RWY 12L/12R | graphics/eAIP/6920187_LY_AD_2_LYBE_10-1-1_en.pdf",
+   "Arrivals | STAR RWY 30L/30R | graphics/eAIP/6989912_LY_AD_2_LYBE_10-1-3_en.pdf",
+   "Arrivals | RNAV RWY 12L/12R | graphics/eAIP/6920186_LY_AD_2_LYBE_10-2-1_en.pdf",
+   "Arrivals | RNAV RWY 30L/30R | graphics/eAIP/6920199_LY_AD_2_LYBE_10-2-5_en.pdf",
+   "Approaches | ILS or LOC RWY 12L | graphics/eAIP/7205645_LY_AD_2_LYBE_12-1-1_en.pdf",
+   "Approaches | ILS or LOC RWY 12R | graphics/eAIP/7205586_LY_AD_2_LYBE_12-1-3_en.pdf",
+   "Approaches | ILS or LOC RWY 30R | graphics/eAIP/7205649_LY_AD_2_LYBE_12-1-5_en.pdf",
+   "Approaches | VOR RWY 12L | graphics/eAIP/7205644_LY_AD_2_LYBE_12-2-1_en.pdf",
+   "Approaches | VOR A RWY 12R | graphics/eAIP/7205585_LY_AD_2_LYBE_12-2-3_en.pdf",
+   "Approaches | VOR B RWY 30L | graphics/eAIP/7205648_LY_AD_2_LYBE_12-2-5_en.pdf",
+   "Approaches | VOR RWY 30R | graphics/eAIP/7205589_LY_AD_2_LYBE_12-2-7_en.pdf",
+   "Approaches | RNP RWY 12L | graphics/eAIP/7206066_LY_AD_2_LYBE_12-4-1_en.pdf",
+   "Approaches | RNP RWY 12R | graphics/eAIP/7206062_LY_AD_2_LYBE_12-4-3_en.pdf",
+   "Approaches | RNP RWY 30L | graphics/eAIP/7206067_LY_AD_2_LYBE_12-4-5_en.pdf",
+   "Approaches | RNP RWY 30R | graphics/eAIP/7206063_LY_AD_2_LYBE_12-4-7_en.pdf",
+   "Other | Bird concentrations in the vicinity of the aerodrome | graphics/eAIP/6920182_LY_AD_2_LYBE_14-1-1_en.pdf",
+   "Departures | VFR flight procedures for arrival and departure | graphics/eAIP/7184580_LY_AD_2_LYBE_15-1-1_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart",
+    "status": 200,
+    "bytes": 213629,
+    "head": "%PDF-1.5\r%����\r\n14 0 obj\r<</Linearized 1/L 213629/O 16/E 169"
+   },
+   {
+    "i": 18,
+    "name": "ILS or LOC RWY 12L",
+    "status": 200,
+    "bytes": 1213151,
+    "head": "%PDF-1.6\r%����\r\n118 0 obj\r<</Linearized 1/L 1213151/O 120/E "
+   }
+  ],
+  "fixes": {
+   "arp": [
+    44.819444,
+    20.306944
+   ],
+   "n": 157,
+   "some": [
+    [
+     "12L",
+     44.826517,
+     20.290975
+    ],
+    [
+     "30R",
+     44.812239,
+     20.323169
+    ],
+    [
+     "12R",
+     44.821711,
+     20.297275
+    ],
+    [
+     "30L",
+     44.810778,
+     20.321919
+    ],
+    [
+     "BGD",
+     44.819361,
+     20.311167
+    ]
+   ]
+  }
+ },
+ "LYPG": {
+  "cycle": "RS20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://smatsa.rs/upload/aip/published/29-Oct-2026-A/2026-10-29-AIRAC/html/index_commands.html",
+  "name": "PODGORICA",
+  "notFound": false,
+  "n": 19,
+  "charts": [
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/7081226_LY_AD_2_LYPG_01-1-1_en.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart | graphics/eAIP/7063720_LY_AD_2_LYPG_02-1-1_en.pdf",
+   "Other | Aerodrome Obstacle Chart – Type B | graphics/eAIP/6839931_LY_AD_2_LYPG_04-2-1_en.pdf",
+   "Departures | SID RWY 18 | graphics/eAIP/6877816_LY_AD_2_LYPG_08-1-1_en.pdf",
+   "Departures | SID RWY 36 | graphics/eAIP/6877788_LY_AD_2_LYPG_08-1-3_en.pdf",
+   "Departures | RNP RWY 18 | graphics/eAIP/6877815_LY_AD_2_LYPG_08-2-1_en.pdf",
+   "Departures | RNP RWY 36 | graphics/eAIP/6877787_LY_AD_2_LYPG_08-2-3_en.pdf",
+   "Arrivals | STAR RWY 18/36 | graphics/eAIP/6877814_LY_AD_2_LYPG_10-1-1_en.pdf",
+   "Arrivals | RNP RWY 18/36 | graphics/eAIP/6877813_LY_AD_2_LYPG_10-2-1_en.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/6877812_LY_AD_2_LYPG_11-1-1_en.pdf",
+   "Approaches | ILS or LOC Z RWY 36 | graphics/eAIP/6877811_LY_AD_2_LYPG_12-1-1_en.pdf",
+   "Approaches | ILS or LOC Y RWY 36 CAT C, D | graphics/eAIP/6877786_LY_AD_2_LYPG_12-1-3_en.pdf",
+   "Approaches | VOR Z RWY 36 | graphics/eAIP/6877810_LY_AD_2_LYPG_12-2-1_en.pdf",
+   "Approaches | VOR Y RWY 36 CAT C, D | graphics/eAIP/6877785_LY_AD_2_LYPG_12-2-3_en.pdf",
+   "Approaches | NDB RWY 36 | graphics/eAIP/6877809_LY_AD_2_LYPG_12-3-1_en.pdf",
+   "Approaches | RNP RWY 36 | graphics/eAIP/6877808_LY_AD_2_LYPG_12-4-1_en.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/6877807_LY_AD_2_LYPG_13-1-1_en.pdf",
+   "Other | Bird concentrations in the vicinity of the aerodrome | graphics/eAIP/6877806_LY_AD_2_LYPG_14-1-1_en.pdf",
+   "Departures | VFR flight procedures for arrival and departure | graphics/eAIP/6839930_LY_AD_2_LYPG_15-1-1_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart",
+    "status": 200,
+    "bytes": 80597,
+    "head": "%PDF-1.5\r%����\r\n14 0 obj\r<</Linearized 1/L 80597/O 16/E 7520"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    42.359444,
+    19.251944
+   ],
+   "n": 140,
+   "some": [
+    [
+     "18",
+     42.370617,
+     19.253022
+    ],
+    [
+     "36",
+     42.348172,
+     19.250736
+    ],
+    [
+     "POD",
+     42.386194,
+     19.254611
+    ],
+    [
+     "DAN",
+     42.545,
+     19.1235
+    ],
+    [
+     "MOJ",
+     42.944639,
+     19.575528
+    ]
+   ]
+  }
+ },
+ "EPWA": {
+  "cycle": "PL20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://docs.pansa.pl/ais/eaipifr/AIRAC%20AMDT%2011-26_2026_10_29/index-v2.html",
+  "name": "LOTNISKO CHOPINA W WARSZAWIE",
+  "notFound": false,
+  "n": 37,
+  "charts": [
+   "Airport diagram | - AERODROME CHART | documents/Root_WePub/AIP IFR/AD/EPWA/02/AD_2_EPWA_2-1.pdf",
+   "Airport diagram | - AERODROME CHART AREAS OF RESPONSIBILITY | documents/Root_WePub/AIP IFR/AD/EPWA/03/AD_2_EPWA_3-1.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 1,7A,7B,9) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-1.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 3,5A,5B,5C) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-3.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 12,13,CARGO) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-5.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 10) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-7.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 9, MIL APN) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-9.pdf",
+   "Hot spots | - AIRCRAFT PARKING, DOCKING CHART – (APN 2) | documents/Root_WePub/AIP IFR/AD/EPWA/04/AD_2_EPWA_4-11.pdf",
+   "Hot spots | - AERODROME GROUND MOVEMENT CHART (TWYs FOR A380-800, AN-124-100, B747-8, C-5B GALAXY) | documents/Root_WePub/AIP IFR/AD/EPWA/05/AD_2_EPWA_5-1.pdf",
+   "Other | - AERODROME OBSTACLE CHART – TYPE A (RWY 11, RWY 29) | documents/Root_WePub/AIP IFR/AD/EPWA/06/AD_2_EPWA_6-1.pdf",
+   "Other | - AERODROME OBSTACLE CHART – TYPE A (RWY 15, RWY 33) | documents/Root_WePub/AIP IFR/AD/EPWA/06/AD_2_EPWA_6-3.pdf",
+   "Other | - PRECISION APPROACH TERRAIN CHART – (RWY 11) | documents/Root_WePub/AIP IFR/AD/EPWA/07/AD_2_EPWA_7-1.pdf",
+   "Other | - PRECISION APPROACH TERRAIN CHART – (RWY 33) | documents/Root_WePub/AIP IFR/AD/EPWA/07/AD_2_EPWA_7-3.pdf",
+   "Departures | – (RNAV RWY 11) | documents/Root_WePub/AIP IFR/AD/EPWA/08/AD_2_EPWA_08-1.pdf",
+   "Departures | – (RNAV RWY 15) | documents/Root_WePub/AIP IFR/AD/EPWA/08/AD_2_EPWA_08-5.pdf",
+   "Departures | – (RNAV RWY 29) | documents/Root_WePub/AIP IFR/AD/EPWA/08/AD_2_EPWA_08-9.pdf",
+   "Departures | – (RNAV RWY 33) | documents/Root_WePub/AIP IFR/AD/EPWA/08/AD_2_EPWA_08-13.pdf",
+   "Arrivals | – (RNAV RWY 11) | documents/Root_WePub/AIP IFR/AD/EPWA/10/AD_2_EPWA_10-1.pdf",
+   "Arrivals | – (RNAV RWY 15) | documents/Root_WePub/AIP IFR/AD/EPWA/10/AD_2_EPWA_10-5.pdf",
+   "Arrivals | – (RNAV RWY 29) | documents/Root_WePub/AIP IFR/AD/EPWA/10/AD_2_EPWA_10-9.pdf",
+   "Arrivals | – (RNAV RWY 33) | documents/Root_WePub/AIP IFR/AD/EPWA/10/AD_2_EPWA_10-13.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (ILS z CAT II or LOC z) RWY 11 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-1.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (ILS y CAT II) RWY 11 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-3.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (ILS z CAT II & III or LOC z) RWY 33 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-5.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (ILS y CAT II & III) RWY 33 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-7.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (ILS x CAT II & III or LOC x) RWY 33 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-9.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (VOR) RWY 11 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-11.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (VOR) RWY 15 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-13.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (VOR) RWY 29 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-15.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (VOR) RWY 33 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-17.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (RNP) RWY 11 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-19.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (RNP) RWY 15 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-23.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (RNP) RWY 29 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-27.pdf",
+   "Approaches | - INSTRUMENT APPROACH CHART – (RNP) RWY 33 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPWA/12/AD_2_EPWA_12-31.pdf",
+   "Departures | - VFR ARRIVAL, DEPARTURE AND TRANSIT ROUTES | documents/Root_WePub/AIP IFR/AD/EPWA/13/AD_2_EPWA_13-1.pdf",
+   "Departures | - VFR ARRIVAL, DEPARTURE AND TRANSIT ROUTES | documents/Root_WePub/AIP IFR/AD/EPWA/13/AD_2_EPWA_13-3.pdf",
+   "Other | - BIRD CONCENTRATIONS | documents/Root_WePub/AIP IFR/AD/EPWA/14/AD_2_EPWA_14-1.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "- AERODROME CHART",
+    "status": 200,
+    "bytes": 501429,
+    "head": "%PDF-1.5\r%����\r\n7 0 obj\r<</Linearized 1/L 481597/O 10/E 4810"
+   },
+   {
+    "i": 10,
+    "name": "- AERODROME OBSTACLE CHART – TYPE A (RWY 11, RWY 29)",
+    "status": 200,
+    "bytes": 281928,
+    "head": "%PDF-1.5\r%����\r\n7 0 obj\r<</Linearized 1/L 262096/O 10/E 2615"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    52.165833,
+    20.967222
+   ],
+   "n": 642,
+   "some": [
+    [
+     "11",
+     52.171475,
+     20.946714
+    ],
+    [
+     "29",
+     52.162889,
+     20.977303
+    ],
+    [
+     "15",
+     52.178572,
+     20.955906
+    ],
+    [
+     "33",
+     52.154583,
+     20.976881
+    ],
+    [
+     "WAS",
+     52.171167,
+     20.951639
+    ]
+   ]
+  }
+ },
+ "EPKK": {
+  "cycle": "PL20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://docs.pansa.pl/ais/eaipifr/AIRAC%20AMDT%2011-26_2026_10_29/index-v2.html",
+  "name": "KRAKÓW/Balice",
+  "notFound": false,
+  "n": 15,
+  "charts": [
+   "Airport diagram | - AERODROME CHART | documents/Root_WePub/AIP IFR/AD/EPKK/02/AD_2_EPKK_2-1.pdf",
+   "Hot spots | AIRCRAFT PARKING CHART | documents/Root_WePub/AIP IFR/AD/EPKK/04/AD_2_EPKK_4-1.pdf",
+   "Hot spots | HOT SPOT | documents/Root_WePub/AIP IFR/AD/EPKK/04/AD_2_EPKK_4-3.pdf",
+   "Other | - AERODROME OBSTACLE CHART – TYPE A (RWY 07, RWY 25) | documents/Root_WePub/AIP IFR/AD/EPKK/06/AD_2_EPKK_6-1.pdf",
+   "Other | PRECISION APPROACH TERRAIN CHART – (RWY 25) | documents/Root_WePub/AIP IFR/AD/EPKK/07/AD_2_EPKK_7-1.pdf",
+   "Departures | – (RNAV RWY 07) | documents/Root_WePub/AIP IFR/AD/EPKK/08/AD_2_EPKK_08-1.pdf",
+   "Departures | – (RNAV RWY 25) | documents/Root_WePub/AIP IFR/AD/EPKK/08/AD_2_EPKK_08-5.pdf",
+   "Arrivals | – (RNAV RWY 07) | documents/Root_WePub/AIP IFR/AD/EPKK/10/AD_2_EPKK_10-1.pdf",
+   "Arrivals | – (RNAV RWY 25) | documents/Root_WePub/AIP IFR/AD/EPKK/10/AD_2_EPKK_10-7.pdf",
+   "Approaches | (ILS or LOC) RWY 25 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPKK/12/AD_2_EPKK_12-1.pdf",
+   "Approaches | (VOR) RWY 07 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPKK/12/AD_2_EPKK_12-3.pdf",
+   "Approaches | (VOR) RWY 25 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPKK/12/AD_2_EPKK_12-5.pdf",
+   "Approaches | (RNP) RWY 07 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPKK/12/AD_2_EPKK_12-7.pdf",
+   "Approaches | (RNP) RWY 25 (CAT A,B,C,D) | documents/Root_WePub/AIP IFR/AD/EPKK/12/AD_2_EPKK_12-11.pdf",
+   "Other | - VISUAL OPERATION CHART | documents/Root_WePub/AIP IFR/AD/EPKK/13/AD_2_EPKK_13-1.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "- AERODROME CHART",
+    "status": 200,
+    "bytes": 317806,
+    "head": "%PDF-1.5\r%����\r\n7 0 obj\r<</Linearized 1/L 297972/O 10/E 2974"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    50.077778,
+    19.784722
+   ],
+   "n": 510,
+   "some": [
+    [
+     "07",
+     50.075397,
+     19.768094
+    ],
+    [
+     "25",
+     50.079792,
+     19.799658
+    ],
+    [
+     "KRW",
+     50.080361,
+     19.795222
+    ],
+    [
+     "KAK",
+     50.076556,
+     19.788
+    ],
+    [
+     "KRW",
+     50.074917,
+     19.764611
     ]
    ]
   }
@@ -686,12 +1219,12 @@
    "Other | HELICOPTER CROSSING OPERATIONS | graphics/3393.pdf",
    "Minimums | ATC SURVEILLANCE MINIMUM ALTITUDE CHART | graphics/475297.pdf",
    "Minimums | ATC SURVEILLANCE MINIMUM ALTITUDE CHART TEXT | graphics/220008.pdf",
-   "Departures | RWY 09R/L RWY 27R/L CPT 5J 4K 3F 3G (RNAV SUBSTITUTION ONLY) | graphics/525824.pdf",
-   "Departures | RWY 09R/L RWY 27R/L MODMI 1J 1K MAXIT 1F 1G (RNAV SUBSTITUTION ONLY) | graphics/475385.pdf",
-   "Departures | RWY 09R/L RWY 27R/L BPK 6J 5K 7F 7G (RNAV SUBSTITUTION ONLY) | graphics/475388.pdf",
-   "Departures | RWY 09R/L RWY 27R/L ULTIB 1J 1K UMLAT 1F 1G (RNAV SUBSTITUTION ONLY) | graphics/475391.pdf",
-   "Departures | RWY 09R/L RWY 27R/L DET 1J 1K 2F 2G (RNAV SUBSTITUTION ONLY) | graphics/479231.pdf",
-   "Departures | RWY 09R/L RWY 27R/L GASGU 2J 2K GOGSI 2F 2G (RNAV SUBSTITUTION ONLY) | graphics/475397.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L CPT 5J 4K 3F 3G (RNAV SUBSTITUTION ONLY) | graphics/525824.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L MODMI 1J 1K MAXIT 1F 1G (RNAV SUBSTITUTION ONLY) | graphics/475385.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L BPK 6J 5K 7F 7G (RNAV SUBSTITUTION ONLY) | graphics/475388.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L ULTIB 1J 1K UMLAT 1F 1G (RNAV SUBSTITUTION ONLY) | graphics/475391.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L DET 1J 1K 2F 2G (RNAV SUBSTITUTION ONLY) | graphics/479231.pdf",
+   "Departures | SID RWY 09R/L RWY 27R/L GASGU 2J 2K GOGSI 2F 2G (RNAV SUBSTITUTION ONLY) | graphics/475397.pdf",
    "Arrivals | RNAV1 (DME/DME or GNSS) OTMET 1H ROXOG 1H | graphics/461645.pdf",
    "Arrivals | RNAV5 (DME/DME or GNSS) ALESO 1H LAM 1X TANET 1Z | graphics/479234.pdf",
    "Arrivals | RNAV5 (DME/DME or GNSS) OCK 1Z | graphics/475464.pdf",
@@ -1049,35 +1582,35 @@
    "Other | PRECISION APPROACH TERRAIN – RWY 32L | graphics/149463.pdf",
    "Other | PRECISION APPROACH TERRAIN – RWY 32R | graphics/149465.pdf",
    "Departures | RADAR DEPARTURES | graphics/305885.pdf",
-   "Departures | RWY 14L RNAV(GNSS) PUGER 1A BIKDU 1A SALAX 1A IBUKU 1A PIBOS 1A MITOS 1A ATIMU 1A KIMAT 1A RUSBU 1A | graphics/305886.pdf",
+   "Departures | SID RWY 14L RNAV(GNSS) PUGER 1A BIKDU 1A SALAX 1A IBUKU 1A PIBOS 1A MITOS 1A ATIMU 1A KIMAT 1A RUSBU 1A | graphics/305886.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14L RNAV(GNSS) PUGER 1A BIKDU 1A SALAX 1A IBUKU 1A PIBOS 1A MITOS 1A ATIMU 1A KIMAT 1A RUSBU 1A (TABULAR 1) | graphics/208453.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14L RNAV(GNSS) PUGER 1A BIKDU 1A SALAX 1A IBUKU 1A PIBOS 1A MITOS 1A ATIMU 1A KIMAT 1A RUSBU 1A (TABULAR 2) | graphics/208454.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14L RNAV(GNSS) PUGER 1A BIKDU 1A SALAX 1A IBUKU 1A PIBOS 1A MITOS 1A ATIMU 1A KIMAT 1A RUSBU 1A (TABULAR 3) | graphics/208455.pdf",
-   "Departures | RWY 14R RNAV(GNSS) PUGER 1B BIKDU 1B SALAX 1B IBUKU 1B PIBOS 1B MITOS 1B ATIMU 1B KIMAT 1B RUSBU 1B | graphics/305888.pdf",
+   "Departures | SID RWY 14R RNAV(GNSS) PUGER 1B BIKDU 1B SALAX 1B IBUKU 1B PIBOS 1B MITOS 1B ATIMU 1B KIMAT 1B RUSBU 1B | graphics/305888.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14R RNAV(GNSS) PUGER 1B BIKDU 1B SALAX 1B IBUKU 1B PIBOS 1B MITOS 1B ATIMU 1B KIMAT 1B RUSBU 1B (TABULAR 1) | graphics/208458.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14R RNAV(GNSS) PUGER 1B BIKDU 1B SALAX 1B IBUKU 1B PIBOS 1B MITOS 1B ATIMU 1B KIMAT 1B RUSBU 1B (TABULAR 2) | graphics/208459.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 14R RNAV(GNSS) PUGER 1B BIKDU 1B SALAX 1B IBUKU 1B PIBOS 1B MITOS 1B ATIMU 1B KIMAT 1B RUSBU 1B (TABULAR 3) | graphics/208460.pdf",
-   "Departures | RWY 14R DEPARTURES FOR SAAS SUBANG | graphics/305889.pdf",
-   "Departures | RWY 15 RNP 1 (GNSS) PUGER 1C BIKDU 3C SALAX 1C IBUKU 1C PIBOS 3C MITOS 1C ATIMU 1C KIMAT 1C RUSBU 1C | graphics/311600.pdf",
+   "Departures | SID RWY 14R DEPARTURES FOR SAAS SUBANG | graphics/305889.pdf",
+   "Departures | SID RWY 15 RNP 1 (GNSS) PUGER 1C BIKDU 3C SALAX 1C IBUKU 1C PIBOS 3C MITOS 1C ATIMU 1C KIMAT 1C RUSBU 1C | graphics/311600.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 15 RNP 1 (GNSS) PUGER 1C BIKDU 3C SALAX 1C IBUKU 1C PIBOS 3C MITOS 1C ATIMU 1C KIMAT 1C RUSBU 1C (TABULAR 1) | graphics/250916.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 15 RNP 1 (GNSS) PUGER 1C BIKDU 3C SALAX 1C IBUKU 1C PIBOS 3C MITOS 1C ATIMU 1C KIMAT 1C RUSBU 1C (TABULAR 2) | graphics/250917.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 15 RNP 1 (GNSS) PUGER 1C BIKDU 3C SALAX 1C IBUKU 1C PIBOS 3C MITOS 1C ATIMU 1C KIMAT 1C RUSBU 1C (TABULAR 3) | graphics/250918.pdf",
-   "Departures | RWY 32R RNAV(GNSS) PUGER 1D BIKDU 1D SALAX 1D IBUKU 1D PIBOS 1D MITOS 1D ATIMU 1D KIMAT 1D RUSBU 1D | graphics/305892.pdf",
+   "Departures | SID RWY 32R RNAV(GNSS) PUGER 1D BIKDU 1D SALAX 1D IBUKU 1D PIBOS 1D MITOS 1D ATIMU 1D KIMAT 1D RUSBU 1D | graphics/305892.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32R RNAV(GNSS) PUGER 1D BIKDU 1D SALAX 1D IBUKU 1D PIBOS 1D MITOS 1D ATIMU 1D KIMAT 1D RUSBU 1D (TABULAR 1) | graphics/208490.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32R RNAV(GNSS) PUGER 1D BIKDU 1D SALAX 1D IBUKU 1D PIBOS 1D MITOS 1D ATIMU 1D KIMAT 1D RUSBU 1D (TABULAR 2) | graphics/208491.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32R RNAV(GNSS) PUGER 1D BIKDU 1D SALAX 1D IBUKU 1D PIBOS 1D MITOS 1D ATIMU 1D KIMAT 1D RUSBU 1D (TABULAR 3) | graphics/208492.pdf",
-   "Departures | RWY 32R DEPARTURES FOR SAAS SUBANG | graphics/305894.pdf",
-   "Departures | RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E | graphics/257887.pdf",
+   "Departures | SID RWY 32R DEPARTURES FOR SAAS SUBANG | graphics/305894.pdf",
+   "Departures | SID RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E | graphics/257887.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E (TABULAR 1) | graphics/208476.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E (TABULAR 2) | graphics/208477.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E (TABULAR 3) | graphics/208478.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 32L RNAV(GNSS) PUGER 1E BIKDU 1E SALAX 1E IBUKU 1E PIBOS 1E MITOS 1E ATIMU 1E KIMAT 1E RUSBU 1E (TABULAR 4) | graphics/208479.pdf",
-   "Departures | RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F | graphics/305897.pdf",
+   "Departures | SID RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F | graphics/305897.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F (TABULAR 1) | graphics/250921.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F (TABULAR 2) | graphics/250924.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F (TABULAR 3) | graphics/250925.pdf",
    "Procedure data | STANDARD DEPARTURE CHART INSTRUMENT (SID) – RWY 33 RNP 1 (GNSS) PUGER 1F BIKDU 1F SALAX 1F IBUKU 1F PIBOS 1F MITOS 1F ATIMU 1F KIMAT 3F RUSBU 1F (TABULAR 4) | graphics/250926.pdf",
-   "Arrivals | RWY 32R, 32L, 33, 14L, 14R, 15 RNAV (GNSS) PMS EAST PUGER 1G KAKAK 1G SAROX 1G NIREN 1G PULIP 1G GUPTA 1G SALAX 1G | graphics/305936.pdf",
+   "Arrivals | STAR RWY 32R, 32L, 33, 14L, 14R, 15 RNAV (GNSS) PMS EAST PUGER 1G KAKAK 1G SAROX 1G NIREN 1G PULIP 1G GUPTA 1G SALAX 1G | graphics/305936.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 32R, 32L, 33, 14L, 14R, 15 RNAV (GNSS) PMS EAST PUGER 1G KAKAK 1G SAROX 1G NIREN 1G PULIP 1G GUPTA 1G SALAX 1G (TABULAR 1) | graphics/208302.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 32R, 32L, 33, 14L, 14R, 15 RNAV (GNSS) PMS EAST PUGER 1G KAKAK 1G SAROX 1G NIREN 1G PULIP 1G GUPTA 1G SALAX 1G (TABULAR 2) | graphics/208304.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 32R, 32L, 33, 14L, 14R, 15 RNAV (GNSS) PMS EAST PUGER G KAKAK 1G SAROX 1G NIREN 1G PULIP 1G GUPTA 1G SALAX 1G (TABULAR 3) | graphics/208305.pdf",
@@ -1092,14 +1625,14 @@
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY32R, 32L, 33 RNAV (GNSS) PMS SOUTH PUGER 1J KAKAK 1J SAROX 1J NIREN 1 J PULIP 1J GUPTA 1J SALAX 1J (TABULAR 2) | graphics/208314.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY32R, 32L, 33, RNAV (GNSS) PMS SOUTH PUGER 1J KAKAK 1J SAROX 1J NIREN 1J PULIP 1J GUPTA 1J SALAX 1J (TABULAR 3) | graphics/275900.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY32R, 32L, 33, RNAV (GNSS) PMS SOUTH PUGER 1J KAKAK 1J SAROX 1J NIREN 1J PULIP 1J GUPTA 1J SALAX 1J (TABULAR 4) | graphics/208316.pdf",
-   "Arrivals | RWY 32R, 32L, 33 RNP 1 (GNSS) PUGER 3J KAKAK 3J SAROX 3J NIREN 3J PULIP 3J GUPTA 3J SALAX 3J | graphics/306014.pdf",
+   "Arrivals | STAR RWY 32R, 32L, 33 RNP 1 (GNSS) PUGER 3J KAKAK 3J SAROX 3J NIREN 3J PULIP 3J GUPTA 3J SALAX 3J | graphics/306014.pdf",
    "Procedure data | STANDARD ARRIVAL CHART – RWY 32R, 32L, 33 RNP 1 (GNSS) PUGER 3J KAKAK 3J SAROX 3J NIREN 3J PULIP 3J GUPTA 3J SALAX 3J (TABULAR 1) | graphics/250974.pdf",
    "Procedure data | STANDARD ARRIVAL CHART – RWY 32R, 32L, 33 RNP 1 (GNSS) PUGER 3J KAKAK 3J SAROX 3J NIREN 3J PULIP 3J GUPTA 3J SALAX 3J (TABULAR 2) | graphics/253203.pdf",
-   "Arrivals | RWY 14L, 14R, 15 RNAV(GNSS) PMS NORTH PUGER 1K KAKAK 1K SAROX 1K NIREN 1K PULIP 1K GUPTA 1K SALAX 1K | graphics/306016.pdf",
+   "Arrivals | STAR RWY 14L, 14R, 15 RNAV(GNSS) PMS NORTH PUGER 1K KAKAK 1K SAROX 1K NIREN 1K PULIP 1K GUPTA 1K SALAX 1K | graphics/306016.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 14L, 14R, 15 RNAV(GNSS) PMS NORTH PUGER 1K KAKAK 1K SAROX 1K NIREN 1K PULIP 1K GUPTA 1K SALAX 1K (TABULAR 1) | graphics/208318.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 14L, 14R, 15 RNAV(GNSS) PMS NORTH PUGER 1K KAKAK 1K SAROX 1K NIREN 1K PULIP 1K GUPTA 1K SALAX 1K (TABULAR 2) | graphics/208319.pdf",
    "Procedure data | STANDARD ARRIVAL CHART - INSTRUMENT (STAR) – RWY 14L, 14R, 15 RNAV(GNSS) PMS NORTH PUGER 1K KAKAK 1K SAROX 1K NIREN 1K PULIP 1K GUPTA 1K SALAX 1K (TABULAR 3) | graphics/208320.pdf",
-   "Arrivals | RWY 14L, 14R, 15 RNP 1 (GNSS) PUGER 3K KAKAK 3K SAROX 3K NIREN 3K PULIP 3K GUPTA 3K SALAX 3K | graphics/306017.pdf",
+   "Arrivals | STAR RWY 14L, 14R, 15 RNP 1 (GNSS) PUGER 3K KAKAK 3K SAROX 3K NIREN 3K PULIP 3K GUPTA 3K SALAX 3K | graphics/306017.pdf",
    "Procedure data | STANDARD ARRIVAL CHART – RWY 14L, 14R, 15 RNP 1 (GNSS) PUGER 3K KAKAK 3K SAROX 3K NIREN 3K PULIP 3K GUPTA 3K SALAX 3K (TABULAR 1) | graphics/253206.pdf",
    "Procedure data | STANDARD ARRIVAL CHART – RWY 14L, 14R, 15 RNP 1 (GNSS) PUGER 3K KAKAK 3K SAROX 3K NIREN 3K PULIP 3K GUPTA 3K SALAX 3K (TABULAR 2) | graphics/253202.pdf",
    "Approaches | INITIAL APPROACH CHART - RWY 14L RNAV (GNSS) INITIAL APPROACH PROCEDURE VIA PMS EAST / WEST / NORTH | graphics/306021.pdf",
@@ -1743,21 +2276,21 @@
    "Hot spots | Aircraft Parking / Docking Chart | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_APDC_en.pdf",
    "Other | Aerodrome Obstacle Chart – Type A | graphics/eAIP/AIRAC-AMDT-08-2026/AD_2_EETN_AOC_A_08_26_en.pdf",
    "Other | Precision Approach Terrain Chart | graphics/eAIP/AIRAC-AMDT-07-2024/AD_2_EETN_PATC_08_26_en.pdf",
-   "Departures | EETN RNAV SID RWY 08 | graphics/eAIP/AIRAC-AMDT-06-2026/AD_2_EETN_RNAV_SID_08_en.pdf",
-   "Departures | EETN RNAV SID RWY 26 | graphics/eAIP/AIRAC-AMDT-06-2026/AD_2_EETN_RNAV_SID_26_en.pdf",
-   "Departures | EETN RNP SID RWY 08 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_RNP_SID_08_en.pdf",
-   "Departures | EETN RNP SID RWY 26 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_RNP_SID_26_en.pdf",
+   "Departures | EETN RNAV SID RWY 08 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_RNAV_SID_08_en.pdf",
+   "Departures | EETN RNAV SID RWY 26 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_RNAV_SID_26_en.pdf",
+   "Departures | EETN RNP SID RWY 08 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_RNP_SID_08_en.pdf",
+   "Departures | EETN RNP SID RWY 26 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_RNP_SID_26_en.pdf",
    "Arrivals | EETN RNAV STAR RWY 08 | graphics/eAIP/AIRAC-AMDT-06-2026/AD_2_EETN_RNAV_STAR_08_en.pdf",
    "Arrivals | EETN RNAV STAR RWY 26 | graphics/eAIP/AIRAC-AMDT-06-2026/AD_2_EETN_RNAV_STAR_26_en.pdf",
-   "Approaches | EETN ILS or LOC RWY 08 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_08_1_en.pdf",
-   "Approaches | EETN ILS or LOC RWY 26 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_26_1_en.pdf",
-   "Approaches | EETN RNP Z RWY 08 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_08_2_en.pdf",
+   "Approaches | EETN ILS or LOC RWY 08 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_08_1_en.pdf",
+   "Approaches | EETN ILS or LOC RWY 26 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_26_1_en.pdf",
+   "Approaches | EETN RNP Z RWY 08 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_08_2_en.pdf",
    "Procedure data | Final Approach Segment Data Block - EETN RNP Z RWY 08 | graphics/eAIP/AIRAC-AMDT-10-2020/AD-2-EETN-FASDB-08-2-03122020.pdf",
-   "Approaches | EETN RNP Z RWY 26 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_26_2_en.pdf",
+   "Approaches | EETN RNP Z RWY 26 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_26_2_en.pdf",
    "Procedure data | Final Approach Segment Data Block - EETN RNP Z RWY 26 | graphics/eAIP/AIRAC-AMDT-10-2020/AD-2-EETN-FASDB-26-2-03122020.pdf",
-   "Approaches | EETN RNP H RWY 08 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_08_4_en.pdf",
+   "Approaches | EETN RNP H RWY 08 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_08_4_en.pdf",
    "Procedure data | Final Approach Segment Data Block - EETN RNP H RWY 08 | graphics/eAIP/AIRAC-AMDT-10-2020/AD-2-EETN-FASDB-08-4-03122020.pdf",
-   "Approaches | EETN RNP H RWY 26 | graphics/eAIP/AIRAC-AMDT-03-2026/AD_2_EETN_IAC_26_4_en.pdf",
+   "Approaches | EETN RNP H RWY 26 | graphics/eAIP/AIRAC-AMDT-09-2026/AD_2_EETN_IAC_26_4_en.pdf",
    "Procedure data | Final Approach Segment Data Block - EETN RNP H RWY 26 | graphics/eAIP/AIRAC-AMDT-11-2020/AD-2-EETN-FASDB-26-4-31122020.pdf",
    "Approaches | Visual Approach Chart | graphics/eAIP/AIRAC-AMDT-06-2026/AD_2_EETN_VAC_en.pdf",
    "Other | Landing Chart | graphics/eAIP/AIRAC-AMDT-05-2026/AD_2_EETN_LDG_en.pdf",
@@ -2109,6 +2642,105 @@
      "RBO",
      40.853861,
      -3.246639
+    ]
+   ]
+  }
+ },
+ "EIDW": {
+  "cycle": "IE20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
+  "name": "DUBLIN INTERNATIONAL",
+  "notFound": false,
+  "n": 43,
+  "charts": [
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-1_en.pdf",
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-2_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 10R/28L | graphics/eAIP/EI_AD_2_EIDW_24-3_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 10L/28R | graphics/eAIP/EI_AD_2_EIDW_24-4_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 16/34 | graphics/eAIP/EI_AD_2_EIDW_24-5_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-6_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 28R | graphics/eAIP/EI_AD_2_EIDW_24-7_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-8_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-9_en.pdf",
+   "Departures | RNAV RWY 28L CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-10.1_en.pdf",
+   "Departures | RNAV RWY 28L CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-11.1_en.pdf",
+   "Departures | RNAV RWY 28R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-12_en.pdf",
+   "Departures | RNAV RWY 28R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-13.1_en.pdf",
+   "Departures | RNAV RWY 10L CAT A,B | graphics/eAIP/EI_AD_2_EIDW_24-14.1_en.pdf",
+   "Departures | RNAV RWY 10L CAT C,D | graphics/eAIP/EI_AD_2_EIDW_24-15_en.pdf",
+   "Departures | RNAV RWY 10R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-16.1_en.pdf",
+   "Departures | RNAV RWY 10R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-17.1_en.pdf",
+   "Departures | RNAV RWY 16 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-18.1_en.pdf",
+   "Departures | RNAV RWY 16 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-19.1_en.pdf",
+   "Departures | RNAV RWY 34 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-20.1_en.pdf",
+   "Departures | RNAV RWY 34 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-21.1_en.pdf",
+   "Arrivals | RNAV RWY 28L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-22.1_en.pdf",
+   "Arrivals | RNAV RWY 10L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-23.1_en.pdf",
+   "Arrivals | RNAV RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-24.1_en.pdf",
+   "Arrivals | RNAV RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-25.1_en.pdf",
+   "Approaches | RNP RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-26.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-27.1_en.pdf",
+   "Approaches | VOR RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-28.1_en.pdf",
+   "Approaches | RNP RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-29.1_en.pdf",
+   "Approaches | ILS CAT I and II or LOC RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-30.1_en.pdf",
+   "Approaches | RNP RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-32.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-33.1_en.pdf",
+   "Approaches | RNP RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-35.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-36.1_en.pdf",
+   "Approaches | VOR RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-37.1_en.pdf",
+   "Approaches | RNP RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-38_en.pdf",
+   "Approaches | ILS CAT I or LOC RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-39.1_en.pdf",
+   "Approaches | VOR RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-40.1_en.pdf",
+   "Approaches | RNP RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-41_en.pdf",
+   "Approaches | VOR RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-42.1_en.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/EI_AD_2_EIDW_24-43.1_en.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EIDW_24-44_en.pdf",
+   "Approaches | RNP T RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-46_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart",
+    "status": 200,
+    "bytes": 799316,
+    "head": "%PDF-1.7\n%ޭ��\n3 0 obj\n<<  /Length 3350 /Filter /FlateDecode"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    53.421389,
+    -6.27
+   ],
+   "n": 131,
+   "some": [
+    [
+     "10R",
+     53.422431,
+     -6.290075
+    ],
+    [
+     "28L",
+     53.420261,
+     -6.250578
+    ],
+    [
+     "10L",
+     53.437164,
+     -6.280617
+    ],
+    [
+     "28R",
+     53.435203,
+     -6.244964
+    ],
+    [
+     "16",
+     53.436989,
+     -6.261978
     ]
    ]
   }

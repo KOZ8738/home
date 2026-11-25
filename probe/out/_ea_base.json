@@ -1,14 +1,32 @@
 {
- "EIDW": {
+ "LKPR": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
- "EINN": {
+ "LKTB": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
- "EICK": {
+ "EBBR": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
- "EIKN": {
+ "ELLX": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "LHBP": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "LHDC": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "LYBE": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "LYPG": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "EPWA": {
+  "error": "Cannot read properties of null (reading 'cycle')"
+ },
+ "EPKK": {
   "error": "Cannot read properties of null (reading 'cycle')"
  },
  "VHHH": {
@@ -1499,8 +1517,8 @@
   "charts": [
    "Airport diagram | Aerodrome Chart | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_Aerodrome_Chart.pdf",
    "Hot spots | Aerodrome Chart - CODE F Ground Movement | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_AD_CODEF_GMC.pdf",
-   "Hot spots | Aircraft Parking Parking/Docking Docking Chart – Terminal Aprons | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_TERM_APRON.pdf",
-   "Hot spots | Aircraft Parking Parking/Docking Docking Chart – East Apron | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_EAST_APRON.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – Terminal Aprons | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_TERM_APRON.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – East Apron | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_2/BIKF_2_PARKING_EAST_APRON.pdf",
    "Other | Precision Approach Terrain Chart – RWY 01 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_01.pdf",
    "Other | Precision Approach Terrain Chart – RWY 10 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_10.pdf",
    "Other | Precision Approach Terrain Chart – RWY 19 | documents/Root_WePub/Rep_ISAVIA/Charts/AD/BIKF/PART_3/BIKF_3_PREC_APP_RWY_19.pdf",
@@ -1604,9 +1622,291 @@
   }
  },
  "EVRA": {
-  "error": "Cannot read properties of null (reading 'cycle')"
+  "cycle": "LV20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://ais.lgs.lv/eAIPfiles/2026_007_29-OCT-2026/data/2026-10-29/html/index-en-GB.html",
+  "name": "RIGA",
+  "notFound": false,
+  "n": 29,
+  "charts": [
+   "Airport diagram | Aerodrome chart | graphics/eAIP/1598_EVRA_2_24_1_20250710.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – S | graphics/eAIP/1633_EVRA_2_24_2_S_20250904.pdf",
+   "Hot spots | Aircraft Parking/Docking Chart – N | graphics/eAIP/1629_EVRA_2_24_2_N_20250904.pdf",
+   "Hot spots | Aerodrome Ground Movement Chart | graphics/eAIP/1597_EVRA_2_24_3_20250710.pdf",
+   "Other | Aerodrome Obstacle Chart Type A (for each runway) – RWY 18/36 | graphics/eAIP/1599_EVRA_2_24_4_RWY18_36_20250710.pdf",
+   "Other | Precision Approach Terrain Chart | graphics/eAIP/1610_EVRA_2_24_7_20250710.pdf",
+   "Departures | SID RWY 18 (E) | graphics/eAIP/1861_EVRA_2_24_9_RWY18E_20261029.pdf",
+   "Departures | SID RWY 18 (W) | graphics/eAIP/1856_EVRA_2_24_9_RWY18W_20261029.pdf",
+   "Departures | SID RWY 36 (E) | graphics/eAIP/1857_EVRA_2_24_9_RWY36E_20261029.pdf",
+   "Departures | SID RWY 36 (W) | graphics/eAIP/1850_EVRA_2_24_9_RWY36W_20261029.pdf",
+   "Departures | SID RWY 36 (WJ) | graphics/eAIP/1849_EVRA_2_24_9_RWY36WJ_20261029.pdf",
+   "Arrivals | STAR RWY 18 (WL) | graphics/eAIP/1844_EVRA_2_24_11_RWY18WL_20261029.pdf",
+   "Arrivals | STAR RWY 18 (WT) | graphics/eAIP/1862_EVRA_2_24_11_RWY18WT_20261029.pdf",
+   "Arrivals | STAR RWY 18 (E) | graphics/eAIP/1847_EVRA_2_24_11_RWY18E_20261029.pdf",
+   "Arrivals | STAR RWY 36 (W) | graphics/eAIP/1859_EVRA_2_24_11_RWY36W_20261029.pdf",
+   "Arrivals | STAR RWY 36 (N) | graphics/eAIP/1843_EVRA_2_24_11_RWY36N_20261029.pdf",
+   "Arrivals | STAR RWY 36 (S) | graphics/eAIP/1854_EVRA_2_24_11_RWY36S_20261029.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/1814_EVRA_2_24_12_20260903.pdf",
+   "Approaches | ILS Y or LOC Y RWY 18 | graphics/eAIP/1851_EVRA_2_24_13_RWY18_ILSY_LOCY_20261029.pdf",
+   "Approaches | ILS Z or LOC Z RWY 18 | graphics/eAIP/1863_EVRA_2_24_13_RWY18_ILSZ_LOCZ_20261029.pdf",
+   "Approaches | RNP Y RWY 18 | graphics/eAIP/1855_EVRA_2_24_13_RWY18_RNPY_20261029.pdf",
+   "Approaches | RNP Z RWY 18 | graphics/eAIP/1793_EVRA_2_24_13_RWY18_RNPZ_20260903.pdf",
+   "Approaches | VOR RWY 18 | graphics/eAIP/1858_EVRA_2_24_13_RWY18_VOR_20261029.pdf",
+   "Approaches | ILS Y or LOC Y RWY 36 | graphics/eAIP/1846_EVRA_2_24_13_RWY36_ILSY_LOCY_20261029.pdf",
+   "Approaches | ILS Z or LOC Z RWY 36 | graphics/eAIP/1852_EVRA_2_24_13_RWY36_ILSZ_LOCZ_20261029.pdf",
+   "Approaches | RNP Y RWY 36 | graphics/eAIP/1864_EVRA_2_24_13_RWY36_RNPY_20261029.pdf",
+   "Approaches | RNP Z RWY 36 | graphics/eAIP/1773_EVRA_2_24_13_RWY36_RNPZ_20260903.pdf",
+   "Approaches | VOR RWY 36 | graphics/eAIP/1853_EVRA_2_24_13_RWY36_VOR_20261029.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/1817_EVRA_2_24_14_20260903.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome chart",
+    "status": 200,
+    "bytes": 1185139,
+    "head": "%PDF-1.6\r%����\r\n7769 0 obj\r<</Filter/FlateDecode/First 10/Le"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    56.923611,
+    23.971111
+   ],
+   "n": 110,
+   "some": [
+    [
+     "18",
+     56.935069,
+     23.973078
+    ],
+    [
+     "36",
+     56.90645,
+     23.968356
+    ],
+    [
+     "RIA",
+     56.920861,
+     23.965194
+    ],
+    [
+     "IRV",
+     56.901194,
+     23.9675
+    ],
+    [
+     "IRV",
+     56.932306,
+     23.970639
+    ]
+   ]
+  }
  },
  "LEMD": {
-  "error": "Cannot read properties of null (reading 'cycle')"
+  "cycle": "ES20261029",
+  "eff": "2026-10-29",
+  "next": null,
+  "aip": "https://aip.enaire.es/AIP/AIP-en.html",
+  "name": "MADRID/Adolfo Suárez Madrid-Barajas",
+  "notFound": false,
+  "n": 50,
+  "charts": [
+   "Other | Aerodrome information (AD 2 text) | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_en.pdf",
+   "Airport diagram | Aerodrome Chart | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_ADC_1_en.pdf",
+   "Hot spots | Parking/Docking Chart 1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PDC_1_en.pdf",
+   "Hot spots | Parking/Docking Chart 2 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PDC_2_en.pdf",
+   "Hot spots | Ground Movement Chart 1 – NORTH CONFIGURATION | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_GMC_1_en.pdf",
+   "Hot spots | Ground Movement Chart 2 – SOUTH CONFIGURATION | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_GMC_2_en.pdf",
+   "Other | Aerodrome Obstacle Chart 1 – RWY 14L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_AOC_1_en.pdf",
+   "Other | Aerodrome Obstacle Chart 2 – RWY 14R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_AOC_2_en.pdf",
+   "Other | Aerodrome Obstacle Chart 3 – RWY 36L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_AOC_3_en.pdf",
+   "Other | Aerodrome Obstacle Chart 4 – RWY 36R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_AOC_4_en.pdf",
+   "Other | Precision Approach Terrain Chart 1 – RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PATC_1_en.pdf",
+   "Other | Precision Approach Terrain Chart 2 – RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PATC_2_en.pdf",
+   "Other | Precision Approach Terrain Chart 3 – RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PATC_3_en.pdf",
+   "Other | Precision Approach Terrain Chart 4 – RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_PATC_4_en.pdf",
+   "Departures | SID 1 – RWY 14L DAY TIME - RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_1_en.pdf",
+   "Departures | SID 2 – RWY 14L NIGHT-TIME - RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_2_en.pdf",
+   "Departures | SID 3 – RNAV RWY 14R DAY TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_3_en.pdf",
+   "Departures | SID 4 – RNAV RWY 14R NIGHT-TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_4_en.pdf",
+   "Departures | SID 5 – RNAV RWY 36L DAY TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_5_en.pdf",
+   "Departures | SID 6 – RNAV RWY 36L NIGHT-TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_6_en.pdf",
+   "Departures | SID 7 – RNAV RWY 36R DAY TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_7_en.pdf",
+   "Departures | SID 8 – RNAV RWY 36R NIGHT-TIME | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_SID_8_en.pdf",
+   "Arrivals | STAR 1 – RWY 18L /18R (SOUTH CONFIGURATIÓN) RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_STAR_1_en.pdf",
+   "Arrivals | STAR 2 – RWY 18L /18R (SOUTH CONFIGURATIÓN) RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_STAR_2_en.pdf",
+   "Arrivals | STAR 3 – RWY 32L /32R (NORTH CONFIGURATIÓN) RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_STAR_3_en.pdf",
+   "Arrivals | STAR 4 – RWY 32L /32R (NORTH CONFIGURATIÓN) RNAV1 | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_STAR_4_en.pdf",
+   "Approaches | ILS Z RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_1_en.pdf",
+   "Approaches | ILS Y RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_2_en.pdf",
+   "Approaches | LOC RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_3_en.pdf",
+   "Approaches | VOR RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_4_en.pdf",
+   "Approaches | RNP Z RWY 18L (LPV ONLY) | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_5_en.pdf",
+   "Approaches | RNP Y RWY 18L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_6_en.pdf",
+   "Approaches | ILS Z RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_7_en.pdf",
+   "Approaches | ILS Y RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_8_en.pdf",
+   "Approaches | LOC RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_9_en.pdf",
+   "Approaches | VOR RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_10_en.pdf",
+   "Approaches | RNP Z RWY 18R (LPV ONLY) | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_11_en.pdf",
+   "Approaches | RNP Y RWY 18R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_12_en.pdf",
+   "Approaches | ILS Z RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_13_en.pdf",
+   "Approaches | ILS W RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_14_en.pdf",
+   "Approaches | LOC RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_15_en.pdf",
+   "Approaches | VOR RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_16_en.pdf",
+   "Approaches | RNP Z RWY 32L (LPV ONLY) | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_17_en.pdf",
+   "Approaches | RNP Y RWY 32L | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_18_en.pdf",
+   "Approaches | ILS Z RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_19_en.pdf",
+   "Approaches | ILS W RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_20_en.pdf",
+   "Approaches | LOC RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_21_en.pdf",
+   "Approaches | VOR RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_22_en.pdf",
+   "Approaches | RNP Z RWY 32R (LPV ONLY) | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_23_en.pdf",
+   "Approaches | RNP Y RWY 32R | contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_IAC_24_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome information (AD 2 text)",
+    "status": 200,
+    "bytes": 5922006,
+    "head": "%PDF-1.4\n%����\n1 0 obj\n<</Creator (Mozilla/5.0 \\(Windows NT "
+   }
+  ],
+  "fixes": {
+   "arp": [
+    40.472222,
+    -3.560833
+   ],
+   "n": 309,
+   "some": [
+    [
+     "BRA",
+     40.469139,
+     -3.557528
+    ],
+    [
+     "BRA",
+     40.469056,
+     -3.557639
+    ],
+    [
+     "PDT",
+     40.252917,
+     -3.348028
+    ],
+    [
+     "PDT",
+     40.252889,
+     -3.347861
+    ],
+    [
+     "RBO",
+     40.853861,
+     -3.246639
+    ]
+   ]
+  }
+ },
+ "EIDW": {
+  "cycle": "IE20261029",
+  "eff": "2026-10-29",
+  "next": {
+   "eff": "2026-11-26"
+  },
+  "aip": "https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html",
+  "name": "DUBLIN INTERNATIONAL",
+  "notFound": false,
+  "n": 43,
+  "charts": [
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-1_en.pdf",
+   "Airport diagram | Aerodrome Chart | graphics/eAIP/EI_AD_2_EIDW_24-2_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 10R/28L | graphics/eAIP/EI_AD_2_EIDW_24-3_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 10L/28R | graphics/eAIP/EI_AD_2_EIDW_24-4_en.pdf",
+   "Other | Aerodrome Obstacle Chart RWY 16/34 | graphics/eAIP/EI_AD_2_EIDW_24-5_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-6_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 28R | graphics/eAIP/EI_AD_2_EIDW_24-7_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-8_en.pdf",
+   "Other | Precision Approach Terrain Chart RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-9_en.pdf",
+   "Departures | RNAV RWY 28L CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-10.1_en.pdf",
+   "Departures | RNAV RWY 28L CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-11.1_en.pdf",
+   "Departures | RNAV RWY 28R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-12_en.pdf",
+   "Departures | RNAV RWY 28R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-13.1_en.pdf",
+   "Departures | RNAV RWY 10L CAT A,B | graphics/eAIP/EI_AD_2_EIDW_24-14.1_en.pdf",
+   "Departures | RNAV RWY 10L CAT C,D | graphics/eAIP/EI_AD_2_EIDW_24-15_en.pdf",
+   "Departures | RNAV RWY 10R CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-16.1_en.pdf",
+   "Departures | RNAV RWY 10R CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-17.1_en.pdf",
+   "Departures | RNAV RWY 16 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-18.1_en.pdf",
+   "Departures | RNAV RWY 16 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-19.1_en.pdf",
+   "Departures | RNAV RWY 34 CAT A, B | graphics/eAIP/EI_AD_2_EIDW_24-20.1_en.pdf",
+   "Departures | RNAV RWY 34 CAT C, D | graphics/eAIP/EI_AD_2_EIDW_24-21.1_en.pdf",
+   "Arrivals | RNAV RWY 28L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-22.1_en.pdf",
+   "Arrivals | RNAV RWY 10L/R (With Lateral Holding/Point Merge) | graphics/eAIP/EI_AD_2_EIDW_24-23.1_en.pdf",
+   "Arrivals | RNAV RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-24.1_en.pdf",
+   "Arrivals | RNAV RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-25.1_en.pdf",
+   "Approaches | RNP RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-26.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-27.1_en.pdf",
+   "Approaches | VOR RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-28.1_en.pdf",
+   "Approaches | RNP RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-29.1_en.pdf",
+   "Approaches | ILS CAT I and II or LOC RWY 28R CAT A,B,C,D | graphics/eAIP/EI_AD_2_EIDW_24-30.1_en.pdf",
+   "Approaches | RNP RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-32.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 10L | graphics/eAIP/EI_AD_2_EIDW_24-33.1_en.pdf",
+   "Approaches | RNP RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-35.1_en.pdf",
+   "Approaches | ILS CAT I + II or LOC RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-36.1_en.pdf",
+   "Approaches | VOR RWY 10R | graphics/eAIP/EI_AD_2_EIDW_24-37.1_en.pdf",
+   "Approaches | RNP RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-38_en.pdf",
+   "Approaches | ILS CAT I or LOC RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-39.1_en.pdf",
+   "Approaches | VOR RWY 16 | graphics/eAIP/EI_AD_2_EIDW_24-40.1_en.pdf",
+   "Approaches | RNP RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-41_en.pdf",
+   "Approaches | VOR RWY 34 | graphics/eAIP/EI_AD_2_EIDW_24-42.1_en.pdf",
+   "Minimums | ATC Surveillance Minimum Altitude Chart | graphics/eAIP/EI_AD_2_EIDW_24-43.1_en.pdf",
+   "Approaches | Visual Approach Chart | graphics/eAIP/EI_AD_2_EIDW_24-44_en.pdf",
+   "Approaches | RNP T RWY 28L | graphics/eAIP/EI_AD_2_EIDW_24-46_en.pdf"
+  ],
+  "pdf": [
+   {
+    "i": 1,
+    "name": "Aerodrome Chart",
+    "status": 200,
+    "bytes": 799316,
+    "head": "%PDF-1.7\n%ޭ��\n3 0 obj\n<<  /Length 3350 /Filter /FlateDecode"
+   }
+  ],
+  "fixes": {
+   "arp": [
+    53.421389,
+    -6.27
+   ],
+   "n": 131,
+   "some": [
+    [
+     "10R",
+     53.422431,
+     -6.290075
+    ],
+    [
+     "28L",
+     53.420261,
+     -6.250578
+    ],
+    [
+     "10L",
+     53.437164,
+     -6.280617
+    ],
+    [
+     "28R",
+     53.435203,
+     -6.244964
+    ],
+    [
+     "16",
+     53.436989,
+     -6.261978
+    ]
+   ]
+  }
  }
 }

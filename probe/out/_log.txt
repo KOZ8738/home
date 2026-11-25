@@ -1,10 +1,1 @@
-pl-def	404	text/html	321	https://docs.pansa.pl/ais/eaipifr/default_offline.html
-pl-menu	200	text/html	2012252	https://docs.pansa.pl/ais/eaipifr/AIRAC%20AMDT%2011-26_2026_10_29/eAIP/menu.html
-rs-idx	200	text/html	1356	https://smatsa.rs/upload/aip/published/29-Oct-2026-A/2026-10-29-AIRAC/html/index_commands.html
-rs-lybe	200	text/html	706028	https://smatsa.rs/upload/aip/published/29-Oct-2026-A/2026-10-29-AIRAC/html/eAIP/LY-AD-2.LYBE-en-GB.html
-ba-js	200	application/javascript	5500	https://eaip.bhansa.gov.ba/script.js
-hu-cover	200	text/html; charset=utf-8	3761	https://ais-en.hungarocontrol.hu/aip/2026-09-03/2026-09-03-AIRAC/html/LH-cover-en-HU.html
-sk-eaip	404	text/html	1245	https://aim.lps.sk/eAIP_SR/
-bg-eaip	404	text/html; charset=UTF-8	155855	https://www.bulatsa.com/en/services/aeronautical-information-services/eaip/
-pt-eaip	200	text/html; charset=UTF-8	66982	https://ais.nav.pt/online-eaip-en/
-al-eaip	200	text/html; charset=UTF-8	269270	https://www.albcontrol.al/aip/
+

@@ -3,6 +3,8 @@ name: eAIP probe
 on:
   push:
     branches: [claude/eaip-probe]
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -15,5 +17,7 @@ jobs:
         with: { node-version: 20 }
       - run: node probe/fetch.mjs || true
       - run: node probe/ea.mjs || true
-      - uses: actions/upload-artifact@v4
-        with: { name: out, path: probe/out, retention-days: 1 }
+      - name: keep the results on this branch
+        run: |
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git add -f probe/out && git commit -qm "probe results [skip ci]" && git push -q origin HEAD:claude/eaip-probe

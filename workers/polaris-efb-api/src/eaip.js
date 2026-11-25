@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland and France (Nov 2026) ----------
+   Poland, France, Portugal and Bosnia and Herzegovina (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -166,7 +166,7 @@ export const EA = {
     eds: (t) => { let j; try { j = JSON.parse(t); } catch (e) { return []; }
       return (Array.isArray(j) ? j : []).map((u) => String(u && u.effectiveDate || '').match(/(\d{1,2})\s+([A-Z]{3})\s+(\d{4})/i)).filter((m) => m && MON[m[2].toUpperCase()])
         .map((m) => { const d = `${m[3]}-${MON[m[2].toUpperCase()]}-${m[1].padStart(2, '0')}`; return { eff: d, pub: d, base: `https://eaip.bhansa.gov.ba/${d}-AIRAC/`, index: 'html/index.html' }; }); },
-    page: (i) => `html/eAIP/LQ-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LQ-ENR-${n}-en-GB.html`,
+    page: (i) => `html/eAIP/LQ-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LQ-ENR-${n}-en-GB.html`, fileName: true,
   },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
@@ -358,11 +358,13 @@ export function eaName(name, group) {
   if (group === 'Arrivals') n = n.replace(/\bSTANDARD (INSTRUMENT )?ARRIVAL CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(STAR\)\s*)?[-–:]?\s*/i, '');
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
   n = n.replace(/^(IAC|VAC|SID|STAR)\s*[-–]\s*ICAO\s+/i, (m, c) => (/^(SID|STAR)$/i.test(c) && !new RegExp('\\b' + c + '\\b', 'i').test(n.slice(m.length)) ? c.toUpperCase() + ' ' : ''));
-  n = n.replace(/^ICAO\s*[:\-–]?\s*(?=\S)/i, '').replace(/^\(([^()]*)\)$/, '$1');
+  n = n.replace(/^ICAO\s*[:\-–]?\s*(?=\S)/i, '').replace(/^\((.*)\)$/, (m, x) => { let d = 0; for (const c of x) { d += c === '(' ? 1 : c === ')' ? -1 : 0; if (d < 0) return m; } return d ? m : x; });
   if (/^RWY\b/i.test(n) && (group === 'Departures' || group === 'Arrivals')) n = (group === 'Departures' ? 'SID ' : 'STAR ') + n;
   n = n.replace(/\s*[-–]?\s*\bICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ').replace(/\s*[-–]\s*ICAO\s+/i, ' – ');
   return n.trim() || name;
 }
+const fileTitle = (file) => { let b = file.split('/').pop(); try { b = decodeURIComponent(b); } catch (e) { /* as it is */ }
+  return b.replace(/\.pdf$/i, '').replace(/^[A-Z]{4}\s+AD\s*2\.24\.\d+-\d+[\s_-]*/i, '').replace(/[_\s]+\d{1,2}[_\s]+[A-Z]{3}[_\s]+\d{4}$/i, '').replace(/_/g, ' ').replace(/\bICAO\b/g, ' ').replace(/\s+/g, ' ').trim() || b; };
 export function eaCharts(html, k) {
   const seg = section(html);
   if (!seg) return [];
@@ -392,9 +394,11 @@ export function eaCharts(html, k) {
     const id = idLike ? first : cells.length > 1 ? text(cells[1]) : '';
     for (const h of links.slice(-1)) {
       const file = h.replace(/^(\.\.\/)+/, '').replace(/^\.\//, '');
-      if (!/^(pdf|graphics)\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file) || file.includes('..') || seen.has(file)) continue;
+      /* Bosnia's names have spaces: "graphics/eAIP/LQSA AD 2.24.01-1-Aerodrome_Chart_ICAO_27_NOV_2025.pdf" */
+      if (!/^(pdf|graphics)\/[^"'<>\\]{1,200}\.pdf$/i.test(file) || file.includes('..') || seen.has(file)) continue;
       seen.add(file);
-      const nm = name || id.replace(/\s+\S*ACLO\S*/g, '').trim() || file.split('/').pop();
+      /* Bosnia's table only numbers the charts; its files say what they are: "LQSA AD 2.24.12-19_Instrument_Approach_Chart_ICAO_ILS_RWY_11_11_JUN_2026" */
+      const nm = R.fileName ? fileTitle(file) : name || id.replace(/\s+\S*ACLO\S*/g, '').trim() || file.split('/').pop();
       const [code, group] = eaGroup(nm, id + ' ' + file);
       out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
     }
@@ -598,7 +602,7 @@ export async function eaChartPdf(url, env, h, me, d) {
     : R.kind === 'kr' ? /^\d{4}-\d{2}-\d{2}(?:-AIRAC)?\/pdf\/(AD|ENR|GEN)\/[A-Z]{4}\/[^"'<>\\]{1,250}\.pdf$/i.test(file)
     : R.kind === 'fr' ? /^html\/eAIP\/Cartes\/[A-Z]{4}\/AD_2_[A-Z]{4}_[\w.\-]{1,160}\.pdf$/.test(file)
     : R.kind === 'es' ? /^contenido_AIP\/AD\/AD2\/[A-Z]{4}\/LE_AD_2_[A-Z]{4}[\w.\-]{0,40}_en\.pdf$/.test(file)
-    : /^(pdf|graphics)\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file);
+    : /^(pdf|graphics)\/[^"'<>\\]{1,200}\.pdf$/i.test(file);
   if (!R || !/^[A-Z]{2}\d{8}$/.test(cycle) || !fileOk || file.includes('..')) return res({ error: 'Invalid chart' }, 400);
   if (!me) return res({ error: 'Sign in to see ' + EA[k].label + ' charts' }, 401);
   const key = 'ea/' + cycle + '/' + file, ok = (body) => new Response(body, { status: 200, headers: { ...h, 'Content-Type': 'application/pdf', 'Cache-Control': 'private, max-age=86400', Vary: 'Authorization' } });

@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="lv-lv" lang="lv-lv">
+<head>
+        <script id="Cookiebot" data-culture="EN" src="https://consent.cookiebot.com/uc.js" data-cbid="efbad7f9-4492-44d8-bb9a-8b1e0fca3328" data-blockingmode="auto" type="text/javascript"></script>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>AIS of Latvia</title>
+    <meta name="viewport" content="width&#x3D;device-width,&#x20;initial-scale&#x3D;1.0,&#x20;maximum-scale&#x3D;1,&#x20;user-scalable&#x3D;yes">
+<meta http-equiv="X-UA-Compatible" content="IE&#x3D;edge">
+    <!-- CSS -->
+     <link href="&#x2F;css&#x2F;sunny&#x2F;jquery-ui-1.10.4.custom.min.css" media="screen" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;css2&#x2F;print.css" media="print" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;assets&#x2F;base_css.1795527073.css" media="screen" rel="stylesheet" type="text&#x2F;css">
+<link href="&#x2F;favicon.ico" rel="shortcut&#x20;icon" type="image&#x2F;vnd.microsoft.icon">
+    <!-- Scripts -->
+    <script  src="&#x2F;js&#x2F;jquery-1.11.0.min.js"></script>
+<script  src="&#x2F;js&#x2F;jquery.alerts.js"></script>
+<script  src="&#x2F;js&#x2F;jquery-ui-1.10.4.custom.min.js"></script>
+<script  src="&#x2F;js&#x2F;plupload&#x2F;js&#x2F;plupload.full.min.js"></script>
+<script  src="&#x2F;js&#x2F;plupload&#x2F;js&#x2F;jquery.ui.plupload&#x2F;jquery.ui.plupload.min.js"></script>
+<script  src="&#x2F;js&#x2F;lodash.min.js"></script>
+<script  src="&#x2F;js&#x2F;crypto-js.js"></script>
+<script  src="&#x2F;js&#x2F;crc.min.js"></script></head>
+<body class="page">
+<!-- <script id="CookieDeclaration" src="https://consent.cookiebot.com/efbad7f9-4492-44d8-bb9a-8b1e0fca3328/cd.js" type="text/javascript" async></script> -->
+<div id="searchPopup" class="no-print">
+    <div class="page-container">
+        <header class="page-header">
+            <div class="page-header-grid grid">
+                <div class="page-header-aside grid-col-4">
+                    <a class="no-style-link" href="/">
+                        <div class="page-header-blue-line"></div>
+                        <div class="page-header-logo-container">
+                            <div class="page-header-logo"></div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </header>
+        <section class="page-body">
+            <div class="page-row">
+                <input type="text" autocomplete="off" name="keyWords" placeholder="Enter search text here..." id="keyWords" class="search-input" />
+                Please start typing and we will search our website for you            </div>
+            <h1 class="page-body-title">
+                Search results                <a class="btn btn-icon btn-search-close" href="#">&nbsp;</a>
+            </h1>
+            <div class="page-row" id="searchResults"
+                data-result="Found 0 records!"
+                data-noresult="Sorry, no results match your search.">
+                <span class="search-small-text grey">
+                    Sorry, no results match your search.                </span>
+            </div>
+            <div id="searchSpinner" style="display:none;">
+                <svg viewBox="0 0 64 64">
+                    <g>
+                        <circle cx="16" cy="32" stroke-width="0" r="3.03921">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".5;.6;.8;1;.8;.6;.5;.5" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="3;3;4;5;6;5;4;3" repeatCount="indefinite"></animate>
+                        </circle>
+                        <circle cx="32" cy="32" stroke-width="0" r="3">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".5;.5;.6;.8;1;.8;.6;.5" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="4;3;3;4;5;6;5;4" repeatCount="indefinite"></animate>
+                        </circle>
+                        <circle cx="48" cy="32" stroke-width="0" r="3.96079">
+                            <animate attributeName="fill-opacity" dur="750ms" values=".6;.5;.5;.6;.8;1;.8;.6" repeatCount="indefinite"></animate>
+                            <animate attributeName="r" dur="750ms" values="5;4;3;3;4;5;6;5" repeatCount="indefinite"></animate>
+                        </circle>
+                    </g>
+                </svg>
+            </div>
+        </section>
+    </div>
+</div>    <div class="page-wrapper">
+        <div class="page-overlay"></div>
+        <div class="page-container" style="padding:7px 15px!important;">
+            <header class="page-header">
+                <div class="page-header-grid grid">
+    <div class="page-header-aside grid-col-4">
+        <a class="no-style-link" href="/">
+            <div class="page-header-blue-line"></div>
+            <div class="page-header-logo-container">
+                <div class="page-header-logo"></div>
+            </div>
+        </a>
+    </div>
+    <div class="page-header-content grid-col-8">
+        
+<a class="btn btn-icon btn-menu-open push-right" href="#">
+    <span>Menu</span>
+</a>
+<div class="page-header-nav grid">
+    <div class="page-header-nav-wrapper" style="margin:-15px -15px 0;">
+        <div class="page-header-nav-col grid-col">
+            <a class="btn btn-icon btn-menu-close push-right" href="#">&nbsp;</a>
+            <nav class="nav nav-main">
+                <ul class="nav-main-0 horizontal">
+                                                            <li><a id='info-menu-link' href="#">Info</a>
+                        <div class="nav-main-1">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/aiseaip">eAIP</a></li>
+                                    <li><a href="/page/Valid AIC">AIC</a></li>
+                                    <li><a href="/page/Valid SUP">AIP SUP</a></li>
+                                    <li><a href="/page/VFR_Suport">VFR Chart</a></li>
+                                    <li><a href="/page/Accessibility">Accessibility</a></li>
+                                </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/notam">NOTAM</a></li>
+                                                                        <li><a href="/aipcalendar">Planned AIP AMDT</a></li>
+                                    <li><a href="javascript:showATMDialog(true);">AIRSPACE.LV</a></li>
+                                    <li>
+                                                                                
+                                        <a href="https://www.airspace.lv/drones/" target="_blank">
+                                            Unmanned aircraft                                        </a>
+                                    </li>
+                                    <li><a href="/page/UAS_geozones">UAS geozones</a></li>
+                                </ul>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                    <li>
+                        <a id='tools-menu-link' href="#">
+                            Tools                        </a>
+                        <div class="nav-main-1 tools-menu">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li>
+                                        <a href="/datadistribution">
+                                            Data distribution                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="https://ibs.lgs.lv/">
+                                            LGS Internet Briefing                                        </a>
+                                    </li>
+                                                                    </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                    <li><a href="/dataorigination">Data/Information submission</a></li>
+                                    <li>
+                                        <a href="https://dnotam.lgs.lv">DNOTAM</a>
+                                    </li>                                    
+                                                                        <li><a href="/products">Services and products</a></li>
+                                </ul>
+                            </div>
+                            <div class="nav-main-1-col">
+                               <ul class="vertical">
+                                                                        <li>
+                                        <a style="padding-right: 0px;" href="/page/AIS_Data_Validation_Tool">
+                                            Data validation tool                                        </a>
+                                    </li>
+                                    <li>
+                                        <a style="padding-right: 0px;" href="/dataorigination/checkcrc">
+                                            Check CRC32Q                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                                        <li style="padding-bottom:0">
+                        <a class="rounded-border" style="margin-bottom: 10px;" href="#">
+                            Login                        </a>
+                        <div class="nav-main-1">
+                            <div class="nav-triangle"></div>
+                            <div class="nav-login-col">
+                                                                                                                                <form method="post" name="login" class="login-form" action="&#x2F;user&#x2F;login" id="login">                                <div class="page-row">
+                                    <div class="input input-text"><input name="identity" type="text" id="username" placeholder="Username&#x20;..." autofocus value=""></div>                                </div>
+                                <div class="page-row">
+                                    <div class="input input-password"><input name="credential" type="password" id="password" placeholder="Password&#x20;..." value=""></div>                                </div>
+                                <div class="page-row">
+                                    <span class='code-number'><input name="codeNumber" type="text" id="codeNumber" readonly tabindex="-1" value="28"></span>
+                                    <div class="input input-password"><input name="code" type="password" id="code" placeholder="Code&#x20;..." value=""></div>                                </div>
+                                <div class="page-row">
+                                    <button type="submit" name="submitbutton" id="submitbutton" class="btn&#x20;btn-submit" value="">LOG IN</button>                                </div>
+                                <div class="page-row">
+                                    <div class="login-form-item-left">
+                                        <a href="/user/forgot-password" >RESTORE PASSWORD</a>
+                                    </div>
+                                    <div class="login-form-item-right">
+                                        <a href="/user/register" >REGISTER</a>
+                                    </div>
+                                </div>
+                                </form>                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                                    </ul>
+            </nav>
+        </div>
+        <div class="page-header-nav-col grid-col push-right">
+
+            <nav class="nav nav-icons">
+                <ul class="horizontal items-list">
+                                        <li id="item-help">
+                        <a title="Help section" class="btn btn-icon btn-help" href="#">Help</a>
+                        <div class="nav-main-1" style="width: 100%">
+                            <div class="nav-triangle"></div>
+                            <div style="">
+                                <div class="page-row" style="padding-top: 50px;">
+                                    <div class=help-text><p>Aeronautical Information Service (AIS) of Latvia website provides tools for Data/information submission and Data distribution of aeronautical information concerning the entire territory of the Republic of Latvia and the relevant airspace.</p>
+
+<p>The user can log in and start using Data distribution tool and Data/information submission tool upon reception of approval by the AIS staff and after the approval, website&rsquo;s server will send an e-mail with automatically generated code-key table.</p>
+
+<p>Click on LOG IN</p>
+
+<p><img alt="Login form picture" src="/uploads/fck/log_in_real.png" style="height:229px; width:577px" /></p>
+
+<ul>
+	<li>Upper field:input user name</li>
+	<li>Middle field: input password</li>
+	<li>Lower field: input access code from the code-key table according to the displayed number<br />
+	&nbsp;</li>
+</ul>
+
+<p>The code-key table is a set of 36 numbers (each number contains 6 digits)</p>
+
+<p><img alt="" src="/uploads/fck/code-key.png" style="height:125px; width:368px" /></p>
+
+<p>Click on LOG IN</p>
+
+<p>In order to open User profile, after logging in, in the main menu click on the user icon next to your name and surname. In order to open Data/information submission tool or Data distribution tool go to section TOOLS on menu.</p>
+
+<p>ANID tools manual can be found <a href="/uploads/fck/ANID_Tools_Manual.pdf">here.</a></p>
+
+<p><iframe frameborder="0" height="315" src="https://www.youtube.com/embed/9jqOv6Dlpuk" width="560"></iframe></p>
+</div>                                </div>
+                            </div>
+                            <a class="btn btn-icon btn-submenu-close push-right" href="#">&nbsp;</a>
+                        </div>
+                    </li>
+                    <li id="item-search">
+                        <a title="Search in website" class="btn btn-icon btn-search" href="#">
+                            Search                        </a>
+                    </li>
+                    <li id="item-langLV" class="">
+                        <a href="/change-language/lv_LV">LV</a>
+                    </li>
+                    <li id="item-langEN" class="active">
+                        <a href="/change-language/en_US">EN</a>
+                    </li>
+
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <div id="dialog" title='Info!' style="display: none; min-height: 100px;">
+        <p class='info-dialog-paragraph'>
+            Please use the latest version of the Chrome, Safari or Firefox browser!        </p>
+        <!--
+        <p class='info-dialog-paragraph'>
+            You will be redirected to Latvian AIXM 5.1 Web Portal - Experimental AIM Environment for Global ATM Community<br/>
+            Web Portal system requirements:        </p>
+        <ul class='info-dialog-paragraph'>
+            <li>latest version of Google Chrome browser with WebGL support            <li>OS Windows 7 (or newer)        </ul>
+        <p class='info-dialog-paragraph'>
+            Initial web portal loading can take from one to three minutes depending on your PC and network speed. It can use up to 20 MB of network traffic during initial loading. <br/>
+        </p>
+        -->
+        <div class='info-dialog-buttons'>
+            <button class="closeDialog btn-text">Close</button>
+             
+            <button data-link="https://www.airspace.lv/lgs" class="showAirspace btn-submit">
+                Open digital aeronautical data viewer            </button>
+        </div>
+    </div>
+</div>    </div>
+</div>
+<script type="text/javascript">
+    var plupload_url = '';
+</script>            </header>
+        </div>
+        <section class="page-body">
+            <div class="grid">
+                <article class="grid-col-12 firstpage">
+    <div class="grid" style="overflow: visible;">
+        <div class="grid-wrapper">
+            <div class="page-container page-body-content">
+                <div class="grid-col-12 top-content">
+                    <div class="grid">
+                        <div class="grid-wrapper">
+                            <div class="page-content-col grid-col-9 logo-col">
+                                <img src="/images-v2/ais7_bildes-26.png" 
+                                     class="top-logo">
+                                <a href="/page/about-ais" class="about">
+                                    Aeronautical Information Service                                    <img src="/images-v2/ais7_ikonas-19.png">
+                                </a>
+                            </div>
+                            <div class="page-content-col grid-col-3 push-right firstpage-news-margin">
+                                                                
+<div class="right-news-top">
+    <a href="/news">
+    NEWS    <img src="/images-v2/ais7_ikonas-19.png">
+    </a>
+</div>
+
+
+        <div class="right-news-item">
+        <div class="right-news-item__title">
+                            AIP SUP 033/2026            &nbsp;
+        </div>
+        <div class="right-news-item__content">
+                            A new supplement is available on our website.            &nbsp;
+        </div>
+        <div class="right-news-item__bottom">
+            <div class="right-news-item__date">24.11.2026</div>
+            <div class="right-news-item__more">
+                                <a class="btn btn-custom btn-arrow" href="/news/view/34487005">
+                    Read More                </a>
+            </div>
+        </div>
+    </div>
+        <div class="right-news-item">
+        <div class="right-news-item__title">
+                            AIP SUP 032/2026            &nbsp;
+        </div>
+        <div class="right-news-item__content">
+                            A new supplement is available on our website.            &nbsp;
+        </div>
+        <div class="right-news-item__bottom">
+            <div class="right-news-item__date">24.11.2026</div>
+            <div class="right-news-item__more">
+                                <a class="btn btn-custom btn-arrow" href="/news/view/34440545">
+                    Read More                </a>
+            </div>
+        </div>
+    </div>
+        <div class="right-news-item">
+        <div class="right-news-item__title">
+                            eAIP Latvia: Non-AIRAC AIP AMDT 004/2026            &nbsp;
+        </div>
+        <div class="right-news-item__content">
+                            A new issue of eAIP is available on our website.            &nbsp;
+        </div>
+        <div class="right-news-item__bottom">
+            <div class="right-news-item__date">11.11.2026</div>
+            <div class="right-news-item__more">
+                                <a class="btn btn-custom btn-arrow" href="/news/view/34394085">
+                    Read More                </a>
+            </div>
+        </div>
+    </div>
+        <div class="right-news-item">
+        <div class="right-news-item__title">
+                            AIC: A 007/2026            &nbsp;
+        </div>
+        <div class="right-news-item__content">
+                            A new circular is available on our website.            &nbsp;
+        </div>
+        <div class="right-news-item__bottom">
+            <div class="right-news-item__date">02.11.2026</div>
+            <div class="right-news-item__more">
+                                <a class="btn btn-custom btn-arrow" href="/news/view/34347625">
+                    Read More                </a>
+            </div>
+        </div>
+    </div>
+                            </div>
+                            <div class="page-content-col grid-col-9 site-links">
+                                <div class="grid">
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="https://www.airspace.lv/drones/">
+                                                <img class="icon" style="margin-top:18px;" src="/images-v2/quadcopter.png" >
+                                                <div class="icon-title">
+                                                    Unmanned aircraft                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/notam">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-17.png" >
+                                                <div class="icon-title">
+                                                    NOTAM/SNOWTAM                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/Valid SUP">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-14.png" >
+                                                <div class="icon-title">
+                                                    AIP SUP                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/Valid AIC">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-13.png" >
+                                                <div class="icon-title">
+                                                    AIC                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                             </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/aiseaip">
+                                                <img class="icon" src="/images-v2/thikk_plane.png" >
+                                                <div class="icon-title">
+                                                    eAIP                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>                                    
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/eatoc">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-eatoc.png" >
+                                                <div class="icon-title">
+                                                    eATOC                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/aipcalendar">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-15.png" >
+                                                <div class="icon-title">
+                                                    Planned AIP AMDT                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/VFR_Suport">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-12.png" >
+                                                <div class="icon-title">
+                                                    VFR Chart                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+									                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="https://dnotam.lgs.lv">
+                                                <img class="icon" style="margin-top:18px; max-width: 75px;" src="/images-v2/ais-ikona_DNOTAMv2.png" >
+                                                <div class="icon-title">
+                                                    DNOTAM                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/ADC">
+                                                <img class="icon" style="margin-top:18px; max-width: 60px;" src="/images-v2/ais-ikona-ADC.png" >
+                                                <div class="icon-title">
+                                                    Data catalogue                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <!--
+									<div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="/page/eatoc">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-eatoc.png" >
+                                                <div class="icon-title">
+                                                    eATOC                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div> 
+									-->
+									<!--
+                                    <div class="page-inner-content-col grid-col-3">
+                                        <div class="icon-container">
+                                            <a href="page/AIP_Data_Set">
+                                                <img class="icon" src="/images-v2/ais7_ikonas-DS.png" >
+                                                <div class="icon-title">
+                                                    AIP data set                                                    <img src="/images-v2/ais7_ikonas-20.png">
+                                                </div>
+                                            </a>
+                                        </div>
+                                    </div>
+									-->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-container page-body-content">
+                <div class="grid-col-12 aim-to-atm-content">
+                    <div class="firstpage-section-divider">
+                        <hr>
+                        <span>AIRSPACE.LV</span>
+                    </div>
+                    <div class="content">
+                                                <a id="airspace-link" href="javascript:showATMDialog(false);">
+                            <img src="/images-v2/airspace.lv.png" style="width: 100%">
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="page-container page-body-content">
+                <div class="grid-col-12 powered-by-ais-content">
+                    <div class="firstpage-section-divider">
+                        <hr>
+                        <span>Powered by AIS</span>
+                    </div>
+                    <div class="grid items-grid">
+                        <div class="grid-wrapper">
+                            <div class="page-inner-content-col grid-col-3">
+                                <div class="content-item">
+                                    <a href="/page/AIS_Data_Validation_Tool">
+                                        <img src="/images-v2/ais7_bildes-27.png" >
+                                        <span class="content-item-button">
+                                            <div class="btn btn-custom btn-arrow">
+                                                <span class="item-button-text">
+                                                    Data validation                                                </span>
+                                            </div>
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="page-inner-content-col grid-col-3">
+                                <div class="content-item">
+                                    <a href="/dataorigination">
+                                        <img src="/images-v2/ais7_bildes-28.png" >
+                                        <span class="content-item-button">
+                                            <div class="btn btn-custom btn-arrow">
+                                                <span class="item-button-text">
+                                                    Data submission                                                </span>
+                                            </div>
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="page-inner-content-col grid-col-3">
+                                <div class="content-item">
+                                    <a href="/datadistribution">
+                                        <img src="/images-v2/ais7_bildes-29.png" >
+                                        <span class="content-item-button">
+                                            <div class="btn btn-custom btn-arrow">
+                                                <span class="item-button-text">
+                                                    Data distribution                                                </span>
+                                            </div>
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="page-inner-content-col grid-col-3">
+                                <div class="content-item">
+                                    <a target="_blank" href="https://ibs.lgs.lv">
+                                        <img src="/images-v2/ais7_bildes-30.png" >
+                                        <span class="content-item-button">
+                                            <div class="btn btn-custom btn-arrow">
+                                                <span class="item-button-text">
+                                                    LGS Internet briefing                                                </span>
+                                            </div>
+                                        </span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-container page-body-contentt">
+                <div class="grid-col-12 products-content">
+                    <div class="firstpage-section-divider">
+                        <hr>
+                        <span>Products</span>
+                    </div>
+                    <div class="grid items-grid">
+                        <div class="grid-wrapper">
+                                        <div class="page-inner-content-col grid-col-3">
+                <div class="content-item">
+                    <a href="/products">
+                        <img src="/uploads/products/56.png">
+                                                                                                    <span class="content-item-button">
+                                <div class="btn btn-custom btn-arrow">
+                                    <div class="item-button-text">
+                                                                            VFR Chart (15th edition)                                                                        </div>
+                                </div>
+                            </span>
+                                            </a>
+                </div>
+            </div>
+                    <div class="page-inner-content-col grid-col-3">
+                <div class="content-item">
+                    <a href="/products">
+                        <img src="/uploads/products/60/aipdisk.png">
+                                                                                                    <div class="content-margin-2">
+                                <span class="content-item-button large-text-content">
+                                    <div class="btn btn-custom btn-arrow">
+                                        <div class="item-button-text">
+                                                                                    AERONAUTICAL INFORMATION PRODUCTS - YEAR 2026                                                                                </div>
+                                    </div>
+                                </span>
+                            </div>
+                                            </a>
+                </div>
+            </div>
+                                </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</article>
+
+<script>
+</script>            </div>
+        </section>
+        <div class="page-container">
+            <footer class="page-footer">
+                <div class="grid" style="width: 100%">
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Contacts</h2>
+        <b>
+        SJSC "Latvijas gaisa satiksme"<br />
+        Aeronautical Information Service<br />
+        Muzeju iela 3, Lidosta “Rīga”, Mārupes pagasts, Mārupes novads, LV-1053, Latvija</b><br />
+        AIS Phone: +371 67 300664<br />
+        Fax: +371 67 300660<br />
+        E-mail: <a href="mailto:ais@lgs.lv">ais@lgs.lv</a>        
+            </div>
+    <div class="page-footer-col grid-col-3">
+        <div class="push-down"></div>
+        International NOTAM office<br />
+        Phone: +371 67 300 665<br />
+        E-mail: nof@lgs.lv<br />
+        Website administrator phone: +371 67 300661<br/>
+        Information on using the Unmanned Aircraft Restrictions Viewer: +371 67 300686 (working hours)
+        
+    </div>
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Newsletter</h2>
+        <p class="p2">Enter your e-mail to join our Mailing List</p>
+
+        <!--SubscripeForm saved into variable $form-->    
+         
+        <form action="/news/subscribe" method="post">    
+            <div class="input input-email" id="newsletter-footer-email">
+                <div class="input input-text"><input name="email" type="text" id="email" placeholder="Enter&#x20;email&#x20;here..." value=""></div>            </div>
+            <div id="newsletter-footer-recaptcha">
+                <script type="text/javascript" src="https://www.google.com/recaptcha/api.js" async defer></script>
+<div class="g-recaptcha" data-sitekey="6Lfkx0oUAAAAAE2alHJF6dfOvopt74COm1lOXHBn" data-theme="light" data-type="image" data-size="normal"></div>            </div>
+            <div id="newsletter-footer-submit">
+                <button type="submit" name="submitbutton" id="submitbutton" class="btn&#x20;btn-submit" value="">Submit</button>            </div>
+        </form>      
+
+    </div>
+    <div class="page-footer-col grid-col-3">
+        <h2 class="color-gray">Feedback</h2>
+        <p class="p2">Your feedback is really important to us</p>
+        <a class="btn btn-custom btn-arrow" href="/feedback">Leave feedback</a>
+    </div>
+</div>
+
+<script>
+    $(document).ready( function() {
+        //shows captcha when footer email input is clicked
+        $("#newsletter-footer-email").click(function () {
+            var $recaptchaWrap = $('#newsletter-footer-recaptcha');
+            $recaptchaWrap.show();
+            $('#newsletter-footer-submit').show();
+
+            var scale = $recaptchaWrap.width() / 304;
+            $recaptchaWrap.find('.g-recaptcha').css('transform', 'scale(' + scale + ')');
+            $recaptchaWrap.height(Math.ceil(78 * scale));
+        });
+    });
+</script>            </footer>
+        </div>
+        <div class="cookie-message" style="display: none;">
+    <div class="page-container">
+        This site is using cookies to collect anonymised statistics about the user activity on the site. Cookies are used in accordance to <a href="https://www.google.com/analytics/terms/us.html">Google Terms of Service</a> and <a href="https://www.google.com/analytics/terms/us.html">Google Analytics Terms of Service.</a> 
+        </br>More about cookies <a href="http://www.allaboutcookies.org">http://www.allaboutcookies.org</a> </br>
+        </br>You can opt-out on cookies for Google Analytics by downloading and installing <a href="https://support.google.com/analytics/answer/181881">Google Analytics Opt-out Browser Add-on.</a>
+        <button type="button" name="cookieagree" id="cookieAgree" onclick="closeCookieMessage()" class="btn btn-submit">
+            Understood        </button>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // sets cookies
+    function setCookie(key, value) {
+        var expires = new Date();
+        expires.setTime(expires.getTime() + (360 * 24 * 60 * 60 * 1000));
+        document.cookie = key + '=' + value + ';expires=' + expires.toUTCString() + ';SameSite=Lax;';
+    }
+
+    // get cookie value
+    function getCookie(key) {
+        var keyValue = document.cookie.match('(^|;) ?' + key + '=([^;]*)(;|$)');
+        return keyValue ? keyValue[2] : null;
+    }
+    
+    // delete cookie
+    function delete_cookie(name) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    }    
+    
+    // close cookie message and set cookie message cookie
+    function closeCookieMessage() {
+        //remove old cookie
+        delete_cookie('showCookieMessage');
+        setCookie('showCookieMessage', 1);
+        $('.cookie-message').hide();
+    }
+    
+    //checks if cookie messege has to be shown
+    function checkCookieMessage() {
+        var cookieMessageValue = getCookie('showCookieMessage');
+        if(cookieMessageValue != 1) {
+            $('.cookie-message').show();
+        }
+    }
+    
+    $('document').ready(function(){
+        //checkCookieMessage();
+    });
+</script>        <a href="#" class="scrollup">Scroll</a>
+    </div>
+    <script  src="&#x2F;assets&#x2F;base_js.1795527074.js"></script>            <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3QBZ65MZG"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            
+            gtag('config', 'G-X3QBZ65MZG');
+        </script>
+        <script>
+        $(document).ready(function () {
+
+            
+            // call action that extends session
+            function extendSession() {
+                var ajax = $.ajax({
+                    method: 'get',
+                    url: "/extendsession",
+                    dataType: 'json'
+                });
+
+                ajax.done(function(result) {
+                    if (result['timeTillLogoutTimer'] != null) {
+                        sessionEndingWarning(result['timeTillLogoutTimer']);
+                    }
+                });
+            }
+
+            // show popup with session ending warning
+            function sessionEndingWarning(timeTillLogout) {
+                if (timeTillLogout > -3) {    
+                    setTimeout(function(){
+                        jSession(
+                            'Session time is coming to an end! You will be automatically logged out of the system after 10 minutes!',
+                            'Notice',
+                            'Continue work',
+                            'Logout of the system',
+                            '600000',
+                            function(res){
+                                if (res === true) {
+                                    extendSession();
+                                }
+
+                                if (res === false) {
+                                    window.location.href = "/user/logout";
+                                }
+                            }
+                        );
+                    }, parseInt(timeTillLogout));
+                }
+            }
+        });
+    </script>
+</body>
+</html>

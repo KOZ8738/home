@@ -1,8 +1,5 @@
-ie-idx	200	text/html	1239	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html
-ie-idx2	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-ie-menu	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-ie-eidw	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-ie-next	404	text/html; charset=utf-8	37368	https://www.airnav.ie/page-not-found
-ie-jul	200	text/html	1239	https://www.airnav.ie/AIRAC_JULY_2026/26-07-09-AIRAC/html/index.html
-es-pdfv	200	application/pdf	925555	https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_ADC_1_en.pdf?v=ES20261029
-es-aipv	200	text/html	979526	https://aip.enaire.es/AIP/AIP-en.html?v=ES20261029
+ie-menu	200	text/html	195915	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-menu-en-IE.html
+ie-eidw	200	text/html	418557	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-AD-2.EIDW-en-IE.html
+ie-enr44	200	text/html	64930	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-ENR-4.4-en-IE.html
+ie-next	200	text/html	418587	https://www.airnav.ie/AIRAC/2026-11-26-AIRAC/html/eAIP/EI-AD-2.EIDW-en-IE.html
+ie-cover	200	text/html	3498	https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/EI-cover-en-IE.html

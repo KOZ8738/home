@@ -1131,7 +1131,7 @@ async function vatsimRoute(req, url, ctx, h) {
 /* VATSIM's own events (my.vatsim.net, public), for the EFB's Calendar ("VATSIM Events"): those not over yet, slimmed
    to what the Calendar shows, kept 30 minutes */
 async function vatsimEvents() {
-  return cached('vatsim:events', 1800_000, () => edgeCache('vatsim/events/v1', 1800, async () => {
+  return cached('vatsim:events2', 1800_000, () => edgeCache('vatsim/events/v2', 1800, async () => {
     const r = await fetchT('https://my.vatsim.net/api/v2/events/latest', 20000, { headers: { Accept: 'application/json', 'User-Agent': 'PolarisEFB/1.0 (+https://koz8738.com/efb/)' } });
     if (!r.ok) throw new HttpError(502, 'VATSIM events answered HTTP ' + r.status);
     const j = await r.json(), now = Date.now(), cut = (v, n) => String(v == null ? '' : v).replace(/\r/g, '').slice(0, n);
@@ -1140,7 +1140,8 @@ async function vatsimEvents() {
       airports: (e.airports || []).map((a) => String((a && a.icao) || '').toUpperCase()).filter((x) => /^[A-Z0-9]{3,4}$/.test(x)).slice(0, 20),
       routes: (e.routes || []).map((x) => ({ from: String(x.departure || '').toUpperCase().slice(0, 4), to: String(x.arrival || '').toUpperCase().slice(0, 4) })).slice(0, 10),
       short: cut(e.short_description, 300), desc: cut(e.description, 1200),
-      org: (e.organisers || []).map((o) => [o.division, o.subdivision].filter(Boolean).join(' ') || o.region || '').filter(Boolean).slice(0, 3) }));
+      org: (e.organisers || []).map((o) => [o.division, o.subdivision].filter(Boolean).join(' ') || o.region || '').filter(Boolean).slice(0, 3),
+      reg: [...new Set((e.organisers || []).map((o) => String((o && o.region) || '').toUpperCase()).filter((x) => /^[A-Z]{2,6}$/.test(x)))] }));
     return { events, at: new Date().toISOString() };
   }, (v) => v && v.events && v.events.length));
 }

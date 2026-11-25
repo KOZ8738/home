@@ -1,6 +1,7 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania, Kosovo, Slovakia, Romania and North Macedonia (Nov 2026) ----------
+   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania, Kosovo, Slovakia, Romania, North Macedonia,
+   Georgia and Armenia (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -191,6 +192,22 @@ export const EA = {
     eds: (t) => [...t.matchAll(/eAIP_SR\/(AIP_SR_EFF_(\d{2})([A-Z]{3})(\d{4})\w*)\/html\//g)].filter((m) => MON[m[3]])
       .map((m) => ({ eff: `${m[4]}-${MON[m[3]]}-${m[2]}`, pub: m[1], base: `https://aim.lps.sk/web/eAIP_SR/${m[1]}/`, index: 'html/LZ-frameset-en-SK.html' })),
     page: (i) => `html/LZ-AD-2.${i}-en-SK.html`, enr: (n) => `html/LZ-ENR-${n}-en-SK.html`,
+  },
+  GE: {
+    country: 'Georgia', pre: 'UGxx', test: 'UGTB', apt: /^UG[A-Z]{2}$/, label: 'AIP Georgia', host: 'Sakaeronavigatsia eAIP', site: 'https://ais.airnav.ge/',
+    /* "2026-11-26-000000/html/index-en-GB.html"; an AD 2 page is UG-AD-2-UGTB-en-GB.html (a dash, not a dot); a deleted
+       chart's old file stays in pdf/old/ */
+    home: 'https://airnav.ge/eaip/history-en-GB.html',
+    eds: (t) => [...t.matchAll(/["'\/](\d{4}-\d{2}-\d{2})-000000\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[1], pub: m[1], base: `https://airnav.ge/eaip/${m[1]}-000000/`, index: 'html/index-en-GB.html' })),
+    page: (i) => `html/eAIP/UG-AD-2-${i}-en-GB.html`, enr: (n) => `html/eAIP/UG-ENR-${n}-en-GB.html`, skip: /\/old\//,
+  },
+  AM: {
+    country: 'Armenia', pre: 'UDxx', test: 'UDYZ', apt: /^UD[A-Z]{2}$/, label: 'AIP Armenia', host: 'ARMATS eAIP', site: 'https://armats.am/category/eaip/',
+    /* the eAIP page links each issue, the coming ones too: wp-content/uploads/html-uploads/03-26-29OCT2026/ */
+    home: 'https://armats.am/category/eaip/',
+    eds: (t) => [...t.matchAll(/html-uploads\/((\d{2}-\d{2})-(\d{2})([A-Z]{3})(\d{4}))\//g)].filter((m) => MON[m[4]])
+      .map((m) => ({ eff: `${m[5]}-${MON[m[4]]}-${m[3]}`, pub: m[1], base: `https://armats.am/wp-content/uploads/html-uploads/${m[1]}/`, index: 'html/index-en-GB.html' })),
+    page: (i) => `html/eAIP/UD-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/UD-ENR-${n}-en-GB.html`,
   },
   RO: {
     country: 'Romania', pre: 'LRxx', test: 'LROP', kind: 'ro', apt: /^LR[A-Z]{2}$/, label: 'AIP Romania', host: 'ROMATSA AIS', site: 'https://www.aisro.ro/',
@@ -388,7 +405,7 @@ export function eaGroup(name, id) {
   if (/\bSID\b|DEPARTURE/.test(u) || /-SID-/.test(d)) return ['DP', 'Departures'];
   if (/\bSTAR\b|ARRIVAL/.test(u) || /-STAR-/.test(d)) return ['STR', 'Arrivals'];
   if (/OBSTACLE|TERRAIN|\bAOC\b|PATC|ATOC/.test(u)) return ['DAU', 'Other'];
-  if (/INSTRUMENT APPROACH|INITIAL APPROACH|APPROACH CHART|\bAPCH\b|TRANSITION|^(ILS|LOC|LLZ|RNP|RNAV|GNSS|GLS|VOR|NDB|DME|TACAN|LDA|SRA|PAR|VISUAL|CIRCLING)\b/.test(u) || /-IAC-|-VAC-/.test(d)) return ['IAP', 'Approaches'];
+  if (/INSTRUMENT APPROACH|INITIAL APPROACH|APPROACH CHART|\bAPCH\b|TRANSITION|^(ILS|LOC|LLZ|RNP|RNAV|GNSS|GLS|VOR|NDB|DME|TACAN|LDA|SRA|PAR|VISUAL|CIRCLING|CIRCLE[\s-]TO[\s-]LAND)\b/.test(u) || /-IAC-|-VAC-/.test(d)) return ['IAP', 'Approaches'];
   if (/MINIMUM/.test(u)) return ['MIN', 'Minimums'];
   /* short chart codes (Sweden, Finland, the Netherlands, Denmark): "ADC", "GMC - 2", "IAC 06 ILS LOC", file EHAM-IAC-06-ILS-LOC.pdf */
   const c = u + ' ' + d.replace(/[-_./]/g, ' ');
@@ -403,6 +420,8 @@ export function eaName(name, group) {
   /* Iceland: "Military Instrument Approach Chart - VORTAC RWY 01 (CAT A-B)" */
   if (group === 'Approaches') n = n.replace(/^MILITARY INSTRUMENT APPROACH CHART\s*[-–:]?\s*(ICAO\s*[-–:]?\s*)?/i, 'MIL ');
   if (group === 'Approaches') n = n.replace(/^INSTRUMENT APPROACH CHART\s*[-–:]?\s*(ICAO\s*[-–:]?\s*)?/i, '').replace(/^APPROACH CHART\s*[-–:]\s*/i, '');
+  /* Georgia: "RWY 13R (ILSy)" -> "ILS Y RWY 13R" */
+  if (group === 'Approaches') n = n.replace(/^RWY\s*(\d{2}[LRC]?)\s*\((ILS|LOC|VOR|NDB|RNP|RNAV|GNSS)\s*([a-z])?\)$/i, (x, r, t, l) => `${t.toUpperCase()}${l ? ' ' + l.toUpperCase() : ''} RWY ${r}`);
   if (group === 'Departures') n = n.replace(/\bSTANDARD (INSTRUMENT )?DEPARTURE CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(SID\)\s*)?[-–:]?\s*/i, '');
   if (group === 'Arrivals') n = n.replace(/\bSTANDARD (INSTRUMENT )?ARRIVAL CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(STAR\)\s*)?[-–:]?\s*/i, '');
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
@@ -452,6 +471,21 @@ export function eaCharts(html, k) {
       const [code, group] = eaGroup(nm, id + ' ' + file);
       out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
     }
+  }
+  return out.length ? out : figCharts(seg, R);
+}
+/* no table: each chart a figure (Armenia)
+   <div class="Figure"><span class="Figure-title"> Aerodrome Chart — ICAO</span><div class="graphic-box center">…<a href="../../graphics/UDYZ AD 2.2-3-255.pdf"> */
+function figCharts(seg, R) {
+  const out = [], seen = new Set();
+  for (const m of seg.matchAll(/<div\b[^>]*class\s*=\s*["']Figure["'][^>]*>\s*<span\b[^>]*class\s*=\s*["']Figure-title["'][^>]*>([\s\S]*?)<\/span>\s*(?=<div\b)([\s\S]*?)(?=<div\b[^>]*class\s*=\s*["']Figure["']|$)/gi)) {
+    const body = m[2], links = [...body.matchAll(/<div\b[^>]*class\s*=\s*["']([^"']*)["'][^>]*>(?:(?!<div\b)[\s\S])*?href\s*=\s*["']([^"']+?\.pdf)["']/gi)]
+      .filter((x) => !/AmdtDeleted/i.test(x[1])).map((x) => unent(x[2])).filter((h) => !(R.skip && R.skip.test(h)));
+    const file = links.length ? links[links.length - 1].replace(/^(\.\.\/)+/, '').replace(/^\.\//, '') : '';
+    if (!/^(pdf|graphics)\/[^"'<>\\]{1,200}\.pdf$/i.test(file) || file.includes('..') || seen.has(file)) continue;
+    seen.add(file);
+    const nm = text(m[1]).replace(/\s*[—–]\s*ICAO\b/i, ' – ICAO') || fileTitle(file), [code, group] = eaGroup(nm, file);
+    out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
   }
   return out;
 }

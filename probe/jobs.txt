@@ -1,10 +1,1 @@
-ge-idx https://airnav.ge/eaip/2026-11-26-000000/html/index-en-GB.html
-ge-menu https://airnav.ge/eaip/2026-11-26-000000/html/eAIP/UG-menu-en-GB.html
-ge-ugtb https://airnav.ge/eaip/2026-11-26-000000/html/eAIP/UG-AD-2.UGTB-en-GB.html
-ge-ugtb2 https://airnav.ge/eaip/2026-11-26-000000/html/eAIP/UG-AD-2-UGTB-en-GB.html
-am-root https://armats.am/wp-content/uploads/html-uploads/03-26-29OCT2026/
-am-idx https://armats.am/wp-content/uploads/html-uploads/03-26-29OCT2026/html/index-en-GB.html
-am-menu https://armats.am/wp-content/uploads/html-uploads/03-26-29OCT2026/html/eAIP/UD-menu-en-GB.html
-am-udyz https://armats.am/wp-content/uploads/html-uploads/03-26-29OCT2026/html/eAIP/UD-AD-2.UDYZ-en-GB.html
-am-next https://armats.am/wp-content/uploads/html-uploads/04-26-24DEC2026/
-am-old https://armats.am/storage/attachments/171826820903-24(08AUG2024)/html/eAIP/UD-AD-2.UDYZ-en-GB.html
+# none

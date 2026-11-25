@@ -17,7 +17,7 @@ jobs:
         with: { node-version: 20 }
       - run: node probe/fetch.mjs || true
       - uses: actions/checkout@v4
-        with: { ref: c94c01a79d045eef3a2b4137e12230e83f1a9f12, path: base }
+        with: { ref: 29f7a7890a8a5c11848854d6cba5ae263199befe, path: base }
       - run: node probe/ea.mjs || true
       - run: EA_SRC=base OUT=_ea_base.json node probe/ea.mjs || true
       - name: keep the results on this branch

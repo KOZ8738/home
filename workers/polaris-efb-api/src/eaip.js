@@ -1,5 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
-   Denmark, Korea, Estonia, Iceland, Latvia, Spain and Ireland (Nov 2026) ----------
+   Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro and
+   Poland (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -39,6 +40,12 @@
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 PolarisEFB/1.0 (+https://koz8738.com/efb/)', Accept: 'text/html,application/xhtml+xml,application/pdf,*/*', 'Accept-Language': 'en-GB,en;q=0.8' };
 const PDF_MAX = 40 * 1024 * 1024;
 
+/** one fixed folder replaced at each amendment: its cover page names the date ("Effective date: 29 OCT 2026") */
+const coverEds = (base, index) => (t) => {
+  const m = String(t).replace(/<[^>]+>/g, ' ').match(/Effective\s+date\s*:?\s*(\d{1,2})\s+([A-Z]{3})[A-Z]*\s+(\d{4})/i), mo = m && MON[m[2].toUpperCase()];
+  return mo ? [{ eff: `${m[3]}-${mo}-${m[1].padStart(2, '0')}`, pub: m[0], base, index }] : [];
+};
+const MON = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
 export const EA = {
   HK: {
     country: 'Hong Kong and Macau', pre: 'VHxx, VMxx', test: 'VHHH', apt: /^V[HM][A-Z]{2}$/, label: 'AIP Hong Kong', host: 'CAD eAIP', site: 'https://www.ais.gov.hk/',
@@ -101,13 +108,43 @@ export const EA = {
     page: (i) => `html/eAIP/EI-AD-2.${i}-en-IE.html`, enr: (n) => `html/eAIP/EI-ENR-${n}-en-IE.html`,
   },
   ES: {
-    country: 'Spain', pre: 'LExx, GCxx, GExx', test: 'LEMD', kind: 'es', apt: /^(LE|GC|GE)[A-Z]{2}$/, label: 'AIP Spain', host: 'ENAIRE AIP', home: 'https://aip.enaire.es/AIP/AIP-en.html',
+    country: 'Spain', pre: 'LExx, GCxx, GExx', test: 'LEMD', kind: 'es', fixed: true, apt: /^(LE|GC|GE)[A-Z]{2}$/, label: 'AIP Spain', host: 'ENAIRE AIP', home: 'https://aip.enaire.es/AIP/AIP-en.html',
     /* no edition folders: one page lists every chart of the country, each PDF at a fixed address replaced in place;
        the page's date ("29-OCT-26 (Incorporados AIRAC 10/26 and AMDT 412/26)") names the edition */
     eds: (t) => { const m = t.match(/(\d{2})-([A-Z]{3})-(\d{2})\s*\(\s*Incorporad/i), mo = m && MON[m[2].toUpperCase()];
       return mo ? [{ eff: `20${m[3]}-${mo}-${m[1]}`, pub: m[0], base: 'https://aip.enaire.es/AIP/', index: 'AIP-en.html' }] : []; },
     list: () => 'AIP-en.html', page: (i) => `contenido_AIP/AD/AD2/${i}/LE_AD_2_${i}_en.html`, enr: (n) => `contenido_AIP/ENR/LE_ENR_${n.replace('.', '_')}_en.html`,
     charts: (t, icao) => esCharts(t, icao), name: (t, icao) => esName(t, icao),
+  },
+  CZ: {
+    country: 'Czech Republic', pre: 'LKxx', test: 'LKPR', apt: /^LK[A-Z]{2}$/, label: 'AIP Czech Republic', host: 'ANS CR eAIP', site: 'https://aim.rlp.cz/',
+    home: 'https://aim.rlp.cz/eaip/html/LK-cover-en-GB.html', fixed: true, eds: coverEds('https://aim.rlp.cz/eaip/', 'html/index-en-GB.html'),
+    page: (i) => `html/eAIP/LK-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LK-ENR-${n}-en-GB.html`,
+  },
+  BE: {
+    country: 'Belgium and Luxembourg', pre: 'EBxx, ELxx', test: 'EBBR', apt: /^(EB|EL)[A-Z]{2}$/, label: 'AIP Belgium and Luxembourg', host: 'skeyes eAIP', site: 'https://ops.skeyes.be/',
+    home: 'https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/EB-cover-en-GB.html', fixed: true,
+    eds: coverEds('https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/', 'html/index-en-GB.html'),
+    page: (i) => `html/eAIP/EB-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EB-ENR-${n}-en-GB.html`,
+  },
+  HU: {
+    country: 'Hungary', pre: 'LHxx', test: 'LHBP', apt: /^LH[A-Z]{2}$/, label: 'AIP Hungary', host: 'HungaroControl eAIP', home: 'https://ais-en.hungarocontrol.hu/aip/',
+    /* the front page lists the issues by date ("./2026-09-03/"); Hungary amends its AIP at some AIRAC dates only */
+    eds: (t) => [...new Set([...t.matchAll(/href\s*=\s*["']\.\/(\d{4}-\d{2}-\d{2})\/["']/g)].map((m) => m[1]))]
+      .map((d) => ({ eff: d, pub: d, base: `https://ais-en.hungarocontrol.hu/aip/${d}/${d}-AIRAC/`, index: 'html/index-en-HU.html' })),
+    page: (i) => `html/eAIP/LH-AD-2.${i}-en-HU.html`, enr: (n) => `html/eAIP/LH-ENR-${n}-en-HU.html`,
+  },
+  RS: {
+    country: 'Serbia and Montenegro', pre: 'LYxx', test: 'LYBE', apt: /^LY[A-Z]{2}$/, label: 'AIP Serbia/Montenegro', host: 'SMATSA eAIP', home: 'https://smatsa.rs/upload/aip/published/start_page.html',
+    /* "./29-Oct-2026-A/2026-10-29-AIRAC/html/index_commands.html" */
+    eds: (t, at) => [...t.matchAll(/href\s*=\s*["']\.?\/?([A-Za-z0-9_\-]+)\/((\d{4}-\d{2}-\d{2})-AIRAC)\/html\//g)]
+      .map((m) => ({ eff: m[3], pub: m[1], base: new URL(`${m[1]}/${m[2]}/`, at).href, index: 'html/index_commands.html' })),
+    page: (i) => `html/eAIP/LY-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LY-ENR-${n}-en-GB.html`,
+  },
+  PL: {
+    country: 'Poland', pre: 'EPxx', test: 'EPWA', kind: 'ix', apt: /^EP[A-Z]{2}$/, label: 'AIP Poland', host: 'PANSA eAIP', home: 'https://ais.pansa.pl/en/publications/aip-poland/', idx: 'index-v2.html',
+    /* the AIS page links the IFR eAIP's own list, named for its date: docs.pansa.pl/ais/eaipifr/default_offline_2026-10-29.html */
+    hop: (t) => (String(t).match(/https:\/\/docs\.pansa\.pl\/ais\/eaipifr\/default_offline_[\d-]+\.html/) || [])[0],
   },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
@@ -122,7 +159,6 @@ export const EA = {
     page: (i) => `html/eAIP/KR-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/KR-ENR-${n}-en-GB.html`,
   },
 };
-const MON = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
 export const eaRegion = (icao) => Object.keys(EA).find((k) => EA[k].apt.test(String(icao || ''))) || null;
 
 class EaError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -139,9 +175,17 @@ const notFoundPage = (t) => /<title>\s*404\b|Page not found|404 - Not Found/i.te
 async function editions(k, d) {
   const R = EA[k];
   return d.edgeCache('ea/eds/v1/' + k, 3 * 3600, async () => {
-    const r = await get(R.home, 1800);
+    let r = await get(R.home, 1800);
     if (!r.ok) throw new EaError(502, `${R.label}: the eAIP's front page answered HTTP ${r.status}`);
-    const t = await r.text(), by = new Map();
+    let t = await r.text();
+    if (R.hop) {
+      const u = R.hop(t);
+      if (!u) throw new EaError(502, `${R.label}: the front page no longer links the eAIP`);
+      r = await get(u, 1800);
+      if (!r.ok) throw new EaError(502, `${R.label}: the eAIP's edition list answered HTTP ${r.status}`);
+      t = await r.text();
+    }
+    const by = new Map();
     for (const e of (R.eds || ixEds(R))(t, r.url || R.home)) { const o = by.get(e.eff); if (!o || e.pub > o.pub) by.set(e.eff, e); }
     return [...by.values()].sort((a, b) => a.eff.localeCompare(b.eff));
   }, (v) => Array.isArray(v) && v.length > 0);
@@ -163,9 +207,10 @@ const ixEds = (R) => (t, at) => [...t.matchAll(/href\s*=\s*["']([^"'<>]*?_(\d{4}
   return { eff, pub: folder, base: new URL(encPath(folder) + '/', at).href, index: R.idx || 'index.html' };
 });
 /** each aerodrome's first AD 2 page, and the ENR 4.1 / 4.4 pages, from the edition's menu (several MB, read as it comes) */
-/* Iceland names a page "BI-AD BIKF KEFLAVÍK - KEFLAVIK 1", without the "2 "; a space may come as %20, a letter as an entity */
-const IX_AD = /href\s*=\s*["'](?:\.\/)?([A-Z]{2}-AD(?: |%20)(?:2(?: |%20))?([A-Z]{4})(?=[ %&"'<>]|$)[^"'<>]*?)(?: |%20)1-[a-z]{2}-[A-Z]{2}\.html/g;
-const IX_ENR = /href\s*=\s*["'](?:\.\/)?([A-Z]{2}-ENR(?: |%20)4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g;
+/* Iceland names a page "BI-AD BIKF KEFLAVÍK - KEFLAVIK 1", without the "2 ", Poland "AD 2 EPWA 1", without the country; a space
+   may come as %20, a letter as an entity */
+const IX_AD = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?AD(?: |%20)(?:2(?: |%20))?([A-Z]{4})(?=[ %&"'<>]|$)[^"'<>]*?)(?: |%20)1-[a-z]{2}-[A-Z]{2}\.html/g;
+const IX_ENR = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?ENR(?: |%20)4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g;
 export function ixMenu(t) {
   const pages = {}, enr = {};
   for (const m of t.matchAll(IX_AD)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + ' 1-en-GB.html';
@@ -291,6 +336,8 @@ export function eaName(name, group) {
   if (group === 'Arrivals') n = n.replace(/\bSTANDARD (INSTRUMENT )?ARRIVAL CHART\s*[-–:]?\s*(INSTRUMENT\s*)?(\(STAR\)\s*)?[-–:]?\s*/i, '');
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
   n = n.replace(/^(IAC|VAC|SID|STAR)\s*[-–]\s*ICAO\s+/i, (m, c) => (/^(SID|STAR)$/i.test(c) && !new RegExp('\\b' + c + '\\b', 'i').test(n.slice(m.length)) ? c.toUpperCase() + ' ' : ''));
+  n = n.replace(/^ICAO\s*[:\-–]?\s*(?=\S)/i, '').replace(/^\(([^()]*)\)$/, '$1');
+  if (/^RWY\b/i.test(n) && (group === 'Departures' || group === 'Arrivals')) n = (group === 'Departures' ? 'SID ' : 'STAR ') + n;
   n = n.replace(/\s*[-–]?\s*\bICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ').replace(/\s*[-–]\s*ICAO\s+/i, ' – ');
   return n.trim() || name;
 }
@@ -301,10 +348,21 @@ export function eaCharts(html, k) {
   let title = '';
   for (const m of seg.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const row = m[1], cells = [...row.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => c[1]);
-    const links = [...row.matchAll(/href\s*=\s*["']([^"']+?\.pdf)["']/gi)].map((x) => unent(x[1]))
+    const all = [...row.matchAll(/href\s*=\s*["']([^"']+?\.pdf)["']/gi)].map((x) => unent(x[1]))
       .filter((h) => !(R.skip && R.skip.test(h)));
+    /* while an amendment is marked, the deleted version stays beside the new one: <div class="graphic-box AmdtDeletedAIRAC"> */
+    const links = all.filter((h) => { const p = row.slice(0, row.indexOf(h)), k = p.lastIndexOf('<div'); return !(k >= 0 && /class\s*=\s*["'][^"']*AmdtDeleted/i.test(p.slice(k))); });
+    if (all.length && !links.length) continue;
     const first = cells.length ? text(cells[0]) : text(row);
-    if (!links.length) { if (first && !/^(chart name|name of chart|page|side\/page)\b/i.test(first) && first.length > 2) title = first; continue; }
+    if (!links.length) {
+      if (first && !/^(chart name|name of chart|page|side\/page)\b/i.test(first) && first.length > 2) {
+        /* Belgium, Hungary: the chart's id, then what it is ("AD_2-LHBP-SID-13L" | "STANDARD DEPARTURE CHART - INSTRUMENT (SID) - ICAO") */
+        const desc = cells.length > 1 && /^AD[\s_-]?2[\s._-]/i.test(first) ? text(cells[1]) : '';
+        const tail = first.replace(/^AD[\s_-]?2[\s._-]*(?:[A-Z]{4}[\s._-]*)?/i, '');
+        title = desc.length > 3 ? (/\d/.test(desc) || !/\d/.test(tail) ? desc : `${desc} – ${tail}`) : first;
+      }
+      continue;
+    }
     /* the UK puts the name in a row of its own and the page reference (AD 2.EGLL-2-1) with the link in the next */
     /* … and Ireland the name in a row of its own and, in the next, only the link (its text the file's path) */
     const idLike = /^AD[\s-]?2[\s.-]/i.test(first) || (cells.length === 1 && /\.pdf$/i.test(first));
@@ -446,7 +504,7 @@ export async function eaChartsList(icao, env, me, d) {
     let pg = R.list ? R.list(icao) : R.page ? R.page(icao) : null;
     if (R.kind === 'ix') { const mn = await ixMenuOf(k, cur, d); pg = mn.pages[icao] ? 'eAIP/' + encPath(mn.pages[icao]) : null; }
     if (!pg) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const r = await get(cur.base + pg + (R.kind === 'es' ? '?v=' + cycle : ''), R.kind === 'es' ? 3600 : 86400);
+    const r = await get(cur.base + pg + (R.fixed ? '?v=' + cycle : ''), R.fixed ? 3600 : 86400);
     if (r.status === 404) return { airport: { icao, name: '' }, charts: [], notFound: true };
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
     const t = await r.text();
@@ -479,7 +537,7 @@ export async function eaChartPdf(url, env, h, me, d) {
     try { ed = (await editions(k, d)).find((e) => e.eff === eff); } catch (e) { return res({ error: e.message }, 502); }
     if (!ed) return res({ error: `That ${EA[k].label} edition is no longer listed. Open the chart list again.` }, 404);
   }
-  const r = await get(ed.base + encPath(file) + (R.kind === 'es' ? '?v=' + cycle : ''), 7 * 86400).catch((e) => ({ ok: false, status: 0, err: e }));
+  const r = await get(ed.base + encPath(file) + (R.fixed ? '?v=' + cycle : ''), 7 * 86400).catch((e) => ({ ok: false, status: 0, err: e }));
   if (!r.ok) return res({ error: `${EA[k].host} answered ${r.status ? 'HTTP ' + r.status : 'nothing'} for this chart` }, 502);
   const buf = await r.arrayBuffer();
   if (buf.byteLength < 5 || new TextDecoder().decode(new Uint8Array(buf, 0, 5)) !== '%PDF-') return res({ error: `${EA[k].host} did not send a PDF for this chart` }, 502);

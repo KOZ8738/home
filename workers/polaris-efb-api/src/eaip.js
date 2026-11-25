@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland, France, Portugal and Bosnia and Herzegovina (Nov 2026) ----------
+   Poland, France, Portugal, Bosnia and Herzegovina, Austria and Albania (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -167,6 +167,20 @@ export const EA = {
       return (Array.isArray(j) ? j : []).map((u) => String(u && u.effectiveDate || '').match(/(\d{1,2})\s+([A-Z]{3})\s+(\d{4})/i)).filter((m) => m && MON[m[2].toUpperCase()])
         .map((m) => { const d = `${m[3]}-${MON[m[2].toUpperCase()]}-${m[1].padStart(2, '0')}`; return { eff: d, pub: d, base: `https://eaip.bhansa.gov.ba/${d}-AIRAC/`, index: 'html/index.html' }; }); },
     page: (i) => `html/eAIP/LQ-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LQ-ENR-${n}-en-GB.html`, fileName: true,
+  },
+  AT: {
+    country: 'Austria', pre: 'LOxx', test: 'LOWW', kind: 'at', apt: /^LO[A-Z]{2}$/, label: 'AIP Austria', host: 'Austro Control eAIP', home: 'https://eaip.austrocontrol.at/',
+    /* the front page links each issue as lo/<yymmdd>/index.htm; an aerodrome's charts are listed on lo/<yymmdd>/ad_2_loww.htm */
+    eds: (t) => [...t.matchAll(/href\s*=\s*["'](?:\.\/)?lo\/(\d{2})(\d{2})(\d{2})\/index\.htm["']/gi)]
+      .map((m) => ({ eff: `20${m[1]}-${m[2]}-${m[3]}`, pub: m[1] + m[2] + m[3], base: `https://eaip.austrocontrol.at/lo/${m[1]}${m[2]}${m[3]}/`, index: 'index.htm' })),
+    page: (i) => `ad_2_${i.toLowerCase()}.htm`, enr: () => null, charts: (t, icao) => atCharts(t, icao),
+  },
+  AL: {
+    country: 'Albania', pre: 'LAxx', test: 'LATI', apt: /^LA[A-Z]{2}$/, label: 'AIP Albania', host: 'Albcontrol eAIP', home: 'https://www.albcontrol.al/aip/',
+    /* "https://www.albcontrol.al/al/aip/01-OCT-2026-A/2026-10-01-AIRAC/html" */
+    eds: (t, at) => [...t.matchAll(/(?:https?:\/\/www\.albcontrol\.al)?\/al\/aip\/([A-Za-z0-9_\-]+)\/((\d{4}-\d{2}-\d{2})-AIRAC)\/html/g)]
+      .map((m) => ({ eff: m[3], pub: m[1], base: `https://www.albcontrol.al/al/aip/${m[1]}/${m[2]}/`, index: 'html/index.html' })),
+    page: (i) => `html/eAIP/LA-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LA-ENR-${n}-en-GB.html`,
   },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
@@ -359,6 +373,7 @@ export function eaName(name, group) {
   /* Sweden: "IAC - ICAO ILS or LOC RWY 19L", "SID - ICAO RNAV SID RWY 26 - ARS 4K…" */
   n = n.replace(/^(IAC|VAC|SID|STAR)\s*[-–]\s*ICAO\s+/i, (m, c) => (/^(SID|STAR)$/i.test(c) && !new RegExp('\\b' + c + '\\b', 'i').test(n.slice(m.length)) ? c.toUpperCase() + ' ' : ''));
   n = n.replace(/^ICAO\s*[:\-–]?\s*(?=\S)/i, '').replace(/^\((.*)\)$/, (m, x) => { let d = 0; for (const c of x) { d += c === '(' ? 1 : c === ')' ? -1 : 0; if (d < 0) return m; } return d ? m : x; });
+  n = n.replace(/^\((?:IAC|SID|STAR|ADC|VAC)\)\s*[-–]\s*/i, '');  /* Albania: "(IAC) – ILS or LOC RWY 17" */
   if (/^RWY\b/i.test(n) && (group === 'Departures' || group === 'Arrivals')) n = (group === 'Departures' ? 'SID ' : 'STAR ') + n;
   n = n.replace(/\s*[-–]?\s*\bICAO\s*$/i, '').replace(/^ICAO\s*[-–]\s*/i, '').replace(/\s*[-–]\s*ICAO\s*[-–]\s*/i, ' – ').replace(/\s*[-–]\s*ICAO\s+/i, ' – ');
   return n.trim() || name;
@@ -510,6 +525,24 @@ export function esCharts(html, icao) {
 /* the section's heading: <a id="LEMD" … migapan="<a href=…>…"></a> … <h1>LEMD</h1> <h2>MADRID/Adolfo Suárez Madrid-Barajas</h2> */
 const esName = (html, icao) => { const m = html.match(new RegExp(`<a id="${icao}"[\\s\\S]{0,900}?<h1[^>]*>\\s*${icao}\\s*</h1>\\s*<h2[^>]*>([\\s\\S]*?)</h2>`)); return m ? text(m[1]) : ''; };
 
+/* ---------- Austria (Austro Control) ----------
+   ad_2_loww.htm: one row per chart, <a href="Charts/LOWW/LO_AD_2_LOWW_9-1-1_en.pdf">LOWW AD 2 MAP 9-1-1</a> then its name in German
+   and, in <i>, English ("Standard Departure Chart - Instrument (SID) - ICAO (RWY 11)"). */
+export function atCharts(html, icao) {
+  const out = [], seen = new Set();
+  for (const m of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const row = m[1], a = row.match(new RegExp(`href\\s*=\\s*["'](Charts\\/${icao}\\/[\\w.\\-]{1,120}\\.pdf)["']`, 'i'));
+    if (!a || seen.has(a[1])) continue;
+    seen.add(a[1]);
+    const cells = [...row.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => c[1]), d = cells[1] || '';
+    const en = (d.match(/<i\b[^>]*>([\s\S]*?)<\/i>/i) || [])[1];
+    const nm = text(en || d) || text(cells[0] || '') || a[1].split('/').pop();
+    const [code, group] = eaGroup(nm, a[1]);
+    out.push({ code, group, name: eaName(nm, group), pdf: a[1], changed: false });
+  }
+  return out;
+}
+
 /* ---------- France (SIA) ----------
    AD 2.24 is figures only, each a PDF under Cartes/<ICAO>/ named for what it is: AD_2_LFPG_IAC_RWY08L_FNA_ILS_CAT123_LOC.pdf,
    AD_2_LFPG_SID_RWY08L-08R-09L-09R_RNAV_AGOPA_ERIXU.pdf, AD_2_LFPG_ADC_01.pdf. The name is built from the file's. */
@@ -600,6 +633,7 @@ export async function eaChartPdf(url, env, h, me, d) {
   const res = (body, status) => new Response(JSON.stringify(body), { status, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   const R = EA[k], fileOk = !R ? false : R.kind === 'ix' ? /^documents\/[^"'<>\\?#]{1,300}\.pdf$/i.test(file) : R.kind === 'dk' ? /^media\/files\/[a-z0-9]{4,24}\/[^"'<>\\?#/]{1,200}\.pdf$/i.test(file)
     : R.kind === 'kr' ? /^\d{4}-\d{2}-\d{2}(?:-AIRAC)?\/pdf\/(AD|ENR|GEN)\/[A-Z]{4}\/[^"'<>\\]{1,250}\.pdf$/i.test(file)
+    : R.kind === 'at' ? /^Charts\/[A-Z]{4}\/[\w.\-]{1,120}\.pdf$/.test(file)
     : R.kind === 'fr' ? /^html\/eAIP\/Cartes\/[A-Z]{4}\/AD_2_[A-Z]{4}_[\w.\-]{1,160}\.pdf$/.test(file)
     : R.kind === 'es' ? /^contenido_AIP\/AD\/AD2\/[A-Z]{4}\/LE_AD_2_[A-Z]{4}[\w.\-]{0,40}_en\.pdf$/.test(file)
     : /^(pdf|graphics)\/[^"'<>\\]{1,200}\.pdf$/i.test(file);

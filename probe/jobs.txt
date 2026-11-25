@@ -1,1 +1,3 @@
-# none
+ee-hist https://eaip.eans.ee/history-en-GB.html
+lv-home2 https://ais.lgs.lv/aiseaip
+pt-cover2 https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/LP-cover-en-PT.html

@@ -1,2 +1,1 @@
-ro-en	200	text/html	454	https://www.aisro.ro/aip/2026-10-29/html/en/index.html
-ro-cfg	200	text/javascript	8133	https://www.aisro.ro/aip/2026-10-29/config.js
+ro-toc	200	text/html	2796	https://www.aisro.ro/aip/2026-10-29/html/en/toc.html

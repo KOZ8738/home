@@ -1,1 +1,9 @@
-
+al-menu	200	text/html	55740	https://www.albcontrol.al/al/aip/01-OCT-2026-A/2026-10-01-AIRAC/html/eAIP/LA-menu-en-GB.html
+bg-flip	200	text/html	60367	https://b-flip.bulatsa.com/publications/aip/home
+it-enav	200	text/html; charset=UTF-8	156160	https://www.enav.it/en/what-we-do/we-create-solutions-for-international-markets/aeronautical-information
+tr-dhmi	200	text/html; charset=utf-8	108784	https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx
+cy-ais	200	text/html; charset=UTF-8	37248	https://www.gov.cy/mtcw-dca-ais/
+ro-right	200	text/html; charset=UTF-8	8360	https://www.aisro.ro/start_rightv02.php
+mk-menu	200	text/html	1326	https://ais.m-nav.info/eAIP/current/en/menu.htm
+am-eaip	404	text/html; charset=UTF-8	47388	http://armats.am/activities/ais/eaip
+xk-ais	200	text/html; charset=UTF-8	38020	https://kans-ks.org/en/services/ais/

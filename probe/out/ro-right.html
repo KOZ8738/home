@@ -1,0 +1,133 @@
+<?
+session_start();
+//$_SESSION['contor']=false;
+
+if (!$_SESSION['contor']){
+	//necontorizat
+	@require_once 'init/ini.php';
+	$conn = mysql_connect($dbhost, $dbwrite, $dbwritep) or die ('Error connecting to mysql');
+	$dbname = 'notamdb';
+	mysql_select_db($dbname,$conn);
+	$q="SELECT * FROM contor LIMIT 1";
+	$r=mysql_query($q);
+	$row = mysql_fetch_assoc($r);
+	$c=$row['contor']+1;
+	//echo $c;
+	$qq="UPDATE `contor` SET `contor`='".$c."' WHERE `ind`=1 LIMIT 1";
+	$rr=mysql_query($qq);
+	
+	$_SESSION['contor']=true;
+	
+} else {
+	//contorizat
+}
+?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Untitled Document</title>
+<link href="css/snaia.css" rel="stylesheet" type="text/css" />
+<style type="text/css">
+<!--
+h1 {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 24px;
+	font-weight: normal;
+	color: #FFFFFF;
+	padding-left: 5px;
+	padding-top: 5px;
+	padding-right: 5px;
+}
+h2 {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 16px;
+	font-weight: normal;
+	color: #FFFFFF;
+}
+-->
+</style>
+</head>
+
+<body>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<table width="900" border="0" align="center" bordercolor="#447cb7" bgcolor="#447cb7">
+  <tr>
+    <td width="450" valign="top" bgcolor="#447cb7"><h1 align="center">AIS Headquarters </h1>
+      <h2 align="center">ROMANIAN AIR TRAFFIC SERVICES ADMINISTRATION ROMATSA<br />
+      AERONAUTICAL INFORMATION MANAGEMENT UNIT</h2>
+      <p align="center"><br />
+      Str. Ion Ionescu de la Brad Nr. 10  </p>
+    <p align="center">Sect. 1, Bucharest </p>
+    <p align="center">- ROMANIA -  </p>
+    <p align="center"><br />
+      TEL: +4021 - 232.56.99    </p>
+    <p align="center">FAX: +4021 - 208.99.16</p>
+    <p align="center"><br />
+      AFS: L R B B Y O Y X  </p>
+    </td>
+    <td width="450" bgcolor="#447cb7"><h1 align="center"> International NOTAM Office </h1>
+      <h2 align="center">ROMANIAN AIR TRAFFIC SERVICES ADMINISTRATION ROMATSA<br />
+      </h2>
+      <p align="center"><br />
+      Str. Ion Ionescu de la Brad Nr. 10 </p>
+      <p align="center">Sect. 1, Bucharest </p>
+      <p align="center">- ROMANIA -</p>
+    <p align="center"><br />
+      TEL: +4021 - 208.33.49</p>
+    <p align="center">FAX: +4021 - 208.99.15</p>
+    <p align="center">MOBILE: +4072 - 422.85.74</p>
+    <p align="center"><br />
+    AFS: L R B B Y N Y X</p></td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<table width="863" border="0" align="center">
+  <tr>
+    <td width="879" align="justify"><p>The information contained in this website is for general use.</p> 
+<p>The information is collected, compiled and provided by ROMATSA / AIM Unit  and while we endeavor to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability or availability with respect to the website or the information, products, services, or related graphics contained on the website for any purpose. </p><p>
+In no event will ROMATSA be liable for any loss or damage including without limitation, indirect or consequential loss or damage, or any loss or damage whatsoever arising from loss of data or profits arising out of, or in connection with, the use of this website.
+Every effort is made to keep the website up and running smoothly. However, ROMATSA / AIM Unit takes no responsibility for, and will not be liable for, the website being temporarily unavailable due to technical issues beyond our control.</p></br>
+<p><strong>Important Note:</strong>
+Starting with  22nd of June 2017 AIRAC cycle, the AIP ROMANIA PDF files issued by ROMATSA  include a  qualified digital signature of  AIM Unit of ROMATSA. Provided that users download such files and the their digital signature is correct and verified on user's end, ROMATSA / AIM Unit guarantees that such files available through this site are the respective official version and identic to  the ones distributed  in accordance with ICAO Annex 15. By extent, any file on this site that can be verified through digital signature from AIM UNIT of ROMATSA can be considered official for AIM purposes. </p>
+<p>Most of the web browsers’ default PDF viewer does not display nor verify digital signatures. Users have to download (Save As) the files on local drive and open them in Adobe Reader (or other compatible software) to check their included or detached digital signature for validity.
+A valid digital signature guarantees the content integrity of the signed files.</p> 
+</td>
+  </tr>
+  <tr>
+    <td align="justify">&nbsp;</td>
+  </tr>
+  <!--<tr>
+    <td align="justify"><p>ROMATSA / Serviciul AIM nu garantează  corectitudinea şi actualitatea conţinutului  site-ului; nu garantează că  site-ul este disponibil în orice moment şi în orice locaţie, şi nici faptul că nu conţine erori,  virusi sau alte  componente dăunătoare.<br />
+      ROMATSA / Serviciul AIM va încerca să corecteze  orice eroare adusă la cunoştinta sa.<br />
+      Utilizarea informaţiilor puse la dispoziţie prin  intermediul site-ului <a href="http://www.aisro.ro/">www.aisro.ro</a> se face  numai pe răspunderea utilizatorului.</p>
+    <p>Singura  versiune oficială a documentelor AIS emise de ROMATSA / Serviciul AIM  este cea distribuită în conformitate cu Anexa  15 OACI, paragrafele 2.3.5,  2.3.6 si 2.3.7 . (vezi meniul <a href="../subs/subs.php">Publication\Subscribe</a>)</p></td>
+  </tr>-->
+  <tr>
+    <td align="justify"><p>Informațiile de pe acest site web sunt pentru uz general.</p><p>
+Informațiile sunt colectate, compilate și publicate de către Serviciul AIM al ROMATSA și, cu tot efortul de a menține informațiile actualizate și corecte, nu garantăm sub nicio formă precizia, gradul de completare, actualitatea și disponibilitatea referitoare la informațiile, produsele, serviciile, produsele grafice de pe acest site web, indiferent de scopul utilizării lor. Utilizarea acestui sit web este strict pe răspunderea utilizatorului.</p><p>
+În niciun caz ROMATSA nu va fi responsabilă pentru nicio pierdere sau daună, inclusiv și fără a se limita la: pierdere sau deteriorare indirectă sau consecventă, sau orice pierdere sau pagubă care rezultă din pierderea de date sau profituri care rezultă din sau în legătură cu utilizarea acestui site web.
+Se depun toate eforturile pentru ca site-ul să funcționeze fără probleme. Cu toate acestea, Serviciul AIM/ROMATSA nu își asumă nicio responsabilitate și nu va fi responsabilă, atunci când site-ul web este indisponibil temporar din cauza problemelor tehnice.</p></br>
+<p><strong>Notă importantă:</strong>
+Începând cu ciclul AIRAC  22 iunie 2017, fișierele PDF ale AIP ROMANIA emise de ROMATSA includ o semnătură digitală calificată a Serviciului AIM din cadrul ROMATSA.
+Cu condiția ca utilizatorii să descarce astfel de fișiere și semnătura digitală a acestora să fie corectă și verificată de către utilizator după descărcare,
+Serviciul AIM ROMATSA garantează că astfel de fișiere disponibile pe acest site sunt versiunea oficială respectivă și sunt identice cu cele distribuite în conformitate cu Anexa 15 OACI.
+Astfel, orice fișier de pe acest site care poate fi verificat prin semnătura digitală de la AIM UNIT din ROMATSA poate fi considerat oficial în scopuri AIM.
+Majoritatea vizualizatoarelor PDF implicite al browserelor web nu afișează și nici nu verifică semnăturile digitale. Utilizatorii trebuie să descarce (Salvați ca) fișierele pe unitatea locală și să le deschidă în Adobe Reader (sau alt software compatibil) pentru a verifica validitatea semnăturii digitale incluse sau detașate.
+
+Semnătura digitală validă garantează integritatea conținulului semnat al fișierelor. 
+</p></td>
+  </tr>
+</table>
+<script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="3324c861-8e1b-4432-8ff0-06fe444448f7" data-blockingmode="auto" type="text/javascript"></script>
+<p>&nbsp;</p>
+</body>
+</html>

@@ -1,6 +1,1 @@
-bg-ad https://b-flip.bulatsa.com/_aip/AD.htm
-bg-start https://b-flip.bulatsa.com/_aip/Start.htm
-bg-amdts https://b-flip.bulatsa.com/_aip/AMDTs.htm
-ro-tocad https://www.aisro.ro/aip/2026-10-29/html/en/aip_toc_ad.html
-ro-aipphp https://www.aisro.ro/aip/aip.php
-sk-200 https://aim.lps.sk/web/index.php?fn=200&lng=en
+# none

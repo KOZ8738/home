@@ -1,4 +1,2 @@
-xk-menu https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/eAIP/menu.html
-xk-idx https://kans-ks.org/eAIP/AIRAC%20AMDT%2011-2026_2026_10_29/index.html
-ro-idx https://www.aisro.ro/aip/2026-10-29/index.html
-ro-lrop https://www.aisro.ro/aip/2026-10-29/html/eAIP/LR-AD-2.LROP-en-GB.html
+ro-en https://www.aisro.ro/aip/2026-10-29/html/en/index.html
+ro-cfg https://www.aisro.ro/aip/2026-10-29/config.js

@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland, France, Portugal, Bosnia and Herzegovina, Austria and Albania (Nov 2026) ----------
+   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania and Kosovo (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -247,10 +247,13 @@ const ixEds = (R) => (t, at) => [...t.matchAll(/href\s*=\s*["']([^"'<>]*?_(\d{4}
 /* Iceland names a page "BI-AD BIKF KEFLAVÍK - KEFLAVIK 1", without the "2 ", Poland "AD 2 EPWA 1", without the country; a space
    may come as %20, a letter as an entity */
 const IX_AD = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?AD(?: |%20)(?:2(?: |%20))?([A-Z]{4})(?=[ %&"'<>]|$)[^"'<>]*?)(?: |%20)1-[a-z]{2}-[A-Z]{2}\.html/g;
+const IX_AD1 = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?AD(?: |%20)(?:2(?: |%20))?([A-Z]{4}))-[a-z]{2}-[A-Z]{2}\.html/g;
 const IX_ENR = /href\s*=\s*["'](?:\.\/)?((?:[A-Z]{2}-)?ENR(?: |%20)4\.([14]))-[a-z]{2}-[A-Z]{2}\.html/g;
 export function ixMenu(t) {
   const pages = {}, enr = {};
   for (const m of t.matchAll(IX_AD)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + ' 1-en-GB.html';
+  /* Kosovo keeps an aerodrome on one page: "BK-AD 2 BKPR-en-GB.html" */
+  for (const m of t.matchAll(IX_AD1)) if (!pages[m[2]]) pages[m[2]] = unent(m[1]) + '-en-GB.html';
   for (const m of t.matchAll(IX_ENR)) if (!enr[m[2]]) enr[m[2]] = m[1] + '-en-GB.html';
   return { pages, enr };
 }

@@ -1,0 +1,101 @@
+http://purl.org/dc/elements/1.1/
+../eAIP.css
+../eAIP-tables.css
+../eAIP-Amdt-hide.css
+../eAIP-Amdt-show.css
+../floatingMenu.js
+../amendments.js
+#GEN-3.1
+../eAIP/UD-GEN-3.1-en-GB.html#GEN-3.1
+#GEN-3.5
+../eAIP/UD-GEN-3.5-en-GB.html#GEN-3.5
+#UDYZ-AD-2.24-Fig-03
+#UDYZ-AD-2.24-Fig-03
+#UDYZ-AD-2.24-Fig-03
+#UDYZ-AD-2.24-Fig-03
+#UDYZ AD 2-2.13
+../eAIP/UD-AD-0.6-en-GB.html#UDYZ AD 2-2.13
+#ENR-1.2
+../eAIP/UD-ENR-1.2-en-GB.html#ENR-1.2
+#ENR-1.2
+../eAIP/UD-ENR-1.2-en-GB.html#ENR-1.2
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-1-255.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-3-255.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-5-255.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-7-242.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-9-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-11-82.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-13-255.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-13-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-15-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-17-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-19-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-21-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-23-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-25-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-27-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-29-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-31-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-33-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-35-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-37-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-39-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-41-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-41-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-43-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-43-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-45-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-47-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-47-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-49-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-51-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-53-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-53-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-55-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-57-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-57-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-59-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-59-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-61-262.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-61-263.pdf
+../images/application_pdf.png
+../../graphics/UDYZ AD 2.2-63-262.pdf

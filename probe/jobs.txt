@@ -1,3 +1,2 @@
-pt-cover https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/LP-cover-en-PT.html
-pt-menu https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/eAIP/LP-menu-en-PT.html
-ba-menu https://eaip.bhansa.gov.ba/2026-10-01-AIRAC/html/eAIP/LQ-menu-en-GB.html
+ba-lqsa https://eaip.bhansa.gov.ba/2026-10-01-AIRAC/html/eAIP/LQ-AD-2.LQSA-en-GB.html
+pt-lppt https://ais.nav.pt/wp-content/uploads/AIS_Files/eAIP_Current/eAIP_Online/eAIP/html/eAIP/LP-AD-2.LPPT-en-PT.html

@@ -40,9 +40,9 @@
 const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 PolarisEFB/1.0 (+https://koz8738.com/efb/)', Accept: 'text/html,application/xhtml+xml,application/pdf,*/*', 'Accept-Language': 'en-GB,en;q=0.8' };
 const PDF_MAX = 40 * 1024 * 1024;
 
-/** one fixed folder replaced at each amendment: its cover page names the date ("Effective date: 29 OCT 2026") */
+/** one fixed folder replaced at each amendment: its cover page names the date ("Effective date: 29 OCT 2026", "EFFECTIVE DATE 01-OCT-2026") */
 const coverEds = (base, index) => (t) => {
-  const m = String(t).replace(/<[^>]+>/g, ' ').match(/Effective\s+date\s*:?\s*(\d{1,2})\s+([A-Z]{3})[A-Z]*\s+(\d{4})/i), mo = m && MON[m[2].toUpperCase()];
+  const m = String(t).replace(/<[^>]+>/g, ' ').match(/Effective\s+date\s*:?\s*(\d{1,2})[\s-]+([A-Z]{3})[A-Z]*[\s-]+(\d{4})/i), mo = m && MON[m[2].toUpperCase()];
   return mo ? [{ eff: `${m[3]}-${mo}-${m[1].padStart(2, '0')}`, pub: m[0], base, index }] : [];
 };
 const MON = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };

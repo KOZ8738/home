@@ -1,6 +1,6 @@
 /* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
    Denmark, Korea, Estonia, Iceland, Latvia, Spain, Ireland, Czech Republic, Belgium/Luxembourg, Hungary, Serbia/Montenegro,
-   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania and Kosovo (Nov 2026) ----------
+   Poland, France, Portugal, Bosnia and Herzegovina, Austria, Albania, Kosovo, Slovakia, Romania and North Macedonia (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -183,6 +183,33 @@ export const EA = {
     page: (i) => `html/eAIP/LA-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/LA-ENR-${n}-en-GB.html`,
   },
   XK: { country: 'Kosovo', pre: 'BKxx', test: 'BKPR', kind: 'ix', apt: /^BK[A-Z]{2}$/, label: 'AIP Kosovo', host: 'ANSA eAIP', home: 'https://kans-ks.org/eAIP/default.html', idx: 'index.html' },
+  SK: {
+    country: 'Slovakia', pre: 'LZxx', test: 'LZIB', apt: /^LZ[A-Z]{2}$/, label: 'AIP Slovakia', host: 'LPS SR eAIP', site: 'https://aim.lps.sk/',
+    /* the AIP page links each issue's frameset: eAIP_SR/AIP_SR_EFF_26NOV2026_amdt/html/LZ-frameset-en-SK.html; the AD 2 pages
+       are beside it (html/LZ-AD-2.LZIB-en-SK.html), not in html/eAIP/ */
+    home: 'https://aim.lps.sk/web/index.php?fn=200&lng=en',
+    eds: (t) => [...t.matchAll(/eAIP_SR\/(AIP_SR_EFF_(\d{2})([A-Z]{3})(\d{4})\w*)\/html\//g)].filter((m) => MON[m[3]])
+      .map((m) => ({ eff: `${m[4]}-${MON[m[3]]}-${m[2]}`, pub: m[1], base: `https://aim.lps.sk/web/eAIP_SR/${m[1]}/`, index: 'html/LZ-frameset-en-SK.html' })),
+    page: (i) => `html/LZ-AD-2.${i}-en-SK.html`, enr: (n) => `html/LZ-ENR-${n}-en-SK.html`,
+  },
+  RO: {
+    country: 'Romania', pre: 'LRxx', test: 'LROP', kind: 'ro', apt: /^LR[A-Z]{2}$/, label: 'AIP Romania', host: 'ROMATSA AIS', site: 'https://www.aisro.ro/',
+    /* "2026-10-29/index.html", one folder per issue; no AD 2 pages, only PDFs, each chart linked from the AD table of contents */
+    home: 'https://www.aisro.ro/aip/aip.php',
+    eds: (t) => [...t.matchAll(/href\s*=\s*["'](?:\.\/)?(\d{4}-\d{2}-\d{2})\/index\.html["']/g)].map((m) => ({ eff: m[1], pub: m[1], base: `https://www.aisro.ro/aip/${m[1]}/`, index: 'index.html' })),
+    list: () => 'html/en/aip_toc_ad.html', page: () => null, enr: () => null,
+    charts: (t, icao) => roCharts(t, icao), name: (t, icao) => roName(t, icao),
+  },
+  MK: {
+    country: 'North Macedonia', pre: 'LWxx', test: 'LWSK', kind: 'mk', apt: /^LW[A-Z]{2}$/, label: 'AIP North Macedonia', host: 'M-NAV eAIP', site: 'https://ais.m-nav.info/',
+    /* one folder replaced at each amendment, its top frame naming the date ("AIP NORTH MACEDONIA valid from 15 OCT 2026");
+       no AD 2 pages, only PDFs, each listed in the menu's tree_items.js */
+    home: 'https://ais.m-nav.info/eAIP/current/en/top.htm', fixed: true,
+    eds: (t) => { const m = String(t).replace(/<[^>]+>/g, ' ').match(/valid\s+from\s+(\d{1,2})[\s-]+([A-Z]{3})[A-Z]*[\s-]+(\d{4})/i), mo = m && MON[m[2].toUpperCase()];
+      return mo ? [{ eff: `${m[3]}-${mo}-${m[1].padStart(2, '0')}`, pub: m[0], base: 'https://ais.m-nav.info/eAIP/current/', index: 'en/index.htm' }] : []; },
+    list: () => 'en/tree_items.js', page: () => null, enr: () => null,
+    charts: (t, icao) => mkCharts(t, icao), name: (t, icao) => mkApt(t, icao),
+  },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
     eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://eaip.eans.ee/${m[1]}/`, index: 'html/index-en-GB.html' })),
@@ -229,9 +256,11 @@ async function editions(k, d) {
 }
 async function edition(k, d, t = Date.now()) {
   const all = await editions(k, d), today = new Date(t).toISOString().slice(0, 10);
-  const live = all.filter((e) => e.eff <= today), cur = live[live.length - 1];
+  /* some sites list only the coming edition once it is out (Estonia, Latvia; Portugal replaces its folder ahead of the
+     date): until that date it is the only one there is to read */
+  const live = all.filter((e) => e.eff <= today), cur = live[live.length - 1] || all[0];
   if (!cur) throw new EaError(502, `No ${EA[k].label} edition is in force yet`);
-  return { cur, next: all.find((e) => e.eff > today) || null, all };
+  return { cur, next: all.find((e) => e.eff > cur.eff) || null, all };
 }
 const cycleOf = (k, eff) => k + eff.replace(/-/g, '');
 /* an address made of names with spaces ("AIRAC AMDT 11-2026_2026_10_29/eAIP/EH-AD 2 EHAM 1-en-GB.html"), each part escaped once */
@@ -600,6 +629,66 @@ export function frCharts(html, icao) {
   return out;
 }
 
+/* ---------- Romania (ROMATSA): the AD table of contents links each chart
+   <a href="../../DOCS/AIP/AD/AD2/AD_2_5_LROP/LR_AD_2_LROP_5-20_en.pdf"><span class="Number">AD 2.5-20</span> LROP Aerodrome Chart - ICAO</a>
+   and, for AD 2.01–2.23, the aerodrome's text (LR_AD_2_LROP_en.pdf) ---------- */
+const AD_TEXT = 'Aerodrome information (AD 2 text)';
+export function roCharts(html, icao) {
+  const out = [], seen = new Set();
+  let txt = '';
+  const re = new RegExp(`href\\s*=\\s*["'](?:\\.\\.\\/)*(DOCS\\/AIP\\/AD\\/AD2\\/AD_2_\\d{1,3}_${icao}\\/LR_AD_2_${icao}(_[\\d\\-]+)?_en\\.pdf)["'][^>]*>([\\s\\S]*?)<\\/a>`, 'g');
+  for (const m of html.matchAll(re)) {
+    const file = m[1];
+    if (seen.has(file)) continue;
+    seen.add(file);
+    if (!m[2]) { txt = file; continue; }
+    /* "RNAV Standard Departure Chart - Instrument - ICAO - RWY 07" -> "RNAV SID RWY 07", "Aerodrome Ground/Movement Chart" */
+    const nm = text(m[3]).replace(/^AD\s*2\.\d+-\d+\s*/, '').replace(new RegExp(`^${icao}\\s+`), '').replace(/Ground\/Movement/i, 'Ground Movement')
+      .replace(/^(RNAV(?:\s*\([^)]*\))?)\s+(?:Standard\s+)?(Departure|Arrival)\s+Chart\s*-\s*Instrument\s*/i, (x, r, k) => `${r} ${/^D/i.test(k) ? 'SID' : 'STAR'} `)
+      .replace(/\s*-\s*ICAO\s*-\s*(?=RWY\b)/, ' ').trim() || fileTitle(file);
+    const [code, group] = eaGroup(nm, file);
+    out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
+  }
+  if (txt && out.length) out.push({ code: 'DAU', group: 'Other', name: AD_TEXT, pdf: txt, changed: false });
+  return out;
+}
+/* the aerodrome's heading: <span class="Number">AD 2.5</span> <span …>LROP BUCURESTI / Henri Coanda</a> */
+const roName = (html, icao) => { const m = html.match(new RegExp(`<span class="Number">AD 2\\.\\d+<\\/span>\\s*(?:<span[^>]*>)?\\s*${icao}\\s+([^<]{2,80})`)); return m ? unent(m[1]).replace(/\s+/g, ' ').trim() : ''; };
+
+/* ---------- North Macedonia (M-NAV): the menu's tree lists each chart
+   ['LWSK AD 2.24-9 (IAC - ILS RWY34 A,B)', '../aipcharts/LWSK/LW_AD_2_LWSK_24_9_en.pdf'], and the aerodrome's text
+   ['Textpages', '../pdf/aerodromes/LW_AD_2_LWSK_en.pdf'] ---------- */
+const MK_KIND = { 'RELATED CHARTS': 'List of charts', ADC: 'Aerodrome Chart', APDC: 'Aircraft Parking/Docking Chart', GMC: 'Ground Movement Chart',
+  AOC: 'Aerodrome Obstacle Chart', AOBC: 'Aerodrome Obstacle Chart', PATC: 'Precision Approach Terrain Chart', MRVA: 'Minimum Radar Vectoring Altitude Chart' };
+/* "IAC - ILS RWY34 A,B" -> "ILS RWY 34 (CAT A/B)", "IAC - VOR RWY01 NON STD D" -> "VOR RWY 01 (CAT D, non-standard)", "MRVA TMA SKOPJE" */
+export function mkLabel(s) {
+  const n = String(s).replace(/\bRWY\s*(\d{2}[LRC]?)/g, 'RWY $1').replace(/\s+/g, ' ').trim(), cat = (c) => c.replace(/\s*,\s*/g, '/');
+  const m = n.match(/^(IAC|VAC|SID|STAR)\b\s*(?:[-–]\s*)?(.*)$/i);
+  if (m) {
+    const k = m[1].toUpperCase(), r = m[2].trim();
+    if (k === 'SID' || k === 'STAR') return (k + ' ' + r).trim();
+    return r.replace(/\s+NON[\s-]*STD\s+([A-D](?:\s*,\s*[A-D])*)$/i, (x, c) => ` (CAT ${cat(c)}, non-standard)`).replace(/\s+([A-D](?:\s*,\s*[A-D])*)$/, (x, c) => ` (CAT ${cat(c)})`)
+      || (k === 'VAC' ? 'Visual Approach Chart' : 'Instrument Approach Chart');
+  }
+  if (MK_KIND[n.toUpperCase()]) return MK_KIND[n.toUpperCase()];
+  const w = n.match(/^(\S+)\s+(.*)$/), K = w && MK_KIND[w[1].toUpperCase()];
+  return K ? `${K} – ${w[2]}` : n;
+}
+export function mkCharts(js, icao) {
+  const out = [], seen = new Set(), t = String(js);
+  for (const m of t.matchAll(new RegExp(`\\[\\s*'${icao} AD 2\\.24-\\d+\\s*\\(([^']*)\\)\\s*'\\s*,\\s*'(?:\\.\\.\\/)*(aipcharts\\/${icao}\\/[\\w\\-]{1,80}\\.pdf)'`, 'g'))) {
+    if (seen.has(m[2])) continue;
+    seen.add(m[2]);
+    const nm = mkLabel(m[1]), [code, group] = eaGroup(nm, m[2]);
+    out.push({ code, group, name: eaName(nm, group), pdf: m[2], changed: false });
+  }
+  const txt = t.match(new RegExp(`'(?:\\.\\.\\/)*(pdf\\/aerodromes\\/LW_AD_2_${icao}_en\\.pdf)'`));
+  if (txt && out.length) out.push({ code: 'DAU', group: 'Other', name: AD_TEXT, pdf: txt[1], changed: false });
+  return out;
+}
+/* ['LWSK - Skopje', '../html/emptypage.htm', */
+const mkApt = (js, icao) => { const m = String(js).match(new RegExp(`\\['${icao}\\s*-\\s*([^']{2,60})'`)); return m ? m[1].trim() : ''; };
+
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
@@ -642,6 +731,8 @@ export async function eaChartPdf(url, env, h, me, d) {
     : R.kind === 'at' ? /^Charts\/[A-Z]{4}\/[\w.\-]{1,120}\.pdf$/.test(file)
     : R.kind === 'fr' ? /^html\/eAIP\/Cartes\/[A-Z]{4}\/AD_2_[A-Z]{4}_[\w.\-]{1,160}\.pdf$/.test(file)
     : R.kind === 'es' ? /^contenido_AIP\/AD\/AD2\/[A-Z]{4}\/LE_AD_2_[A-Z]{4}[\w.\-]{0,40}_en\.pdf$/.test(file)
+    : R.kind === 'ro' ? /^DOCS\/AIP\/AD\/AD2\/AD_2_\d{1,3}_[A-Z]{4}\/LR_AD_2_[A-Z]{4}(?:_[\d\-]{1,12})?_en\.pdf$/.test(file)
+    : R.kind === 'mk' ? /^(?:aipcharts\/[A-Z]{4}\/LW_AD_2_[A-Z]{4}_[\w\-]{1,40}|pdf\/aerodromes\/LW_AD_2_[A-Z]{4})_en\.pdf$/.test(file)
     : /^(pdf|graphics)\/[^"'<>\\]{1,200}\.pdf$/i.test(file);
   if (!R || !/^[A-Z]{2}\d{8}$/.test(cycle) || !fileOk || file.includes('..')) return res({ error: 'Invalid chart' }, 400);
   if (!me) return res({ error: 'Sign in to see ' + EA[k].label + ' charts' }, 401);

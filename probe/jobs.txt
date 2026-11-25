@@ -1,0 +1,11 @@
+ais-online https://www.eurocontrol.int/articles/ais-online
+hu-root https://ais-en.hungarocontrol.hu/aip/
+hr-aim https://www.crocontrol.hr/en/services/aeronautical-information-management
+si-hist https://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+cz-idx https://aim.rlp.cz/eaip/html/index-en-GB.html
+cz-lkpr https://aim.rlp.cz/eaip/html/eAIP/LK-AD-2.LKPR-en-GB.html
+be-idx https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html
+be-ebbr https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/eAIP/EB-AD-2.EBBR-en-GB.html
+fr-eaip https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html
+pl-aip https://www.ais.pansa.pl/en/publications/aip-poland/
+at-root https://eaip.austrocontrol.at/

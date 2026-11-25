@@ -1,1 +1,9 @@
-ro-toc https://www.aisro.ro/aip/2026-10-29/html/en/toc.html
+bg-main https://b-flip.bulatsa.com/main-D5OUP5XC.js
+mk-tree https://ais.m-nav.info/eAIP/current/en/tree_items.js
+ro-aipf https://www.aisro.ro/aip/2026-10-29/html/en/aip_frames.html
+sk-200 https://aim.lps.sk/web/index.php?fn=200&lng=en
+sk-203 https://aim.lps.sk/web/index.php?fn=203&lng=en
+sk-215 https://aim.lps.sk/web/index.php?fn=215&lng=en
+sk-211 https://aim.lps.sk/web/index.php?fn=211&lng=en
+sk-209 https://aim.lps.sk/web/index.php?fn=209&lng=en&stpg=210
+sk-206 https://aim.lps.sk/web/index.php?fn=206&lng=en

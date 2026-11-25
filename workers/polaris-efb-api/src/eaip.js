@@ -78,6 +78,13 @@ export const EA = {
     eds: (t, at) => [...t.matchAll(/["'/]((\d{4}-\d{2}-\d{2})-AIRAC)\/html\/index-(?:no-NO|en-GB)\.html/g)].map((m) => ({ eff: m[2], pub: m[2], base: new URL(m[1] + '/', at).href, index: 'html/index-en-GB.html' })),
     page: (i) => `html/eAIP/EN-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EN-ENR-${n}-en-GB.html`,
   },
+  KR: {
+    country: 'South Korea', pre: 'RKxx', test: 'RKSI', kind: 'kr', apt: /^RK[A-Z]{2}$/, label: 'AIP Korea', host: 'KOCA AIM', site: 'https://aim.koca.go.kr/',
+    /* the history page lists every edition; a chart's own PDF is an absolute address at the package where it was last amended */
+    home: 'https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html', cdn: 'https://aim.koca.go.kr/eaipPub/Package/',
+    eds: (t) => [...t.matchAll(/["'\/]((\d{4}-\d{2}-\d{2})(?:-AIRAC)?)\/html\/index-en-GB\.html/g)].map((m) => ({ eff: m[2], pub: m[1], base: `https://aim.koca.go.kr/eaipPub/Package/${m[1]}/`, index: 'html/index-en-GB.html' })),
+    page: (i) => `html/eAIP/KR-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/KR-ENR-${n}-en-GB.html`,
+  },
 };
 export const eaRegion = (icao) => Object.keys(EA).find((k) => EA[k].apt.test(String(icao || ''))) || null;
 
@@ -216,12 +223,12 @@ function section(html) {
 export function eaGroup(name, id) {
   const u = name.toUpperCase(), d = String(id || '').toUpperCase();
   if (/CODING|TABULAR|WAYPOINT LIST|\bTABLES?\b|\bDATA\b/.test(u)) return ['DATA', 'Procedure data'];
-  if (/AERODROME( ?\/ ?HELIPORT)? CHART|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE/.test(u)) return ['APD', 'Airport diagram'];
+  if (/AERODROME( ?\/ ?HELIPORT)? CHART|\bAD CHART\b|AIRPORT CHART|AERODROME LAYOUT|AIRPORT DIAGRAM/.test(u) && !/OBSTACLE/.test(u)) return ['APD', 'Airport diagram'];
   if (/PARKING|DOCKING|GROUND MOVEMENT|TAXI|HOT ?SPOT|PUSH ?BACK|INTERSECTION TAKE|\bSTANDS?\b|DE-?ICING/.test(u) || /-(?:PBP|GMC|APDC)-/.test(d)) return ['HOT', 'Hot spots'];
   if (/\bSID\b|DEPARTURE/.test(u) || /-SID-/.test(d)) return ['DP', 'Departures'];
   if (/\bSTAR\b|ARRIVAL/.test(u) || /-STAR-/.test(d)) return ['STR', 'Arrivals'];
   if (/OBSTACLE|TERRAIN|\bAOC\b|PATC|ATOC/.test(u)) return ['DAU', 'Other'];
-  if (/INSTRUMENT APPROACH|INITIAL APPROACH|APPROACH CHART|TRANSITION|^(ILS|LOC|LLZ|RNP|RNAV|GNSS|GLS|VOR|NDB|DME|TACAN|LDA|SRA|PAR|VISUAL|CIRCLING)\b/.test(u) || /-IAC-|-VAC-/.test(d)) return ['IAP', 'Approaches'];
+  if (/INSTRUMENT APPROACH|INITIAL APPROACH|APPROACH CHART|\bAPCH\b|TRANSITION|^(ILS|LOC|LLZ|RNP|RNAV|GNSS|GLS|VOR|NDB|DME|TACAN|LDA|SRA|PAR|VISUAL|CIRCLING)\b/.test(u) || /-IAC-|-VAC-/.test(d)) return ['IAP', 'Approaches'];
   if (/MINIMUM/.test(u)) return ['MIN', 'Minimums'];
   /* short chart codes (Sweden, Finland, the Netherlands, Denmark): "ADC", "GMC - 2", "IAC 06 ILS LOC", file EHAM-IAC-06-ILS-LOC.pdf */
   const c = u + ' ' + d.replace(/[-_./]/g, ' ');
@@ -267,6 +274,21 @@ export function eaCharts(html, k) {
   }
   return out;
 }
+export function krCharts(html, icao) {
+  /* the AD 2.24 charts are figures at the end of the page (after the AD 2.25 text), each an absolute PDF whose address
+     carries the package where it was last amended; a chart name may repeat across packages, so keep the newest */
+  const by = new Map();
+  const re = new RegExp('href\\s*=\\s*["\\\']https?://aim\\.koca\\.go\\.kr/eaipPub/Package/((\\d{4}-\\d{2}-\\d{2})(?:-AIRAC)?/pdf/AD/' + icao + '/[^"\\\'<>]+?\\.pdf)["\\\']', 'gi');
+  for (const m of html.matchAll(re)) {
+    const file = unent(m[1]), date = m[2];
+    let nm; try { nm = decodeURIComponent(file.split('/').pop()); } catch (e) { nm = file.split('/').pop(); }
+    nm = nm.replace(/\.pdf$/i, '').replace(/^\(\s*[\d.\- ]+\)\s*/, '').replace(/_\d{6,}$/, '').replace(/\s+/g, ' ').trim();
+    const prev = by.get(nm);
+    if (prev && prev.date >= date) continue;
+    by.set(nm, { nm, file, date });
+  }
+  return [...by.values()].map(({ nm, file }) => { const [code, group] = eaGroup(nm, file); return { code, group, name: eaName(nm, group), pdf: file, changed: false }; });
+}
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
@@ -292,7 +314,7 @@ export async function eaChartsList(icao, env, me, d) {
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
     const t = await r.text();
     if (notFoundPage(t)) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const charts = R.kind === 'ix' ? ixCharts(t) : eaCharts(t, k);
+    const charts = R.kind === 'ix' ? ixCharts(t) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
     return { airport: { icao, name: aptName(t, icao) }, charts, notFound: !charts.length };
   }), (x) => x && !x.notFound), (x) => x && !x.notFound);
   return { ...head, ...v, cycle, eff: cur.eff, from: cur.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null,
@@ -305,6 +327,7 @@ export async function eaChartPdf(url, env, h, me, d) {
   const k = cycle.slice(0, 2), eff = cycle.length === 10 ? `${cycle.slice(2, 6)}-${cycle.slice(6, 8)}-${cycle.slice(8, 10)}` : '';
   const res = (body, status) => new Response(JSON.stringify(body), { status, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   const R = EA[k], fileOk = !R ? false : R.kind === 'ix' ? /^documents\/[^"'<>\\?#]{1,300}\.pdf$/i.test(file) : R.kind === 'dk' ? /^media\/files\/[a-z0-9]{4,24}\/[^"'<>\\?#/]{1,200}\.pdf$/i.test(file)
+    : R.kind === 'kr' ? /^\d{4}-\d{2}-\d{2}(?:-AIRAC)?\/pdf\/(AD|ENR|GEN)\/[A-Z]{4}\/[^"'<>\\]{1,250}\.pdf$/i.test(file)
     : /^(pdf|graphics)\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file);
   if (!R || !/^[A-Z]{2}\d{8}$/.test(cycle) || !fileOk || file.includes('..')) return res({ error: 'Invalid chart' }, 400);
   if (!me) return res({ error: 'Sign in to see ' + EA[k].label + ' charts' }, 401);
@@ -313,6 +336,7 @@ export async function eaChartPdf(url, env, h, me, d) {
   let ed = null;
   /* Denmark: one address per file, no editions */
   if (R.kind === 'dk') ed = { base: R.home };
+  else if (R.kind === 'kr') ed = { base: R.cdn };
   else {
     try { ed = (await editions(k, d)).find((e) => e.eff === eff); } catch (e) { return res({ error: e.message }, 502); }
     if (!ed) return res({ error: `That ${EA[k].label} edition is no longer listed. Open the chart list again.` }, 404);

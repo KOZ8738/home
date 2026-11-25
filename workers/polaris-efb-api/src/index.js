@@ -1750,7 +1750,7 @@ export default {
       chartPdf: async (u) => { const cy = u.searchParams.get('cycle') || '', st = { u: 'staff' };
         if (/^JP\d{8}$/.test(cy)) return jpChartPdf(u, env, {}, st);
         if (/^CN\d{8}$/.test(cy)) return cnChartPdf(u, env, {}, st);
-        if (/^(HK|SG|UK|NO|MY|SE|FI|NL|DK)\d{8}$/.test(cy)) return eaChartPdf(u, env, {}, st, eaDeps(env, ctx));
+        if (/^(HK|SG|UK|NO|MY|SE|FI|NL|DK|KR)\d{8}$/.test(cy)) return eaChartPdf(u, env, {}, st, eaDeps(env, ctx));
         return chartPdfRoute(u, {}); },
       chartFixes: async (icao, u) => (await chartFixes(icao, u, { u: 'staff' }, env, ctx)) || { icao, pts: [] },
       chartList: async (icao) => { const st = { u: 'staff' };
@@ -1802,7 +1802,7 @@ export default {
         }
         case '/api/efb/chart-pdf': if (/^JP\d{8}$/.test(url.searchParams.get('cycle') || '')) return await jpChartPdf(url, env, h, await sessionOf(req, env));
           if (/^CN\d{8}$/.test(url.searchParams.get('cycle') || '')) return await cnChartPdf(url, env, h, await sessionOf(req, env));
-          if (/^(HK|SG|UK|NO|MY|SE|FI|NL|DK)\d{8}$/.test(url.searchParams.get('cycle') || '')) return await eaChartPdf(url, env, h, await sessionOf(req, env), eaDeps(env, ctx)); return await chartPdfRoute(url, h);
+          if (/^(HK|SG|UK|NO|MY|SE|FI|NL|DK|KR)\d{8}$/.test(url.searchParams.get('cycle') || '')) return await eaChartPdf(url, env, h, await sessionOf(req, env), eaDeps(env, ctx)); return await chartPdfRoute(url, h);
         case '/api/efb/airport-layout': { const p = layoutRoute(url.searchParams.get('icao'), env, ctx); if (ctx && ctx.waitUntil) ctx.waitUntil(p.catch(() => {}));
           /* warm=1: the EFB only asks the server to have it ready; answered at once, without the diagram */
           if (url.searchParams.get('warm') === '1') { p.catch(() => {}); return json({ ok: true, warm: true }, 202, h); }

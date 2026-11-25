@@ -1,1 +1,9 @@
-ro-toc	200	text/html	2796	https://www.aisro.ro/aip/2026-10-29/html/en/toc.html
+bg-main	200	application/javascript	20323	https://b-flip.bulatsa.com/main-D5OUP5XC.js
+mk-tree	200	text/javascript	10032	https://ais.m-nav.info/eAIP/current/en/tree_items.js
+ro-aipf	200	text/html	600	https://www.aisro.ro/aip/2026-10-29/html/en/aip_frames.html
+sk-200	200	text/html; charset=windows-1250	24603	https://aim.lps.sk/web/index.php?fn=200&lng=en
+sk-203	200	text/html; charset=windows-1250	23806	https://aim.lps.sk/web/index.php?fn=203&lng=en
+sk-215	200	text/html; charset=windows-1250	41841	https://aim.lps.sk/web/index.php?fn=215&lng=en
+sk-211	200	text/html; charset=windows-1250	32992	https://aim.lps.sk/web/index.php?fn=211&lng=en
+sk-209	200	text/html; charset=windows-1250	19600	https://aim.lps.sk/web/index.php?fn=209&lng=en&stpg=210
+sk-206	200	text/html; charset=windows-1250	31441	https://aim.lps.sk/web/index.php?fn=206&lng=en

@@ -1,1 +1,14 @@
-# none
+ge-hist https://airnav.ge/eaip/history-en-GB.html
+ge-hist2 https://ais.airnav.ge/eaip/history-en-GB.html
+ge-dl https://ais.airnav.ge/en/aip-downloadable
+am-cat https://armats.am/category/eaip/
+am-act https://armats.am/activities/ais/eaip
+am-acten https://armats.am/en/activities/ais/eaip
+am-ais https://armats.am/en/activities/ais
+mt-tm https://www.transport.gov.mt/Aviation/Air-Navigation-Services-Aerodromes/
+mt-mats https://www.maltats.com/aim/
+mt-mats2 https://maltats.com/?p=10079
+si-hist https://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+si-histh http://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+si-old https://www.sloveniacontrol.si/acrobat/aip/Operations/history-en-GB.html
+si-www https://www.sloveniacontrol.si/en

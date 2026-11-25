@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 const want = fs.existsSync('probe/ea.txt') ? fs.readFileSync('probe/ea.txt', 'utf8').split(/\s+/).filter(Boolean) : [];
 if (!want.length) process.exit(0);
-const { eaChartsList, eaChartPdf, eaFixes } = await import('../mainsrc/workers/polaris-efb-api/src/eaip.js'.replace('mainsrc', process.env.EA_SRC || 'mainsrc'));
+const { eaChartsList, eaChartPdf, eaFixes } = await import('../mainsrc/workers/polaris-efb-api/src/eaip.js'.replace('mainsrc', process.env.EA_SRC || '.'));
 const mem = new Map(), memo = async (k, fn, ok) => { if (mem.has(k)) return mem.get(k); const v = await fn(); if (!ok || ok(v)) mem.set(k, v); return v; };
 const d = { edgeCache: (k, ttl, fn, ok) => memo(k, fn, ok), cached: (k, ttl, fn, ok) => memo('c' + k, fn, ok), kvStore: (k, ttl, fn, ok) => memo('kv' + k, fn, ok), waitUntil: null };
 const out = {};

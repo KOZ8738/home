@@ -1,1 +1,11 @@
-
+ais-online	200	text/html; charset=utf-8	214272	https://www.eurocontrol.int/articles/ais-online
+hu-root	200	text/html; charset=UTF-8	107212	https://ais-en.hungarocontrol.hu/aip/
+hr-aim	200	text/html; charset=UTF-8	97037	https://www.crocontrol.hr/en/services/aeronautical-information-management/
+si-hist	ERR	fetch failed		https://aim.sloveniacontrol.si/aim/eAIP/Operations/history-en-GB.html
+cz-idx	200	text/html; charset=UTF-8	850	https://aim.rlp.cz/eaip/html/index-en-GB.html
+cz-lkpr	200	text/html; charset=UTF-8	978321	https://aim.rlp.cz/eaip/html/eAIP/LK-AD-2.LKPR-en-GB.html
+be-idx	200	text/html; charset=UTF-8	1497	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/index-en-GB.html
+be-ebbr	200	text/html; charset=UTF-8	1926978	https://ops.skeyes.be/html/belgocontrol_static/eaip/eAIP_Main/html/eAIP/EB-AD-2.EBBR-en-GB.html
+fr-eaip	200	text/html; charset=UTF-8	80666	https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html
+pl-aip	200	text/html; charset=UTF-8	54150	https://ais.pansa.pl/en/publications/aip-poland/
+at-root	200	text/html	9375	https://eaip.austrocontrol.at/

@@ -1,5 +1,8 @@
-ie-dub https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/dublin-chart-information
-ie-snn https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/shannon-chart-information
-ie-ork https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/cork-chart-information
-ie-amd https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package/published-amendments
-ie-iaip https://www.airnav.ie/what-we-do/air-traffic-management/integrated-aeronautical-information-package
+ie-idx https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index.html
+ie-idx2 https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/index-en-GB.html
+ie-menu https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-menu-en-GB.html
+ie-eidw https://www.airnav.ie/AIRAC_OCT_2026_2/2026-10-29-AIRAC/html/eAIP/EI-AD-2.EIDW-en-GB.html
+ie-next https://www.airnav.ie/AIRAC/2026-11-26-AIRAC/html/eAIP/EI-AD-2.EIDW-en-GB.html
+ie-jul https://www.airnav.ie/AIRAC_JULY_2026/26-07-09-AIRAC/html/index.html
+es-pdfv https://aip.enaire.es/AIP/contenido_AIP/AD/AD2/LEMD/LE_AD_2_LEMD_ADC_1_en.pdf?v=ES20261029
+es-aipv https://aip.enaire.es/AIP/AIP-en.html?v=ES20261029

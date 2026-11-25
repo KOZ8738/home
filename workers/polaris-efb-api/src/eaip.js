@@ -1,5 +1,5 @@
-/* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands
-   and Denmark (Nov 2026) ----------
+/* ---------- Charts from the eAIPs of Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands,
+   Denmark, Korea, Estonia, Iceland and Latvia (Nov 2026) ----------
    Each State publishes its AIP as an eAIP on the web, free and without an account, in the same layout: one folder per
    edition (named for its effective date), and in it each aerodrome's AD 2 page, whose section AD 2.24 "Charts related
    to an aerodrome" is a table of the charts' names, each linking its own PDF.
@@ -83,6 +83,15 @@ export const EA = {
     /* the front page links each edition's folder ("https://eaip.avians.is/A_11-2026_2026_11_26/"), some still on the old eaip.isavia.is */
     eds: (t, at) => [...t.matchAll(/href\s*=\s*["']((?:https?:\/\/eaip\.(?:avians|isavia)\.is\/)?([^"'<>\/\\]*?_(\d{4})_(\d{2})_(\d{2})))\/?(?:index[^"'<>]*?\.html)?["']/gi)]
       .map((m) => ({ eff: `${m[3]}-${m[4]}-${m[5]}`, pub: m[2], base: new URL(m[1] + '/', at).href, index: '' })),
+  },
+  LV: {
+    country: 'Latvia', pre: 'EVxx', test: 'EVRA', apt: /^EV[A-Z]{2}$/, label: 'AIP Latvia', host: 'LGS eAIP', home: 'https://ais.lgs.lv/aiseaip',
+    /* "eAIPfiles/2026_008_26-NOV-2026/data/2026-11-26/html/index.html"; a Non-AIRAC issue on the same date is the final one
+       for it ("incorporates the changes from the previously issued AIRAC AIP AMDT"), so it wins */
+    eds: (t) => [...t.matchAll(/eAIPfiles\/([A-Za-z0-9_\-]+)\/data\/(\d{4}-\d{2}-\d{2})\/html\/index(?:-en-GB)?\.html/g)]
+      .map((m) => ({ eff: m[2], pub: (/Non-AIRAC/i.test(m[1]) ? '1' : '0') + m[1], base: `https://ais.lgs.lv/eAIPfiles/${m[1]}/data/${m[2]}/`, index: 'html/index-en-GB.html' })),
+    page: (i) => `html/eAIP/EV-AD-2.${i}-en-GB.html`, enr: (n) => `html/eAIP/EV-ENR-${n}-en-GB.html`,
+    charts: (t, icao) => lvCharts(t, icao),
   },
   EE: {
     country: 'Estonia', pre: 'EExx', test: 'EETN', apt: /^EE[A-Z]{2}$/, label: 'AIP Estonia', host: 'EANS eAIP', home: 'https://eaip.eans.ee/history-en-GB.html',
@@ -226,7 +235,9 @@ async function dkChartsList(icao, head, d) {
 /* ---------- AD 2.24: the charts ---------- */
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—' };
 const unent = (s) => s.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (m, e) => (e[0] === '#' ? String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : +e.slice(1)) : ENT[e.toLowerCase()] ?? m));
-const text = (h) => unent(h.replace(/<span[^>]*display:\s*none[^>]*>[\s\S]*?<\/span>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+/* text an amendment deletes stays in the page, marked: <span class="deletedAIRAC"><span>Parking</span></span>, <del> */
+const DELETED = /<span\b[^>]*class\s*=\s*["'][^"']*\b(?:deleted|AmdtDeleted)\w*[^"']*["'][^>]*>(?:[^<]|<span\b[^>]*>[^<]*<\/span>)*<\/span>|<del\b[^>]*>[\s\S]*?<\/del>/gi;
+const text = (h) => unent(h.replace(DELETED, ' ').replace(/<span[^>]*display:\s*none[^>]*>[\s\S]*?<\/span>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 /** the section's HTML: from the heading "XXXX AD 2.24" to the next AD 2 heading */
 function section(html) {
   const hs = [...html.matchAll(/<(h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi)].map((m) => ({ i: m.index, t: text(m[2]) }));
@@ -307,6 +318,58 @@ export function krCharts(html, icao) {
   }
   return [...by.values()].map(({ nm, file }) => { const [code, group] = eaGroup(nm, file); return { code, group, name: eaName(nm, group), pdf: file, changed: false }; });
 }
+/* ---------- Latvia (LGS) ----------
+   AD 2.24 is one row per kind of chart ("13. Instrument Approach Chart — ICAO"), each holding several charts; a chart
+   is <div data-id="chart1851">, and while an amendment is marked it holds the deleted version and the inserted one
+   (AmdtDeletedAIRAC / AmdtInsertedAIRAC). The one in force is the file numbered as the div: 1851_EVRA_2_24_13_RWY18_ILSY_LOCY_20261029.pdf.
+   The files carry no title of their own, so the name comes from the row and the file's end: "ILS Y or LOC Y RWY 18". */
+const LV_PROC = /^(ILS|LOC|LLZ|RNP|RNAV|GNSS|VOR|NDB|DME|LPV|LNAV|GLS)([A-Z])?$/;
+function lvName(kind, tail) {
+  const tk = String(tail || '').split('_').filter(Boolean), rwy = [], proc = [], rest = [];
+  let last = null;
+  for (const x of tk) {
+    let m;
+    if ((m = x.match(/^RWY(\d{2}[LRC]?)([A-Z]{0,3})$/))) { rwy.push('RWY ' + m[1] + (m[2] ? ' (' + m[2] + ')' : '')); last = rwy; }
+    else if (/^\d{2}[LRC]?$/.test(x) && last === rwy) rwy[rwy.length - 1] += '/' + x;
+    else if ((m = x.match(LV_PROC))) { proc.push(m[1] + (m[2] ? ' ' + m[2] : '')); last = proc; }
+    /* "RWY06_VOR_Y" (the procedure's letter), "RWY06_A" (the SID's) */
+    else if (/^[A-Z]$/.test(x) && last === proc && !/ [A-Z]$/.test(proc[proc.length - 1])) proc[proc.length - 1] += ' ' + x;
+    else if (/^[A-Z]{1,3}$/.test(x) && last === rwy && !/\)$/.test(rwy[rwy.length - 1])) rwy[rwy.length - 1] += ' (' + x + ')';
+    else { rest.push(x); last = rest; }
+  }
+  const k = kind.toUpperCase();
+  if (/INSTRUMENT APPROACH/.test(k) && proc.length) return [proc.join(' or '), ...rwy, ...rest].join(' ');
+  if (/\(SID\)|DEPARTURE CHART/.test(k)) return ['SID', ...proc, ...rwy, ...rest].join(' ');
+  if (/\(STAR\)|ARRIVAL CHART/.test(k)) return ['STAR', ...proc, ...rwy, ...rest].join(' ');
+  const t = [...proc, ...rwy, ...rest].join(' ');
+  return kind + (t ? ' – ' + t : '');
+}
+export function lvCharts(html, icao) {
+  const a = html.indexOf(`id="${icao}-AD-2.24"`);
+  if (a < 0) return [];
+  const b = html.indexOf(`id="${icao}-AD-2.25"`, a), sec = html.slice(a, b > a ? b : html.length), out = [], seen = new Set();
+  for (const row of sec.matchAll(/<tr\b[^>]*data-id="chartRow\d+"[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const r = row[1], tm = r.match(/data-id="chartTitle\d+"[^>]*>([\s\S]*?)<\/div>/i);
+    const kind = (tm ? text(tm[1]) : '').replace(/^\d+\.\s*/, '').replace(/\s*[—–-]\s*ICAO\b/gi, '').replace(/\s+/g, ' ').trim();
+    if (!kind || /\s-\s*NIL$/i.test(kind)) continue;
+    const parts = r.split(/(?=<div\b[^>]*data-id="chart\d+")/i).slice(1);
+    for (const part of parts) {
+      const id = (part.match(/data-id="chart(\d+)"/) || [])[1];
+      const links = [...part.matchAll(/href\s*=\s*["']([^"']+?\.pdf)["']/gi)].map((x) => unent(x[1]));
+      const live = links.filter((l) => l.split('/').pop().startsWith(id + '_'));
+      const href = live[live.length - 1] || links.filter((l, i) => !/AmdtDeleted/i.test(part.slice(0, part.indexOf(l)).split(/<div\b/).pop()))[0];
+      if (!href) continue;
+      const file = href.replace(/^(\.\.\/)+/, '');
+      if (!/^graphics\/[^\s"'<>\\]{1,200}\.pdf$/i.test(file) || seen.has(file)) continue;
+      seen.add(file);
+      const tail = (file.split('/').pop().match(new RegExp('^\\d+_' + icao + '_2_24_\\d+_?(.*?)_?\\d{8}\\.pdf$', 'i')) || [])[1] || '';
+      const nm = lvName(kind, tail), [code, group] = eaGroup(kind + ' ' + nm, file);
+      out.push({ code, group, name: eaName(nm, group), pdf: file, changed: false });
+    }
+  }
+  return out;
+}
+
 /* "ENGM — OSLO / Gardermoen", the page's first line naming it */
 const aptName = (html, icao) => {
   const t = unent(html.slice(0, 150_000).replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '').replace(/<[^>]+>/g, '\n'));
@@ -332,7 +395,7 @@ export async function eaChartsList(icao, env, me, d) {
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
     const t = await r.text();
     if (notFoundPage(t)) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const charts = R.kind === 'ix' ? ixCharts(t, icao) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
+    const charts = R.charts ? R.charts(t, icao) : R.kind === 'ix' ? ixCharts(t, icao) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
     return { airport: { icao, name: aptName(t, icao) }, charts, notFound: !charts.length };
   }), (x) => x && !x.notFound), (x) => x && !x.notFound);
   return { ...head, ...v, cycle, eff: cur.eff, from: cur.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null,

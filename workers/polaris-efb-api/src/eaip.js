@@ -273,7 +273,10 @@ const notFoundPage = (t) => /<title>\s*404\b|Page not found|404 - Not Found/i.te
 async function editions(k, d) {
   const R = EA[k], keep = (v) => Array.isArray(v) && v.length > 0;
   const load = async () => {
-    let r = await get(R.home, 1800, d.fresh ? { fresh: true } : {});
+    /* Nav Data's check (d.fresh) asks the way the pilots' lists do, kept 5 minutes instead of 30: a read past the cache
+       ('no-store', which also sends no-cache headers) was answered HTTP 403 by the Netherlands' site while it served the
+       ordinary requests for its charts */
+    let r = await get(R.home, d.fresh ? 300 : 1800);
     if (!r.ok) throw new EaError(502, `${R.label}: the eAIP's front page answered HTTP ${r.status}`);
     let t = await r.text();
     if (R.hop) {

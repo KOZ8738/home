@@ -243,20 +243,37 @@ export const EA = {
 export const eaRegion = (icao) => Object.keys(EA).find((k) => EA[k].apt.test(String(icao || ''))) || null;
 
 class EaError extends Error { constructor(status, message) { super(message); this.status = status; } }
-async function get(url, ttl) {
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 20000);
-  try { return await fetch(url, { headers: UA, redirect: 'follow', signal: ctl.signal, cf: { cacheTtl: ttl, cacheEverything: true } }); }
-  catch (e) { throw new EaError(502, 'The eAIP did not answer (' + (e.name === 'AbortError' ? 'timed out' : e.message) + ')'); }
-  finally { clearTimeout(tm); }
+/* A State's site that is slow or briefly down is asked once more; only good answers are kept in Cloudflare's cache (an
+   error or maintenance page cached for a day made one city's pilots see a broken list while others were fine), and
+   o.fresh reads past that cache. o.timeout for large files (a Korean approach book is over 30 MB). */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function get(url, ttl, o = {}) {
+  const tries = o.tries || 2, tmo = o.timeout || 20000;
+  let last = null;
+  for (let i = 0; i < tries; i++) {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), tmo);
+    try {
+      const init = { headers: UA, redirect: 'follow', signal: ctl.signal };
+      if (o.fresh) init.cache = 'no-store';
+      else init.cf = { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '404': 300, '400-403': -1, '405-599': -1 } };
+      const r = await fetch(url, init);
+      if ((r.status >= 500 || r.status === 429 || r.status === 408) && i + 1 < tries) { try { if (r.body) r.body.cancel(); } catch (e) { /* nothing to free */ } await sleep(700 * (i + 1)); continue; }
+      return r;
+    } catch (e) {
+      last = new EaError(502, 'The eAIP did not answer (' + (e.name === 'AbortError' ? 'timed out' : e.message) + ')');
+      if (i + 1 < tries) { await sleep(700 * (i + 1)); continue; }
+    } finally { clearTimeout(tm); }
+  }
+  throw last || new EaError(502, 'The eAIP did not answer');
 }
 /* a site's own "not found" page, sent with HTTP 200 (Singapore's is) */
 const notFoundPage = (t) => /<title>\s*404\b|Page not found|404 - Not Found/i.test(t.slice(0, 3000));
 
 /* ---------- editions ---------- */
 async function editions(k, d) {
-  const R = EA[k];
-  return d.edgeCache('ea/eds/v1/' + k, 3 * 3600, async () => {
-    let r = await get(R.home, 1800);
+  const R = EA[k], keep = (v) => Array.isArray(v) && v.length > 0;
+  const load = async () => {
+    let r = await get(R.home, 1800, d.fresh ? { fresh: true } : {});
     if (!r.ok) throw new EaError(502, `${R.label}: the eAIP's front page answered HTTP ${r.status}`);
     let t = await r.text();
     if (R.hop) {
@@ -268,9 +285,24 @@ async function editions(k, d) {
     }
     const by = new Map();
     for (const e of (R.eds || ixEds(R))(t, r.url || R.home)) { const o = by.get(e.eff); if (!o || e.pub > o.pub) by.set(e.eff, e); }
-    return [...by.values()].sort((a, b) => a.eff.localeCompare(b.eff));
-  }, (v) => Array.isArray(v) && v.length > 0);
+    const v = [...by.values()].sort((a, b) => a.eff.localeCompare(b.eff));
+    if (!keep(v)) throw new EaError(502, `${R.label}: no editions found on the eAIP's front page`);
+    return v;
+  };
+  /* Nav Data asks the site itself, so a front page that is down shows there */
+  if (d.fresh) return load();
+  /* the pilots get the last good list while a fresh one is fetched: a front page that is down or slow for a while no
+     longer stops the charts (the list itself only changes with an amendment) */
+  return d.cached('eaeds:' + k, 600_000, () => d.kvStore('eaeds:v2:' + k, 3 * 3600_000, load, keep));
 }
+/* where each edition was (cycle -> its folder), kept: a chart from a list opened before an amendment still opens after
+   the site has dropped that edition from its front page (Estonia's lists only the current and coming ones) */
+const baseKey = (cycle) => 'eabase:v1:' + cycle;
+function baseRemember(cycle, base, d) {
+  const p = d.cached(baseKey(cycle), 24 * 3600_000, () => d.kvStore(baseKey(cycle), 100 * 86400_000, async () => ({ base }), (v) => v && v.base)).catch(() => null);
+  if (d.waitUntil) d.waitUntil(p);
+}
+async function baseOf(cycle, d) { try { const v = await d.kvStore(baseKey(cycle), 100 * 86400_000, async () => null, () => false); return v && v.base; } catch (e) { return null; } }
 async function edition(k, d, t = Date.now()) {
   const all = await editions(k, d), today = new Date(t).toISOString().slice(0, 10);
   /* some sites list only the coming edition once it is out (Estonia, Latvia; Portugal replaces its folder ahead of the
@@ -739,16 +771,21 @@ export async function eaChartsList(icao, env, me, d) {
   if (!me) return { ...head, cycle: null, charts: [], notFound: true, signin: true };
   if (R.kind === 'dk') return dkChartsList(icao, head, d);
   const { cur, next } = await edition(k, d), cycle = cycleOf(k, cur.eff);
+  if (R.kind !== 'kr') baseRemember(cycle, cur.base, d);
   const v = await d.cached('ea4:' + cycle + ':' + icao, 6 * 3600_000, () => d.kvStore('eacharts:v4:' + cycle + ':' + icao, 7 * 86400_000, () => d.edgeCache(`ea/charts/v4/${cycle}/${icao}`, 86400, async () => {
     let pg = R.list ? R.list(icao) : R.page ? R.page(icao) : null;
     if (R.kind === 'ix') { const mn = await ixMenuOf(k, cur, d); pg = mn.pages[icao] ? 'eAIP/' + encPath(mn.pages[icao]) : null; }
     if (!pg) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const r = await get(cur.base + pg + (R.fixed ? '?v=' + cycle : ''), R.fixed ? 3600 : 86400);
+    const at = cur.base + pg + (R.fixed ? '?v=' + cycle : '');
+    let r = await get(at, R.fixed ? 3600 : 86400);
     if (r.status === 404) return { airport: { icao, name: '' }, charts: [], notFound: true };
     if (!r.ok) throw new EaError(502, `${R.label}: the page for ${icao} answered HTTP ${r.status}`);
-    const t = await r.text();
+    let t = await r.text();
     if (notFoundPage(t)) return { airport: { icao, name: '' }, charts: [], notFound: true };
-    const charts = R.charts ? R.charts(t, icao) : R.kind === 'ix' ? ixCharts(t, icao) : R.kind === 'kr' ? krCharts(t, icao) : eaCharts(t, k);
+    const parse = (x) => R.charts ? R.charts(x, icao) : R.kind === 'ix' ? ixCharts(x, icao) : R.kind === 'kr' ? krCharts(x, icao) : eaCharts(x, k);
+    let charts = parse(t);
+    /* no charts on a page that is there: read it once more past the cache, in case a bad copy was kept */
+    if (!charts.length) { const r2 = await get(at, 86400, { fresh: true, tries: 1 }).catch(() => null); if (r2 && r2.ok) { const t2 = await r2.text(); const c2 = parse(t2); if (c2.length) { t = t2; charts = c2; } } }
     return { airport: { icao, name: R.name ? R.name(t, icao) : aptName(t, icao) }, charts, notFound: !charts.length };
   }), (x) => x && !x.notFound), (x) => x && !x.notFound);
   return { ...head, ...v, cycle, eff: cur.eff, from: cur.eff + 'T00:00:00.000Z', to: next ? next.eff + 'T00:00:00.000Z' : null,
@@ -777,10 +814,19 @@ export async function eaChartPdf(url, env, h, me, d) {
   if (R.kind === 'dk') ed = { base: R.home };
   else if (R.kind === 'kr') ed = { base: R.cdn };
   else {
-    try { ed = (await editions(k, d)).find((e) => e.eff === eff); } catch (e) { return res({ error: e.message }, 502); }
-    if (!ed) return res({ error: `That ${EA[k].label} edition is no longer listed. Open the chart list again.` }, 404);
+    const kept = await baseOf(cycle, d);
+    if (kept) ed = { base: kept };
+    else {
+      let all = null;
+      try { all = await editions(k, d); } catch (e) { return res({ error: e.message }, 502); }
+      ed = all.find((e) => e.eff === eff);
+      /* the edition has gone from the site's list: the same file in the edition now in force (most charts carry over) */
+      if (!ed) { try { ed = (await edition(k, d)).cur; ed.gone = true; } catch (e) { ed = null; } }
+      if (!ed) return res({ error: `That ${EA[k].label} edition is no longer listed. Open the chart list again.` }, 404);
+    }
   }
-  const r = await get(ed.base + encPath(file) + (R.fixed ? '?v=' + cycle : ''), 7 * 86400).catch((e) => ({ ok: false, status: 0, err: e }));
+  const r = await get(ed.base + encPath(file) + (R.fixed ? '?v=' + cycle : ''), 7 * 86400, { timeout: 45000 }).catch((e) => ({ ok: false, status: 0, err: e }));
+  if (!r.ok && ed.gone) return res({ error: `That ${EA[k].label} edition is no longer on the site. Open the chart list again for the current charts.` }, 404);
   if (!r.ok) return res({ error: `${EA[k].host} answered ${r.status ? 'HTTP ' + r.status : 'nothing'} for this chart` }, 502);
   const buf = await r.arrayBuffer();
   if (buf.byteLength < 5 || new TextDecoder().decode(new Uint8Array(buf, 0, 5)) !== '%PDF-') return res({ error: `${EA[k].host} did not send a PDF for this chart` }, 502);
@@ -857,7 +903,7 @@ export async function eaStatus(k, d, t = Date.now()) {
     const A = (await dkAirports(d)).apts, l = await eaChartsList(R.test, {}, { u: 'navdata' }, d);
     return { kind: 'dk', apts: Object.keys(A).length, eff: airacEff(t), test: R.test, n: (l.charts || []).length, nf: !!l.notFound };
   }
-  const { cur, next, all } = await edition(k, d, t);
+  const { cur, next, all } = await edition(k, { ...d, fresh: true }, t);
   let n = null, nf = false, err = '';
   try { const l = await eaChartsList(R.test, {}, { u: 'navdata' }, d); n = (l.charts || []).length; nf = !!l.notFound; } catch (e) { err = String((e && e.message) || e).slice(0, 160); }
   return { eff: cur.eff, amdt: cur.amdt || '', next: next ? { eff: next.eff } : null, eds: all.length, test: R.test, n, nf, err };

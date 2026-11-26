@@ -38,7 +38,7 @@
  *   /admin/api/ooo, /admin/api/ooo/reason -> Reports and Flight Watch: OOOI times, delay reasons, on-time performance (see ooo.js)
  *   GET /admin/api/watch                -> Flight Watch: alerts for the Polaris flights in the air (see watch.js)
  *   GET /admin/api/live, /admin/live.js -> Flight Watch: Polaris (PAW) flights on VATSIM and the globe (see live.js)
- *   GET /admin/api/navdata, POST /admin/api/navdata/check -> Nav Data: each region's navigation data and whether it is current (see navdata.js)
+ *   GET /admin/api/navdata, POST /admin/api/navdata/check {id}|{ids} -> Nav Data: each region's navigation data and whether it is current (see navdata.js)
  *   POST /admin/api/navdata/cn, /cn/delete -> the China AIP data set, uploaded each AIRAC (see cnaip.js)
  *   GET /api/efb/aip/ifr?lv=&cell=, /cn/asp, /jp/asp, /cn/apt?icao= -> China and Japan airways, airspace, China's airports;
  *       signed-in pilots only. AIP Japan charts (RJxx, ROxx) come through /charts and /chart-pdf (see jpcharts.js)

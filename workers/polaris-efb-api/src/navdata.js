@@ -1,13 +1,14 @@
 /* ---------- Nav Data (/admin, Nov 2026): where the EFB's navigation data comes from, region by region, and whether
    each is current ----------
    GET  /admin/api/navdata           -> { now, airac: { cur, next }, src: [ source… ], at }
-   POST /admin/api/navdata/check {id} -> asks one source (or all, without id) again now, then the same answer
+   POST /admin/api/navdata/check {id} | {ids} -> asks one source, or up to three, again now (without either, the three
+        checked longest ago), then the same answer; the page's Check all goes through them three at a time
    POST /admin/api/navdata/cn, /cn/delete -> China's AIP data set, uploaded from this page (cnaip.js)
    POST /admin/api/navdata/remind-test -> the AIRAC reminder email, as a test, to the person asking (airacmail.js)
    A source: { id, region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
    The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA eAIP (ROC)'s list, one
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
-   every 6 hours from the 20-minute cron, or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
+   about every 6 hours from the 20-minute cron (a few each run), or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
    changes the data itself: each source keeps updating itself as before.
    deps (from index.js): { airac(t), twEdition(), major() -> { airports: [{ icao, layoutAt }] }, majorCount, ea (eaip.js deps) }
    The eAIP charts (eaip.js: Hong Kong, Singapore, the UK, Norway, Malaysia, Sweden, Finland, the Netherlands, Denmark)
@@ -92,27 +93,35 @@ const CHECKS = {
 for (const k of Object.keys(EA)) CHECKS['ea-' + k.toLowerCase()] = (env, d) => eaStatus(k, d.ea);
 
 async function readChk(kv) { try { return (await kv.get(CHK, 'json')) || { at: 0, r: {} }; } catch (e) { return { at: 0, r: {} }; } }
-/* ask one source (or all) again and keep the answers */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/* the sources most in need of a check: never checked first, then the oldest */
+const stalest = (chk, n, older = 0, now = Date.now()) => Object.keys(CHECKS).filter((i) => !chk.r[i] || now - (chk.r[i].at || 0) > older)
+  .sort((a, b) => ((chk.r[a] && chk.r[a].at) || 0) - ((chk.r[b] && chk.r[b].at) || 0)).slice(0, n);
+export const NAV_BATCH = 3;
+/* ask a few sources again and keep the answers. A Worker on the Free plan may make only 50 requests to other sites
+   in one invocation, and an eAIP check is a few of them (with a retry each), so the page checks them a few at a time
+   and the cron a few each run, never all at once. The answers are merged into what is stored at the end, read again
+   just before the write, so a page and the cron checking at the same time keep each other's answers. */
 export async function navCheck(env, d, only) {
-  const kv = env.STORE, chk = await readChk(kv), ids = only ? [only] : Object.keys(CHECKS);
-  await Promise.all(ids.filter((id) => CHECKS[id]).map(async (id) => {
+  const kv = env.STORE, ids = (Array.isArray(only) ? only : only ? [only] : stalest(await readChk(kv), NAV_BATCH)).filter((id) => CHECKS[id]), got = {};
+  for (let i = 0; i < ids.length; i += NAV_BATCH) await Promise.all(ids.slice(i, i + NAV_BATCH).map(async (id) => {
     const t = Date.now(); let v;
     try { v = await CHECKS[id](env, d); } catch (e) { v = { err: errMsg(e) }; }
-    chk.r[id] = { ...v, at: Date.now(), ms: Date.now() - t };
+    got[id] = { ...v, at: Date.now(), ms: Date.now() - t };
   }));
-  if (!only) chk.at = Date.now();
-  await kv.put(CHK, JSON.stringify(chk));
+  const chk = await readChk(kv);
+  Object.assign(chk.r, got); chk.at = Math.max(chk.at || 0, ...Object.values(got).map((x) => x.at));
+  /* KV takes one write a second to the same key */
+  for (let i = 0; i < 3; i++) { try { await kv.put(CHK, JSON.stringify(chk)); break; } catch (e) { if (i === 2) throw e; await sleep(1100 * (i + 1)); } }
   return chk;
 }
-/* from the 20-minute cron: all of them, every 6 hours */
+/* from the 20-minute cron: the three sources checked longest ago, once they are about 6 hours old (three every 20
+   minutes goes round the 37 in about four hours, so they spread out over the 6); that cron run also refreshes airport
+   maps and charts, and all of it shares the 50 requests */
 export async function navCron(env, d) {
   if (!env || !env.STORE) return;
-  const chk = await readChk(env.STORE);
-  if (Date.now() - (chk.at || 0) > H6) await navCheck(env, d).catch((e) => console.warn('[navdata]', e && e.message));
-  else {
-    /* a source added since the last full round is checked at once, not up to 6 hours later */
-    for (const id of Object.keys(CHECKS).filter((i) => !chk.r[i]).slice(0, 3)) await navCheck(env, d, id).catch((e) => console.warn('[navdata]', id, e && e.message));
-  }
+  const ids = stalest(await readChk(env.STORE), NAV_BATCH, H6 - 30 * 60_000);
+  if (ids.length) await navCheck(env, d, ids).catch((e) => console.warn('[navdata]', ids.join(','), e && e.message));
   /* the AIRAC reminders by email (airacmail.js) */
   await airacRemind(env, d).catch((e) => console.warn('[airac remind]', e && e.message));
 }
@@ -248,7 +257,7 @@ async function navStatus(env, d) {
     }
     return o;
   });
-  return { now, airac: { cur, next }, src: out, at: chk.at || 0, remind: await remindStatus(env).catch(() => null) };
+  return { now, airac: { cur, next }, src: out, at: chk.at || 0, checks: Object.keys(CHECKS), batch: NAV_BATCH, remind: await remindStatus(env).catch(() => null) };
 }
 
 export async function navdataAdmin(req, path, env, d, who) {
@@ -268,9 +277,11 @@ export async function navdataAdmin(req, path, env, d, who) {
     if (path === '/admin/api/navdata/check' && req.method === 'POST') {
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
       let b = {}; try { b = await req.json(); } catch (e) { b = {}; }
-      const id = b && b.id ? String(b.id) : '';
-      if (id && !CHECKS[id]) return jsonRes({ error: 'That source is not checked from here' }, 400);
-      await navCheck(env, d, id || null);
+      /* {id}, or {ids: [up to three]}; without either, the three checked longest ago */
+      const ids = Array.isArray(b && b.ids) ? b.ids.map(String) : b && b.id ? [String(b.id)] : [];
+      if (ids.length > NAV_BATCH) return jsonRes({ error: 'At most ' + NAV_BATCH + ' sources at a time' }, 400);
+      if (ids.some((id) => !CHECKS[id])) return jsonRes({ error: 'That source is not checked from here' }, 400);
+      await navCheck(env, d, ids.length ? ids : null);
       return jsonRes(await navStatus(env, d));
     }
     return jsonRes({ error: 'Not found' }, 404);

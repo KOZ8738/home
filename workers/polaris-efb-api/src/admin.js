@@ -733,6 +733,19 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-cyc span{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
 .nd-cyc b{font:600 22px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--ink)}
 .nd-cyc small{color:var(--label);font-size:12.5px}
+.nd-prog{display:grid;gap:6px;margin:4px 0 12px}
+.nd-prog[hidden]{display:none}
+.nd-bar{position:relative;height:6px;border-radius:3px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.nd-bar i{position:absolute;top:0;bottom:0;left:0;border-radius:3px;background:var(--accent);transition:width .4s ease,left .4s ease}
+.nd-bar i.c{opacity:.35;animation:ndPulse 1.2s ease-in-out infinite}
+.nd-bar.end i{background:var(--green)}
+@keyframes ndPulse{50%{opacity:.12}}
+.nd-pl{display:flex;gap:4px 10px;align-items:baseline;flex-wrap:wrap;font-size:13px;color:var(--ink)}
+.nd-pl b{font:600 13px Jost,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.nd-pl small{color:var(--label);font-size:12.5px}
+.nd-pl .no{color:var(--red)}
+.nd-c.chkg{outline:2px solid color-mix(in srgb,var(--accent) 50%,transparent);outline-offset:-1px}
+@media(prefers-reduced-motion:reduce){.nd-bar i{transition:none}.nd-bar i.c{animation:none}}
 .nd-rm{border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:grid;gap:6px;margin-top:12px}
 .nd-rm .rm-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.nd-rm .rm-h span{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--label)}
 .nd-rm .rm-h button{margin-left:auto}
@@ -992,7 +1005,8 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 </main>
 <main id="navdata" hidden>
 <section class="nd-top">
- <div class="pg-h"><h2>Nav Data</h2><details class="help"><summary aria-label="About Nav Data">?</summary><div><p>Where the EFB’s navigation data comes from, region by region, and whether each source is current. Most sources update themselves; China’s AIP data set is uploaded here each AIRAC, because the CAAC eAIP needs a sign-in.</p><p>The sources are checked every 6 hours. Check asks one again now; nothing here changes the data itself.</p></div></details><span class="nd-sum" id="ndSum"></span><button type="button" id="ndAll">Check all</button></div>
+ <div class="pg-h"><h2>Nav Data</h2><details class="help"><summary aria-label="About Nav Data">?</summary><div><p>Where the EFB’s navigation data comes from, region by region, and whether each source is current. Most sources update themselves; China’s AIP data set is uploaded here each AIRAC, because the CAAC eAIP needs a sign-in.</p><p>The sources are checked about every 6 hours, a few at a time. Check asks one again now; Check all goes through them three at a time, with a bar to show how far it has got, and Stop ends it after the ones in hand. Nothing here changes the data itself.</p></div></details><span class="nd-sum" id="ndSum"></span><button type="button" id="ndAll">Check all</button></div>
+ <div class="nd-prog" id="ndProg" hidden></div>
  <div class="nd-cyc" id="ndCyc"></div>
  <div class="nd-rm" id="ndRm" hidden></div>
 </section>
@@ -2453,12 +2467,26 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  ndRmUi(v);
  $("#ndSum").innerHTML=[c.ok?'<i class="ok">'+c.ok+" current</i>":"",c.warn?'<i class="warn">'+c.warn+" to look at</i>":"",c.bad?'<i class="bad">'+c.bad+" not working</i>":"",c.off?'<i class="off">'+c.off+" not set up</i>":""].join("");
  const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s)});
- const chk=new Set(["us-charts","us-enroute","tw-charts","openaip","layouts","navproc",...v.src.map(s=>s.id).filter(i=>/^ea-/.test(i))]),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
- $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
+ const chk=ndChk(v),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
+ $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+(ND.run&&ND.run.cur.includes(s.id)?" chkg":"")+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
    +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s,"jpc"):s.id==="cn-charts"?ndJcHtml(s,"cnc"):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
-   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+(ND.busy===s.id||ND.busy==="*"?"Checking…":"Check")+"</button>":"")+"</div></article>").join("")+"</div></section>").join("")}
+   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+ndBtnTxt(s.id)+"</button>":"")+"</div></article>").join("")+"</div></section>").join("");
+ ndProgUi(v)}
+/* which sources the server checks, in the order the page shows them */
+const ndChk=v=>new Set(v.checks||["us-charts","us-enroute","tw-charts","openaip","layouts","navproc",...v.src.map(s=>s.id).filter(i=>/^ea-/.test(i))]);
+function ndOrder(v){const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s.id)});const c=ndChk(v);return regs.flatMap(r=>r.L).filter(i=>c.has(i))}
+const ndBtnTxt=id=>{const R=ND.run;if(R&&!R.end)return R.cur.includes(id)?"Checking…":R.ids.includes(id)&&!R.done.has(id)?"Waiting":"Check";return ND.busy===id?"Checking…":"Check"};
+/* Check all: how far it has got, and which ones are being asked now */
+function ndProgUi(v){const el=$("#ndProg"),R=ND.run;if(!el)return;if(!R){el.hidden=true;el.innerHTML="";return}el.hidden=false;
+ const pc=x=>(R.of?x/R.of*100:0).toFixed(1)+"%",nm=id=>{const s=v&&v.src.find(x=>x.id===id);return s?s.region+" · "+s.name:id};
+ const head=R.end?(R.stop&&R.n<R.of?"Stopped after "+R.n+" of "+R.of:"Checked all "+R.of):"Checked "+R.n+" of "+R.of;
+ el.innerHTML='<div class="nd-bar'+(R.end?" end":"")+'" role="progressbar" aria-label="Checking the sources" aria-valuemin="0" aria-valuemax="'+R.of+'" aria-valuenow="'+R.n+'"><i style="width:'+pc(R.n)+'"></i>'+(R.end?"":'<i class="c" style="left:'+pc(R.n)+";width:"+pc(R.cur.length)+'"></i>')+"</div>"
+  +'<div class="nd-pl"><b>'+head+"</b>"+(!R.end&&R.cur.length?"<small>"+(R.stop?"Stopping after ":"Now: ")+R.cur.map(id=>esc(nm(id))).join(", ")+"</small>":"")
+  +(R.fail?'<small class="no">'+R.fail+" did not answer, try them again</small>":"")+"</div>"}
+function ndAllBtn(){const b=$("#ndAll");if(!b)return;const R=ND.run;
+ if(R&&!R.end){b.disabled=R.stop;b.textContent=R.stop?"Stopping…":"Stop"}else{b.disabled=!!ND.busy;b.textContent=ND.busy?"Checking…":"Check all"}}
 /* the AIRAC reminder emails (airacmail.js): who gets them, what was sent for this cycle and the next, a test */
 const RM_KIND={pre:"7 days before",due:"on the day",late:"3 days after",test:"test"};
 function ndRmUi(v){const el=$("#ndRm"),R=v&&v.remind;if(!el)return;if(!R){el.hidden=true;return}el.hidden=false;
@@ -2479,11 +2507,22 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  try{const j=await api("/admin/api/navdata/remind-test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});if(j.status)OPS.nav={at:Date.now(),v:j.status,p:null,err:""};if(!j.ok)ND.rmMsg=j.err||"Not sent"}
  catch(er){ND.rmMsg=er.message}finally{ND.rm=false;ndUi()}});
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
-async function ndCheck(id){if(ND.busy)return;ND.busy=id||"*";ndUi();const b=$("#ndAll");if(b){b.disabled=true;b.textContent="Checking…"}
- try{const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(id?{id}:{})});OPS.nav={at:Date.now(),v,p:null,err:""}}
+async function ndPostChk(body){const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});OPS.nav={at:Date.now(),v,p:null,err:""}}
+async function ndCheck(id){if(ND.busy)return;ND.busy=id;ndAllBtn();ndUi();
+ try{await ndPostChk({id})}
  catch(e){if(OPS.nav)OPS.nav.err=e.message;else OPS.nav={at:0,v:null,p:null,err:e.message}}
- finally{ND.busy="";if(b){b.disabled=false;b.textContent="Check all"}ndUi()}}
-document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndAll,[data-ndchk]");if(!b||b.disabled)return;ndCheck(b.dataset.ndchk||"")});
+ finally{ND.busy="";ndAllBtn();ndUi()}}
+/* every source, a few per request: the server may make only so many requests to other sites in one go */
+async function ndCheckAll(){if(ND.busy)return;const v=opsV("nav");if(!v)return ndLoad(true);
+ const ids=ndOrder(v),B=Math.max(1,v.batch||3),R=ND.run={ids,of:ids.length,n:0,cur:[],done:new Set(),fail:0,stop:false,end:false};ND.busy="*";ndAllBtn();
+ for(let i=0;i<ids.length&&!R.stop;i+=B){R.cur=ids.slice(i,i+B);ndUi();
+  try{await ndPostChk({ids:R.cur})}catch(e){R.fail+=R.cur.length}
+  R.cur.forEach(x=>R.done.add(x));R.n+=R.cur.length}
+ R.cur=[];R.end=true;ND.busy="";ndAllBtn();ndUi();
+ setTimeout(()=>{if(ND.run===R){ND.run=null;ndUi()}},R.fail?15000:6000)}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndAll,[data-ndchk]");if(!b||b.disabled)return;
+ if(b.id==="ndAll"){if(ND.run&&!ND.run.end){ND.run.stop=true;ndAllBtn();ndUi()}else ndCheckAll();return}
+ ndCheck(b.dataset.ndchk)});
 PG_LOAD.navdata=()=>{ndUi();ndLoad(true)};PG_TICK.navdata=[()=>ndLoad(false),60000];
 
 /* ---------- Official AIP uploads: China's data set and Japan's map data (zips), Japan's charts (a folder). Each is opened

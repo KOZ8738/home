@@ -727,6 +727,7 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-sum i{font:600 12px Jost,system-ui,sans-serif;font-style:normal;padding:3px 9px;border-radius:10px;background:var(--soft);color:var(--label)}
 .nd-sum i.ok{background:var(--ok-bg);color:var(--green)}
 .nd-sum i.warn{background:color-mix(in srgb,#D98A00 18%,transparent);color:#9A5B00}
+.nd-sum i.bad,.nd-sum i.warn{cursor:pointer}
 .nd-sum i.bad{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
 .nd-cyc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .nd-cyc>div{border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:grid;gap:2px}
@@ -753,7 +754,23 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-rm .rm-to{display:flex;flex-wrap:wrap;gap:6px}.nd-rm .rm-to i{font-style:normal;font-size:12.5px;padding:2px 9px;border-radius:10px;background:var(--soft);color:var(--ink)}
 .nd-rm .rm-to i.no{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
 .nd-rm .rm-warn{color:#9A5B00}.nd-rm .rm-bad{color:var(--red)}
-.nd-reg h3{margin:0 0 12px;font:500 18px Georgia,serif;color:var(--ink)}
+.nd-reg h3{margin:0 0 12px;font:500 18px Georgia,serif;color:var(--ink);display:flex;align-items:baseline;gap:8px}
+.nd-reg h3 small{font:500 12.5px Jost,system-ui,sans-serif;color:var(--label)}
+.nd-reg.attn{border-color:color-mix(in srgb,var(--red) 35%,var(--line))}
+.nd-reg.attn h3{color:var(--red)}
+.nd-flt{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+.nd-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1 1 auto;min-width:0}
+.nd-tabs::-webkit-scrollbar{display:none}
+.nd-tabs button{flex:none;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:15px;border:1px solid var(--line);background:transparent;color:var(--label);font-size:13px;white-space:nowrap}
+.nd-tabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.nd-tabs button i{font:600 11.5px Jost,system-ui,sans-serif;font-style:normal;opacity:.8}
+.nd-tabs button b{font:600 10.5px Jost,system-ui,sans-serif;min-width:17px;height:17px;padding:0 5px;border-radius:9px;display:inline-grid;place-items:center;background:var(--red);color:var(--bg)}
+.nd-tabs button.attn:not([aria-selected=true]){color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
+.nd-tabs button[aria-selected=true] b{background:var(--bg);color:var(--red)}
+#ndQ{flex:0 1 230px;min-width:150px;padding:6px 10px;font-size:13px}
+.nd-cty{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+.nd-none{color:var(--label);font-size:14px;margin:0}
+@media(max-width:640px){#ndQ{flex:1 1 100%}}
 .nd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
 .nd-c{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0;transition:box-shadow .3s}
 .nd-c.ok{border-left-color:var(--green)}.nd-c.warn{border-left-color:#E5A00D}.nd-c.bad{border-left-color:var(--red)}.nd-c.off{border-left-color:var(--line)}
@@ -1010,6 +1027,7 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
  <div class="nd-cyc" id="ndCyc"></div>
  <div class="nd-rm" id="ndRm" hidden></div>
 </section>
+<div class="nd-flt" id="ndFlt"><div class="nd-tabs" id="ndTabs" role="tablist" aria-label="Show"></div><input type="search" id="ndQ" placeholder="Find a country or source" aria-label="Find a country or source" autocomplete="off"></div>
 <div id="ndList"><section><span class="empty">Loading…</span></section></div>
 </main>
 <main id="docs" hidden>
@@ -2063,7 +2081,7 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
  const g=b.dataset.hmgo;
  if(g.startsWith("fw:")){location.hash="#fw";if(window.pmLive)window.pmLive.show(g.slice(3));return}
  if(g.startsWith("ib:")){ibOpen(g.slice(3));location.hash="#comms";return}
- if(g.startsWith("nav:")){location.hash="#navdata";setTimeout(()=>{const c=document.getElementById("nd-"+g.slice(4));if(c){c.scrollIntoView({block:"center"});c.classList.add("flash");setTimeout(()=>c.classList.remove("flash"),1600)}},700);return}
+ if(g.startsWith("nav:")){ND.tab="all";ND.q="";{const q=$("#ndQ");if(q)q.value=""}location.hash="#navdata";setTimeout(()=>{const c=document.getElementById("nd-"+g.slice(4));if(c){c.scrollIntoView({block:"center"});c.classList.add("flash");setTimeout(()=>c.classList.remove("flash"),1600)}},700);return}
  if(g.startsWith("aoc:")){location.hash="#comms";setTimeout(()=>{cmSeg("sent");CM.item="aoc:"+g.slice(4);CM.pane="item";cmUi();listUi()},60);return}
  if(g==="need"){OT.need=true;OT.p=7;document.querySelectorAll("[data-otp]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.otp==="7")));const n=$("#otNeed");if(n)n.setAttribute("aria-pressed","true");location.hash="#reports"}});
 PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
@@ -2466,17 +2484,39 @@ function ndUi(){const v=opsV("nav"),o=OPS.nav;
  $("#ndCyc").innerHTML='<div><span>AIRAC in force</span><b>'+esc(cur.cycle)+'</b><small>'+ndDay(Date.parse(cur.from))+" – "+ndDay(Date.parse(cur.to))+'</small></div><div><span>Next</span><b>'+esc(nx.cycle)+"</b><small>from "+ndDay(Date.parse(nx.from))+" "+new Date(nx.from).toISOString().slice(11,16)+"Z · "+ndIn(Date.parse(nx.from),now)+'</small></div><div><span>Checked</span><b>'+(v.at?akZ(v.at):"–")+"</b><small>"+(v.at?ndDay(v.at)+" · every 6 h":"not yet")+"</small></div>";
  ndRmUi(v);
  $("#ndSum").innerHTML=[c.ok?'<i class="ok">'+c.ok+" current</i>":"",c.warn?'<i class="warn">'+c.warn+" to look at</i>":"",c.bad?'<i class="bad">'+c.bad+" not working</i>":"",c.off?'<i class="off">'+c.off+" not set up</i>":""].join("");
- const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s)});
- const chk=ndChk(v),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};
- $("#ndList").innerHTML=regs.map(r=>'<section class="nd-reg"><h3>'+esc(r.n)+'</h3><div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+(ND.run&&ND.run.cur.includes(s.id)?" chkg":"")+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+esc(s.name)+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
+ const chk=ndChk(v),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};ndTabsUi(v);
+ const secs=ndSections(v);
+ $("#ndList").innerHTML=(secs.length?"":'<section><p class="nd-none">'+(ND.q?"Nothing matches “"+esc(ND.q)+"”.":ND.tab==="attn"?"Nothing needs attention: every source is current.":"Nothing here.")+"</p></section>")
+  +secs.map(r=>'<section class="nd-reg'+(r.attn?" attn":"")+'"><h3>'+esc(r.n)+"<small>"+r.L.length+"</small></h3>"+'<div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+(ND.run&&ND.run.cur.includes(s.id)?" chkg":"")+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+(s.region==="Worldwide"?esc(s.name):'<span class="nd-cty">'+esc(s.region)+"</span><br>"+esc(s.name))+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
    +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s,"jpc"):s.id==="cn-charts"?ndJcHtml(s,"cnc"):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
    +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+ndBtnTxt(s.id)+"</button>":"")+"</div></article>").join("")+"</div></section>").join("");
- ndProgUi(v)}
+ ndProgUi(v);ndAllBtn()}
+/* the tabs: what needs attention, everything, or one part of the world; and a search by country or source */
+const ND_AREAS=["Asia and Pacific","Europe","Americas","Worldwide"];
+const ndArea=s=>s.area||(/^us-/.test(s.id)?"Americas":/^(tw|cn|jp)-|^ea-(hk|sg|my|kr)$/.test(s.id)?"Asia and Pacific":/^ea-/.test(s.id)?"Europe":"Worldwide");
+const ndAttn=s=>s.state==="bad"||s.state==="warn";
+const ndRank=s=>s.state==="bad"?0:s.state==="warn"?1:2;
+try{ND.tab=localStorage.getItem("ndTab")||"all"}catch(e){ND.tab="all"}ND.q="";
+const ndMatch=s=>{const q=ND.q.trim().toLowerCase();return !q||[s.region,s.name,s.by,s.id,ndArea(s)].some(x=>String(x||"").toLowerCase().includes(q))};
+function ndSections(v){const L=v.src.filter(ndMatch),T=ND_AREAS.includes(ND.tab)||ND.tab==="attn"?ND.tab:"all",bad=L.filter(ndAttn).sort((a,b)=>ndRank(a)-ndRank(b));
+ if(T==="attn")return bad.length?[{n:"Needs attention",attn:true,L:bad}]:[];
+ if(T!=="all"){const A=L.filter(s=>ndArea(s)===T).sort((a,b)=>ndRank(a)-ndRank(b));return A.length?[{n:T,L:A}]:[]}
+ return [...(bad.length?[{n:"Needs attention",attn:true,L:bad}]:[]),...ND_AREAS.map(n=>({n,L:L.filter(s=>ndArea(s)===n&&!ndAttn(s))})).filter(r=>r.L.length)]}
+function ndTabsUi(v){const el=$("#ndTabs");if(!el)return;const n=v.src.filter(ndAttn).length;
+ const T=[["attn","Needs attention",n],["all","All",v.src.length],...ND_AREAS.map(a=>[a,a,v.src.filter(s=>ndArea(s)===a).length])].filter(t=>t[2]||t[0]==="attn"||t[0]==="all");
+ const cur=T.some(t=>t[0]===ND.tab)?ND.tab:"all";
+ el.innerHTML=T.map(([k,l,c])=>{const b=k!=="attn"&&k!=="all"?v.src.filter(s=>ndArea(s)===k&&ndAttn(s)).length:0;
+  return '<button type="button" role="tab" data-ndtab="'+esc(k)+'"'+(k==="attn"&&n?' class="attn"':"")+' aria-selected="'+(k===cur)+'">'+esc(l)+" <i>"+c+"</i>"+(b?'<b title="'+b+' need attention">'+b+"</b>":"")+"</button>"}).join("")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-ndtab]");if(!b)return;ND.tab=b.dataset.ndtab;try{localStorage.setItem("ndTab",ND.tab)}catch(x){}ndUi();ndAllBtn()});
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndSum i.bad,#ndSum i.warn");if(!b)return;ND.tab="attn";try{localStorage.setItem("ndTab","attn")}catch(x){}ndUi();ndAllBtn()});
+document.addEventListener("input",e=>{if(!e.target||e.target.id!=="ndQ")return;ND.q=e.target.value;ndUi();ndAllBtn()});
+/* the sources the view shows that the server checks: what Check all (or Check these) goes through */
+function ndVisChk(v){const c=ndChk(v);return ndSections(v).flatMap(r=>r.L.map(s=>s.id)).filter(i=>c.has(i))}
+const ndWhole=()=>ND.tab==="all"&&!ND.q.trim();
 /* which sources the server checks, in the order the page shows them */
 const ndChk=v=>new Set(v.checks||["us-charts","us-enroute","tw-charts","openaip","layouts","navproc",...v.src.map(s=>s.id).filter(i=>/^ea-/.test(i))]);
-function ndOrder(v){const regs=[];v.src.forEach(s=>{let r=regs.find(x=>x.n===s.region);if(!r)regs.push(r={n:s.region,L:[]});r.L.push(s.id)});const c=ndChk(v);return regs.flatMap(r=>r.L).filter(i=>c.has(i))}
 const ndBtnTxt=id=>{const R=ND.run;if(R&&!R.end)return R.cur.includes(id)?"Checking…":R.ids.includes(id)&&!R.done.has(id)?"Waiting":"Check";return ND.busy===id?"Checking…":"Check"};
 /* Check all: how far it has got, and which ones are being asked now */
 function ndProgUi(v){const el=$("#ndProg"),R=ND.run;if(!el)return;if(!R){el.hidden=true;el.innerHTML="";return}el.hidden=false;
@@ -2486,7 +2526,8 @@ function ndProgUi(v){const el=$("#ndProg"),R=ND.run;if(!el)return;if(!R){el.hidd
   +'<div class="nd-pl"><b>'+head+"</b>"+(!R.end&&R.cur.length?"<small>"+(R.stop?"Stopping after ":"Now: ")+R.cur.map(id=>esc(nm(id))).join(", ")+"</small>":"")
   +(R.fail?'<small class="no">'+R.fail+" did not answer, try them again</small>":"")+"</div>"}
 function ndAllBtn(){const b=$("#ndAll");if(!b)return;const R=ND.run;
- if(R&&!R.end){b.disabled=R.stop;b.textContent=R.stop?"Stopping…":"Stop"}else{b.disabled=!!ND.busy;b.textContent=ND.busy?"Checking…":"Check all"}}
+ if(R&&!R.end){b.disabled=R.stop;b.textContent=R.stop?"Stopping…":"Stop";return}
+ const v=opsV("nav"),n=v?ndVisChk(v).length:0;b.disabled=!!ND.busy||(!!v&&!n);b.textContent=ND.busy?"Checking…":ndWhole()?"Check all":n?"Check these "+n:"Nothing to check"}
 /* the AIRAC reminder emails (airacmail.js): who gets them, what was sent for this cycle and the next, a test */
 const RM_KIND={pre:"7 days before",due:"on the day",late:"3 days after",test:"test"};
 function ndRmUi(v){const el=$("#ndRm"),R=v&&v.remind;if(!el)return;if(!R){el.hidden=true;return}el.hidden=false;
@@ -2514,7 +2555,7 @@ async function ndCheck(id){if(ND.busy)return;ND.busy=id;ndAllBtn();ndUi();
  finally{ND.busy="";ndAllBtn();ndUi()}}
 /* every source, a few per request: the server may make only so many requests to other sites in one go */
 async function ndCheckAll(){if(ND.busy)return;const v=opsV("nav");if(!v)return ndLoad(true);
- const ids=ndOrder(v),B=Math.max(1,v.batch||3),R=ND.run={ids,of:ids.length,n:0,cur:[],done:new Set(),fail:0,stop:false,end:false};ND.busy="*";ndAllBtn();
+ const ids=ndVisChk(v);if(!ids.length)return;const B=Math.max(1,v.batch||3),R=ND.run={ids,of:ids.length,n:0,cur:[],done:new Set(),fail:0,stop:false,end:false};ND.busy="*";ndAllBtn();
  for(let i=0;i<ids.length&&!R.stop;i+=B){R.cur=ids.slice(i,i+B);ndUi();
   try{await ndPostChk({ids:R.cur})}catch(e){R.fail+=R.cur.length}
   R.cur.forEach(x=>R.done.add(x));R.n+=R.cur.length}

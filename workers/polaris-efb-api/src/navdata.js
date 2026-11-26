@@ -5,7 +5,7 @@
         checked longest ago), then the same answer; the page's Check all goes through them three at a time
    POST /admin/api/navdata/cn, /cn/delete -> China's AIP data set, uploaded from this page (cnaip.js)
    POST /admin/api/navdata/remind-test -> the AIRAC reminder email, as a test, to the person asking (airacmail.js)
-   A source: { id, region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
+   A source: { id, area ('Asia and Pacific'|'Europe'|'Americas'|'Worldwide', the page's tabs), region, name, by, link, what, how, state: 'ok'|'warn'|'bad'|'off', line, rows: [[label, value]], at }
    The checks are a few small requests (the FAA's chart index head, one FAA AIS count, the CAA eAIP (ROC)'s list, one
    openAIP tile) and a look through what the EFB server keeps (airport maps, pilots' simulator procedures). They run
    about every 6 hours from the 20-minute cron (a few each run), or when staff press Check, and are kept in KV nav:v1:chk. Nothing here
@@ -30,20 +30,20 @@ const day = (t) => new Date(t).toISOString().slice(0, 10);
 
 /* the sources, in the order the page shows them */
 const SRC = [
-  { id: 'us-charts', region: 'United States', name: 'Charts', by: 'FAA d-TPP', link: 'https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/', what: 'Airport diagrams, SIDs, STARs and approach charts (Charts app)', how: 'Automatic: the cycle in force, every AIRAC' },
-  { id: 'us-enroute', region: 'United States', name: 'En-route data', by: 'FAA AIS open data', link: 'https://adds-faa.opendata.arcgis.com/', what: 'Airways, fixes, navaids, airspace and US runways (Map, IFR layers)', how: 'Automatic: asked live, the FAA keeps it current' },
-  { id: 'tw-charts', region: 'ROC', name: 'AIP charts', by: 'CAA eAIP', link: 'https://ais.caa.gov.tw/eaip/', what: 'Charts for the RCxx airports (Charts app)', how: 'Automatic: each AIP amendment on its effective date' },
-  { id: 'cn-charts', region: 'China', name: 'AIP charts', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/', what: 'AD 2.24 charts for the Zxxx airports (Charts app)', how: 'Uploaded here each AIRAC from the eAIP Full Package; only aerodromes not uploaded yet are sent' },
-  { id: 'cn-aip', region: 'China', name: 'AIP data set', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/dataset', what: 'Airspace, airways, fixes, navaids and runways (AIXM 5.1.1)', how: 'Uploaded here each AIRAC (the eAIP needs a sign-in)' },
-  { id: 'jp-aip', region: 'Japan', name: 'AIP map data', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'Airspace, airways, fixes and navaids (KML)', how: 'Uploaded here each AIRAC (SWIM needs a sign-in)' },
-  { id: 'jp-charts', region: 'Japan', name: 'AIP charts', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'AD 2 charts for the RJxx and ROxx airports (Charts app)', how: 'Uploaded here each AIRAC; only new aerodrome folders are sent' },
-  ...Object.keys(EA).sort((a, b) => EA[a].country.localeCompare(EA[b].country)).map((k) => ({ id: 'ea-' + k.toLowerCase(), region: EA[k].country, name: 'AIP charts', by: EA[k].host, link: EA[k].site || EA[k].home,
+  { id: 'us-charts', area: 'Americas', region: 'United States', name: 'Charts', by: 'FAA d-TPP', link: 'https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/', what: 'Airport diagrams, SIDs, STARs and approach charts (Charts app)', how: 'Automatic: the cycle in force, every AIRAC' },
+  { id: 'us-enroute', area: 'Americas', region: 'United States', name: 'En-route data', by: 'FAA AIS open data', link: 'https://adds-faa.opendata.arcgis.com/', what: 'Airways, fixes, navaids, airspace and US runways (Map, IFR layers)', how: 'Automatic: asked live, the FAA keeps it current' },
+  { id: 'tw-charts', area: 'Asia and Pacific', region: 'ROC', name: 'AIP charts', by: 'CAA eAIP', link: 'https://ais.caa.gov.tw/eaip/', what: 'Charts for the RCxx airports (Charts app)', how: 'Automatic: each AIP amendment on its effective date' },
+  { id: 'cn-charts', area: 'Asia and Pacific', region: 'China', name: 'AIP charts', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/', what: 'AD 2.24 charts for the Zxxx airports (Charts app)', how: 'Uploaded here each AIRAC from the eAIP Full Package; only aerodromes not uploaded yet are sent' },
+  { id: 'cn-aip', area: 'Asia and Pacific', region: 'China', name: 'AIP data set', by: 'CAAC eAIP', link: 'https://www.eaipchina.cn/dataset', what: 'Airspace, airways, fixes, navaids and runways (AIXM 5.1.1)', how: 'Uploaded here each AIRAC (the eAIP needs a sign-in)' },
+  { id: 'jp-aip', area: 'Asia and Pacific', region: 'Japan', name: 'AIP map data', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'Airspace, airways, fixes and navaids (KML)', how: 'Uploaded here each AIRAC (SWIM needs a sign-in)' },
+  { id: 'jp-charts', area: 'Asia and Pacific', region: 'Japan', name: 'AIP charts', by: 'JCAB SWIM portal', link: 'https://top.swim.mlit.go.jp/swim/', what: 'AD 2 charts for the RJxx and ROxx airports (Charts app)', how: 'Uploaded here each AIRAC; only new aerodrome folders are sent' },
+  ...Object.keys(EA).sort((a, b) => EA[a].country.localeCompare(EA[b].country)).map((k) => ({ id: 'ea-' + k.toLowerCase(), area: ['HK', 'SG', 'MY', 'KR'].includes(k) ? 'Asia and Pacific' : 'Europe', region: EA[k].country, name: 'AIP charts', by: EA[k].host, link: EA[k].site || EA[k].home,
     what: 'Charts for the ' + EA[k].pre + ' airports (Charts app), for signed-in pilots', how: EA[k].kind === 'dk' ? 'Automatic: Naviair lists the charts in force' : 'Automatic: each AIP amendment on its effective date' })),
-  { id: 'openaip', region: 'Worldwide', name: 'Airspace and navaids', by: 'openAIP', link: 'https://www.openaip.net/', what: 'Airspace, navaids and reporting points on the Map, FIR outlines', how: 'Automatic: openAIP updates continuously' },
-  { id: 'fir', region: 'Worldwide', name: 'FIR boundaries', by: 'openAIP, VATSpy Data Project', link: 'https://github.com/vatsimnetwork/vatspy-data-project', what: 'FIR outlines and codes on the Map', how: 'Automatic: rebuilt weekly' },
-  { id: 'apts', region: 'Worldwide', name: 'Airports', by: 'OurAirports', link: 'https://ourairports.com/data/', what: 'Airport names, positions and runways (search, Map)', how: 'Automatic: rebuilt every 14 days' },
-  { id: 'layouts', region: 'Worldwide', name: 'Airport maps', by: 'OpenStreetMap', link: 'https://www.openstreetmap.org/', what: 'Taxiways, stands and holding points of the major airports', how: 'Automatic: kept for the major airports, others when asked' },
-  { id: 'navproc', region: 'Pilots’ simulators', name: 'Procedures', by: 'Polaris Navdata', link: '', what: 'SIDs, STARs and approaches read from each pilot’s own MSFS (Set departure / arrival / approach)', how: 'From each pilot’s simulator, kept 90 days, for that pilot only' },
+  { id: 'openaip', area: 'Worldwide', region: 'Worldwide', name: 'Airspace and navaids', by: 'openAIP', link: 'https://www.openaip.net/', what: 'Airspace, navaids and reporting points on the Map, FIR outlines', how: 'Automatic: openAIP updates continuously' },
+  { id: 'fir', area: 'Worldwide', region: 'Worldwide', name: 'FIR boundaries', by: 'openAIP, VATSpy Data Project', link: 'https://github.com/vatsimnetwork/vatspy-data-project', what: 'FIR outlines and codes on the Map', how: 'Automatic: rebuilt weekly' },
+  { id: 'apts', area: 'Worldwide', region: 'Worldwide', name: 'Airports', by: 'OurAirports', link: 'https://ourairports.com/data/', what: 'Airport names, positions and runways (search, Map)', how: 'Automatic: rebuilt every 14 days' },
+  { id: 'layouts', area: 'Worldwide', region: 'Worldwide', name: 'Airport maps', by: 'OpenStreetMap', link: 'https://www.openstreetmap.org/', what: 'Taxiways, stands and holding points of the major airports', how: 'Automatic: kept for the major airports, others when asked' },
+  { id: 'navproc', area: 'Worldwide', region: 'Pilots’ simulators', name: 'Procedures', by: 'Polaris Navdata', link: '', what: 'SIDs, STARs and approaches read from each pilot’s own MSFS (Set departure / arrival / approach)', how: 'From each pilot’s simulator, kept 90 days, for that pilot only' },
 ];
 
 /* ---- the checks (each returns what the page needs from it) ---- */

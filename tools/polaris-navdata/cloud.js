@@ -15,7 +15,10 @@
      departure and arrival airports' procedures once and posts them (POST /api/nav/navproc).
    It reads the simulator only for that: the fast values while a device watches the PFD, or in flight for the
    touchdown (X-Plane: for the whole flight, its ground values come with them); MSFS's once-a-second values for the
-   flight. Posts carry the whole state, so one lost while offline is made good by the next. */
+   flight. Posts carry the whole state, so one lost while offline is made good by the next.
+   The same question also says whether this pilot's flight is on the broadcast desk (desk.js), once OBS is set up on the
+   EFB here: asked while a simulator runs, and while OBS is open even without one, so the director can see OBS before
+   the flight. */
 'use strict';
 const fs = require('fs'), path = require('path');
 const WebSocket = require('ws');
@@ -39,7 +42,9 @@ function dpapi(mode, text) {
 
 class Cloud {
   /* o = { dir, server (only this one, for the tests), log(), sim() -> 'msfs' | 'xp' | '', localEfb() -> bool,
-           procs(icao) -> Promise<data>, changed() (what it wants from the simulator changed), paired() (hello changed) } */
+           procs(icao) -> Promise<data>, changed() (what it wants from the simulator changed), paired() (hello changed),
+           obs() -> bool (OBS is set up here: the desk is asked about), deskWanted() -> bool (OBS answers: asked even
+           with no simulator), desk(on) (the server's answer: on the broadcast desk or not) } */
   constructor(o) {
     this.o = o; this.file = path.join(o.dir, 'cloud.json'); this.fixed = o.server || ''; this.server = o.server || DEFAULT_SERVER;
     this.poll = o.pollMs || 30000; this.key = ''; this.kid = ''; this.auto = true; this.cal = [1, 1]; this.timer = null; this.wantLive = false; this.wantGsx = false;
@@ -90,7 +95,7 @@ class Cloud {
     return '';
   }
   start() { if (!this.timer && this.key) { this.timer = setInterval(() => this.tick().catch(() => {}), 1000); } }
-  stop() { clearInterval(this.timer); this.timer = null; this.clear(); this.want = []; this.answered = {}; this.setWant(false, false); }
+  stop() { clearInterval(this.timer); this.timer = null; this.clear(); this.want = []; this.answered = {}; this.setWant(false, false); if (this.o.desk) this.o.desk(false); }
   setWant(l, g) { if (l !== this.wantLive || g !== this.wantGsx) { this.wantLive = l; this.wantGsx = g; this.o.changed(); } }
   /* ---- the server ---- */
   async api(method, p, body) {
@@ -121,15 +126,18 @@ class Cloud {
     const now = Date.now(), sim = this.o.sim(), act = this.active();
     /* taking over from an EFB that closed here: the flight asked for at once */
     if (act && !this.wasAct) this.flightAt = 0; this.wasAct = act;
-    if (!this.key || !sim) return;
+    /* no simulator: only for the broadcast desk, while OBS is set up here */
+    const deskOnly = !sim && !!this.o.deskWanted && this.o.deskWanted();
+    if (!this.key || (!sim && !deskOnly)) return;
     if (act) this.openPub();
     if (now - this.flightAt > this.poll && !this.busyFlight) {
       this.busyFlight = true;
       try {
-        const j = await this.api('GET', '/api/nav/flight');
+        const j = await this.api('GET', '/api/nav/flight' + (this.o.obs && this.o.obs() ? '?desk=1' : ''));
         if (j) {
           this.flightAt = Date.now();
-          this.want = Array.isArray(j.want) ? j.want.map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z0-9]{3,4}$/.test(x)).slice(0, 8) : [];
+          if (this.o.desk) this.o.desk(j.desk === true);
+          this.want = sim && Array.isArray(j.want) ? j.want.map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z0-9]{3,4}$/.test(x)).slice(0, 8) : [];
         }
         if (j && this.active()) {
           const f = j.flight || null;
@@ -140,6 +148,7 @@ class Cloud {
         } else if (!j) this.flightAt = Date.now() - this.poll * 0.75;
       } finally { this.busyFlight = false; }
     }
+    if (!sim) return;
     if (this.want.length) this.answer();
     if (!this.key || !this.active()) return;
     const fl = this.flying(), air = fl && !!this.oo.OFF && !this.oo.ON;
@@ -249,4 +258,4 @@ class Cloud {
   }
 }
 
-module.exports = { Cloud, okServer, DEFAULT_SERVER };
+module.exports = { Cloud, okServer, DEFAULT_SERVER, dpapi };

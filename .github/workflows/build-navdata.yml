@@ -34,13 +34,13 @@ jobs:
           node-version: 22
       - name: Install
         run: npm install --no-audit --no-fund
-      - name: Test (MSFS's procedures and live values, X-Plane 12 against a stand-in for its Web API, its own life)
+      - name: Test (MSFS's procedures and live values, X-Plane 12 against a stand-in for its Web API, its own life, the broadcast desk and OBS)
         run: npm test
-        timeout-minutes: 12
+        timeout-minutes: 15
       - name: Build PolarisNavdata.exe
         run: npm run build
       - name: Test the .exe itself (and starting with Windows, and its copy without a window)
-        run: node test_xplane.js && node test_life.js && node test_cloud.js && node test_win.js
+        run: node test_xplane.js && node test_life.js && node test_cloud.js && node test_desk.js && node test_win.js
         env:
           NAVDATA_EXE: dist/PolarisNavdata.exe
       # the .exe, started above, set up the polaris-navdata: link the EFB starts it with
@@ -69,7 +69,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.v.outputs.v }}
         run: |
-          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe and open it once on the simulator PC; from then on the EFB there starts it, and it closes by itself 10 minutes after the EFB (or choose, in the EFB's Ground, to start it with Windows and keep it running in the background, where it can also send to your devices by itself, with no EFB open on the PC). SIDs, STARs and approaches, the Backup PFD, the landing rate, GSX and the block times from MSFS 2020/2024 (SimConnect, no FSUIPC needed) or X-Plane 12.1.1 and later."
+          notes="Polaris Navdata $V for the Polaris EFB, built from ${GITHUB_SHA::7}. Windows: download PolarisNavdata.exe and open it once on the simulator PC; from then on the EFB there starts it, and it closes by itself 10 minutes after the EFB (or choose, in the EFB's Ground, to start it with Windows and keep it running in the background, where it can also send to your devices by itself, with no EFB open on the PC). SIDs, STARs and approaches, the Backup PFD, the landing rate, GSX and the block times from MSFS 2020/2024 (SimConnect, no FSUIPC needed) or X-Plane 12.1.1 and later. With OBS Studio set up on the EFB (Ground › Simulator PC › Broadcast), it also links OBS to the Operations broadcast desk."
           git tag -f navdata "$GITHUB_SHA" && git push -f origin refs/tags/navdata
           if gh release view navdata >/dev/null 2>&1; then
             gh release edit navdata --title "Polaris Navdata $V" --notes "$notes" --latest=false

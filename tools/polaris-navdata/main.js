@@ -28,13 +28,19 @@
             --startup    (as Polaris Navdata 1.4 and 1.5 had Windows start it) run a copy without a window and go
             --data-dir D where it keeps its log and its pairing (%LOCALAPPDATA%\\Polaris Navdata otherwise)
    With the pilot's say (on the EFB), it also sends to the EFB server by itself when no EFB is open on this PC, so
-   the pilot's iPad has the PFD, Ground and the block times with only this running: see cloud.js. */
+   the pilot's iPad has the PFD, Ground and the block times with only this running: see cloud.js.
+   With OBS Studio set up on the EFB here (Ground › Simulator PC › Broadcast), it is also the go-between for the
+   Operations admin's broadcast desk when the director puts this pilot's flight on it: OBS's scenes, pictures and
+   stream state to the desk, the director's scene changes to OBS (obs.js, desk.js). It then stays open while on the
+   desk, even with no EFB here. */
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const { XpLink, CifpReader, findXPlane } = require('./xplane');
 const { MsfsLive } = require('./msfs');
-const { Cloud } = require('./cloud');
+const { Cloud, dpapi } = require('./cloud');
+const { ObsLink } = require('./obs');
+const { Desk } = require('./desk');
 /* SimConnect is for MSFS on Windows; without it (another system, or a build without it) only X-Plane is read */
 let SC = null, ProcReader = null;
 try { SC = require('node-simconnect'); ({ ProcReader } = require('./navdata')); } catch (e) { SC = null; }
@@ -42,7 +48,7 @@ try { SC = require('node-simconnect'); ({ ProcReader } = require('./navdata')); 
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : undefined; };
 /* (--as-version: the tests' stand-in for an older or newer Polaris Navdata) */
-const VERSION = opt('--as-version') || '1.6.0';
+const VERSION = opt('--as-version') || '1.7.0';
 const SAFE = args.includes('--safe'), STAY = args.includes('--stay'), FROM_LINK = args.includes('--from-link'), BG = args.includes('--background');
 /* started by Windows at sign-in by Polaris Navdata 1.4 or 1.5's Run entry: the same program again, without a window,
    and this one goes (it then makes the copy that has none at all, and points the Run entry at it). The copy is started
@@ -78,33 +84,74 @@ const XP = new XpLink({ port: XP_PORT, log, onFrame: (f) => live(f), onState: ()
 
 /* starting with Windows: true or false, or null where it cannot be chosen (not the Windows program) */
 let AUTO = null;
-const stayNow = () => STAY || AUTO === true;
+const stayNow = () => STAY || AUTO === true || DESK.want || DESK.on;
 /* sim: a simulator to read procedures from (X-Plane's are in its files, so from its main menu on); live: the simulator
    whose live values Navdata can give now ('msfs', or 'xp' once a flight is loaded in X-Plane), liveName its name */
 function hello() {
   const xpUp = XP.st !== 'off', liveSim = S.handle ? 'msfs' : XP.on ? 'xp' : '';
   return { cmd: 'hello', app: 'Polaris Navdata', v: VERSION, sim: !!S.handle || xpUp, simName: S.handle ? S.sim : xpUp ? XP.name() : '', safe: SAFE,
     msfs: !!S.handle, xp: XP.on, xpName: xpUp ? XP.name() : '', xpWait: XP.st === 'wait' ? XP.err : '', xpData: !!CIFP,
-    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '', autostart: AUTO, bg: BG, cloud: CLOUD.on, cloudKid: CLOUD.kid };
+    live: liveSim, liveName: liveSim === 'msfs' ? S.sim : liveSim === 'xp' ? XP.name() : '', autostart: AUTO, bg: BG, cloud: CLOUD.on, cloudKid: CLOUD.kid, obs: obsHello() };
 }
+/* OBS for the broadcast desk, as the EFB shows it (never the password itself: only whether one is kept) */
+function obsHello() { return { on: OBS.on, st: OBS.st, err: OBS.err, v: OBS.v, port: OBS.port, pw: !!OBS.pw, remote: OBSCFG.remote, desk: DESK.on }; }
 function tell(msg) { const s = JSON.stringify(msg); for (const c of S.clients) try { c.send(s); } catch (e) { /* gone */ } }
 /* the live values, to the pages that asked for them (MSFS's while it runs, X-Plane's otherwise) */
 function live(f, from) {
   if (from !== 'msfs' && S.handle) return;
-  CLOUD.onFrame(f, from === 'msfs' ? 'msfs' : 'xp');
+  CLOUD.onFrame(f, from === 'msfs' ? 'msfs' : 'xp'); DESK.onFrame(f);
   const s = JSON.stringify({ cmd: 'live', f }); for (const c of S.clients) if (c.live) try { c.send(s); } catch (e) { /* gone */ }
 }
 function gsxOut(m) { CLOUD.onGsx(m); const s = JSON.stringify({ cmd: 'gsx', v: m.v, g: m.g }); for (const c of S.clients) if (c.gsx) try { c.send(s); } catch (e) { /* gone */ } }
 /* what the pages want, from the simulators */
 function applyWant() {
-  const L = [...S.clients].some((c) => c.live) || CLOUD.wantLive, G = [...S.clients].some((c) => c.gsx) || CLOUD.wantGsx;
+  const L = [...S.clients].some((c) => c.live) || CLOUD.wantLive || DESK.wantLive, G = [...S.clients].some((c) => c.gsx) || CLOUD.wantGsx;
   XP.want(L && !S.handle);
   if (S.live) try { S.live.want(L, G); } catch (e) { log('MSFS:', e.message); }
 }
 
 /* sending to the EFB server by itself, when the pilot turned it on and no EFB is open on this PC (cloud.js) */
 const CLOUD = new Cloud({ dir: LOG_DIR, server: opt('--cloud-server'), pollMs: (+(opt("--cloud-poll-sec") || 0) || 30) * 1000, log, changed: () => applyWant(), paired: () => tell(hello()),
-  sim: () => (S.handle ? 'msfs' : XP.on ? 'xp' : ''), localEfb: () => S.clients.size > 0 || Date.now() - S.lastEfb < 5000, procs: (ic) => procs(ic) });
+  sim: () => (S.handle ? 'msfs' : XP.on ? 'xp' : ''), localEfb: () => S.clients.size > 0 || Date.now() - S.lastEfb < 5000, procs: (ic) => procs(ic),
+  obs: () => OBS.on, deskWanted: () => OBS.on && OBS.st === 'on', desk: (on) => DESK.set(on) });
+/* OBS and the broadcast desk (obs.js, desk.js): set up on the EFB here, kept in obs.json (the password in this Windows
+   user's protected storage, as the key is) */
+const OBS_FILE = path.join(LOG_DIR, 'obs.json'), OBSCFG = { remote: false };
+const OBS = new ObsLink({ log, changed: () => { tell(hello()); DESK.obsChanged(); }, ready: () => DESK.refresh(), event: (t, d) => DESK.event(t, d) });
+const DESK = new Desk({ log, version: VERSION, server: () => CLOUD.server, api: (m, p, b) => CLOUD.api(m, p, b), obs: OBS, remote: () => OBSCFG.remote, changed: () => { applyWant(); tell(hello()); } });
+async function obsLoad() {
+  try {
+    const j = JSON.parse(fs.readFileSync(OBS_FILE, 'utf8'));
+    const pw = j.pw ? (j.enc ? await dpapi('out', j.pw) : String(j.pw)) : '';
+    OBSCFG.remote = j.remote === true;
+    if (j.on) { OBS.config(true, j.port, pw); log('Broadcast: OBS is set up on this PC (port ' + OBS.port + ') for the Operations broadcast desk.'); }
+  } catch (e) { /* not set up */ }
+}
+async function obsSave() {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    if (!OBS.on && !OBS.pw) { try { fs.unlinkSync(OBS_FILE); } catch (e) { /* none */ } return true; }
+    let pw = OBS.pw, enc = false;
+    if (pw && process.platform === 'win32') { pw = await dpapi('in', OBS.pw); enc = true; if (!pw) return false; }
+    fs.writeFileSync(OBS_FILE, JSON.stringify({ on: OBS.on, port: OBS.port, pw, enc, remote: OBSCFG.remote }), { mode: 0o600 });
+    return true;
+  } catch (e) { return false; }
+}
+/* from the EFB here: { on, port, pw (only when typed: '' removes it; left out, the one kept stays), remote } */
+async function obsSet(j) {
+  const on = j.on === true, port = j.port != null ? Math.max(1, Math.min(65535, +j.port || 0)) : OBS.port;
+  if (j.port != null && !(+j.port >= 1 && +j.port <= 65535)) return 'Not a port number (OBS uses 4455)';
+  if (j.pw != null && (typeof j.pw !== 'string' || j.pw.length > 200)) return 'Not a password OBS would take';
+  const pw = typeof j.pw === 'string' ? j.pw : OBS.pw, remote = typeof j.remote === 'boolean' ? j.remote : OBSCFG.remote;
+  const relink = on !== OBS.on || port !== OBS.port || pw !== OBS.pw || (on && OBS.st !== 'on');
+  OBSCFG.remote = remote;
+  if (relink) OBS.config(on, port, pw);
+  if (!(await obsSave())) return 'Could not keep the settings on this PC';
+  if (relink) log(on ? 'Broadcast: OBS set up on this PC (port ' + port + ')' + (remote ? '; the desk may start and stop the stream.' : '.') : 'Broadcast: OBS no longer set up on this PC.');
+  else log('Broadcast: the desk ' + (remote ? 'may' : 'may not') + ' start and stop the stream from now on.');
+  DESK.cfgChanged();
+  return '';
+}
 /* MSFS not there: looked for every 5 s at first, every 15 s once it has not been seen for 2 minutes */
 let simSeenAt = Date.now();
 const simLater = () => (Date.now() - simSeenAt < 120000 ? 5000 : 15000);
@@ -220,6 +267,7 @@ function shutdown(why) {
   if (S.closing) return; S.closing = true; log(why);
   try { XP.stop(); } catch (e) { /* stopped */ }
   try { CLOUD.stop(); } catch (e) { /* stopped */ }
+  try { DESK.stop(); OBS.stop(); } catch (e) { /* stopped */ }
   try { if (S.live) S.live.stop(); if (S.handle) S.handle.close(); } catch (e) { /* closed */ }
   for (const c of S.clients) try { c.close(1001, 'closing'); } catch (e) { /* gone */ }
   try { if (wss) wss.close(); } catch (e) { /* closed */ }
@@ -258,7 +306,7 @@ function onListening() {
   listened = true;
   log(`Polaris Navdata ${VERSION} ready for the EFB on ws://localhost:${PORT}` + (BG ? ' (started with Windows, no window)' : ''));
   registerLink();
-  CLOUD.load();
+  CLOUD.load(); obsLoad();
   autoRead().then(() => { if (AUTO) log('Starts with Windows (chosen on the EFB, Ground › Simulator PC): it keeps running, ready for the EFB.'); tell(hello()); });
   connect();
   XP.start();
@@ -300,6 +348,8 @@ function onConnection(ws) {
     if (j.cmd === 'quit') { shutdown(j.why === 'newer' ? 'A newer Polaris Navdata takes over: closing.' : 'Closed from the EFB.'); return; }
     /* sending by itself: the key from the EFB (or none, to stop), and the EFB's settings for it */
     if (j.cmd === 'cloud') { const err = await CLOUD.set(j); ws.send(JSON.stringify({ cmd: 'cloud', ok: !err, on: CLOUD.on, kid: CLOUD.kid, error: err })); return; }
+    /* OBS for the broadcast desk: its port and password, and whether the desk may start and stop the stream */
+    if (j.cmd === 'obs') { const err = await obsSet(j); ws.send(JSON.stringify({ cmd: 'obs', ok: !err, error: err, obs: obsHello() })); tell(hello()); return; }
     if (j.cmd === 'procs') {
       try { const data = await procs(j.icao); ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: data.icao, ok: true, data })); }
       catch (e) { ws.send(JSON.stringify({ cmd: 'procs', id: j.id, icao: String(j.icao || '').toUpperCase(), ok: false, error: e.message })); log(String(j.icao), '-', e.message); }

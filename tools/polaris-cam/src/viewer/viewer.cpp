@@ -83,6 +83,13 @@ struct Settings {
   std::uint32_t width() const noexcept { return height == 720 ? 1280u : 1920u; }
 };
 
+// Why a camera that should show a picture cannot (update_failure).
+enum class FeedFailure {
+  none,
+  start,     // the bridge could not start it
+  textures,  // its textures did not open in this window
+};
+
 struct Feed {
   std::uint32_t generation = 0;
   UINT width = 0, height = 0;
@@ -100,6 +107,8 @@ struct Feed {
   // menu, a loading screen): a broadcast keeps its last picture.
   bool live = false;
   std::uint32_t refused = 0;  // the texture set whose failure to open is already in the log
+  // While it has one, its cell says so and it shows no picture.
+  FeedFailure failure = FeedFailure::none;
 };
 
 struct App {
@@ -514,7 +523,8 @@ void sync_output(unsigned index) {
 }
 void sync_cell(unsigned index) {
   auto& feed = app.feeds[index];
-  if (!feed.generation || !app.device) {
+  // A failed camera's cell shows its failure in text, which a swap chain would cover.
+  if (!feed.generation || !app.device || feed.failure != FeedFailure::none) {
     close_chain(feed.cell_chain);
     return;
   }
@@ -544,7 +554,7 @@ void show_newest(unsigned index, std::uint64_t now) {
         InvalidateRect(feed.output, nullptr, TRUE);
     }
   }
-  if (!feed.generation)
+  if (!feed.generation || feed.failure != FeedFailure::none)
     return;
   auto published = load(announced.published);
   if (!published_frames(static_cast<std::uint64_t>(published)) || published_frames(static_cast<std::uint64_t>(published)) == feed.frames)
@@ -659,6 +669,47 @@ void save_mounts();
 RECT cell_rect(unsigned index);
 RECT label_rect(unsigned index);
 
+// A camera that should show a picture and cannot: the bridge could not start
+// it, or this window could not open its textures (show_newest has just tried).
+// Its cell then says so, instead of "waiting" or its last picture; its output
+// window stays dark, since OBS sends what that shows. announced is nullptr
+// while there is no bridge to read.
+void update_failure(unsigned index, const FeedStatus* announced) {
+  auto& feed = app.feeds[index];
+  auto failure = FeedFailure::none;
+  if (announced) {
+    const auto generation = static_cast<std::uint32_t>(load(announced->generation));
+    if (announced->state == feed_failed)
+      failure = FeedFailure::start;
+    else if (app.device && generation && !feed.generation && feed.refused == generation)
+      failure = FeedFailure::textures;
+  }
+  if (failure == feed.failure)
+    return;
+  feed.failure = failure;
+  note(L"camera %u: %ls", index + 1,
+       failure == FeedFailure::start      ? L"failed, the bridge could not start it"
+       : failure == FeedFailure::textures ? L"failed, its textures did not open"
+                                          : L"no longer failed");
+  if (failure != FeedFailure::none)
+    feed.live = false;  // its last picture is not kept on show
+  sync_cell(index);
+  sync_output(index);
+  InvalidateRect(feed.cell, nullptr, TRUE);
+  if (feed.output)
+    InvalidateRect(feed.output, nullptr, TRUE);
+  const RECT label = label_rect(index);
+  InvalidateRect(app.main, &label, TRUE);
+}
+// Whether the cell and its label show the camera's failure: only while it is
+// ticked and the broadcast is on, as they say so otherwise.
+bool shows_failure(unsigned index) {
+  return app.feeds[index].failure != FeedFailure::none && ((app.settings.mask >> index) & 1u) && app.settings.enabled;
+}
+const wchar_t* failure_text(FeedFailure failure) {
+  return failure == FeedFailure::textures ? L"無法開啟這顆鏡頭的畫面" : L"這顆鏡頭無法啟動";
+}
+
 // One pass: the heartbeat, the bridge's state, every camera's newest picture.
 // Run after each wait in the main loop and from a timer, which also fires
 // while Windows runs a loop of its own (a window being dragged, a menu), so
@@ -715,6 +766,10 @@ void tick() {
         InvalidateRect(feed.output, nullptr, TRUE);
     }
   }
+  // A bridge of another version may not lay the status out the same way.
+  const bool readable = link && present_bridge && link->status.protocol == LinkVersion;
+  for (unsigned index = 0; index < Feeds; ++index)
+    update_failure(index, readable ? &link->status.feeds[index] : nullptr);
   if (now - app.rate_ms >= 1000) {
     const double seconds = app.rate_ms ? static_cast<double>(now - app.rate_ms) / 1000.0 : 0;
     for (unsigned index = 0; index < Feeds; ++index) {
@@ -1110,7 +1165,9 @@ void paint_main(HDC dc) {
     wchar_t text[160];
     std::wstring name = preset_name(index);
     name = name.substr(0, name.find(L'（'));
-    if (feed.live && GetTickCount64() - feed.shown_ms > 2500)
+    if (shows_failure(index))
+      std::swprintf(text, 160, L"鏡頭 %u｜%ls｜失敗", index + 1, name.c_str());
+    else if (feed.live && GetTickCount64() - feed.shown_ms > 2500)
       std::swprintf(text, 160, L"鏡頭 %u｜%ls｜%u×%u｜暫停中", index + 1, name.c_str(), feed.width, feed.height);
     else if (feed.live)
       std::swprintf(text, 160, L"鏡頭 %u｜%ls｜%u×%u｜%.1f fps", index + 1, name.c_str(), feed.width, feed.height, feed.fps);
@@ -1129,14 +1186,15 @@ void paint_main(HDC dc) {
     DeleteObject(brush);
   }
 }
-void paint_placeholder(HWND window, HDC dc, const wchar_t* text) {
+constexpr COLORREF PlaceholderColor = RGB(170, 178, 190), FailureColor = RGB(255, 120, 110);
+void paint_placeholder(HWND window, HDC dc, const wchar_t* text, COLORREF color = PlaceholderColor) {
   RECT client{};
   GetClientRect(window, &client);
   HBRUSH brush = CreateSolidBrush(RGB(24, 28, 36));
   FillRect(dc, &client, brush);
   DeleteObject(brush);
   SetBkMode(dc, TRANSPARENT);
-  SetTextColor(dc, RGB(170, 178, 190));
+  SetTextColor(dc, color);
   SelectObject(dc, app.font);
   DrawTextW(dc, text, -1, &client, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
 }
@@ -1161,6 +1219,8 @@ LRESULT CALLBACK cell_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
         // The picture on show again: its texture is still the one named as
         // being read, so the bridge has not written over it.
         present(feed.cell_chain, feed.textures[feed.shown_slot]);
+      } else if (shows_failure(index)) {
+        paint_placeholder(window, dc, failure_text(feed.failure), FailureColor);
       } else {
         const bool ticked = (app.settings.mask >> index) & 1u;
         paint_placeholder(window, dc, !ticked ? L"未勾選" : !app.settings.enabled ? L"直播模式未開啟" : L"等待畫面…");
@@ -1237,8 +1297,8 @@ LRESULT CALLBACK output_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         present(feed.output_chain, feed.textures[feed.shown_slot]);
       else if (feed.output_chain)
         blank(feed.output_chain);
-      else
-        paint_placeholder(window, dc, L"等待畫面…");
+      else  // dark without a word while the camera failed: OBS sends what this shows
+        paint_placeholder(window, dc, feed.failure != FeedFailure::none ? L"" : L"等待畫面…");
       EndPaint(window, &paint);
       return 0;
     }

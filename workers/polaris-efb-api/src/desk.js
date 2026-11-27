@@ -440,11 +440,8 @@ function paint(){
  $("#data").innerHTML=(PH?'<div class="ph"><small>Now</small><b>'+esc(PN[PH]||PH)+"</b></div>":"")+'<div><small>Altitude</small><b>'+alt+'</b></div><div><small>Ground speed</small><b>'+(f?k(f.gs)+"<i>kt</i>":"—")+'</b></div><div><small>Heading</small><b>'+hd+'</b></div><div><small>Arrival</small><b>'+eta()+"</b></div>";
  draw()}
 function unwrap(L){let p=null;return L.map(q=>{let lo=q[1];if(p!=null){while(lo-p>180)lo-=360;while(lo-p<-180)lo+=360}p=lo;return[lo,q[0]]})}
-function dark(){for(const L of map.getStyle().layers){try{
- if(L.type==="background")map.setPaintProperty(L.id,"background-color","#0D1B2E");
- else if(L.type==="fill"){const w=/water|ocean|lake|river/.test(L.id);map.setPaintProperty(L.id,"fill-color",w?"#081426":"#13253C");map.setPaintProperty(L.id,"fill-opacity",w?1:.55)}
- else if(L.type==="line")map.setPaintProperty(L.id,"line-color",/water|river/.test(L.id)?"#0A1A30":/boundary|admin/.test(L.id)?"#3A5172":"#1E3150");
- else if(L.type==="symbol"){map.setPaintProperty(L.id,"text-color","#8FA6C4");map.setPaintProperty(L.id,"text-halo-color","#0B1426")}}catch(e){}}}
+function dark(){/* OpenFreeMap's Dark style, the land and the sea in Polaris's night blue */
+ try{map.setPaintProperty("background","background-color","#0E1C30")}catch(e){}try{map.setPaintProperty("water","fill-color","#07111F")}catch(e){}}
 function lay(){if(!map||laid)return;laid=true;dbg("style loaded"+(plain?" (plain)":""));try{lay2()}catch(e){dbg("lay: "+e.message)}fitAt=0;paint()}
 function lay2(){if(!plain)dark();const E={type:"FeatureCollection",features:[]};
  ["route","trk","ends","ac"].forEach(s=>map.addSource(s,{type:"geojson",data:E}));
@@ -483,7 +480,7 @@ function draw2(){
  /* the whole route and the aircraft, again every few minutes */
  if(Date.now()-fitAt>180000){const pts=R.concat(pos?[[pos[1],pos[0]]]:[]);if(pts.length){fitAt=Date.now();let w=1e3,e=-1e3,s=90,n=-90;pts.forEach(q=>{w=Math.min(w,q[0]);e=Math.max(e,q[0]);s=Math.min(s,q[1]);n=Math.max(n,q[1])});
   if(e-w<.4){w-=.4;e+=.4}if(n-s<.3){s-=.3;n+=.3}map.fitBounds([[w,s],[e,n]],{padding:28,maxZoom:9,duration:pts.length>1&&laid?1200:0})}}}
-function mapOn(){if(map||cv)return;if(typeof maplibregl==="undefined"){cvOn("not loaded");return}try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/positron",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});dbg("map made");
+function mapOn(){if(map||cv)return;if(typeof maplibregl==="undefined"){cvOn("not loaded");return}try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/dark",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});dbg("map made");
  map.on("style.load",()=>{laid=false;lay()});map.on("load",()=>{dbg("load");if(!laid)lay()});map.on("error",e=>dbg("map error: "+((e&&e.error&&e.error.message)||"?")));
  setTimeout(()=>{if(!laid&&map){plain=true;try{map.setStyle({version:8,sources:{},layers:[{id:"bg",type:"background",paint:{"background-color":"#0D1B2E"}}]})}catch(e){}}},12000)}catch(e){map=null;cvOn(e.message)}}
 function open(){if(dead)return;try{ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/live/o/"+T+"/ws")}catch(e){setTimeout(open,5000);return}

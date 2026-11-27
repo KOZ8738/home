@@ -1,0 +1,354 @@
+#pragma once
+#include <array>
+#include <cstddef>
+#include <utility>
+#include <vector>
+#include "../graphics/pfd_observation.hpp"
+#include "../graphics/pfd_submission_pool.hpp"
+#include "../graphics/pfd_submission_proof.hpp"
+#include "../graphics/render_target_sequence.hpp"
+#include "../graphics/render_target_shapes.hpp"
+#include "../graphics/scene_runtime.hpp"
+#include "../shared/display_snapshot.hpp"
+#include "../shared/panel_marks.hpp"
+namespace taxi_camera::standalone {
+inline constexpr const char* pfd_gpu_operation_name(unsigned slot) noexcept {
+  switch (slot) {
+    case 0:
+      return "unknown_gpu_work";
+    case 12:
+      return "draw";
+    case 14:
+      return "dispatch";
+    case 15:
+      return "copy_buffer";
+    case 16:
+      return "copy_texture";
+    case 17:
+      return "copy_resource";
+    case 18:
+      return "copy_tiles";
+    case 19:
+      return "resolve";
+    case 47:
+      return "clear_depth";
+    case 48:
+      return "clear_render_target";
+    case 49:
+      return "clear_uav_uint";
+    case 50:
+      return "clear_uav_float";
+    case 52:
+      return "begin_query";
+    case 53:
+      return "end_query";
+    case 54:
+      return "resolve_query";
+    case 60:
+      return "atomic_copy_uint";
+    case 61:
+      return "atomic_copy_uint64";
+    case 64:
+      return "resolve_region";
+    case 66:
+      return "write_buffer";
+    case 68:
+      return "render_pass";
+    case 72:
+      return "build_raytracing";
+    case 73:
+      return "emit_raytracing";
+    case 74:
+      return "copy_raytracing";
+    case 76:
+      return "dispatch_rays";
+    case 79:
+      return "dispatch_mesh";
+    default:
+      return "unclassified_gpu_work";
+  }
+}
+enum class DisplaySubmissionOutcome : unsigned {
+  not_ready,
+  unverified_close,
+  invalid_batch,
+  registry_busy,
+  generation_changed,
+  unknown_list,
+  unclosed_list,
+  incomplete_proof,
+  no_display_exit,
+  patch_not_ready,
+  no_selected_exit,
+  unavailable_target,
+  calibration_budget,
+  planned,
+  count
+};
+inline constexpr const char* display_submission_outcome_name(DisplaySubmissionOutcome value) noexcept {
+  constexpr const char* names[]{"not_ready",        "unverified_close",   "invalid_batch",      "registry_busy",   "generation_changed",
+                                "unknown_list",     "unclosed_list",      "incomplete_proof",   "no_display_exit", "patch_not_ready",
+                                "no_selected_exit", "unavailable_target", "calibration_budget", "planned"};
+  return static_cast<unsigned>(value) < static_cast<unsigned>(DisplaySubmissionOutcome::count) ? names[static_cast<unsigned>(value)]
+                                                                                               : "invalid_outcome";
+}
+// Why an instrument write landed on the camera instead of the display shadow
+// (the first unmet condition): a planned shadow copy did not run or may not
+// have; the first save is not confirmed yet; the shadow was saved on another
+// queue; the first writing list finds the display in a state a copy cannot
+// return to (COMMON); a draw earlier in that list may sample the display; no
+// camera copy follows and the display is not left a render target, with this
+// generation's patches not ready or with no copy planned for the side; or the
+// side was stamped in this Execute before the copy.
+enum class ShadowLostWrite : unsigned { dropped, unconfirmed, other_queue, not_insertable, sampled, unready, no_copy, stamped, count };
+inline constexpr const char* shadow_lost_write_name(ShadowLostWrite value) noexcept {
+  constexpr const char* names[]{"dropped", "unconfirmed", "other_queue", "not_insertable", "sampled", "unready", "no_copy", "stamped"};
+  return static_cast<unsigned>(value) < static_cast<unsigned>(ShadowLostWrite::count) ? names[static_cast<unsigned>(value)]
+                                                                                      : "invalid_cause";
+}
+// Simulator-thread bounded waits that expired and skipped their work. Each
+// site names the lock and the caller: the registry from per-command recording
+// hooks, from Close-time PFD delivery, from device creation hooks and from the
+// D3D12 lifetime callback; the observation lock from Reset/new-list admission.
+enum class ContentionSite : unsigned {
+  registry_recording,
+  registry_close,
+  registry_creation,
+  registry_lifecycle,
+  observation_recording,
+  handoff_lifecycle,
+  skipped_pfd_writes,
+  count
+};
+inline constexpr const char* contention_site_name(ContentionSite value) noexcept {
+  constexpr const char* names[]{"registry_recording",    "registry_close",    "registry_creation", "registry_lifecycle",
+                                "observation_recording", "handoff_lifecycle", "skipped_pfd_writes"};
+  return static_cast<unsigned>(value) < static_cast<unsigned>(ContentionSite::count) ? names[static_cast<unsigned>(value)] : "invalid_site";
+}
+struct GraphicsStatus {
+  bool ready{};
+  // draws counts fully observed recordings; idle retains only per-resource
+  // activity shown in the display inventory.
+  std::uint64_t device{}, resources{}, lists{}, draws{}, hook_failures{}, clear_states{};
+  const char* error = "not_started";
+  std::uint64_t selected_draws{}, selected_rt_metadata{}, selected_rt_callbacks{}, selected_pending_matches{};
+  std::uint64_t selected_view_resolved{}, selected_view_rejected{}, copy_attempts{}, copy_rejected{};
+  const char* copy_error = "not_attempted";
+  std::array<std::uint64_t, 32> selected_exit_scopes{};
+  std::uint64_t calibration_clears{};
+  std::uint64_t selected_exit_base{}, selected_exit_nonbase{}, selected_exit_split{};
+  std::uint64_t fallback_attempts{}, fallback_stamps{}, fallback_query_refused{}, fallback_state_refused{};
+  std::uint64_t preferred_copy_attempts{}, preferred_copy_stamps{}, preferred_copy_no_proof{};
+  const char* preferred_copy_reason = "not_attempted";
+  // Arm-to-first-stamp cover: carried covers planned on a quiet Execute; Close
+  // settlements skipped within budget and replayed later; ring overflows that
+  // set settlement_stale; carried covers refused while it was set.
+  std::uint64_t carried_covers{}, settlement_skips{}, settlement_replays{}, settlement_stale_events{}, carried_refused_stale{};
+  // Display shadow per side ('-' off, 'q' queue copies, 'd' direct stamps,
+  // 'r' restoring), and its saves, restores before the instrument's writes
+  // while the camera runs, restores after it stops, instrument writes it
+  // missed, Close-time camera writes held for it, fallbacks, and saves taken
+  // while the area may hold a camera picture.
+  char shadow_modes[MaxDisplaySides + 1]{};
+  std::uint64_t shadow_saves{}, shadow_entry_restores{}, shadow_restores{}, shadow_lost_writes{}, shadow_held{}, shadow_fallbacks{},
+      shadow_baselines{};
+  // shadow_lost_writes by cause; the causes sum to it.
+  std::array<std::uint64_t, static_cast<unsigned>(ShadowLostWrite::count)> shadow_lost_by{};
+  // Shadow-carrying copies that did not run, by pfd_submission::DropSource.
+  std::array<std::uint64_t, static_cast<unsigned>(pfd_submission::DropSource::count)> shadow_drop_sources{};
+  std::uint64_t dynamic_depth_bias_calls{}, dynamic_strip_cut_calls{}, sample_position_calls{};
+  std::uint64_t recording_end_draws{}, shader_deferred{}, close_forward_refused{};
+  bool observing{};
+  std::uint64_t observation_epoch{}, observation_invalidations{};
+  // Opt-in hot-path diagnostics: misses equal actual registry acquisitions.
+  std::uint64_t list_lookup_calls{}, list_cache_hits{}, list_registry_lookups{};
+  std::uint64_t idle_state_bypasses{}, idle_callback_bypasses{};
+  std::uint64_t queue_patch_plans{};
+  bool queue_close_verified{};
+  // Module and location (system/other/non_image) behind the saved Close
+  // forward, and whether the reported device was a proxy. Set at bootstrap.
+  const char* close_endpoint_module = "";
+  const char* close_endpoint_location = "unknown";
+  bool device_proxied{};
+  std::array<std::uint64_t, static_cast<unsigned>(DisplaySubmissionOutcome::count)> queue_outcomes{};
+  std::array<std::uint64_t, static_cast<unsigned>(PfdSubmissionProof::Refusal::count)> queue_proof_refusals{};
+  unsigned queue_last_proof_flags{};
+  std::array<std::uint64_t, 81> queue_prefix_blockers{};
+  std::array<std::uint64_t, static_cast<unsigned>(ContentionSite::count)> contention{};
+  // Deferred lifecycle work drained by discover_pfds after a simulator thread
+  // could not take its lock: source candidates and handoff retirements.
+  std::uint64_t deferred_lifecycle{};
+  // Registration failures exceeded FailureStormPerSecond: admission halted and
+  // the bridge disarmed for this process. failure_rate_peak is the worst
+  // one-second count seen.
+  bool admission_halted{};
+  std::uint64_t failure_rate_peak{};
+  // PassBegin reports the bridge could not scope to tracked render targets and
+  // therefore forwarded as global: the pass bound no RTV, or RTVs unresolved.
+  std::uint64_t pass_no_targets{}, pass_unresolved_targets{};
+  // Recordings invalidated on the hit after a contended find_list miss (each
+  // becomes a PassState report on that recording), and lists admitted
+  // mid-recording that wipe the source model until their observed Reset.
+  std::uint64_t contended_invalidations{}, unobserved_admissions{};
+  bool armed{};
+  std::uint64_t frame_pulse{};
+  std::uint64_t queue_calls{}, queue_contended{};
+  // Late-attach learn-on-use window: open now; cumulative full resource
+  // classifications, those that could not describe or admit the pointer, and
+  // classified pointers its fixed seen set had no slot for.
+  bool backfill_open{};
+  std::uint64_t backfill_classifications{}, backfill_unclassified{}, backfill_unremembered{};
+  // The latest refused command-list registration (step and reason), and the
+  // command-list vtable slot the render-boundary hook last found written over
+  // with the entry it held then (0: none).
+  const char* list_refused_by = "none";
+  const char* list_refusal_reason = "none";
+  unsigned changed_slot{};
+  std::uintptr_t changed_slot_target{};
+  // Render-boundary slots with another hook accepted over ours, and slots
+  // still waiting for calls to reach ours through one (capture held off);
+  // bits in boundary slot order. Accepted counts every acceptance.
+  std::uint32_t boundary_chained{}, boundary_pending{};
+  std::uint64_t boundary_accepted{};
+};
+bool initialize_graphics() noexcept;
+// Resolve a reported device's optional COM proxy chain before native hooks or
+// owned GPU work. Isolated validation supplies a hardware/WARP device; this
+// never calls the simulator or telemetry.
+bool initialize_graphics(IUnknown*) noexcept;
+bool graphics_ready() noexcept;
+// Adapter of the native device; zero until graphics are ready.
+LUID graphics_adapter_luid() noexcept;
+// Include bounded warmup, rendering and calibration demand. Idle keeps native
+// resource/descriptor lifetime and display activity discovery, plus retirement
+// of previously recorded/submitted work. Source models stay continuously
+// observed. PFD state omitted while idle needs real successful Reset to resume.
+void set_graphics_observation_demand(bool enabled) noexcept;
+void set_graphics_diagnostics_enabled(bool enabled) noexcept;
+// Camera weather: a camera view's cloud composite goes into that view's image
+// (cloud_merge.hpp). Counts are cumulative for the bridge lifetime.
+struct CloudMergeStatus {
+  std::uint64_t redirects = 0, refusals = 0;
+};
+CloudMergeStatus cloud_merge_status() noexcept;
+// Camera fog: history resets written (cumulative for the bridge lifetime) and
+// camera fog volumes tracked (at most 48).
+struct FogStatus {
+  std::uint64_t resets = 0;
+  unsigned volumes = 0;
+};
+FogStatus fog_status() noexcept;
+// Camera tone: copies of the main view's eye-adaptation exposure and 64^3
+// tone-curve table, made at the simulator's own state exits once enabled.
+// Counts are cumulative for the bridge lifetime.
+void set_tone_capture_enabled(bool enabled) noexcept;
+struct ToneStatus {
+  bool readback_failed = false, exposure_valid = false;
+  float exposure = 0;
+  std::uint64_t exposure_copies = 0, table_copies = 0, source_changes = 0;
+};
+ToneStatus tone_status() noexcept;
+// The latest copied table, 64^3 R10G10B10A2 texels with x fastest. False when
+// none was copied or a copy landed during the read.
+bool read_tone_table(std::uint32_t* table) noexcept;
+GraphicsStatus graphics_status() noexcept;
+// One bridge.log line: registry and capture-manager lock holds since the last
+// call (count, total and longest per source line or acquiring address) and
+// per-thread list-cache misses. Worker thread only.
+void lock_hold_report(char* out, std::size_t size) noexcept;
+// Presentation pulse: every hooked ExecuteCommandLists on a registered direct
+// queue and every hooked Close. Lock-free; readable from any thread.
+std::uint64_t frame_pulse() noexcept;
+// Watchdog gate. Closed: observation is idle for every hook, no PFD write or
+// queue copy is planned, and the capture manager escapes every submission.
+// An atomic store; never waits and never touches a GPU resource.
+void set_graphics_armed(bool armed) noexcept;
+bool graphics_armed() noexcept;
+// True once hook registration failures exceeded the storm rate; the bridge
+// stays disarmed for the rest of the simulator process.
+bool graphics_admission_halted() noexcept;
+std::vector<PfdTargetObservation> pfd_inventory();
+// Render-target shapes seen at creation since the bridge attached.
+const RenderTargetShapes& render_target_shape_inventory() noexcept;
+// Render-target creations (256 px and larger) in creation order with the
+// bridge's resource ID where it tracks the texture, for display identity.
+const RenderTargetSequence& render_target_creation_sequence() noexcept;
+// Control-thread only. Turns off late-attach barrier/copy/OM extras after the
+// profile's complete display set has distinct RTV associations, or after a short empty-list timeout. A filled
+// list keeps association a little longer so stamps/calibration can light.
+// Not called from recording hooks.
+void service_live_backfill(std::uint64_t now, std::size_t inventory_count) noexcept;
+// Control thread: configure exact display patch encoding and geometry before
+// scene_runtime::service prepares GPU work for future submission boundaries.
+void service_display_patches() noexcept;
+// lower: the separate side-2 texture (PMDG 777 lower DU); 0 is automatic.
+bool assign_targets(std::uint64_t left, std::uint64_t right, std::uint64_t lower = 0) noexcept;
+void set_target_mask(unsigned mask) noexcept;
+// Active sides inside their minimum PLEASE WAIT time. Only narrows what an
+// admitted side draws; it never admits a side for display writes.
+void set_waiting_mask(unsigned mask) noexcept;
+// Active sides that show the door camera page (two-camera aircraft only).
+void set_door_mask(unsigned mask) noexcept;
+void set_calibration(unsigned mask, unsigned budget) noexcept;
+std::array<std::uint64_t, MaxDisplaySides> target_ids() noexcept;
+// Sides whose route came from the panel-name table (bit per side).
+unsigned named_target_mask() noexcept;
+// Control-thread flight reset: drop routes/activity and make all older recording
+// proofs ineligible. Keep native metadata and already-recorded GPU ownership.
+void reset_display_session() noexcept;
+void set_aircraft_profile(std::uint32_t id) noexcept;
+void discover_pfds(std::uint64_t now) noexcept;
+// Worker, about once a second: lets the render-boundary hook accept another
+// hook chained over one of its slots once calls are seen reaching ours.
+void service_render_boundary() noexcept;
+// Texture IDs named for each display side by the panel table (0 = none).
+// discover_pfds routes them first; explicit choices and dead textures are
+// never overridden or kept.
+void set_named_targets(const std::array<std::uint64_t, MaxDisplaySides>& ids) noexcept;
+// Control thread. On while the loaded aircraft matches no profile: every panel
+// texture (multi-mip R8G8B8A8_UNORM render target) is then tracked like a
+// display, named by the panel table and available to snapshots. Textures that
+// already exist join through the live scan. Never routed or stamped.
+void set_panel_discovery(bool on) noexcept;
+bool panel_discovery() noexcept;
+// Display texture snapshot for PFD routing. Control thread only. Replaces any
+// earlier request, then copies the tracked display texture's base mip into a
+// private READBACK buffer at the next proven submission boundary, the same
+// kind of site a display write uses. The texture need not be routed.
+// Returns pending, or why the request was refused.
+DisplaySnapshotResult request_display_snapshot(std::uint64_t id, std::uint64_t now) noexcept;
+struct DisplaySnapshotPoll {
+  DisplaySnapshotResult result = DisplaySnapshotResult::none;
+  std::uint64_t id = 0;
+  unsigned width = 0, height = 0, format = 0;
+  unsigned plans = 0;   // Copies planned for the request (none: no submission proved a site).
+  SnapshotImage image;  // Only for ready: shrunk to kDisplaySnapshotMaxEdge.
+  // Panel marks found in the full-size copy (ready only).
+  std::array<panel_marks::Mark, 16> marks{};
+  std::size_t mark_count = 0;
+  std::uint64_t mark_us = 0;
+};
+// Control thread only. pending until the copy completes or fails; the final
+// result is returned once, then none until the next request.
+DisplaySnapshotPoll poll_display_snapshot(std::uint64_t now) noexcept;
+// Display-shaped textures of every catalog profile with their native resource
+// addresses, for the local display-identity research file written beside a
+// snapshot. Addresses are process-local and never go into bridge.log.
+struct DisplayResourceRecord {
+  std::uint64_t id = 0, native = 0, draws = 0, activity = 0;
+  unsigned width = 0, height = 0, mips = 0, format = 0;
+};
+std::vector<DisplayResourceRecord> display_resource_records();
+// Call stack (return addresses, caller first) of each display-shaped texture
+// creation, kept in a 32-entry ring. bridge.log prints them module-relative.
+struct DisplayCreationRecord {
+  std::uint64_t serial = 0, id = 0, tick = 0;
+  unsigned width = 0, height = 0, mips = 0, format = 0, frames = 0;
+  std::array<std::uint64_t, 24> stack{};
+};
+std::vector<DisplayCreationRecord> display_creation_records(std::uint64_t after);
+// Distinct copies (source ID, destination ID) between tracked display textures.
+std::vector<std::pair<std::uint64_t, std::uint64_t>> display_feed_pairs();
+// Step and code of the last failed snapshot step ("" when none).
+void display_snapshot_failure(const char*& step, long& code) noexcept;
+}  // namespace taxi_camera::standalone

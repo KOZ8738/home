@@ -1,0 +1,492 @@
+#include "scene_frame_output.hpp"
+#include "calibration_d3d12.hpp"
+#include "camera_compositor_d3d12.hpp"
+#include "pfd_stamp_d3d12.hpp"
+
+#include <limits>
+#include <new>
+
+namespace taxi_camera {
+namespace {
+constexpr std::array<DXGI_FORMAT, 4> PatchFormats{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_UNORM,
+                                                  DXGI_FORMAT_B8G8R8A8_UNORM_SRGB};
+bool same_rect(const D3D12_RECT& a, const D3D12_RECT& b) noexcept {
+  return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom;
+}
+}  // namespace
+bool SceneFrameOutput::set_patch_profile(std::uint32_t profile) noexcept {
+  if (!profiles::find(profile) || prepared_ || failed_)
+    return false;
+  patch_profile_ = profile;
+  return true;
+}
+bool SceneFrameOutput::valid_patch_request(DXGI_FORMAT format, UINT width, UINT height, const D3D12_RECT& content) const noexcept {
+  const auto* profile = profiles::find(patch_profile_);
+  if (!profile || failed_ ||
+      !profiles::matches_display(*profile, profile->width, profile->height, profile->mips ? profile->mips : 1,
+                                 static_cast<unsigned>(format)))
+    return false;
+  if (!width || width > 16384 || !height || height > 16384)
+    return false;
+  // Any side's patch: sides can differ in size (the user's display areas, or
+  // a set-up aircraft's panels, whose patch is the size of its texture area),
+  // with the taxi picture's content or the door camera's whole area.
+  for (unsigned side = 0; side < profile->sides && side < MaxDisplaySides; ++side)
+    for (const bool door : {false, true}) {
+      if (profile->fit_texture) {
+        // The area on a texture of unknown size: any patch whose content is
+        // the padded patch, at the cameras' shape (shape_cameras).
+        const auto inner =
+            profiles::fit_rect(profiles::inset_rect({0, 0, width, height}, profile->camera_padding), door ? 0 : profile->fit_aspect[side]);
+        const D3D12_RECT local{static_cast<LONG>(inner.left), static_cast<LONG>(inner.top), static_cast<LONG>(inner.right),
+                               static_cast<LONG>(inner.bottom)};
+        if (same_rect(content, local))
+          return true;
+        continue;
+      }
+      const auto outer = profiles::display_rect(*profile, side), inner = profiles::side_content_rect(*profile, side, width, height, door);
+      const D3D12_RECT local{static_cast<LONG>(inner.left - outer.left), static_cast<LONG>(inner.top - outer.top),
+                             static_cast<LONG>(inner.right - outer.left), static_cast<LONG>(inner.bottom - outer.top)};
+      if (width == outer.right - outer.left && height == outer.bottom - outer.top && same_rect(content, local))
+        return true;
+    }
+  return false;
+}
+bool SceneFrameOutput::request_patch(DXGI_FORMAT format, UINT width, UINT height, const D3D12_RECT& content) noexcept {
+  return request_patch(format, width, height, content, GetTickCount64());
+}
+bool SceneFrameOutput::request_patch(DXGI_FORMAT format,
+                                     UINT width,
+                                     UINT height,
+                                     const D3D12_RECT& content,
+                                     std::uint64_t now_ms) noexcept {
+  if (!valid_patch_request(format, width, height, content))
+    return false;
+  unsigned drawer = 0;
+  while (drawer < PatchFormats.size() && PatchFormats[drawer] != format)
+    ++drawer;
+  if (drawer == PatchFormats.size())
+    return false;
+  for (auto& p : patches_)
+    if (p.width == width && p.height == height && p.format == format && same_rect(p.content, content)) {
+      p.requested_ms = now_ms;
+      return true;
+    }
+  PatchStorage* slot = nullptr;
+  for (auto& p : patches_)
+    if (!p.width) {
+      slot = &p;
+      break;
+    }
+  if (!slot) {
+    // Every slot is taken: the stalest one no longer shown, keeping its buffer
+    // if the new shape fits, else one that may retain its buffer and grow.
+    const UINT64 needed = UINT64(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) *
+                              ((UINT64(width) * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT) *
+                              (height - 1) +
+                          UINT64(width) * 4;
+    PatchStorage *fits = nullptr, *grows = nullptr;
+    for (auto& p : patches_) {
+      if (now_ms < p.requested_ms || now_ms - p.requested_ms < PatchStaleMs)
+        continue;
+      if (p.buffer_bytes >= needed || !p.view.buffer) {
+        if (!fits || p.requested_ms < fits->requested_ms)
+          fits = &p;
+      } else if (!grows || p.requested_ms < grows->requested_ms) {
+        grows = &p;
+      }
+    }
+    slot = fits ? fits : retired_count_ < retired_buffers_.size() ? grows : nullptr;
+    if (!slot)
+      return false;
+    if (slot == grows) {
+      // A recording made for the old shape may still read this buffer.
+      retired_buffers_[retired_count_++] = slot->view.buffer;
+      slot->view.buffer = nullptr;
+      slot->buffer_bytes = 0;
+    }
+    // Not written for the new shape until a composition records it; a
+    // recording already closed for the old shape is not counted as one. The
+    // texture is replaced when no submission uses it (prepare_patches).
+    slot->written = slot->recorded = false;
+    ++patch_reuses_;
+  }
+  slot->format = format;
+  slot->width = width;
+  slot->height = height;
+  slot->content = content;
+  slot->drawer = drawer;
+  slot->requested_ms = now_ms;
+  ++patch_requests_;
+  return true;
+}
+SceneFrameOutput::Patch SceneFrameOutput::patch(DXGI_FORMAT format, UINT width, UINT height, const D3D12_RECT& content) const noexcept {
+  if (valid_patch_request(format, width, height, content) && submitted_)
+    for (const auto& p : patches_)
+      if (p.written && p.view.footprint.Footprint.Format == format && p.view.footprint.Footprint.Width == width &&
+          p.view.footprint.Footprint.Height == height && same_rect(p.content, content))
+        return p.view;
+  return {};
+}
+bool SceneFrameOutput::set_display_exposure(float ev) noexcept {
+  return compositor_ && !prepared_ && !failed_ && compositor_->set_display_exposure(ev);
+}
+bool SceneFrameOutput::set_tone_curve(float exposure, const std::uint32_t* table) noexcept {
+  if (!compositor_ || prepared_ || failed_ || (table && !idle()))
+    return false;
+  if (!(exposure > 0)) {
+    compositor_->clear_tone_curve();
+    return true;
+  }
+  return compositor_->set_tone_curve(exposure, table);
+}
+bool SceneFrameOutput::tone_curve_active() const noexcept {
+  return compositor_ && compositor_->tone_curve_active();
+}
+bool SceneFrameOutput::set_composition(const profiles::Composition& layout) noexcept {
+  if (!compositor_ || prepared_ || failed_)
+    return false;
+  compositor_->set_composition(layout);
+  return true;
+}
+bool SceneFrameOutput::set_reference_guides(bool enabled) noexcept {
+  if (!compositor_ || failed_)
+    return false;
+  compositor_->set_reference_guides(enabled);
+  return true;
+}
+bool SceneFrameOutput::set_camera_look(std::uint32_t look) noexcept {
+  if (!compositor_ || failed_)
+    return false;
+  compositor_->set_camera_look(look);
+  return true;
+}
+bool SceneFrameOutput::set_ground_speed(float knots, bool valid) noexcept {
+  if (!compositor_ || prepared_ || failed_)
+    return false;
+  compositor_->set_ground_speed(knots, valid);
+  return true;
+}
+bool SceneFrameOutput::hide_ground_speed() noexcept {
+  if (!compositor_ || prepared_ || failed_)
+    return false;
+  compositor_->hide_ground_speed();
+  return true;
+}
+float SceneFrameOutput::display_exposure() const noexcept {
+  return compositor_ ? compositor_->display_exposure() : CameraCompositorD3D12::DefaultExposureEv;
+}
+bool SceneFrameOutput::fail(const char* error) noexcept {
+  gpu_timing_.abandon();
+  error_ = error;
+  failed_ = true;
+  return false;
+}
+
+bool SceneFrameOutput::initialize(ID3D12Device* device, bool calibration_only) noexcept {
+  if (failed_)
+    return false;
+  if (device_)
+    return device_ == device && calibration_only_ == calibration_only && !failed_;
+  if (!device)
+    return fail("A live native D3D12 device is required for the PFD output.");
+  device_ = device;
+  calibration_only_ = calibration_only;
+  device_->AddRef();
+  D3D12_COMMAND_QUEUE_DESC queue_desc{};
+  queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+  if (FAILED(device_->CreateCommandQueue(&queue_desc, IID_PPV_ARGS(&queue_))) ||
+      FAILED(device_->CreateCommandAllocator(queue_desc.Type, IID_PPV_ARGS(&allocator_))) ||
+      FAILED(device_->CreateCommandList(0, queue_desc.Type, allocator_, nullptr, IID_PPV_ARGS(&list_))) || FAILED(list_->Close()) ||
+      FAILED(device_->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_))))
+    return fail("Creating the private PFD composition queue failed.");
+  D3D12_DESCRIPTOR_HEAP_DESC patch_heap_desc{D3D12_DESCRIPTOR_HEAP_TYPE_RTV, static_cast<UINT>(patches_.size()),
+                                             D3D12_DESCRIPTOR_HEAP_FLAG_NONE, 0};
+  if (FAILED(device_->CreateDescriptorHeap(&patch_heap_desc, IID_PPV_ARGS(&patch_heap_))))
+    return fail("Creating the private patch descriptor heap failed.");
+  if (calibration_only_)
+    return true;
+  D3D12_HEAP_PROPERTIES heap{};
+  heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+  heap.CreationNodeMask = heap.VisibleNodeMask = 1;
+  D3D12_RESOURCE_DESC desc{};
+  desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  desc.Width = BufferBytes;
+  desc.Height = desc.DepthOrArraySize = desc.MipLevels = 1;
+  desc.SampleDesc.Count = 1;
+  desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  if (FAILED(device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COMMON, nullptr,
+                                              IID_PPV_ARGS(&buffer_))))
+    return fail("Creating the stable PFD GPU buffer failed.");
+  address_ = buffer_->GetGPUVirtualAddress();
+  compositor_ = new (std::nothrow) CameraCompositorD3D12;
+  if (!address_ || !compositor_ || FAILED(compositor_->initialize(device_)))
+    return fail("Initializing the two-camera compositor failed.");
+  for (unsigned i = 0; i < patch_drawers_.size(); ++i) {
+    patch_drawers_[i] = new (std::nothrow) PfdStampD3D12;
+    if (!patch_drawers_[i] || FAILED(patch_drawers_[i]->initialize(device_, PatchFormats[i])))
+      return fail("Creating a private typed PFD patch pipeline failed.");
+  }
+  return true;
+}
+
+bool SceneFrameOutput::prepare_patches(std::uint64_t calibration_frame) noexcept {
+  const auto base = patch_heap_->GetCPUDescriptorHandleForHeapStart();
+  const auto stride = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+  for (auto& storage : patches_) {
+    auto* patch = &storage;
+    if (!patch->width)
+      continue;
+    const auto width = patch->width, height = patch->height;
+    const D3D12_RECT destination{0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
+    if (patch->texture && (patch->texture_width != width || patch->texture_height != height || patch->texture_format != patch->format)) {
+      // A slot given to a new shape (request_patch). Every prepare waits for
+      // idle, so no submission uses this private texture any more.
+      patch->texture->Release();
+      patch->texture = nullptr;
+    }
+    if (!patch->texture) {
+      D3D12_HEAP_PROPERTIES heap{};
+      heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+      heap.CreationNodeMask = heap.VisibleNodeMask = 1;
+      D3D12_RESOURCE_DESC desc{};
+      desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+      desc.Width = width;
+      desc.Height = height;
+      desc.DepthOrArraySize = desc.MipLevels = desc.SampleDesc.Count = 1;
+      desc.Format = patch->format;
+      desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+      if (FAILED(device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr,
+                                                  IID_PPV_ARGS(&patch->texture))))
+        return fail("Creating a private PFD patch texture failed.");
+      patch->texture_width = width;
+      patch->texture_height = height;
+      patch->texture_format = patch->format;
+      D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+      UINT64 bytes{};
+      device_->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &bytes);
+      // The slot's buffer when the shape fits it (request_patch kept it only
+      // then); it is never released while a recording might read it.
+      if (patch->view.buffer && patch->buffer_bytes < bytes) {
+        if (retired_count_ == retired_buffers_.size())
+          return fail("A private PFD patch buffer could not be retained for a new shape.");
+        retired_buffers_[retired_count_++] = patch->view.buffer;
+        patch->view.buffer = nullptr;
+      }
+      if (!patch->view.buffer) {
+        desc = {};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        desc.Width = bytes;
+        desc.Height = desc.DepthOrArraySize = desc.MipLevels = desc.SampleDesc.Count = 1;
+        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        if (FAILED(device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COMMON, nullptr,
+                                                    IID_PPV_ARGS(&patch->view.buffer))))
+          return fail("Creating a stable private PFD patch buffer failed.");
+        patch->buffer_bytes = bytes;
+      }
+      patch->view.footprint = footprint;
+      patch->rtv = {base.ptr + static_cast<SIZE_T>(patch - patches_.data()) * stride};
+      device_->CreateRenderTargetView(patch->texture, nullptr, patch->rtv);
+    }
+    D3D12_RESOURCE_BARRIER barrier{};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition = {patch->texture, 0, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET};
+    list_->ResourceBarrier(1, &barrier);
+    list_->OMSetRenderTargets(1, &patch->rtv, FALSE, nullptr);
+    if (calibration_only_) {
+      // Column profiles (A380, A350) share one upper display height. Clear
+      // precisely that patch; never copy over the lower native trim.
+      // Single-display gauges and set-up aircraft panels are whole
+      // rectangles instead; the patch is then exactly that rectangle.
+      const auto* profile = profiles::find(patch_profile_);
+      const bool gauge = profile && (profile->display_layout == profiles::DisplayLayout::shared_texture || profile->fit_texture);
+      if (!profile || (!gauge && upper_height(profile->height) != height) ||
+          !(gauge ? record_calibration_area(list_, patch->rtv, width, height, calibration_frame)
+                  : record_calibration(list_, patch->rtv, width, profile->height, calibration_frame)))
+        return fail("Recording the private calibration patch failed.");
+    } else if (!patch_drawers_[patch->drawer]->record_private_patch(list_, device_, address_, width, height, &destination, &patch->content))
+      return fail("Recording the private PFD patch failed.");
+    barrier.Transition = {patch->texture, 0, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE};
+    list_->ResourceBarrier(1, &barrier);
+    barrier.Transition = {patch->view.buffer, 0, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST};
+    list_->ResourceBarrier(1, &barrier);
+    D3D12_TEXTURE_COPY_LOCATION source{}, target{};
+    source.pResource = patch->texture;
+    source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    target.pResource = patch->view.buffer;
+    target.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    target.PlacedFootprint = patch->view.footprint;
+    list_->CopyTextureRegion(&target, 0, 0, 0, &source, nullptr);
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+    list_->ResourceBarrier(1, &barrier);
+    patch->recorded = true;
+    ++patch_draws_;
+  }
+  return true;
+}
+
+bool SceneFrameOutput::idle() const noexcept {
+  if (failed_ || !fence_)
+    return false;
+  const auto completed = fence_->GetCompletedValue();
+  return completed != UINT64_MAX && completed >= submitted_;
+}
+std::uint64_t SceneFrameOutput::completed_submissions() const noexcept {
+  if (failed_ || !fence_)
+    return 0;
+  const auto completed = fence_->GetCompletedValue();
+  return completed <= submitted_ ? completed : 0;  // Device removal returns UINT64_MAX.
+}
+
+bool SceneFrameOutput::prepare(ID3D12Resource* nose,
+                               DXGI_FORMAT nose_format,
+                               ID3D12Resource* left,
+                               DXGI_FORMAT left_format,
+                               ID3D12Resource* right,
+                               DXGI_FORMAT right_format) noexcept {
+  if (calibration_only_ || !idle() || prepared_)
+    return false;
+  if (FAILED(device_->GetDeviceRemovedReason()))
+    return fail("The PFD composition device was removed.");
+  if (FAILED(compositor_->set_inputs(nose, nose_format, left, left_format, right, right_format))) {
+    error_ = compositor_->last_error();
+    return false;
+  }
+  if (FAILED(allocator_->Reset()) || FAILED(list_->Reset(allocator_, nullptr)))
+    return fail("Resetting the completed private composition list failed.");
+  gpu_timing_.discard_unsubmitted();
+  const bool timed = gpu_timing_enabled_ && gpu_timing_.begin(device_, queue_, list_);
+  if (timed)
+    gpu_timing_.start(0);
+  if (FAILED(compositor_->record(list_, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_DEST)))
+    return fail("Recording the camera composition failed.");
+  if (timed) {
+    gpu_timing_.end(0);
+    gpu_timing_.start(1);
+  }
+  record_buffer_copy();
+  if (timed) {
+    gpu_timing_.end(1);
+    if (patch_requests_)
+      gpu_timing_.start(2);
+  }
+  if (!prepare_patches())
+    return false;
+  if (timed) {
+    if (patch_requests_)
+      gpu_timing_.end(2);
+    gpu_timing_.resolve();
+  }
+  if (FAILED(list_->Close()))
+    return fail("Closing the private composition list failed.");
+  prepared_ = true;
+  return true;
+}
+
+void SceneFrameOutput::record_buffer_copy() noexcept {
+  D3D12_RESOURCE_BARRIER barrier{};
+  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  barrier.Transition = {buffer_, 0, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST};
+  list_->ResourceBarrier(1, &barrier);
+  D3D12_TEXTURE_COPY_LOCATION destination{}, source{};
+  destination.pResource = buffer_;
+  destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+  destination.PlacedFootprint.Footprint = {DXGI_FORMAT_R8G8B8A8_UNORM, Width, Height, 1, RowPitch};
+  source.pResource = compositor_->output();
+  source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+  list_->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+  // Buffers begin each ExecuteCommandLists scope in COMMON. Our private patch
+  // draw promotes this buffer for its root SRV read and it decays afterward.
+  // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
+  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COMMON;
+  list_->ResourceBarrier(1, &barrier);
+}
+
+bool SceneFrameOutput::prepare_waiting() noexcept {
+  if (calibration_only_ || !idle() || prepared_)
+    return false;
+  if (FAILED(device_->GetDeviceRemovedReason()))
+    return fail("The waiting page device was removed.");
+  if (FAILED(allocator_->Reset()) || FAILED(list_->Reset(allocator_, nullptr)))
+    return fail("Resetting the private waiting page list failed.");
+  gpu_timing_.discard_unsubmitted();
+  if (FAILED(compositor_->record_waiting(list_)))
+    return fail("Recording the waiting page failed.");
+  record_buffer_copy();
+  if (!prepare_patches() || FAILED(list_->Close()))
+    return fail("Closing the private waiting page list failed.");
+  prepared_ = true;
+  return true;
+}
+
+bool SceneFrameOutput::prepare_patches_only() noexcept {
+  if (calibration_only_ || !submitted_ || !idle() || prepared_)
+    return false;
+  if (FAILED(device_->GetDeviceRemovedReason()))
+    return fail("The retained page device was removed.");
+  if (FAILED(allocator_->Reset()) || FAILED(list_->Reset(allocator_, nullptr)))
+    return fail("Resetting the private patch list failed.");
+  gpu_timing_.discard_unsubmitted();
+  if (!prepare_patches() || FAILED(list_->Close()))
+    return fail("Closing the private patch list failed.");
+  prepared_ = true;
+  return true;
+}
+
+bool SceneFrameOutput::patches_pending() const noexcept {
+  for (const auto& patch : patches_)
+    if (patch.width && !patch.written)
+      return true;
+  return false;
+}
+
+bool SceneFrameOutput::prepare_calibration(std::uint64_t frame) noexcept {
+  if (!calibration_only_ || !patch_requests_ || !idle() || prepared_)
+    return false;
+  if (FAILED(device_->GetDeviceRemovedReason()))
+    return fail("The calibration device was removed.");
+  if (FAILED(allocator_->Reset()) || FAILED(list_->Reset(allocator_, nullptr)))
+    return fail("Resetting the private calibration list failed.");
+  if (!prepare_patches(frame) || FAILED(list_->Close()))
+    return fail("Closing the private calibration list failed.");
+  prepared_ = true;
+  return true;
+}
+
+bool SceneFrameOutput::submit() noexcept {
+  if (!prepared_ || failed_ || submitted_ >= std::numeric_limits<std::uint64_t>::max() - 1)
+    return false;
+  ID3D12CommandList* lists[]{list_};
+  queue_->ExecuteCommandLists(1, lists);
+  prepared_ = false;
+  if (compositor_)
+    compositor_->recording_submitted();
+  ++submitted_;
+  if (FAILED(queue_->Signal(fence_, submitted_)))
+    return fail("Signaling the private composition completion fence failed.");
+  gpu_timing_.submitted(fence_, submitted_);
+  for (auto& patch : patches_)
+    if (patch.recorded) {
+      patch.written = true;
+      patch.recorded = false;
+    }
+  return true;
+}
+
+bool SceneFrameOutput::discard_prepared() noexcept {
+  if (!prepared_ || !idle())
+    return false;
+  if (FAILED(allocator_->Reset()) || FAILED(list_->Reset(allocator_, nullptr)) || FAILED(list_->Close()))
+    return fail("Discarding the never-submitted private composition list failed.");
+  gpu_timing_.discard_unsubmitted();
+  for (auto& patch : patches_)
+    patch.recorded = false;
+  // A tone-table copy in the discarded list never ran: record it again.
+  if (compositor_)
+    compositor_->recording_discarded();
+  prepared_ = false;
+  return true;
+}
+}  // namespace taxi_camera

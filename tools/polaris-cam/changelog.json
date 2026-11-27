@@ -1,0 +1,366 @@
+{
+  "releases": [
+    {
+      "version": "1.4.2",
+      "date": "2026-11-26",
+      "fixes": [
+        "Taxi Cam now remembers twin cockpit display panel order during a partial display rebuild instead of dropping the remaining display's mapping, checks more frequently for replaced display textures, and no longer shows the missing-displays message for a display side that is not in use."
+      ]
+    },
+    {
+      "version": "1.4.1",
+      "date": "2026-11-26",
+      "fixes": [
+        "Cockpit displays that share a panel with another gauge, such as the iniBuilds A350's flight displays, are recognised reliably again: Taxi Cam now places each display's code beside the others instead of on top of them.",
+        "On aircraft you set up yourself whose displays share one texture, such as the PMDG 737-800, turning Taxi Cam off or resizing a display area now restores the aircraft's own screen cleanly, multiple displays can share the same texture with separate areas, and clicking inside a screen box in Display area snaps straight to it.",
+        "Using the door camera on its own now recovers automatically if another graphics add-on resets the simulator's display state, and Help now counts door camera frames alongside taxi camera compositions."
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-11-14",
+      "features": [
+        {
+          "title": "A new look for Taxi Cam",
+          "text": "Taxi Cam's window is redesigned around four places: Home, Aircraft, Options and Help. Home tells you in one sentence whether the cameras are working and what to do if they aren't, and has a card for each cockpit display with its picture, its shortcut and one switch. There is a new icon to match.",
+          "image": "docs/whats-new/1.4.0/overview.png"
+        },
+        {
+          "title": "Cameras from the tray",
+          "text": "Click the Taxi Cam icon in the tray for a small panel with a switch for each display's cameras, the door camera and the TAXI buttons, so you don't need to open the window in flight. Double-click the icon for the full window.",
+          "image": "docs/whats-new/1.4.0/tray-panel.png"
+        },
+        {
+          "title": "Everything for your aircraft in one place",
+          "text": "Aircraft holds what is saved for the aircraft you have loaded: its Displays, Taxi cameras, Door camera and Picture (frame rate and brightness, which now has sliders). Open any of them in any order. An aircraft you set up for the first time is still taken through them step by step.",
+          "image": "docs/whats-new/1.4.0/options.png"
+        },
+        {
+          "title": "Options and Help",
+          "text": "Options is now only what applies to every aircraft: Auto-connect, Auto aircraft, notifications, language and updates. Help replaces Diagnostics: it shows in plain words whether the simulator, cameras and displays are working, with Report a bug and the log folder beside it.",
+          "image": "docs/whats-new/1.4.0/setup.png"
+        }
+      ],
+      "fixes": [
+        "Fixed a cause of the cameras staying off after you change aircraft while another tool that hooks the simulator's graphics, such as GlassOut, is running. If Taxi Cam does lose its connection to the simulator's graphics, its log now says why.",
+        "When Taxi Cam can't keep its cameras through a display change in Setup, it now replaces them instead of leaving them stopped until you restart the simulator.",
+        "If a change does stop Taxi Cam's cameras, Overview now says so instead of saying it is waiting for the cockpit displays to be drawn, and the log records what stopped them.",
+        "Fixed a cause of the cameras restarting while you set up an aircraft's displays: saving displays that have not changed, such as placing one where it already was, no longer asks the cameras to start again.",
+        "When an aircraft replaces a cockpit display during a flight, the small code Taxi Cam reads to find it now comes back on that display only, not on every panel. In the FlyByWire A380 the code could also show as a small black rectangle over the outside view each time."
+      ]
+    },
+    {
+      "version": "1.3.4",
+      "date": "2026-11-09",
+      "fixes": [
+        "Taxi Cam now keeps up when an aircraft replaces a cockpit display during a flight: it reads the new display's code again, so your cameras and the Displays list carry on."
+      ]
+    },
+    {
+      "version": "1.3.3",
+      "date": "2026-11-05",
+      "fixes": [
+        "Starting another tool that hooks the simulator's graphics after Taxi Cam, such as GlassOut, no longer turns the cameras off with a native hook warning. Taxi Cam pauses its cameras until it sees that tool passing the simulator's work on to it, then carries on.",
+        "Taxi Cam now recognises your displays alongside add-ons that replace the simulator's cockpit page, such as vRAAS: it adds its part to a file that add-on's page still loads, instead of to the page itself. It goes back to its usual way if you remove that add-on.",
+        "When Taxi Cam turns its cameras off to keep the simulator safe, or can't recognise your cockpit displays, its log now says why, so a bug report is enough to find the cause.",
+        "Taxi Cam no longer says it can't recognise your displays while you're in the simulator's main menu or while a flight is loading. It waits until your cockpit's displays have had time to show their codes.",
+        "The aircraft's own display no longer flickers through the camera picture now and then, in the cockpit or in GlassOut's stream. The FlyByWire A380X, whose displays redraw only what changes, keeps its own way of showing the camera.",
+        "Saved aircraft can now reset an aircraft that comes with Taxi Cam: Reset displays brings back its displays and door camera, and Factory reset brings back all of its settings. Use default displays now keeps the lower display the aircraft comes with, so the door camera stays on it.",
+        "The iniBuilds A350 now shows its door camera on its VIDEO key, like the A380s, inside the system page. Already set up? Reset displays in Saved aircraft picks this up.",
+        "The door camera now answers its cockpit button sooner: Taxi Cam checks the button every 50 ms instead of every 200 ms, and shows PLEASE WAIT for a moment, like it does for the taxi cameras, before the picture appears."
+      ]
+    },
+    {
+      "version": "1.3.2",
+      "date": "2026-11-03",
+      "features": [
+        {
+          "title": "Every display recognised by name",
+          "text": "As the flight loads, each cockpit display shows a tiny code for a moment: the small coloured square in its top-right corner. It carries the display's name, so Taxi Cam can tell which screen is which, then it's gone. After updating, some aircraft need their displays chosen once more: Taxi Cam asks, takes you to Displays and keeps your choice.",
+          "image": "docs/whats-new/1.3.2/panel-marks.jpg"
+        },
+        {
+          "title": "All your aircraft in one list",
+          "text": "Saved aircraft on Overview now shows every aircraft in one place: the ones that come with Taxi Cam and the ones you set up yourself. Change any of them in Setup, and copy or remove the ones you set up.",
+          "image": "docs/whats-new/1.3.2/saved-aircraft.png"
+        }
+      ],
+      "fixes": [
+        "Taxi cameras now stream in GlassOut on every aircraft: a cockpit display showing a camera streams like any other panel, even after you move its camera area.",
+        "The iniBuilds A340-300's displays are found again, and its display panel can be placed in Displays.",
+        "The cameras now pause only in outside camera views, such as chase, drone, fixed and showcase. Other views the simulator reports, like an unusual one after a flight loads, no longer pause them.",
+        "Resizing a display's camera area during a flight now waits for the cameras' new pictures instead of giving up on them, and Taxi Cam asks for the cameras again if they have to be set up afresh.",
+        "The camera picture now stays steady on the cockpit displays: the aircraft's own display no longer flickers through it now and then.",
+        "The connection heading on Overview now fits while Taxi Cam waits for the cockpit displays, instead of being cut off."
+      ]
+    },
+    {
+      "version": "1.3.1",
+      "date": "2026-11-03",
+      "fixes": [
+        "Setup now sets up the aircraft you have loaded. An aircraft without a profile was set up as the last one you used, such as the FlyByWire A380X, so its changes never saved.",
+        "Setup → Displays now names and shows every display of the FSLabs A321 correctly, so its PFDs, NDs and ECAMs are easy to find.",
+        "Placing a display in Setup now saves it straight away and shows its camera there, so you can see the cameras before going on. On an aircraft you set up, that starts once both PFDs are placed. A display placed while the cameras restart is no longer lost.",
+        "A new ↔ button between the Left and Right PFDs swaps them in one click.",
+        "The door camera now shows on the lower display of an aircraft you set up, even if you placed that display last.",
+        "The camera adjustment window now previews every display of an aircraft you set up, the door camera on its own, and says when a camera picture is still loading. Closing it turns the previews off again.",
+        "Every change now saves by itself, so Save changes is gone. Undo changes in the camera adjustment window still takes you back to where you started."
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-11-02",
+      "features": [
+        {
+          "title": "Door camera",
+          "text": "See into the cabin from the flight deck, as a live feed or a snapshot: your choice. Every aircraft now has a door camera, the PMDG 777 included, on a cockpit display of its own (the lower one by default). Ctrl + Shift + E, a controller button or a cockpit switch with an L:var toggles it. Both A380s and the iniBuilds A340-300 show it on their VIDEO button, and the Fenix A320 after a quick Setup.",
+          "image": "docs/whats-new/1.3.0/door-camera.jpg"
+        },
+        {
+          "title": "Make the door camera yours",
+          "text": "Setup → Door camera puts it on the display you want, as a fresh picture each time it turns on (Snapshot) or a live feed (Live). Aim it in the live view, then place it anywhere on the display at any shape you like: the camera renders at that shape. On the A380s and A350s the lower display can be any cockpit panel, an MFD included.",
+          "image": "docs/whats-new/1.3.0/door-camera-setup.png"
+        },
+        {
+          "title": "A real camera look",
+          "text": "The cameras now look like real cameras, with film grain and darker edges on every one. Prefer a clean picture, or classic black and white? The two icons at the top right of each camera's picture in Setup switch grain and colour, as on this iniBuilds A380 VIDEO page, and your choice is saved for each aircraft.",
+          "image": "docs/whats-new/1.3.0/camera-look.jpg"
+        },
+        {
+          "title": "Guided setup",
+          "text": "Settings is simpler. Overview shows at a glance how the cameras are doing, with quick controls, and Setup walks you through three steps: Displays, Taxi cameras and Door camera, each with the controls that turn its cameras on. Select or drag a display's picture to place it. Exact values are still there under Advanced, and Display is now called Options.",
+          "image": "docs/whats-new/1.3.0/guided-setup.png"
+        },
+        {
+          "title": "Taxi Cam in your language",
+          "text": "The tray menu and Settings now speak German, Spanish, French and Simplified Chinese (thanks to JCH2333), following your Windows display language. Want a different one? Pick it under Language in the tray menu or Settings → Menu. Know a better wording? Suggest it on GitHub and help polish the translations.",
+          "image": "docs/whats-new/1.3.0/language.png"
+        },
+        {
+          "title": "Use your cockpit switches",
+          "text": "Cockpit switches with an L:var can now run any camera action, for each aircraft. In Setup → Taxi cameras or Door camera, type the switch's L:var and pick Momentary (each press), Latched (on while set) or Equals (on at a value, such as 16 for INI_ECAM_ACTIVE_PAGE, the iniBuilds A380's VIDEO page). Ideal for aircraft whose TAXI buttons Taxi Cam doesn't know yet."
+        },
+        {
+          "title": "Easier bug reports",
+          "text": "Found a problem? The bug icon now fills in the GitHub form for you with your MSFS version, aircraft, Windows, graphics card and MSFS graphics options. It also saves a report file with your logs and settings, your Windows user and computer names removed: just drag it from File Explorer into the form's Logs box."
+        }
+      ],
+      "fixes": [
+        "Setup → Displays now lists every cockpit display on built-in aircraft, not just the ones the size of their PFDs.",
+        "On built-in and set-up aircraft, displays now keep their pictures and names when the aircraft swaps its display textures mid-flight, as the FlyByWire A380X does after loading.",
+        "Dragging in the live view now turns the camera the way you drag, just like the simulator's mouse look.",
+        "Taxi Cam no longer makes one of the simulator's graphics queues wait for unfinished work from another, except on frames where it captures a camera picture. This targets the multi-second freezes reported on the PMDG 777.",
+        "If the simulator keeps stalling, the cameras now switch off and stay off instead of flickering on and off, and Taxi Cam tells you. Turn them off and on again to retry.",
+        "The cameras now pause while you're in an outside view, where the cockpit displays can't be seen, and pick up again as soon as you're back in the cockpit.",
+        "The First camera only setting, which stopped the cameras from starting, is gone. If you had it on, your cameras now start as normal.",
+        "When the simulator starts Taxi Cam, Taxi Cam now closes shortly after the simulator does, so Steam no longer shows the simulator as still running. Unsaved Settings changes are discarded when it closes.",
+        "The frames-stalled warning no longer pops up while the cameras are off, such as while a flight loads or the simulator quits."
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-11-01",
+      "features": [
+        {
+          "title": "Set up any aircraft",
+          "text": "An aircraft without a Taxi Cam profile gets Set up this aircraft on Overview: pick each camera's display from pictures of the cockpit panels (Test in cockpit shows which screen a pick is), then position the cameras. Each variant, such as the Fenix A320 and A321, is saved separately; Overview → Set-up aircraft copies or removes them.",
+          "image": "docs/whats-new/1.2.0/aircraft-setup.png"
+        },
+        {
+          "title": "Adjust the cameras live",
+          "text": "Camera views → Adjust with live view shows the cameras on the display as you change them: drag to aim, the wheel zooms, and the guides drag into place. The left and right tail guides can now differ. Changes save when the window closes; Undo changes returns to the saved ones.",
+          "image": "docs/whats-new/1.2.0/live-view.png"
+        },
+        {
+          "title": "Your choice of displays",
+          "text": "Overview → Change displays picks other cockpit panels for built-in aircraft too. In the live view, Display area moves or resizes where the cameras are drawn, and the cameras render at the area's shape, so nothing is stretched.",
+          "image": "docs/whats-new/1.2.0/display-area.png"
+        },
+        {
+          "title": "What's new, reworked",
+          "text": "What's new opens by itself after an update, with new features and fixes in their own sections. Settings lists its pages in the order you use them: Overview, PFD routing, then Camera views."
+        }
+      ]
+    },
+    {
+      "version": "1.1.3",
+      "date": "2026-10-31",
+      "changes": [
+        "Displays are found by their cockpit panel names again after the latest simulator update. Taxi Cam now locates the panel table in whichever simulator build is running instead of one fixed build, so each camera goes to the right display on the FlyByWire and iniBuilds A380, iniBuilds A350, PMDG 777 and Aerosoft A340-600."
+      ]
+    },
+    {
+      "version": "1.1.2",
+      "date": "2026-10-07",
+      "changes": [
+        "Display: the camera frame rate is now Auto (new default: 1, 2 or every camera on each frame), Performance (10 fps), Balanced (15), Smooth (30) or Custom (5–60), and each camera gets that rate when the simulator can draw it. The cameras take turns so every frame carries the same camera work, keeping the main view smooth. Parked cameras keep the rate. Dynamic tail rate is gone.",
+        "How Auto works: it starts with one camera on each frame and adds more while the simulator stays within about 10% of its frame rate without the cameras (never below 20 fps), stepping back within seconds when the frame rate drops. Busy airports cost more. Pick Performance for the lowest cost, Smooth to see every camera on every frame, or Custom to set your own rate."
+      ]
+    },
+    {
+      "version": "1.1.1",
+      "date": "2026-10-05",
+      "changes": [
+        "Performance: much smoother taxiing with the cameras on. Taxi Cam does far less work on the simulator's threads, the cameras start faster, camera views draw only nearby sun shadows, and an occasionally missing third camera picture on the PMDG 777 is fixed."
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-10-04",
+      "changes": [
+        "Displays are now found by their cockpit panel names on the FlyByWire A380, iniBuilds A380, iniBuilds A350, PMDG 777 and Aerosoft A340-600, so each camera goes to the right display every flight, also after switching aircraft and when the aircraft recreates a display. Other aircraft keep automatic detection.",
+        "PFD routing: the texture lists are replaced by cards showing a picture of each display texture with its panel name. Choose Left or Right on a card; select a picture to see it full size. Assigned displays shows each camera's screen and whether it was named, detected or chosen; Automatic goes back to automatic routing.",
+        "Overview: new Cockpit displays cards show the screen each camera draws on. The camera frame rate setting is now only on the Display page.",
+        "Swap left / right now also swaps displays that were found automatically.",
+        "PMDG 777-200LR: new aircraft profile. It uses the same cameras, displays and CAM button as the other PMDG 777 variants, with the 777-200ER camera positions to start with. Not yet tested in the simulator.",
+        "PMDG 777: the camera pictures are no longer washed out in daylight. The 777 now uses the main view's exposure and tone curve like every other aircraft, day and night, instead of its own display brightness model, so lighting add-ons and HDR affect it the same way.",
+        "New: Display → Daytime brightness and Night brightness make the camera pictures brighter or darker than the main view, from −4 to +2 EV, separately for each aircraft. Leave them at 0 to match the main view."
+      ]
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-10-03",
+      "changes": [
+        "PMDG 777: the camera pictures are no longer almost white in daylight. The display cannot shine as brightly as sunlit ground, so by day Taxi Cam now fits the picture into the display's brightness range. Night pictures are unchanged."
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-03",
+      "changes": [
+        "Taxi Cam 1.0: the camera views now look like the main view, with the real weather, the simulator's lighting and its runway and taxiway lights.",
+        "Weather: the camera views show the current sky, clouds and haze, and draw as far as the main view at every speed.",
+        "Lighting: the camera views always use the main view's exposure, tone curve and bloom, day and night.",
+        "Lights: runway, taxiway and other lights now appear in the camera views like the main view and stay steady while taxiing.",
+        "Lights: distant lights are no longer hidden behind haze that is not there.",
+        "PMDG 777: the navigation display is found automatically again after a flight loads.",
+        "The PLEASE WAIT page no longer flashes up at random while parked.",
+        "Removed: the Exposure, Automatic exposure and Night boost settings, now that the camera views use the main view's lighting.",
+        "Setup, the uninstaller and the update check no longer run Windows PowerShell. Some antivirus programs, including Microsoft Defender, reported the 0.9.50 installer as a threat because it started hidden PowerShell scripts. Taxi Cam now does this work itself, and Windows PowerShell is no longer required.",
+        "Setup still keeps your settings, calibration and other programs' startup entries in exe.xml, and still falls back to starting Taxi Cam from the Start menu when it cannot safely change exe.xml.",
+        "Setup can now start Taxi Cam when it finishes, including after an update. Clear Launch Taxi Cam on the last page to skip it."
+      ]
+    },
+    {
+      "version": "0.9.50",
+      "date": "2026-10-01",
+      "changes": [
+        "When camera images are ready but another graphics hook, such as ReShade or an overlay, stops Taxi Cam drawing on the PFDs, the status now names that hook's DLL instead of waiting indefinitely. bridge.log records the same DLL name when the simulator starts, so include it in bug reports.",
+        "A single unreadable camera position from the simulator no longer restarts the cameras and makes them find the displays again. Taxi Cam keeps the last good position and restarts only if the simulator keeps reporting unreadable positions for a second.",
+        "Changed: the cameras no longer switch off above 60 knots, and Taxi Cam no longer turns the TAXI buttons off. Turn them off yourself when you no longer need them.",
+        "New: above 60 knots the camera views draw as far as the main view, so the ground stays in view after take-off. While taxiing they keep their shorter 1,000 m draw distance.",
+        "The cameras keep working for the whole flight. Before, they stopped about 10 km after departure.",
+        "When an aircraft recreates one of its cockpit displays mid-flight (the PMDG 777 did this repeatedly, both the inboard and the lower display), Taxi Cam switches to the new display straight away instead of re-detecting it from scratch, and without showing PLEASE WAIT again. This applies to every aircraft.",
+        "The cameras stay fixed to the aircraft at speed on every aircraft. Before, they trailed it slightly and jumped back and forth, also while taxiing; on the iniBuilds A350 the tail camera showed the fin after take-off. Taxi Cam now attaches its cameras to the aircraft in the simulator's scene, so the simulator itself moves them with the aircraft in every frame it draws.",
+        "Setup can now turn on automatic startup when MSFS is installed from the Microsoft Store on a drive other than C:. Windows protects the simulator's startup file there, and Setup previously stopped with \"access denied\" and left Taxi Cam to be started from the Start menu. Run Setup again to turn on automatic startup.",
+        "PMDG 777: the camera page now looks more like the real aircraft. The nose picture is shorter, the left and right wing pictures are taller, and the dividers and black frames are thinner. Check your wing camera framing, because the wing pictures are now taller than they are wide."
+      ]
+    },
+    {
+      "version": "0.9.47",
+      "date": "2026-09-27",
+      "changes": [
+        "New: assign a joystick, throttle, button box or gamepad button to the Left, Right, Both and SD camera actions. In Overview > Flight-deck control, select Shortcuts and buttons…, then Set button beside an action and press and release the button. Switches that are held on or off, such as throttle engine masters, are not picked up or treated as presses. Buttons work while Taxi Cam is hidden.",
+        "MSFS also receives controller buttons, so use buttons that have no assignment in the simulator."
+      ]
+    },
+    {
+      "version": "0.9.46",
+      "date": "2026-09-26",
+      "changes": [
+        "While the aircraft is parked, the cameras refresh twice a second, so at busy airports far fewer frames carry an extra camera view at the gate. They return to your camera frame rate as soon as the aircraft moves. Profiles that still hold the previous parked value of 5 change to 2 once; parked_rate in the profile file accepts 1 to 60, and 0 turns this off.",
+        "New option, off by default: Diagnostics > Dynamic tail rate lets the tail camera skip every other update while rolling straight on a slow simulator (below about 24 fps), so fewer frames carry an extra view. In turns, and on faster simulators, both cameras update equally.",
+        "Taxi Cam does less work on the simulator's threads. Its hooks no longer make the simulator's threads wait on each other while the cameras are off, which could cause occasional frame hitches, and each camera update does less work on the main thread.",
+        "Taxi Cam now reuses the capture memory of each camera instead of recreating it when the nose and tail cameras, which differ in size, take turns. While its background thread holds a lock the simulator's threads wait on, Windows now gives it priority so it is not paused mid-way. Both could cause occasional hitches of a few milliseconds.",
+        "Each camera update reads the aircraft's position with fewer Windows memory calls on the simulator's main thread. This lowers Taxi Cam's main-thread time and the chance of a brief main-thread spike while the simulator streams scenery.",
+        "Taxi Cam now finds your aircraft in the simulator's memory about once a second instead of on every camera update. Every update still checks the aircraft's model position and compares it with the simulator's reported position, and any mismatch finds the aircraft again straight away. This removes about a third of the memory reads behind each camera update.",
+        "Fixed a slowdown that could start when the camera display turned on and last for the rest of the flight. Taxi Cam's quick check for draws into camera images could mistake one of the simulator's own busy render targets for a camera image, and then took a shared lock on every draw into it. The check is now exact."
+      ]
+    },
+    {
+      "version": "0.9.45",
+      "date": "2026-09-25",
+      "changes": [
+        "On aircraft that draw their displays in sRGB, such as the iniBuilds A350, camera colours are no longer encoded a second time, which brightened the shadows. The camera picture may look darker than before; recheck the exposure settings on the Display page. Ground-speed, guide and divider colours are unchanged."
+      ]
+    },
+    {
+      "version": "0.9.44",
+      "date": "2026-09-23",
+      "changes": [
+        "New iniBuilds A340-300 profile, showing the cameras on both PFDs and the lower ECAM. The aircraft has no camera control, so use Ctrl + Shift + L / R / B / D or the previews.",
+        "For an aircraft Taxi Cam does not support yet, bridge.log now records its identity and display texture sizes, so a bug report is enough to start adding it."
+      ]
+    },
+    {
+      "version": "0.9.43",
+      "date": "2026-09-23",
+      "changes": [
+        "Fixed cameras staying off for the rest of the flight after a graphics settings change on aircraft with two camera feeds, such as the iniBuilds A380.",
+        "After a graphics settings change, the cameras wait for the simulator's camera output to settle with much less work on the simulator's main thread. If it takes more than a few seconds, the status says so, and the cameras resume on their own once the output settles."
+      ]
+    },
+    {
+      "version": "0.9.42",
+      "date": "2026-09-23",
+      "changes": [
+        "PMDG 777: the cockpit CAM button now shows the cameras. Select L INBD, R INBD or LWR CTR, then press CAM; press CAM again with that display selected to turn it off. PMDG's data broadcast setting is not needed.",
+        "PMDG 777: the cameras can also show on the lower DU. Choose its texture under LOWER DU TEXTURE in PFD routing if they appear on the wrong screen.",
+        "PMDG 777: Ctrl + Shift + L / R / B / D and the previews add displays without turning the CAM button off.",
+        "Calibration on the PMDG 777 and A340-600 now lights only the selected display."
+      ]
+    },
+    {
+      "version": "0.9.41",
+      "date": "2026-09-23",
+      "changes": [
+        "New Aerosoft A340-600 profile, showing the cameras on both PFDs and the lower ECAM, controlled by the CAM CAPT, CAM F/O and CAM SD selectors.",
+        "Ctrl + Shift + D toggles the A340-600 lower ECAM camera. Both still toggles only the pilot displays.",
+        "Displays show a black PLEASE WAIT page while their cameras start or when the camera image stops updating. It is white on the PMDG 777.",
+        "Choosing the display texture by hand on the PMDG 777 now routes it to both navigation displays."
+      ]
+    },
+    {
+      "version": "0.9.39",
+      "date": "2026-09-23",
+      "changes": [
+        "A What's new link in the companion shows these notes once after each update."
+      ]
+    },
+    {
+      "version": "0.9.38",
+      "date": "2026-09-23",
+      "changes": [
+        "Lower CPU cost in the bridge's simulator hooks and main-thread camera inspection."
+      ]
+    },
+    {
+      "version": "0.9.37",
+      "date": "2026-09-23",
+      "changes": [
+        "The camera pair is kept through arrival recalibration instead of being recreated."
+      ]
+    },
+    {
+      "version": "0.9.36",
+      "date": "2026-09-22",
+      "changes": [
+        "Arrival recalibration can complete while taxiing."
+      ]
+    },
+    {
+      "version": "0.9.33",
+      "date": "2026-09-22",
+      "changes": [
+        "Cameras recalibrate and are recreated when the aircraft moves outside the local radius."
+      ]
+    },
+    {
+      "version": "0.9.30",
+      "date": "2026-09-22",
+      "changes": [
+        "New PMDG 777 profile, showing the cameras on the navigation display."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1690 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include "body_pose_provider.hpp"
+#include <windows.h>
+#include <array>
+#include <atomic>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cwchar>
+#include <utility>
+#include "../profiles/catalog.hpp"
+#include "../shared/panel_marks.hpp"
+#include "body_pose_math.hpp"
+#include "pmdg_display_select.hpp"
+
+namespace taxi_camera::native_camera {
+namespace {
+using Open = HRESULT(WINAPI*)(HANDLE*, const char*, HWND, DWORD, HANDLE, DWORD);
+using Close = HRESULT(WINAPI*)(HANDLE);
+using Define = HRESULT(WINAPI*)(HANDLE, DWORD, const char*, const char*, DWORD, float, DWORD);
+using Request = HRESULT(WINAPI*)(HANDLE, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD);
+using Dispatch = HRESULT(WINAPI*)(HANDLE, void**, DWORD*);
+using SystemState = HRESULT(WINAPI*)(HANDLE, DWORD, const char*);
+using Subscribe = HRESULT(WINAPI*)(HANDLE, DWORD, const char*);
+// https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/events-and-data/simconnect_subscribetoflowevent/
+using SubscribeFlow = HRESULT(WINAPI*)(HANDLE);
+using CameraGet = HRESULT(WINAPI*)(HANDLE, DWORD);
+using LastPacket = HRESULT(WINAPI*)(HANDLE, DWORD*);
+using MapEvent = HRESULT(WINAPI*)(HANDLE, DWORD, const char*);
+using SetData = HRESULT(WINAPI*)(HANDLE, DWORD, DWORD, DWORD, DWORD, DWORD, void*);
+using TransmitEvent = HRESULT(WINAPI*)(HANDLE, DWORD, DWORD, DWORD, DWORD, DWORD);
+using ClearDefinition = HRESULT(WINAPI*)(HANDLE, DWORD);
+// Public SDK SIMCONNECT_DATA_CAMERA is packed: XYZ24, references/object IDs,
+// XYZ24, FLOAT32 PBH12, references/object IDs, FOVdouble. Confirmed current
+// 1.8.16.0 CameraGet response ID40, total96 bytes, including SIMCONNECT_RECV12.
+#pragma pack(push, 1)
+struct CameraData {
+  double position[3];
+  DWORD position_reference, position_object;
+  double target[3];
+  float pbh[3];
+  DWORD rotation_reference, rotation_object;
+  double fov;
+};
+#pragma pack(pop)
+static_assert(sizeof(CameraData) == 84);
+static_assert(offsetof(CameraData, fov) == 76);
+struct AircraftData {
+  body_math::Telemetry pose;
+  double ground_speed_knots;
+};
+static_assert(sizeof(AircraftData) == 56);
+static_assert(offsetof(AircraftData, ground_speed_knots) == 48);
+struct State {
+  SRWLOCK lock = SRWLOCK_INIT;
+  HANDLE worker = nullptr, stop = nullptr;
+  body_math::Telemetry aircraft{};
+  CameraData camera{};
+  std::uint64_t aircraft_ms = 0, camera_ms = 0;
+  // Unbroken run of invalid WORLD camera responses since the last valid one.
+  std::uint64_t invalid_camera_first_ms = 0;
+  unsigned invalid_camera_samples = 0;
+  BodyTelemetryTiming timing{};
+  double ground_speed_knots = 0;
+  std::uint64_t ground_speed_ms = 0;
+  const char* ground_speed_error = "not_initialized";
+  bool on_ground = false;
+  std::uint64_t on_ground_ms = 0;
+  const char* on_ground_error = "not_initialized";
+  unsigned camera_state = 0;
+  std::uint64_t camera_state_ms = 0;
+  const char* camera_state_error = "not_initialized";
+  bool taxi_left = false, taxi_right = false, taxi_sd = false;
+  PmdgDisplaySelect pmdg_dsp;
+  AircraftIdentityCache identity;
+  AircraftSessionLifecycle aircraft_session;
+  bool flow_subscribed = false;
+  const char* flow_error = "flow_not_subscribed";
+  std::uint64_t taxi_ms = 0;
+  const char* taxi_error = "not_initialized";
+  TaxiButtonCommand button_commands;
+  double ambient = 0, brightness = 0;
+  std::uint64_t lighting_ms = 0;
+  const char* lighting_error = "not_initialized";
+  // User L:var bindings. The control loop sets the names and lvar_request
+  // counts each change; lvar_restart asks for a new stream after a flight
+  // change. The worker streams them on definition lvar_define, 20 or 21 in
+  // turn, so a late packet for the previous names is never read as these.
+  standalone::LvarBindings lvar_names{};
+  std::uint32_t lvar_request = 0;
+  bool lvar_restart = false;
+  std::uint32_t lvar_generation = 0, lvar_stream = 0;  // lvar_stream: the running generation, 0 for none.
+  DWORD lvar_define = 0;
+  unsigned lvar_count = 0;
+  std::array<std::uint8_t, standalone::LvarBindingCount> lvar_slots{};  // Packet value index to binding.
+  // Each binding's trigger when the stream was subscribed: a changed trigger
+  // takes effect with the next stream, not on this one's packets.
+  std::array<std::uint32_t, standalone::LvarBindingCount> lvar_triggers{};
+  std::array<bool, standalone::LvarBindingCount> lvar_was_on{};
+  standalone::LvarBindingStates lvar{};
+  const char* lvar_error = "not_initialized";
+  bool calibrated = false;
+  double correction = 0;
+  Vector3 calibration_origin{};
+  unsigned calibration_samples = 0;
+  std::uint64_t calibration_camera_ms = 0;
+  double candidate_correction = 0;
+  // Altitudes only: taxiing moves both cameras horizontally between responses.
+  double candidate_private_altitude = 0, candidate_public_altitude = 0;
+  const char* error = "not_initialized";
+};
+State state;
+std::atomic<std::uint32_t> profile_id{1};
+// The profile the worker started with, bound under the lifecycle lock. A
+// set-up aircraft keeps its id when its layout changes, so a new layout needs
+// a new worker too.
+std::atomic<const profiles::AircraftProfile*> worker_profile{};
+std::atomic<std::uint64_t> session_epoch{0};
+// The value for L:TAXICAM_MARKS (signal_panel_marks_read/show), 0 for none yet.
+std::atomic<std::int64_t> panel_marks_signal{0};
+constexpr DWORD PanelMarksDefine = 30;
+// Bit0: callback notification; bit1: reset serviced. Fresh telemetry is needed
+// before returning to0. Repeated invalid samples cannot churn epochs.
+std::atomic<unsigned> invalid_world{0};
+SRWLOCK lifecycle = SRWLOCK_INIT;
+// Last complete readiness a nonblocking reader observed. Only readers write it,
+// never the telemetry worker, so waiting on this lock costs a copy of the
+// struct and can never park a simulator thread behind an SDK call.
+struct ReadinessCache {
+  SRWLOCK lock = SRWLOCK_INIT;
+  AircraftSessionReadiness value{};
+  std::uint64_t sampled_ms = 0;
+};
+ReadinessCache readiness_cache;
+bool fresh(std::uint64_t sample, std::uint64_t now) noexcept;
+void reset_session_locked() noexcept {
+  state.identity = {};
+  state.aircraft_ms = state.camera_ms = state.ground_speed_ms = state.taxi_ms = state.lighting_ms = 0;
+  state.invalid_camera_first_ms = 0;
+  state.invalid_camera_samples = 0;
+  state.on_ground_ms = 0;
+  state.on_ground_error = "aircraft_session_changed";
+  state.camera_state_ms = 0;
+  state.camera_state_error = "aircraft_session_changed";
+  state.timing.last_sample_ms = state.timing.last_interval_ms = 0;
+  state.taxi_left = state.taxi_right = state.taxi_sd = false;
+  state.pmdg_dsp.reset();
+  state.button_commands.reset_session();
+  // The new aircraft's first values start a new stream rather than reading as presses.
+  state.lvar_restart = true;
+  state.calibrated = false;
+  state.calibration_samples = 0;
+  state.calibration_camera_ms = 0;
+  state.error = state.ground_speed_error = state.taxi_error = state.lighting_error = "aircraft_session_changed";
+}
+bool accept_session_packet(const void* raw, DWORD bytes) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  const bool changed = state.aircraft_session.accept(raw, bytes);
+  if (changed || !state.aircraft_session.running())
+    reset_session_locked();
+  session_epoch.store(state.aircraft_session.epoch(), std::memory_order_release);
+  ReleaseSRWLockExclusive(&state.lock);
+  return changed;
+}
+bool session_reconnect_required(bool invalidated) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  // A legacy Sim-stop can precede FLOW_END. Keep listening so closing the
+  // connection cannot discard the event that establishes the persistent latch.
+  const bool reconnect = invalidated && state.aircraft_session.running() && !state.aircraft_session.loading();
+  ReleaseSRWLockShared(&state.lock);
+  return reconnect;
+}
+bool accept_identity_packet(const void* raw, DWORD bytes, std::uint64_t now) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  const auto before = state.identity.sample(now);
+  const bool accepted = state.identity.accept(raw, bytes, now);
+  const auto after = state.identity.sample(now);
+  const bool changed = accepted && before.sample_ms && after.sample_ms != before.sample_ms &&
+                       (std::strcmp(before.type.data(), after.type.data()) || std::strcmp(before.path.data(), after.path.data()));
+  if (changed) {
+    state.aircraft_session.changed();
+    reset_session_locked();
+    session_epoch.store(state.aircraft_session.epoch(), std::memory_order_release);
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return changed;
+}
+void service_world_invalidation() noexcept {
+  // Runs on every worker wake. Without a notice the section below changes
+  // nothing, so skip its exclusive hold. A notice set after this load waits
+  // for the next call, as one set after the locked load did.
+  if (!(invalid_world.load(std::memory_order_acquire) & 1u))
+    return;
+  AcquireSRWLockExclusive(&state.lock);
+  auto pending = invalid_world.load(std::memory_order_acquire);
+  if ((pending & 1u) && invalid_world.compare_exchange_strong(pending, 2, std::memory_order_acq_rel)) {
+    if (!(pending & 2u) && !state.aircraft_session.loading())
+      state.aircraft_session.changed();
+    reset_session_locked();
+    state.error = "camera_world_values";
+    session_epoch.store(state.aircraft_session.epoch(), std::memory_order_release);
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+}
+AircraftSessionReadiness readiness_locked(std::uint64_t now) noexcept {
+  AircraftSessionReadiness out;
+  out.epoch = state.aircraft_session.epoch();
+  out.flow_subscribed = state.flow_subscribed;
+  out.last_flow_event = state.aircraft_session.last_flow_event();
+  out.paused = state.aircraft_session.paused();
+  const auto pending = invalid_world.load(std::memory_order_acquire);
+  out.loading = state.aircraft_session.loading() || pending != 0;
+  const auto identity = state.identity.sample(now);
+  const bool telemetry = identity.fresh && identity.detected_profile && fresh(state.aircraft_ms, now) && fresh(state.camera_ms, now);
+  out.flight_loaded = !state.aircraft_session.loading() && state.aircraft_session.running() && !(pending & 1u) && identity.fresh &&
+                      fresh(state.aircraft_ms, now) && fresh(state.camera_ms, now);
+  out.ready = !state.aircraft_session.loading() && state.aircraft_session.running() && !(pending & 1u) && telemetry;
+  if (out.ready && pending == 2) {
+    unsigned serviced = 2;
+    out.ready = invalid_world.compare_exchange_strong(serviced, 0, std::memory_order_acq_rel) || serviced == 0;
+    out.loading = !out.ready;
+  }
+  out.error = state.aircraft_session.loading()             ? "aircraft_session_loading"
+              : out.loading                                ? "camera_world_revalidation"
+              : !state.aircraft_session.running()          ? "simulator_stopped"
+              : !telemetry && state.invalid_camera_samples ? "camera_world_values_pending"
+              : !telemetry                                 ? "aircraft_session_telemetry_pending"
+                                                           : state.flow_error;
+  return out;
+}
+bool accept_camera_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  if (!raw || bytes != 96 || !sample_ms)
+    return false;
+  std::array<DWORD, 3> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  if (header[0] != bytes || (header[2] != 40 && header[2] != 41))
+    return false;
+  CameraData value{};
+  std::memcpy(&value, static_cast<const unsigned char*>(raw) + 12, sizeof(value));
+  const bool valid = value.position_reference == 2 && std::isfinite(value.fov) && value.fov > 0 && value.fov < 3.2 &&
+                     std::isfinite(value.position[0]) && std::isfinite(value.position[1]) && std::isfinite(value.position[2]) &&
+                     std::abs(value.position[0]) <= 90 && std::abs(value.position[1]) <= 180 && std::abs(value.position[2]) <= 100000;
+  AcquireSRWLockExclusive(&state.lock);
+  bool reset = false;
+  if (valid) {
+    state.camera = value;
+    state.camera_ms = sample_ms;
+    state.invalid_camera_first_ms = 0;
+    state.invalid_camera_samples = 0;
+  } else {
+    // Keep the last valid sample; it ages out on its own freshness bound.
+    if (!state.invalid_camera_samples || sample_ms < state.invalid_camera_first_ms)
+      state.invalid_camera_first_ms = sample_ms;
+    if (state.invalid_camera_samples < InvalidCameraWorldResetSamples)
+      ++state.invalid_camera_samples;
+    reset = state.invalid_camera_samples >= InvalidCameraWorldResetSamples &&
+            sample_ms - state.invalid_camera_first_ms >= InvalidCameraWorldResetMs;
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  if (reset) {
+    notify_invalid_camera_world();
+    service_world_invalidation();
+  }
+  return true;
+}
+void on_ground_failure(const char* text) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.on_ground_ms = 0;
+  state.on_ground_error = text;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+bool accept_on_ground_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  if (!raw || bytes != 48 || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  if (header[0] != bytes || header[2] != 8 || header[3] != 7 || header[5] != 7 || header[6] != 0 || header[9] != 1)
+    return false;
+  double value{};
+  std::memcpy(&value, static_cast<const unsigned char*>(raw) + 40, sizeof(value));
+  AcquireSRWLockExclusive(&state.lock);
+  if (value == 0 || value == 1) {
+    state.on_ground = value == 1;
+    state.on_ground_ms = sample_ms;
+    state.on_ground_error = "";
+  } else {
+    state.on_ground_ms = 0;
+    state.on_ground_error = "on_ground_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+void camera_state_failure(const char* text) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.camera_state_ms = 0;
+  state.camera_state_error = text;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+// Request and definition 9: one FLOAT64 CAMERA STATE, same layout as SIM ON GROUND.
+bool accept_camera_state_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  if (!raw || bytes != 48 || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  if (header[0] != bytes || header[2] != 8 || header[3] != 9 || header[5] != 9 || header[6] != 0 || header[9] != 1)
+    return false;
+  double value{};
+  std::memcpy(&value, static_cast<const unsigned char*>(raw) + 40, sizeof(value));
+  AcquireSRWLockExclusive(&state.lock);
+  // A whole enum value. The documented list ends at 33; a larger value is kept
+  // too, as some camera that is not the cockpit.
+  if (std::isfinite(value) && value >= 0 && value <= 255 && value == std::floor(value)) {
+    state.camera_state = static_cast<unsigned>(value);
+    state.camera_state_ms = sample_ms;
+    state.camera_state_error = "";
+  } else {
+    state.camera_state_ms = 0;
+    state.camera_state_error = "camera_state_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+void lighting_failure(const char* text) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.lighting_ms = 0;
+  state.lighting_error = text;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+void taxi_failure(const char* text) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.taxi_ms = 0;
+  state.taxi_error = text;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+void failure(const char* text, bool invalidate_ground_speed = true) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.error = text;
+  state.aircraft_ms = 0;
+  state.camera_ms = 0;
+  if (invalidate_ground_speed) {
+    state.on_ground_ms = 0;
+    state.on_ground_error = text;
+    state.camera_state_ms = 0;
+    state.camera_state_error = text;
+    state.ground_speed_ms = 0;
+    state.ground_speed_error = text;
+    state.taxi_ms = 0;
+    state.taxi_error = text;
+    state.lighting_ms = 0;
+    state.lighting_error = text;
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+}
+bool accept_aircraft_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  if (!raw || bytes < 40 || bytes > 65536 || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  constexpr DWORD PacketBytes = 40 + sizeof(AircraftData);
+  // SIMCONNECT_OBJECT_ID_USER(0) is the request alias. The response identifies
+  // the actual aircraft object (observed2883584), so correlate our dedicated
+  // request/definition IDs rather than requiring a zero returned object ID.
+  if (header[2] != 8 || header[0] != PacketBytes || bytes < PacketBytes || header[3] != 1 || header[5] != 1 || header[6] != 0 ||
+      header[9] != 7)
+    return false;
+  AircraftData value{};
+  std::memcpy(&value, static_cast<const unsigned char*>(raw) + 40, sizeof(value));
+  const bool pose_valid = body_math::valid(value.pose);
+  const bool speed_valid = std::isfinite(value.ground_speed_knots) && value.ground_speed_knots >= 0 && value.ground_speed_knots <= 2000;
+  AcquireSRWLockExclusive(&state.lock);
+  if (pose_valid) {
+    if (state.timing.accepted_samples != std::numeric_limits<std::uint64_t>::max())
+      ++state.timing.accepted_samples;
+    state.timing.last_interval_ms =
+        state.timing.last_sample_ms && sample_ms >= state.timing.last_sample_ms ? sample_ms - state.timing.last_sample_ms : 0;
+    state.timing.last_sample_ms = sample_ms;
+    state.aircraft = value.pose;
+    state.aircraft_ms = sample_ms;
+    state.error = "";
+  } else {
+    state.aircraft_ms = state.camera_ms = 0;
+    state.error = "aircraft_values";
+  }
+  // Independent validity: a camera calibration or pose failure must not turn
+  // an otherwise current public groundspeed into a fabricated zero.
+  if (speed_valid) {
+    state.ground_speed_knots = value.ground_speed_knots;
+    state.ground_speed_ms = sample_ms;
+    state.ground_speed_error = "";
+  } else {
+    state.ground_speed_ms = 0;
+    state.ground_speed_error = "ground_speed_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+bool accept_taxi_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms, unsigned sides) noexcept {
+  // Definition3 is deliberately separate from the existing seven-field body
+  // packet. USER(0) is a request alias, not the returned aircraft object ID.
+  // One FLOAT64 latch per TAXI button (profiles::taxi_latches), not per
+  // display: 56 bytes for two, 64 for three.
+  const DWORD expected = 40 + 8 * sides;
+  if (!raw || sides < 2 || sides > MaxDisplaySides || bytes != expected || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  if (header[0] != expected || header[2] != 8 || header[3] != 3 || header[5] != 3 || header[6] != 0 || header[9] != sides)
+    return false;
+  std::array<double, MaxDisplaySides> values{};
+  std::memcpy(values.data(), static_cast<const unsigned char*>(raw) + 40, 8 * sides);
+  bool valid = true;
+  for (unsigned side = 0; side < sides; ++side)
+    valid = valid && (values[side] == 0 || values[side] == 1);
+  AcquireSRWLockExclusive(&state.lock);
+  if (valid) {
+    state.taxi_left = values[0] == 1;
+    state.taxi_right = values[1] == 1;
+    state.taxi_sd = sides > 2 && values[2] == 1;
+    state.taxi_ms = sample_ms;
+    state.taxi_error = "";
+  } else {
+    state.taxi_ms = 0;
+    state.taxi_error = "taxi_button_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+// PMDG 777 Display Select Panel on definition 3: request 3 polls it; request
+// 8 streams changes each simulator frame so a 0.1 s CAM push is not missed.
+bool accept_pmdg_dsp_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  constexpr DWORD PacketBytes = 40 + PmdgDisplaySelect::Values * sizeof(double);
+  if (!raw || bytes != PacketBytes || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  const bool polled = header[3] == 3 && header[6] == 0, streamed = header[3] == 8 && (header[6] == 0 || header[6] == 1);
+  if (header[0] != PacketBytes || header[2] != 8 || !(polled || streamed) || header[5] != 3 || header[9] != PmdgDisplaySelect::Values)
+    return false;
+  std::array<double, PmdgDisplaySelect::Values> values{};
+  std::memcpy(values.data(), static_cast<const unsigned char*>(raw) + 40, sizeof(values));
+  AcquireSRWLockExclusive(&state.lock);
+  if (state.pmdg_dsp.observe(values)) {
+    const auto mask = state.pmdg_dsp.mask();
+    state.taxi_left = (mask & 1u) != 0;
+    state.taxi_right = (mask & 2u) != 0;
+    state.taxi_sd = (mask & 4u) != 0;
+    state.taxi_ms = sample_ms;
+    state.taxi_error = "";
+  } else {
+    state.taxi_ms = 0;
+    state.taxi_error = "pmdg_display_select_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+bool accept_lighting_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  // Definition4 cannot change the established body7/TAXI2 packet layouts.
+  if (!raw || bytes != 56 || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  if (header[0] != 56 || header[2] != 8 || header[3] != 4 || header[5] != 4 || header[6] != 0 || header[9] != 2)
+    return false;
+  std::array<double, 2> values{};
+  std::memcpy(values.data(), static_cast<const unsigned char*>(raw) + 40, sizeof(values));
+  const bool valid =
+      std::isfinite(values[0]) && values[0] >= 0 && values[0] <= 1e7 && std::isfinite(values[1]) && values[1] >= 0 && values[1] <= 1;
+  AcquireSRWLockExclusive(&state.lock);
+  if (valid) {
+    state.ambient = values[0];
+    state.brightness = values[1];
+    state.lighting_ms = sample_ms;
+    state.lighting_error = "";
+  } else {
+    state.lighting_ms = 0;
+    state.lighting_error = "lighting_values";
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+// User L:var bindings on definitions 20 and 21: request 20/21 streams changed
+// values every simulator frame, 22/23 reads the first values once.
+constexpr DWORD LvarFirstDefine = 20;
+void begin_lvar_stream_locked(DWORD define,
+                              const std::array<std::uint8_t, standalone::LvarBindingCount>& slots,
+                              unsigned count,
+                              const standalone::LvarBindings& bindings) noexcept {
+  state.lvar_define = define;
+  state.lvar_slots = slots;
+  state.lvar_count = count;
+  for (std::size_t i = 0; i < bindings.size(); ++i)
+    state.lvar_triggers[i] = bindings[i].trigger;
+  state.lvar = {};
+  state.lvar_was_on = {};
+  if (++state.lvar_generation == 0)
+    state.lvar_generation = 1;
+  state.lvar_stream = count ? state.lvar_generation : 0;
+  state.lvar_error = count ? "" : "lvar_unbound";
+}
+void end_lvar_stream_locked(const char* error) noexcept {
+  state.lvar_define = 0;
+  state.lvar_count = 0;
+  state.lvar = {};
+  state.lvar_stream = 0;
+  state.lvar_error = error;
+}
+void lvar_failure(const char* text) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.lvar_error = text;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+// True for a packet of the current stream (counted) or of a replaced one
+// (ignored); false for a current-stream packet with the wrong layout.
+bool accept_lvar_packet(const void* raw, DWORD bytes, std::uint64_t sample_ms) noexcept {
+  if (!raw || bytes < 40 || !sample_ms)
+    return false;
+  std::array<DWORD, 10> header{};
+  std::memcpy(header.data(), raw, sizeof(header));
+  AcquireSRWLockExclusive(&state.lock);
+  const DWORD define = state.lvar_define;
+  const unsigned count = state.lvar_count;
+  if (!define || header[5] != define) {
+    ReleaseSRWLockExclusive(&state.lock);
+    return true;
+  }
+  const DWORD expected = 40 + 8 * count;
+  if (!count || bytes != expected || header[0] != expected || header[2] != 8 || (header[3] != define && header[3] != define + 2) ||
+      header[6] > 1 || header[9] != count) {
+    ReleaseSRWLockExclusive(&state.lock);
+    return false;
+  }
+  std::array<double, standalone::LvarBindingCount> values{};
+  std::memcpy(values.data(), static_cast<const unsigned char*>(raw) + 40, 8 * count);
+  state.lvar_error = "";
+  for (unsigned k = 0; k < count; ++k) {
+    const auto binding = state.lvar_slots[k];
+    if (!std::isfinite(values[k]) || binding >= standalone::LvarBindingCount) {
+      state.lvar_error = "lvar_values";
+      continue;
+    }
+    auto& read = state.lvar[binding];
+    // The stream's first value of each binding is where it starts, not a
+    // press. A momentary button's presses (lvar_presses: press counts too), a
+    // latched variable's on and off.
+    const auto trigger = state.lvar_triggers[binding];
+    if (trigger == static_cast<std::uint32_t>(standalone::LvarTrigger::momentary)) {
+      if (!read.read) {
+        state.lvar_was_on[binding] = standalone::lvar_held(values[k]);
+      } else {
+        const auto presses = standalone::lvar_presses(read.value, values[k], state.lvar_was_on[binding]);
+        read.rises += presses.rises;
+        read.falls += presses.falls;
+        state.lvar_was_on[binding] = presses.held;
+      }
+    } else {
+      // Latched: non-zero; equals: its value, such as a display's page.
+      const bool on = standalone::lvar_active(trigger, values[k]);
+      if (read.read && on != state.lvar_was_on[binding])
+        ++(on ? read.rises : read.falls);
+      state.lvar_was_on[binding] = on;
+    }
+    read.value = static_cast<float>(values[k]);
+    read.read = 1;
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+DWORD WINAPI worker(void*) noexcept {
+  const auto* bound = worker_profile.load();
+  if (!bound) {
+    failure("aircraft_profile");
+    return 0;
+  }
+  const auto& profile = *bound;
+  wchar_t path[32768]{};
+  const DWORD length = GetModuleFileNameW(nullptr, path, 32768);
+  if (!length || length >= 32768) {
+    failure("main_image_path");
+    return 0;
+  }
+  wchar_t* slash = std::wcsrchr(path, L'\\');
+  if (!slash || static_cast<std::size_t>(slash - path) + 25 >= 32768) {
+    failure("main_image_path");
+    return 0;
+  }
+  std::wcscpy(slash + 1, L"SimConnect_internal.dll");
+#ifdef TAXI_BODY_POSE_PROVIDER_VALIDATION
+  // Isolated validation executable only; production derives the client from
+  // its already verified simulator image directory.
+  std::wcscpy(path, L"C:/XboxGames/Microsoft Flight Simulator 2024/Content/SimConnect_internal.dll");
+#endif
+#ifdef TAXI_BODY_POSE_PROVIDER_EXTERNAL_VALIDATION
+  // The internal client cannot open an external-process connection in the
+  // current simulator build. This public external client tests identical
+  // request, dispatch and cache code without changing the production path.
+  std::wcscpy(path, L"C:/Program Files/Little Navmap/SimConnect_msfs_2024.dll");
+#endif
+  const auto dll = LoadLibraryExW(path, nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+  if (!dll) {
+    failure("simconnect_client_unavailable");
+    return 0;
+  }
+  const auto open = reinterpret_cast<Open>(GetProcAddress(dll, "SimConnect_Open"));
+  const auto close = reinterpret_cast<Close>(GetProcAddress(dll, "SimConnect_Close"));
+  const auto define = reinterpret_cast<Define>(GetProcAddress(dll, "SimConnect_AddToDataDefinition"));
+  const auto request = reinterpret_cast<Request>(GetProcAddress(dll, "SimConnect_RequestDataOnSimObject"));
+  const auto dispatch = reinterpret_cast<Dispatch>(GetProcAddress(dll, "SimConnect_GetNextDispatch"));
+  const auto system_state = reinterpret_cast<SystemState>(GetProcAddress(dll, "SimConnect_RequestSystemState"));
+  const auto subscribe = reinterpret_cast<Subscribe>(GetProcAddress(dll, "SimConnect_SubscribeToSystemEvent"));
+  const auto subscribe_flow = reinterpret_cast<SubscribeFlow>(GetProcAddress(dll, "SimConnect_SubscribeToFlowEvent"));
+  const auto get = reinterpret_cast<CameraGet>(GetProcAddress(dll, "SimConnect_CameraGet"));
+  const auto last_packet = reinterpret_cast<LastPacket>(GetProcAddress(dll, "SimConnect_GetLastSentPacketID"));
+  const auto map_event = reinterpret_cast<MapEvent>(GetProcAddress(dll, "SimConnect_MapClientEventToSimEvent"));
+  const auto set_data = reinterpret_cast<SetData>(GetProcAddress(dll, "SimConnect_SetDataOnSimObject"));
+  const auto transmit_event = reinterpret_cast<TransmitEvent>(GetProcAddress(dll, "SimConnect_TransmitClientEvent"));
+  const auto clear_definition = reinterpret_cast<ClearDefinition>(GetProcAddress(dll, "SimConnect_ClearDataDefinition"));
+  if (!open || !close || !define || !request || !dispatch || !get || !system_state || !subscribe) {
+    failure("simconnect_exports");
+    FreeLibrary(dll);
+    return 0;
+  }
+  HANDLE session = nullptr;
+  const HANDLE notification = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+  if (!notification) {
+    failure("simconnect_notification_event");
+    FreeLibrary(dll);
+    return 0;
+  }
+  HRESULT hr = open(&session, "Taxi Cam aircraft mount telemetry", nullptr, 0, notification, 0);
+  DWORD flow_packet = 0;
+  const HRESULT flow_hr = SUCCEEDED(hr) && subscribe_flow ? subscribe_flow(session) : E_NOINTERFACE;
+  if (SUCCEEDED(flow_hr) && last_packet)
+    last_packet(session, &flow_packet);
+  AcquireSRWLockExclusive(&state.lock);
+  state.flow_subscribed = SUCCEEDED(flow_hr);
+  state.flow_error = !subscribe_flow ? "flow_export_unavailable" : FAILED(flow_hr) ? "flow_subscription_failed" : "";
+  ReleaseSRWLockExclusive(&state.lock);
+  // Public lifecycle events discard the connection's queued body/camera/TAXI
+  // responses before the companion reconnects. This also redefines aircraft
+  // Lvars that were unavailable while the new aircraft was loading.
+  // https://docs.flightsimulator.com/html/Programming_Tools/SimConnect/API_Reference/Events_And_Data/SimConnect_SubscribeToSystemEvent.htm
+  for (const auto event :
+       {std::pair{AircraftSessionLifecycle::SimEvent, "Sim"}, std::pair{AircraftSessionLifecycle::AircraftEvent, "AircraftLoaded"},
+        std::pair{AircraftSessionLifecycle::FlightEvent, "FlightLoaded"}, std::pair{AircraftSessionLifecycle::PauseEvent, "Pause_EX1"}}) {
+    if (SUCCEEDED(hr))
+      hr = subscribe(session, event.first, event.second);
+  }
+  const char* names[]{"PLANE LATITUDE",      "PLANE LONGITUDE",    "PLANE ALTITUDE",
+                      "PLANE PITCH DEGREES", "PLANE BANK DEGREES", "PLANE HEADING DEGREES TRUE",
+                      "GROUND VELOCITY"};
+  // Official SimVar/units: GROUND VELOCITY accepts knots. All seven fields use
+  // SIMCONNECT_DATATYPE_FLOAT64; no conversion or integer truncation here.
+  // https://docs.flightsimulator.com/msfs2024/retail/sound/rtpc-and-simulation-variables/
+  for (unsigned i = 0; SUCCEEDED(hr) && i < std::size(names); ++i)
+    hr = define(session, 1, names[i], i == 6 ? "knots" : i == 2 ? "meters" : "degrees", 4, 0, 0xffffffffu);
+  if (FAILED(hr)) {
+    failure("simconnect_open_or_definition");
+    if (session)
+      close(session);
+    CloseHandle(notification);
+    FreeLibrary(dll);
+    return 0;
+  }
+  // A continuous SIM_FRAME stream removes the former50ms request-once hold.
+  // Data is still published by SimConnect at frame end; this is no prediction.
+  // https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/structures-and-enumerations/simconnect_period/
+  if (FAILED(request(session, 1, 1, 0, 3, 0, 0, 0, 0))) {
+    failure("simconnect_body_stream");
+    close(session);
+    CloseHandle(notification);
+    FreeLibrary(dll);
+    return 0;
+  }
+  // L variables are directly readable through public SimConnect as FLOAT64.
+  // https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/events-and-data/simconnect_addtodatadefinition/
+  std::array<DWORD, 64> taxi_packets{};
+  std::array<DWORD, MaxDisplaySides> taxi_command_packets{};
+  unsigned taxi_packet_cursor = 0;
+  const auto remember_taxi_packet = [&]() {
+    DWORD id = 0;
+    if (last_packet && SUCCEEDED(last_packet(session, &id)) && id)
+      taxi_packets[taxi_packet_cursor++ % taxi_packets.size()] = id;
+  };
+  const bool manual_only = profile.taxi_control == profiles::TaxiControl::manual_only;
+  const bool pmdg_dsp = profile.taxi_control == profiles::TaxiControl::pmdg_dsp_cam;
+  const bool commandable = profiles::commandable_buttons(profile);
+  // One latch per TAXI button, not per display: a placed lower display has none.
+  const unsigned taxi_sides = profiles::taxi_latches(profile);
+  bool taxi_defined = !manual_only && last_packet != nullptr && (pmdg_dsp || taxi_sides >= 2);
+  if (pmdg_dsp) {
+    for (const auto name : PmdgDspLvars) {
+      if (!taxi_defined)
+        break;
+      taxi_defined = SUCCEEDED(define(session, 3, name, "number", 4, 0, 0xffffffffu));
+      remember_taxi_packet();
+    }
+    // SIM_FRAME with CHANGED: sent only when a lamp or switch moves.
+    // https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/events-and-data/simconnect_requestdataonsimobject/
+    if (taxi_defined) {
+      taxi_defined = SUCCEEDED(request(session, 8, 3, 0, 3, 1, 0, 0, 0));
+      remember_taxi_packet();
+    }
+  } else {
+    for (unsigned side = 0; side < taxi_sides; ++side) {
+      if (!taxi_defined)
+        break;
+      taxi_defined = SUCCEEDED(define(session, 3, profile.taxi_lvars[side], "number", 4, 0, 0xffffffffu));
+      remember_taxi_packet();
+    }
+  }
+  if (!taxi_defined)
+    taxi_failure(manual_only ? "taxi_buttons_unavailable_use_manual_control" : "taxi_definition_unavailable");
+  std::array<bool, MaxDisplaySides> taxi_events{};
+  bool panel_marks_defined = false;
+  std::int64_t panel_marks_sent = 0;
+  // Isolated telemetry readers never control the aircraft. Production sends
+  // the aircraft's real input event; its own controller updates the light.
+#if !defined(TAXI_BODY_POSE_PROVIDER_VALIDATION) && !defined(TAXI_BODY_POSE_PROVIDER_EXTERNAL_VALIDATION)
+  if (profile.taxi_control == profiles::TaxiControl::push_event && map_event && transmit_event) {
+    for (unsigned side = 0; side < taxi_sides; ++side) {
+      taxi_events[side] = SUCCEEDED(map_event(session, 10 + side, profile.taxi_events[side]));
+      remember_taxi_packet();
+    }
+  }
+  if (profile.taxi_control == profiles::TaxiControl::lvar_off && set_data) {
+    for (unsigned side = 0; side < taxi_sides; ++side) {
+      // iniBuilds uses this exact latch for TAXI state and its lamp. A separate
+      // single-field definition permits idempotent OFF without touching the
+      // opposite side or generating a second toggle while awaiting an ACK.
+      taxi_events[side] = SUCCEEDED(define(session, 10 + side, profile.taxi_lvars[side], "number", 4, 0, 0xffffffffu));
+      remember_taxi_packet();
+    }
+  }
+  // Cockpit pages take their panel marks down when this changes.
+  panel_marks_defined = set_data && SUCCEEDED(define(session, PanelMarksDefine, "L:TAXICAM_MARKS", "number", 4, 0, 0xffffffffu));
+  // Nothing counts as sent yet: a signal raised while the worker restarted
+  // (a profile change or reconnect) is sent now. Sending a value again is
+  // harmless, as each page acts only on a change from its own baseline.
+  panel_marks_sent = 0;
+#else
+  (void)map_event;
+#endif
+  const bool type_defined = SUCCEEDED(define(session, 5, "ATC TYPE", nullptr, 9, 0, 0xffffffffu));
+  // Both public Number values were observed through separate requests in the
+  // parked simulator. Official Asobo Emissive.xml maps ambient1..4000; the
+  // documented glass-cockpit brightness is0..1. This is optional display data.
+  std::array<DWORD, 16> lighting_packets{};
+  unsigned lighting_packet_cursor = 0;
+  const auto remember_lighting_packet = [&]() {
+    DWORD id = 0;
+    if (last_packet && SUCCEEDED(last_packet(session, &id)) && id)
+      lighting_packets[lighting_packet_cursor++ % lighting_packets.size()] = id;
+  };
+  bool lighting_defined = last_packet != nullptr;
+  for (const auto name : {"AMBIENT LIGHT SENSOR", "GLASSCOCKPIT AUTOMATIC BRIGHTNESS"}) {
+    if (!lighting_defined)
+      break;
+    lighting_defined = SUCCEEDED(define(session, 4, name, "number", 4, 0, 0xffffffffu));
+    remember_lighting_packet();
+  }
+  if (!lighting_defined)
+    lighting_failure("lighting_definition_unavailable");
+  // Separate optional definition preserves the existing seven-field body ABI.
+  // Official SimVar: SIM ON GROUND, Bool (converted to FLOAT64 by SimConnect).
+  // https://docs.flightsimulator.com/msfs2024/html/6_Programming_APIs/SimVars/Miscellaneous_Variables.htm
+  std::array<DWORD, 16> on_ground_packets{};
+  unsigned on_ground_packet_cursor = 0;
+  const auto remember_on_ground_packet = [&]() {
+    DWORD id = 0;
+    if (last_packet && SUCCEEDED(last_packet(session, &id)) && id)
+      on_ground_packets[on_ground_packet_cursor++ % on_ground_packets.size()] = id;
+  };
+  bool on_ground_defined = last_packet && SUCCEEDED(define(session, 7, "SIM ON GROUND", "bool", 4, 0, 0xffffffffu));
+  remember_on_ground_packet();
+  if (!on_ground_defined)
+    on_ground_failure("on_ground_definition_unavailable");
+  std::array<DWORD, 16> lvar_packets{};
+  unsigned lvar_packet_cursor = 0;
+  const auto remember_lvar_packet = [&]() {
+    DWORD id = 0;
+    if (last_packet && SUCCEEDED(last_packet(session, &id)) && id)
+      lvar_packets[lvar_packet_cursor++ % lvar_packets.size()] = id;
+  };
+  // The definition this connection last used for the user's L:vars, 0 for none.
+  DWORD lvar_define = 0;
+  std::uint32_t lvar_subscribed = 0;
+  bool lvar_started = false;
+  const auto subscribe_lvars = [&]() {
+    AcquireSRWLockExclusive(&state.lock);
+    const auto names = state.lvar_names;
+    lvar_subscribed = state.lvar_request;
+    state.lvar_restart = false;
+    ReleaseSRWLockExclusive(&state.lock);
+    if (lvar_define) {
+      // Stop the old stream, then empty its definition for the turn after next.
+      request(session, lvar_define, lvar_define, 0, 0, 0, 0, 0, 0);
+      if (!clear_definition || FAILED(clear_definition(session, lvar_define))) {
+        AcquireSRWLockExclusive(&state.lock);
+        end_lvar_stream_locked("lvar_redefinition_unavailable");
+        ReleaseSRWLockExclusive(&state.lock);
+        return;
+      }
+    }
+    lvar_define = lvar_define == LvarFirstDefine ? LvarFirstDefine + 1 : LvarFirstDefine;
+    std::array<std::uint8_t, standalone::LvarBindingCount> slots{};
+    unsigned count = 0;
+    bool defined = true;
+    for (std::size_t i = 0; defined && i < names.size(); ++i) {
+      if (!standalone::valid_lvar_name(names[i].name))
+        continue;
+      char variable[standalone::LvarNameSize + 2];
+      std::snprintf(variable, sizeof(variable), "L:%s", names[i].name);
+      defined = SUCCEEDED(define(session, lvar_define, variable, "number", 4, 0, 0xffffffffu));
+      remember_lvar_packet();
+      if (defined)
+        slots[count++] = static_cast<std::uint8_t>(i);
+    }
+    // SIM_FRAME with CHANGED sends a value only when it moves, so a 0.1 s push
+    // is not missed; the single ONCE request supplies each starting value.
+    if (defined && count) {
+      defined = SUCCEEDED(request(session, lvar_define, lvar_define, 0, 3, 1, 0, 0, 0));
+      remember_lvar_packet();
+      defined = defined && SUCCEEDED(request(session, lvar_define + 2, lvar_define, 0, 1, 0, 0, 0, 0));
+      remember_lvar_packet();
+    }
+    AcquireSRWLockExclusive(&state.lock);
+    if (defined)
+      begin_lvar_stream_locked(lvar_define, slots, count, names);
+    else
+      end_lvar_stream_locked("lvar_definition_failed");
+    ReleaseSRWLockExclusive(&state.lock);
+  };
+  // Optional too: the main view's camera, which pauses camera rendering while it
+  // is outside the cockpit. Official SimVar: CAMERA STATE, Enum (2 = Cockpit).
+  // https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simvars/camera-variables/
+  std::array<DWORD, 16> camera_state_packets{};
+  unsigned camera_state_packet_cursor = 0;
+  const auto remember_camera_state_packet = [&]() {
+    DWORD id = 0;
+    if (last_packet && SUCCEEDED(last_packet(session, &id)) && id)
+      camera_state_packets[camera_state_packet_cursor++ % camera_state_packets.size()] = id;
+  };
+  bool camera_state_defined = last_packet && SUCCEEDED(define(session, 9, "CAMERA STATE", "number", 4, 0, 0xffffffffu));
+  remember_camera_state_packet();
+  if (!camera_state_defined)
+    camera_state_failure("camera_state_definition_unavailable");
+  std::uint64_t previous_on_ground = 0, previous_camera_state = 0;
+  std::uint64_t previous = 0;
+  std::uint64_t previous_lighting = 0, previous_type = 0;
+  DWORD identity_request = 1000;
+  bool reconnect = false;
+  const HANDLE waits[]{state.stop, notification};
+  while (true) {
+    // Incoming packets wake the worker immediately. The50ms timeout only
+    // services CameraGet/TAXI (20Hz) and optional lighting (2Hz), without spin.
+    const auto wake = WaitForMultipleObjects(2, waits, FALSE, 50);
+    if (wake == WAIT_OBJECT_0)
+      break;
+    if (wake != WAIT_OBJECT_0 + 1 && wake != WAIT_TIMEOUT) {
+      failure("simconnect_notification_wait");
+      break;
+    }
+    const auto now = GetTickCount64();
+    service_world_invalidation();
+    AcquireSRWLockShared(&state.lock);
+    const bool lvars_changed = !lvar_started || state.lvar_request != lvar_subscribed || state.lvar_restart;
+    ReleaseSRWLockShared(&state.lock);
+    if (lvars_changed) {
+      lvar_started = true;
+      subscribe_lvars();
+    }
+    if (type_defined && now - previous_type >= 1000) {
+      previous_type = now;
+      if (identity_request > 0xfffffffcu)
+        break;
+      AcquireSRWLockExclusive(&state.lock);
+      state.identity.begin_request(identity_request, identity_request + 1);
+      ReleaseSRWLockExclusive(&state.lock);
+      request(session, identity_request, 5, 0, 1, 0, 0, 0, 0);
+      system_state(session, identity_request + 1, "AircraftLoaded");
+      identity_request += 2;
+    }
+    if (on_ground_defined && now - previous_on_ground >= 250) {
+      previous_on_ground = now;
+      const auto ground_hr = request(session, 7, 7, 0, 1, 0, 0, 0, 0);
+      remember_on_ground_packet();
+      if (FAILED(ground_hr)) {
+        on_ground_defined = false;
+        on_ground_failure("on_ground_request_failed");
+      }
+    }
+    if (camera_state_defined && now - previous_camera_state >= 250) {
+      previous_camera_state = now;
+      const auto camera_state_hr = request(session, 9, 9, 0, 1, 0, 0, 0, 0);
+      remember_camera_state_packet();
+      if (FAILED(camera_state_hr)) {
+        camera_state_defined = false;
+        camera_state_failure("camera_state_request_failed");
+      }
+    }
+    if (lighting_defined && now - previous_lighting >= 500) {
+      previous_lighting = now;
+      const auto lighting_hr = request(session, 4, 4, 0, 1, 0, 0, 0, 0);
+      remember_lighting_packet();
+      if (FAILED(lighting_hr))
+        lighting_failure("lighting_request_failed");
+    }
+    if (now - previous >= 50) {
+      previous = now;
+      if (FAILED(get(session, 2))) {
+        failure("simconnect_request");
+        break;
+      }
+      if (taxi_defined) {
+        const auto taxi_hr = request(session, 3, 3, 0, 1, 0, 0, 0, 0);
+        remember_taxi_packet();
+        if (FAILED(taxi_hr))
+          taxi_failure("taxi_request_failed");
+      }
+    }
+    for (unsigned n = 0; n < 64; ++n) {
+      void* raw = nullptr;
+      DWORD bytes = 0;
+      if (FAILED(dispatch(session, &raw, &bytes)) || !raw)
+        break;
+      if (bytes < 12 || bytes > 65536) {
+        failure("simconnect_packet_bounds");
+        continue;
+      }
+      std::array<DWORD, 10> header{};
+      std::memcpy(header.data(), raw, bytes >= 40 ? 40 : 12);
+      if (header[0] < 12 || header[0] > bytes) {
+        if (bytes >= 40 && header[2] == 8 && (header[5] == LvarFirstDefine || header[5] == LvarFirstDefine + 1)) {
+          lvar_failure("lvar_packet_bounds");
+          continue;
+        }
+        if (bytes >= 40 && header[2] == 8 && (header[3] == 7 || header[5] == 7)) {
+          on_ground_failure("on_ground_packet_bounds");
+          continue;
+        }
+        if (bytes >= 40 && header[2] == 8 && (header[3] == 9 || header[5] == 9)) {
+          camera_state_failure("camera_state_packet_bounds");
+          continue;
+        }
+        if (bytes >= 40 && header[2] == 8 && (header[3] == 4 || header[5] == 4)) {
+          lighting_failure("lighting_packet_bounds");
+          continue;
+        }
+        if (bytes >= 40 && header[2] == 8 && (header[3] == 3 || header[5] == 3)) {
+          taxi_failure("taxi_packet_bounds");
+          continue;
+        }
+        failure("simconnect_packet_bounds");
+        continue;
+      }
+      if (header[2] == 4 || header[2] == 6 || (AircraftSessionLifecycle::flow_receive_id(header[2]) && bytes == 272)) {
+        const bool invalidated = accept_session_packet(raw, bytes);
+        // Keep the flow subscription alive throughout loading. Reconnect only
+        // after completion, discarding every response queued before it.
+        reconnect = session_reconnect_required(invalidated);
+        if (reconnect)
+          break;
+      } else if (header[2] == 15 || (header[2] == 8 && bytes >= 40 && header[5] == 5)) {
+        const bool invalidated = accept_identity_packet(raw, bytes, GetTickCount64());
+        reconnect = session_reconnect_required(invalidated);
+        if (reconnect)
+          break;
+      } else if (header[2] == 8) {
+        if (bytes >= 40 && (header[5] == LvarFirstDefine || header[5] == LvarFirstDefine + 1)) {
+          if (!accept_lvar_packet(raw, bytes, GetTickCount64()))
+            lvar_failure("lvar_packet_layout");
+        } else if (bytes >= 40 && (header[3] == 7 || header[5] == 7)) {
+          if (!accept_on_ground_packet(raw, bytes, GetTickCount64()))
+            on_ground_failure("on_ground_packet_layout");
+        } else if (bytes >= 40 && (header[3] == 9 || header[5] == 9)) {
+          if (!accept_camera_state_packet(raw, bytes, GetTickCount64()))
+            camera_state_failure("camera_state_packet_layout");
+        } else if (bytes >= 40 && (header[3] == 4 || header[5] == 4)) {
+          if (!accept_lighting_packet(raw, bytes, GetTickCount64()))
+            lighting_failure("lighting_packet_layout");
+        } else if (bytes >= 40 && (header[3] == 3 || header[5] == 3)) {
+          if (!(pmdg_dsp ? accept_pmdg_dsp_packet(raw, bytes, GetTickCount64())
+                         : accept_taxi_packet(raw, bytes, GetTickCount64(), taxi_sides)))
+            taxi_failure("taxi_packet_layout");
+        } else {
+          accept_aircraft_packet(raw, bytes, GetTickCount64());
+        }
+      } else if ((header[2] == 40 || header[2] == 41) && header[0] == 96 && bytes == 96) {
+        accept_camera_packet(raw, bytes, GetTickCount64());
+      } else if (header[2] == 1) {
+        // Exception SendID identifies a request, not a data-definition ID.
+        // Correlated TAXI failures never clear valid aircraft/groundspeed.
+        std::array<DWORD, 6> exception{};
+        if (bytes >= sizeof(exception))
+          std::memcpy(exception.data(), raw, sizeof(exception));
+        bool taxi_exception = false;
+        bool lighting_exception = false;
+        bool on_ground_exception = false;
+        bool lvar_exception = false;
+        for (const auto sent : lvar_packets)
+          lvar_exception = lvar_exception || (sent && sent == exception[4]);
+        bool camera_state_exception = false;
+        for (const auto sent : taxi_packets)
+          taxi_exception = taxi_exception || (sent && sent == exception[4]);
+        for (const auto sent : taxi_command_packets)
+          taxi_exception = taxi_exception || (sent && sent == exception[4]);
+        for (const auto sent : lighting_packets)
+          lighting_exception = lighting_exception || (sent && sent == exception[4]);
+        for (const auto sent : on_ground_packets)
+          on_ground_exception = on_ground_exception || (sent && sent == exception[4]);
+        for (const auto sent : camera_state_packets)
+          camera_state_exception = camera_state_exception || (sent && sent == exception[4]);
+        if (flow_packet && flow_packet == exception[4]) {
+          AcquireSRWLockExclusive(&state.lock);
+          state.flow_subscribed = false;
+          state.flow_error = "flow_simconnect_exception";
+          ReleaseSRWLockExclusive(&state.lock);
+        } else if (lvar_exception) {
+          // A name the aircraft does not have reads 0; this is another refusal.
+          lvar_failure("lvar_simconnect_exception");
+        } else if (on_ground_exception) {
+          on_ground_defined = false;
+          on_ground_failure("on_ground_simconnect_exception");
+        } else if (camera_state_exception) {
+          camera_state_defined = false;
+          camera_state_failure("camera_state_simconnect_exception");
+        } else if (lighting_exception) {
+          lighting_failure("lighting_simconnect_exception");
+        } else if (taxi_exception) {
+          taxi_failure("taxi_simconnect_exception");
+        } else {
+          // An uncorrelated asynchronous error does not identify which cache
+          // failed. Retain current samples; their500ms freshness bound applies.
+          AcquireSRWLockExclusive(&state.lock);
+          state.error = "simconnect_exception";
+          ReleaseSRWLockExclusive(&state.lock);
+        }
+        // Keep command correlation independently of the bounded telemetry
+        // packet ring; a late rejection must release the right side's ACK wait.
+        for (unsigned side = 0; side < profile.sides; ++side)
+          if (taxi_command_packets[side] && taxi_command_packets[side] == exception[4]) {
+            AcquireSRWLockExclusive(&state.lock);
+            state.button_commands.rejected(side);
+            ReleaseSRWLockExclusive(&state.lock);
+            taxi_command_packets[side] = 0;
+          }
+      } else if (header[2] == 3) {
+        failure("simulator_quit");
+        SetEvent(state.stop);
+        break;
+      }
+    }
+    if (reconnect)
+      break;
+    if (const auto marks = panel_marks_signal.load(std::memory_order_acquire); panel_marks_defined && marks != panel_marks_sent) {
+      double value = static_cast<double>(marks);
+      if (SUCCEEDED(set_data(session, PanelMarksDefine, 0, 0, 0, sizeof(value), &value)))
+        panel_marks_sent = marks;
+    }
+    const auto buttons = get_taxi_buttons();
+    const auto command_now = GetTickCount64();
+    AcquireSRWLockExclusive(&state.lock);
+    const auto epoch = state.aircraft_session.epoch();
+    const auto identity = state.identity.sample(command_now);
+    const auto decision = state.button_commands.step(
+        {command_now, epoch, buttons.sample_ms, profile.id, buttons.mask(),
+         readiness_locked(command_now).ready && identity.fresh && identity.detected_profile == profile.id, buttons.valid, commandable});
+    ReleaseSRWLockExclusive(&state.lock);
+    for (unsigned side = 0; side < profile.sides; ++side) {
+      if (!(decision.send_mask & (1u << side)))
+        continue;
+      AcquireSRWLockShared(&state.lock);
+      const auto send_now = GetTickCount64();
+      const auto current_identity = state.identity.sample(send_now);
+      const bool current = state.button_commands.current(decision, side, send_now) && state.aircraft_session.epoch() == epoch &&
+                           readiness_locked(send_now).ready && current_identity.fresh && current_identity.detected_profile == profile.id;
+      ReleaseSRWLockShared(&state.lock);
+      if (!current || WaitForSingleObject(state.stop, 0) == WAIT_OBJECT_0)
+        continue;
+      // Public SimConnect priority flag: GroupID is an explicit priority.
+      // https://docs.flightsimulator.com/msfs2024/retail/programming-apis/simconnect/api-reference/events-and-data/simconnect_transmitclientevent/
+      double desired = (decision.desired_mask & (1u << side)) ? 1 : 0;
+      const bool accepted = taxi_events[side] && aircraft_matches_profile() &&
+                            (profile.taxi_control == profiles::TaxiControl::lvar_off
+                                 ? set_data && SUCCEEDED(set_data(session, 10 + side, 0, 0, 0, sizeof(desired), &desired))
+                                 : transmit_event && SUCCEEDED(transmit_event(session, 0, 10 + side, 0, 1, 16)));
+      if (taxi_events[side])
+        remember_taxi_packet();
+      taxi_command_packets[side] = 0;
+      if (accepted && last_packet)
+        last_packet(session, &taxi_command_packets[side]);
+      AcquireSRWLockExclusive(&state.lock);
+      state.button_commands.sent(decision, side, accepted, GetTickCount64());
+      ReleaseSRWLockExclusive(&state.lock);
+    }
+  }
+  on_ground_failure("on_ground_session_closed");
+  camera_state_failure("camera_state_session_closed");
+  taxi_failure("taxi_session_closed");
+  AcquireSRWLockExclusive(&state.lock);
+  state.button_commands.reset_session();
+  ReleaseSRWLockExclusive(&state.lock);
+  lighting_failure("lighting_session_closed");
+  AcquireSRWLockExclusive(&state.lock);
+  end_lvar_stream_locked("lvar_session_closed");
+  ReleaseSRWLockExclusive(&state.lock);
+  close(session);
+  CloseHandle(notification);
+  FreeLibrary(dll);
+  return 0;
+}
+bool fresh(std::uint64_t sample, std::uint64_t now) noexcept {
+  return sample && now >= sample && now - sample <= 500;
+}
+OnGroundSample on_ground_locked(std::uint64_t now) noexcept {
+  OnGroundSample out;
+  out.sample_ms = state.on_ground_ms;
+  if (fresh(out.sample_ms, now)) {
+    out.valid = true;
+    out.on_ground = state.on_ground;
+    out.error = "";
+  } else {
+    out.error = out.sample_ms ? "on_ground_telemetry_stale" : state.on_ground_error;
+  }
+  return out;
+}
+CameraStateSample camera_state_locked(std::uint64_t now) noexcept {
+  CameraStateSample out;
+  out.sample_ms = state.camera_state_ms;
+  if (fresh(out.sample_ms, now)) {
+    out.valid = true;
+    out.state = state.camera_state;
+    out.error = "";
+  } else {
+    out.error = out.sample_ms ? "camera_state_telemetry_stale" : state.camera_state_error;
+  }
+  return out;
+}
+GroundSpeedSample ground_speed_locked(std::uint64_t now) noexcept {
+  GroundSpeedSample out;
+  out.sample_ms = state.ground_speed_ms;
+  if (fresh(out.sample_ms, now)) {
+    out.valid = true;
+    out.knots = state.ground_speed_knots;
+    out.error = "";
+  } else {
+    out.error = out.sample_ms ? "ground_speed_telemetry_stale" : state.ground_speed_error;
+  }
+  return out;
+}
+TaxiButtonSample taxi_buttons_locked(std::uint64_t now) noexcept {
+  TaxiButtonSample out;
+  out.sample_ms = state.taxi_ms;
+  if (fresh(out.sample_ms, now)) {
+    out.valid = true;
+    out.left_on = state.taxi_left;
+    out.right_on = state.taxi_right;
+    out.sd_on = state.taxi_sd;
+    out.error = "";
+  } else {
+    out.error = out.sample_ms ? "taxi_telemetry_stale" : state.taxi_error;
+  }
+  return out;
+}
+LightingSample lighting_locked(std::uint64_t now) noexcept {
+  LightingSample out;
+  out.sample_ms = state.lighting_ms;
+  if (out.sample_ms && now >= out.sample_ms && now - out.sample_ms <= LightingSample::MaximumAgeMs) {
+    out.valid = true;
+    out.ambient = state.ambient;
+    out.brightness = state.brightness;
+    out.error = "";
+  } else {
+    out.error = out.sample_ms ? "lighting_telemetry_stale" : state.lighting_error;
+  }
+  return out;
+}
+// The lifecycle lock owns these handles. A blocked SDK call must never make a
+// control-thread stop/profile request wait, and must retain its live state.
+bool stop_provider_locked() noexcept {
+  if (state.worker) {
+    SetEvent(state.stop);
+    if (WaitForSingleObject(state.worker, 0) != WAIT_OBJECT_0)
+      return false;
+    CloseHandle(state.worker);
+    CloseHandle(state.stop);
+    state.worker = nullptr;
+    state.stop = nullptr;
+  }
+  AcquireSRWLockExclusive(&state.lock);
+  state.aircraft_ms = state.camera_ms = 0;
+  state.invalid_camera_first_ms = 0;
+  state.invalid_camera_samples = 0;
+  state.identity = {};
+  state.ground_speed_ms = 0;
+  state.ground_speed_error = "not_initialized";
+  state.on_ground_ms = 0;
+  state.on_ground_error = "not_initialized";
+  state.camera_state_ms = 0;
+  state.camera_state_error = "not_initialized";
+  state.taxi_ms = 0;
+  state.taxi_error = "not_initialized";
+  state.lighting_ms = 0;
+  state.lighting_error = "not_initialized";
+  state.taxi_left = state.taxi_right = state.taxi_sd = false;
+  state.pmdg_dsp.reset();
+  state.button_commands.reset_session();
+  end_lvar_stream_locked("not_initialized");
+  state.calibrated = false;
+  state.calibration_samples = 0;
+  state.calibration_camera_ms = 0;
+  state.error = "not_initialized";
+  ReleaseSRWLockExclusive(&state.lock);
+  return true;
+}
+}  // namespace
+bool select_aircraft_profile(std::uint32_t id) noexcept {
+  if (!profiles::find(id))
+    return false;
+  AcquireSRWLockExclusive(&lifecycle);
+  AcquireSRWLockExclusive(&state.lock);
+  if (state.aircraft_session.loading() || !state.aircraft_session.running()) {
+    ReleaseSRWLockExclusive(&state.lock);
+    ReleaseSRWLockExclusive(&lifecycle);
+    return false;
+  }
+  if (id == profile_id.load() && profiles::find(id) == worker_profile.load() && state.worker && state.stop &&
+      WaitForSingleObject(state.worker, 0) == WAIT_TIMEOUT && WaitForSingleObject(state.stop, 0) == WAIT_TIMEOUT) {
+    // Explicit reconnect/full reset still requires new samples and calibration,
+    // but the same adapter needs no unsubscribe gap that could lose FLOW_END
+    // or FLIGHT_START. The worker will issue a new coherent identity poll.
+    reset_session_locked();
+    ReleaseSRWLockExclusive(&state.lock);
+    ReleaseSRWLockExclusive(&lifecycle);
+    return true;
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+  const bool stopped = stop_provider_locked();
+  if (stopped)
+    profile_id.store(id);
+  ReleaseSRWLockExclusive(&lifecycle);
+  return stopped;
+}
+AircraftIdentitySample get_aircraft_identity() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto result = state.aircraft_session.running() ? state.identity.sample(GetTickCount64()) : AircraftIdentitySample{};
+  ReleaseSRWLockShared(&state.lock);
+  return result;
+}
+std::uint64_t get_aircraft_session_epoch() noexcept {
+  return session_epoch.load(std::memory_order_acquire);
+}
+namespace {
+void publish_readiness(const AircraftSessionReadiness& value, std::uint64_t now) noexcept {
+  // A concurrent reader is publishing an equally fresh reading; skip rather than wait.
+  if (!TryAcquireSRWLockExclusive(&readiness_cache.lock))
+    return;
+  readiness_cache.value = value;
+  readiness_cache.sampled_ms = now;
+  ReleaseSRWLockExclusive(&readiness_cache.lock);
+}
+AircraftSessionReadiness nonblocking_readiness(std::uint64_t now) noexcept {
+  AircraftSessionReadiness out;
+  out.epoch = get_aircraft_session_epoch();
+  const auto pending = invalid_world.load(std::memory_order_acquire);
+  out.loading = pending != 0;
+  out.error = "aircraft_session_cache_busy";
+  if (TryAcquireSRWLockShared(&state.lock)) {
+    out = readiness_locked(now);
+    ReleaseSRWLockShared(&state.lock);
+    publish_readiness(out, now);
+    return out;
+  }
+  // The telemetry worker holds the cache. Reuse the last complete reading of
+  // this epoch while it is younger than the age bound; a native invalid-WORLD
+  // notice still gates readiness immediately, as on the locked path.
+  AcquireSRWLockShared(&readiness_cache.lock);
+  const auto cached = readiness_cache.value;
+  const auto sampled = readiness_cache.sampled_ms;
+  ReleaseSRWLockShared(&readiness_cache.lock);
+  if (!sampled || now < sampled || now - sampled > ReadinessCacheMaxAgeMs || cached.epoch != out.epoch)
+    return out;
+  out = cached;
+  out.cached = true;
+  if (pending & 1u) {
+    out.ready = out.flight_loaded = false;
+    out.loading = true;
+    out.error = "camera_world_revalidation";
+  }
+  return out;
+}
+}  // namespace
+AircraftSessionReadiness get_aircraft_session_readiness() noexcept {
+  return nonblocking_readiness(GetTickCount64());
+}
+void notify_invalid_camera_world() noexcept {
+  invalid_world.fetch_or(1u, std::memory_order_acq_rel);
+}
+bool aircraft_matches_profile() noexcept {
+  const auto identity = get_aircraft_identity();
+  // Manual and automatic selection use the same vendor/variant identity. ATC
+  // brand text alone cannot approve or reject an aircraft adapter.
+  return identity.fresh && identity.detected_profile == profile_id.load();
+}
+bool initialize_body_pose_provider() noexcept {
+  AcquireSRWLockExclusive(&lifecycle);
+  if (state.worker && WaitForSingleObject(state.worker, 0) == WAIT_OBJECT_0) {
+    CloseHandle(state.worker);
+    CloseHandle(state.stop);
+    state.worker = nullptr;
+    state.stop = nullptr;
+  }
+  if (state.worker) {
+    const bool ready = WaitForSingleObject(state.stop, 0) == WAIT_TIMEOUT;
+    ReleaseSRWLockExclusive(&lifecycle);
+    return ready;
+  }
+  // Automatic EFIS telemetry can start before any native hook pins the addon.
+  // FROM_ADDRESS also works for the standalone test executable's main image.
+  HMODULE provider_module = nullptr;
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN, reinterpret_cast<LPCWSTR>(&worker),
+                          &provider_module)) {
+    ReleaseSRWLockExclusive(&lifecycle);
+    failure("provider_module_pin");
+    taxi_failure("provider_module_pin");
+    return false;
+  }
+  state.stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+  worker_profile.store(profiles::find(profile_id.load()));
+  if (state.stop)
+    state.worker = CreateThread(nullptr, 0, worker, nullptr, 0, nullptr);
+  const bool ready = state.worker != nullptr;
+  if (!ready && state.stop) {
+    CloseHandle(state.stop);
+    state.stop = nullptr;
+  }
+  ReleaseSRWLockExclusive(&lifecycle);
+  return ready;
+}
+bool shutdown_body_pose_provider() noexcept {
+  AcquireSRWLockExclusive(&lifecycle);
+  const bool stopped = stop_provider_locked();
+  ReleaseSRWLockExclusive(&lifecycle);
+  return stopped;
+}
+void reset_body_pose_calibration() noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  state.calibrated = false;
+  state.calibration_samples = 0;
+  state.calibration_camera_ms = 0;
+  ReleaseSRWLockExclusive(&state.lock);
+}
+std::uint64_t sample_age(std::uint64_t sample, std::uint64_t now) noexcept {
+  return sample && now >= sample ? now - sample : 0;
+}
+bool camera_sample_matches_locked(const Vector3& lla, float fov, std::uint64_t now, CameraMatchReport* report = nullptr) noexcept {
+  const auto locked_now = GetTickCount64();
+  if (now < locked_now)
+    now = locked_now;
+  const bool ready = readiness_locked(now).ready && fresh(state.camera_ms, now) && fresh(state.aircraft_ms, now) &&
+                     now - state.camera_ms <= 100 && now - state.aircraft_ms <= 100;
+  const auto camera_surface = body_math::ecef(state.camera.position[0], state.camera.position[1], 0);
+  const auto private_surface = body_math::ecef(lla[0], lla[1], 0);
+  const double delta = lla[2] - state.camera.position[2];
+  const double horizontal = body_math::distance(camera_surface, private_surface);
+  const double fov_delta = std::abs(double{state.camera.fov} - double{fov});
+  const bool geometry = horizontal <= 0.5 && std::isfinite(delta) && std::abs(delta) <= 150 && fov_delta <= 0.0001;
+  if (report) {
+    report->position_valid = true;
+    report->public_ready = ready;
+    report->geometry = geometry;
+    report->camera_age_ms = sample_age(state.camera_ms, now);
+    report->aircraft_age_ms = sample_age(state.aircraft_ms, now);
+    report->horizontal_m = horizontal;
+    report->altitude_m = delta;
+    report->fov_delta = fov_delta;
+    report->calibration_samples = state.calibration_samples;
+  }
+  return ready && geometry;
+}
+bool public_camera_matches(const Vector3& position, float fov, std::uint64_t now, CameraMatchReport* report) noexcept {
+  if (report)
+    *report = {};
+  Vector3 lla{};
+  if (!body_math::geodetic(position, lla) || !std::isfinite(fov))
+    return false;
+  AcquireSRWLockShared(&state.lock);
+  const bool good = camera_sample_matches_locked(lla, fov, now, report);
+  ReleaseSRWLockShared(&state.lock);
+  return good;
+}
+bool calibrate_body_pose(const Vector3& position, float fov, std::uint64_t now, CameraMatchReport* report) noexcept {
+  if (report)
+    *report = {};
+  Vector3 lla{};
+  if (!body_math::geodetic(position, lla) || !std::isfinite(fov))
+    return false;
+  AcquireSRWLockExclusive(&state.lock);
+  // The worker may publish after the caller sampled its clock but before this
+  // lock. Judge freshness at the locked read, retaining future test deadlines.
+  CameraMatchReport local;
+  const bool good = camera_sample_matches_locked(lla, fov, now, &local);
+  const double delta = lla[2] - state.camera.position[2];
+  bool accepted = false;
+  local.new_public_sample = state.camera_ms != state.calibration_camera_ms;
+  // A camera in the wrong place must lose the latch. A momentarily late public
+  // response says nothing about the candidate, and the2cm stability check
+  // still revalidates every accepted sample, so it only defers this attempt.
+  if (!good)
+    state.calibration_samples = local.public_ready ? 0 : state.calibration_samples;
+  else if (state.camera_ms != state.calibration_camera_ms) {
+    const double public_altitude = state.camera.position[2];
+    // Initial calibration requires a vertically settled camera. Three
+    // distinct responses and both altitudes stable within2cm prevent a
+    // vertically moving pilot camera becoming a permanent altitude bias.
+    // The correction is vertical only, so horizontal travel between responses
+    // is not compared: arrival recalibration must converge while taxiing
+    // (issue 82). Each sample still passes the 0.5m horizontal match above.
+    if (!state.calibration_samples || std::abs(delta - state.candidate_correction) > 0.02 ||
+        std::abs(lla[2] - state.candidate_private_altitude) > 0.02 || std::abs(public_altitude - state.candidate_public_altitude) > 0.02) {
+      state.calibration_samples = 0;
+      state.candidate_correction = delta;
+      state.candidate_private_altitude = lla[2];
+      state.candidate_public_altitude = public_altitude;
+    }
+    state.calibration_camera_ms = state.camera_ms;
+    if (++state.calibration_samples >= 3) {
+      state.correction = delta;
+      state.calibration_origin = body_math::ecef(state.aircraft.latitude, state.aircraft.longitude, 0);
+      state.calibrated = true;
+      accepted = true;
+    }
+  }
+  local.calibration_samples = state.calibration_samples;
+  ReleaseSRWLockExclusive(&state.lock);
+  if (report)
+    *report = local;
+  return accepted;
+}
+BodyPoseSnapshot sample_body_pose(std::uint64_t now) noexcept {
+  BodyPoseSnapshot out;
+  AcquireSRWLockShared(&state.lock);
+  const auto locked_now = GetTickCount64();
+  if (now < locked_now)
+    now = locked_now;
+  if (state.aircraft_session.loading() || invalid_world.load(std::memory_order_acquire) || !state.aircraft_session.running())
+    out.error = "aircraft_session_loading";
+  else if (!fresh(state.aircraft_ms, now))
+    out.error = state.aircraft_ms ? "aircraft_telemetry_stale" : state.error;
+  else if (!state.calibrated) {
+    out.calibration_required = fresh(state.camera_ms, now);
+    out.error = out.calibration_required ? "local_camera_calibration_required" : "camera_telemetry_stale";
+  } else if (body_math::distance(body_math::ecef(state.aircraft.latitude, state.aircraft.longitude, 0), state.calibration_origin) > 10000)
+    out.error = "outside_local_calibration_radius";
+  else {
+    out.pose = body_math::body(state.aircraft, state.correction);
+    out.sample_ms = state.aircraft_ms;
+    out.valid = valid_body_pose(out.pose);
+    out.error = out.valid ? "" : "invalid_body_basis";
+  }
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+OnGroundSample get_on_ground() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = on_ground_locked(GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+CameraStateSample get_camera_state() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = camera_state_locked(GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+GroundSpeedSample get_ground_speed() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = ground_speed_locked(GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+BodyTelemetryTiming get_body_telemetry_timing() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  auto out = state.timing;
+  out.fresh = fresh(state.aircraft_ms, GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+TaxiButtonSample get_taxi_buttons() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = taxi_buttons_locked(GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+void update_taxi_button_request(const TaxiButtonRequest& request, bool permitted) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  const auto* profile = profiles::find(profile_id.load());
+  const auto now = GetTickCount64();
+  state.button_commands.update(request, permitted && readiness_locked(now).ready, now, state.aircraft_session.epoch(),
+                               profile ? profile->id : 0, profile && profiles::commandable_buttons(*profile));
+  ReleaseSRWLockExclusive(&state.lock);
+}
+namespace {
+// A value no page saw before: pages compare with the value at their load, and
+// an L:var outlives the flight. Positive: read; negative: show again, from
+// panel_marks::kTargetedBase for the pages of some panels only.
+void signal_panel_marks(bool read, std::uint64_t panels) noexcept {
+  static std::atomic<unsigned> serial{0};
+  const auto last = std::llabs(panel_marks_signal.load(std::memory_order_relaxed));
+  auto value = static_cast<std::int64_t>(GetTickCount64() % 1000000000ull + 1);
+  if (!read && panels)
+    value = static_cast<std::int64_t>(panel_marks::targeted_show(panels, serial.fetch_add(1, std::memory_order_relaxed)));
+  else if (value == last)
+    ++value;
+  panel_marks_signal.store(read ? value : -value, std::memory_order_release);
+}
+}  // namespace
+void signal_panel_marks_read() noexcept {
+  signal_panel_marks(true, 0);
+}
+void signal_panel_marks_show(std::uint64_t panels) noexcept {
+  signal_panel_marks(false, panels);
+}
+TaxiButtonRequestStatus get_taxi_button_request_status() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto result = state.button_commands.status();
+  ReleaseSRWLockShared(&state.lock);
+  return result;
+}
+LightingSample get_lighting() noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = lighting_locked(GetTickCount64());
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+void set_lvar_bindings(const standalone::LvarBindings& bindings) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  bool changed = false;
+  // Another trigger reads the values another way: a new stream too.
+  for (std::size_t i = 0; i < bindings.size(); ++i)
+    changed = changed || std::memcmp(state.lvar_names[i].name, bindings[i].name, standalone::LvarNameSize) != 0 ||
+              state.lvar_names[i].trigger != bindings[i].trigger;
+  if (changed) {
+    state.lvar_names = bindings;
+    ++state.lvar_request;
+  }
+  ReleaseSRWLockExclusive(&state.lock);
+}
+LvarBindingSample get_lvar_bindings() noexcept {
+  LvarBindingSample out;
+  AcquireSRWLockShared(&state.lock);
+  out.generation = state.lvar_stream;
+  if (out.generation)
+    out.states = state.lvar;
+  out.error = state.lvar_error;
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+#ifdef TAXI_BODY_POSE_PROVIDER_TESTING
+namespace body_pose_provider_testing {
+std::uint32_t begin_lvar_stream(std::uint32_t define) noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  std::array<std::uint8_t, standalone::LvarBindingCount> slots{};
+  unsigned count = 0;
+  for (std::size_t i = 0; i < state.lvar_names.size(); ++i)
+    if (standalone::valid_lvar_name(state.lvar_names[i].name))
+      slots[count++] = static_cast<std::uint8_t>(i);
+  begin_lvar_stream_locked(define, slots, count, state.lvar_names);
+  const auto generation = state.lvar_stream;
+  ReleaseSRWLockExclusive(&state.lock);
+  return generation;
+}
+bool accept_lvar_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return native_camera::accept_lvar_packet(packet, bytes, sample_ms);
+}
+void reset_lvar_session() noexcept {
+  AcquireSRWLockExclusive(&state.lock);
+  reset_session_locked();
+  ReleaseSRWLockExclusive(&state.lock);
+}
+bool install_worker(void* worker_handle, void* stop_handle) noexcept {
+  AcquireSRWLockExclusive(&lifecycle);
+  bool installed = false;
+  if (!state.worker && !state.stop && worker_handle && stop_handle) {
+    const auto process = GetCurrentProcess();
+    HANDLE worker_copy{}, stop_copy{};
+    if (DuplicateHandle(process, worker_handle, process, &worker_copy, 0, FALSE, DUPLICATE_SAME_ACCESS) &&
+        DuplicateHandle(process, stop_handle, process, &stop_copy, 0, FALSE, DUPLICATE_SAME_ACCESS)) {
+      state.worker = worker_copy;
+      state.stop = stop_copy;
+      worker_profile.store(profiles::find(profile_id.load()));
+      installed = true;
+    } else if (worker_copy) {
+      CloseHandle(worker_copy);
+    }
+  }
+  ReleaseSRWLockExclusive(&lifecycle);
+  return installed;
+}
+LifecycleSnapshot lifecycle_snapshot() noexcept {
+  AcquireSRWLockShared(&lifecycle);
+  const LifecycleSnapshot result{reinterpret_cast<std::uintptr_t>(state.worker), reinterpret_cast<std::uintptr_t>(state.stop),
+                                 profile_id.load()};
+  ReleaseSRWLockShared(&lifecycle);
+  return result;
+}
+bool accept_on_ground_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return ::taxi_camera::native_camera::accept_on_ground_packet(packet, bytes, sample_ms);
+}
+OnGroundSample on_ground_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = on_ground_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+bool accept_camera_state_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return ::taxi_camera::native_camera::accept_camera_state_packet(packet, bytes, sample_ms);
+}
+CameraStateSample camera_state_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = camera_state_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+bool accept_session_packet(const void* packet, std::uint32_t bytes) noexcept {
+  return native_camera::accept_session_packet(packet, bytes);
+}
+bool session_reconnect_required(bool invalidated) noexcept {
+  return native_camera::session_reconnect_required(invalidated);
+}
+bool accept_camera_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return native_camera::accept_camera_packet(packet, bytes, sample_ms);
+}
+AircraftSessionReadiness session_readiness_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = readiness_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+AircraftSessionReadiness session_readiness_nonblocking_at(std::uint64_t now_ms) noexcept {
+  return nonblocking_readiness(now_ms);
+}
+void hold_telemetry_lock(bool hold) noexcept {
+  if (hold)
+    AcquireSRWLockExclusive(&state.lock);
+  else
+    ReleaseSRWLockExclusive(&state.lock);
+}
+void service_world_invalidation() noexcept {
+  native_camera::service_world_invalidation();
+}
+bool accept_identity_packet(const void* packet, std::uint32_t bytes, std::uint64_t now) noexcept {
+  return native_camera::accept_identity_packet(packet, bytes, now);
+}
+bool accept_aircraft_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return native_camera::accept_aircraft_packet(packet, bytes, sample_ms);
+}
+GroundSpeedSample ground_speed_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = ground_speed_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+bool accept_taxi_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms, unsigned sides) noexcept {
+  return native_camera::accept_taxi_packet(packet, bytes, sample_ms, sides);
+}
+bool accept_pmdg_dsp_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return native_camera::accept_pmdg_dsp_packet(packet, bytes, sample_ms);
+}
+TaxiButtonSample taxi_buttons_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = taxi_buttons_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+bool accept_lighting_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept {
+  return native_camera::accept_lighting_packet(packet, bytes, sample_ms);
+}
+LightingSample lighting_at(std::uint64_t now_ms) noexcept {
+  AcquireSRWLockShared(&state.lock);
+  const auto out = lighting_locked(now_ms);
+  ReleaseSRWLockShared(&state.lock);
+  return out;
+}
+}  // namespace body_pose_provider_testing
+#endif
+}  // namespace taxi_camera::native_camera

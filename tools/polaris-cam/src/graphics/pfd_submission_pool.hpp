@@ -1,0 +1,153 @@
+#pragma once
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <d3d12.h>
+
+#include <array>
+#include <atomic>
+#include <cstdint>
+
+namespace taxi_camera::pfd_submission {
+// Why a copy with a drop counter did not run. The plan reports copies the pool
+// never held: no ready packet (pool_full), refused by validation (invalid),
+// recorded without the save its restore was missing (save_stripped), or the
+// submission ended before recording: the lock wait expired or another
+// queue's receipt was unfinished, so the batch escaped (escaped); the plan's
+// patch generation, session or device no longer matched (stale); a list in
+// the batch was unknown (unknown_lists); a device mismatch failed the device
+// (device_failed); no receipt was opened (no_receipt); the queue Wait failed
+// (wait_failed); the insertion point was outside the batch (out_of_batch);
+// or none of these (not_recorded). The pool reports the rest: the queue hook
+// did not accept every insertion (cancelled), the receipt was refused or
+// failed (quarantined), Close failed (close_failed), submission had no
+// covering fence (unsubmitted), or the device was removed (device_lost).
+enum class DropSource : unsigned {
+  pool_full,
+  invalid,
+  save_stripped,
+  escaped,
+  stale,
+  unknown_lists,
+  device_failed,
+  no_receipt,
+  wait_failed,
+  out_of_batch,
+  not_recorded,
+  cancelled,
+  quarantined,
+  close_failed,
+  unsubmitted,
+  device_lost,
+  count
+};
+inline constexpr const char* drop_source_name(DropSource value) noexcept {
+  constexpr const char* names[]{"pool_full",     "invalid",      "save_stripped", "escaped",      "stale",        "unknown_lists",
+                                "device_failed", "no_receipt",   "wait_failed",   "out_of_batch", "not_recorded", "cancelled",
+                                "quarantined",   "close_failed", "unsubmitted",   "device_lost"};
+  static_assert(sizeof(names) / sizeof(names[0]) == static_cast<unsigned>(DropSource::count));
+  return static_cast<unsigned>(value) < static_cast<unsigned>(DropSource::count) ? names[static_cast<unsigned>(value)] : "invalid_source";
+}
+inline void count_drop(std::atomic<std::uint64_t>* sources, DropSource source) noexcept {
+  if (sources && static_cast<unsigned>(source) < static_cast<unsigned>(DropSource::count))
+    sources[static_cast<unsigned>(source)].fetch_add(1, std::memory_order_relaxed);
+}
+
+// The manager's submission mutex serializes all methods. Only service performs GPU allocation or
+// resets. A recording owns its source/target references until cancellation is
+// serviced or its covering outer-receipt fence completes. Uncertain work is
+// retained permanently, never recycled based on a later unrelated Signal.
+class Pool {
+ public:
+  // Two per display side (a shadow restore and the camera copy) plus a
+  // snapshot, with room for the earlier receipts still in flight.
+  static constexpr unsigned Capacity = 16;
+  struct Copy {
+    ID3D12Resource* target = nullptr;
+    ID3D12Resource* source = nullptr;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    // COMMON is accepted only with the caller's explicit final-transition
+    // proof. An omitted state must never silently invent that proof.
+    D3D12_RESOURCE_STATES state = static_cast<D3D12_RESOURCE_STATES>(~UINT{0});
+    UINT x = 0, y = 0, width = 0, height = 0;
+    // Readback: copy the target's base-mip region into the source buffer, which
+    // must be in a READBACK heap, instead of writing the buffer into the target.
+    bool readback = false;
+    // When the covering fence passes, completed is raised to completed_value
+    // (never lowered, so an older request finishing later cannot mark a newer
+    // one done). A cancelled or quarantined packet never raises it. The
+    // counter must outlive the packet.
+    std::atomic<std::uint64_t>* completed = nullptr;
+    std::uint64_t completed_value = 0;
+    // Raised to completed_value, like completed, when the packet will not run:
+    // cancelled before submission, or quarantined (uncertain work counts as
+    // not run). The caller's plan reports copies that were never recorded.
+    std::atomic<std::uint64_t>* dropped = nullptr;
+    // DropSource::count counters, one raised for each drop reported through
+    // dropped. Optional; must outlive the packet.
+    std::atomic<std::uint64_t>* drop_sources = nullptr;
+    // Display shadow: before writing the source, copy the same target region
+    // into this DEFAULT-heap buffer at save_footprint (same size and format
+    // family). Not with readback.
+    ID3D12Resource* save = nullptr;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT save_footprint{};
+    // The source is a DEFAULT-heap shadow buffer rather than a promoted patch.
+    // Shadow buffers stay in COMMON between packets: every packet that uses one
+    // transitions it explicitly and returns it to COMMON, so a save and a
+    // restore of one shadow may share an Execute.
+    bool shadow_source = false;
+  };
+  struct Recording {
+    unsigned slot = Capacity;
+    ID3D12CommandList* list = nullptr;
+    // A failed recording whose drop the pool already reported (Close failed),
+    // or one refused by validation before any packet was looked at.
+    bool reported = false, invalid = false;
+    explicit operator bool() const noexcept { return list != nullptr; }
+  };
+
+  Pool() noexcept = default;
+  ~Pool();
+  Pool(const Pool&) = delete;
+  Pool& operator=(const Pool&) = delete;
+
+  // Service thread only, WITHOUT the manager metadata lock: releasing the last
+  // native resource reference may reenter its retirement callback. completed must come from the
+  // SAME device timeline used by submit; UINT64_MAX means device removal.
+  // Native device identity is immutable after the first successful service.
+  bool service(ID3D12Device* device, std::uint64_t completed) noexcept;
+  // Submission callback: no allocation, Reset, CPU wait or mutex acquisition.
+  // The caller proves whole-batch boundary/state/generation and serializes the
+  // stable patch against its writer on the manager's outer receipt timeline.
+  // Exact RT is permitted only for insertion BEFORE a list whose initial target
+  // state is proven RT, restoring it before that application's first transition.
+  Recording record(const Copy&) noexcept;
+  void submit(unsigned slot, std::uint64_t covering_value) noexcept;
+  void cancel(unsigned slot) noexcept;
+  void quarantine(unsigned slot) noexcept;
+  unsigned ready_count() const noexcept;
+
+ private:
+  enum class State { empty, ready, recorded, submitted, retired, quarantined };
+  struct Packet {
+    ID3D12CommandAllocator* allocator = nullptr;
+    ID3D12GraphicsCommandList* list = nullptr;
+    ID3D12Resource* target = nullptr;
+    ID3D12Resource* source = nullptr;
+    ID3D12Resource* save = nullptr;
+    std::atomic<std::uint64_t>* completed = nullptr;
+    std::atomic<std::uint64_t>* dropped = nullptr;
+    std::atomic<std::uint64_t>* drop_sources = nullptr;
+    std::uint64_t completed_value = 0;
+    std::uint64_t covering_value = 0;
+    State state = State::empty;
+  };
+  static void release_resources(Packet&) noexcept;
+  static void report_dropped(Packet&, DropSource) noexcept;
+  bool valid_copy(const Copy&) const noexcept;
+  ID3D12Device* device_ = nullptr;
+  std::array<Packet, Capacity> packets_{};
+};
+
+}  // namespace taxi_camera::pfd_submission

@@ -1,0 +1,218 @@
+#pragma once
+#include <cstdint>
+#include <limits>
+#include "../shared/lvar_binding.hpp"
+#include "aircraft_identity.hpp"
+#include "aircraft_mounts.hpp"
+#include "taxi_button_command.hpp"
+namespace taxi_camera::native_camera {
+struct BodyPoseSnapshot {
+  bool valid = false;
+  bool calibration_required = false;  // Fresh public camera+aircraft ready, no calibration yet.
+  std::uint64_t sample_ms = 0;
+  BodyPose pose{};
+  const char* error = "not_initialized";
+};
+struct GroundSpeedSample {
+  bool valid = false;
+  double knots = std::numeric_limits<double>::quiet_NaN();
+  std::uint64_t sample_ms = 0;
+  const char* error = "not_initialized";
+};
+struct OnGroundSample {
+  bool valid = false;
+  bool on_ground = false;
+  std::uint64_t sample_ms = 0;
+  const char* error = "not_initialized";
+};
+struct CameraStateSample {
+  bool valid = false;
+  unsigned state = 0;  // Public CAMERA STATE enum; 2 is Cockpit.
+  std::uint64_t sample_ms = 0;
+  const char* error = "not_initialized";
+};
+struct BodyTelemetryTiming {
+  std::uint64_t accepted_samples = 0;
+  std::uint64_t last_sample_ms = 0;
+  std::uint64_t last_interval_ms = 0;
+  bool fresh = false;
+};
+struct TaxiButtonSample {
+  bool valid = false;
+  bool left_on = false;
+  bool right_on = false;
+  // Side 2: A340-600 lower ECAM selector or PMDG 777 LWR CTR CAM page.
+  bool sd_on = false;
+  unsigned mask() const noexcept { return (left_on ? 1u : 0u) | (right_on ? 2u : 0u) | (sd_on ? 4u : 0u); }
+  std::uint64_t sample_ms = 0;
+  const char* error = "not_initialized";
+};
+// The user's bound cockpit L:vars, in binding order. generation changes with
+// every new stream (new names, a new worker, a flight change) and is 0 while
+// none runs; the counters belong to one generation.
+struct LvarBindingSample {
+  std::uint32_t generation = 0;
+  standalone::LvarBindingStates states{};
+  const char* error = "not_initialized";
+};
+struct LightingSample {
+  static constexpr std::uint64_t MaximumAgeMs = 1500;
+  bool valid = false;
+  double ambient = std::numeric_limits<double>::quiet_NaN();
+  double brightness = std::numeric_limits<double>::quiet_NaN();
+  std::uint64_t sample_ms = 0;
+  const char* error = "not_initialized";
+};
+// Public SimConnect worker only. Call lifecycle functions outside DllMain and
+// private engine callbacks. Never acquires or changes the simulator camera.
+// Returns false while the previous worker is stopping; retry without changing
+// the active profile or starting another worker. Loading/stopped sessions keep
+// their existing subscription; same-profile revalidation clears cached samples
+// without closing a healthy worker's flow subscription.
+bool select_aircraft_profile(std::uint32_t id) noexcept;
+AircraftIdentitySample get_aircraft_identity() noexcept;
+// Changes only when the flight/aircraft session changes. Selecting the
+// adapter does not itself change this epoch.
+std::uint64_t get_aircraft_session_epoch() noexcept;
+struct AircraftSessionReadiness {
+  std::uint64_t epoch = 0;
+  bool loading = false, ready = false, flow_subscribed = false;
+  // The simulator reported a pause (Pause_EX1), independent of ready.
+  bool paused = false;
+  // The telemetry cache was busy; this is the last complete reading (same
+  // epoch, at most ReadinessCacheMaxAgeMs old), not a fresh evaluation.
+  bool cached = false;
+  std::uint32_t last_flow_event = 0;
+  const char* error = "not_initialized";
+  // The flight has loaded and is running with fresh identity and telemetry,
+  // whatever the aircraft. ready also needs a supported aircraft, so an
+  // aircraft no profile matches is only ever flight_loaded (aircraft discovery).
+  bool flight_loaded = false;
+};
+// Cache-only and nonblocking. Readiness needs fresh supported aircraft identity,
+// body telemetry and public WORLD camera data; it is independent of the selected
+// profile so draining an old profile cannot prevent choosing the new one.
+// Losing the lock race against the telemetry worker returns the last complete
+// reading (cached=true) rather than "not ready": callers gate render demand on
+// this every control tick, and a one-tick refusal closes and reopens the cameras.
+AircraftSessionReadiness get_aircraft_session_readiness() noexcept;
+inline constexpr std::uint64_t ReadinessCacheMaxAgeMs = 250;
+// One invalid public WORLD camera response keeps the last valid sample, which
+// still expires on the normal 500 ms freshness bound. Only an unbroken run of
+// invalid responses, at least this many and spanning at least this long,
+// resets the flight session; a single glitch must not discard discovery and
+// calibration (issue 105).
+inline constexpr unsigned InvalidCameraWorldResetSamples = 3;
+inline constexpr std::uint64_t InvalidCameraWorldResetMs = 1000;
+// Native callbacks may report an actually invalid WORLD sample (not merely old
+// telemetry). This atomically gates readiness; the telemetry worker owns reset
+// and fresh-sample recovery. No SDK call, lock or wait occurs here.
+void notify_invalid_camera_world() noexcept;
+bool aircraft_matches_profile() noexcept;
+bool initialize_body_pose_provider() noexcept;
+// Signal stop and poll completion without waiting for SimConnect. False keeps
+// the worker, event and caches owned until a later lifecycle call observes exit.
+bool shutdown_body_pose_provider() noexcept;
+void reset_body_pose_calibration() noexcept;
+// Why one candidate private camera did or did not pair with the public WORLD
+// sample. Ages and separations only; no coordinate is ever published here.
+struct CameraMatchReport {
+  bool position_valid = false;  // Candidate ECEF converted to geodetic.
+  bool public_ready = false;    // Readiness plus both public sample ages.
+  bool geometry = false;        // Horizontal, altitude and FOV all in tolerance.
+  // Calibration only: the public camera produced a response the latch has not
+  // already consumed. A repeated response cannot advance the three samples.
+  bool new_public_sample = false;
+  std::uint64_t camera_age_ms = 0;
+  std::uint64_t aircraft_age_ms = 0;
+  double horizontal_m = 0;
+  double altitude_m = 0;
+  double fov_delta = 0;
+  unsigned calibration_samples = 0;
+};
+// The caller supplies a freshly validated current-camera ECEF position/FOV.
+// Matches public CameraGet WORLD before accepting a local vertical correction.
+// No simulator/API calls occur here or in sample_body_pose.
+bool calibrate_body_pose(const Vector3& private_camera_ecef,
+                         float private_fov,
+                         std::uint64_t now_ms,
+                         CameraMatchReport* report = nullptr) noexcept;
+// Same WORLD/FOV match as calibration, without changing the three-sample latch.
+// A rejected aircraft-object camera must use this before trying another view.
+bool public_camera_matches(const Vector3& private_camera_ecef,
+                           float private_fov,
+                           std::uint64_t now_ms,
+                           CameraMatchReport* report = nullptr) noexcept;
+BodyPoseSnapshot sample_body_pose(std::uint64_t now_ms) noexcept;
+// Receipt timing only, not a claim of simulation timestamp or prediction.
+// Counter is monotonic across worker restarts; no additional simulator reads.
+BodyTelemetryTiming get_body_telemetry_timing() noexcept;
+// Cached public GROUND VELOCITY in knots, independent of body calibration.
+// No simulator calls; a sample older than500ms is unavailable, never zeroed.
+GroundSpeedSample get_ground_speed() noexcept;
+// Optional SIM ON GROUND telemetry only gates background prewarming. A stale
+// sample never prevents an explicit TAXI request from using the existing path.
+OnGroundSample get_on_ground() noexcept;
+// Optional CAMERA STATE telemetry (the simulator's main view). Only pauses
+// camera rendering outside the cockpit; a stale or missing sample pauses nothing.
+CameraStateSample get_camera_state() noexcept;
+// Cached FCU TAXI light levels; independent of body calibration. Invalid or
+// older-than-500ms telemetry must not be interpreted as an authoritative OFF.
+TaxiButtonSample get_taxi_buttons() noexcept;
+// Cache-only bridge API. The existing SimConnect worker owns all sends.
+// Permission must be refreshed; false consumes/cancels the current request.
+void update_taxi_button_request(const TaxiButtonRequest& request, bool permitted) noexcept;
+TaxiButtonRequestStatus get_taxi_button_request_status() noexcept;
+// Cache-only: tells every cockpit page that Taxi Cam has read its panel marks
+// (L:TAXICAM_MARKS gets a positive value it has not had, src/panel_marks), or
+// asks them to show their marks again (a new negative value): every page, or
+// with panels (panel_marks::panel_bit) only the pages of those panels. The
+// worker sets it on its next pass.
+void signal_panel_marks_read() noexcept;
+void signal_panel_marks_show(std::uint64_t panels = 0) noexcept;
+// Optional public lighting values sampled at2Hz, independent of pose/TAXI.
+// AMBIENT LIGHT SENSOR is a Number, not a claimed radiometric/lux measurement.
+LightingSample get_lighting() noexcept;
+// Cache-only: the worker subscribes to changed names on its next pass, every
+// simulator frame with only changed values sent, so a short push is not
+// missed. Read only; nothing is ever written to these variables.
+void set_lvar_bindings(const standalone::LvarBindings& bindings) noexcept;
+LvarBindingSample get_lvar_bindings() noexcept;
+#ifdef TAXI_BODY_POSE_PROVIDER_TESTING
+namespace body_pose_provider_testing {
+struct LifecycleSnapshot {
+  std::uintptr_t worker{}, stop{};
+  std::uint32_t profile{};
+};
+// Duplicates the supplied handles; the fixture retains its originals.
+bool install_worker(void* worker, void* stop) noexcept;
+LifecycleSnapshot lifecycle_snapshot() noexcept;
+bool accept_session_packet(const void* packet, std::uint32_t bytes) noexcept;
+bool session_reconnect_required(bool invalidated) noexcept;
+bool accept_camera_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+AircraftSessionReadiness session_readiness_at(std::uint64_t now_ms) noexcept;
+// The production nonblocking read with an explicit clock, and a way to make
+// the telemetry lock busy from the test thread (exclusive; release with false).
+AircraftSessionReadiness session_readiness_nonblocking_at(std::uint64_t now_ms) noexcept;
+void hold_telemetry_lock(bool hold) noexcept;
+void service_world_invalidation() noexcept;
+bool accept_identity_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+bool accept_aircraft_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+GroundSpeedSample ground_speed_at(std::uint64_t now_ms) noexcept;
+bool accept_on_ground_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+OnGroundSample on_ground_at(std::uint64_t now_ms) noexcept;
+bool accept_camera_state_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+CameraStateSample camera_state_at(std::uint64_t now_ms) noexcept;
+bool accept_taxi_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms, unsigned sides = 2) noexcept;
+bool accept_pmdg_dsp_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+TaxiButtonSample taxi_buttons_at(std::uint64_t now_ms) noexcept;
+bool accept_lighting_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+LightingSample lighting_at(std::uint64_t now_ms) noexcept;
+// Starts a stream as the worker does after defining it: bound bindings in
+// order on definition `define`. Returns that stream's generation.
+std::uint32_t begin_lvar_stream(std::uint32_t define) noexcept;
+bool accept_lvar_packet(const void* packet, std::uint32_t bytes, std::uint64_t sample_ms) noexcept;
+void reset_lvar_session() noexcept;
+}  // namespace body_pose_provider_testing
+#endif
+}  // namespace taxi_camera::native_camera

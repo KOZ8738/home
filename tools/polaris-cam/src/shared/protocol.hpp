@@ -1,0 +1,358 @@
+#pragma once
+#include <windows.h>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cwchar>
+#include "../profiles/discovered.hpp"
+#include "camera_brightness.hpp"
+#include "camera_rate.hpp"
+#include "lvar_binding.hpp"
+#include "sim_messages.hpp"
+#include "version.hpp"
+
+namespace taxi_camera::standalone {
+// Protocol 14: side masks gained bit 2 (A340-600 lower ECAM).
+// Protocol 15: Settings/Status lower_id for a separate side-2 texture (PMDG 777 lower DU).
+// Protocol 16: Settings dynamic_tail (nose priority while rolling straight).
+// Protocol 17: the 60-knot cutoff is gone: Status drops speed_inhibited and the
+// notification log drops the speed_cutoff event.
+// Protocol 18: Settings camera_weather (clouds and overcast light in the camera views).
+// Protocol 19: Settings camera_tone (camera views use the main view's exposure and tone curve).
+// Protocol 20: Settings drops camera_weather (camera weather is always on).
+// Protocol 21: Settings drops camera_tone, automatic_exposure, exposure and
+// night_boost (the camera views always take the main view's lighting).
+// Protocol 22: Settings snapshot_request/snapshot_id and Status snapshot_*
+// for a one-shot display texture snapshot on PFD routing.
+// Protocol 23: Candidate panel name and Status named_mask for the PFD routing
+// cards; routed textures come first in the candidate list.
+// Protocol 24: Settings day_brightness and night_brightness (EV trims on top
+// of the main view's exposure).
+// Protocol 25: camera modes. Settings gains camera_mode and drops parked_rate
+// and dynamic_tail; Status gains update_hz, reachable_rate, auto_level and
+// auto_floor and drops parked. Every camera renders on the same frames.
+// Protocol 26: aircraft discovery. Status gains panel_discovery and the panel
+// map (each textured cockpit panel with its paired texture) and lists up to 32
+// candidates (any panel can be a set-up aircraft's display); Settings gains
+// the discovered layout of an aircraft the user set up.
+// Protocol 27: Settings mounts grow to four (the door camera's is [3]) and gain
+// lvar_bindings (cockpit L:vars bound to camera actions) and the door camera
+// (door_side, door_live, door_on); Status gains lvar_generation/lvars (what the
+// bridge reads from them) and door_state.
+// Protocol 28: Settings film_grain and black_and_white (the cameras' looks).
+constexpr std::uint32_t ProtocolMagic = 0x54415849, ProtocolVersion = 29;
+constexpr const wchar_t* Version = TAXI_CAM_VERSION_WIDE;
+// Settings::door_side of an aircraft without a door camera display.
+inline constexpr std::uint32_t DoorSideNone = MaxDisplaySides;
+// Status::door_state.
+enum class DoorState : std::uint32_t { off, waiting, live, snapshot };
+// Every camera view's look bit (Settings::film_grain, black_and_white).
+inline constexpr std::uint32_t CameraLookMask = (1u << profiles::CameraViews) - 1;
+struct Settings {
+  std::uint32_t enabled = 1, camera_rate = kDefaultCameraRate;
+  std::uint64_t route_request{}, left_id{}, right_id{};
+  std::uint64_t profile_request{};         // Session-only: selecting the same profile is an explicit retry.
+  std::uint64_t aircraft_session_epoch{};  // Scope manual previews and texture IDs to the observed flight.
+  std::uint64_t taxi_request{};            // Session-only desired aircraft button state from a shortcut.
+  std::uint32_t taxi_selected_mask{}, taxi_desired_mask{};
+  std::uint32_t auto_profile = 1;
+  // Global (settings.ini [messages] notifications): the bridge publishes
+  // important events in Status::notifications and the companion shows them as
+  // Windows tray notifications. Protocol 10 named this in_sim_messages.
+  std::uint32_t notifications = 1;
+  std::array<float, 3> speed_color = profiles::A380.composition.speed_color;
+  std::array<float, 3> guide_color = profiles::A380.composition.guide_color;
+  // Normalized left-side guide positions; the right side mirrors X. These are
+  // visual alignment settings, not calibrated ground-clearance measurements.
+  std::array<float, 2> nose_dot = profiles::A380.composition.nose_dot;
+  std::array<float, 2> tail_upper = profiles::A380.composition.tail_upper;
+  std::array<float, 2> tail_corner = profiles::A380.composition.tail_corner;
+  std::array<float, 2> tail_inner = profiles::A380.composition.tail_inner;
+  // retired_single_camera keeps the layout of the removed First camera only
+  // test (it never produced output); the companion sends 0, the bridge ignores it.
+  std::uint32_t profile = 1, follow_taxi = 1, auto_detect = 1, retired_single_camera = 0, manual_mask = 0, calibration_mask = 0,
+                calibration_budget = 4096, scene_test = 0;
+  profiles::CameraMounts mounts = profiles::A380.mounts;
+  // Protocol 15: explicit separate side-2 texture, sent with route_request
+  // (0 = automatic). Unused when side 2 shares the display texture.
+  std::uint64_t lower_id{};
+  // Protocol 22, session-only: a new serial asks for one snapshot of the
+  // tracked display texture snapshot_id (see display_snapshot.hpp).
+  std::uint64_t snapshot_request{}, snapshot_id{};
+  // Protocol 24: the user's camera brightness in EV (camera_brightness.hpp),
+  // by day and at night, blended by ambient light. Saved per aircraft profile.
+  float day_brightness = 0, night_brightness = 0;
+  // Protocol 25: CameraMode. Custom targets camera_rate; Auto and the presets
+  // carry their own targets and keep it for Custom. Saved per aircraft profile.
+  std::uint32_t camera_mode = static_cast<std::uint32_t>(kDefaultCameraMode);
+  // Protocol 26: with profile == profiles::DiscoveredProfileId, the set-up
+  // aircraft's display layout (discovered.hpp). Ignored for other profiles.
+  profiles::DiscoveredLayout discovered{};
+  // Session-only: 1 while the companion's aircraft setup is open. The bridge
+  // then tracks every panel texture, also on an aircraft already set up, so
+  // the setup can show and pair them.
+  std::uint32_t panel_setup{};
+  // Protocol 26: the right tail bracket, measured from the right edge (the
+  // left guides above are from the left). Saved per aircraft profile.
+  std::array<float, 2> tail_upper_right = profiles::A380.composition.tail_upper;
+  std::array<float, 2> tail_corner_right = profiles::A380.composition.tail_corner;
+  std::array<float, 2> tail_inner_right = profiles::A380.composition.tail_inner;
+  // Protocol 26: the user's display choices for this profile (discovered.hpp
+  // DisplayOverride). All empty is the profile as it comes.
+  profiles::DisplayOverride display_override{};
+  // Protocol 27: cockpit L:vars bound to the camera actions (lvar_binding.hpp),
+  // read by the bridge and acted on by the companion. Saved per aircraft profile.
+  LvarBindings lvar_bindings{};
+  // Protocol 27: the door camera (profiles::DoorFeed, on mounts[3]). door_side
+  // is the display side it fills (DoorSideNone: no door camera); door_live 1
+  // keeps it rendering, 0 shows one snapshot taken each time it is turned on.
+  // Both are saved per aircraft profile. door_on, session-only, turns it on.
+  std::uint32_t door_side = DoorSideNone, door_live = 0, door_on = 0;
+  // Protocol 28: the cameras' looks, a bit per camera view (nose, tail, third
+  // view, door): film grain with darker edges, and black and white. Every
+  // camera starts with film grain, in colour. Saved per aircraft profile.
+  std::uint32_t film_grain = CameraLookMask, black_and_white = 0;
+};
+inline void reset_guide_settings(Settings& settings, const profiles::AircraftProfile& profile) noexcept {
+  settings.guide_color = profile.composition.guide_color;
+  settings.nose_dot = profile.composition.nose_dot;
+  settings.tail_upper = profile.composition.tail_upper;
+  settings.tail_corner = profile.composition.tail_corner;
+  settings.tail_inner = profile.composition.tail_inner;
+  // A profile without its own right bracket mirrors the left one.
+  const auto& c = profile.composition;
+  settings.tail_upper_right = c.tail_upper_right[0] < 0 ? c.tail_upper : c.tail_upper_right;
+  settings.tail_corner_right = c.tail_corner_right[0] < 0 ? c.tail_corner : c.tail_corner_right;
+  settings.tail_inner_right = c.tail_inner_right[0] < 0 ? c.tail_inner : c.tail_inner_right;
+}
+struct Candidate {
+  std::uint64_t id{}, draws{};
+  std::uint32_t width{}, height{}, mips{}, format{};
+  // Protocol 23: the simulator's VCockpit texture= name for this texture,
+  // when the panel table pairs it this flight; empty otherwise.
+  char name[32]{};
+};
+// Protocol 26: one textured VCockpit panel and the texture paired with it.
+struct PanelTexture {
+  char name[32]{};     // panel-mark key, "@gauge" or "@gauge#rank/count" (mark_identity.hpp)
+  std::uint64_t id{};  // tracked texture, 0 when the bridge does not track it
+  std::uint32_t index{}, width{}, height{}, mips{};
+};
+enum class PanelMapState : std::uint32_t {
+  waiting,  // no panel marks read in this flight yet
+  marked,   // panels lists the textures whose marks were read
+  // Panel textures were pictured and none carried a mark: the panel marks
+  // package is not loaded (written after the simulator loaded its add-ons,
+  // or another package's VCockpit.html loaded after it).
+  inactive,
+};
+inline constexpr std::size_t MaxPanelTextures = 32, MaxCandidates = 32;
+// A gauge a panel's marks name, its rectangle in that panel's texture pixels.
+struct PanelGauge {
+  char name[24]{};        // The gauge's name from its mark, cut to fit.
+  std::uint32_t panel{};  // Index into Status::panels.
+  std::uint16_t x{}, y{}, width{}, height{};
+};
+inline constexpr std::size_t MaxPanelGauges = 96;
+struct Status {
+  std::uint64_t heartbeat{}, captures{}, composed{}, stamps{}, left_id{}, right_id{}, hook_failures{};
+  std::uint32_t graphics_ready{}, scene_ready{}, taxi_mask{}, candidate_count{};
+  std::uint32_t active_profile{}, detected_profile{};
+  std::uint64_t identity_sample_ms{}, aircraft_session_epoch{};
+  std::uint64_t taxi_buttons_sample_ms{}, taxi_request_seen{}, taxi_request_retired{};
+  std::uint32_t taxi_buttons_valid{}, taxi_buttons_mask{}, taxi_request_pending{}, taxi_request_failed{};
+  char aircraft_type[256]{}, aircraft_path[260]{};
+  float speed{}, exposure{};
+  double probe_cpu_ms{}, probe_max_ms{};
+  std::array<double, 10> stage_ms{};
+  Candidate candidates[MaxCandidates]{};
+  char message[384]{};
+  // Protocol 11: target requested from the schedule now, the aircraft's PFD
+  // refresh cap and CameraRateLimit bits. The saved camera_rate is never
+  // rewritten.
+  std::uint32_t effective_rate{}, useful_rate{}, rate_limits{};
+  // Protocol 12: events admitted by the bridge's notification limiter, one
+  // self-describing slot each (serial, GetTickCount64 posted_ms, SimEvent).
+  // Protocol 13: Settings.mounts grew to three feeds for split-bottom profiles.
+  NotificationLog notifications{};
+  // Protocol 15: routed separate side-2 texture (PMDG 777 lower DU).
+  std::uint64_t lower_id{};
+  // Protocol 22: the last handled snapshot_request, its texture and
+  // DisplaySnapshotResult. A ready image is in display_snapshot_path().
+  // Width, height and DXGI format describe the texture, not the image.
+  std::uint64_t snapshot_serial{}, snapshot_id{};
+  std::uint32_t snapshot_result{}, snapshot_width{}, snapshot_height{}, snapshot_format{};
+  // Protocol 23: display sides routed by panel name (bit per side).
+  std::uint32_t named_mask{};
+  // Protocol 25: measured camera-manager updates per second and the images
+  // per camera per second they allow at the target (both 0 while unknown).
+  float update_hz{}, reachable_rate{};
+  // AutoCameraPolicy level (auto_cameras_per_frame: 1, 2 or every camera per
+  // frame) and the update rate it keeps above (0 until a rate is measured).
+  std::uint32_t auto_level{};
+  float auto_floor{};
+  // Protocol 26: 1 while no profile matches the aircraft and the bridge tracks
+  // every panel texture. Protocol 29: panel_state is a PanelMapState; panels
+  // lists up to MaxPanelTextures of panel_count textures whose panel marks
+  // were read, each by its key.
+  std::uint32_t panel_discovery{}, panel_state{}, panel_count{};
+  PanelTexture panels[MaxPanelTextures]{};
+  // Protocol 29: every marked panel's gauges, gauge_count of them, so a
+  // display's area can be picked from the gauge it shows.
+  std::uint32_t gauge_count{};
+  PanelGauge gauges[MaxPanelGauges]{};
+  // Protocol 27: the bound L:vars as read, in Settings::lvar_bindings order.
+  // A new generation (new names, a reconnected worker, a flight change) starts
+  // the counters again; 0 while nothing is read.
+  std::uint32_t lvar_generation{};
+  LvarBindingStates lvars{};
+  // Protocol 27: DoorState of the door camera.
+  std::uint32_t door_state{};
+};
+struct Shared {
+  std::uint32_t magic{}, version{}, bytes{}, owner_pid{};
+  std::uint64_t owner_heartbeat{};
+  Settings settings;
+  Status status;
+};
+inline bool valid_settings(const Settings& s) noexcept {
+  for (const auto& position :
+       {s.nose_dot, s.tail_upper, s.tail_corner, s.tail_inner, s.tail_upper_right, s.tail_corner_right, s.tail_inner_right})
+    if (!std::isfinite(position[0]) || !std::isfinite(position[1]) || position[0] < 0 || position[0] > 0.5f || position[1] < 0 ||
+        position[1] > 1)
+      return false;
+  for (const auto& color : {s.speed_color, s.guide_color})
+    for (const float c : color)
+      if (!std::isfinite(c) || c < 0 || c > 1)
+        return false;
+  // A set-up aircraft is checked against the layout in this message, not
+  // against a profile this process may not have published yet.
+  unsigned sides = 0;
+  bool separate_lower = false;
+  if (s.profile == profiles::DiscoveredProfileId) {
+    if (!profiles::valid_layout(s.discovered) ||
+        !profiles::valid_override(s.discovered.sides, true, s.discovered.padding, s.display_override))
+      return false;
+    sides = (1u << s.discovered.sides) - 1;
+  } else if (const auto* profile = profiles::base_profile(s.profile)) {
+    if (!profiles::valid_override(*profile, s.display_override))
+      return false;
+    // A lower display the user placed is a side too (override_sides).
+    sides = (1u << profiles::override_sides(*profile, s.display_override)) - 1;
+    separate_lower = profiles::separate_lower_texture(*profile);
+  } else {
+    return false;
+  }
+  if (s.auto_profile > 1 || s.notifications > 1 || s.follow_taxi > 1 || s.auto_detect > 1 || s.retired_single_camera > 1 ||
+      s.scene_test > 1 || s.panel_setup > 1 || s.camera_mode >= kCameraModeCount || s.calibration_budget < 64 ||
+      s.calibration_budget > 16384)
+    return false;
+  if ((s.manual_mask & ~sides) || (s.calibration_mask & ~sides) || !valid_lvar_bindings(s.lvar_bindings))
+    return false;
+  if ((s.film_grain & ~CameraLookMask) || (s.black_and_white & ~CameraLookMask))
+    return false;
+  if (s.door_live > 1 || s.door_on > 1 ||
+      (s.door_side != DoorSideNone && (s.door_side >= MaxDisplaySides || !(sides & (1u << s.door_side)))))
+    return false;
+  if (s.lower_id && (!separate_lower || s.lower_id == s.left_id || s.lower_id == s.right_id))
+    return false;
+  if ((s.taxi_selected_mask & ~sides) || (s.taxi_desired_mask & ~s.taxi_selected_mask) || (!s.taxi_request && s.taxi_selected_mask))
+    return false;
+  for (const auto& m : s.mounts) {
+    for (const double v : m)
+      if (!std::isfinite(v))
+        return false;
+    if (std::abs(m[0]) > 500 || std::abs(m[1]) > 500 || std::abs(m[2]) > 500 || std::abs(m[3]) > 89 || std::abs(m[4]) > 180 ||
+        m[5] < 0.05 || m[5] > 1.55)
+      return false;
+  }
+  return s.enabled <= 1 && s.camera_rate >= kMinimumCameraRate && s.camera_rate <= kMaximumCameraRate &&
+         valid_camera_brightness(s.day_brightness) && valid_camera_brightness(s.night_brightness);
+}
+// A new display layout can leave the door camera's side out: it has no
+// display then, and is off.
+inline void fit_door_camera(Settings& s) noexcept {
+  const auto* profile = s.profile == profiles::DiscoveredProfileId ? nullptr : profiles::base_profile(s.profile);
+  const unsigned sides = s.profile == profiles::DiscoveredProfileId ? s.discovered.sides
+                         : profile                                  ? profiles::override_sides(*profile, s.display_override)
+                                                                    : 0;
+  if (s.door_side >= sides) {
+    s.door_side = DoorSideNone;
+    s.door_on = 0;
+  }
+}
+class Mailbox {
+ public:
+  ~Mailbox() { close(); }
+  Mailbox() = default;
+  Mailbox(const Mailbox&) = delete;
+  Mailbox& operator=(const Mailbox&) = delete;
+  bool open(DWORD pid, bool create) {
+    close();
+    wchar_t name[128];
+    // Keep IPC names stable across branding changes; ProtocolVersion guards layout compatibility.
+    std::swprintf(name, 128, L"Local\\380TaxiCamera.Control.%lu", pid);
+    mutex_ = create ? CreateMutexW(nullptr, FALSE, name) : OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, name);
+    if (!mutex_)
+      return false;
+    std::swprintf(name, 128, L"Local\\380TaxiCamera.Data.%lu", pid);
+    mapping_ = create ? CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(Shared), name)
+                      : OpenFileMappingW(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, name);
+    const bool fresh = create && GetLastError() != ERROR_ALREADY_EXISTS;
+    if (!mapping_) {
+      close();
+      return false;
+    }
+    memory_ = static_cast<Shared*>(MapViewOfFile(mapping_, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, sizeof(Shared)));
+    if (!memory_ || !lock(1000)) {
+      close();
+      return false;
+    }
+    if (fresh) {
+      *memory_ = {};
+      memory_->magic = ProtocolMagic;
+      memory_->version = ProtocolVersion;
+      memory_->bytes = sizeof(Shared);
+    }
+    const bool valid = memory_->magic == ProtocolMagic && memory_->version == ProtocolVersion && memory_->bytes == sizeof(Shared);
+    unlock();
+    if (!valid)
+      close();
+    return valid;
+  }
+  enum class LockResult { acquired, busy, invalid };
+  bool lock(DWORD timeout = 0) noexcept { return try_lock(timeout) == LockResult::acquired; }
+  LockResult try_lock(DWORD timeout = 0) noexcept {
+    if (!mutex_)
+      return LockResult::invalid;
+    const auto result = WaitForSingleObject(mutex_, timeout);
+    if (result == WAIT_ABANDONED) {
+      // The previous writer died; don't consume its possibly partial message.
+      if (memory_) {
+        memory_->settings.enabled = 0;
+        memory_->owner_heartbeat = 0;
+      }
+      ReleaseMutex(mutex_);
+      return LockResult::invalid;
+    }
+    return result == WAIT_OBJECT_0 ? LockResult::acquired : result == WAIT_TIMEOUT ? LockResult::busy : LockResult::invalid;
+  }
+  void unlock() noexcept { ReleaseMutex(mutex_); }
+  Shared* data() const noexcept { return memory_; }
+  void close() noexcept {
+    if (memory_)
+      UnmapViewOfFile(memory_);
+    if (mapping_)
+      CloseHandle(mapping_);
+    if (mutex_)
+      CloseHandle(mutex_);
+    memory_ = nullptr;
+    mapping_ = mutex_ = nullptr;
+  }
+
+ private:
+  HANDLE mutex_{}, mapping_{};
+  Shared* memory_{};
+};
+}  // namespace taxi_camera::standalone

@@ -1,0 +1,3065 @@
+#include <algorithm>
+#include <atomic>
+#include <bit>
+#include <chrono>
+#include <cstring>
+#include "../camera/body_pose_provider.hpp"
+#include "../camera/mount_config.hpp"
+#include "../camera/probe.hpp"
+#include "../camera/view_cascades.hpp"
+#include "../graphics/camera_compositor_d3d12.hpp"
+#include "../graphics/capture_progress.hpp"
+#include "../graphics/display_exposure.hpp"
+#include "../graphics/taxi_button_routes.hpp"
+#include "../graphics/video_memory.hpp"
+#include "../hooks/render_boundary_observer.hpp"
+#include "../shared/camera_rate_policy.hpp"
+#include "../shared/companion_control.hpp"
+#include "../shared/door_camera.hpp"
+#include "../shared/hook_timing.hpp"
+#include "../shared/lock_holder_priority.hpp"
+#include "../shared/main_view_pause.hpp"
+#include "../shared/manual_camera_intent.hpp"
+#include "../shared/mark_identity.hpp"
+#include "../shared/protocol.hpp"
+#include "../shared/rotating_log.hpp"
+#include "../shared/scene_demand.hpp"
+#include "../shared/sim_messages.hpp"
+#include "../shared/waiting_page.hpp"
+#include "camera_status.hpp"
+#include "crash_evidence.hpp"
+#include "d3d12_bridge.hpp"
+#include "display_marks.hpp"
+#include "freeze_watchdog.hpp"
+#include "native_hooks.hpp"
+
+namespace {
+using namespace taxi_camera;
+namespace win = standalone;
+std::atomic<bool> started{};
+// Published by the bridge worker for the presentation watchdog thread.
+std::atomic<std::uint64_t> worker_heartbeat_ms{};
+std::atomic<bool> bridge_connected{};
+std::atomic<unsigned> watchdog_trips{};
+std::atomic<std::uint64_t> watchdog_last_stall_ms{};
+// Repeated-stall hold: the watchdog publishes it; the worker requests a
+// release on a known OFF and the watchdog releases on a new count.
+std::atomic<bool> watchdog_held{};
+std::atomic<unsigned> watchdog_release_requests{};
+// Cameras requested before the watchdog gate. Only trips while they are
+// requested count toward a repeated-stall hold.
+std::atomic<bool> cameras_wanted{};
+// Latest worker video-memory sample in MiB, for the watchdog's trip line.
+std::atomic<std::uint64_t> video_local_mb{}, video_local_budget_mb{}, video_nonlocal_mb{};
+std::atomic<bool> notifications_enabled{};
+// Admitted events for the companion's tray notifications; the worker copies
+// the log into every IPC status it publishes. Nothing is shown from here.
+// Only sim_event_toasts() events are published; the rest are tracked for the
+// status line and the log.
+SimEventLog notification_log;
+constexpr std::uint64_t WorkerAliveMs = 10000;  // Contract scans have taken 4 s per iteration.
+// The latest A:AMBIENT LIGHT SENSOR sample (-1: none), for the Camera tone line.
+double last_ambient = -1;
+// The camera brightness in use (EV), for the Camera tone line.
+float brightness_ev = 0;
+// Camera tone: hands the simulator's main-view exposure and tone-curve table,
+// as the graphics hooks copied them, to the composition. A table is read at
+// most once a second, only when a newer copy exists. An exposure older than
+// two seconds (no copies, or the main view not rendering) returns the camera
+// images to Taxi Cam's fallback exposure.
+static_assert(DisplayExposureController::UnlitExposureEv == CameraCompositorD3D12::DefaultExposureEv);
+struct ToneFeed {
+  std::uint64_t exposure_copies = 0, table_copies = 0;
+  std::uint64_t exposure_ms = 0, table_ms = 0;
+  float exposure = 0;
+  std::vector<std::uint32_t> table;
+  bool table_sent = false;
+  // gain: the user's camera brightness (2^EV), applied to the exposure sent.
+  void update(std::uint64_t key, std::uint64_t now, float gain) {
+    win::set_tone_capture_enabled(true);
+    const auto status = win::tone_status();
+    if (status.exposure_copies != exposure_copies && status.exposure_valid) {
+      exposure_copies = status.exposure_copies;
+      exposure = status.exposure;
+      exposure_ms = now;
+    }
+    const bool fresh = exposure_ms && now - exposure_ms <= 2000;
+    const std::uint32_t* offered = nullptr;
+    if (fresh && status.table_copies != table_copies && now - table_ms >= 1000) {
+      table.resize(CameraCompositorD3D12::ToneTableTexels);
+      if (win::read_tone_table(table.data())) {
+        table_copies = status.table_copies;
+        table_ms = now;
+        table_sent = true;
+        offered = table.data();
+      }
+    }
+    // The curve needs a table: until one is read, the exposure is not sent.
+    scene_runtime::set_tone_curve(key, fresh && table_sent ? exposure * gain : 0.0f, offered);
+  }
+};
+void announce(SimEvent event, SimMessageLimiter& limiter, std::uint64_t now) noexcept {
+  if (!notifications_enabled.load(std::memory_order_acquire) || !admit_toast(limiter, event, now))
+    return;
+  notification_log.publish(event, now);
+}
+// Local research file beside the snapshot image: every display-shaped texture
+// with its native resource address, for an external read-only search of
+// simulator memory for the object that names it. Not part of bridge.log.
+void write_display_candidates(std::uint64_t snapshot_id, const std::array<std::uint64_t, MaxDisplaySides>& routed) noexcept {
+  try {
+    const auto image = win::display_snapshot_path();
+    const auto slash = image.find_last_of(L'\\');
+    if (slash == std::wstring::npos)
+      return;
+    const auto path = image.substr(0, slash) + L"\\display-candidates.txt";
+    const auto records = win::display_resource_records();
+    const auto identity = native_camera::get_aircraft_identity();
+    std::FILE* file = _wfopen(path.c_str(), L"wb");
+    if (!file)
+      return;
+    std::fprintf(file, "pid=%lu tick=%llu snapshot=%llu routed=%llu,%llu,%llu\r\ntype=%.255s\r\npath=%.259s\r\n", GetCurrentProcessId(),
+                 static_cast<unsigned long long>(GetTickCount64()), static_cast<unsigned long long>(snapshot_id),
+                 static_cast<unsigned long long>(routed[0]), static_cast<unsigned long long>(routed[1]),
+                 static_cast<unsigned long long>(routed[2]), identity.type.data(), identity.path.data());
+    for (const auto& record : records)
+      std::fprintf(file, "id=%llu native=0x%llx size=%ux%u mips=%u format=%u draws=%llu activity=%llu\r\n",
+                   static_cast<unsigned long long>(record.id), static_cast<unsigned long long>(record.native), record.width, record.height,
+                   record.mips, record.format, static_cast<unsigned long long>(record.draws),
+                   static_cast<unsigned long long>(record.activity));
+    std::fclose(file);
+  } catch (...) {
+  }
+}
+// "module+0xoffset" for a return address; no absolute addresses in the log.
+void describe_frame(std::uint64_t address, char* out, std::size_t size) noexcept {
+  HMODULE module{};
+  wchar_t path[MAX_PATH]{};
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          reinterpret_cast<LPCWSTR>(address), &module) ||
+      !GetModuleFileNameW(module, path, MAX_PATH)) {
+    std::snprintf(out, size, "?");
+    return;
+  }
+  const wchar_t* name = wcsrchr(path, L'\\');
+  name = name ? name + 1 : path;
+  std::snprintf(out, size, "%ls+%#llx", name, static_cast<unsigned long long>(address - reinterpret_cast<std::uint64_t>(module)));
+}
+// %LOCALAPPDATA%\Taxi Cam and its bridge.log. Empty when the variable cannot
+// be read.
+struct BridgeLogPath {
+  std::wstring directory, file;
+};
+BridgeLogPath read_bridge_log_path() {
+  BridgeLogPath result;
+  const DWORD size = GetEnvironmentVariableW(L"LOCALAPPDATA", nullptr, 0);  // Includes the terminator.
+  if (!size || size > 32700)
+    return result;
+  std::wstring value(size, L'\0');
+  const DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", value.data(), size);
+  if (!n || n >= size)
+    return result;
+  value.resize(n);
+  result.directory = value + L"\\Taxi Cam";
+  result.file = result.directory + L"\\bridge.log";
+  return result;
+}
+// Appends complete records to bridge.log, recreating its directory if it was
+// deleted. The path is read once; a failed read is retried on every call.
+void write_bridge_log(const std::string_view* records, std::size_t count) noexcept {
+  try {
+    // Immutable after the thread-safe static initialisation, so the worker
+    // and watchdog threads share it without a lock.
+    static const BridgeLogPath cached = read_bridge_log_path();
+    BridgeLogPath retry;
+    const BridgeLogPath* path = &cached;
+    if (cached.file.empty()) {
+      retry = read_bridge_log_path();
+      if (retry.file.empty())
+        return;
+      path = &retry;
+    }
+    CreateDirectoryW(path->directory.c_str(), nullptr);
+    win::append_rotating_log_records(path->file, records, count, win::BridgeLogBytes);
+  } catch (...) {
+    // Diagnostics must not interrupt bridge operation.
+  }
+}
+// The bridge worker's thread id, for log_status's batch gate. Written once at
+// run_impl start, before the watchdog thread exists; release/acquire records
+// that order. A thread compares it with its own id, so only the worker can
+// match: any other thread that reads 0 or the worker's id takes the immediate
+// path, and never touches log_batch.
+std::atomic<DWORD> log_worker_thread{};
+// The worker's log_status records for one report block (see LogBlock).
+// Worker thread only.
+struct LogBatch {
+  win::LogRecordBuffer records;
+  bool active = false;
+};
+LogBatch log_batch;
+// Holds the worker's log_status records from construction to destruction and
+// writes them with one file open and close. Closing the changed log waits for
+// an on-access antivirus scan (~4 ms), which held the worker about 100 ms per
+// report block when every record was appended alone. Used only around blocks
+// that format snapshots and counters already taken, so no simulator memory is
+// read while records wait. Inert on any other thread (the watchdog's records
+// are written at once) or when nested.
+class LogBlock {
+ public:
+  LogBlock() noexcept {
+    if (GetCurrentThreadId() != log_worker_thread.load(std::memory_order_acquire) || log_batch.active || !log_batch.records.reserve())
+      return;
+    log_batch.active = owner_ = true;
+  }
+  ~LogBlock() {
+    if (!owner_)
+      return;
+    log_batch.records.flush(write_bridge_log);
+    log_batch.active = false;
+  }
+  LogBlock(const LogBlock&) = delete;
+  LogBlock& operator=(const LogBlock&) = delete;
+
+ private:
+  bool owner_ = false;
+};
+void log_status(const win::Status& s, const char* detail = "") noexcept {
+  try {
+    char line[2048];
+    const auto length = std::snprintf(
+        line, sizeof(line),
+        "%llu pid=%lu tid=%lu native=%u scene=%u mask=%u left=%llu right=%llu lower=%llu captured=%llu composed=%llu stamps=%llu "
+        "hooks_failed=%llu | %s | %s\r\n",
+        static_cast<unsigned long long>(GetTickCount64()), GetCurrentProcessId(), GetCurrentThreadId(), s.graphics_ready, s.scene_ready,
+        s.taxi_mask, static_cast<unsigned long long>(s.left_id), static_cast<unsigned long long>(s.right_id),
+        static_cast<unsigned long long>(s.lower_id), static_cast<unsigned long long>(s.captures),
+        static_cast<unsigned long long>(s.composed), static_cast<unsigned long long>(s.stamps),
+        static_cast<unsigned long long>(s.hook_failures), s.message, detail);
+    if (length <= 0 || static_cast<size_t>(length) >= sizeof(line))
+      return;
+    const std::string_view record(line, static_cast<std::size_t>(length));
+    // The thread id first: only the worker may touch log_batch.
+    if (GetCurrentThreadId() == log_worker_thread.load(std::memory_order_acquire) && log_batch.active &&
+        log_batch.records.add(record, write_bridge_log))
+      return;
+    write_bridge_log(&record, 1);
+  } catch (...) {
+    // Diagnostics must not interrupt bridge operation.
+  }
+}
+// Display identity by panel marks (src/shared/mark_identity.hpp): what the
+// mark scan read from each panel texture, carried along the simulator's
+// display copies. Each profile side's key routes to the live texture that
+// carries it; the companion's panel map lists every marked texture by key.
+struct MarkIdentityState {
+  std::uint64_t epoch{};
+  mark_identity::Store store;
+  std::array<std::uint64_t, MaxDisplaySides> named{};
+  // Pointer, not id: a set-up aircraft keeps its id across layouts.
+  const profiles::AircraftProfile* profile{};
+  bool logged{};
+  std::vector<win::PanelTexture> map;
+  std::vector<win::PanelGauge> gauges;
+  // No panel texture is waiting for its picture (mark scan). Until then a
+  // gauge read on one panel may have an unread twin, so its key could be
+  // saved unranked and later name the twin.
+  bool settled{};
+  // Pictures taken and none carried a mark (PanelMapState::inactive).
+  bool inactive{};
+};
+void service_mark_identity(MarkIdentityState& state,
+                           const win::Status& status,
+                           std::uint64_t epoch,
+                           const profiles::AircraftProfile* profile) noexcept {
+  try {
+    // A new aircraft session keeps what was read: a texture's marks hold for
+    // its life (the FSLabs A321 starts two more sessions on the cockpit it
+    // already drew, 2026-11-04), and an aircraft change destroys the old
+    // panel textures, which retain() drops.
+    const bool session_changed = epoch != state.epoch;
+    if (session_changed) {
+      state.epoch = epoch;
+      state.logged = false;
+    }
+    const auto records = win::display_resource_records();
+    const auto alive = [&](std::uint64_t id) {
+      return std::any_of(records.begin(), records.end(), [&](const auto& record) { return record.id == id; });
+    };
+    state.store.retain(alive);
+    if (session_changed || profile != state.profile)
+      state.store.prune_twins();
+    const auto feeds = win::display_feed_pairs();
+    if (const auto copied = state.store.inherit(feeds.data(), feeds.size(), alive)) {
+      char detail[96];
+      std::snprintf(detail, sizeof(detail), "Display marks: %zu display copies took their source's marks.", copied);
+      log_status(status, detail);
+    }
+    std::array<std::uint64_t, MaxDisplaySides> named{};
+    for (unsigned side = 0; profile && side < profile->sides && side < MaxDisplaySides; ++side)
+      if (profile->panel_textures[side][0])
+        named[side] = state.store.resolve(profile->panel_textures[side], feeds.data(), feeds.size());
+    // Republished every pass: a profile (re)application clears the bridge's
+    // named targets.
+    win::set_named_targets(named);
+    if (named != state.named || profile != state.profile || !state.logged) {
+      state.named = named;
+      state.profile = profile;
+      state.logged = true;
+      char detail[256];
+      std::snprintf(detail, sizeof(detail), "Display named routing: profile=%u keys=%s,%s,%s ids=%llu,%llu,%llu",
+                    profile ? profile->id : 0u, profile ? profile->panel_textures[0] : "", profile ? profile->panel_textures[1] : "",
+                    profile ? profile->panel_textures[2] : "", static_cast<unsigned long long>(named[0]),
+                    static_cast<unsigned long long>(named[1]), static_cast<unsigned long long>(named[2]));
+      log_status(status, detail);
+    }
+    state.map.clear();
+    state.gauges.clear();
+    for (const auto& texture : state.store.textures()) {
+      if (state.map.size() >= win::MaxPanelTextures)
+        break;
+      const auto record = std::find_if(records.begin(), records.end(), [&](const auto& r) { return r.id == texture.id; });
+      if (record == records.end())
+        continue;
+      win::PanelTexture panel{};
+      std::strncpy(panel.name, state.store.key_of(texture).data(), sizeof(panel.name) - 1);
+      panel.id = texture.id;
+      panel.index = texture.gauges.front().index;
+      panel.width = record->width;
+      panel.height = record->height;
+      panel.mips = record->mips;
+      for (const auto& gauge : texture.gauges) {
+        panel_marks::Rect rect;
+        if (state.gauges.size() >= win::MaxPanelGauges || !gauge.rect_in(record->width, record->height, rect) || !rect.width ||
+            !rect.height)
+          continue;
+        win::PanelGauge out{};
+        std::strncpy(out.name, gauge.name.data(), sizeof(out.name) - 1);
+        out.panel = static_cast<std::uint32_t>(state.map.size());
+        out.x = static_cast<std::uint16_t>(rect.x);
+        out.y = static_cast<std::uint16_t>(rect.y);
+        out.width = static_cast<std::uint16_t>(rect.width);
+        out.height = static_cast<std::uint16_t>(rect.height);
+        state.gauges.push_back(out);
+      }
+      state.map.push_back(panel);
+    }
+  } catch (...) {
+  }
+}
+void publish_panel_map(const MarkIdentityState& state, win::Status& status) noexcept {
+  status.panel_state = static_cast<std::uint32_t>(state.inactive && state.map.empty()   ? win::PanelMapState::inactive
+                                                  : state.map.empty() || !state.settled ? win::PanelMapState::waiting
+                                                                                        : win::PanelMapState::marked);
+  status.panel_count = static_cast<std::uint32_t>(state.map.size());
+  for (std::size_t i = 0; i < state.map.size() && i < win::MaxPanelTextures; ++i)
+    status.panels[i] = state.map[i];
+  status.gauge_count = static_cast<std::uint32_t>(std::min(state.gauges.size(), win::MaxPanelGauges));
+  for (std::size_t i = 0; i < status.gauge_count; ++i)
+    status.gauges[i] = state.gauges[i];
+}
+// A display texture's key in this flight for the PFD routing cards, or empty.
+const char* panel_texture_name(const MarkIdentityState& state, std::uint64_t id) noexcept {
+  for (const auto& panel : state.map)
+    if (id && panel.id == id)
+      return panel.name;
+  return "";
+}
+struct StartupTiming {
+  unsigned intent_mask{}, attempts{};
+  bool observed{}, target_ready{}, output_ready{}, stamped{}, waiting_logged{};
+  std::uint64_t intent_ms{}, target_ms{}, prepare_begin_ms{}, prepare_end_ms{}, request_begin_ms{}, request_end_ms{};
+  std::uint64_t output_ms{}, stamp_ms{}, baseline_stamps{};
+};
+void log_startup(const win::Status& status, const StartupTiming& timing, const char* phase) {
+  char detail[768];
+  std::snprintf(detail, sizeof(detail),
+                "Startup phase=%s intent_mask=%u attempt=%u intent_observed_ms=%llu targets_observed_ms=%llu "
+                "prepare_begin_ms=%llu prepare_end_ms=%llu prepare_duration_ms=%llu "
+                "request_begin_ms=%llu request_end_ms=%llu request_duration_ms=%llu "
+                "output_observed_ms=%llu stamp_observed_ms=%llu intent_to_output_ms=%llu intent_to_stamp_ms=%llu",
+                phase, timing.intent_mask, timing.attempts, static_cast<unsigned long long>(timing.intent_ms),
+                static_cast<unsigned long long>(timing.target_ms), static_cast<unsigned long long>(timing.prepare_begin_ms),
+                static_cast<unsigned long long>(timing.prepare_end_ms),
+                static_cast<unsigned long long>(timing.prepare_end_ms ? timing.prepare_end_ms - timing.prepare_begin_ms : 0),
+                static_cast<unsigned long long>(timing.request_begin_ms), static_cast<unsigned long long>(timing.request_end_ms),
+                static_cast<unsigned long long>(timing.request_end_ms ? timing.request_end_ms - timing.request_begin_ms : 0),
+                static_cast<unsigned long long>(timing.output_ms), static_cast<unsigned long long>(timing.stamp_ms),
+                static_cast<unsigned long long>(timing.output_ready ? timing.output_ms - timing.intent_ms : 0),
+                static_cast<unsigned long long>(timing.stamped ? timing.stamp_ms - timing.intent_ms : 0));
+  log_status(status, detail);
+}
+// Where the issue 97 cross-queue escapes come from, written when their count
+// changes: queue pairs as batch>unfinished ids, receipts per queue id, the
+// unfinished receipt's kind, whether the batch carried a display copy, and
+// how far the timeline was behind.
+void log_cross_queue(const win::Status& status, const SceneCaptureManager::Statistics& capture) {
+  static std::atomic<std::uint64_t> logged{};
+  if (!capture.cross_queue_escapes ||
+      logged.exchange(capture.cross_queue_escapes, std::memory_order_relaxed) == capture.cross_queue_escapes)
+    return;
+  char detail[768];
+  std::size_t used = 0;
+  const auto add = [&](const char* format, auto... values) {
+    if (used >= sizeof(detail))
+      return;
+    const auto written = std::snprintf(detail + used, sizeof(detail) - used, format, values...);
+    used = written < 0 ? sizeof(detail) : std::min(sizeof(detail), used + static_cast<std::size_t>(written));
+  };
+  const auto u = [](std::uint64_t value) { return static_cast<unsigned long long>(value); };
+  add("Cross-queue escapes: total=%llu pairs=", u(capture.cross_queue_escapes));
+  bool any = false;
+  for (unsigned from = 0; from < capture.escape_pairs.size(); ++from)
+    for (unsigned to = 0; to < capture.escape_pairs[from].size(); ++to)
+      if (capture.escape_pairs[from][to]) {
+        add("%s%u>%u:%llu", any ? "," : "", from, to, u(capture.escape_pairs[from][to]));
+        any = true;
+      }
+  add("%s receipts=", any ? "" : "-");
+  any = false;
+  for (unsigned id = 0; id < capture.queue_receipts.size(); ++id)
+    if (capture.queue_receipts[id]) {
+      add("%s%u:%llu", any ? "," : "", id, u(capture.queue_receipts[id]));
+      any = true;
+    }
+  const auto& kind = capture.escape_unfinished_kind;
+  const auto& lag = capture.escape_lag;
+  add("%s unfinished=capture:%llu,source:%llu,display:%llu,consumer:%llu batch=display:%llu,other:%llu "
+      "lag=1:%llu,2:%llu,3-4:%llu,5+:%llu",
+      any ? "" : "-", u(kind[0]), u(kind[1]), u(kind[2]), u(kind[3]), u(capture.escape_batch_display[0]),
+      u(capture.escape_batch_display[1]), u(lag[0]), u(lag[1]), u(lag[2]), u(lag[3]));
+  log_status(status, detail);
+}
+void log_contention(const win::Status& status, const win::GraphicsStatus& graphics, const scene_runtime::Snapshot& output) {
+  char detail[1536];
+  auto used = static_cast<std::size_t>(std::snprintf(
+      detail, sizeof(detail),
+      "Render-thread contention: armed=%u pulse=%llu queue_calls=%llu queue_contended=%llu manager_evidence=%llu "
+      "manager_lifecycle=%llu manager_submit=%llu unordered=%llu gated=%llu released_waits=%llu cross_queue_escapes=%llu "
+      "cross_queue_waits=%llu deferred_retirements=%llu "
+      "deferred_evidence=%llu "
+      "deferred_overflows=%llu deferred_lifecycle=%llu "
+      "runtime_writes=%llu watchdog_trips=%u last_stall_ms=%llu notifications=%u/%llu hook_failures=%llu "
+      "failure_rate_peak=%llu admission_halted=%u wipes=%llu last_wipe=%s unordered_consumers=%llu contended_invalidations=%llu "
+      "unobserved_admissions=%llu source_retirements=%llu retirement_restored=%llu last_retirement=0x%x",
+      graphics.armed, static_cast<unsigned long long>(graphics.frame_pulse), static_cast<unsigned long long>(graphics.queue_calls),
+      static_cast<unsigned long long>(graphics.queue_contended), static_cast<unsigned long long>(output.capture.contended_evidence),
+      static_cast<unsigned long long>(output.capture.contended_lifecycle),
+      static_cast<unsigned long long>(output.capture.contended_submissions),
+      static_cast<unsigned long long>(output.capture.unordered_submissions),
+      static_cast<unsigned long long>(output.capture.gated_submissions), static_cast<unsigned long long>(output.capture.released_waits),
+      static_cast<unsigned long long>(output.capture.cross_queue_escapes),
+      static_cast<unsigned long long>(output.capture.cross_queue_waits),
+      static_cast<unsigned long long>(output.capture.deferred_retirements),
+      static_cast<unsigned long long>(output.capture.deferred_evidence), static_cast<unsigned long long>(output.capture.deferred_overflows),
+      static_cast<unsigned long long>(graphics.deferred_lifecycle), static_cast<unsigned long long>(output.contended_writes),
+      watchdog_trips.load(std::memory_order_relaxed),
+      static_cast<unsigned long long>(watchdog_last_stall_ms.load(std::memory_order_relaxed)),
+      notifications_enabled.load(std::memory_order_relaxed), static_cast<unsigned long long>(notification_log.published()),
+      static_cast<unsigned long long>(graphics.hook_failures), static_cast<unsigned long long>(graphics.failure_rate_peak),
+      graphics.admission_halted, static_cast<unsigned long long>(output.capture.wipes),
+      SceneCaptureManager::wipe_site_name(output.capture.last_wipe_site),
+      static_cast<unsigned long long>(output.capture.unordered_consumers),
+      static_cast<unsigned long long>(graphics.contended_invalidations), static_cast<unsigned long long>(graphics.unobserved_admissions),
+      static_cast<unsigned long long>(output.capture.source_retirements),
+      static_cast<unsigned long long>(output.capture.retirement_restored), output.capture.last_retirement_origins));
+  const auto append = [&](const char* prefix, const char* name, std::uint64_t value) {
+    if (used >= sizeof(detail))
+      return;
+    const auto written =
+        std::snprintf(detail + used, sizeof(detail) - used, " %s%s=%llu", prefix, name, static_cast<unsigned long long>(value));
+    if (written > 0 && static_cast<std::size_t>(written) < sizeof(detail) - used)
+      used += static_cast<std::size_t>(written);
+    else
+      used = sizeof(detail);
+  };
+  // Per-origin deferred_sources wipes and scoped retirements: which publisher
+  // still wipes, and which one now retires and rearms in place.
+  for (std::size_t bit = 0; bit < SceneCaptureManager::OriginCount; ++bit) {
+    append("wipe_", SceneCaptureManager::uncertainty_origin_name(bit), output.capture.wipe_origin_counts[bit]);
+    append("retire_", SceneCaptureManager::uncertainty_origin_name(bit), output.capture.retirement_origin_counts[bit]);
+  }
+  for (unsigned i = 0; i < graphics.contention.size(); ++i)
+    append("", win::contention_site_name(static_cast<win::ContentionSite>(i)), graphics.contention[i]);
+  log_status(status, detail);
+  log_cross_queue(status, output.capture);
+}
+// Appended to the lock-hold record: how the interval's command-list Resets
+// were retired. fast: lock-free; locked: the rest; expired: locked ones whose
+// bounded wait expired (deferred). The first call sets the baseline.
+void append_reset_paths(char* detail, std::size_t size) noexcept {
+  static SceneCaptureManager::ResetPaths previous{};
+  static bool baseline = false;
+  const auto now = scene_runtime::manager().reset_paths();
+  const bool first = !baseline;
+  const auto before = previous;
+  previous = now;
+  baseline = true;
+  auto used = std::strlen(detail);
+  if (first)
+    return;
+  // An interval without reportable holds still reports its Resets: lock-free
+  // Resets take no lock, so they are exactly the quiet case.
+  if (!used && size)
+    used = static_cast<std::size_t>(std::snprintf(detail, size, "Lock holds: none")) < size ? std::strlen(detail) : 0;
+  const auto append = [&](auto... values) {
+    if (used >= size)
+      return;
+    const int written = std::snprintf(detail + used, size - used, values...);
+    used = written > 0 && static_cast<std::size_t>(written) < size - used ? used + static_cast<std::size_t>(written) : size;
+  };
+  append("; reset: fast=%llu locked=%llu expired=%llu", static_cast<unsigned long long>(now.fast - before.fast),
+         static_cast<unsigned long long>(now.locked - before.locked), static_cast<unsigned long long>(now.expired - before.expired));
+  detail[size - 1] = 0;
+}
+// Bridge CPU time on simulator threads since the previous periodic log. Worker
+// thread only: the report keeps the previous totals between calls.
+// Which call sites held the registry and capture-manager locks, and for how
+// long, since the previous record, then the interval's Reset paths. Worker
+// thread only.
+void log_lock_holds(const win::Status& status) noexcept {
+  char detail[1400];
+  win::lock_hold_report(detail, sizeof(detail));
+  append_reset_paths(detail, sizeof(detail));
+  if (detail[0])
+    log_status(status, detail);
+}
+// Camera-manager stage names as the Observer peak and Lifecycle event lines
+// print them.
+constexpr std::array<const char*, static_cast<std::size_t>(native_camera::ProbeStage::count)> ObserverStageNames{
+    "manager", "pool", "lifecycle", "entries", "view1", "view2", "handoff", "pose", "activation", "publication", "aa", "placement"};
+// Slowest camera-manager update on the simulator main thread since the
+// previous record, with its stage breakdown when it serviced the pair. Idle
+// intervals (under 1 ms) are not logged. query_kind_ms and query_kind_max_us
+// are allocation/page/region query time and slowest single call, which shows
+// the kernel call that stalls; write_ms and writes are the proven view-field
+// stores. Worker thread only.
+void log_observer_peak(const win::Status& status) noexcept {
+  const auto peak = native_camera::take_observer_peak();
+  if (peak.total_ms < 1)
+    return;
+  const auto& names = ObserverStageNames;
+  char detail[1024];
+  auto used = static_cast<std::size_t>(std::snprintf(detail, sizeof(detail), "Observer peak: total_ms=%.2f pre_ms=%.2f serviced=%u",
+                                                     peak.total_ms, peak.pre_ms, peak.serviced ? 1u : 0u));
+  if (peak.serviced && used < sizeof(detail)) {
+    double staged = 0;
+    for (std::size_t i = 0; i < names.size() && used < sizeof(detail); ++i) {
+      staged += peak.performance.stage_ms[i];
+      const auto written = std::snprintf(detail + used, sizeof(detail) - used, " %s=%.2f/%u/%u", names[i], peak.performance.stage_ms[i],
+                                         peak.performance.stage_reads[i], peak.performance.stage_queries[i]);
+      used += written > 0 ? static_cast<std::size_t>(written) : 0;
+    }
+    const auto& p = peak.performance;
+    if (used < sizeof(detail))
+      std::snprintf(
+          detail + used, sizeof(detail) - used,
+          " unstaged=%.2f query_ms=%.2f read_ms=%.2f queries=%llu reads=%llu cache_hits=%llu carried=%llu query_kind_ms=%.3f/%.3f/%.3f "
+          "query_kind_max_us=%.1f/%.1f/%.1f write_ms=%.3f writes=%llu",
+          std::max(0.0, peak.total_ms - peak.pre_ms - staged), p.query_ms, p.read_ms, static_cast<unsigned long long>(p.query_calls),
+          static_cast<unsigned long long>(p.read_calls), static_cast<unsigned long long>(p.query_cache_hits),
+          static_cast<unsigned long long>(p.carried_proofs), p.query_allocation_ms, p.query_page_ms, p.query_fallback_ms,
+          p.query_allocation_max_us, p.query_page_max_us, p.query_fallback_max_us, p.write_ms,
+          static_cast<unsigned long long>(p.write_calls));
+  }
+  log_status(status, detail);
+}
+// Every camera-manager update over 2 ms since the previous record, not just
+// the interval's slowest: its stages and the lifecycle sub-timers, each native
+// engine call kind as ms/calls/slowest-call ms, with proofs the rest of the
+// lifecycle stage. The observer copies plain values into a fixed ring; a full
+// ring is reported as dropped. Worker thread only (the ring's one consumer).
+void log_lifecycle_events(const win::Status& status) noexcept {
+  static std::array<native_camera::LifecycleEvent, native_camera::kLifecycleEventCapacity> events;
+  std::uint64_t dropped = 0;
+  const auto count = native_camera::take_lifecycle_events(events, dropped);
+  char detail[1024];
+  for (std::size_t i = 0; i < count; ++i) {
+    native_camera::format_lifecycle_event(detail, sizeof(detail), events[i], ObserverStageNames);
+    log_status(status, detail);
+  }
+  if (dropped) {
+    std::snprintf(detail, sizeof(detail), "Lifecycle event: dropped=%llu (ring full)", static_cast<unsigned long long>(dropped));
+    log_status(status, detail);
+  }
+}
+void log_hook_timing(const win::Status& status) noexcept {
+  static hook_timing::Report report;
+  char sites[1400], threads[1400];
+  if (report.sample(sites, sizeof(sites), threads, sizeof(threads))) {
+    log_status(status, sites);
+    log_status(status, threads);
+  }
+}
+// Render-target shapes for identifying an unsupported aircraft's displays.
+// Worker thread only. Logs a new shape at the next status record and repeats
+// changed creation counts at most once a minute.
+void log_render_target_shapes(const win::Status& status, std::uint64_t now) noexcept {
+  static std::uint64_t logged_distinct = 0, logged_total = 0, logged_ms = 0;
+  const auto& inventory = win::render_target_shape_inventory();
+  const auto distinct = inventory.distinct(), total = inventory.total();
+  if (distinct == logged_distinct && (total == logged_total || now - logged_ms < 60000))
+    return;
+  static std::array<RenderTargetShapes::Shape, RenderTargetShapes::Capacity> shapes;
+  const auto n = inventory.snapshot(shapes);
+  constexpr std::size_t PerLine = 24;
+  for (std::size_t begin = 0; begin < n || begin == 0; begin += PerLine) {
+    char detail[1280];
+    auto used = static_cast<std::size_t>(std::snprintf(
+        detail, sizeof(detail), "Render-target shapes %zu-%zu/%zu overflow=%llu (WxH mips format created first_ms-last_ms):", begin + 1,
+        std::min(n, begin + PerLine), n, static_cast<unsigned long long>(inventory.overflow())));
+    for (std::size_t i = begin; i < std::min(n, begin + PerLine) && used < sizeof(detail); ++i) {
+      const auto& shape = shapes[i];
+      const auto written = std::snprintf(detail + used, sizeof(detail) - used, " %ux%u m%u f%u n%llu t%llu-%llu", shape.width, shape.height,
+                                         shape.mips, shape.format, static_cast<unsigned long long>(shape.created),
+                                         static_cast<unsigned long long>(shape.first_ms), static_cast<unsigned long long>(shape.last_ms));
+      if (written < 0 || static_cast<std::size_t>(written) >= sizeof(detail) - used)
+        break;
+      used += static_cast<std::size_t>(written);
+    }
+    log_status(status, detail);
+    if (!n)
+      break;
+  }
+  logged_distinct = distinct;
+  logged_total = total;
+  logged_ms = now;
+}
+// Dedicated thread: reads counters, never takes a bridge lock, and flips the
+// graphics gate. The worker applies the camera disarm on its next iteration.
+DWORD WINAPI watchdog_run(void*) noexcept {
+  FreezeWatchdog watchdog;
+  SimMessageLimiter limiter;
+  unsigned release_seen = watchdog_release_requests.load(std::memory_order_acquire);
+  for (;;) {
+    Sleep(250);
+    const auto now = GetTickCount64();
+    const auto heartbeat = worker_heartbeat_ms.load(std::memory_order_acquire);
+    const auto telemetry = native_camera::get_body_telemetry_timing();
+    const auto session = native_camera::get_aircraft_session_readiness();
+    const auto pulse = win::frame_pulse();
+    auto decision = watchdog.observe({now, pulse, pulse != 0, telemetry.accepted_samples, session.ready,
+                                      win::graphics_ready() && bridge_connected.load(std::memory_order_acquire),
+                                      heartbeat != 0 && now >= heartbeat && now - heartbeat < WorkerAliveMs,
+                                      cameras_wanted.load(std::memory_order_acquire)});
+    // A fresh camera request while held. Requests made before the hold were
+    // already consumed here and never release a later hold.
+    const auto release = watchdog_release_requests.load(std::memory_order_acquire);
+    if (release != release_seen) {
+      release_seen = release;
+      if (!decision.trip && !decision.recover && !decision.hold) {
+        const auto released = watchdog.release();
+        if (released.recover)
+          decision = released;
+      }
+    }
+    watchdog_held.store(watchdog.held(), std::memory_order_release);
+    if (!decision.trip && !decision.recover && !decision.hold && !decision.telemetry_stall_noted && !decision.presentation_stall_noted)
+      continue;
+    win::Status status{};
+    status.heartbeat = now;
+    if (decision.trip) {
+      // Atomic gate only: observation idles, PFD plans refuse, the capture
+      // manager escapes every submission. No wait, no GPU resource touched.
+      win::set_graphics_armed(false);
+      watchdog_trips.fetch_add(1, std::memory_order_relaxed);
+      watchdog_last_stall_ms.store(decision.stalled_ms, std::memory_order_relaxed);
+      // Posted here so the notice does not depend on the worker being free.
+      // Issue 137: with no cameras requested (menus, flight loading, the
+      // simulator quitting) the trip costs the pilot nothing, so no notice.
+      if (decision.cameras_wanted)
+        announce(SimEvent::presentation_stalled, limiter, now);
+    } else if (decision.recover) {
+      win::set_graphics_armed(true);
+    } else if (decision.hold) {
+      // The gate stays closed; only a fresh camera request re-arms it.
+      announce(SimEvent::stalls_held, limiter, now);
+    }
+    const auto graphics = win::graphics_status();
+    const auto output = scene_runtime::snapshot(graphics.device);
+    char detail[640];
+    std::snprintf(detail, sizeof(detail),
+                  "Presentation watchdog: event=%s reason=%s stalled_ms=%llu worker_alive=%u pulse=%llu sim_frames=%llu "
+                  "session_ready=%u trips=%u recent_trips=%u held=%u local_mb=%llu/%llu nonlocal_mb=%llu",
+                  decision.trip                       ? "tripped"
+                  : decision.recover                  ? "recovered"
+                  : decision.hold                     ? "held"
+                  : decision.presentation_stall_noted ? "presentation_quiet"
+                                                      : "telemetry_stall",
+                  decision.reason, static_cast<unsigned long long>(decision.stalled_ms), decision.worker_alive,
+                  static_cast<unsigned long long>(pulse), static_cast<unsigned long long>(telemetry.accepted_samples), session.ready,
+                  watchdog.trips(), watchdog.recent_trips(now), watchdog.held(),
+                  static_cast<unsigned long long>(video_local_mb.load(std::memory_order_relaxed)),
+                  static_cast<unsigned long long>(video_local_budget_mb.load(std::memory_order_relaxed)),
+                  static_cast<unsigned long long>(video_nonlocal_mb.load(std::memory_order_relaxed)));
+    std::snprintf(status.message, sizeof(status.message), "%s",
+                  decision.trip      ? "Presentation stalled: cameras disarmed so the simulator can keep running."
+                  : decision.recover ? "Presentation resumed: cameras re-armed."
+                  : decision.hold    ? "Repeated simulator stalls: cameras stay off until they are turned off and on again."
+                  : decision.presentation_stall_noted ? "Hooked presentation went quiet while simulator frames continue."
+                                                      : "Simulator frame telemetry paused while presentation continues.");
+    log_status(status, detail);
+    log_contention(status, graphics, output);
+  }
+}
+// The ID3D12GraphicsCommandList method in a vtable slot the render-boundary
+// hook patches (render_boundary_observer.hpp).
+const char* command_list_slot_name(unsigned index) noexcept {
+  switch (index) {
+    case 12:
+      return "DrawInstanced";
+    case 13:
+      return "DrawIndexedInstanced";
+    case 16:
+      return "CopyTextureRegion";
+    case 17:
+      return "CopyResource";
+    case 26:
+      return "ResourceBarrier";
+    case 68:
+      return "BeginRenderPass";
+    case 69:
+      return "EndRenderPass";
+    case 80:
+      return "Barrier";
+  }
+  return "unknown";
+}
+// The module holding `address`, by file name only (no folder, so no account
+// name reaches the log), and the offset into it: "capture.dll+0x1a2b0".
+void describe_code_address(std::uintptr_t address, char* out, std::size_t size) noexcept {
+  HMODULE module{};
+  wchar_t path[MAX_PATH]{};
+  if (!address ||
+      !GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          reinterpret_cast<LPCWSTR>(address), &module) ||
+      !GetModuleFileNameW(module, path, MAX_PATH)) {
+    std::snprintf(out, size, address ? "no_module" : "none");
+    return;
+  }
+  const wchar_t* name = std::wcsrchr(path, L'\\');
+  name = name ? name + 1 : path;
+  char narrow[MAX_PATH]{};
+  if (!WideCharToMultiByte(CP_UTF8, 0, name, -1, narrow, sizeof(narrow), nullptr, nullptr))
+    std::snprintf(narrow, sizeof(narrow), "unnamed");
+  std::snprintf(out, size, "%s+0x%llx", narrow, static_cast<unsigned long long>(address - reinterpret_cast<std::uintptr_t>(module)));
+}
+// Panel marks: camera writes leave two pixels at each routed display's gauge
+// corner alone, which panel streaming tools sample to tell panels apart
+// (display_keep.hpp, display_marks.hpp). Always on: two pixels cannot be seen,
+// and a panel streamer started after the cameras still finds its marks.
+class DisplayMarks {
+ public:
+  void service(const win::Status& status) noexcept {
+    const auto now = GetTickCount64();
+    if (now < next_poll_)
+      return;
+    next_poll_ = now + 1000;
+    std::array<standalone::display_keep::Point, standalone::display_keep::MaxMarks> points{};
+    const unsigned count = standalone::display_keep::profile_marks(profiles::find(status.active_profile),
+                                                                   profiles::base_profile(status.active_profile), points);
+    if (count == count_ && std::equal(points.begin(), points.begin() + count, points_.begin(), same))
+      return;
+    count_ = count;
+    points_ = points;
+    standalone::display_keep::set_marks(points.data(), count);
+    char detail[128];
+    std::snprintf(detail, sizeof(detail), "Display marks: camera writes leave the panel-mark pixels at %u display corners.", count);
+    log_status(status, detail);
+  }
+
+ private:
+  static bool same(const standalone::display_keep::Point& a, const standalone::display_keep::Point& b) noexcept {
+    return a.x == b.x && a.y == b.y;
+  }
+  std::array<standalone::display_keep::Point, standalone::display_keep::MaxMarks> points_{};
+  std::uint64_t next_poll_ = 0;
+  unsigned count_ = 0;
+};
+DWORD run_impl() {
+  DisplayMarks display_marks;
+  log_worker_thread.store(GetCurrentThreadId(), std::memory_order_release);
+  lock_holder_priority::mark_worker_thread();
+  win::Mailbox mailbox;
+  if (!mailbox.open(GetCurrentProcessId(), false))
+    return ERROR_INVALID_DATA;
+  win::Status status{};
+  log_status(status, "Bridge worker started.");
+  const bool fault_evidence_ready = win::crash_evidence::initialize();
+  log_status(status, fault_evidence_ready ? "Renderer fault evidence armed." : "Renderer fault evidence unavailable.");
+  if (const auto* capture = win::crash_evidence::code_capture) {
+    char capture_detail[256];
+    std::snprintf(capture_detail, sizeof(capture_detail),
+                  "Renderer fault site code capture: written=%u searched=%u fault_rva=0x%X window_rva=0x%X window_bytes=%u error=%s",
+                  capture->written, capture->searched, capture->match_rva, capture->window_rva, capture->window_bytes, capture->error);
+    log_status(status, capture_detail);
+  }
+  log_status(status, "Native graphics initialization started.");
+  if (!win::initialize_graphics()) {
+    const auto graphics = win::graphics_status();
+    std::snprintf(status.message, sizeof(status.message), "Native graphics refused: %s", graphics.error);
+    status.hook_failures = graphics.hook_failures;
+    status.heartbeat = GetTickCount64();
+    if (mailbox.lock(100)) {
+      mailbox.data()->status = status;
+      mailbox.unlock();
+    }
+    log_status(status);
+    return ERROR_NOT_SUPPORTED;
+  }
+  log_status(status, "Native graphics initialization completed.");
+  {
+    const auto graphics = win::graphics_status();
+    char endpoint_detail[256];
+    std::snprintf(endpoint_detail, sizeof(endpoint_detail),
+                  "Command-list Close endpoint: module=%s location=%s native=%u device_proxied=%u", graphics.close_endpoint_module,
+                  graphics.close_endpoint_location, graphics.queue_close_verified ? 1u : 0u, graphics.device_proxied ? 1u : 0u);
+    log_status(status, endpoint_detail);
+  }
+  const auto key = win::graphics_status().device;
+  wchar_t gpu_timing_option[2]{};
+  const bool gpu_timing = GetEnvironmentVariableW(L"TAXI_CAM_GPU_TIMING", gpu_timing_option, 2) == 1 && gpu_timing_option[0] == L'1';
+  scene_runtime::set_gpu_timing_enabled(gpu_timing);
+  scene_runtime::set_waiting_stale_ms(profiles::WaitingPageStaleMs);
+  wchar_t graphics_diagnostics_option[2]{};
+  const bool graphics_diagnostics = GetEnvironmentVariableW(L"TAXI_CAM_GRAPHICS_DIAGNOSTICS", graphics_diagnostics_option, 2) == 1 &&
+                                    graphics_diagnostics_option[0] == L'1';
+  win::set_graphics_diagnostics_enabled(graphics_diagnostics);
+  win::set_graphics_observation_demand(false);
+  worker_heartbeat_ms.store(GetTickCount64(), std::memory_order_release);
+  if (HANDLE watchdog = CreateThread(nullptr, 0, watchdog_run, nullptr, 0, nullptr)) {
+    CloseHandle(watchdog);
+    log_status(status, "Presentation watchdog started.");
+  } else
+    log_status(status, "Presentation watchdog unavailable.");
+  // The Windows companion owns mount settings for native sessions.
+  TaxiButtonIntent intent;
+  DisplayExposureController exposure;
+  ForegroundCaptureProgress progress;
+  StartupTiming startup, warmup_startup;
+  win::ScenePrewarm prewarm;
+  std::uint64_t next_background_start = 0;
+  bool requested = false, failed = false, last_output = false;
+  std::uint64_t last_view_wait_count = 0;
+  std::uint64_t next_telemetry{}, next_discovery{}, next_recovery{}, next_log{}, route_request{};
+  std::uint64_t next_inventory{}, logged_creation{};
+  MarkIdentityState panel_identity;
+  DWORD snapshot_save_error = 0;
+  // Display snapshot (PFD routing): the last handled request and its outcome.
+  struct SnapshotState {
+    std::uint64_t serial{}, id{};
+    win::DisplaySnapshotResult result = win::DisplaySnapshotResult::none;
+    unsigned width{}, height{}, format{}, plans{};
+    // Submission counters when the request started: a timeout logs what
+    // refused the Executes it waited on.
+    decltype(win::GraphicsStatus::queue_outcomes) outcomes{};
+    decltype(win::GraphicsStatus::queue_proof_refusals) refusals{};
+  } snapshot;
+  // Panel marks (src/panel_marks): every panel texture of the flight is read
+  // once by itself, not only when the Displays page asks for a picture, and
+  // the pages are then told to take their marks down. It uses the one
+  // snapshot slot only while the companion's own picture is not pending.
+  // The marks are on the cockpit's real screens, so they go as soon as every
+  // display the aircraft's profile names is found: the rest of the cockpit's
+  // panels are not waited for (the FBW A380X never draws about half of its 22
+  // panel textures, so waiting for them kept the marks up and brought them
+  // back twice after Ready, 2026-11-04). Otherwise they stay up at most
+  // MarkShowMs. They come back, found or not, when a read texture is destroyed
+  // (mark_identity::ReplacementWatch); each time the companion's aircraft
+  // setup opens, as its list names only textures whose marks were read; and
+  // for a camera asked for on a side with no texture. Otherwise they are shown
+  // again only for a texture created since they were last shown, while a
+  // display is still to find or the setup is open (the A350 creates its
+  // display textures up to ~20 s after the flight loads): MarkReshows times a
+  // flight, then once a minute at most while a display the profile names has
+  // no texture (one recreated without a copy).
+  // Pictures without a mark, of several panel textures at once, and none with
+  // one: the pages carry no marks, so the package is not loaded
+  // (mark_identity::PackageVerdict), once the scan has settled.
+  constexpr unsigned MarkTries = 5, MarkReshows = 2;
+  // A picture not taken within MarkPictureMs is given up (the texture is not
+  // being drawn): the next texture's request replaces it, so undrawn panels
+  // cannot use up the pages' marks window (the A350, 2026-11-04). A drawn
+  // display is pictured and read in about 0.2 s (FBW A380X, 2026-11-04). A
+  // texture not drawn since it was listed waits MarkUndrawnMs for drawn ones
+  // to go first: half of the A380X's are never drawn, and picturing them
+  // first held its displays back by seconds.
+  constexpr std::uint64_t MarkRetryMs = 1000, MarkRefreshMs = 250, MarkQuietMs = 3000, MarkReshowGapMs = 60000, MarkPictureMs = 600,
+                          MarkShowMs = 20000, MarkUndrawnMs = 1000, MarkSettleMs = 10000;
+  struct MarkScan {
+    struct Entry {
+      std::uint64_t id{}, next_ms{};
+      unsigned tries{};
+      bool read{};
+      unsigned panel{};         // Once read: its panel's number, 0 when its marks give none.
+      bool empty{};             // A picture of it came back without a mark.
+      std::uint64_t seen_ms{};  // When the scan first listed the texture.
+      // Its draws and submissions now, and when its last picture was asked:
+      // a texture drawn since is pictured first.
+      std::uint64_t activity{}, tried_activity{};
+    };
+    // shown_ms: when pages were last asked to show their marks; shown_all_ms:
+    // when every page was. A show for some panels gives the others' textures
+    // no new chance to be read.
+    std::uint64_t epoch{}, next_refresh{}, last_new_ms{}, pending_id{}, last_reshow_ms{}, pending_ms{}, shown_ms{}, shown_all_ms{};
+    std::vector<Entry> entries;
+    unsigned unsignalled{}, read{}, reshows{};
+    // Pictures the scan took: with marks, without, and not taken (timeout,
+    // lost, unavailable), logged every 10 s while it scans. empty_textures:
+    // the most textures listed at once with a picture without a mark.
+    unsigned pictures{}, empty{}, failed{}, empty_textures{};
+    mark_identity::PackageVerdict verdict;  // This aircraft session's package-inactive verdict.
+    // DXGI formats of the pictures without marks (a curve on the way into
+    // some formats can hide a level), and of those with.
+    std::array<unsigned, 6> empty_formats{}, read_formats{};
+    std::uint64_t next_log_ms{};
+    bool shown_again = false;  // Pages asked to show their marks again, not yet told to take them down.
+    // This aircraft session's pages asked to show their marks as soon as it
+    // has an unread texture: their own window starts when the page loads and
+    // can run out during the flight load, before any picture is taken (the
+    // A350, 2026-11-04: nothing read until the first re-show, ~45 s later).
+    bool session_shown = false;
+    bool setup_open = false;  // The companion's aircraft setup, at the last pass.
+    // A texture read this session: the package is loaded, even once that
+    // texture has been destroyed.
+    bool session_read = false;
+    mark_identity::ReplacementWatch replacements;
+    // The panels those replacements belong to: only their pages are asked.
+    mark_identity::ReplacementTargets targets;
+    std::uint64_t shown_mask{};       // While shown_again: the panels asked, 0 for every page.
+    unsigned lost{};                  // Read textures destroyed since the marks last went up for them.
+    std::uint64_t refreshed_epoch{};  // The aircraft session the texture list was last refreshed in.
+    // Sides a camera is asked for that have no texture, as of the last pass,
+    // and those the marks already went up for.
+    unsigned wanted_unassigned{}, asked_sides{};
+  } mark_scan;
+  std::uint64_t discovery_max_ms{}, service_max_ms{}, loop_max_ms{};
+  const auto service_scene = [&] {
+    const auto begin = GetTickCount64();
+    win::service_display_patches();
+    scene_runtime::service();
+    service_max_ms = std::max(service_max_ms, GetTickCount64() - begin);
+  };
+  std::vector<PfdTargetObservation> inventory;
+  // feeds: the cameras that render; scheduled_wanted: their bits.
+  unsigned rate{}, feeds{}, applied_profile{}, scheduled_per_frame{}, scheduled_wanted{}, source_rate{};
+  win::DoorSnapshot door_snapshot;
+  AutoCameraPolicy auto_policy;
+  UpdateRateMeter update_meter;
+  // Frame-time histogram read at the previous status log line.
+  std::array<std::uint32_t, native_camera::kFrameTimeBuckets> logged_frame_times{};
+  // Last update rate measured with the cameras off, for the view_ms estimate.
+  // The first window after the cameras stop spans the switch and is skipped.
+  double camera_off_hz = std::numeric_limits<double>::quiet_NaN();
+  std::uint64_t camera_off_window{};
+  bool camera_off_settled = false;
+  win::MainViewPause main_view_pause;
+  // Pauses that stopped requested cameras, not every exterior view (a drone
+  // view with the cameras off pauses nothing).
+  bool last_outside_pause = false;
+  std::uint64_t outside_pauses{};
+  WindowPauseLatch window_pause;
+  std::uint64_t stale_ms{};
+  win::WaitingPageTimer waiting_page;
+  unsigned door_requested{};  // The door side last pass, to restart its PLEASE WAIT on a turn-on.
+  // Diagnostic: how long a door camera turn-on takes, stage by stage.
+  struct DoorTrace {
+    std::uint32_t rises{}, generation{};
+    std::uint64_t lvar_ms{}, cause_ms{}, on_ms{}, page_ms{}, base_pages{};
+    bool seen{}, on{}, logged{}, kept_page{};
+  } door_trace;
+  EffectiveCameraRate effective_rate;
+  std::uint64_t applied_profile_request{}, applied_session_epoch{};
+  std::uint64_t pending_profile_request{}, pending_session_epoch{}, transition_token{};
+  unsigned pending_profile{};
+  bool changing_profile = false;
+  bool pending_full_reset = false;
+  bool pending_telemetry_selected = false;
+  std::uint64_t pending_gpu_generation{};
+  win::CompanionControl control;
+  win::CompanionSetupSession connection_session;
+  std::uint64_t applied_connection{}, pending_connection{};
+  win::Status last_logged{};
+  bool logged = false, last_connected = false, last_requested = false, last_degraded = false, halted_logged = false;
+  std::uint64_t logged_hook_failures{}, hook_failures_logged_ms{};
+  std::uint32_t logged_boundary_chained{}, logged_boundary_pending{};
+  StallHoldRelease hold_release;
+  const auto request_hold_release = [&](bool known_off, const win::Status& at) {
+    if (!hold_release.observe(watchdog_held.load(std::memory_order_acquire), known_off))
+      return;
+    watchdog_release_requests.fetch_add(1, std::memory_order_acq_rel);
+    log_status(at, "Presentation watchdog: cameras turned off; releasing the repeated-stall hold.");
+  };
+  VideoMemoryProbe video_probe;
+  VideoMemoryRecord video_record;
+  std::uint64_t next_video_sample{};
+  SimEventTracker sim_events;
+  SimMessageLimiter sim_limiter;
+  const auto announce_all = [&](const SimEventInputs& inputs, std::uint64_t at) {
+    std::array<SimEvent, 8> events{};
+    const auto count = sim_events.observe(inputs, events.data(), events.size());
+    for (std::size_t i = 0; i < count; ++i)
+      announce(events[i], sim_limiter, at);
+  };
+  std::uint64_t last_stop_sequence{};
+  profiles::CameraMounts applied_mounts{};
+  // Diagnostics: counters at the previous loop tick, so a wipe line can show
+  // which writer moved with it.
+  struct WipeTrace {
+    std::uint64_t wipes{}, evidence{}, lifecycle{}, submit{}, unordered{}, unordered_consumers{}, deferred_retirements{};
+    std::uint64_t deferred_evidence{}, unknown_lists{}, invalid_recordings{}, retired_recordings{}, registry_recording{};
+    std::uint64_t contended_invalidations{}, source_retirements{}, retirement_restored{};
+  } wipe_trace;
+  const auto log_retirement = [&](const win::Status& at, const scene_runtime::Snapshot& output) {
+    const auto& capture = output.capture;
+    char detail[320];
+    std::snprintf(detail, sizeof(detail),
+                  "Source-state retire: n=%llu origins=0x%x restored=+%llu tail=%s deferred_retirements=+%llu manager_submit=+%llu "
+                  "unordered=+%llu unordered_consumers=+%llu",
+                  static_cast<unsigned long long>(capture.source_retirements), capture.last_retirement_origins,
+                  static_cast<unsigned long long>(capture.retirement_restored - wipe_trace.retirement_restored), capture.tail_status,
+                  static_cast<unsigned long long>(capture.deferred_retirements - wipe_trace.deferred_retirements),
+                  static_cast<unsigned long long>(capture.contended_submissions - wipe_trace.submit),
+                  static_cast<unsigned long long>(capture.unordered_submissions - wipe_trace.unordered),
+                  static_cast<unsigned long long>(capture.unordered_consumers - wipe_trace.unordered_consumers));
+    log_status(at, detail);
+  };
+  const auto log_wipe = [&](const win::Status& at, const scene_runtime::Snapshot& output, const win::GraphicsStatus& graphics) {
+    const auto& capture = output.capture;
+    const auto registry_recording = graphics.contention[static_cast<unsigned>(win::ContentionSite::registry_recording)];
+    char detail[768];
+    std::snprintf(
+        detail, sizeof(detail),
+        "Source-state wipe: n=%llu site=%s origins=0x%x tail=%s unknown_lists=+%llu invalid_recordings=+%llu "
+        "retired_recordings=+%llu deferred_retirements=+%llu deferred_evidence=+%llu manager_evidence=+%llu manager_lifecycle=+%llu "
+        "manager_submit=+%llu unordered=+%llu unordered_consumers=+%llu registry_recording=+%llu contended_invalidations=+%llu",
+        static_cast<unsigned long long>(capture.wipes), SceneCaptureManager::wipe_site_name(capture.last_wipe_site),
+        capture.last_wipe_origins, capture.tail_status,
+        static_cast<unsigned long long>(capture.unknown_submitted_lists - wipe_trace.unknown_lists),
+        static_cast<unsigned long long>(capture.invalid_source_recordings - wipe_trace.invalid_recordings),
+        static_cast<unsigned long long>(capture.retired_source_recordings - wipe_trace.retired_recordings),
+        static_cast<unsigned long long>(capture.deferred_retirements - wipe_trace.deferred_retirements),
+        static_cast<unsigned long long>(capture.deferred_evidence - wipe_trace.deferred_evidence),
+        static_cast<unsigned long long>(capture.contended_evidence - wipe_trace.evidence),
+        static_cast<unsigned long long>(capture.contended_lifecycle - wipe_trace.lifecycle),
+        static_cast<unsigned long long>(capture.contended_submissions - wipe_trace.submit),
+        static_cast<unsigned long long>(capture.unordered_submissions - wipe_trace.unordered),
+        static_cast<unsigned long long>(capture.unordered_consumers - wipe_trace.unordered_consumers),
+        static_cast<unsigned long long>(registry_recording - wipe_trace.registry_recording),
+        static_cast<unsigned long long>(graphics.contended_invalidations - wipe_trace.contended_invalidations));
+    log_status(at, detail);
+  };
+  const auto remember_wipe_trace = [&](const scene_runtime::Snapshot& output, const win::GraphicsStatus& graphics) {
+    const auto& capture = output.capture;
+    wipe_trace = {capture.wipes,
+                  capture.contended_evidence,
+                  capture.contended_lifecycle,
+                  capture.contended_submissions,
+                  capture.unordered_submissions,
+                  capture.unordered_consumers,
+                  capture.deferred_retirements,
+                  capture.deferred_evidence,
+                  capture.unknown_submitted_lists,
+                  capture.invalid_source_recordings,
+                  capture.retired_source_recordings,
+                  graphics.contention[static_cast<unsigned>(win::ContentionSite::registry_recording)],
+                  graphics.contended_invalidations,
+                  capture.source_retirements,
+                  capture.retirement_restored};
+  };
+  for (;;) {
+    control.refresh(mailbox);
+    const auto now = GetTickCount64();
+    worker_heartbeat_ms.store(now, std::memory_order_release);
+    // Process-wide GPU memory against the OS budget, once a second; the
+    // watchdog's trip line reads the latest values from atomics.
+    if (now >= next_video_sample && win::graphics_ready()) {
+      next_video_sample = now + 1000;
+      // A failed open or query records an invalid sample: zeros, reason logged.
+      video_record.add(video_probe.open(win::graphics_adapter_luid()) ? video_probe.sample() : VideoMemorySample{});
+      const auto& latest = video_record.latest();
+      constexpr std::uint64_t MiB = 1024 * 1024;
+      video_local_mb.store(latest.local_usage / MiB, std::memory_order_relaxed);
+      video_local_budget_mb.store(latest.local_budget / MiB, std::memory_order_relaxed);
+      video_nonlocal_mb.store(latest.nonlocal_usage / MiB, std::memory_order_relaxed);
+    }
+    const auto log_video_memory = [&](const win::Status& at) {
+      char detail[256];
+      if (video_record.format(detail, sizeof(detail), video_probe.error()) > 0)
+        log_status(at, detail);
+    };
+    const auto& settings = control.settings();
+    const auto owner_pid = control.owner_pid();
+    const bool connected = control.connected(now);
+    bridge_connected.store(connected && settings.enabled != 0, std::memory_order_release);
+    notifications_enabled.store(settings.notifications != 0, std::memory_order_release);
+    SimEventInputs sim_inputs;
+    sim_inputs.connected = connected && settings.enabled;
+    // Watchdog trip: the gate is already closed on every hook; this iteration
+    // also takes the cameras down through the ordinary demand path.
+    const bool degraded = !win::graphics_armed();
+    const auto connection = connection_session.observe(connected, settings.enabled != 0, control.owner_pid(), settings.profile_request);
+    if (connection.stopped) {
+      win::set_target_mask(0);
+      win::set_calibration(0, settings.calibration_budget);
+      win::set_graphics_observation_demand(false);
+      native_camera::suspend_scene_rendering(true);
+      // The observer closes/revalidates owned views and cancels uncreated
+      // requests. Keep the native lifetime transaction, including in-flight GPU
+      // leases; reconnect will start a fresh setup token over these live objects.
+      if (!pending_full_reset)
+        native_camera::request_scene_profile_transition(applied_profile ? applied_profile : settings.profile);
+      scene_runtime::manager().stop_source_tracking();
+      scene_handoff().stop_scene();
+      scene_runtime::reset_feed(key);
+      changing_profile = false;
+      transition_token = 0;
+      requested = failed = false;
+      intent = {};
+      progress = {};
+      prewarm = {};
+      startup = warmup_startup = {};
+      route_request = 0;
+      log_status(status, "Connection stopped: camera output closed; next Connect will rescan and set up again.");
+      sim_inputs.connection_stopped = true;
+    }
+    const auto session_epoch = native_camera::get_aircraft_session_epoch();
+    const auto session = native_camera::get_aircraft_session_readiness();
+    const bool session_settings = settings.aircraft_session_epoch == session_epoch;
+    const bool command_context = connected && session_settings && session.ready && settings.enabled && !changing_profile &&
+                                 !connection.started && connection.generation == applied_connection &&
+                                 settings.profile == applied_profile && settings.profile_request == applied_profile_request &&
+                                 session_epoch == applied_session_epoch && native_camera::aircraft_matches_profile();
+    // Only sides with a TAXI button of their own are commanded.
+    const auto* request_profile = profiles::find(settings.profile);
+    const unsigned button_sides = request_profile ? profiles::taxi_button_sides(*request_profile) : PilotDisplaySides;
+    native_camera::update_taxi_button_request({settings.taxi_request, settings.aircraft_session_epoch, settings.profile,
+                                               settings.taxi_selected_mask & button_sides, settings.taxi_desired_mask & button_sides},
+                                              command_context);
+    // A flight or aircraft change keeps the native camera pair (and with it the
+    // GPU capture session) when the pair already has a camera for every feed
+    // the aircraft renders: the same profile, another profile with the same
+    // feed count (in-place pane resize if its panes differ), or one with fewer
+    // feeds (the extra camera stays closed). Otherwise it is retired and a new
+    // pair is created, the step every RenderThreadProc CTD followed.
+    const auto pair_can_be_kept = [&](std::uint32_t profile_id) {
+      if (profile_id == applied_profile)
+        return true;
+      const auto* next = profiles::find(profile_id);
+      if (!next)
+        return false;
+      const auto owned = native_camera::scene_snapshot().pair.owned_ids;
+      const unsigned have = engine_camera::owned_count(owned);
+      return have >= profiles::CameraViews;
+    };
+    const auto mark_entry = [&](std::uint64_t id) -> MarkScan::Entry* {
+      for (auto& entry : mark_scan.entries)
+        if (entry.id == id)
+          return &entry;
+      return nullptr;
+    };
+    // A picture of a panel texture, from either owner: its marks, or another
+    // try later.
+    const auto mark_result = [&](std::uint64_t id, const win::DisplaySnapshotPoll* poll) {
+      const std::size_t marks = poll ? poll->mark_count : 0;
+      if (marks) {
+        mark_scan.session_read = true;
+        panel_identity.store.read(id, poll->marks.data(), marks);
+        // Route by the new marks on this pass, not up to a second later:
+        // the marks come down once the profile's displays are found.
+        next_inventory = 0;
+      }
+      auto* entry = mark_entry(id);
+      if (!entry || entry->read)
+        return;
+      ++entry->tries;
+      entry->next_ms = now + MarkRetryMs;
+      if (marks) {
+        entry->read = true;
+        const auto* texture = panel_identity.store.find(id);
+        const auto* gauge = texture ? texture->first() : nullptr;
+        entry->panel = gauge ? mark_identity::panel_number(gauge->section.data()) : 0;
+        ++mark_scan.unsignalled;
+        ++mark_scan.read;
+      }
+    };
+    const auto service_mark_scan = [&](bool allowed, const win::Status& log_to, const auto& log_marks) {
+      const auto epoch = native_camera::get_aircraft_session_epoch();
+      // Textures already read stay read (service_mark_identity); a new
+      // session starts its re-show allowance and counts again.
+      if (epoch != mark_scan.epoch) {
+        mark_scan.epoch = epoch;
+        mark_scan.reshows = mark_scan.unsignalled = mark_scan.pictures = mark_scan.empty = mark_scan.failed = mark_scan.empty_textures = 0;
+        mark_scan.last_reshow_ms = mark_scan.shown_ms = mark_scan.shown_all_ms = 0;
+        mark_scan.shown_again = mark_scan.session_shown = mark_scan.session_read = false;
+        mark_scan.lost = mark_scan.wanted_unassigned = mark_scan.asked_sides = 0;
+        mark_scan.replacements.reset();
+        mark_scan.targets.reset();
+        mark_scan.shown_mask = 0;
+        mark_scan.verdict.reset();
+        // The last flight's pictures without marks do not count for this one:
+        // its listed textures are counted again below, before they are pruned.
+        for (auto& entry : mark_scan.entries)
+          entry.empty = false;
+      }
+      const bool companion = snapshot.result == win::DisplaySnapshotResult::pending;
+      if (mark_scan.pending_id && companion) {
+        // The companion's request took the slot.
+        if (auto* entry = mark_entry(mark_scan.pending_id))
+          entry->next_ms = now + MarkRetryMs;
+        mark_scan.pending_id = 0;
+      }
+      if (mark_scan.pending_id) {
+        const auto poll = win::poll_display_snapshot(now);
+        if (poll.result == win::DisplaySnapshotResult::pending && now - mark_scan.pending_ms < MarkPictureMs)
+          return;
+        const auto id = std::exchange(mark_scan.pending_id, 0);
+        const bool ready = poll.result == win::DisplaySnapshotResult::ready;
+        if (ready && poll.mark_count)
+          log_marks(id, poll);
+        ++mark_scan.pictures;
+        mark_scan.empty += ready && !poll.mark_count;
+        if (ready) {
+          auto& formats = poll.mark_count ? mark_scan.read_formats : mark_scan.empty_formats;
+          if (std::find(formats.begin(), formats.end(), poll.format) == formats.end())
+            if (const auto free = std::find(formats.begin(), formats.end(), 0u); free != formats.end())
+              *free = poll.format;
+        }
+        mark_scan.failed += !ready;
+        if (ready && !poll.mark_count)
+          if (auto* entry = mark_entry(id))
+            entry->empty = true;
+        mark_result(id, ready ? &poll : nullptr);
+      }
+      mark_scan.empty_textures = std::max(mark_scan.empty_textures,
+                                          static_cast<unsigned>(std::count_if(mark_scan.entries.begin(), mark_scan.entries.end(),
+                                                                              [](const MarkScan::Entry& entry) { return entry.empty; })));
+      if ((allowed || !mark_scan.entries.empty()) && now >= mark_scan.next_log_ms) {
+        mark_scan.next_log_ms = now + 10000;
+        char detail[320];
+        const auto& e = mark_scan.empty_formats;
+        const auto& r = mark_scan.read_formats;
+        std::snprintf(detail, sizeof(detail),
+                      "Display mark scan: textures=%zu read=%u pictures=%u empty=%u empty_textures=%u failed=%u reshows=%u allowed=%u "
+                      "companion=%u formats_read=%u,%u,%u formats_empty=%u,%u,%u,%u",
+                      mark_scan.entries.size(), mark_scan.read, mark_scan.pictures, mark_scan.empty, mark_scan.empty_textures,
+                      mark_scan.failed, mark_scan.reshows, allowed ? 1u : 0u, companion ? 1u : 0u, r[0], r[1], r[2], e[0], e[1], e[2],
+                      e[3]);
+        log_status(log_to, detail);
+      }
+      // A texture drawn is pictured within a second or two; one the
+      // simulator keeps recreating could otherwise hold the list back.
+      const bool tried = std::none_of(mark_scan.entries.begin(), mark_scan.entries.end(),
+                                      [](const MarkScan::Entry& entry) { return !entry.read && entry.tries < MarkTries; });
+      // From any show: a replacement's page needs the same time to paint.
+      const bool shown_long = mark_scan.shown_ms && now - mark_scan.shown_ms >= MarkSettleMs;
+      panel_identity.settled = tried || shown_long;
+      // Pictures taken before the pages painted their marks give no verdict,
+      // nor does an empty list (textures pictured, then recreated mid-load).
+      panel_identity.inactive =
+          mark_scan.verdict.observe(mark_scan.session_read || !panel_identity.store.textures().empty(), mark_scan.empty,
+                                    mark_scan.empty_textures, (tried && !mark_scan.entries.empty()) || shown_long);
+      if (!allowed || companion)
+        return;
+      if (now >= mark_scan.next_refresh) {
+        mark_scan.next_refresh = now + MarkRefreshMs;
+        const auto records = win::display_resource_records();
+        unsigned lost = 0;
+        const bool replaced = mark_scan.refreshed_epoch == epoch;
+        std::erase_if(mark_scan.entries, [&](const MarkScan::Entry& entry) {
+          const bool gone = std::none_of(records.begin(), records.end(), [&](const auto& record) { return record.id == entry.id; });
+          lost += gone && entry.read;
+          if (gone && entry.read && replaced)
+            mark_scan.targets.lost(entry.panel);
+          return gone;
+        });
+        // Textures already gone at a session's first refresh went with the
+        // last flight, while the scan was not allowed: nothing replaces them.
+        // Marks up for other panels only do not serve this loss.
+        if (lost && replaced) {
+          mark_scan.lost += lost;
+          mark_scan.replacements.lost(now, mark_scan.shown_again && mark_scan.targets.covered_by(mark_scan.shown_mask));
+        }
+        mark_scan.refreshed_epoch = epoch;
+        for (const auto& record : records) {
+          if (!(record.draws || record.activity))
+            continue;
+          if (auto* entry = mark_entry(record.id))
+            entry->activity = record.draws + record.activity;
+          else {
+            const auto activity = record.draws + record.activity;
+            mark_scan.entries.push_back(
+                {.id = record.id, .next_ms = now, .seen_ms = now, .activity = activity, .tried_activity = activity});
+            mark_scan.last_new_ms = now;
+          }
+        }
+      }
+      // Every display the profile names found, and the companion's aircraft
+      // setup closed: nothing on the cockpit's screens is needed any more.
+      const auto* profile = panel_identity.profile;
+      bool keyed = false, missing = false;
+      for (unsigned side = 0; profile && side < profile->sides && side < MaxDisplaySides; ++side)
+        if (profile->panel_textures[side][0]) {
+          keyed = true;
+          missing = missing || !panel_identity.named[side];
+        }
+      const bool setup = settings.panel_setup != 0;
+      const bool found = keyed && !missing && !setup;
+      const bool setup_opened = setup && !mark_scan.setup_open;
+      mark_scan.setup_open = setup;
+      const auto unread_since = [&](std::uint64_t since) {
+        return static_cast<unsigned>(std::count_if(mark_scan.entries.begin(), mark_scan.entries.end(),
+                                                   [&](const MarkScan::Entry& entry) { return !entry.read && entry.seen_ms >= since; }));
+      };
+      const auto read_entries = [&] {
+        return static_cast<unsigned>(
+            std::count_if(mark_scan.entries.begin(), mark_scan.entries.end(), [](const MarkScan::Entry& entry) { return entry.read; }));
+      };
+      // panels: the pages asked (panel_marks::panel_bit), 0 for every page.
+      const auto ask_show = [&](std::uint64_t panels = 0) {
+        mark_scan.shown_again = true;
+        mark_scan.shown_ms = now;
+        mark_scan.shown_mask = panels;
+        mark_scan.replacements.shown(now);
+        mark_scan.lost = 0;
+        native_camera::signal_panel_marks_show(panels);
+        // Asked of some panels only: the other unread textures' pages show
+        // nothing new to picture. The replacements are the textures listed
+        // since the loss, or just before it; one may have used up its tries
+        // while the show waited out the gap.
+        if (!panels)
+          mark_scan.shown_all_ms = now;
+        const auto recent = mark_identity::ReplacementWatch::GapMs + mark_identity::ReplacementWatch::HoldMs;
+        for (auto& entry : mark_scan.entries)
+          if (!entry.read && (!panels || entry.seen_ms + recent >= now)) {
+            entry.tries = 0;
+            entry.next_ms = now + MarkRetryMs;
+          }
+      };
+      // Unread textures are given up on: with the marks down a picture of one
+      // has nothing to read. A texture created later is still pictured, and
+      // a page loaded since shows its marks by itself: reading them takes
+      // those down too.
+      const auto take_down = [&](const char* why) {
+        native_camera::signal_panel_marks_read();
+        for (auto& entry : mark_scan.entries)
+          if (!entry.read)
+            entry.tries = MarkTries;
+        char detail[192];
+        std::snprintf(detail, sizeof(detail),
+                      "Display marks: %u of %zu panel textures read; cockpit pages told to take their marks down (%s).", read_entries(),
+                      mark_scan.entries.size(), why);
+        log_status(log_to, detail);
+        mark_scan.unsignalled = 0;
+        mark_scan.shown_again = false;
+        mark_scan.replacements.taken_down(now);
+        if (!mark_scan.replacements.pending(now))
+          mark_scan.targets.reset();
+      };
+      // A camera asked for on a display with no texture, with a texture
+      // unread and the marks down: for a side not asked about yet, as soon as
+      // 10 s have passed since the last show; then at the slow pace while it
+      // stays asked for.
+      const unsigned unserved_sides = mark_scan.wanted_unassigned & ~mark_scan.asked_sides;
+      mark_scan.asked_sides &= mark_scan.wanted_unassigned;
+      // Not while any marks are up: a show for the side's replaced display
+      // serves it first, and every page is asked only once that has come down
+      // with the display still not found.
+      const bool camera_waits =
+          mark_scan.wanted_unassigned && !mark_scan.shown_again && unread_since(0) &&
+          (!mark_scan.shown_all_ms ||
+           now - mark_scan.shown_all_ms >= (unserved_sides ? mark_identity::ReplacementWatch::GapMs : MarkReshowGapMs));
+      // Marks stay up for a replaced texture even with every named display found.
+      const bool replacing = mark_scan.replacements.pending(now);
+      if (found && !replacing) {
+        if (mark_scan.unsignalled || mark_scan.shown_again)
+          take_down("displays found");
+      } else if (setup_opened && unread_since(0)) {
+        // The setup lists only textures whose marks were read: every time it opens.
+        ask_show();
+        char detail[128];
+        std::snprintf(detail, sizeof(detail),
+                      "Display marks: aircraft setup opened; cockpit pages asked to show their marks for %u textures.", unread_since(0));
+        log_status(log_to, detail);
+      } else if (!found && !mark_scan.session_shown && unread_since(0)) {
+        mark_scan.session_shown = true;
+        ask_show();
+        char detail[128];
+        std::snprintf(detail, sizeof(detail), "Display marks: cockpit pages asked to show their marks for aircraft session %llu.",
+                      static_cast<unsigned long long>(epoch));
+        log_status(log_to, detail);
+      } else if (mark_scan.shown_again && now - mark_scan.shown_ms >= MarkShowMs) {
+        take_down("time limit");
+      } else if (const bool up = mark_scan.shown_again && mark_scan.targets.covered_by(mark_scan.shown_mask);
+                 // Marks up (or previously shown) only for other panels: this
+                 // loss's pages are asked at once without waiting out their gap.
+                 mark_scan.replacements.due(now, up,
+                                            mark_scan.shown_again || (mark_scan.shown_mask && mark_scan.targets.mask() &&
+                                                                      !(mark_scan.shown_mask & mark_scan.targets.mask()))
+                                                ? 0
+                                                : mark_scan.shown_ms)) {
+        const auto panels = mark_scan.targets.mask();
+        char detail[160];
+        if (panels)
+          std::snprintf(detail, sizeof(detail),
+                        "Display marks: %u read panel textures destroyed; their cockpit pages asked to show their marks (panels=%#llx).",
+                        mark_scan.lost, static_cast<unsigned long long>(panels));
+        else
+          std::snprintf(detail, sizeof(detail), "Display marks: %u read panel textures destroyed; cockpit pages asked to show their marks.",
+                        mark_scan.lost);
+        ask_show(panels);
+        log_status(log_to, detail);
+      } else if (camera_waits) {
+        mark_scan.asked_sides |= mark_scan.wanted_unassigned;
+        ask_show();
+        char detail[128];
+        std::snprintf(detail, sizeof(detail),
+                      "Display marks: camera wanted on sides %#x with no display; cockpit pages asked to show their marks.",
+                      mark_scan.wanted_unassigned);
+        log_status(log_to, detail);
+      }
+      // Textures drawn since their last picture first: their picture is
+      // taken at once. Then the others.
+      for (const bool drawn : {true, false})
+        for (auto& entry : mark_scan.entries) {
+          if (entry.read || entry.tries >= MarkTries || entry.next_ms > now || (drawn && entry.activity == entry.tried_activity) ||
+              (!drawn && now - entry.seen_ms < MarkUndrawnMs))
+            continue;
+          entry.tried_activity = entry.activity;
+          if (win::request_display_snapshot(entry.id, now) == win::DisplaySnapshotResult::pending) {
+            mark_scan.pending_id = entry.id;
+            mark_scan.pending_ms = now;
+            return;
+          }
+          ++entry.tries;
+          entry.next_ms = now + MarkRetryMs;
+        }
+      // Every texture read or given up on, and none new for a while.
+      if (mark_scan.entries.empty() || now - mark_scan.last_new_ms < MarkQuietMs ||
+          !std::all_of(
+              mark_scan.entries.begin(), mark_scan.entries.end(),
+              [](const MarkScan::Entry& entry) { return entry.read || entry.tries >= MarkTries; }))
+        return;
+      // A display still to find (or the setup open) and a texture created
+      // since the marks were last shown: its page may have taken them down
+      // before the texture existed. Never once the displays are found.
+      const auto fresh = unread_since(mark_scan.shown_all_ms + 1);
+      if (!found && fresh && (mark_scan.reshows < MarkReshows || (missing && now - mark_scan.last_reshow_ms >= MarkReshowGapMs))) {
+        ++mark_scan.reshows;
+        mark_scan.last_reshow_ms = now;
+        ask_show();
+        char detail[192];
+        std::snprintf(detail, sizeof(detail),
+                      "Display marks: %u panel textures new and unread; cockpit pages asked to show their marks again (%u).", fresh,
+                      mark_scan.reshows);
+        log_status(log_to, detail);
+        return;
+      }
+      // The pages may take their marks down, once no replacement needs them.
+      // A later read signals again.
+      if (!replacing && (mark_scan.unsignalled || mark_scan.shown_again))
+        take_down("scan done");
+    };
+    // One snapshot per companion serial. It needs graphics observation while
+    // pending, like calibration, but never a camera or a matching aircraft:
+    // aircraft discovery takes pictures of panel textures while it waits.
+    const auto service_snapshot = [&](bool allowed, const win::Status& log_to) {
+      const auto log_snapshot = [&] {
+        const char* step = "";
+        long code = 0;
+        if (snapshot_save_error) {
+          step = "save";
+          code = static_cast<long>(snapshot_save_error);
+        } else if (snapshot.result == win::DisplaySnapshotResult::failed) {
+          win::display_snapshot_failure(step, code);
+        }
+        char detail[256];
+        std::snprintf(detail, sizeof(detail), "Display snapshot: serial=%llu id=%llu result=%s texture=%ux%u format=%u step=%s code=%#lx",
+                      static_cast<unsigned long long>(snapshot.serial), static_cast<unsigned long long>(snapshot.id),
+                      win::display_snapshot_name(snapshot.result), snapshot.width, snapshot.height, snapshot.format, step,
+                      static_cast<unsigned long>(code));
+        snapshot_save_error = 0;
+        log_status(log_to, detail);
+      };
+      // Panel marks in a picture (claudedocs/panel-mark-identification.md):
+      // which panel and gauge the texture holds, by the page's own names.
+      const auto log_panel_marks = [&](std::uint64_t id, const win::DisplaySnapshotPoll& poll) {
+        char detail[512];
+        std::snprintf(detail, sizeof(detail), "Display marks: id=%llu texture=%ux%u found=%zu read_us=%llu",
+                      static_cast<unsigned long long>(id), poll.width, poll.height, poll.mark_count,
+                      static_cast<unsigned long long>(poll.mark_us));
+        log_status(log_to, detail);
+        for (std::size_t i = 0; i < poll.mark_count; ++i) {
+          const auto& m = poll.marks[i];
+          panel_marks::Rect rect;
+          const bool scaled = panel_marks::texture_rect(m, poll.width, poll.height, rect);
+          std::snprintf(detail, sizeof(detail),
+                        "Display mark: id=%llu kind=%s name=%s gauge=%u gauge_name=%s page_rect=%u,%u,%ux%u panel=%ux%u "
+                        "texture_rect=%u,%u,%ux%u at=%u,%u pitch=%.2fx%.2f cell=%u info=%s",
+                        static_cast<unsigned long long>(id), m.kind == panel_marks::Kind::panel ? "panel" : "gauge", m.name.data(), m.gauge,
+                        m.gauge_name.data(), m.x, m.y, m.width, m.height, m.panel_width, m.panel_height, scaled ? rect.x : 0,
+                        scaled ? rect.y : 0, scaled ? rect.width : 0, scaled ? rect.height : 0, m.left, m.top, m.pitch_x, m.pitch_y, m.cell,
+                        m.info.data());
+          log_status(log_to, detail);
+        }
+      };
+      // A copy never planned (FSLabs A321 setup, 2026-11-03: every picture
+      // timed out with no other line): the Executes refused since the request.
+      const auto log_refusals = [&](const char* how) {
+        const auto graphics = win::graphics_status();
+        char detail[1024];
+        auto used = static_cast<std::size_t>(
+            std::snprintf(detail, sizeof(detail), "Display snapshot %s: serial=%llu id=%llu plans=%u admission:", how,
+                          static_cast<unsigned long long>(snapshot.serial), static_cast<unsigned long long>(snapshot.id), snapshot.plans));
+        const auto add = [&](const char* name, std::uint64_t now_count, std::uint64_t then) {
+          if (now_count <= then || used >= sizeof(detail))
+            return;
+          const auto written =
+              std::snprintf(detail + used, sizeof(detail) - used, " %s=%llu", name, static_cast<unsigned long long>(now_count - then));
+          if (written > 0 && static_cast<std::size_t>(written) < sizeof(detail) - used)
+            used += static_cast<std::size_t>(written);
+        };
+        for (unsigned i = 0; i < graphics.queue_outcomes.size(); ++i)
+          add(win::display_submission_outcome_name(static_cast<win::DisplaySubmissionOutcome>(i)), graphics.queue_outcomes[i],
+              snapshot.outcomes[i]);
+        if (used < sizeof(detail))
+          used += static_cast<std::size_t>(std::snprintf(detail + used, sizeof(detail) - used, " proof:"));
+        for (unsigned i = 0; i < graphics.queue_proof_refusals.size(); ++i)
+          add(win::PfdSubmissionProof::refusal_name(static_cast<win::PfdSubmissionProof::Refusal>(i)), graphics.queue_proof_refusals[i],
+              snapshot.refusals[i]);
+        log_status(log_to, detail);
+      };
+      if (allowed && settings.snapshot_request && settings.snapshot_request != snapshot.serial) {
+        if (snapshot.result == win::DisplaySnapshotResult::pending)
+          log_refusals("replaced");
+        const auto graphics = win::graphics_status();
+        snapshot = {settings.snapshot_request, settings.snapshot_id, win::request_display_snapshot(settings.snapshot_id, now)};
+        snapshot.outcomes = graphics.queue_outcomes;
+        snapshot.refusals = graphics.queue_proof_refusals;
+        if (snapshot.result != win::DisplaySnapshotResult::pending)
+          log_snapshot();
+      }
+      if (snapshot.result == win::DisplaySnapshotResult::pending) {
+        auto poll = win::poll_display_snapshot(now);
+        snapshot.plans = poll.plans;  // As of this poll: a replacement logs it.
+        if (poll.result != win::DisplaySnapshotResult::pending) {
+          if (poll.result == win::DisplaySnapshotResult::timeout || poll.result == win::DisplaySnapshotResult::lost)
+            log_refusals(poll.result == win::DisplaySnapshotResult::timeout ? "timeout" : "lost");
+          snapshot.width = poll.width;
+          snapshot.height = poll.height;
+          snapshot.format = poll.format;
+          // none: another request replaced this one inside the bridge.
+          snapshot.result = poll.result == win::DisplaySnapshotResult::none ? win::DisplaySnapshotResult::lost : poll.result;
+          if (snapshot.result == win::DisplaySnapshotResult::ready && !win::save_snapshot_bmp(win::display_snapshot_path(), poll.image)) {
+            snapshot.result = win::DisplaySnapshotResult::failed;
+            snapshot_save_error = GetLastError();
+          }
+          if (snapshot.result == win::DisplaySnapshotResult::ready)
+            write_display_candidates(snapshot.id, win::target_ids());
+          log_snapshot();
+          if (snapshot.result == win::DisplaySnapshotResult::ready) {
+            log_panel_marks(snapshot.id, poll);
+            mark_result(snapshot.id, &poll);
+          }
+        }
+      }
+      service_mark_scan(allowed, log_to, log_panel_marks);
+    };
+    // A set-up aircraft keeps its profile id when its layout changes (another
+    // variant, or set up again), so a new layout is another aircraft profile.
+    const bool layout_changed = settings.profile == profiles::DiscoveredProfileId && !profiles::discovered_current(settings.discovered);
+    // The user's display choices for the profile (another panel or display
+    // area per side) are another profile too. A new layout brings new ones.
+    const bool choices_changed = layout_changed || !profiles::override_current(profiles::base_profile(settings.profile),
+                                                                               settings.display_override, settings.door_side);
+    // Choices that give the cameras another shape (a reshaped display area,
+    // another panel on a set-up aircraft, or the door camera's display) resize them: the transition
+    // below takes the kept pair to the new panes (resize_kept_panes).
+    bool reshaped = false;
+    if (choices_changed && !layout_changed) {
+      const auto* base = profiles::base_profile(settings.profile);
+      const auto* current = profiles::find(settings.profile);
+      if (base && current && profiles::valid_override(*base, settings.display_override)) {
+        auto next = *base;
+        profiles::apply_choices(next, *base, settings.display_override, settings.door_side);
+        // A placed or removed lower display changes the sides: a transition too.
+        reshaped = next.camera_panes != current->camera_panes || next.sides != current->sides;
+      }
+    }
+    // Display choices alone (same profile and layout, same camera shape)
+    // re-bind the displays without an aircraft transition: the cameras keep
+    // running while the user tests or moves a display area. A new profile or
+    // layout, or a camera shape, takes the transition below, which publishes
+    // them with it.
+    if (connected && settings.enabled && choices_changed && !layout_changed && !reshaped && !changing_profile && applied_profile &&
+        settings.profile == applied_profile) {
+      const auto& o = settings.display_override;
+      const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side);
+      if (chosen)
+        win::set_aircraft_profile(settings.profile);
+      char detail[384];
+      std::snprintf(detail, sizeof(detail),
+                    "Display choices: %s profile=%u panels=%s,%s,%s areas=%u,%u,%u,%u/%u,%u,%u,%u/%u,%u,%u,%u door=%u",
+                    chosen ? "applied" : "refused", settings.profile, o.textures[0], o.textures[1], o.textures[2], o.areas[0].left,
+                    o.areas[0].top, o.areas[0].right, o.areas[0].bottom, o.areas[1].left, o.areas[1].top, o.areas[1].right,
+                    o.areas[1].bottom, o.areas[2].left, o.areas[2].top, o.areas[2].right, o.areas[2].bottom, settings.door_side);
+      log_status(status, detail);
+    }
+    const bool reapply = layout_changed || (choices_changed && (settings.profile != applied_profile || reshaped));
+    // The camera manager retired the cameras this loop already requested (a
+    // kept pair it could not resize or revalidate): follow its transition and
+    // request them again, or they stay off until the next aircraft change.
+    // The same while this loop still waits on a transition it requested: the
+    // manager refused the kept pair before resuming it and took the full
+    // reset, so the token this loop waits on is never acknowledged.
+    bool manager_transition = false;
+    if (connected && settings.enabled && (changing_profile ? transition_token != 0 : applied_profile != 0)) {
+      const auto manager = native_camera::scene_snapshot();
+      manager_transition = camera_manager_transition(
+          transition_token, manager,
+          session.ready && !session.loading && session_epoch == (changing_profile ? pending_session_epoch : applied_session_epoch));
+      if (manager_transition) {
+        char detail[512];
+        std::snprintf(
+            detail, sizeof(detail),
+            "Camera manager transition: token=%llu applied_token=%llu waiting=%u failed=%u kept_refusal=%s feed=%d message=%.300s",
+            static_cast<unsigned long long>(manager.profile_transition_token), static_cast<unsigned long long>(transition_token),
+            changing_profile, manager.profile_transition_failed, manager.kept_refusal, manager.kept_refused_feed, manager.message.c_str());
+        log_status(status, detail);
+      }
+    }
+    if (connected && settings.enabled &&
+        (changing_profile || connection.started || connection.generation != applied_connection || settings.profile != applied_profile ||
+         settings.profile_request != applied_profile_request || session_epoch != applied_session_epoch || reapply || manager_transition)) {
+      if (!changing_profile || settings.profile != pending_profile || settings.profile_request != pending_profile_request ||
+          session_epoch != pending_session_epoch || connection.generation != pending_connection || layout_changed || manager_transition) {
+        const bool full_reset =
+            pending_full_reset ||
+            (applied_profile && (settings.profile != applied_profile || layout_changed || session_epoch != applied_session_epoch));
+        win::set_target_mask(0);
+        win::set_calibration(0, settings.calibration_budget);
+        win::set_graphics_observation_demand(false);
+        native_camera::suspend_scene_rendering(true);
+        if (layout_changed) {
+          // Published with rendering suspended; detection, texture admission
+          // and every later find() use it from here.
+          const auto* layout = profiles::publish_discovered(settings.discovered);
+          const auto& d = settings.discovered;
+          char detail[448];
+          std::snprintf(
+              detail, sizeof(detail),
+              "Discovered aircraft layout: %s key=%.199s generation=%llu sides=%u panels=%s(%ux%u m%u),%s(%ux%u m%u),%s(%ux%u m%u)",
+              layout ? "published" : "refused", d.key, static_cast<unsigned long long>(profiles::discovered_generation()), d.sides,
+              d.textures[0], d.shapes[0].width, d.shapes[0].height, d.shapes[0].mips, d.textures[1], d.shapes[1].width, d.shapes[1].height,
+              d.shapes[1].mips, d.textures[2], d.shapes[2].width, d.shapes[2].height, d.shapes[2].mips);
+          log_status(status, detail);
+        }
+        if (choices_changed) {
+          const auto& o = settings.display_override;
+          const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side);
+          char detail[384];
+          std::snprintf(detail, sizeof(detail),
+                        "Display choices: %s profile=%u panels=%s,%s,%s areas=%u,%u,%u,%u/%u,%u,%u,%u/%u,%u,%u,%u door=%u",
+                        chosen ? "published" : "refused", settings.profile, o.textures[0], o.textures[1], o.textures[2], o.areas[0].left,
+                        o.areas[0].top, o.areas[0].right, o.areas[0].bottom, o.areas[1].left, o.areas[1].top, o.areas[1].right,
+                        o.areas[1].bottom, o.areas[2].left, o.areas[2].top, o.areas[2].right, o.areas[2].bottom, settings.door_side);
+          log_status(status, detail);
+        }
+        scene_runtime::manager().stop_source_tracking();
+        scene_handoff().stop_scene();
+        scene_runtime::reset_feed(key);
+        if (full_reset) {
+          // Forget discovery and completed frames, but keep every outstanding
+          // GPU lease on its existing fence. Native retirement is observer-only.
+          // A same-profile change keeps the camera pair (begin_flight_change)
+          // and with it the GPU capture session: its output textures are never
+          // created again, so their state could not be established afresh.
+          win::reset_display_session();
+          pending_gpu_generation = pair_can_be_kept(settings.profile) ? 0 : scene_runtime::reset_session(key);
+        }
+        pending_full_reset = full_reset;
+        pending_profile = settings.profile;
+        pending_profile_request = settings.profile_request;
+        pending_session_epoch = session_epoch;
+        pending_connection = connection.generation;
+        transition_token = 0;
+        pending_telemetry_selected = false;
+        changing_profile = true;
+        requested = failed = false;
+        route_request = 0;
+      }
+      native_camera::suspend_scene_rendering(true);
+      const bool keep_pair = pending_full_reset && pair_can_be_kept(pending_profile);
+      if (pending_full_reset && !keep_pair && !pending_gpu_generation)
+        pending_gpu_generation = scene_runtime::reset_session(key);
+      // A new flight, airport or teleport with the same profile resets display
+      // discovery and the GPU session here, but keeps the native camera pair
+      // (begin_flight_change); only another aircraft profile retires it.
+      if (!transition_token)
+        transition_token = pending_full_reset && !keep_pair ? native_camera::request_scene_session_reset(pending_profile)
+                                                            : native_camera::request_scene_profile_transition(pending_profile);
+      const auto transition = native_camera::scene_snapshot();
+      const bool ready = transition_token && transition.profile_transition_token == transition_token &&
+                         transition.profile_transition_id == pending_profile && transition.profile_transition_ready &&
+                         !transition.profile_transition_pending && !transition.profile_transition_failed;
+      if (ready && !pending_telemetry_selected)
+        pending_telemetry_selected = native_camera::select_aircraft_profile(pending_profile);
+      const bool telemetry_ready = pending_telemetry_selected;
+      const auto transition_session = native_camera::get_aircraft_session_readiness();
+      const bool public_ready = transition_session.ready && transition_session.epoch == pending_session_epoch;
+      const bool gpu_ready =
+          ready && telemetry_ready && public_ready &&
+          (!pending_full_reset || keep_pair || (pending_gpu_generation && scene_runtime::resume_session(key, pending_gpu_generation)));
+      if (!ready || !telemetry_ready || !public_ready || !gpu_ready) {
+        const auto identity = native_camera::get_aircraft_identity();
+        const auto graphics = win::graphics_status();
+        win::Status pending{};
+        pending.heartbeat = now;
+        pending.graphics_ready = graphics.ready;
+        pending.hook_failures = graphics.hook_failures;
+        pending.probe_cpu_ms = transition.observer_last_ms;
+        pending.probe_max_ms = transition.observer_max_ms;
+        pending.aircraft_session_epoch = session_epoch;
+        pending.active_profile = applied_profile;
+        pending.detected_profile = identity.fresh ? identity.detected_profile : 0;
+        pending.identity_sample_ms = identity.fresh ? identity.sample_ms : 0;
+        std::memcpy(pending.aircraft_type, identity.type.data(), sizeof(pending.aircraft_type));
+        std::memcpy(pending.aircraft_path, identity.path.data(), sizeof(pending.aircraft_path));
+        // An aircraft no profile matches never leaves this wait (readiness
+        // needs a supported aircraft), so aircraft discovery runs here. The
+        // panel table is first observed once the flight has loaded, as on a
+        // ready flight, so the late-creation rule keeps the same meaning.
+        const auto* lower_profile = profiles::find(pending_profile);
+        win::set_panel_discovery(native_camera::next_panel_discovery(win::panel_discovery(), identity) ||
+                                 (connected && (settings.panel_setup || (lower_profile && profiles::lower_any_panel(*lower_profile)))));
+        pending.panel_discovery = win::panel_discovery();
+        const bool discovering = pending.panel_discovery && transition_session.flight_loaded;
+        if (discovering)
+          service_mark_identity(panel_identity, pending, native_camera::get_aircraft_session_epoch(), profiles::find(pending_profile));
+        publish_panel_map(panel_identity, pending);
+        // Pictures of the panel textures for the companion's aircraft setup.
+        service_snapshot(connected && settings.enabled && session_settings && discovering && !degraded, pending);
+        win::set_graphics_observation_demand(snapshot.result == win::DisplaySnapshotResult::pending || mark_scan.pending_id);
+        pending.snapshot_serial = snapshot.serial;
+        pending.snapshot_id = snapshot.id;
+        pending.snapshot_result = static_cast<std::uint32_t>(snapshot.result);
+        pending.snapshot_width = snapshot.width;
+        pending.snapshot_height = snapshot.height;
+        pending.snapshot_format = snapshot.format;
+        // A loaded aircraft no profile matches waits here until it is set up.
+        const bool unsupported = discovering && identity.fresh && !identity.detected_profile;
+        std::snprintf(pending.message, sizeof(pending.message), "%s",
+                      unsupported        ? "No Taxi Cam profile matches this aircraft yet. Set it up in Taxi Cam."
+                      : !ready           ? camera_transition_message(transition)
+                      : !telemetry_ready ? "Waiting for aircraft telemetry to stop."
+                      : !public_ready    ? "Waiting for the flight to finish loading and fresh camera telemetry."
+                                         : "Waiting for camera GPU session reset.");
+        notification_log.snapshot(pending.notifications);
+        if (mailbox.lock()) {
+          mailbox.data()->status = pending;
+          mailbox.unlock();
+        }
+        if (now >= next_log) {
+          const LogBlock log_block;
+          char detail[512]{};
+          std::snprintf(detail, sizeof(detail),
+                        "Aircraft transition waiting: token=%llu session=%llu profile=%u failed=%u request_pending=%u "
+                        "creation_pending=%u telemetry_pending=%u entries=%llu/%llu created_total=%llu "
+                        "full_reset=%u gpu_generation=%llu public_ready=%u loading=%u flow_subscribed=%u flow=%u reason=%s "
+                        "flight_loaded=%u discovery=%u refusal=%s refused_feed=%d",
+                        static_cast<unsigned long long>(transition_token), static_cast<unsigned long long>(session_epoch), pending_profile,
+                        transition.profile_transition_failed, transition.pair.request_pending, transition.pair.creation_pending,
+                        ready && !telemetry_ready, static_cast<unsigned long long>(transition.pair.owned_ids[0]),
+                        static_cast<unsigned long long>(transition.pair.owned_ids[1]),
+                        static_cast<unsigned long long>(transition.created_total), pending_full_reset,
+                        static_cast<unsigned long long>(pending_gpu_generation), public_ready, transition_session.loading,
+                        transition_session.flow_subscribed, transition_session.last_flow_event, transition_session.error,
+                        transition_session.flight_loaded, pending.panel_discovery, transition.profile_transition_refusal,
+                        transition.profile_transition_refused_feed);
+          log_status(pending, detail);
+          // An unsupported aircraft stays here: record what it is and which
+          // render targets it creates. Log once per session, then on any type
+          // or path change, including an empty path with a known type.
+          static bool waiting_logged = false;
+          static std::uint64_t waiting_session = 0;
+          static std::array<char, sizeof(pending.aircraft_type)> waiting_type{};
+          static std::array<char, sizeof(pending.aircraft_path)> waiting_path{};
+          if (!waiting_logged || waiting_session != session_epoch || std::strcmp(waiting_type.data(), pending.aircraft_type) ||
+              std::strcmp(waiting_path.data(), pending.aircraft_path)) {
+            waiting_logged = true;
+            waiting_session = session_epoch;
+            std::memcpy(waiting_type.data(), pending.aircraft_type, waiting_type.size());
+            std::memcpy(waiting_path.data(), pending.aircraft_path, waiting_path.size());
+            char identity_detail[768];
+            std::snprintf(identity_detail, sizeof(identity_detail), "Aircraft identity: session=%llu detected=%u fresh=%u type=%.255s path=%.259s",
+                          static_cast<unsigned long long>(session_epoch), identity.detected_profile, identity.fresh, identity.type.data(),
+                          identity.path.data());
+            log_status(pending, identity_detail);
+          }
+          log_render_target_shapes(pending, now);
+          log_video_memory(pending);
+          next_log = now + 5000;
+        }
+        service_scene();
+        if (now >= next_telemetry) {
+          native_camera::initialize_body_pose_provider();
+          next_telemetry = now + 2000;
+        }
+        sim_inputs.degraded = degraded;
+        sim_inputs.simulator_unsupported = transition.profile_transition_failed;
+        announce_all(sim_inputs, now);
+        // Nothing is requested while the aircraft changes: no trip counts,
+        // and a repeated-stall hold from the previous aircraft is released.
+        cameras_wanted.store(false, std::memory_order_release);
+        request_hold_release(true, status);
+        Sleep(25);
+        continue;
+      }
+      win::set_aircraft_profile(pending_profile);
+      prewarm = {};
+      warmup_startup = {};
+      rate = feeds = source_rate = 0;
+      auto_policy.reset();  // Another aircraft has its own camera cost.
+      applied_profile = pending_profile;
+      applied_profile_request = pending_profile_request;
+      applied_session_epoch = pending_session_epoch;
+      applied_connection = pending_connection;
+      char transition_detail[384]{};
+      std::snprintf(
+          transition_detail, sizeof(transition_detail),
+          "Aircraft transition: token=%llu session=%llu profile=%u entries=%llu/%llu connection=%llu full_reset=%u gpu_generation=%llu "
+          "public_ready=%u loading=%u flow_subscribed=%u flow=%u",
+          static_cast<unsigned long long>(transition_token), static_cast<unsigned long long>(applied_session_epoch), applied_profile,
+          static_cast<unsigned long long>(transition.pair.owned_ids[0]), static_cast<unsigned long long>(transition.pair.owned_ids[1]),
+          static_cast<unsigned long long>(applied_connection), pending_full_reset, static_cast<unsigned long long>(pending_gpu_generation),
+          transition_session.ready, transition_session.loading, transition_session.flow_subscribed, transition_session.last_flow_event);
+      log_status(status, transition_detail);
+      applied_mounts = {};
+      intent = {};
+      progress = {};
+      startup = {};
+      next_background_start = 0;
+      exposure = {};
+      next_telemetry = next_discovery = 0;
+      next_inventory = 0;
+      inventory.clear();
+      changing_profile = false;
+      pending_full_reset = false;
+      pending_gpu_generation = 0;
+    }
+    if (now >= next_telemetry) {
+      native_camera::initialize_body_pose_provider();
+      next_telemetry = now + 2000;
+    }
+    if (now >= next_discovery) {
+      const auto begin = GetTickCount64();
+      win::discover_pfds(settings.auto_detect != 0 ? now : 0);
+      win::service_render_boundary();
+      discovery_max_ms = std::max(discovery_max_ms, GetTickCount64() - begin);
+      next_discovery = now + 1000;
+    }
+    if (connected && settings.enabled && session_settings && settings.route_request && settings.route_request != route_request) {
+      if (win::assign_targets(settings.left_id, settings.right_id, settings.lower_id))
+        route_request = settings.route_request;
+    }
+    service_snapshot(connected && settings.enabled && session_settings && session.ready && !degraded, status);
+    const bool snapshot_pending = snapshot.result == win::DisplaySnapshotResult::pending || mark_scan.pending_id;
+    const auto identity = native_camera::get_aircraft_identity();
+    const bool aircraft_matches =
+        native_camera::aircraft_matches_profile() && (!settings.auto_profile || identity.detected_profile == settings.profile);
+    const auto* profile = profiles::find(settings.profile);
+    const bool manual_only = profile && profile->taxi_control == profiles::TaxiControl::manual_only;
+    // PMDG 777: the CAM page selects displays; manual previews and shortcuts
+    // add displays on top. Nothing is sent to the aircraft.
+    const bool pmdg_dsp = profile && profile->taxi_control == profiles::TaxiControl::pmdg_dsp_cam;
+    const bool commandable = profile && profiles::commandable_buttons(*profile);
+
+    const auto buttons = native_camera::get_taxi_buttons();
+    const auto desired = intent.observe(now, buttons.valid, buttons.mask());
+    const unsigned sides = profile ? profiles::side_mask(*profile) : PilotDisplaySides;
+    // The pilot's own request, before readiness and the watchdog gate.
+    const bool uses_buttons = settings.follow_taxi && (pmdg_dsp || !manual_only);
+    // A side without a TAXI button (a placed lower display) is the manual
+    // layer on top of the buttons.
+    const unsigned manual_layer = profile ? settings.manual_mask & ~profiles::taxi_button_sides(*profile) : 0u;
+    const unsigned requested_mask = (pmdg_dsp ? (settings.follow_taxi ? desired.buttons : 0u) | settings.manual_mask
+                                     : settings.follow_taxi && !manual_only ? desired.buttons | manual_layer
+                                                                            : settings.manual_mask) &
+                                    sides;
+    // What is requested and ready, before the watchdog gate.
+    const bool admitted = connected && session_settings && session.ready && settings.enabled && aircraft_matches && win::graphics_ready();
+    const unsigned wanted = admitted ? requested_mask : 0;
+    // The door camera takes its side over from the taxi cameras while it is on.
+    const unsigned door_side = profile && settings.door_on && settings.door_side < MaxDisplaySides ? 1u << settings.door_side : 0;
+    const unsigned door_wanted = admitted ? door_side & sides : 0;
+    const unsigned mask = degraded ? 0u : wanted & ~door_wanted;
+    const unsigned door = degraded ? 0u : door_wanted;
+    const bool wanted_test_scene =
+        connected && session_settings && session.ready && settings.enabled && aircraft_matches && settings.scene_test;
+    const bool test_scene = wanted_test_scene && !degraded;
+    // Trips count toward a repeated-stall hold only while cameras are wanted;
+    // the hold lasts until the pilot turns them off (a known OFF, never a
+    // readiness lapse or a stale button reading).
+    cameras_wanted.store(wanted || door_wanted || wanted_test_scene, std::memory_order_release);
+    request_hold_release(
+        stall_hold_known_off(connected, settings.enabled != 0, settings.scene_test != 0, requested_mask, uses_buttons, buttons.valid),
+        status);
+    const auto intent_observed_ms = GetTickCount64();
+    if (!mask && !door && !test_scene && !prewarm.active())
+      failed = false;
+    const auto targets = win::target_ids();
+    unsigned assigned = 0;
+    for (unsigned side = 0; side < targets.size(); ++side)
+      assigned |= targets[side] ? 1u << side : 0u;
+    assigned &= sides;
+    mark_scan.wanted_unassigned = (wanted | door_wanted) & ~assigned;
+    if (mark_scan.wanted_unassigned)
+      next_inventory = std::min<std::uint64_t>(next_inventory, now + 100);
+    const auto speed = native_camera::get_ground_speed();
+    const auto setup_current = [&]() {
+      const auto epoch = native_camera::get_aircraft_session_epoch();
+      const auto current_session = native_camera::get_aircraft_session_readiness();
+      return current_session.ready && current_session.epoch == epoch && control.connected(GetTickCount64()) && settings.enabled &&
+             control.owner_pid() == owner_pid && connection.generation == applied_connection && settings.aircraft_session_epoch == epoch &&
+             epoch == applied_session_epoch && settings.profile == applied_profile && settings.profile_request == applied_profile_request;
+    };
+    const auto warm_readiness = [&]() {
+      const auto sampled_now = GetTickCount64();
+      const auto ground = native_camera::get_on_ground();
+      const auto velocity = native_camera::get_ground_speed();
+      const auto pose = native_camera::sample_body_pose(sampled_now);
+      const auto aircraft = native_camera::get_aircraft_identity();
+      const auto current_epoch = native_camera::get_aircraft_session_epoch();
+      return win::ScenePrewarmReadiness{
+          control.connected(GetTickCount64()),
+          setup_current() && settings.aircraft_session_epoch == current_epoch && current_epoch == applied_session_epoch &&
+              settings.profile == applied_profile && settings.profile_request == applied_profile_request,
+          settings.enabled != 0,
+          native_camera::aircraft_matches_profile() && aircraft.fresh && aircraft.detected_profile == settings.profile,
+          win::graphics_ready(),
+          manual_only || native_camera::get_taxi_buttons().valid,
+          pose.valid || pose.calibration_required,
+          ground.valid,
+          ground.on_ground,
+          velocity.valid,
+          settings.calibration_mask != 0,
+          velocity.knots,
+          native_camera::get_aircraft_session_readiness().ready};
+    };
+    bool background_warmup = false;
+    if (prewarm.pending()) {
+      const auto warm_scene = native_camera::scene_snapshot();
+      const auto warm_output = scene_runtime::snapshot(key);
+      const auto previous_warm_phase = prewarm.phase();
+      background_warmup = prewarm.observe(now, warm_readiness().eligible(), mask || test_scene,
+                                          {requested && engine_camera::owned_ready(warm_scene.pair.owned_ids, warm_scene.ready),
+                                           warm_output.output, warm_output.frames, warm_output.completed_frames},
+                                          failed || warm_output.failed || warm_scene.pair.state == engine_camera::State::failed ||
+                                              warm_scene.pair.state == engine_camera::State::blocked);
+      if (prewarm.phase() != previous_warm_phase) {
+        char detail[384]{};
+        std::snprintf(
+            detail, sizeof(detail),
+            "Prewarm phase=%s elapsed_ms=%llu entries=%llu/%llu created_total=%llu ready=%u/%u outputs=%u/%u output=%u "
+            "completed_pairs=%llu/%llu",
+            prewarm.name(),
+            static_cast<unsigned long long>(prewarm.started_ms() && now >= prewarm.started_ms() ? now - prewarm.started_ms() : 0),
+            static_cast<unsigned long long>(warm_scene.pair.owned_ids[0]), static_cast<unsigned long long>(warm_scene.pair.owned_ids[1]),
+            static_cast<unsigned long long>(warm_scene.created_total), warm_scene.ready[0], warm_scene.ready[1], warm_scene.output_ready[0],
+            warm_scene.output_ready[1], warm_output.output,
+            static_cast<unsigned long long>(
+                warm_output.completed_frames >= prewarm.baseline_pairs() ? warm_output.completed_frames - prewarm.baseline_pairs() : 0),
+            static_cast<unsigned long long>(win::ScenePrewarm::RequiredPairs));
+        log_status(status, detail);
+      }
+    }
+    // A snapshot stops rendering once taken; its page stays on the display, and
+    // is taken again if a reset dropped it.
+    const auto door_page = scene_runtime::door_page(key);
+    const bool door_render = door_snapshot.observe(door != 0, settings.door_live != 0, door_page.pages, door_page.ready);
+    const auto demand =
+        win::scene_demand(mask | (door_render ? door : 0u), test_scene, assigned, requested, failed, background_warmup && !degraded);
+    unsigned active = demand.stamp_mask | (failed ? 0u : door & assigned);
+    const unsigned calibration =
+        connected && session_settings && session.ready && settings.enabled && aircraft_matches && !degraded ? settings.calibration_mask : 0;
+    // Issue 97: the cockpit displays cannot be seen from outside the cockpit, so
+    // the camera views stop rendering there. Demand, the pair, its mounts and the
+    // display output stay as they are; rendering resumes in the cockpit. Background
+    // warmup, the scene test, calibration and display snapshots keep rendering
+    // wherever the view is (outside_view_pause).
+    const auto main_view = native_camera::get_camera_state();
+    win::OutsidePauseInput pause_input;
+    pause_input.main_view_outside = main_view_pause.observe(now, main_view.valid, main_view.state);
+    pause_input.cameras_requested = mask != 0 || door_render;
+    pause_input.demand_suspended = demand.suspend;
+    pause_input.background_warmup = background_warmup;
+    pause_input.test_scene = test_scene;
+    pause_input.calibration = calibration != 0;
+    pause_input.snapshot_pending = snapshot_pending;
+    const bool outside_pause = win::outside_view_pause(pause_input);
+    outside_pauses += outside_pause && !last_outside_pause;
+    last_outside_pause = outside_pause;
+    // Warmup and scene-only diagnostics need capture observation without PFD
+    // writes. Settled OFF may bypass PFD state while lifetime tracking remains.
+    // A taken door snapshot renders nothing but its page is still drawn.
+    win::set_graphics_observation_demand(!demand.suspend || calibration != 0 || snapshot_pending || (door & active) != 0);
+    // Before the target mask: a newly admitted side starts on the waiting page,
+    // unless it stayed requested (mask) and only briefly lost its recreated texture.
+    // The door side counts as requested while the door camera is on, so a side
+    // that only briefly lost its display texture returns without PLEASE WAIT,
+    // as a taxi side does; a real turn-on shows it for the full minimum.
+    // A turn-on starts the door side's minimum even when a taxi camera was
+    // already showing on that display (it never left active).
+    waiting_page.restart(door & ~std::exchange(door_requested, door), GetTickCount64());
+    win::set_waiting_mask(waiting_page.observe(GetTickCount64(), active, mask | door));
+    win::set_door_mask(door & active);
+    {
+      // Door turn-on stages. The cause is a rise of the door camera's own
+      // bound L:var (a press, or reaching an equals value; never a release)
+      // since it last turned on or off (the companion turns it on
+      // from that change, through the settings it writes back); -1 without one.
+      auto& t = door_trace;
+      const auto tick = GetTickCount64();
+      const auto lvars = native_camera::get_lvar_bindings();
+      if (lvars.generation != t.generation) {
+        // A new stream's first readings are not changes.
+        t.generation = lvars.generation;
+        t.seen = false;
+      }
+      if (const auto& read = lvars.states[win::CameraDoor]; lvars.generation && read.read) {
+        if (t.seen && read.rises != t.rises)
+          t.lvar_ms = tick;
+        t.rises = read.rises;
+        t.seen = true;
+      }
+      const unsigned door_bit = door & active;
+      const auto write = [&](bool turned_off) {
+        t.logged = true;
+        const auto since = [&](std::uint64_t at) -> long long { return at ? static_cast<long long>(at - t.on_ms) : -1; };
+        char detail[256];
+        std::snprintf(detail, sizeof(detail),
+                      "Door turn-on: lvar_to_on_ms=%lld on_to_page_ms=%lld kept_page=%u turned_off_ms=%lld live=%u pages=%llu",
+                      t.cause_ms ? static_cast<long long>(t.on_ms - t.cause_ms) : -1, since(t.page_ms), t.kept_page ? 1u : 0u,
+                      turned_off ? static_cast<long long>(tick - t.on_ms) : -1, settings.door_live ? 1u : 0u,
+                      static_cast<unsigned long long>(door_page.pages - t.base_pages));
+        log_status(status, detail);
+      };
+      if (door_bit && !t.on) {
+        t.on = true;
+        t.logged = false;
+        t.on_ms = tick;
+        t.cause_ms = std::exchange(t.lvar_ms, 0);
+        t.page_ms = 0;
+        // Turning off dropped the last door page (set_door), so the display
+        // shows PLEASE WAIT until the first page on_to_page_ms later. A side
+        // that came back while the door camera stayed on (a lost display
+        // texture) keeps its page and shows it at once; a snapshot renders
+        // nothing new then.
+        t.base_pages = door_page.pages;
+        t.kept_page = door_page.ready;
+      } else if (!door_bit && t.on) {
+        // Turned off before the line was due: write what was reached.
+        if (!t.logged)
+          write(true);
+        t.on = false;
+        t.lvar_ms = 0;
+      }
+      if (t.on && !t.logged) {
+        if (!t.page_ms && door_page.ready && door_page.pages > t.base_pages)
+          t.page_ms = tick;
+        if (t.page_ms || tick - t.on_ms > 5000)
+          write(false);
+      }
+    }
+    scene_runtime::set_door(key, door != 0, settings.door_live != 0);
+    win::set_target_mask(active);
+    win::set_calibration(calibration, settings.calibration_budget);
+    const win::OwnedWork owned;
+    // Only the schedule rate changes here. The pair, its gates and the saved
+    // camera_rate are untouched; configure() on a live pair retains its grid.
+    const auto* rate_profile = profiles::find(applied_profile ? applied_profile : settings.profile);
+    // Every set has its taxi cameras and, on two-camera aircraft, the door
+    // camera; only the wanted ones render and share the rate.
+    const unsigned set_feeds = profiles::CameraViews;
+    const unsigned taxi_bits = (1u << (rate_profile ? profiles::taxi_feeds(*rate_profile) : 2u)) - 1;
+    const unsigned wanted_feeds =
+        (mask || test_scene || background_warmup ? taxi_bits : 0u) | (door_render ? 1u << profiles::DoorFeed : 0u);
+    const unsigned desired_feeds = std::max(1u, static_cast<unsigned>(std::popcount(wanted_feeds ? wanted_feeds : taxi_bits)));
+    const unsigned pfd_refresh_hz = rate_profile ? rate_profile->pfd_refresh_hz : 0;
+    const double update_hz = update_meter.update(now, native_camera::scene_update_count());
+    const bool window_paused = window_pause.observe(update_meter.windows(), outside_pause);
+    if (!demand.suspend) {
+      camera_off_settled = false;
+    } else if (std::isfinite(update_hz) && update_meter.windows() != camera_off_window) {
+      camera_off_window = update_meter.windows();
+      if (camera_off_settled)
+        camera_off_hz = update_hz;
+      camera_off_settled = true;
+    }
+    // Auto steps through 1, 2 and all cameras per frame while the cameras run;
+    // a step up needs a camera the current level does not render.
+    const bool automatic = settings.camera_mode == static_cast<std::uint32_t>(CameraMode::automatic);
+    if (automatic) {
+      AutoCameraPolicy::Input auto_input;
+      auto_input.now_ms = now;
+      auto_input.window = update_meter.windows();
+      auto_input.fps = update_hz;
+      auto_input.cameras_active = !demand.suspend;
+      auto_input.paused = window_paused;
+      auto_input.next_helps = auto_cameras_per_frame(auto_policy.level(), desired_feeds) < desired_feeds;
+      auto_policy.update(auto_input);
+    }
+    const unsigned per_frame = automatic ? auto_cameras_per_frame(auto_policy.level(), desired_feeds) : 0;
+    // Auto's rate per camera follows the simulator: per_frame of the feeds on
+    // every frame. The other modes run their target, capped at the PFD refresh.
+    if (automatic) {
+      effective_rate = {};
+      effective_rate.useful_maximum = effective_camera_rate(kMaximumCameraRate, pfd_refresh_hz).useful_maximum;
+      effective_rate.rate = std::isfinite(update_hz) ? std::clamp(static_cast<unsigned>(std::lround(update_hz * per_frame / desired_feeds)),
+                                                                  kMinimumCameraRate, kMaximumCameraRate)
+                                                     : kPerformanceCameraRate;
+    } else {
+      effective_rate = effective_camera_rate(camera_mode_target(settings.camera_mode, settings.camera_rate), pfd_refresh_hz);
+    }
+    const double reachable = automatic && std::isfinite(update_hz) ? update_hz * per_frame / desired_feeds
+                                                                   : reachable_camera_rate(effective_rate.rate, update_hz);
+    if (!automatic && std::isfinite(reachable) && reachable + 0.5 < effective_rate.rate)
+      effective_rate.reasons |= kRateLimitSimulator;
+    if (connected &&
+        (rate != effective_rate.rate || feeds != desired_feeds || scheduled_per_frame != per_frame || scheduled_wanted != wanted_feeds)) {
+      rate = effective_rate.rate;
+      feeds = desired_feeds;
+      scheduled_per_frame = per_frame;
+      scheduled_wanted = wanted_feeds;
+      native_camera::request_scene_rate(rate, set_feeds, per_frame, wanted_feeds);
+    }
+    // Capture spacing follows the measured frame time, so a camera rendering
+    // on every frame above 120 fps keeps every image (PR #135 review).
+    if (connected && capture_source_rate(update_hz) != source_rate) {
+      source_rate = capture_source_rate(update_hz);
+      scene_runtime::manager().set_source_rate(source_rate);
+    }
+    // The page waits on the images the cameras actually get: the rate in force,
+    // or fewer when the simulator updates more slowly.
+    const auto expected_rate = std::isfinite(reachable) ? std::max(1u, static_cast<unsigned>(reachable)) : rate;
+    if (connected && rate && win::waiting_stale_ms(expected_rate) != stale_ms) {
+      stale_ms = win::waiting_stale_ms(expected_rate);
+      scene_runtime::set_waiting_stale_ms(stale_ms);
+    }
+    if (connected && applied_mounts != settings.mounts) {
+      native_camera::MountPair mounts;
+      for (unsigned i = 0; i < mounts.size(); ++i) {
+        const auto& m = settings.mounts[i];
+        mounts[i] = {{m[0], m[1], m[2]}, m[3], m[4], static_cast<float>(m[5])};
+      }
+      if (native_camera::request_scene_mounts(mounts))
+        applied_mounts = settings.mounts;
+    }
+    if (!startup.observed && (mask || test_scene)) {
+      startup.observed = true;
+      startup.intent_mask = mask & AllDisplaySides;
+      startup.intent_ms = intent_observed_ms;
+      startup.baseline_stamps = scene_runtime::snapshot(key).stamps;
+      log_startup(status, startup, "accepted_intent");
+    }
+    if (startup.observed && !startup.target_ready && startup.intent_mask && (assigned & startup.intent_mask) == startup.intent_mask) {
+      startup.target_ready = true;
+      startup.target_ms = GetTickCount64();
+      log_startup(status, startup, "targets_ready");
+    }
+    // Background warmup has zero display demand and closes after three GPU-completed
+    // pairs or its bounded budget. Otherwise OFF, pause and heartbeat
+    // loss close the render gates immediately.
+    // Keep the owned pair and ordered source-state evidence for the next ON.
+    native_camera::suspend_scene_rendering(demand.suspend || outside_pause);
+    const auto* drawing = profiles::find(applied_profile ? applied_profile : settings.profile);
+    if (!drawing)  // A set-up aircraft is published before its transition starts.
+      drawing = &profiles::A380;
+    auto composition = drawing->composition;
+    composition.speed_color = settings.speed_color;
+    composition.guide_color = settings.guide_color;
+    composition.nose_dot = settings.nose_dot;
+    composition.tail_upper = settings.tail_upper;
+    composition.tail_corner = settings.tail_corner;
+    composition.tail_inner = settings.tail_inner;
+    composition.tail_upper_right = settings.tail_upper_right;
+    composition.tail_corner_right = settings.tail_corner_right;
+    composition.tail_inner_right = settings.tail_inner_right;
+    // A first start waits for the cockpit: a paused probe creates no views.
+    if (demand.start && !outside_pause && !(background_warmup && GetTickCount64() < next_background_start)) {
+      auto& start_timing = background_warmup ? warmup_startup : startup;
+      if (background_warmup) {
+        start_timing.observed = true;
+        start_timing.intent_ms = prewarm.started_ms();
+      }
+      ++start_timing.attempts;
+      start_timing.prepare_begin_ms = GetTickCount64();
+      start_timing.prepare_end_ms = start_timing.request_begin_ms = start_timing.request_end_ms = 0;
+      log_startup(status, start_timing, "prepare_begin");
+      const bool prepared = scene_runtime::prepare(key);
+      start_timing.prepare_end_ms = GetTickCount64();
+      log_startup(status, start_timing, prepared ? "prepare_ready" : "prepare_failed");
+      // Shader preparation can outlast a Disconnect or a new companion owner.
+      // Recheck the exact setup before either warmup or manual camera creation.
+      control.refresh(mailbox);
+      if (!setup_current()) {
+        win::set_target_mask(0);
+        win::set_calibration(0, settings.calibration_budget);
+        win::set_graphics_observation_demand(false);
+        native_camera::suspend_scene_rendering(true);
+        continue;
+      }
+      bool warm_start_allowed = true;
+      if (background_warmup) {
+        // Preparation may compile shaders. Re-read the companion and public
+        // session/ground evidence before queuing any native camera creation.
+        const auto warm_output = scene_runtime::snapshot(key);
+        warm_start_allowed = prewarm.observe(GetTickCount64(), warm_readiness().eligible(), false,
+                                             {false, false, warm_output.frames, warm_output.completed_frames}, !prepared);
+        if (!warm_start_allowed)
+          log_status(status, "Prewarm preparation ended without a native request; eligibility or budget was lost.");
+      }
+      if (prepared && warm_start_allowed) {
+        start_timing.request_begin_ms = GetTickCount64();
+        log_startup(status, start_timing, "request_begin");
+        scene_runtime::set_composition(key, composition);
+        scene_runtime::set_reference_guides(key, drawing->reference_guides);
+        scene_runtime::set_camera_look(key, settings.film_grain, settings.black_and_white);
+        scene_runtime::reset_feed(key);
+        scene_runtime::manager().begin_source_tracking();
+        native_camera::request_scene_test(true);
+        const auto shot = native_camera::scene_snapshot();
+        requested = shot.accepting_requests;
+        const bool retain = win::retain_background_prewarm(background_warmup, requested, shot.readiness_deferred);
+        start_timing.request_end_ms = GetTickCount64();
+        if (retain) {
+          // The contract scan can outlast fresh telemetry. Do not park the only
+          // background attempt; the same start is retried once readiness returns.
+          next_background_start = start_timing.request_end_ms + 500;
+          if (!start_timing.waiting_logged) {
+            start_timing.waiting_logged = true;
+            char phase[320];
+            std::snprintf(phase, sizeof(phase), "request_waiting %.200s", shot.message.c_str());
+            log_startup(status, start_timing, phase);
+          }
+        } else {
+          next_background_start = 0;
+          char phase[320];
+          std::snprintf(phase, sizeof(phase), "%s %.200s", requested ? "request_accepted" : "request_refused",
+                        requested ? "" : shot.message.c_str());
+          log_startup(status, start_timing, phase);
+        }
+        if (!retain)
+          failed = win::finish_scene_start(prewarm, background_warmup, requested);
+      } else
+        failed = win::finish_scene_start(prewarm, background_warmup, requested);
+      if (!requested) {
+        active = 0;
+        win::set_target_mask(0);
+        native_camera::suspend_scene_rendering(true);
+        win::set_graphics_observation_demand(calibration != 0 || snapshot_pending);
+      }
+    }
+    // Normal button changes never call request_scene_stop/reset_feed or release
+    // source leases. The profile-change transaction above still owns teardown.
+    scene_runtime::set_composition(key, composition);
+    scene_runtime::set_reference_guides(key, drawing->reference_guides);
+    scene_runtime::set_camera_look(key, settings.film_grain, settings.black_and_white);
+    const auto light = native_camera::get_lighting();
+    // The fallback exposure, used while the tone curve is not: automatic from
+    // the ambient light with a fixed night boost.
+    const auto display = exposure.update(now, drawing->exposure, light.valid, light.ambient, light.sample_ms);
+    // The user's camera brightness, by day and at night, on top of whichever
+    // exposure the camera images take.
+    brightness_ev = camera_brightness_ev(snap_camera_brightness(settings.day_brightness), snap_camera_brightness(settings.night_brightness),
+                                         display.darkness);
+    scene_runtime::set_display_exposure(key, display.applied_ev + brightness_ev);
+    static ToneFeed tone;
+    tone.update(key, now, std::exp2(brightness_ev));
+    last_ambient = light.valid ? light.ambient : -1.0;
+    if (drawing->ground_speed)
+      scene_runtime::set_ground_speed(key, static_cast<float>(speed.knots), speed.valid);
+    else
+      scene_runtime::hide_ground_speed(key);
+    service_scene();
+    const auto scene = native_camera::scene_snapshot();
+    const auto output = scene_runtime::snapshot(key);
+    if (scene.stop_sequence != last_stop_sequence) {
+      progress.reset();
+      scene_runtime::manager().rearm_source_states();
+    }
+    if (now >= next_recovery) {
+      const bool foreground = mask != 0 || door_render || test_scene;
+      // Lost GPU-state evidence says nothing about native camera lifetime.
+      // Keep the pair and its resource generations. AA/upscaler switches can
+      // wipe source-state without new RT barriers; rearm retained RT models
+      // so later draws can capture again. Never erase/recreate cameras here.
+      const auto observation =
+          progress.observe(now,
+                           {mask, door_render, test_scene, outside_pause, failed, output.failed,
+                            scene.pair.state == engine_camera::State::active, scene.requested_feeds, scene.pose_waiting, scene.view_waiting,
+                            foreground && (scene.pose_session_proven || native_camera::sample_body_pose(now).valid)},
+                           output.frames, output.door_pages, output.capture.source_draws,
+                           std::strcmp(output.capture.tail_status, "unknown_source_state") == 0);
+      if (observation.scene_progress)
+        native_camera::note_scene_capture_progress(now);
+      if (observation.rearm) {
+        const auto restored = scene_runtime::manager().rearm_source_states();
+        if (graphics_diagnostics) {
+          const auto now_us = static_cast<std::uint64_t>(
+              std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+          const auto since_wipe_ms =
+              output.capture.last_wipe_us && now_us >= output.capture.last_wipe_us ? (now_us - output.capture.last_wipe_us) / 1000 : 0;
+          char rearm_detail[160];
+          std::snprintf(rearm_detail, sizeof(rearm_detail), "Source-state rearm: restored=%u since_wipe_ms=%llu last_wipe=%s", restored,
+                        static_cast<unsigned long long>(since_wipe_ms), SceneCaptureManager::wipe_site_name(output.capture.last_wipe_site));
+          log_status(status, rearm_detail);  // Previous tick's status: this tick's is composed below.
+        }
+      }
+      next_recovery = now + 250;
+    }
+    const auto graphics = win::graphics_status();
+    if (graphics_diagnostics && output.capture.wipes != wipe_trace.wipes)
+      log_wipe(status, output, graphics);
+    if (graphics_diagnostics && output.capture.source_retirements != wipe_trace.source_retirements)
+      log_retirement(status, output);
+    remember_wipe_trace(output, graphics);
+    status = {};
+    status.heartbeat = now;
+    status.active_profile = applied_profile;
+    status.detected_profile = identity.fresh ? identity.detected_profile : 0;
+    status.effective_rate = rate ? rate : effective_rate.rate;
+    status.useful_rate = effective_rate.useful_maximum;
+    status.rate_limits = effective_rate.reasons;
+    status.update_hz = std::isfinite(update_meter.rate()) ? static_cast<float>(update_meter.rate()) : 0.f;
+    const double reached = scheduled_per_frame && feeds && std::isfinite(update_meter.rate())
+                               ? update_meter.rate() * scheduled_per_frame / feeds
+                               : reachable_camera_rate(effective_rate.rate, update_meter.rate());
+    status.reachable_rate = std::isfinite(reached) ? static_cast<float>(reached) : 0.f;
+    // Frame time each rendered camera image costs, from the frames the
+    // simulator lost against its rate with the cameras off; includes Taxi
+    // Cam's own work. Only while the cameras run and both rates are known.
+    double view_ms = std::numeric_limits<double>::quiet_NaN();
+    if (!demand.suspend && !outside_pause && std::isfinite(camera_off_hz) && std::isfinite(reached) && reached > 0 && feeds)
+      view_ms = (1000.0 - update_meter.rate() * 1000.0 / camera_off_hz) / (reached * feeds);
+    status.auto_level = auto_policy.level();
+    status.auto_floor = std::isfinite(auto_policy.base()) ? static_cast<float>(auto_policy.floor()) : 0.f;
+    status.identity_sample_ms = identity.fresh ? identity.sample_ms : 0;
+    status.aircraft_session_epoch = session_epoch;
+    // Read acknowledgement first: a retired command must never be paired with
+    // the earlier rendering sample from before its lamp change was observed.
+    const auto taxi_request_status = native_camera::get_taxi_button_request_status();
+    const auto command_buttons = native_camera::get_taxi_buttons();
+    status.taxi_buttons_valid = command_buttons.valid;
+    status.taxi_buttons_mask = command_buttons.mask();
+    status.taxi_buttons_sample_ms = command_buttons.sample_ms;
+    status.taxi_request_seen = taxi_request_status.serial;
+    status.taxi_request_retired = taxi_request_status.pending_mask ? 0 : taxi_request_status.serial;
+    status.taxi_request_pending = taxi_request_status.pending_mask;
+    status.taxi_request_failed = taxi_request_status.failed;
+    // Bound cockpit L:vars are only read here; the companion turns their
+    // presses into the same requests as the matching shortcuts.
+    native_camera::set_lvar_bindings(connected ? settings.lvar_bindings : win::LvarBindings{});
+    const auto lvars = native_camera::get_lvar_bindings();
+    status.lvar_generation = lvars.generation;
+    status.lvars = lvars.states;
+    std::memcpy(status.aircraft_type, identity.type.data(), sizeof(status.aircraft_type));
+    std::memcpy(status.aircraft_path, identity.path.data(), sizeof(status.aircraft_path));
+    status.graphics_ready = graphics.ready;
+    status.hook_failures = graphics.hook_failures;
+    status.scene_ready = engine_camera::owned_ready(scene.pair.owned_ids, scene.ready);
+    status.taxi_mask = active;
+    status.door_state = static_cast<std::uint32_t>(win::door_state(door != 0, settings.door_live != 0, door_page.ready));
+    status.left_id = targets[0];
+    status.right_id = targets[1];
+    // Side 2's own texture: the 777 lower DU, a lower display placed on a
+    // pilot-pair profile, or a set-up aircraft's.
+    status.lower_id = profile && profiles::own_lower_texture(*profile) ? targets[2] : 0;
+    status.named_mask = win::named_target_mask();
+    // The companion's aircraft setup also needs every panel texture tracked,
+    // and so does a placed lower display that may be any panel.
+    win::set_panel_discovery(native_camera::next_panel_discovery(win::panel_discovery(), identity) ||
+                             (connected && (settings.panel_setup || (profile && profiles::lower_any_panel(*profile)))));
+    status.panel_discovery = win::panel_discovery();
+    publish_panel_map(panel_identity, status);
+    status.snapshot_serial = snapshot.serial;
+    status.snapshot_id = snapshot.id;
+    status.snapshot_result = static_cast<std::uint32_t>(snapshot.result);
+    status.snapshot_width = snapshot.width;
+    status.snapshot_height = snapshot.height;
+    status.snapshot_format = snapshot.format;
+    status.speed = speed.valid ? static_cast<float>(speed.knots) : -1;
+    status.exposure = display.applied_ev;
+    status.probe_cpu_ms = scene.observer_last_ms;
+    status.probe_max_ms = scene.observer_max_ms;
+    // Preserve the existing ten wire-stage indices. The appended AA stage is
+    // exposed in bridge diagnostics without changing the shared-memory ABI.
+    static_assert(static_cast<std::size_t>(native_camera::ProbeStage::aa) == std::tuple_size_v<decltype(status.stage_ms)>);
+    std::copy_n(scene.performance.stage_ms.begin(), status.stage_ms.size(), status.stage_ms.begin());
+    status.captures = output.capture.captures;
+    status.composed = composed_output_count(output.frames, output.door_pages);
+    status.stamps = output.stamps;
+    // These are polling observations, not GPU timestamps. They include all work
+    // since accepted intent and do not redefine request duration as cold latency.
+    if (startup.observed && requested && !startup.output_ready && output.output) {
+      startup.output_ready = true;
+      startup.output_ms = GetTickCount64();
+      log_startup(status, startup, "first_output");
+    }
+    if (startup.observed && requested && !startup.stamped && output.stamps > startup.baseline_stamps) {
+      startup.stamped = true;
+      startup.stamp_ms = GetTickCount64();
+      log_startup(status, startup, "first_stamp");
+    }
+    // Refresh the candidate-row inventory and named mark identity every 1 s
+    // normally, or every 100 ms while a wanted display side is still unassigned,
+    // so the 25 ms loop avoids unnecessary rebuilds while picking up replacements
+    // promptly. A change in named targets forces an immediate discovery run.
+    if (now >= next_inventory) {
+      inventory = win::pfd_inventory();
+      next_inventory = now + (mark_scan.wanted_unassigned ? 100 : 1000);
+      const auto prev_named = panel_identity.named;
+      service_mark_identity(panel_identity, status, native_camera::get_aircraft_session_epoch(),
+                            profiles::find(applied_profile ? applied_profile : settings.profile));
+      if (panel_identity.named != prev_named)
+        next_discovery = 0;
+      for (const auto& creation : win::display_creation_records(logged_creation)) {
+        logged_creation = creation.serial;
+        char detail[2048];
+        int used =
+            std::snprintf(detail, sizeof(detail), "Display creation: n=%llu id=%llu %ux%u mips=%u format=%u tick=%llu stack=",
+                          static_cast<unsigned long long>(creation.serial), static_cast<unsigned long long>(creation.id), creation.width,
+                          creation.height, creation.mips, creation.format, static_cast<unsigned long long>(creation.tick));
+        for (unsigned f = 0; f < creation.frames && f < creation.stack.size() && used > 0 && used < 1900; ++f) {
+          char frame[96];
+          describe_frame(creation.stack[f], frame, sizeof(frame));
+          used += std::snprintf(detail + used, sizeof(detail) - used, f ? ",%s" : "%s", frame);
+        }
+        log_status(status, detail);
+      }
+      win::service_live_backfill(now, inventory.size());
+    }
+    // Routed textures first, so the companion's assigned cards always find
+    // their shape and name within the sixteen rows.
+    std::vector<std::size_t> order(inventory.size());
+    for (std::size_t i = 0; i < order.size(); ++i)
+      order[i] = i;
+    std::stable_partition(order.begin(), order.end(),
+                          [&](std::size_t i) { return std::find(targets.begin(), targets.end(), inventory[i].id) != targets.end(); });
+    status.candidate_count = static_cast<UINT>(std::min<size_t>(order.size(), win::MaxCandidates));
+    for (UINT i = 0; i < status.candidate_count; ++i) {
+      const auto& item = inventory[order[i]];
+      status.candidates[i] = {item.id, item.draws, item.width, item.height, item.levels, item.format};
+      std::strncpy(status.candidates[i].name, panel_texture_name(panel_identity, item.id), sizeof(status.candidates[i].name) - 1);
+    }
+    char aircraft_message[sizeof(status.message)] = "Waiting for a supported aircraft identity or profile switch.";
+    const auto* detected_profile = identity.fresh ? profiles::find(identity.detected_profile) : nullptr;
+    const auto* selected_profile = profiles::find(applied_profile);
+    if (!aircraft_matches && detected_profile && selected_profile && detected_profile != selected_profile)
+      std::snprintf(aircraft_message, sizeof(aircraft_message), "Detected %ls; selected %ls. %s", detected_profile->name,
+                    selected_profile->name,
+                    settings.auto_profile ? "Waiting for Auto aircraft to switch profiles."
+                                          : "Enable Auto aircraft or select the detected profile on Overview.");
+    else if (!aircraft_matches)
+      std::snprintf(aircraft_message, sizeof(aircraft_message), "%s Aircraft type: %.96s.",
+                    identity.fresh ? "The loaded aircraft is not supported by the selected profile." : "Waiting for aircraft identity.",
+                    identity.type[0] ? identity.type.data() : "unavailable");
+    const bool single_display = selected_profile && selected_profile->display_layout == profiles::DisplayLayout::shared_texture;
+    // Displays are found by their panel marks only.
+    const char* target_message =
+        graphics.ready && inventory.empty()
+            ? "Waiting for cockpit displays to be drawn. They are learned on first use; Restart Flight if the list stays empty."
+        : !settings.auto_detect ? "Automatic display selection is off. Select the displays in PFD routing."
+        // Pictures taken and none carried a mark: the package is not loaded
+        // (written after the simulator loaded its add-ons, or another
+        // package's VCockpit.html loaded after it).
+        : panel_identity.inactive
+            ? "Taxi Cam's display package is not active in the simulator, so it can't recognise the cockpit displays. Restart the "
+              "simulator; if that doesn't help, run the Taxi Cam installer again."
+        : panel_identity.store.textures().empty() ? "Waiting for the cockpit displays to be recognised."
+                                                  : "Taxi Cam could not find this aircraft's displays. Choose them in Displays.";
+    const auto stopped_camera = camera_stop_message(scene);
+    char close_blocked_message[sizeof(status.message)];
+    std::snprintf(close_blocked_message, sizeof(close_blocked_message),
+                  "Camera images ready, but another graphics hook (%s) is in front of Direct3D command-list Close, so PFD writes are "
+                  "refused. Test with ReShade and overlays disabled.",
+                  graphics.close_endpoint_module);
+    // A sentence for the Overview, which shows this message; the code stays for reports.
+    char taxi_message[sizeof(status.message)];
+    std::snprintf(taxi_message, sizeof(taxi_message), "Waiting for the aircraft's TAXI buttons (%s).", buttons.error);
+    const char* message =
+        !connected || !settings.enabled ? "Disconnected. Use Connect in the Windows companion."
+        : degraded && graphics.admission_halted
+            ? "Native hook failures exceeded the safe rate; Taxi Cam is disarmed for this simulator session. Restart MSFS to re-enable it."
+        : degraded && watchdog_held.load(std::memory_order_acquire)
+            ? "Repeated simulator stalls: cameras stay off so the simulator can keep running. Turn them off and on again to retry."
+        : degraded          ? "Presentation stalled: cameras disarmed so the simulator can keep running; they re-arm when frames resume."
+        : !aircraft_matches ? aircraft_message
+        : failed            ? scene.message.c_str()
+        : scene.pose_waiting && requested                                                               ? scene.message.c_str()
+        : scene.view_waiting && scene.stop_reason == native_camera::SceneStopReason::resolution_changed ? scene.message.c_str()
+        : !manual_only && !buttons.valid                                                                ? taxi_message
+        : commandable && taxi_request_status.failed && taxi_request_status.serial == settings.taxi_request
+            ? "Aircraft TAXI-button change was not confirmed. Try the shortcut again."
+        : (single_display ? !targets[0] || (((mask | door) & 4u) && !targets[2])
+                          : ((mask | door) ? ((((mask | door) & 1u) && !targets[0]) || (((mask | door) & 2u) && !targets[1]) ||
+                                              (((mask | door) & 4u) && !targets[2]))
+                                           : (!targets[0] || !targets[1])))
+            ? target_message
+        : !active && settings.calibration_mask ? "Calibration requested on the selected display."
+        : stopped_camera                       ? stopped_camera
+        : background_warmup                    ? "Preparing camera views in the background; TAXI displays remain off."
+        : !active && manual_only               ? "Ready. Use camera hotkeys or the left/right preview controls."
+        : !active && pmdg_dsp && settings.follow_taxi
+            ? "Ready. Select L INBD, R INBD or LWR CTR on the display select panel, then press CAM."
+        : !active && !settings.follow_taxi ? "Manual control selected. Enable a preview or TAXI buttons on Overview."
+        : !active                          ? "Ready. Use the aircraft's left or right TAXI button."
+        : !requested || failed             ? scene.message.c_str()
+        : progress.stalled()               ? "Capture paused: waiting for verified GPU state; camera views retained."
+        : output.output && !output.stamps && !graphics.queue_close_verified ? close_blocked_message
+        : output.output && !output.stamps ? "Camera images ready; waiting for a verified PFD write opportunity."
+                                          : output.message;
+    std::snprintf(status.message, sizeof(status.message), "%s", message);
+    notification_log.snapshot(status.notifications);
+    if (mailbox.lock()) {
+      mailbox.data()->status = status;
+      mailbox.unlock();
+    }
+    // Another tool's hook over one of the render-boundary slots: capture is
+    // held while calls are checked to reach ours through it, then accepted.
+    if (graphics.boundary_chained != logged_boundary_chained || graphics.boundary_pending != logged_boundary_pending) {
+      logged_boundary_chained = graphics.boundary_chained;
+      logged_boundary_pending = graphics.boundary_pending;
+      constexpr unsigned slot_indices[8]{26, 68, 69, 80, 12, 13, 16, 17};
+      std::string chained, pending;
+      for (unsigned n = 0; n < 8; ++n) {
+        const auto name = std::to_string(slot_indices[n]) + "/" + command_list_slot_name(slot_indices[n]);
+        if (graphics.boundary_chained & (1u << n))
+          chained += (chained.empty() ? "" : ",") + name;
+        if (graphics.boundary_pending & (1u << n))
+          pending += (pending.empty() ? "" : ",") + name;
+      }
+      char slot_owner[MAX_PATH + 32]{};
+      describe_code_address(graphics.changed_slot_target, slot_owner, sizeof(slot_owner));
+      char chain_detail[512];
+      std::snprintf(chain_detail, sizeof(chain_detail),
+                    "Render boundary: another hook over our slots; accepted=%s waiting=%s accepted_total=%llu last_owner=%s",
+                    chained.empty() ? "none" : chained.c_str(), pending.empty() ? "none" : pending.c_str(),
+                    static_cast<unsigned long long>(graphics.boundary_accepted), slot_owner);
+      log_status(status, chain_detail);
+    }
+    // A rising failure count names its latest code, at most every 5 s, so a
+    // log shows what failed even when the count never reaches the halt.
+    if (graphics.hook_failures > logged_hook_failures && (!hook_failures_logged_ms || now - hook_failures_logged_ms >= 5000)) {
+      logged_hook_failures = graphics.hook_failures;
+      hook_failures_logged_ms = now;
+      // A refused command list names the step and reason; a hook found written
+      // over ours names its slot and the module whose code is there now.
+      char slot_owner[MAX_PATH + 32]{};
+      describe_code_address(graphics.changed_slot_target, slot_owner, sizeof(slot_owner));
+      char failure_detail[640];
+      std::snprintf(failure_detail, sizeof(failure_detail),
+                    "Hook failures: total=%llu last_error=%s peak_per_second=%llu list_refusal=%s:%s changed_slot=%u/%s "
+                    "slot_owner=%s",
+                    static_cast<unsigned long long>(graphics.hook_failures), graphics.error ? graphics.error : "unknown",
+                    static_cast<unsigned long long>(graphics.failure_rate_peak), graphics.list_refused_by, graphics.list_refusal_reason,
+                    graphics.changed_slot, graphics.changed_slot ? command_list_slot_name(graphics.changed_slot) : "none", slot_owner);
+      log_status(status, failure_detail);
+    }
+    if (graphics.admission_halted && !halted_logged) {
+      halted_logged = true;
+      char halt_detail[384];
+      std::snprintf(halt_detail, sizeof(halt_detail),
+                    "Hook admission halted: registration failures reached %llu in one second (total %llu, last_error=%s). Cameras "
+                    "disarmed and admission stopped for this simulator process.",
+                    static_cast<unsigned long long>(graphics.failure_rate_peak), static_cast<unsigned long long>(graphics.hook_failures),
+                    graphics.error ? graphics.error : "unknown");
+      log_status(status, halt_detail);
+      log_contention(status, graphics, output);
+    }
+    sim_inputs.hook_storm = graphics.admission_halted;
+    sim_inputs.cameras_ready = output.output;
+    sim_inputs.simulator_unsupported =
+        scene.pair.state == engine_camera::State::blocked || scene.stop_reason == native_camera::SceneStopReason::identity_refused;
+    sim_inputs.degraded = degraded;
+    sim_inputs.aircraft_mismatch = !aircraft_matches && identity.fresh;
+    sim_inputs.camera_startup_failed =
+        (failed && requested) || (stopped_camera != nullptr && !native_camera::retryable_scene_stop(scene.stop_reason));
+    sim_inputs.capture_paused = active && requested && progress.stalled();
+    announce_all(sim_inputs, now);
+    const bool changed = !logged || connected != last_connected || requested != last_requested || degraded != last_degraded ||
+                         status.taxi_mask != last_logged.taxi_mask || status.left_id != last_logged.left_id ||
+                         status.right_id != last_logged.right_id || status.lower_id != last_logged.lower_id ||
+                         scene.stop_sequence != last_stop_sequence || output.output != last_output ||
+                         scene.view_wait_count != last_view_wait_count || status.effective_rate != last_logged.effective_rate;
+    loop_max_ms = std::max(loop_max_ms, GetTickCount64() - now);
+    if (changed || now >= next_log) {
+      const LogBlock log_block;
+      // Frame-time spread since the previous status line.
+      std::array<std::uint32_t, native_camera::kFrameTimeBuckets> frame_times{};
+      native_camera::scene_frame_times(frame_times);
+      auto window_frames = frame_times;
+      for (unsigned i = 0; i < window_frames.size(); ++i)
+        window_frames[i] = frame_times[i] >= logged_frame_times[i] ? frame_times[i] - logged_frame_times[i] : 0;
+      logged_frame_times = frame_times;
+      const auto spread = frame_time_spread(window_frames);
+      if (!logged || status.active_profile != last_logged.active_profile || status.detected_profile != last_logged.detected_profile ||
+          status.aircraft_session_epoch != last_logged.aircraft_session_epoch ||
+          std::strcmp(status.aircraft_type, last_logged.aircraft_type) || std::strcmp(status.aircraft_path, last_logged.aircraft_path)) {
+        char identity_detail[768];
+        std::snprintf(identity_detail, sizeof(identity_detail),
+                      "Aircraft identity: session=%llu selected=%u detected=%u fresh=%u type=%.255s path=%.259s",
+                      static_cast<unsigned long long>(session_epoch), applied_profile, identity.detected_profile, identity.fresh,
+                      identity.type.data(), identity.path.data());
+        log_status(status, identity_detail);
+      }
+      char detail[1536];
+      const auto boundaries = engine_hook::render_boundary::statistics();
+      std::snprintf(
+          detail, sizeof(detail),
+          "profile=%u matched=%u connected=%u requested=%u ipc_busy=%llu buttons_valid=%u held=%u expired=%u output=%u "
+          "stop_seq=%llu stop=%s "
+          "retry=%u pending=%u pose_wait=%u view_wait=%u waits=%llu ready=%u/%u outputs=%u/%u output_waits=%u inspection=%s/%s "
+          "entries=%llu/%llu suspended=%u main_view=%d outside_pause=%u outside_pauses=%llu "
+          "rate=%u saved_rate=%u mode=%u auto_level=%u auto_floor=%.1f update_hz=%.1f frame_ms=%u/%u/%u off_hz=%.1f reachable=%.1f "
+          "view_ms=%.1f "
+          "useful_rate=%u rate_limit=%s speed_knots=%.2f "
+          "gates=%u/%u tail=%s "
+          "draws=%llu unknown_lists=%llu invalid_recordings=%llu scoped_invalidations=%llu ignored_recordings=%llu "
+          "pass_no_rts=%llu pass_unresolved_rts=%llu invalid_draws=%llu "
+          "lease_failures=%llu global_aliases=%llu overflows=%llu reasons=0x%x capture_stalled=%u "
+          "wipes=%llu last_wipe=%s retired_recordings=%llu unordered_consumers=%llu retirements=%llu "
+          "barrier_max=%llu barrier_truncated=%llu probe_ms=%.3f queries=%llu query_ms=%.3f read_ms=%.3f reads=%llu read_bytes=%llu "
+          "allocation_queries=%llu page_queries=%llu region_queries=%llu aa_ms=%.3f "
+          "inspections=%llu updates=%llu clear_states=%llu | %.256s",
+          applied_profile, aircraft_matches, connected, requested, static_cast<unsigned long long>(control.busy_reads()), buttons.valid,
+          desired.held, desired.timed_out, output.output, static_cast<unsigned long long>(scene.stop_sequence),
+          native_camera::scene_stop_reason_name(scene.stop_reason), scene.recovery_attempts, scene.recovery_pending, scene.pose_waiting,
+          scene.view_waiting, static_cast<unsigned long long>(scene.view_wait_count), scene.ready[0], scene.ready[1], scene.output_ready[0],
+          scene.output_ready[1], scene.output_waits, scene.inspection_status[0], scene.inspection_status[1],
+          static_cast<unsigned long long>(scene.pair.owned_ids[0]), static_cast<unsigned long long>(scene.pair.owned_ids[1]),
+          demand.suspend, main_view.valid ? static_cast<int>(main_view.state) : -1, outside_pause,
+          static_cast<unsigned long long>(outside_pauses), status.effective_rate, settings.camera_rate, settings.camera_mode,
+          status.auto_level, status.auto_floor, status.update_hz, spread.median, spread.p95, spread.slowest,
+          std::isfinite(camera_off_hz) ? camera_off_hz : -1.0, status.reachable_rate, std::isfinite(view_ms) ? view_ms : -1.0,
+          status.useful_rate, camera_rate_limit_name(status.rate_limits), speed.valid ? speed.knots : -1.0, scene.gates[0], scene.gates[1],
+          output.capture.tail_status, static_cast<unsigned long long>(output.capture.source_draws),
+          static_cast<unsigned long long>(output.capture.unknown_submitted_lists),
+          static_cast<unsigned long long>(output.capture.invalid_source_recordings),
+          static_cast<unsigned long long>(output.capture.scoped_source_invalidations),
+          static_cast<unsigned long long>(output.capture.ignored_source_recordings),
+          static_cast<unsigned long long>(graphics.pass_no_targets), static_cast<unsigned long long>(graphics.pass_unresolved_targets),
+          static_cast<unsigned long long>(output.capture.invalid_draws),
+          static_cast<unsigned long long>(output.capture.source_lease_failures),
+          static_cast<unsigned long long>(output.capture.global_aliases),
+          static_cast<unsigned long long>(output.capture.recording_overflows), output.capture.last_invalidation_reasons, progress.stalled(),
+          static_cast<unsigned long long>(output.capture.wipes), SceneCaptureManager::wipe_site_name(output.capture.last_wipe_site),
+          static_cast<unsigned long long>(output.capture.retired_source_recordings),
+          static_cast<unsigned long long>(output.capture.unordered_consumers),
+          static_cast<unsigned long long>(output.capture.source_retirements),
+          static_cast<unsigned long long>(boundaries.maximum_legacy_batch),
+          static_cast<unsigned long long>(boundaries.metadata_truncated_calls), scene.observer_last_ms,
+          static_cast<unsigned long long>(scene.performance.query_calls), scene.performance.query_ms, scene.performance.read_ms,
+          static_cast<unsigned long long>(scene.performance.read_calls), static_cast<unsigned long long>(scene.performance.requested_bytes),
+          static_cast<unsigned long long>(scene.performance.query_allocation_calls),
+          static_cast<unsigned long long>(scene.performance.query_page_calls),
+          static_cast<unsigned long long>(scene.performance.query_fallback_calls),
+          scene.performance.stage_ms[static_cast<std::size_t>(native_camera::ProbeStage::aa)],
+          static_cast<unsigned long long>(scene.inspection_count), static_cast<unsigned long long>(scene.updates),
+          static_cast<unsigned long long>(graphics.clear_states),
+          scene.stop_reason != native_camera::SceneStopReason::none ? scene.stop_detail.c_str()
+          : !scene.pair.owned_ids[0] && !scene.pair.owned_ids[1]    ? scene.message.c_str()
+                                                                    : "");
+      log_status(status, detail);
+      char selection_detail[320];
+      std::snprintf(
+          selection_detail, sizeof(selection_detail),
+          "PFD selection: automatic=%u candidates=%zu marked=%zu requested=%llu/%llu backfill=%u backfill_classify=%llu/%llu/%llu",
+          settings.auto_detect, inventory.size(), panel_identity.store.textures().size(), static_cast<unsigned long long>(settings.left_id),
+          static_cast<unsigned long long>(settings.right_id), graphics.backfill_open ? 1u : 0u,
+          static_cast<unsigned long long>(graphics.backfill_classifications),
+          static_cast<unsigned long long>(graphics.backfill_unclassified), static_cast<unsigned long long>(graphics.backfill_unremembered));
+      log_status(status, selection_detail);
+      log_render_target_shapes(status, now);
+      log_video_memory(status);
+      char control_detail[256];
+      std::snprintf(control_detail, sizeof(control_detail),
+                    "Control loop timing: discovery_max_ms=%llu service_max_ms=%llu observed_loop_max_ms=%llu",
+                    static_cast<unsigned long long>(discovery_max_ms), static_cast<unsigned long long>(service_max_ms),
+                    static_cast<unsigned long long>(loop_max_ms));
+      log_status(status, control_detail);
+      char candidate_detail[1024] = "PFD candidate activity (id:draws/completions):";
+      std::size_t candidate_used = std::strlen(candidate_detail);
+      for (std::size_t i = 0; i < std::min<std::size_t>(inventory.size(), 16); ++i) {
+        const int written =
+            std::snprintf(candidate_detail + candidate_used, sizeof(candidate_detail) - candidate_used, " %llu:%llu/%llu",
+                          static_cast<unsigned long long>(inventory[i].id), static_cast<unsigned long long>(inventory[i].draws),
+                          static_cast<unsigned long long>(inventory[i].submission_activity));
+        if (written < 0 || static_cast<std::size_t>(written) >= sizeof(candidate_detail) - candidate_used)
+          break;
+        candidate_used += static_cast<std::size_t>(written);
+      }
+      log_status(status, candidate_detail);
+      char pfd_detail[704];
+      std::snprintf(pfd_detail, sizeof(pfd_detail),
+                    "PFD copy admission: selected_draws=%llu rt_metadata=%llu rt_callbacks=%llu pending_matches=%llu "
+                    "view_resolved=%llu view_rejected=%llu attempts=%llu rejected=%llu state_skips=%llu "
+                    "boundary_batches_refused=%llu boundary_passes_refused=%llu queue_plans=%llu queue_copies=%llu reason=%s",
+                    static_cast<unsigned long long>(graphics.selected_draws),
+                    static_cast<unsigned long long>(graphics.selected_rt_metadata),
+                    static_cast<unsigned long long>(graphics.selected_rt_callbacks),
+                    static_cast<unsigned long long>(graphics.selected_pending_matches),
+                    static_cast<unsigned long long>(graphics.selected_view_resolved),
+                    static_cast<unsigned long long>(graphics.selected_view_rejected),
+                    static_cast<unsigned long long>(graphics.copy_attempts), static_cast<unsigned long long>(graphics.copy_rejected),
+                    static_cast<unsigned long long>(output.state_skips), static_cast<unsigned long long>(boundaries.batch_refusals),
+                    static_cast<unsigned long long>(boundaries.pass_refusals), static_cast<unsigned long long>(graphics.queue_patch_plans),
+                    static_cast<unsigned long long>(output.capture.display_copies), graphics.copy_error);
+      const auto pfd_used = std::strlen(pfd_detail);
+      std::snprintf(pfd_detail + pfd_used, sizeof(pfd_detail) - pfd_used, " queue_record_failures=%llu",
+                    static_cast<unsigned long long>(output.capture.display_record_failures));
+      log_status(status, pfd_detail);
+      // Fixed-size counters only on submission threads; formatting and bounded
+      // rotating-file output stay on this existing five-second control cadence.
+      const auto log_counters = [&](const char* label, const auto& counters, const auto& name) {
+        char detail[1280];
+        auto used = static_cast<std::size_t>(std::snprintf(detail, sizeof(detail), "%s close_verified=%u proof_flags=%u:", label,
+                                                           graphics.queue_close_verified, graphics.queue_last_proof_flags));
+        for (unsigned i = 0; i < counters.size() && used < sizeof(detail); ++i) {
+          if (!counters[i])
+            continue;
+          const auto written =
+              std::snprintf(detail + used, sizeof(detail) - used, " %s=%llu", name(i), static_cast<unsigned long long>(counters[i]));
+          if (written < 0 || static_cast<std::size_t>(written) >= sizeof(detail) - used)
+            break;
+          used += static_cast<std::size_t>(written);
+        }
+        log_status(status, detail);
+      };
+      log_counters("PFD queue admission", graphics.queue_outcomes,
+                   [](unsigned i) { return win::display_submission_outcome_name(static_cast<win::DisplaySubmissionOutcome>(i)); });
+      log_counters("PFD queue proof refusals", graphics.queue_proof_refusals,
+                   [](unsigned i) { return win::PfdSubmissionProof::refusal_name(static_cast<win::PfdSubmissionProof::Refusal>(i)); });
+      log_counters("PFD prefix blocking commands", graphics.queue_prefix_blockers,
+                   [](unsigned i) { return win::pfd_gpu_operation_name(i); });
+      char scopes[896]{};
+      std::size_t used = 0;
+      for (unsigned i = 0; i < graphics.selected_exit_scopes.size(); ++i) {
+        if (!graphics.selected_exit_scopes[i])
+          continue;
+        const auto written = std::snprintf(scopes + used, sizeof(scopes) - used, "%s%u:%llu", used ? "," : "", i,
+                                           static_cast<unsigned long long>(graphics.selected_exit_scopes[i]));
+        if (written < 0 || static_cast<std::size_t>(written) >= sizeof(scopes) - used)
+          break;
+        used += static_cast<std::size_t>(written);
+      }
+      char scope_detail[1280];
+      std::snprintf(scope_detail, sizeof(scope_detail),
+                    "PFD scope: flags=count [%s] base=%llu nonbase=%llu split=%llu calibration_clears=%llu "
+                    "follow_taxi=%u manual_mask=%u calibration_mask=%u",
+                    scopes, static_cast<unsigned long long>(graphics.selected_exit_base),
+                    static_cast<unsigned long long>(graphics.selected_exit_nonbase),
+                    static_cast<unsigned long long>(graphics.selected_exit_split),
+                    static_cast<unsigned long long>(graphics.calibration_clears), settings.follow_taxi, settings.manual_mask,
+                    settings.calibration_mask);
+      log_status(status, scope_detail);
+      char draw_detail[384];
+      std::snprintf(
+          draw_detail, sizeof(draw_detail),
+          "PFD guarded draw: attempts=%llu stamps=%llu query_refused=%llu state_refused=%llu "
+          "recording_end=%llu deferred=%llu close_forward_refused=%llu",
+          static_cast<unsigned long long>(graphics.fallback_attempts), static_cast<unsigned long long>(graphics.fallback_stamps),
+          static_cast<unsigned long long>(graphics.fallback_query_refused),
+          static_cast<unsigned long long>(graphics.fallback_state_refused), static_cast<unsigned long long>(graphics.recording_end_draws),
+          static_cast<unsigned long long>(graphics.shader_deferred), static_cast<unsigned long long>(graphics.close_forward_refused));
+      log_status(status, draw_detail);
+      char retention_detail[768];
+      std::snprintf(
+          retention_detail, sizeof(retention_detail),
+          "Camera retention: created_total=%llu snapshot_bytes=%llu snapshot_allocations=%llu quarantined=%llu prewarm=%s "
+          "patch_requests=%u patch_draws=%llu patch_reuses=%u retired_patch_buffers=%u "
+          "waiting_pages=%llu door=%u/%llu/%llu "
+          "retirement_deferrals=%llu retirement_waiting=%u retirement_status=%s retirement_queues=%u/%u "
+          "flags=%llx:%llx/%llx:%llx aa_restores=%llu aa_restore_failures=%llu aa_cleared_pending=%u rt=%03x/%03x rt_refusals=%u "
+          "rt_holds=%llu",
+          static_cast<unsigned long long>(scene.created_total), static_cast<unsigned long long>(output.capture.bytes),
+          static_cast<unsigned long long>(output.capture.allocations), static_cast<unsigned long long>(output.capture.quarantined),
+          prewarm.name(), output.patch_requests, static_cast<unsigned long long>(output.patch_draws), output.patch_reuses,
+          output.retired_patch_buffers, static_cast<unsigned long long>(output.waiting_pages), status.door_state,
+          static_cast<unsigned long long>(output.door_pages), static_cast<unsigned long long>(output.accepted_frames[profiles::DoorFeed]),
+          static_cast<unsigned long long>(scene.retirement_deferrals), scene.retirement_waiting, scene.retirement_status,
+          scene.retirement_queue_counts[0], scene.retirement_queue_counts[1], static_cast<unsigned long long>(scene.flags[0][0]),
+          static_cast<unsigned long long>(scene.flags[0][1]), static_cast<unsigned long long>(scene.flags[1][0]),
+          static_cast<unsigned long long>(scene.flags[1][1]), static_cast<unsigned long long>(scene.aa_restores),
+          static_cast<unsigned long long>(scene.aa_restore_failures), scene.aa_cleared_pending, scene.output_slots[0],
+          scene.output_slots[1], scene.rt_record_refusals, static_cast<unsigned long long>(scene.rt_record_holds));
+      log_status(status, retention_detail);
+      // Per camera and for the main view: near plane / culling far / default far, metres.
+      char clip_detail[448];
+      std::snprintf(clip_detail, sizeof(clip_detail),
+                    "Camera draw distance: pose_proven=%d writes=%llu "
+                    "error=%s main=%.3g/%.6g/%.6g feed0=%.3g/%.6g/%.6g feed1=%.3g/%.6g/%.6g feed2=%.3g/%.6g/%.6g",
+                    scene.pose_session_proven ? 1 : 0, static_cast<unsigned long long>(scene.draw_clip_writes),
+                    scene.draw_clip_error && *scene.draw_clip_error ? scene.draw_clip_error : "none", scene.main_clip[0],
+                    scene.main_clip[1], scene.main_clip[2], scene.draw_clip[0][0], scene.draw_clip[0][1], scene.draw_clip[0][2],
+                    scene.draw_clip[1][0], scene.draw_clip[1][1], scene.draw_clip[1][2], scene.draw_clip[2][0], scene.draw_clip[2][1],
+                    scene.draw_clip[2][2]);
+      log_status(status, clip_detail);
+      char cascades_detail[256];
+      std::snprintf(cascades_detail, sizeof(cascades_detail),
+                    "Camera shadows: available=%d slices=%u installed=%d hits=%llu lowered=%llu error=%.120s",
+                    scene.cascades_available ? 1 : 0, scene.cascades_requested, scene.cascades_installed ? 1 : 0,
+                    static_cast<unsigned long long>(scene.cascades_hits), static_cast<unsigned long long>(scene.cascades_writes),
+                    scene.cascades_error.empty() ? "none" : scene.cascades_error.c_str());
+      log_status(status, cascades_detail);
+      // Camera weather: cloud merges sent into a camera image, and those that
+      // could not be (no descriptor heap); cumulative for this bridge.
+      const auto clouds = win::cloud_merge_status();
+      char weather_detail[160];
+      std::snprintf(weather_detail, sizeof(weather_detail), "Camera weather: cloud_merges=%llu refused=%llu",
+                    static_cast<unsigned long long>(clouds.redirects), static_cast<unsigned long long>(clouds.refusals));
+      log_status(status, weather_detail);
+      // Camera tone: the simulator exposure in use, with the camera brightness
+      // applied (0: Taxi Cam's fallback exposure), the brightness, copies of its
+      // exposure and table, and resource changes.
+      const auto tone_copies = win::tone_status();
+      char tone_detail[320];
+      std::snprintf(tone_detail, sizeof(tone_detail),
+                    "Camera tone: active=%d exposure=%.6g brightness_ev=%.4g ambient=%.6g exposure_copies=%llu "
+                    "table_copies=%llu source_changes=%llu readback_failed=%d",
+                    output.tone_active ? 1 : 0, static_cast<double>(output.tone_exposure), static_cast<double>(brightness_ev), last_ambient,
+                    static_cast<unsigned long long>(tone_copies.exposure_copies), static_cast<unsigned long long>(tone_copies.table_copies),
+                    static_cast<unsigned long long>(tone_copies.source_changes), tone_copies.readback_failed ? 1 : 0);
+      log_status(status, tone_detail);
+      // Camera fog: history resets written and camera fog volumes tracked.
+      const auto fog = win::fog_status();
+      char fog_detail[96];
+      std::snprintf(fog_detail, sizeof(fog_detail), "Camera fog: resets=%llu volumes=%u", static_cast<unsigned long long>(fog.resets),
+                    fog.volumes);
+      log_status(status, fog_detail);
+      // Camera look: film grain and black and white, a bit per camera view.
+      char look_detail[96];
+      std::snprintf(look_detail, sizeof(look_detail), "Camera look: film_grain=0x%x black_and_white=0x%x", settings.film_grain,
+                    settings.black_and_white);
+      log_status(status, look_detail);
+      // Cockpit L:vars: the stream and each bound name as read (value, changes
+      // to on and to off this stream; unread until the simulator sends it).
+      const auto lvar_read = native_camera::get_lvar_bindings();
+      char lvar_detail[640];
+      auto lvar_used =
+          static_cast<std::size_t>(std::snprintf(lvar_detail, sizeof(lvar_detail), "Cockpit L:vars: generation=%u error=%s",
+                                                 lvar_read.generation, lvar_read.error && *lvar_read.error ? lvar_read.error : "none"));
+      for (std::size_t i = 0; i < win::LvarBindingCount && lvar_used < sizeof(lvar_detail); ++i) {
+        const auto& binding = settings.lvar_bindings[i];
+        if (!binding.name[0])
+          continue;
+        const auto& read = lvar_read.states[i];
+        const auto appended = std::snprintf(lvar_detail + lvar_used, sizeof(lvar_detail) - lvar_used, " %.63s=%.6g/%u/%u%s", binding.name,
+                                            static_cast<double>(read.value), read.rises, read.falls, read.read ? "" : "(unread)");
+        if (appended < 0 || static_cast<std::size_t>(appended) >= sizeof(lvar_detail) - lvar_used)
+          break;
+        lvar_used += static_cast<std::size_t>(appended);
+      }
+      log_status(status, lvar_detail);
+      // Capture phase, per feed nose/left/right since the bridge started:
+      // ordered batches that drew the camera image, those that drew it once
+      // (the deferred lighting) and the most draws in one batch; captures after
+      // a several-draw batch, the batch directly after a held one, or a one-draw
+      // batch after a lost hold; one-draw batches held.
+      char phase_detail[512];
+      auto phase_used = static_cast<std::size_t>(std::snprintf(phase_detail, sizeof(phase_detail), "Capture phase:"));
+      const auto append_phase = [&](const char* name, const auto& value) {
+        if (phase_used >= sizeof(phase_detail))
+          return;
+        const auto& feeds = output.capture.phases;
+        const auto written =
+            std::snprintf(phase_detail + phase_used, sizeof(phase_detail) - phase_used, " %s=%llu/%llu/%llu", name,
+                          static_cast<unsigned long long>(value(feeds[0])), static_cast<unsigned long long>(value(feeds[1])),
+                          static_cast<unsigned long long>(value(feeds[2])));
+        if (written > 0 && static_cast<std::size_t>(written) < sizeof(phase_detail) - phase_used)
+          phase_used += static_cast<std::size_t>(written);
+      };
+      using PhaseFeed = SceneCaptureManager::CapturePhaseDiagnostic;
+      append_phase("batches", [](const PhaseFeed& feed) { return feed.batches; });
+      append_phase("one_draw", [](const PhaseFeed& feed) { return feed.one_draw; });
+      append_phase("max_draws", [](const PhaseFeed& feed) { return feed.max_draws; });
+      for (std::size_t kind = 0; kind < capture_phase::KindCount; ++kind)
+        append_phase(capture_phase::kind_name(static_cast<capture_phase::Kind>(kind)),
+                     [kind](const PhaseFeed& feed) { return feed.captures[kind]; });
+      append_phase("held", [](const PhaseFeed& feed) { return feed.held; });
+      log_status(status, phase_detail);
+      // Camera mount on the aircraft Node: per feed 0 world placement, 1 attached,
+      // 2 lost; attach/restore/refusal counts; contract fallback reason if any.
+      char mount_detail[448];
+      std::snprintf(
+          mount_detail, sizeof(mount_detail),
+          "Camera mount: available=%d paused=%d feeds=%u/%u/%u attaches=%llu restores=%llu rehomes=%llu refused=%llu error=%s contract=%s "
+          "kept_pairs=%llu kept_fallbacks=%llu kept_refusal=%s kept_refused_feed=%d",
+          scene.mount_available ? 1 : 0, scene.sim_paused ? 1 : 0, scene.mount_state[0], scene.mount_state[1], scene.mount_state[2],
+          static_cast<unsigned long long>(scene.mount_attaches), static_cast<unsigned long long>(scene.mount_restores),
+          static_cast<unsigned long long>(scene.mount_rehomes), static_cast<unsigned long long>(scene.mount_refused),
+          scene.mount_error && *scene.mount_error ? scene.mount_error : "none",
+          scene.mount_contract_error.empty() ? "ok" : scene.mount_contract_error.c_str(),
+          static_cast<unsigned long long>(scene.flight_change_holds), static_cast<unsigned long long>(scene.flight_change_fallbacks),
+          scene.kept_refusal, scene.kept_refused_feed);
+      log_status(status, mount_detail);
+      if (graphics_diagnostics) {
+        char graphics_detail[512];
+        std::snprintf(
+            graphics_detail, sizeof(graphics_detail),
+            "Graphics work: observing=%u epoch=%llu invalidations=%llu lookups=%llu cache_hits=%llu registry_lookups=%llu "
+            "idle_setters=%llu idle_callbacks=%llu",
+            graphics.observing, static_cast<unsigned long long>(graphics.observation_epoch),
+            static_cast<unsigned long long>(graphics.observation_invalidations),
+            static_cast<unsigned long long>(graphics.list_lookup_calls), static_cast<unsigned long long>(graphics.list_cache_hits),
+            static_cast<unsigned long long>(graphics.list_registry_lookups), static_cast<unsigned long long>(graphics.idle_state_bypasses),
+            static_cast<unsigned long long>(graphics.idle_callback_bypasses));
+        log_status(status, graphics_detail);
+      }
+      if (output.gpu_timing_enabled) {
+        const auto log_gpu_span = [&](const char* name, const GpuTimingStatistics& timing) {
+          char gpu_detail[256];
+          std::snprintf(gpu_detail, sizeof(gpu_detail), "GPU timing: stage=%s samples=%llu rejected=%llu total_ms=%.6f max_ms=%.6f", name,
+                        static_cast<unsigned long long>(timing.samples), static_cast<unsigned long long>(timing.rejected), timing.total_ms,
+                        timing.maximum_ms);
+          log_status(status, gpu_detail);
+        };
+        log_gpu_span("private_capture_copy", output.capture.capture_copy_gpu);
+        log_gpu_span("composition", output.composition_gpu);
+        log_gpu_span("output_copy", output.output_copy_gpu);
+        log_gpu_span("patches", output.patch_gpu);
+      }
+      char copy_detail[640];
+      std::snprintf(copy_detail, sizeof(copy_detail),
+                    "PFD boundary copy: attempts=%llu copies=%llu no_proof=%llu reason=%s carried_covers=%llu settlement_skips=%llu "
+                    "settlement_replays=%llu settlement_stale=%llu carried_refused_stale=%llu | "
+                    "dynamic_bias_calls=%llu dynamic_strip_calls=%llu sample_position_calls=%llu",
+                    static_cast<unsigned long long>(graphics.preferred_copy_attempts),
+                    static_cast<unsigned long long>(graphics.preferred_copy_stamps),
+                    static_cast<unsigned long long>(graphics.preferred_copy_no_proof), graphics.preferred_copy_reason,
+                    static_cast<unsigned long long>(graphics.carried_covers), static_cast<unsigned long long>(graphics.settlement_skips),
+                    static_cast<unsigned long long>(graphics.settlement_replays),
+                    static_cast<unsigned long long>(graphics.settlement_stale_events),
+                    static_cast<unsigned long long>(graphics.carried_refused_stale),
+                    static_cast<unsigned long long>(graphics.dynamic_depth_bias_calls),
+                    static_cast<unsigned long long>(graphics.dynamic_strip_cut_calls),
+                    static_cast<unsigned long long>(graphics.sample_position_calls));
+      log_status(status, copy_detail);
+      std::snprintf(copy_detail, sizeof(copy_detail),
+                    "PFD shadow: modes=%s saves=%llu entry_restores=%llu restores=%llu lost_writes=%llu held=%llu fallbacks=%llu "
+                    "baselines=%llu",
+                    graphics.shadow_modes, static_cast<unsigned long long>(graphics.shadow_saves),
+                    static_cast<unsigned long long>(graphics.shadow_entry_restores),
+                    static_cast<unsigned long long>(graphics.shadow_restores), static_cast<unsigned long long>(graphics.shadow_lost_writes),
+                    static_cast<unsigned long long>(graphics.shadow_held), static_cast<unsigned long long>(graphics.shadow_fallbacks),
+                    static_cast<unsigned long long>(graphics.shadow_baselines));
+      // The causes of lost_writes, and where the shadow-carrying copies
+      // behind "dropped" were dropped; "-" while there are none.
+      {
+        auto used = std::strlen(copy_detail);
+        const auto append = [&](const char* text) {
+          if (used < sizeof(copy_detail))
+            if (const auto written = std::snprintf(copy_detail + used, sizeof(copy_detail) - used, "%s", text); written > 0)
+              used = std::min(sizeof(copy_detail) - 1, used + static_cast<std::size_t>(written));
+        };
+        const auto append_counts = [&](const char* label, const auto& counts, const auto& name) {
+          append(label);
+          bool any = false;
+          for (unsigned i = 0; i < counts.size(); ++i) {
+            if (!counts[i])
+              continue;
+            char item[48];
+            std::snprintf(item, sizeof(item), "%s%s:%llu", any ? "," : "", name(i), static_cast<unsigned long long>(counts[i]));
+            append(item);
+            any = true;
+          }
+          if (!any)
+            append("-");
+        };
+        append_counts(" lost_by=", graphics.shadow_lost_by,
+                      [](unsigned i) { return win::shadow_lost_write_name(static_cast<win::ShadowLostWrite>(i)); });
+        append_counts(" drops=", graphics.shadow_drop_sources,
+                      [](unsigned i) { return pfd_submission::drop_source_name(static_cast<pfd_submission::DropSource>(i)); });
+      }
+      log_status(status, copy_detail);
+      log_contention(status, graphics, output);
+      log_hook_timing(status);
+      log_lock_holds(status);
+      log_observer_peak(status);
+      log_lifecycle_events(status);
+      // More accepted captures than activations for a feed means the engine
+      // drew its view on closed-gate updates too (issue 71 frame jumps).
+      char cadence_detail[384];
+      std::snprintf(cadence_detail, sizeof(cadence_detail),
+                    "Feed cadence: activations=%llu/%llu/%llu accepted=%llu/%llu/%llu stale=%llu rate=%u updates=%llu",
+                    static_cast<unsigned long long>(scene.activation_counts[0]), static_cast<unsigned long long>(scene.activation_counts[1]),
+                    static_cast<unsigned long long>(scene.activation_counts[2]),
+                    static_cast<unsigned long long>(output.accepted_frames[0]), static_cast<unsigned long long>(output.accepted_frames[1]),
+                    static_cast<unsigned long long>(output.accepted_frames[2]), static_cast<unsigned long long>(output.stale_frames), rate,
+                    static_cast<unsigned long long>(scene.updates));
+      log_status(status, cadence_detail);
+      if (!logged || status.active_profile != last_logged.active_profile || std::strcmp(status.aircraft_type, last_logged.aircraft_type) ||
+          std::strcmp(status.aircraft_path, last_logged.aircraft_path)) {
+        char identity_detail[640];
+        std::snprintf(identity_detail, sizeof(identity_detail), "Aircraft identity: type=%.255s | path=%.259s | detected=%u",
+                      status.aircraft_type, status.aircraft_path, status.detected_profile);
+        log_status(status, identity_detail);
+      }
+      last_logged = status;
+      last_connected = connected;
+      last_requested = requested;
+      last_degraded = degraded;
+      last_stop_sequence = scene.stop_sequence;
+      last_output = output.output;
+      last_view_wait_count = scene.view_wait_count;
+      logged = true;
+      // With no camera turned on there is little to time, and a 5 s pace
+      // filled both 8 MiB log files in 1.7 hours of flight (2026-11-08).
+      // requested stays set for cameras kept warm, so it can't tell.
+      // State changes still log at once.
+      next_log = now + (mask || door || test_scene || output.output ? 5000 : 30000);
+    }
+    display_marks.service(status);
+    Sleep(25);
+  }
+}
+DWORD WINAPI run(void*) noexcept {
+  try {
+    return run_impl();
+  } catch (...) {
+    win::set_target_mask(0);
+    win::set_calibration(0, 4096);
+    win::set_graphics_observation_demand(false);
+    scene_runtime::manager().stop_source_tracking();
+    native_camera::request_scene_stop(true);
+    return ERROR_NOT_ENOUGH_MEMORY;
+  }
+}
+}  // namespace
+extern "C" __declspec(dllexport) DWORD WINAPI TaxiCameraStart(void*) {
+  wchar_t path[32768]{};
+  const DWORD length = GetModuleFileNameW(nullptr, path, 32768);
+  const wchar_t* name = std::wcsrchr(path, L'\\');
+  if (!length || length >= 32768 || _wcsicmp(name ? name + 1 : path, L"FlightSimulator2024.exe"))
+    return ERROR_BAD_ENVIRONMENT;
+  if (GetModuleHandleW(L"taxi-camera-native.addon64"))
+    return ERROR_ALREADY_EXISTS;
+  if (started.exchange(true))
+    return ERROR_SUCCESS;
+  HMODULE pinned{};
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                          reinterpret_cast<LPCWSTR>(&TaxiCameraStart), &pinned))
+    return GetLastError();
+  HANDLE thread = CreateThread(nullptr, 0, run, nullptr, 0, nullptr);
+  if (!thread) {
+    started = false;
+    return GetLastError();
+  }
+  CloseHandle(thread);
+  return ERROR_SUCCESS;
+}
+BOOL WINAPI DllMain(HMODULE value, DWORD reason, LPVOID) {
+  if (reason == DLL_PROCESS_ATTACH)
+    DisableThreadLibraryCalls(value);
+  return TRUE;
+}

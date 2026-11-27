@@ -1,0 +1,152 @@
+#pragma once
+#include <algorithm>
+#include "entry_pair.hpp"
+#include "owned_view.hpp"
+
+namespace taxi_camera::native_camera {
+// A profile transition changes the aircraft adapter, never the native pair.
+// Only numeric identity and dimension expectations survive an inspection.
+class RetainedProfileTransition {
+ public:
+  using Pair = engine_camera::Snapshot;
+  using Views = std::array<engine_camera::OwnedViewSnapshot, engine_camera::kMaxOwnedViews>;
+  using Dimensions = std::array<decltype(engine_camera::OwnedViewSnapshot::dimensions), engine_camera::kMaxOwnedViews>;
+  struct AllocationEvidence {
+    engine_camera::ManagerToken owner{};
+    engine_camera::OwnedIds ids{};
+    Dimensions dimensions{};
+    bool matches(const Pair& pair) const noexcept { return owner == pair.owner && ids == pair.owned_ids; }
+  };
+  enum class Decision { wait, close, ready, refused };
+  static bool session_changed(const Pair& pair, std::uint64_t started, std::uint64_t current) noexcept {
+    return (engine_camera::any_owned(pair.owned_ids)) && started != current;
+  }
+  void begin(std::uint32_t id, const Pair& pair, const Dimensions& dimensions) noexcept {
+    awaiting_pair_ = false;
+    id_ = id;
+    owner_ = pair.owner;
+    ids_ = pair.owned_ids;
+    dimensions_ = dimensions;
+    resizing_ = false;
+    state_ = Decision::wait;
+    refusal_ = "none";
+    refused_feed_ = -1;
+    if (!id)
+      refuse("no_profile");
+    else if (pair.request_pending || pair.creation_pending)
+      refuse("pair_pending");
+    else if (!engine_camera::any_owned(ids_))
+      state_ = Decision::ready;
+    else if (!valid_pair(pair))
+      refuse("pair_invalid");
+  }
+  // The controller is still processing. Its published empty snapshot cannot
+  // prove absence until cancel_uncreated_request or a fresh owned pair settles.
+  void defer_pair(std::uint32_t id) noexcept {
+    id_ = id;
+    owner_ = {};
+    ids_ = {};
+    dimensions_ = {};
+    awaiting_pair_ = id != 0;
+    state_ = id ? Decision::wait : Decision::refused;
+    refusal_ = id ? "none" : "no_profile";
+    refused_feed_ = -1;
+  }
+  // PairController publishes ownership before the probe can publish allocation
+  // expectations. Never bind a new pair to an earlier pair's dimensions during
+  // that gap; the observer will publish matching evidence before retrying.
+  void begin_published(std::uint32_t id, const Pair& pair, const AllocationEvidence& evidence) noexcept {
+    if (id && valid_pair(pair) && !evidence.matches(pair))
+      defer_pair(id);
+    else
+      begin(id, pair, evidence.dimensions);
+  }
+  Decision inspect(engine_camera::ManagerToken manager, const Pair& pair, const Views& views) noexcept {
+    if (state_ == Decision::refused)
+      return state_;
+    if (awaiting_pair_)
+      return Decision::wait;
+    if (!matches(pair))
+      return refuse("pair_changed");
+    if (manager != owner_)
+      return refuse("manager_changed");
+    bool open = false;
+    const unsigned feeds = std::max(2u, engine_camera::owned_count(ids_));
+    for (unsigned i = 0; i < feeds; ++i) {
+      const auto& view = views[i];
+      if (!view.complete || !view.ready || view.status == engine_camera::OwnedViewStatus::pending)
+        return state_ = Decision::wait;
+      // While resizing, the engine's output routine is replacing the view's
+      // output: the old one may already be gone and the new one not yet made
+      // (2026-11-03, PMDG 777: every display-area move refused the kept pair
+      // here and its cameras never came back). resize_kept_panes awaits the
+      // new output, bounded; identity stays strict.
+      const bool output = view.resource_present && view.resource_address;
+      const char* const refusal = view.status != engine_camera::OwnedViewStatus::ready               ? "view_status"
+                                  : view.mode != 2                                                   ? "view_mode"
+                                  : !resizing_ && !output                                            ? "output_missing"
+                                  : !view.view_address || !view.node_address || !view.camera_address ? "view_address"
+                                  : view.view_index < 0 || view.view_index >= 8                      ? "view_index"
+                                  : view.dimensions != dimensions_[i]                                ? "view_dimensions"
+                                  : !resizing_ && view.output_dimensions != dimensions_[i][0]        ? "output_dimensions"
+                                                                                                     : nullptr;
+      if (refusal)
+        return refuse(refusal, static_cast<int>(i));
+      open |= (view.flags[0] & 1u) == 0;
+    }
+    for (unsigned i = 0; i < feeds; ++i)
+      for (unsigned j = i + 1; j < feeds; ++j)
+        if (views[i].view_address == views[j].view_address || views[i].view_index == views[j].view_index ||
+            (views[i].resource_address && views[i].resource_address == views[j].resource_address))
+          return refuse("views_shared", static_cast<int>(j));
+    return state_ = open ? Decision::close : Decision::ready;
+  }
+  bool matches(const Pair& pair) const noexcept { return valid_pair(pair) && pair.owner == owner_ && pair.owned_ids == ids_; }
+  // The kept pair is being resized in place for another aircraft's panes: the
+  // views must carry the new dimensions, while their new output may still be
+  // pending until resized() (resize_kept_panes).
+  void rebase(const Dimensions& dimensions) noexcept {
+    dimensions_ = dimensions;
+    resizing_ = true;
+  }
+  void resized() noexcept { resizing_ = false; }
+  bool can_resume(const Pair& pair) const noexcept { return ready() && matches(pair); }
+  // The first refusal names its check (and feed, or -1) for bridge.log; a
+  // refused transition stays refused, so later calls keep that reason.
+  Decision refuse(const char* reason, int feed = -1) noexcept {
+    awaiting_pair_ = false;
+    if (state_ != Decision::refused) {
+      refusal_ = reason;
+      refused_feed_ = feed;
+    }
+    return state_ = Decision::refused;
+  }
+  const char* refusal() const noexcept { return refusal_; }
+  int refused_feed() const noexcept { return refused_feed_; }
+  void consume() noexcept {
+    id_ = 0;
+    awaiting_pair_ = false;
+  }
+  bool holding() const noexcept { return id_ != 0; }
+  bool awaiting_pair() const noexcept { return holding() && awaiting_pair_; }
+  bool pending() const noexcept { return holding() && (state_ == Decision::wait || state_ == Decision::close); }
+  bool ready() const noexcept { return holding() && state_ == Decision::ready; }
+  bool failed() const noexcept { return holding() && state_ == Decision::refused; }
+  std::uint32_t id() const noexcept { return id_; }
+
+ private:
+  static bool valid_pair(const Pair& pair) noexcept {
+    return pair.state == engine_camera::State::active && pair.owner.valid() && engine_camera::distinct_owned(pair.owned_ids) &&
+           !pair.request_pending && !pair.creation_pending && pair.failure == engine_camera::Failure::none &&
+           pair.blocked == engine_camera::Blocked::none;
+  }
+  std::uint32_t id_{};
+  engine_camera::ManagerToken owner_{};
+  engine_camera::OwnedIds ids_{};
+  Dimensions dimensions_{};
+  bool awaiting_pair_ = false, resizing_ = false;
+  Decision state_ = Decision::wait;
+  const char* refusal_ = "none";
+  int refused_feed_ = -1;
+};
+}  // namespace taxi_camera::native_camera

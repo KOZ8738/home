@@ -569,7 +569,7 @@ const wchar_t* reason_text(std::uint32_t reason) {
     case reason_aircraft:
       return L"這架飛機還沒在 Taxi Cam 設定好（Aircraft → 設定顯示器）。";
     case reason_stalled:
-      return L"模擬器卡住過，鏡頭已暫停；取消再勾選「直播模式」重新開始。";
+      return L"模擬器剛才卡住，鏡頭已暫停，畫面恢復後會自動繼續；一直沒繼續的話，取消再勾選「直播模式」。";
     case reason_starting:
       return L"正在建立鏡頭…";
     case reason_resizing:
@@ -766,15 +766,19 @@ HWND make(const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, i
   return window;
 }
 constexpr std::array<const wchar_t*, 6> FieldNames{L"右 (m)", L"上 (m)", L"前 (m)", L"俯仰 (°)", L"偏航 (°)", L"視角 (°)"};
+// A mount value as its field shows it: metres to the centimetre, degrees to a tenth.
+void field_text(wchar_t* text, std::size_t count, unsigned i, const Mount& mount) {
+  if (i == 5)
+    std::swprintf(text, count, L"%.1f", mount[5] * 180.0 / Pi);
+  else
+    std::swprintf(text, count, i < 3 ? L"%.2f" : L"%.1f", mount[i]);
+}
 void fill_mount_fields() {
   app.filling = true;
   const auto& mount = app.settings.mounts[app.selected];
   for (unsigned i = 0; i < 6; ++i) {
     wchar_t text[32];
-    if (i == 5)
-      std::swprintf(text, 32, L"%.1f", mount[5] * 180.0 / Pi);
-    else
-      std::swprintf(text, 32, i < 3 ? L"%.2f" : L"%.1f", mount[i]);
+    field_text(text, 32, i, mount);
     SetDlgItemTextW(app.main, IdField + static_cast<int>(i), text);
   }
   SendMessageW(control(IdSelect), CB_SETCURSEL, app.selected, 0);
@@ -880,18 +884,19 @@ void read_mount_fields() {
   Mount mount = app.settings.mounts[app.selected];
   bool changed = false;
   for (unsigned i = 0; i < 6; ++i) {
-    wchar_t text[32]{};
+    // Only a field that was typed in: one that still shows the value it was
+    // filled with has not changed, though that text is rounded.
+    wchar_t text[32]{}, shown[32]{};
     GetDlgItemTextW(app.main, IdField + static_cast<int>(i), text, 32);
+    field_text(shown, 32, i, mount);
+    if (std::wcscmp(text, shown) == 0)
+      continue;
     wchar_t* end = nullptr;
     double value = std::wcstod(text, &end);
     if (end == text || !std::isfinite(value))
       continue;
-    if (i == 5)
-      value = value * Pi / 180.0;
-    if (std::abs(value - mount[i]) > 1e-9) {
-      mount[i] = value;
-      changed = true;
-    }
+    mount[i] = i == 5 ? value * Pi / 180.0 : value;
+    changed = true;
   }
   if (!changed)
     return;
@@ -955,8 +960,8 @@ bool nudge(WPARAM key) {
     mount[4] -= 360;
   if (mount[4] < -180)
     mount[4] += 360;
-  mount[3] = std::clamp(mount[3], -90.0, 90.0);
-  mount[5] = std::clamp(mount[5], 0.1, 2.6);
+  mount[3] = std::clamp(mount[3], -MaximumPitch, MaximumPitch);
+  mount[5] = std::clamp(mount[5], MinimumFov, MaximumFov);
   if (!valid_mount(mount.data()))
     return true;
   app.settings.mounts[app.selected] = mount;

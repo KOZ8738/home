@@ -179,12 +179,15 @@ struct Request {
   std::array<Mount, Feeds> mounts{};
   std::uint32_t pane() const noexcept { return on ? pane_code(width, height) : 0u; }
 };
+inline constexpr double MaximumPitch = 89, MinimumFov = 0.05, MaximumFov = 1.55;
 inline bool valid_mount(const double* m) noexcept {
   for (unsigned i = 0; i < 6; ++i)
     if (!std::isfinite(m[i]))
       return false;
-  return std::abs(m[0]) <= 200 && std::abs(m[1]) <= 200 && std::abs(m[2]) <= 200 && std::abs(m[3]) <= 90 && std::abs(m[4]) <= 360 &&
-         m[5] >= 0.1 && m[5] <= 2.6;
+  // Within Taxi Cam's own limits for a mount (aircraft_mounts.hpp), which
+  // refuses a whole set when one camera's is outside them.
+  return std::abs(m[0]) <= 200 && std::abs(m[1]) <= 200 && std::abs(m[2]) <= 200 && std::abs(m[3]) <= MaximumPitch &&
+         std::abs(m[4]) <= 180 && m[5] >= MinimumFov && m[5] <= MaximumFov;
 }
 // False when the window is in the middle of a write (try again next pass).
 inline bool read_control(const Link& link, std::uint64_t now_ms, Request& out) noexcept {

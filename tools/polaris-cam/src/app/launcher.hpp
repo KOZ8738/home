@@ -508,6 +508,12 @@ inline LaunchResult load_bridge(DWORD pid,
       return {false, ERROR_ALREADY_EXISTS, ui_text(L"The legacy taxi add-on is loaded. Run the native installer, then restart MSFS.")};
     if (same_path(m.path, dll))
       bridge = m;
+    // Polaris Cam: this copy lives beside an installed Taxi Cam. A bridge from
+    // another folder is that other copy's; a second one would hook the same
+    // simulator functions over it.
+    else if (!_wcsicmp(m.name.c_str(), L"taxi-camera-bridge.dll"))
+      return {false, ERROR_ALREADY_EXISTS,
+              L"Another copy of Taxi Cam is already loaded in this MSFS. Close that Taxi Cam, restart MSFS, then Connect from this one."};
   }
   if (!main.base || !amd64_image(process, main))
     return {false, ERROR_BAD_EXE_FORMAT, ui_text(L"Waiting for readable, valid MSFS executable headers."), true};

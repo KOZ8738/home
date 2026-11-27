@@ -13,7 +13,8 @@ Polaris Cam @VERSION@（原型）— MSFS 2024 的直播鏡頭
 一、第一次使用
 --------------
 1. 電腦如果裝了正式版 Taxi Cam：先在系統匣把它結束（Exit）。兩個不能同時開。
-   MSFS 如果已經被正式版連上過，請把 MSFS 重開。
+   如果它設成跟著 MSFS 一起啟動，先在它的設定裡關掉。
+   MSFS 如果已經被正式版連上過，請把 MSFS 重開（這份 taxi-cam.exe 發現時也會提醒）。
 2. 開 MSFS 2024，載入航班，坐進駕駛艙。
 3. 執行這個資料夾的 taxi-cam.exe，按 Connect。
    （Windows 第一次會跳 SmartScreen：「其他資訊」→「仍要執行」。）

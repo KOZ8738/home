@@ -504,6 +504,47 @@ int verify(bool hardware) {
     if (gpu.debug)
       expect(gpu.debug_errors() == 0, "the Direct3D debug layer saw nothing wrong");
   }
+
+  // 4. A failed output is made new and works again (the broadcast turned off and on).
+  {
+    std::printf("-- a failed output tried again\n");
+    const UINT width = 1280, height = 720, pane = pane_height(height);
+    std::vector<std::uint32_t> ldr(std::size_t{width} * pane, rgba8(64, 128, 192));
+    for (UINT x = 0; x < width; ++x)
+      ldr[x] = rgba8(255, 0, 0);
+    auto* snapshot = make_snapshot(gpu, DXGI_FORMAT_R8G8B8A8_UNORM, width, pane, ldr);
+    expect(snapshot != nullptr, "an 8-bit snapshot");
+    BroadcastOutput output;
+    expect(!output.initialize(nullptr) && output.failed() && !output.initialized(), "an output without a device fails");
+    expect(!output.initialize(gpu.device) && output.failed(), "and stays failed on a real device");
+    expect(output.reset() && !output.failed() && !output.generation(), "reset makes it new");
+    expect(output.initialize(gpu.device) && output.initialized(), "it initializes on the device");
+    expect(output.resize(width, height, pid, 7001, 1), "three shared textures again");
+    if (snapshot) {
+      expect(output.prepare(snapshot, DXGI_FORMAT_R8G8B8A8_UNORM, 0), "a picture is recorded");
+      expect(!output.reset() && output.initialized() && output.prepared(), "reset is refused while a recording is prepared");
+      expect(output.submit() && wait_idle(output), "and it runs");
+      const auto picture = read_picture(gpu, output.texture(0));
+      expect(picture.size() == std::size_t{width} * height && picture[5] == 0xffff0000u && picture[std::size_t{width} + 5] == 0xffff0000u &&
+                 picture[std::size_t{height / 2} * width + 7] == 0xff4080c0u,
+             "the picture is right after the reset");
+    }
+    expect(output.reset() && !output.initialized() && !output.generation(), "reset of an idle output lets everything go");
+    wchar_t name[96];
+    texture_name(name, 96, pid, 7001, 1, 0);
+    HANDLE handle = nullptr;
+    expect(FAILED(gpu.device->OpenSharedHandleByName(name, GENERIC_ALL, &handle)), "and the textures' names with it");
+    if (handle)
+      CloseHandle(handle);
+    expect(output.initialize(gpu.device) && output.resize(width, height, pid, 7002, 1), "and it can be made once more");
+    if (snapshot) {
+      expect(output.prepare(snapshot, DXGI_FORMAT_R8G8B8A8_UNORM, 2) && output.submit() && wait_idle(output), "and draws");
+      snapshot->Release();
+    }
+    expect(!output.failed(), "the remade output never failed");
+    if (gpu.debug)
+      expect(gpu.debug_errors() == 0, "the Direct3D debug layer saw nothing wrong");
+  }
   std::printf("%s\n", failures ? "FAILED" : "all passed");
   return failures ? 1 : 0;
 }

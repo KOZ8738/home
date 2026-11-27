@@ -1874,7 +1874,11 @@ DWORD run_impl() {
           link->status.reason = unsupported      ? polaris_cam::reason_aircraft
                                 : !public_ready  ? polaris_cam::reason_loading
                                                  : polaris_cam::reason_resizing;
-          std::snprintf(link->status.message, sizeof(link->status.message), "%.150s", pending.message);
+          // The aircraft path stays as last written (nullptr); the message
+          // changes as one write the window reads whole.
+          char message[sizeof(link->status.message)];
+          std::snprintf(message, sizeof(message), "%.150s", pending.message);
+          polaris_cam::write_status_text(*link, nullptr, 0, message);
         }
         Sleep(25);
         continue;
@@ -2441,9 +2445,6 @@ DWORD run_impl() {
       out.view_ms = std::isfinite(view_ms) ? static_cast<float>(view_ms) : 0.f;
       out.fps = cast.on ? status.effective_rate : 0;
       out.feed_mask = cast.on ? cast.feed_mask : 0;
-      static_assert(sizeof(out.aircraft) >= sizeof(status.aircraft_path));
-      std::memcpy(out.aircraft, identity.path.data(), sizeof(status.aircraft_path));
-      out.aircraft[sizeof(out.aircraft) - 1] = '\0';
       bool live = false;
       for (unsigned feed = 0; feed < polaris_cam::Feeds; ++feed)
         // A picture announced by the service thread since `now` was read is newer still.
@@ -2462,7 +2463,12 @@ DWORD run_impl() {
                   : live   ? polaris_cam::link_live
                   : reason == polaris_cam::reason_starting ? polaris_cam::link_waiting
                                                            : polaris_cam::link_not_ready;
-      std::snprintf(out.message, sizeof(out.message), "%.150s", output.failed ? output.message : scene.message.c_str());
+      // The aircraft path and the message as one write the window reads
+      // whole (write_status_text): never half of one aircraft's path.
+      static_assert(sizeof(out.aircraft) >= sizeof(status.aircraft_path));
+      char message[sizeof(out.message)];
+      std::snprintf(message, sizeof(message), "%.150s", output.failed ? output.message : scene.message.c_str());
+      polaris_cam::write_status_text(*link, identity.path.data(), sizeof(status.aircraft_path), message);
     }
     status.identity_sample_ms = identity.fresh ? identity.sample_ms : 0;
     status.aircraft_session_epoch = session_epoch;

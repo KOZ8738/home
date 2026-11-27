@@ -122,6 +122,10 @@ struct App {
   HANDLE frame_event = nullptr;
   Settings settings;
   std::wstring aircraft;  // the key the mounts are saved under
+  // The bridge's aircraft path and message, the last complete copy
+  // read_status_text gave: a read during a write keeps these.
+  char link_aircraft[sizeof(Status::aircraft)]{};
+  char link_message[sizeof(Status::message)]{};
   std::array<Feed, Feeds> feeds;
   unsigned selected = 0;
   // Direct3D 11 on the simulator's GPU.
@@ -690,7 +694,7 @@ void update_status(std::uint64_t now) {
         }
         text = reason_text(s.reason);
         if (s.reason == reason_failed || s.reason == reason_aircraft)
-          text += L"\r\n" + widen(s.message, sizeof(s.message));
+          text += L"\r\n" + widen(app.link_message, sizeof(app.link_message));
         break;
       }
     }
@@ -780,8 +784,20 @@ void tick() {
     write_link();
   const bool present_bridge = bridge_present(now);
   if (link && present_bridge) {
+    // The aircraft path and message, read whole. A read during the bridge's
+    // write (or from a bridge of another layout) keeps the last complete
+    // copy: the aircraft stays, nothing is saved, the message stays.
+    bool text_read = false;
+    if (link->status.protocol == LinkVersion) {
+      char aircraft[sizeof(Status::aircraft)], message[sizeof(Status::message)];
+      if (read_status_text(*link, aircraft, message)) {
+        std::memcpy(app.link_aircraft, aircraft, sizeof(app.link_aircraft));
+        std::memcpy(app.link_message, message, sizeof(app.link_message));
+        text_read = true;
+      }
+    }
     // The mounts belong to the aircraft that is loaded.
-    const auto key = aircraft_key(link->status.aircraft);
+    const auto key = text_read ? aircraft_key(app.link_aircraft) : app.aircraft;
     if (key != app.aircraft && key != L"default") {
       save_mounts();
       app.aircraft = key;
@@ -793,7 +809,7 @@ void tick() {
     if (app.bridge_pid != link->status.pid) {
       app.bridge_pid = link->status.pid;
       note(L"bridge: pid %lu link version %u aircraft %hs", static_cast<unsigned long>(link->status.pid), link->status.protocol,
-           link->status.aircraft);
+           app.link_aircraft);
     }
     if ((luid.LowPart || luid.HighPart) && link->status.protocol == LinkVersion) {
       if (!app.device && now >= app.gpu_retry_ms && !open_gpu(luid))

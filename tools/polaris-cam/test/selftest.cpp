@@ -286,7 +286,8 @@ void verify_request() {
   Request request;
   request.on = true;
   expect(read_control(link, 1000, request) && !request.on, "a block nobody wrote asks for nothing");
-  const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat) {
+  const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat,
+                         std::uint32_t memory_guard = 1) {
     write_control(link, [&](Control& c) {
       c.enabled = enabled;
       c.width = width;
@@ -294,6 +295,7 @@ void verify_request() {
       c.fps = 30;
       c.feed_mask = mask;
       c.use_mounts = 1;
+      c.memory_guard = memory_guard;
       c.heartbeat_ms = heartbeat;
       for (auto& mount : c.mounts) {
         const double values[6]{0, 2, 10, -10, 0, 1.2};
@@ -303,13 +305,14 @@ void verify_request() {
   };
   write(1, 1920, 1080, 0b0101, 1000);
   expect(read_control(link, 1000, request) && request.on && request.pane() == ((1920u << 16) | 1078u) && request.feed_mask == 0b0101 &&
-             request.use_mounts && request.fps == 30,
-         "1080p: on, cameras rendered 1920x1078, the mounts taken");
+             request.use_mounts && request.fps == 30 && request.memory_guard,
+         "1080p: on, cameras rendered 1920x1078, the mounts taken, the memory guard on");
   expect(read_control(link, 990, request) && request.on, "a heartbeat written just after the bridge read the clock is fresh");
   expect(read_control(link, 1000 + ControlStaleMs, request) && request.on, "still fresh at the limit");
   expect(read_control(link, 1001 + ControlStaleMs, request) && !request.on && request.pane() == 0, "stale after it: off, no broadcast shape");
-  write(1, 1280, 720, 0xf, 5000);
-  expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u), "720p: cameras rendered 1280x718");
+  write(1, 1280, 720, 0xf, 5000, 0);
+  expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u) && !request.memory_guard,
+         "720p: cameras rendered 1280x718; the memory guard off");
   write(1, 1920, 1088, 0xf, 5000);
   expect(read_control(link, 5000, request) && !request.on, "another size is not a request");
   write(1, 1920, 1080, 0, 5000);
@@ -377,6 +380,55 @@ void verify_request() {
          "another size: the same wait");
   ask.on = false;
   expect(settle.update(ask, 7001) == Shape{} && settle.settled(), "off: at once");
+
+  std::printf("-- the memory guard\n");
+  {
+    MemoryGuard guard;
+    constexpr std::uint32_t Budget = 13600;  // a 16 GB card's
+    const auto used = [](std::uint32_t free_mb) { return Budget - free_mb; };
+    expect(guard.update(false, used(100), Budget, 1000) == guard_off && !guard.paused(), "not broadcasting, or turned off: off");
+    expect(guard.update(true, 0, 0, 1000) == guard_watching && !guard.paused(), "no reading: the cameras run");
+    expect(guard.update(true, used(MemoryGuard::PauseFreeMb), Budget, 2000) == guard_watching, "0.8 GB free: the cameras run");
+    expect(guard.update(true, used(MemoryGuard::PauseFreeMb - 1), Budget, 3000) == guard_paused, "less: paused at once");
+    expect(guard.update(true, Budget + 200, Budget, 3500) == guard_paused, "over the budget: paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 4000) == guard_paused, "just under 1.6 GB free: still paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 5000) == guard_paused, "1.6 GB free: not at once");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb + 500), Budget, 5000 + MemoryGuard::ResumeHoldMs - 1) == guard_paused,
+           "nor just before 15 s of it");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 5000 + MemoryGuard::ResumeHoldMs) == guard_paused,
+           "a reading under 1.6 GB free at 15 s: still paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000) == guard_paused &&
+               guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000 + MemoryGuard::ResumeHoldMs - 1) == guard_paused,
+           "and the 15 s start again from the next one with room");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000 + MemoryGuard::ResumeHoldMs) == guard_watching && !guard.paused(),
+           "15 s with 1.6 GB free: the cameras run again");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 50000) == guard_watching, "between the two: they keep running");
+    expect(guard.update(true, used(100), Budget, 51000) == guard_paused && guard.update(true, 0, 0, 52000) == guard_watching,
+           "a reading that fails ends a pause");
+    expect(guard.update(true, used(100), Budget, 53000) == guard_paused && guard.update(false, used(100), Budget, 54000) == guard_off &&
+               guard.update(true, used(MemoryGuard::PauseFreeMb), Budget, 55000) == guard_watching,
+           "so does turning the broadcast or the guard off: on again, it starts afresh");
+  }
+
+  std::printf("-- a bridge of an earlier version\n");
+  {
+    HANDLE block = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(LinkHead), L"Local\\PolarisCam.Link.1");
+    auto* head = block ? static_cast<LinkHead*>(MapViewOfFile(block, FILE_MAP_WRITE, 0, 0, sizeof(LinkHead))) : nullptr;
+    expect(head != nullptr, "the block of 0.1.0 and 0.1.1 can be made");
+    if (head) {
+      const auto now = GetTickCount64();
+      expect(older_bridge(now) == 0, "a block nobody writes into: no bridge");
+      head->magic = LinkMagic;
+      head->version = 1;
+      head->pid = 4242;
+      head->heartbeat_ms = now;
+      expect(older_bridge(now) == 1, "a bridge of 0.1.1 writing its heartbeat is found");
+      expect(older_bridge(now + StatusStaleMs + 1) == 0, "one that stopped is not");
+      UnmapViewOfFile(head);
+    }
+    if (block)
+      CloseHandle(block);
+  }
 
   std::printf("-- the cameras over the simulator's frames\n");
   const auto opened = [](unsigned rate, unsigned wanted, unsigned frame_ms, unsigned frames) {
@@ -701,6 +753,10 @@ int serve(int seconds, const wchar_t* expected_path, bool hardware) {
     status.view_ms = 5.5f;
     status.fps = request.on ? request.fps : 0;
     status.feed_mask = request.on ? request.feed_mask : 0;
+    status.memory_mb = 2048;
+    status.memory_budget_mb = 8192;
+    status.guard = request.on && request.memory_guard ? guard_watching : guard_off;
+    std::snprintf(status.version, sizeof(status.version), "%s", POLARIS_CAM_VERSION);
     std::snprintf(status.aircraft, sizeof(status.aircraft), "SimObjects\\Airplanes\\POLARIS_SELFTEST\\presets\\a\\b\\config\\aircraft.CFG");
     status.reason = !request.on ? reason_none : live ? reason_none : reason_starting;
     status.state = !request.on ? link_idle : live ? link_live : link_waiting;

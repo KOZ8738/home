@@ -863,11 +863,14 @@ DWORD run_impl() {
   bool cast_was_on = false;
   polaris_cam::ShapeSettle cast_settle;
   polaris_cam::Shape cast_logged;
+  polaris_cam::MemoryGuard cast_guard;
+  bool cast_guard_logged = false;
   if (cast_link.open()) {
+    std::snprintf(cast_link.get()->status.version, sizeof(cast_link.get()->status.version), "%s", POLARIS_CAM_VERSION);
     scene_runtime::set_broadcast_link(cast_link.get());
     if (HANDLE pump = CreateThread(nullptr, 0, cast_pump_run, nullptr, 0, nullptr))
       CloseHandle(pump);
-    log_status(status, "Polaris Cam link opened.");
+    log_status(status, "Polaris Cam " POLARIS_CAM_VERSION " link opened.");
   } else
     log_status(status, "Polaris Cam link unavailable; broadcast pictures are off.");
   // The Windows companion owns mount settings for native sessions.
@@ -1144,6 +1147,20 @@ DWORD run_impl() {
       video_local_mb.store(latest.local_usage / MiB, std::memory_order_relaxed);
       video_local_budget_mb.store(latest.local_budget / MiB, std::memory_order_relaxed);
       video_nonlocal_mb.store(latest.nonlocal_usage / MiB, std::memory_order_relaxed);
+    }
+    // Polaris Cam: the memory guard on the latest reading. While it pauses,
+    // the broadcast stays on in every other way (below: cast_render).
+    const auto& memory = video_record.latest();
+    const auto memory_mb = memory.valid ? static_cast<std::uint32_t>(memory.local_usage / (1024 * 1024)) : 0u;
+    const auto memory_budget_mb = memory.valid ? static_cast<std::uint32_t>(memory.local_budget / (1024 * 1024)) : 0u;
+    const auto guard_state = cast_guard.update(cast.on && cast.memory_guard, memory_mb, memory_budget_mb, now);
+    const bool memory_paused = guard_state == polaris_cam::guard_paused;
+    if (memory_paused != cast_guard_logged) {
+      cast_guard_logged = memory_paused;
+      char detail[160];
+      std::snprintf(detail, sizeof(detail), "Polaris Cam memory guard: %s local_mb=%u/%u broadcast=%u", memory_paused ? "cameras paused" : "cameras free",
+                    memory_mb, memory_budget_mb, cast.on ? 1u : 0u);
+      log_status(status, detail);
     }
     const auto log_video_memory = [&](const win::Status& at) {
       char detail[256];
@@ -1973,9 +1990,10 @@ DWORD run_impl() {
     // a lapse in readiness only pauses the pictures. Only the ticked cameras
     // that have the broadcast shape in the profile in force render: one still
     // waiting for it would render at its cockpit size, a picture that is never
-    // sent. While none has it, the scene is not wanted at all (it parks).
+    // sent. While none has it, or the memory guard pauses them, the scene is
+    // not wanted at all (it parks).
     unsigned cast_render = 0;
-    if (cast.on)
+    if (cast.on && !memory_paused)
       if (const auto* shaped = profiles::find(applied_profile ? applied_profile : settings.profile))
         for (unsigned feed = 0; feed < profiles::CameraViews; ++feed)
           if (((cast.feed_mask >> feed) & 1u) && shaped->camera_panes[feed][0] == static_cast<std::int32_t>(cast.width) &&
@@ -2263,8 +2281,9 @@ DWORD run_impl() {
     if (cast.on != cast_was_on) {
       cast_was_on = cast.on;
       char detail[160];
-      std::snprintf(detail, sizeof(detail), "Polaris Cam broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u", cast.on ? "on" : "off",
-                    cast.width, cast.height, cast.fps, cast.feed_mask, cast.use_mounts ? 1u : 0u);
+      std::snprintf(detail, sizeof(detail), "Polaris Cam %s broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u memory_guard=%u",
+                    POLARIS_CAM_VERSION, cast.on ? "on" : "off", cast.width, cast.height, cast.fps, cast.feed_mask, cast.use_mounts ? 1u : 0u,
+                    cast.memory_guard ? 1u : 0u);
       log_status(status, detail);
     }
     if (!startup.observed && (mask || test_scene)) {
@@ -2464,6 +2483,9 @@ DWORD run_impl() {
       out.view_ms = std::isfinite(view_ms) ? static_cast<float>(view_ms) : 0.f;
       out.fps = cast.on ? status.effective_rate : 0;
       out.feed_mask = cast.on ? cast.feed_mask : 0;
+      out.memory_mb = memory_mb;
+      out.memory_budget_mb = memory_budget_mb;
+      out.guard = guard_state;
       static_assert(sizeof(out.aircraft) >= sizeof(status.aircraft_path));
       std::memcpy(out.aircraft, identity.path.data(), sizeof(status.aircraft_path));
       out.aircraft[sizeof(out.aircraft) - 1] = '\0';
@@ -2478,12 +2500,14 @@ DWORD run_impl() {
                           : !aircraft_matches                                        ? polaris_cam::reason_aircraft
                           : degraded                                                 ? polaris_cam::reason_stalled
                           : failed || output.failed                                  ? polaris_cam::reason_failed
+                          : memory_paused                                            ? polaris_cam::reason_memory
                           : live                                                     ? polaris_cam::reason_none
                           : !cast_settle.settled() || cast_render != cast.feed_mask  ? polaris_cam::reason_resizing
                                                                                      : polaris_cam::reason_starting;
       out.reason = reason;
-      out.state = !cast.on ? polaris_cam::link_idle
-                  : live   ? polaris_cam::link_live
+      // A picture sent just before the guard paused is still fresh: paused all the same.
+      out.state = !cast.on                 ? polaris_cam::link_idle
+                  : live && !memory_paused ? polaris_cam::link_live
                   : reason == polaris_cam::reason_starting || reason == polaris_cam::reason_resizing ? polaris_cam::link_waiting
                                                                                                       : polaris_cam::link_not_ready;
       std::snprintf(out.message, sizeof(out.message), "%.150s", output.failed ? output.message : scene.message.c_str());

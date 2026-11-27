@@ -67,6 +67,7 @@ enum ControlId : int {
   IdStatus,
   IdHint,
   IdReset,
+  IdGuard,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -78,6 +79,7 @@ struct Settings {
   std::uint32_t fps = DefaultFps;
   std::uint32_t mask = 1;
   bool windows = false;
+  bool memory_guard = true;  // the cameras pause while graphics memory runs out
   std::array<Mount, Feeds> mounts{};
   std::array<int, Feeds> presets = DefaultPresets;
   std::uint32_t width() const noexcept { return height == 720 ? 1280u : 1920u; }
@@ -121,6 +123,7 @@ struct App {
   std::uint64_t gpu_retry_ms = 0;
   std::wstring gpu_error;
   std::uint32_t bridge_pid = 0;
+  std::uint32_t bridge_guard = guard_off;  // the guard state last noted in the log
   std::uint64_t heartbeat_ms = 0, labels_ms = 0, rate_ms = 0;
   std::wstring status_text;
   bool filling = false;  // controls are being set from code
@@ -225,6 +228,7 @@ void load_settings() {
   if (!s.mask)
     s.mask = 1;
   s.windows = GetPrivateProfileIntW(L"general", L"windows", 0, path.c_str()) == 1;
+  s.memory_guard = GetPrivateProfileIntW(L"general", L"memory_guard", 1, path.c_str()) != 0;
   app.aircraft = L"default";
   load_mounts(app.aircraft);
 }
@@ -241,6 +245,7 @@ void save_settings() {
   put(L"fps", s.fps);
   put(L"cameras", s.mask);
   put(L"windows", s.windows ? 1 : 0);
+  put(L"memory_guard", s.memory_guard ? 1 : 0);
   save_mounts();
 }
 
@@ -258,6 +263,7 @@ void write_link() {
     c.fps = s.fps;
     c.feed_mask = s.mask;
     c.use_mounts = 1;
+    c.memory_guard = s.memory_guard ? 1 : 0;
     c.heartbeat_ms = app.heartbeat_ms;
     for (unsigned feed = 0; feed < Feeds; ++feed)
       for (unsigned i = 0; i < 6; ++i)
@@ -595,18 +601,26 @@ std::wstring widen(const char* text, std::size_t limit) {
     out += static_cast<wchar_t>(static_cast<unsigned char>(text[i]) < 0x80 ? text[i] : '?');
   return out;
 }
+double gigabytes(std::uint32_t mb) {
+  return mb / 1024.0;
+}
 void update_status(std::uint64_t now) {
   std::wstring text;
   const auto* link = app.link.get();
+  wchar_t line[256];
   if (!link) {
     text = L"無法建立與模擬器之間的共享區。";
   } else if (!bridge_present(now)) {
-    text = L"尚未連上模擬器。\r\n請開啟 MSFS 2024，執行同資料夾的 taxi-cam.exe 並按 Connect。";
+    // The bridge stays loaded in MSFS until MSFS exits: files replaced while
+    // it ran change nothing until then.
+    if (older_bridge(now))
+      text = L"MSFS 裡還是換檔案前載入的舊版 Polaris Cam。\r\n請完全關閉 MSFS 再開，再執行 taxi-cam.exe 並按 Connect。";
+    else
+      text = L"尚未連上模擬器。\r\n請開啟 MSFS 2024，執行同資料夾的 taxi-cam.exe 並按 Connect。";
   } else if (link->status.protocol != LinkVersion) {
     text = L"模擬器裡的 bridge 版本和這個視窗不同：請關閉 MSFS，兩個程式都用同一份下載檔重新開啟。";
   } else {
     const auto& s = link->status;
-    wchar_t line[256];
     switch (s.state) {
       case link_idle:
         text = L"已連上模擬器。勾選「直播模式」開始。";
@@ -616,6 +630,12 @@ void update_status(std::uint64_t now) {
         text = line;
         break;
       default:
+        if (s.reason == reason_memory) {
+          std::swprintf(line, 256, L"顯示記憶體快滿了，鏡頭先暫停、畫面停在最後一張；剩餘回到 %.1f GB 以上 %u 秒後自動繼續。",
+                        gigabytes(MemoryGuard::ResumeFreeMb), static_cast<unsigned>(MemoryGuard::ResumeHoldMs / 1000));
+          text = line;
+          break;
+        }
         text = reason_text(s.reason);
         if (s.reason == reason_failed || s.reason == reason_aircraft)
           text += L"\r\n" + widen(s.message, sizeof(s.message));
@@ -626,6 +646,17 @@ void update_status(std::uint64_t now) {
         std::swprintf(line, 256, L"\r\n模擬器 %.0f fps｜每張鏡頭畫面約佔 %.1f ms", static_cast<double>(s.sim_fps), static_cast<double>(s.view_ms));
       else
         std::swprintf(line, 256, L"\r\n模擬器 %.0f fps", static_cast<double>(s.sim_fps));
+      text += line;
+    }
+    if (s.memory_budget_mb) {
+      const std::uint32_t free_mb = s.memory_mb < s.memory_budget_mb ? s.memory_budget_mb - s.memory_mb : 0;
+      std::swprintf(line, 256, L"\r\n顯示記憶體 %.1f / %.1f GB，剩 %.1f GB", gigabytes(s.memory_mb), gigabytes(s.memory_budget_mb),
+                    gigabytes(free_mb));
+      text += line;
+    }
+    if (std::strncmp(s.version, POLARIS_CAM_VERSION, sizeof(s.version)) != 0) {
+      std::swprintf(line, 256, L"\r\nMSFS 裡的 Polaris Cam 是 %ls，這個視窗是 " POLARIS_CAM_VERSION_WIDE L"：請完全關閉 MSFS 再開。",
+                    widen(s.version, sizeof(s.version)).c_str());
       text += line;
     }
     if (!app.gpu_error.empty())
@@ -678,8 +709,13 @@ void tick() {
     const auto luid = link->status.adapter;
     if (app.bridge_pid != link->status.pid) {
       app.bridge_pid = link->status.pid;
-      note(L"bridge: pid %lu link version %u aircraft %hs", static_cast<unsigned long>(link->status.pid), link->status.protocol,
-           link->status.aircraft);
+      note(L"bridge: pid %lu link version %u Polaris Cam %ls aircraft %hs", static_cast<unsigned long>(link->status.pid), link->status.protocol,
+           widen(link->status.version, sizeof(link->status.version)).c_str(), link->status.aircraft);
+    }
+    if (app.bridge_guard != link->status.guard) {
+      app.bridge_guard = link->status.guard;
+      note(L"memory guard: %ls, %u of %u MB", app.bridge_guard == guard_paused ? L"cameras paused" : app.bridge_guard == guard_watching ? L"watching" : L"off",
+           link->status.memory_mb, link->status.memory_budget_mb);
     }
     if ((luid.LowPart || luid.HighPart) && link->status.protocol == LinkVersion) {
       if (!app.device && now >= app.gpu_retry_ms && !open_gpu(luid))
@@ -831,14 +867,17 @@ void fill_controls() {
       choice = static_cast<int>(i);
   SendMessageW(control(IdFps), CB_SETCURSEL, static_cast<WPARAM>(choice), 0);
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
+  Button_SetCheck(control(IdGuard), s.memory_guard ? BST_CHECKED : BST_UNCHECKED);
   app.filling = false;
   fill_mount_fields();
 }
 void create_controls() {
   make(L"STATIC", AppTitle, 0, Margin, 12, 200, 28, -1, app.title);
   make(L"STATIC", L"原型 " POLARIS_CAM_VERSION_WIDE L"（Taxi Cam " TAXI_CAM_VERSION_WIDE L"）", SS_RIGHT, 150, 20, 178, 18, -1);
-  make(L"STATIC", L"", 0, Margin, 44, PanelWidth - Margin - 8, 64, IdStatus);
-  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 112, 110, 22, IdEnable, app.bold);
+  // Four lines: the state, the simulator's rate, graphics memory, and room for one more.
+  make(L"STATIC", L"", 0, Margin, 42, PanelWidth - Margin - 8, 72, IdStatus);
+  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 116, 110, 22, IdEnable, app.bold);
+  make(L"BUTTON", L"顯示記憶體快滿時暫停", BS_AUTOCHECKBOX | WS_TABSTOP, 140, 116, 188, 22, IdGuard);
   make(L"STATIC", L"畫質", 0, Margin, 146, 40, 20, -1);
   make(L"BUTTON", L"1080p", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 64, 144, 72, 22, IdSize1080);
   make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 144, 64, 22, IdSize720);
@@ -893,8 +932,8 @@ void create_controls() {
 // --- changes ----------------------------------------------------------------
 void settings_changed(bool mounts_only = false) {
   if (!mounts_only)
-    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d", app.settings.enabled ? L"on" : L"off", app.settings.width(),
-         app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0);
+    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d", app.settings.enabled ? L"on" : L"off", app.settings.width(),
+         app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0, app.settings.memory_guard ? 1 : 0);
   write_link();
   if (mounts_only)
     save_mounts();
@@ -1034,6 +1073,9 @@ void on_command(int id, int code) {
     settings_changed();
   } else if (id == IdWindows && code == BN_CLICKED) {
     s.windows = Button_GetCheck(control(IdWindows)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdGuard && code == BN_CLICKED) {
+    s.memory_guard = Button_GetCheck(control(IdGuard)) == BST_CHECKED;
     settings_changed();
   } else if (id == IdSelect && code == CBN_SELCHANGE) {
     const auto choice = SendMessageW(control(IdSelect), CB_GETCURSEL, 0, 0);

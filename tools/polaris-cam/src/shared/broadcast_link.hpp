@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -12,16 +13,19 @@ namespace polaris_cam {
 // One shared-memory block. The window writes Control, the bridge writes Status.
 // Camera pictures never pass through it: each camera has three GPU textures
 // (shared by name, see texture_name) and Status says which one holds the
-// newest complete picture.
-inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.1";
+// newest complete picture. Each LinkVersion has a block of its own, under
+// its own name: a window and a bridge of different versions never share one,
+// and the window can still see a bridge of an earlier version (older_bridge).
+inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.2";
 // Set by the bridge each time a camera has a new picture (auto-reset), so the
 // window need not poll for it.
-inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.1";
+inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.2";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.1.1"
-#define POLARIS_CAM_VERSION_WIDE L"0.1.1"
+#define POLARIS_CAM_VERSION "0.1.2"
+#define POLARIS_CAM_VERSION_WIDE L"0.1.2"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
-inline constexpr std::uint32_t LinkVersion = 1;
+// 1: 0.1.0 and 0.1.1. 2: the memory guard, and the bridge's own version.
+inline constexpr std::uint32_t LinkVersion = 2;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
 inline constexpr unsigned Slots = 3;  // textures per camera: newest, being read, being written
 inline constexpr std::uint32_t NoSlot = Slots;
@@ -57,7 +61,7 @@ struct Control {
   std::uint32_t fps;            // pictures per second, per camera
   std::uint32_t feed_mask;      // bit per camera that renders
   std::uint32_t use_mounts;     // 1: mounts below instead of Taxi Cam's own
-  std::uint32_t reserved;
+  std::uint32_t memory_guard;   // 1: the cameras pause while graphics memory runs out (MemoryGuard)
   std::uint64_t heartbeat_ms;  // the window's GetTickCount64
   double mounts[Feeds][6];
 };
@@ -93,6 +97,12 @@ enum LinkReason : std::uint32_t {
   reason_starting,       // the cameras are being created
   reason_resizing,       // the cameras are changing size
   reason_failed,         // the cameras could not be started (message says why)
+  reason_memory,         // the memory guard paused the cameras (memory_mb, memory_budget_mb)
+};
+enum GuardState : std::uint32_t {
+  guard_off,       // not broadcasting, or the window has the guard off
+  guard_watching,  // the cameras run; the guard watches the readings
+  guard_paused,    // the cameras are paused until there is room again
 };
 struct Status {
   std::uint64_t heartbeat_ms;  // the bridge's GetTickCount64, about every 25 ms
@@ -105,6 +115,11 @@ struct Status {
   float view_ms;               // frame time one camera picture costs; 0 unknown
   std::uint32_t fps;           // pictures per second per camera in force
   std::uint32_t feed_mask;     // cameras that render
+  // The simulator process's graphics memory on its card, and the budget
+  // Windows gives it, in MiB; 0 while there is no reading.
+  std::uint32_t memory_mb, memory_budget_mb;
+  std::uint32_t guard;         // GuardState
+  char version[16];            // POLARIS_CAM_VERSION of the bridge
   char aircraft[260];          // AircraftLoaded path
   char message[160];
   FeedStatus feeds[Feeds];
@@ -114,6 +129,18 @@ struct Link {
   Control control;
   Status status;
 };
+
+// The start of the block, the same in every LinkVersion so far: as far as
+// the bridge's heartbeat and process.
+struct LinkHead {
+  std::uint32_t magic, version;
+  Control control;
+  std::uint64_t heartbeat_ms;  // Status::heartbeat_ms
+  std::uint32_t pid;           // Status::pid
+};
+static_assert(sizeof(Control) == 232, "LinkVersion 1's Control: a bridge of 0.1.0 or 0.1.1 is found by it");
+static_assert(offsetof(Link, status) + offsetof(Status, heartbeat_ms) == offsetof(LinkHead, heartbeat_ms) &&
+              offsetof(Link, status) + offsetof(Status, pid) == offsetof(LinkHead, pid));
 
 // "Local\PolarisCam.<pid>.<generation>.<feed><slot>"
 inline void texture_name(wchar_t* out, std::size_t count, std::uint32_t pid, std::uint32_t generation, unsigned feed, unsigned slot) noexcept {
@@ -171,11 +198,32 @@ inline constexpr bool fresh_heartbeat(std::uint64_t heartbeat_ms, std::uint64_t 
   return heartbeat_ms != 0 && (heartbeat_ms >= now_ms || now_ms - heartbeat_ms <= limit_ms);
 }
 inline constexpr std::uint64_t StatusStaleMs = 3000;  // a bridge that stopped writing is gone
+// The LinkVersion of a bridge of an earlier version that is running in the
+// simulator (one loaded before the files were replaced), or 0.
+inline std::uint32_t older_bridge(std::uint64_t now_ms) noexcept {
+  for (std::uint32_t version = 1; version < LinkVersion; ++version) {
+    wchar_t name[48];
+    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(version));
+    HANDLE mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, name);
+    if (!mapping)
+      continue;
+    bool running = false;
+    if (const auto* head = static_cast<const LinkHead*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(LinkHead)))) {
+      running = head->magic == LinkMagic && head->pid != 0 && fresh_heartbeat(head->heartbeat_ms, now_ms, StatusStaleMs);
+      UnmapViewOfFile(head);
+    }
+    CloseHandle(mapping);
+    if (running)
+      return version;
+  }
+  return 0;
+}
 // What the bridge acts on: a complete, checked copy of Control.
 struct Request {
   bool on = false;
   std::uint32_t width = 0, height = 0, fps = DefaultFps, feed_mask = 0;
   bool use_mounts = false;
+  bool memory_guard = false;
   std::array<Mount, Feeds> mounts{};
   std::uint32_t pane() const noexcept { return on ? pane_code(width, height) : 0u; }
 };
@@ -207,6 +255,7 @@ inline bool read_control(const Link& link, std::uint64_t now_ms, Request& out) n
   request.fps = copy.fps < MinimumFps ? MinimumFps : copy.fps > MaximumFps ? MaximumFps : copy.fps;
   request.feed_mask = copy.feed_mask & ((1u << Feeds) - 1);
   request.use_mounts = copy.use_mounts == 1;
+  request.memory_guard = copy.memory_guard == 1;
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     if (!valid_mount(copy.mounts[feed]))
       request.use_mounts = false;
@@ -253,6 +302,49 @@ class ShapeSettle {
  private:
   Shape asked_, applied_;
   std::uint64_t since_ms_ = 0;
+};
+// The memory guard. Windows gives the simulator a budget of the card's
+// memory; at the end of it the simulator has to push its own textures out to
+// system memory, and frames wait for them. The camera views make it keep
+// scenery for their directions as well, so close to the end the guard pauses
+// the cameras until there is room again. They keep their size, their
+// textures and their last pictures, so they carry on where they stopped.
+// Free is the budget less what the simulator's process uses: MSFS, its
+// add-ons and the cameras together. On a 16 GB card at a busy airport, MSFS
+// alone keeps about 1 GB free; the first tests' frames slowed to a crawl
+// below 0.8 GB with a camera on. Readings come once a second; between them
+// the last one stands.
+class MemoryGuard {
+ public:
+  static constexpr std::uint32_t PauseFreeMb = 800;     // pause with less than this free
+  static constexpr std::uint32_t ResumeFreeMb = 1600;   // resume once this much is free
+  static constexpr std::uint64_t ResumeHoldMs = 15000;  // and has been for this long
+  // armed: broadcasting with the guard on. A budget of 0 is no reading: it
+  // never pauses and ends a pause, as a guard that cannot see stands aside.
+  GuardState update(bool armed, std::uint32_t used_mb, std::uint32_t budget_mb, std::uint64_t now_ms) noexcept {
+    if (!armed || !budget_mb) {
+      paused_ = room_ = false;
+      return armed ? guard_watching : guard_off;
+    }
+    const std::uint32_t free_mb = used_mb < budget_mb ? budget_mb - used_mb : 0;
+    if (!paused_) {
+      paused_ = free_mb < PauseFreeMb;
+      room_ = false;
+    } else if (free_mb < ResumeFreeMb) {
+      room_ = false;
+    } else if (!room_) {
+      room_ = true;
+      room_ms_ = now_ms;
+    } else if (now_ms < room_ms_ || now_ms - room_ms_ >= ResumeHoldMs) {
+      paused_ = room_ = false;
+    }
+    return paused_ ? guard_paused : guard_watching;
+  }
+  bool paused() const noexcept { return paused_; }
+
+ private:
+  bool paused_ = false, room_ = false;
+  std::uint64_t room_ms_ = 0;
 };
 // Whole-value reads and writes of the fields both sides touch.
 inline LONG load(const LONG& value) noexcept {

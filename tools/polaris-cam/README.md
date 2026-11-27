@@ -22,10 +22,10 @@ is written to the cockpit displays then. With the broadcast off it behaves as Ta
 
 | File | Change |
 | --- | --- |
-| `src/shared/broadcast_link.hpp` (new) | The shared-memory block between the bridge and the window: what the window asks for (on, size, rate, cameras, mounts) and what the bridge reports (state, the newest picture of each camera). |
+| `src/shared/broadcast_link.hpp` (new) | The shared-memory block between the bridge and the window: what the window asks for (on, size, rate, cameras, mounts, memory guard) and what the bridge reports (state, graphics memory, its version, the newest picture of each camera); the memory guard. |
 | `src/graphics/broadcast_output.hpp`, `.cpp` (new) | One camera's picture: the snapshot through the simulator's exposure and tone curve (the compositor's conversion, without its bloom) into one of three `B8G8R8A8` textures shared by name. |
 | `src/graphics/scene_runtime.hpp`, `.cpp` | While broadcasting, each view's snapshots go to its `BroadcastOutput` instead of the composition. |
-| `src/bridge/bridge_main.cpp` | Reads the window's request each pass; the broadcast size as a camera shape (the existing reshape transition); cameras wanted as for the scene test, with no display written; the broadcast's own rate, cameras and mounts; status for the window; the camera service on a second thread while broadcasting. |
+| `src/bridge/bridge_main.cpp` | Reads the window's request each pass; the broadcast size as a camera shape (the existing reshape transition); cameras wanted as for the scene test, with no display written, unless the memory guard pauses them; the broadcast's own rate, cameras and mounts; status for the window; the camera service on a second thread while broadcasting. |
 | `src/profiles/discovered.hpp` | `apply_choices`, `override_current`, `publish_override` take the broadcast pane. |
 | `src/viewer/` (new) | `polaris-cam.exe`, the window: settings, a 2×2 preview, an output window per camera. Direct3D 11, copies only. |
 | `src/app/companion.cpp`, `app.rc`, `src/bridge/bridge.rc` | The title and file descriptions say it is the Polaris Cam build; the updater is off. |
@@ -80,3 +80,12 @@ That is tested by flying.
    nor being read, and announces it once the GPU has finished.
 4. The window opens the textures by name with Direct3D 11 on the same adapter, says which one it is copying, and copies it
    into its preview and its output window.
+
+While the simulator's process has less than 0.8 GB of the graphics memory budget Windows gives it left, the memory guard
+stops wanting the cameras: the views park as with the broadcast off, but keep their size, their textures and their last
+pictures, and render again once 1.6 GB has been free for 15 s. The readings are the bridge's existing once-a-second
+`QueryVideoMemoryInfo` ones; the window can turn the guard off.
+
+The shared block has a name of its own for each version of its layout (`Local\PolarisCam.Link.2`), since the bridge stays
+in the simulator until it exits: a window of a newer version finds a bridge of an older one under the older name, and says
+that the simulator has to be restarted.

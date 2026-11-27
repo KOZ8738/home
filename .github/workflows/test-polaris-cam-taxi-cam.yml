@@ -13,6 +13,7 @@ on:
     paths:
       - 'tools/polaris-cam/src/**'
       - 'tools/polaris-cam/tools/**'
+      - 'tools/polaris-cam/test/broadcast_runtime_validation.cpp'
       - '.github/workflows/test-polaris-cam-taxi-cam.yml'
   workflow_dispatch:
 
@@ -64,6 +65,28 @@ jobs:
           } finally {
             Stop-Transcript
           }
+      # Polaris Cam's own test of the same kind: it needs Taxi Cam's test fixture, so it is built here, with the
+      # objects Taxi Cam's build just made
+      - name: The broadcast through the real scene runtime and capture manager
+        working-directory: taxi-cam
+        run: |
+          Copy-Item ../home/tools/polaris-cam/test/broadcast_runtime_validation.cpp tests/graphics/
+          $deps = Get-Content -Raw dependencies.json | ConvertFrom-Json
+          $compiler = Join-Path 'build/deps' ($deps.'llvm-mingw'.directory + '/bin/clang++.exe')
+          $native = 'build/native'
+          $objects = @('src/bridge/d3d12_bridge.cpp', 'src/graphics/scene_handoff.cpp', 'src/graphics/scene_capture_d3d12.cpp',
+            'src/graphics/scene_capture_manager.cpp', 'src/graphics/scene_source_state.cpp', 'src/graphics/scene_frame_output.cpp',
+            'src/graphics/scene_runtime.cpp', 'src/graphics/broadcast_output.cpp', 'src/graphics/pfd_submission_pool.cpp',
+            'src/graphics/pfd_stamp_state.cpp', 'src/graphics/pfd_stamp_d3d12.cpp', 'src/hooks/queue_submit_observer.cpp',
+            'src/hooks/pfd_state_observer.cpp', 'src/hooks/render_boundary_observer.cpp') |
+            ForEach-Object { Join-Path $native (($_ -replace '[/\\]', '_') + '.o') }
+          $test = Join-Path $native 'broadcast-runtime-validation.exe'
+          & $compiler -std=c++20 -O2 -Wall -Wextra -Werror -fms-extensions -static -DNOMINMAX -DWIN32_LEAN_AND_MEAN '-D_WIN32_WINNT=0x0A00' `
+            -mno-avx -mno-avx2 -mno-avx512f -I (Join-Path $native 'generated') -municode tests/graphics/broadcast_runtime_validation.cpp `
+            @objects -ld3d12 -ldxgi -ldxguid -ld3dcompiler -o $test
+          if ($LASTEXITCODE -ne 0) { throw 'The broadcast runtime validation did not compile.' }
+          & $test --warp
+          if ($LASTEXITCODE -ne 0) { throw 'The broadcast runtime validation failed.' }
       - uses: actions/upload-artifact@v6
         if: always()
         with:

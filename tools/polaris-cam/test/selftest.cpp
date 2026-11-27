@@ -18,6 +18,7 @@
 //       a window asked for pictures and read them.
 #include <windows.h>
 #include <d3d12.h>
+#include <d3d12sdklayers.h>
 #include <dxgi1_4.h>
 #include <array>
 #include <cmath>
@@ -50,8 +51,37 @@ struct Gpu {
   HANDLE event = nullptr;
   std::uint64_t signalled = 0;
   LUID luid{};
+  bool debug = false;
 
-  bool open(bool hardware) {
+  // Errors the Direct3D debug layer has recorded, where the machine has one
+  // (the build's test machine does; a player's usually does not).
+  unsigned debug_errors() {
+    ID3D12InfoQueue* messages = nullptr;
+    if (!debug || FAILED(device->QueryInterface(IID_PPV_ARGS(&messages))))
+      return 0;
+    unsigned errors = 0;
+    for (UINT64 index = 0; index < messages->GetNumStoredMessages(); ++index) {
+      SIZE_T size = 0;
+      if (FAILED(messages->GetMessage(index, nullptr, &size)) || !size)
+        continue;
+      std::vector<unsigned char> bytes(size);
+      auto* message = reinterpret_cast<D3D12_MESSAGE*>(bytes.data());
+      if (SUCCEEDED(messages->GetMessage(index, message, &size)) && message->Severity <= D3D12_MESSAGE_SEVERITY_ERROR) {
+        ++errors;
+        std::printf("Direct3D 12 error %d: %s\n", static_cast<int>(message->ID), message->pDescription);
+      }
+    }
+    messages->ClearStoredMessages();
+    messages->Release();
+    return errors;
+  }
+  bool open(bool hardware, bool with_debug_layer) {
+    ID3D12Debug* layer = nullptr;
+    if (with_debug_layer && SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&layer)))) {
+      layer->EnableDebugLayer();
+      layer->Release();
+      debug = true;
+    }
     IDXGIFactory4* factory = nullptr;
     if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
       return false;
@@ -347,7 +377,7 @@ void verify_request() {
 int verify(bool hardware) {
   verify_request();
   Gpu gpu;
-  if (!gpu.open(hardware)) {
+  if (!gpu.open(hardware, true)) {
     std::printf("FAIL  no Direct3D 12 device\n");
     return 1;
   }
@@ -471,6 +501,8 @@ int verify(bool hardware) {
       CloseHandle(handle);
     expect(output.resize(width, height, pid, height + 1, 3), "and made again under a new number");
     expect(!output.failed(), "the output never failed");
+    if (gpu.debug)
+      expect(gpu.debug_errors() == 0, "the Direct3D debug layer saw nothing wrong");
   }
   std::printf("%s\n", failures ? "FAILED" : "all passed");
   return failures ? 1 : 0;
@@ -511,7 +543,7 @@ std::vector<std::uint32_t> test_picture(UINT width, UINT pane, unsigned feed, un
 int serve(int seconds, const wchar_t* expected_path, bool hardware) {
   Gpu gpu;
   LinkMapping mapping;
-  if (!gpu.open(hardware) || !mapping.open()) {
+  if (!gpu.open(hardware, false) || !mapping.open()) {
     std::printf("FAIL  no Direct3D 12 device or no link\n");
     return 1;
   }

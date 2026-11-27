@@ -375,6 +375,111 @@ void verify_request() {
          "three cameras at 10 on a 50 fps simulator: ten a second each");
 }
 
+// The aircraft path and message the bridge writes and the window reads
+// (write_status_text / read_status_text): never half of one write.
+constexpr char TextPathA[] = "SimObjects\\Airplanes\\FNX_32X\\presets\\fenix\\config\\aircraft.CFG";
+constexpr char TextPathB[] = "SimObjects\\Airplanes\\Asobo_A320_NEO_LEAP\\presets\\asobo\\livery\\config\\aircraft.CFG";
+struct TextHammer {
+  Link* link;
+  volatile LONG stop;
+  LONG writes;
+};
+DWORD WINAPI hammer_text(void* context) {
+  auto& hammer = *static_cast<TextHammer*>(context);
+  for (unsigned i = 0; !InterlockedCompareExchange(&hammer.stop, 0, 0); ++i) {
+    const bool a = i & 1u;
+    write_status_text(*hammer.link, a ? TextPathA : TextPathB, a ? sizeof(TextPathA) : sizeof(TextPathB), a ? "message A" : "message B");
+    InterlockedIncrement(&hammer.writes);
+  }
+  return 0;
+}
+void verify_status_text() {
+  std::printf("-- the aircraft path and message\n");
+  expect(offsetof(Status, feeds) == 472 && offsetof(Status, text_serial) == 464 && sizeof(Status::message) == 156,
+         "the text serial took the end of the old message: the feeds did not move");
+  expect(LinkVersion == 2, "link version 2");
+  static Link link{};
+  char aircraft[sizeof(Status::aircraft)], message[sizeof(Status::message)];
+  expect(read_status_text(link, aircraft, message) && !aircraft[0] && !message[0], "a block nobody wrote reads empty");
+
+  // Every write moves the serial on: odd while writing, the next even after.
+  LONG last = load(link.status.text_serial);
+  bool rising = true;
+  for (unsigned i = 0; i < 8; ++i) {
+    const bool a = i & 1u;
+    write_status_text(link, a ? TextPathA : TextPathB, a ? sizeof(TextPathA) : sizeof(TextPathB), a ? "message A" : "message B");
+    const LONG now = load(link.status.text_serial);
+    rising = rising && (now & 1) == 0 && now == last + 2;
+    last = now;
+  }
+  expect(rising && last == 16, "eight writes: the serial goes 0, 2, 4 ... 16, even after each and larger than the last");
+  expect(read_status_text(link, aircraft, message) && !std::strcmp(aircraft, TextPathA) && !std::strcmp(message, "message A"),
+         "a complete write reads back whole");
+  write_status_text(link, TextPathA, sizeof(TextPathA), "message A");
+  expect(load(link.status.text_serial) == 16, "the same text again is not written: the serial stays");
+  write_status_text(link, nullptr, 0, "only the message");
+  expect(load(link.status.text_serial) == 18 && read_status_text(link, aircraft, message) && !std::strcmp(aircraft, TextPathA) &&
+             !std::strcmp(message, "only the message"),
+         "no aircraft given: the path stays, the message changes");
+
+  // A write in progress (odd) is not read, and what was read before stays.
+  store(link.status.text_serial, 19);
+  std::snprintf(link.status.aircraft, sizeof(link.status.aircraft), "SimObjects\\Airplanes\\FNX_3");  // half written
+  std::memcpy(aircraft, TextPathB, sizeof(TextPathB));
+  std::snprintf(message, sizeof(message), "kept");
+  expect(!read_status_text(link, aircraft, message) && !std::strcmp(aircraft, TextPathB) && !std::strcmp(message, "kept"),
+         "a write in progress is not read: the last complete copy stays");
+  // A bridge that died mid-write left 19: the next write starts there.
+  write_status_text(link, TextPathB, sizeof(TextPathB), "message B");
+  expect(load(link.status.text_serial) == 20 && read_status_text(link, aircraft, message) && !std::strcmp(aircraft, TextPathB),
+         "an odd serial left behind: the next write goes 19 -> 20 and reads whole");
+  // A path that fills the whole field is cut, still NUL-terminated.
+  char full[sizeof(Status::aircraft) + 8];
+  std::memset(full, 'x', sizeof(full));
+  write_status_text(link, full, sizeof(full), "full");
+  expect(read_status_text(link, aircraft, message) && std::strlen(aircraft) == sizeof(aircraft) - 1, "a path too long is cut and terminated");
+
+  // One thread writes two aircraft in turn as fast as it can; every read that
+  // succeeds is exactly one of them, with its own message.
+  write_status_text(link, TextPathA, sizeof(TextPathA), "message A");
+  TextHammer hammer{&link, 0, 0};
+  HANDLE thread = CreateThread(nullptr, 0, hammer_text, &hammer, 0, nullptr);
+  expect(thread != nullptr, "the writer thread starts");
+  unsigned whole = 0, refused = 0, torn = 0;
+  const auto until = GetTickCount64() + 1500;
+  while (thread && GetTickCount64() < until) {
+    if (!read_status_text(link, aircraft, message)) {
+      ++refused;
+      continue;
+    }
+    const bool a = !std::strcmp(aircraft, TextPathA) && !std::strcmp(message, "message A");
+    const bool b = !std::strcmp(aircraft, TextPathB) && !std::strcmp(message, "message B");
+    if (a || b)
+      ++whole;
+    else
+      ++torn;
+  }
+  // The same race read without the serial, for comparison only.
+  unsigned raw_torn = 0;
+  for (unsigned i = 0; thread && i < 200000; ++i) {
+    char raw[sizeof(Status::aircraft)];
+    std::memcpy(raw, link.status.aircraft, sizeof(raw));
+    raw[sizeof(raw) - 1] = '\0';
+    if (std::strcmp(raw, TextPathA) && std::strcmp(raw, TextPathB))
+      ++raw_torn;
+  }
+  InterlockedExchange(&hammer.stop, 1);
+  if (thread) {
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+  }
+  std::printf("      %ld writes; %u whole reads, %u refused, %u torn; %u torn of 200000 reads without the serial\n",
+              static_cast<long>(hammer.writes), whole, refused, torn, raw_torn);
+  expect(torn == 0 && whole > 0, "while the bridge writes: no read is half of one aircraft and half of the next");
+  const LONG end = load(link.status.text_serial);
+  expect((end & 1) == 0 && end > 24, "after the writes the serial is even and has moved on");
+}
+
 void verify_waiting_status() {
   std::printf("-- the window's status while the cameras are created\n");
   const auto all_failed = [](std::uint32_t ticked, std::uint32_t failed) {
@@ -442,6 +547,7 @@ void verify_sent_size() {
 
 int verify(bool hardware) {
   verify_request();
+  verify_status_text();
   verify_waiting_status();
   verify_sent_size();
   Gpu gpu;
@@ -780,7 +886,8 @@ int serve(int seconds, const wchar_t* expected_path, bool hardware) {
     status.view_ms = 5.5f;
     status.fps = request.on ? request.fps : 0;
     status.feed_mask = request.on ? request.feed_mask : 0;
-    std::snprintf(status.aircraft, sizeof(status.aircraft), "SimObjects\\Airplanes\\POLARIS_SELFTEST\\presets\\a\\b\\config\\aircraft.CFG");
+    constexpr char aircraft[] = "SimObjects\\Airplanes\\POLARIS_SELFTEST\\presets\\a\\b\\config\\aircraft.CFG";
+    write_status_text(*link, aircraft, sizeof(aircraft), "");
     status.reason = !request.on ? reason_none : live ? reason_none : reason_starting;
     status.state = !request.on ? link_idle : live ? link_live : link_waiting;
     status.heartbeat_ms = now;

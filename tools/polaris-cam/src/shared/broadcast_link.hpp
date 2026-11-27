@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -21,7 +22,9 @@ inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.1";
 #define POLARIS_CAM_VERSION "0.1.0"
 #define POLARIS_CAM_VERSION_WIDE L"0.1.0"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
-inline constexpr std::uint32_t LinkVersion = 1;
+// Version 2: Status::message is 156 bytes and text_serial guards aircraft
+// and message (write_status_text / read_status_text).
+inline constexpr std::uint32_t LinkVersion = 2;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
 inline constexpr unsigned Slots = 3;  // textures per camera: newest, being read, being written
 inline constexpr std::uint32_t NoSlot = Slots;
@@ -105,10 +108,17 @@ struct Status {
   float view_ms;               // frame time one camera picture costs; 0 unknown
   std::uint32_t fps;           // pictures per second per camera in force
   std::uint32_t feed_mask;     // cameras that render
+  // aircraft and message are written together by write_status_text and read
+  // by read_status_text: text_serial is odd while the bridge writes them, so
+  // the window never acts on half of one path and half of the next.
   char aircraft[260];          // AircraftLoaded path
-  char message[160];
+  char message[156];
+  LONG text_serial;
   FeedStatus feeds[Feeds];
 };
+// text_serial took the last four bytes of the old message[160]: the feeds
+// stay where they were.
+static_assert(offsetof(Status, text_serial) == 464 && offsetof(Status, feeds) == 472, "Status text layout");
 struct Link {
   std::uint32_t magic, version;
   Control control;
@@ -235,6 +245,51 @@ inline void store(LONG& value, LONG next) noexcept {
 }
 inline void store(LONG64& value, LONG64 next) noexcept {
   InterlockedExchange64(&value, next);
+}
+// The bridge's side: aircraft (aircraft_size bytes, NUL-terminated or not)
+// and message, as one change. nullptr keeps the aircraft already there. The
+// bridge is the only writer of these fields, so it may read them back. Each
+// write moves text_serial to the next odd value, then to the even one after
+// it (4 -> 5 -> 6); an odd value left by a bridge that died mid-write is
+// taken as the start of this write (7 -> 8). Nothing changes, nothing is
+// written.
+inline void write_status_text(Link& link, const char* aircraft, std::size_t aircraft_size, const char* message) noexcept {
+  auto& s = link.status;
+  char next_aircraft[sizeof(s.aircraft)]{};
+  char next_message[sizeof(s.message)]{};
+  if (aircraft) {
+    const std::size_t length = strnlen(aircraft, aircraft_size < sizeof(next_aircraft) ? aircraft_size : sizeof(next_aircraft) - 1);
+    std::memcpy(next_aircraft, aircraft, length);
+  } else {
+    std::memcpy(next_aircraft, s.aircraft, sizeof(next_aircraft));
+    next_aircraft[sizeof(next_aircraft) - 1] = '\0';
+  }
+  std::snprintf(next_message, sizeof(next_message), "%s", message ? message : "");
+  if ((load(s.text_serial) & 1) == 0 && std::memcmp(next_aircraft, s.aircraft, sizeof(next_aircraft)) == 0 &&
+      std::memcmp(next_message, s.message, sizeof(next_message)) == 0)
+    return;
+  const LONG begin = load(s.text_serial) | 1;
+  store(s.text_serial, begin);
+  std::memcpy(s.aircraft, next_aircraft, sizeof(s.aircraft));
+  std::memcpy(s.message, next_message, sizeof(s.message));
+  store(s.text_serial, static_cast<LONG>(static_cast<ULONG>(begin) + 1u));  // wraps without overflow
+}
+// The window's side: false while the bridge is writing them or wrote them
+// during the copy; the caller then keeps the last complete copy.
+inline bool read_status_text(const Link& link, char (&aircraft)[sizeof(Status::aircraft)], char (&message)[sizeof(Status::message)]) noexcept {
+  const LONG before = load(link.status.text_serial);
+  if (before & 1)
+    return false;
+  char copy_aircraft[sizeof(aircraft)], copy_message[sizeof(message)];
+  std::memcpy(copy_aircraft, link.status.aircraft, sizeof(copy_aircraft));
+  std::memcpy(copy_message, link.status.message, sizeof(copy_message));
+  if (load(link.status.text_serial) != before)
+    return false;
+  copy_aircraft[sizeof(copy_aircraft) - 1] = '\0';
+  copy_message[sizeof(copy_message) - 1] = '\0';
+  std::memcpy(aircraft, copy_aircraft, sizeof(aircraft));
+  std::memcpy(message, copy_message, sizeof(message));
+  return true;
 }
 inline std::uint64_t publication(std::uint64_t frames, unsigned slot) noexcept {
   return (frames << 8) | (slot & 0xffu);

@@ -52,9 +52,18 @@ Without a simulator, on Windows (the workflow's `test` job, on the software Dire
     polaris-cam-selftest.exe --verify
     pwsh test/window-test.ps1 -Bin <folder with the .exe files> -Out window-test
 
-The first checks every kind of picture `BroadcastOutput` makes against the same arithmetic. The second runs the real window
-against a stand-in for the bridge, saves what the screen shows, and reads each camera's picture back from another process.
-What they cannot show is the part inside the simulator: that is tested by flying.
+The first checks what the bridge decides from the window's request (the request itself, the camera shape it publishes,
+how the ticked cameras spread over the simulator's frames) and every kind of picture `BroadcastOutput` makes against the
+same arithmetic, under the Direct3D debug layer. The second runs the real window against a stand-in for the bridge, saves
+what the screen shows (kept on the `polaris-cam-test` release), and reads each camera's picture back from another process.
+
+`.github/workflows/test-polaris-cam-taxi-cam.yml` puts `src/` over Taxi Cam at the commit it was changed from and runs
+Taxi Cam's own validation, which covers what it does with the broadcast off; then, on Taxi Cam's fixture,
+`test/broadcast_runtime_validation.cpp`: a stand-in simulator queue draws four camera outputs, submits them through the
+real capture manager, and `scene_runtime::service` has to bring each snapshot to its camera's shared picture.
+
+What none of them can show is the part inside the simulator: the views at this size, their cost, and how long it runs.
+That is tested by flying.
 
 ## How a picture travels
 

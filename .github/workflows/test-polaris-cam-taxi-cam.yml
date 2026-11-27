@@ -56,18 +56,30 @@ jobs:
       - name: The compiler Taxi Cam pins
         working-directory: taxi-cam
         run: ./bootstrap.ps1
+      # One of Taxi Cam's tests lets a child process overflow its stack and expects that exact exit code, which the
+      # test machine does not always give (it failed once here between two runs of the same sources): a failed
+      # validation is run once more before it counts.
       - name: Taxi Cam's build and validation
         working-directory: taxi-cam
         run: |
           Start-Transcript -Path build/ci-validation.log
           try {
-            ./build.ps1 -Validate -WarpOnly
+            for ($attempt = 1; ; $attempt++) {
+              try {
+                ./build.ps1 -Validate -WarpOnly
+                break
+              } catch {
+                Write-Output "Validation attempt $attempt failed: $_"
+                if ($attempt -ge 2) { throw }
+              }
+            }
           } finally {
             Stop-Transcript
           }
       # Polaris Cam's own test of the same kind: it needs Taxi Cam's test fixture, so it is built here, with the
       # objects Taxi Cam's build just made
       - name: The broadcast through the real scene runtime and capture manager
+        if: always()
         working-directory: taxi-cam
         run: |
           Copy-Item ../home/tools/polaris-cam/test/broadcast_runtime_validation.cpp tests/graphics/

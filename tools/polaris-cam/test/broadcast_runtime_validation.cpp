@@ -73,6 +73,7 @@ void broadcast_case(bool warp) {
   }
   handoff.begin_scene();
   require(handoff.publish(handoff.begin_capture(), {74, 1}, {201, 202, 203, 204}, handles), "Broadcast publication of four cameras");
+  require(manager.statistics().completed == 0, "No snapshot before the first frame");
 
   // The block the bridge shares with the window: here a plain object.
   static Link link{};
@@ -197,27 +198,32 @@ void broadcast_case(bool warp) {
   const auto slot_of = [&](unsigned feed) { return published_slot(static_cast<std::uint64_t>(load(link.status.feeds[feed].published))); };
   const auto generation_of = [&](unsigned feed) { return static_cast<std::uint32_t>(load(link.status.feeds[feed].generation)); };
 
-  // 1. Cameras 1, 2 and 4 are broadcast; camera 3 renders too but is not ticked.
+  // Camera 4 (the door camera's view) is captured only at the end of a
+  // submission in Taxi Cam, never at a render-target exit as here, so in this
+  // test it is the camera that is ticked but has not rendered yet.
+  // 1. Cameras 1, 2 and 4 are ticked; camera 3 renders too but is not.
   runtime::set_broadcast(key, width, height, 0b1011);
-  frame({&record(0, 200, 30, 20), &record(1, 20, 200, 30), &record(2, 9, 9, 9), &record(3, 30, 20, 200)});
+  frame({&record(0, 200, 30, 20), &record(1, 20, 200, 30), &record(2, 9, 9, 9)});
   auto status = service();
-  require(status.capture.completed == 4, "All four camera snapshots reach the runtime");
-  require(frames_of(0) == 1 && frames_of(1) == 1 && frames_of(3) == 1, "Each ticked camera has its first picture");
-  require(link.status.feeds[0].state == feed_live && link.status.feeds[3].state == feed_live, "They are announced as live");
+  require(status.capture.completed == 3, "All three camera snapshots reach the runtime");
+  require(frames_of(0) == 1 && frames_of(1) == 1, "Each ticked camera that rendered has its first picture");
+  require(link.status.feeds[0].state == feed_live && link.status.feeds[1].state == feed_live, "They are announced as live");
   require(generation_of(2) == 0 && frames_of(2) == 0 && link.status.feeds[2].state == feed_off, "The unticked camera has no textures and no picture");
+  require(generation_of(3) != 0 && frames_of(3) == 0 && link.status.feeds[3].state == feed_waiting,
+          "A ticked camera that has not rendered has its textures and waits");
   require(link.status.feeds[0].width == width && link.status.feeds[0].height == height, "The announced size is the picture's");
-  require(picture(0) == 0xffc81e14u && picture(1) == 0xff14c81eu && picture(3) == 0xff1e14c8u, "Each picture is its own camera's snapshot");
+  require(picture(0) == 0xffc81e14u && picture(1) == 0xff14c81eu, "Each picture is its own camera's snapshot");
   require(!status.output && status.frames == 1, "Nothing was composed for the cockpit displays; the round counts once");
-  const std::array<unsigned, Feeds> first_slot{slot_of(0), slot_of(1), 0, slot_of(3)};
+  const std::array<unsigned, 2> first_slot{slot_of(0), slot_of(1)};
 
   // 2. The next pictures go to another texture than the newest; the one a
   // window says it is copying from is left alone as well.
   store(link.status.feeds[0].reading, static_cast<LONG>(first_slot[0]));
-  frame({&record(0, 10, 20, 30), &record(1, 40, 50, 60)});
+  frame({&record(0, 10, 20, 30)});
   status = service();
-  require(frames_of(0) == 2 && frames_of(1) == 2 && frames_of(3) == 1, "Only the cameras that rendered have a second picture");
-  require(slot_of(0) != first_slot[0] && slot_of(1) != first_slot[1], "The newest picture was not written over");
-  require(picture(0) == 0xff0a141eu && picture(1) == 0xff28323cu && picture(3) == 0xff1e14c8u, "Second pictures, and camera 4's first still there");
+  require(frames_of(0) == 2 && frames_of(1) == 1, "Only the camera that rendered has a second picture");
+  require(slot_of(0) != first_slot[0], "The newest picture was not written over");
+  require(picture(0) == 0xff0a141eu && picture(1) == 0xff14c81eu, "The second picture, and camera 2's first still there");
   const unsigned second_slot = slot_of(0);
   frame({&record(0, 70, 80, 90)});
   status = service();
@@ -226,13 +232,12 @@ void broadcast_case(bool warp) {
   require(picture(0) == 0xff46505au && status.frames == 3, "Third picture; three rounds counted");
 
   // 3. Two renders of one camera before the service runs: the newer one is sent.
-  auto& older = record(1, 1, 2, 3);
-  frame({&older});
+  frame({&record(1, 1, 2, 3)});
   frame({&record(1, 100, 110, 120)});
   status = service();
-  require(picture(1) == 0xff646e78u, "The newest snapshot is the one sent");
+  require(frames_of(1) == 2 && picture(1) == 0xff646e78u && slot_of(1) != first_slot[1], "The newest snapshot is the one sent");
 
-  // 4. Camera 3 ticked instead of 1, 2 and 4: theirs go, its own come.
+  // 4. Camera 3 ticked instead of the others: theirs go, its own come.
   runtime::set_broadcast(key, width, height, 0b0100);
   frame({&record(0, 5, 5, 5), &record(2, 150, 160, 170)});
   status = service();
@@ -285,9 +290,9 @@ void broadcast_case(bool warp) {
       }
     }
   require(errors == 0, "Broadcast GPU debug validation");
-  std::printf("PASS broadcast runtime %s: four cameras' snapshots to their own shared pictures through the real capture manager, an "
-              "unticked camera, the newest and the read texture kept, newest snapshot wins, cameras swapped, another size, off and "
-              "composing again, on again; debug=%d errors=%llu.\n",
+  std::printf("PASS broadcast runtime %s: cameras' snapshots to their own shared pictures through the real capture manager, an "
+              "unticked camera, one yet to render, the newest and the read texture kept, newest snapshot wins, cameras swapped, "
+              "another size, off and composing again, on again; debug=%d errors=%llu.\n",
               warp ? "WARP" : "hardware", debug_enabled, errors);
 }
 }  // namespace

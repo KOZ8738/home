@@ -113,6 +113,25 @@
     111.823333,
     "Baita"
    ]
+  },
+  {
+   "gen": 1795776378,
+   "callsign": "PAW703",
+   "from": "KSFO",
+   "to": "KLAX",
+   "type": "A21N",
+   "reg": "N781PL",
+   "out": 1795782300,
+   "fromPos": [
+    37.618806,
+    -122.375417,
+    "San Francisco Intl"
+   ],
+   "toPos": [
+    33.942497,
+    -118.40805,
+    "Los Angeles Intl"
+   ]
   }
  ]
 }

@@ -13,16 +13,20 @@
      GET  /api/efb/nav/want?icao=        -> { want: { st: 'ask' | 'done' | 'error', err, t } | null }
    Polaris Navdata, with that key (Authorization: Bearer); it is good for nothing else:
      POST /api/nav/ticket                -> { ticket }     for /api/efb/pfd/ws?nav=1&ticket= (it only ever sends)
-     GET  /api/nav/flight                -> { flight: { fid, flight, from, to, at } | null, oo: { OUT, OFF, ON, IN },
-                                              want: [ICAO] }
+     GET  /api/nav/flight[?desk=1]       -> { flight: { fid, flight, from, to, at } | null, oo: { OUT, OFF, ON, IN },
+                                              want: [ICAO], desk: bool }
                                             the plan the pilot has loaded (kept by the EFB's plan sync), the times
-                                            already kept for it, and the airports a device asked for
+                                            already kept for it, the airports a device asked for, and whether the
+                                            broadcast desk is set to this pilot's flight (desk.js; asked only by a
+                                            Navdata with OBS set up: desk=1)
+     GET  /api/nav/desk/ws?ticket=       (WebSocket, a ticket as above) the broadcast desk, for OBS on that PC
      POST /api/nav/gsx     { v, ac, fid, oo, land }        Ground's values (as the EFB's /api/efb/gsx), the times it
                                             stamped (only empty ones are filled) and the last touchdown
      POST /api/nav/navproc { data }      an airport's procedures read from the simulator
                            { icao, error }  or why they could not be (the airport is not in its data) */
 import { sessionOf, navPair, navList, navUnpair, navUser, navWsTicket } from './auth.js';
 import { crew } from './crew.js';
+import { deskOn, deskNav } from './desk.js';
 
 export async function navRoute(req, url, env, h) {
   const res = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -46,14 +50,16 @@ export async function navRoute(req, url, env, h) {
     return res({ error: 'Not found' }, 404);
   }
   /* ---- Polaris Navdata ---- */
+  /* the broadcast desk: a WebSocket, with a ticket (from /api/nav/ticket) as the PFD relay's */
+  if (path === '/api/nav/desk/ws') return deskNav(req, url, env);
   const nav = await navUser(req, env);
   if (!nav) return res({ error: 'Not paired (pair Polaris Navdata again on the EFB, Ground > Simulator PC)' }, 401);
   const u = nav.u;
   if (path === '/api/nav/ticket' && req.method === 'POST') return res({ ticket: await navWsTicket(env, u) });
   if (path === '/api/nav/flight' && req.method === 'GET') {
-    const [s, g, w] = await Promise.all([crew(env, { op: 'syncGet', u }), crew(env, { op: 'gsxGet', u }), crew(env, { op: 'navWant', u, get: true })]);
+    const [s, g, w, desk] = await Promise.all([crew(env, { op: 'syncGet', u }), crew(env, { op: 'gsxGet', u }), crew(env, { op: 'navWant', u, get: true }), url.searchParams.get('desk') === '1' ? deskOn(env, u) : false]);
     const o = s && s.sync && s.sync.ofp, fl = o && !o.cleared && o.id ? { fid: String(o.id), flight: o.flight || '', from: o.from || '', to: o.to || '', at: o.at || 0 } : null;
-    return res({ flight: fl, oo: fl && g && g.gsx && g.gsx.fid === fl.fid ? g.gsx.oo || {} : {}, want: (w && w.want) || [] });
+    return res({ flight: fl, oo: fl && g && g.gsx && g.gsx.fid === fl.fid ? g.gsx.oo || {} : {}, want: (w && w.want) || [], desk });
   }
   if (path === '/api/nav/gsx' && req.method === 'POST') {
     const b = await body(20000); if (!b) return res({ error: 'Bad body' }, 400);

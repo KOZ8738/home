@@ -79,6 +79,8 @@ import { kbPublic, appsPublic, wxPrefsPublic } from './kb.js';
 export { Kneeboard } from './kb.js';
 export { PfdRelay } from './pfd.js';
 export { Taskboard } from './tasks.js';
+export { LiveDesk } from './desk.js';
+import { deskPublic } from './desk.js';
 import { pfdRoute } from './pfd.js';
 import { shareRoute } from './share.js';
 import { navRoute } from './nav.js';
@@ -1721,7 +1723,9 @@ export default {
       return kbPublic(req, new URL(req.url), env, h, me);
     }
     /* Polaris Navdata on the pilot's simulator PC, sending without an EFB open there (see nav.js) */
-    if (/^\/api\/(efb\/nav\/(pair|pairs|unpair|want)|nav\/(ticket|flight|gsx|navproc))\/?$/.test(new URL(req.url).pathname)) { try { return await navRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
+    if (/^\/api\/(efb\/nav\/(pair|pairs|unpair|want)|nav\/(ticket|flight|gsx|navproc|desk\/ws))\/?$/.test(new URL(req.url).pathname)) { try { return await navRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, e.status || 500, h); } }
+    /* the broadcast desk's overlay page, for OBS on the streaming pilot's PC (see desk.js) */
+    if (/^\/live\/o\/[A-Za-z0-9_-]{24,40}(\/ws)?\/?$/.test(new URL(req.url).pathname)) { try { const r = await deskPublic(req, new URL(req.url), env); if (r) return r; } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Share my flight: the pilot's link and the public page (see share.js) */
     if (/^\/(api\/efb\/share|s\/[A-Za-z0-9_-]+(\/data)?)\/?$/.test(new URL(req.url).pathname)) { try { const r = await shareRoute(req, new URL(req.url), env, h, { pawLive }); if (r) return r; } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */

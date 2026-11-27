@@ -12,6 +12,7 @@
    Vars:        ACCESS_TEAM_DOMAIN (e.g. polaris.cloudflareaccess.com), ACCESS_AUD (the Access application's AUD tag),
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
+import { deskAdmin } from './desk.js';
 import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
 import { crew, mailTo, mailPayload, crewTo, toMatch } from './crew.js';
@@ -135,9 +136,9 @@ function cleanSettings(b) {
    one is turned away. Every request is checked here: reading by the pages a role sees (READS: what each page shows;
    Home shows the parts of those pages, so it has none of its own), changing things by what it may change. */
 const ROLES = 'admin:v1:roles';
-export const ROLE_PAGES = ['fw', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
-export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings', 'tasks'];
-const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change automatic messages or the message templates', tasks: 'publish tasks' };
+export const ROLE_PAGES = ['fw', 'bc', 'gates', 'reports', 'navdata', 'pilots', 'cal', 'comms', 'docs', 'settings'];
+export const ROLE_ACTS = ['msg', 'gates', 'delay', 'cal', 'docs', 'docsdel', 'pilots', 'navdata', 'settings', 'tasks', 'live'];
+const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give delay reasons', cal: 'edit the calendar', docs: 'upload or edit documents', docsdel: 'delete documents', pilots: 'sign pilots out', navdata: 'run Nav Data checks or uploads', settings: 'change automatic messages or the message templates', tasks: 'publish tasks', live: 'direct the live broadcast' };
 /* the role there was before roles could be edited, kept until an administrator changes or deletes it */
 const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
@@ -183,7 +184,7 @@ export async function taskStaff(env) {
   for (const [e, p] of Object.entries(R.people)) if (p && (p.role === 'admin' || own(R.roles, p.role))) ppl[e] = p.role;
   return { ppl, names: { admin: 'Administrator', ...Object.fromEntries(Object.entries(R.roles).map(([id, r]) => [id, (r && r.name) || id])) } };
 }
-const PAGE_NAME = { fw: 'Flight Watch', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Automatic messages' };
+const PAGE_NAME = { fw: 'Flight Watch', bc: 'Broadcast', gates: 'Gates', reports: 'Reports', navdata: 'Nav Data', pilots: 'Pilots', cal: 'Calendar', comms: 'Messages', docs: 'Documents', settings: 'Automatic messages' };
 /* who may read what: the pages it is shown on, any one of them (none listed: every role). The Messages composer
    (also opened from Flight Watch) needs the From names and templates; the pilot list picks recipients (Messages,
    Calendar) and shows who confirmed a document; a pilot's profile shows their flight and recent flights.
@@ -205,6 +206,7 @@ const READS = [
   [/^\/admin\/api\/cal(\/|$)/, ['cal']],
   [/^\/admin\/api\/watch$/, ['fw']],
   [/^\/admin\/api\/navdata(\/|$)/, ['navdata']],
+  [/^\/admin\/api\/desk(\/|$)/, ['bc']],
 ];
 const readPages = (path) => { for (const [re, p] of READS) if (re.test(path)) return p; return null; };
 /* the classes the admin page hides what a role does not see or may not change by (Settings › Roles) */
@@ -214,6 +216,7 @@ const permClass = (perm) => [...ROLE_PAGES.filter((p) => !perm.pages.includes(p)
 function roleNeeds(method, path) {
   if (/^\/admin\/api\/(roles|pirep-probe|bookings-probe|ops-probe|eaip-probe|chart-pdf|chart-fixes|chart-list)(\/|$)/.test(path)) return 'admin';
   if (method === 'GET' || method === 'HEAD' || path === '/admin/api/aoctpl/preview' || path === '/admin/api/stands/try') return 'read';
+  if (path === '/admin/api/desk') return 'live';
   if (/^\/admin\/api\/(mail|aoc|inbox)(\/|$)/.test(path)) return 'msg';
   if (path === '/admin/api/stands') return 'stands';
   if (/^\/admin\/api\/stands\//.test(path)) return 'gates';
@@ -359,6 +362,8 @@ export async function mailAdmin(req, url, env, opts) {
     const ok = opts && opts.signOut ? await opts.signOut(String(b.username || '').toUpperCase().replace(/[^A-Z0-9]/g, '')) : false;
     return ok ? jsonRes({ ok: true }) : jsonRes({ error: 'That pilot has not signed in to the EFB' }, 404);
   }
+  /* Broadcast: the live broadcast desk (desk.js); its WebSocket for whoever sees the page, directing for those who may */
+  if (path === '/admin/api/desk' || path === '/admin/api/desk/ws') return deskAdmin(req, url, env, who, perm.can.includes('live'));
   /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
   if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
   if (path === '/admin/api/live') {

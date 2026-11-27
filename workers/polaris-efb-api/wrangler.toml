@@ -49,6 +49,12 @@ class_name = "PfdRelay"
 name = "TASKS"
 class_name = "Taskboard"
 
+# DESK the broadcast desk in the Operations admin (Broadcast): OBS on the streaming pilot's simulator PC, through
+#      Polaris Navdata there, and the overlay page OBS shows (src/desk.js)
+[[durable_objects.bindings]]
+name = "DESK"
+class_name = "LiveDesk"
+
 # EMAIL  the AIRAC reminder emails to the staff who may update Nav Data (src/airacmail.js), and the task emails to the
 #        staff a task concerns (src/taskmail.js), Cloudflare Email Service.
 #        Sent from MAIL_FROM below. One-time setup in Cloudflare: koz8738.com › Email › Email Routing turned on, and, on the
@@ -76,6 +82,10 @@ new_sqlite_classes = ["PfdRelay"]
 [[migrations]]
 tag = "tasks-v1"
 new_sqlite_classes = ["Taskboard"]
+
+[[migrations]]
+tag = "desk-v1"
+new_sqlite_classes = ["LiveDesk"]
 
 [triggers]
 crons = ["*/20 * * * *", "*/2 * * * *"]   # */2: automatic stand assignment (src/stands.js)

@@ -850,7 +850,7 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 }
 
 /* ---------- Roles (Nov 2026): what a role may not see or change is not offered (the server checks it as well) ---------- */
-html.no-p-fw .side a[data-tab="fw"],html.no-p-gates .side a[data-tab="gates"],html.no-p-reports .side a[data-tab="reports"],html.no-p-navdata .side a[data-tab="navdata"],html.no-p-pilots .side a[data-tab="pilots"],html.no-p-cal .side a[data-tab="cal"],html.no-p-comms .side a[data-tab="comms"],html.no-p-docs .side a[data-tab="docs"],html.no-p-settings .side a[data-tab="auto"],html.no-a-roles .side a[data-tab="settings"],html.no-p-settings .au-lk{display:none!important}
+html.no-p-fw .side a[data-tab="fw"],html.no-p-bc .side a[data-tab="bc"],html.no-p-gates .side a[data-tab="gates"],html.no-p-reports .side a[data-tab="reports"],html.no-p-navdata .side a[data-tab="navdata"],html.no-p-pilots .side a[data-tab="pilots"],html.no-p-cal .side a[data-tab="cal"],html.no-p-comms .side a[data-tab="comms"],html.no-p-docs .side a[data-tab="docs"],html.no-p-settings .side a[data-tab="auto"],html.no-a-roles .side a[data-tab="settings"],html.no-p-settings .au-lk{display:none!important}
 html.no-a-msg :is([data-cmnew],[data-edit],[data-del],[data-acdel],[data-ibdone],.ib-r,[data-fwaoc],.fo-c,[data-plmail]){display:none!important}
 html.no-a-gates :is(#stSave,[data-st],[data-strm],[data-stup],[data-sted],[data-staadd],[data-stchg],[data-stsend],[data-fog],.fo-ge,.gp-a,.gt-act){display:none!important}
 html.no-a-delay :is([data-otr],#foReason){pointer-events:none;opacity:.6}
@@ -873,6 +873,74 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 .rl-c input{margin-top:3px}.rl-c small{display:block;color:var(--label);font-size:12px}
 .rl-ed .actions{margin-top:12px}
 @media(max-width:600px){.rl-g:not(.acts){grid-template-columns:1fr 1fr}}
+/* Broadcast (Nov 2026): the live broadcast desk */
+main#bc{display:block;max-width:1480px}main#bc[hidden]{display:none!important}
+#bc>section,#bc>.bc-cols{margin-bottom:18px}
+.bc-top .pg-h{flex-wrap:wrap;margin:0}.bc-top .pg-h>#bcSetB{margin-left:auto}
+.bc-st{display:flex;flex-wrap:wrap;gap:6px;margin-left:6px}
+.bc-c{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;border-radius:999px;padding:3px 10px;background:var(--soft);border:1px solid var(--line);color:var(--label);white-space:nowrap}
+.bc-c i{width:8px;height:8px;border-radius:50%;background:var(--off);flex:none}
+.bc-c.ok i{background:#30A46C}.bc-c.warn i{background:#E2A336}.bc-c.bad i{background:#E5484D}
+.bc-c.air{background:#E5484D;border-color:#E5484D;color:#fff;font-weight:600;letter-spacing:.04em;font-variant-numeric:tabular-nums}.bc-c.air i{background:#fff;animation:bcp 1.6s ease-in-out infinite}
+@keyframes bcp{50%{opacity:.3}}
+.bc-set{border-top:1px solid var(--line);margin-top:16px;padding-top:4px}
+.bc-set>.au-sw{margin:14px 0 4px}
+.bc-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0 16px}
+.bc-set .actions{margin-top:14px}
+.bc-url{margin-top:18px;padding-top:4px;border-top:1px solid var(--line)}
+.bc-urlr{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.bc-urlr input{flex:1 1 320px;width:auto;font:13px "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--label)}
+.bc-urlr a{font-size:13.5px;color:var(--accent)}
+.bc-mon{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:20px;align-items:start}
+.bc-cap{display:flex;align-items:center;gap:10px;margin-bottom:8px;min-width:0;min-height:24px}.bc-cap b{flex:none;font:600 12px Jost,system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+.bc-cap span{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.bc-cap em{flex:none;font-style:normal;font:600 11px Jost,system-ui,sans-serif;letter-spacing:.1em;background:#E5484D;color:#fff;border-radius:4px;padding:2px 7px;margin-left:auto}
+.bc-fr{position:relative;display:block;aspect-ratio:16/9;background:#000;border-radius:6px;overflow:hidden}
+.bc-fr img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.bc-ph{position:absolute;inset:0;display:grid;place-items:center;color:#8E8E93;font-size:13px;text-align:center;padding:10px}
+.bc-pgm.air .bc-fr{box-shadow:0 0 0 3px #E5484D}.bc-pvw .bc-fr.pv{box-shadow:0 0 0 3px #30A46C}
+.bc-take{display:flex;gap:10px;margin-top:14px}.bc-take #bcTake{flex:1;font-size:18px;font-weight:600;letter-spacing:.14em;padding:14px}
+.bc-take #bcTake:disabled{opacity:.45;cursor:default}.bc-take #bcBrb{padding:14px 16px}
+.bc-pvw .hint{margin-top:8px}
+.bc-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:12px}
+.bc-tile{padding:0;text-align:left;background:var(--soft);border:2px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;font-weight:400}
+.bc-tile .bc-fr{border-radius:0}.bc-tile:hover{border-color:var(--accent)}
+.bc-tile.on{border-color:#E5484D}.bc-tile.pv{border-color:#30A46C}
+.bc-tn{display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:13.5px;font-weight:500;min-width:0}
+.bc-tn i{font-style:normal;flex:none;width:20px;height:20px;border-radius:4px;background:var(--mist);color:var(--label);font:600 12px/20px Jost,system-ui,sans-serif;text-align:center}
+.bc-tn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-tag{position:absolute;left:8px;top:8px;font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.08em;border-radius:4px;padding:2px 6px;color:#fff;background:#E5484D}.bc-tag.pv{background:#30A46C}
+.bc-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+@media(max-width:1180px){.bc-cols{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.bc-mon,.bc-cols{grid-template-columns:1fr}}
+.bc-ovs .au-sw{margin:12px 0}
+.bc-auto .lh .au-sw{flex:none}
+.bc-rule{display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;align-items:center;padding:6px 8px;border-radius:6px;margin:0 -8px}
+.bc-rule.now{background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.bc-rule>b{font-size:13px;font-weight:500}.bc-rule.now>b{color:var(--accent)}
+.bc-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-width:0}
+.bc-chip{display:inline-flex;align-items:center;gap:2px;font-size:12.5px;background:var(--mist);border-radius:999px;padding:2px 3px 2px 10px;max-width:100%}
+.bc-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-chip button{border:0;background:none;padding:0 6px;font-size:15px;line-height:1;color:var(--label)}
+.bc-chips select{width:auto;max-width:150px;padding:3px 6px;font-size:12.5px}
+.bc-chips .none{font-size:12.5px;color:var(--label)}
+.bc-auto label[for=bcEvery]{margin-top:12px}.bc-auto #bcEvery{width:auto;padding:5px 9px;font-size:13.5px}
+.bc-fh{font-weight:500;margin:0 0 2px}.bc-fh b{font:600 16px "IBM Plex Mono",ui-monospace,Consolas,monospace;margin-right:8px}
+.bc-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px 14px;margin:12px 0}
+.bc-kv small{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--label)}.bc-kv b{font:500 19px Jost,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bc-kv b i{font-style:normal;font-size:12px;color:var(--label);margin-left:3px}
+.bc-oo{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--label)}.bc-oo b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.bc-hr{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}.bc-hr:first-child{border-top:0}
+.bc-hr i{width:9px;height:9px;border-radius:50%;flex:none;background:var(--off)}.bc-hr.ok i{background:#30A46C}.bc-hr.warn i{background:#E2A336}.bc-hr.bad i{background:#E5484D}
+.bc-hr span{color:var(--label);flex:1;min-width:0}.bc-hr b{font-weight:500;text-align:right}
+.bc-em button{display:block;width:100%;margin:0 0 8px;text-align:left}
+.bc-em button.arm{background:#E5484D;border-color:#E5484D;color:#fff}
+.bc-em button:disabled{opacity:.5;cursor:default}
+.bc-em .hint{margin:4px 0 0}
+#bcLog{max-height:360px;overflow-y:auto}
+.bc-l{font-size:13px;padding:6px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:50px minmax(0,1fr);gap:8px}.bc-l:first-child{border-top:0}
+.bc-l time{color:var(--label);font-variant-numeric:tabular-nums}.bc-l small{display:block;color:var(--label);font-size:12px}
+.bc-sm{padding:5px 11px;font-size:13px}
+html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </style></head><body>
 <header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Operations</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
 <!--DENIED-->
@@ -881,6 +949,7 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 <a href="#tasks" data-tab="tasks"><svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M7.8 9.2l1.5 1.5 2.7-2.7M7.8 15.2l1.5 1.5 2.7-2.7M14.6 9.6h2.6M14.6 15.6h2.6"/></svg><span>Tasks</span><span class="lv-n" id="tkCount" hidden></span></a>
 <div class="sg" data-sg="ops">Operations</div>
 <a href="#fw" data-tab="fw"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg><span>Flight Watch</span><span class="lv-n" id="lvCount" hidden></span><span class="fw-n" id="fwN" hidden></span></a>
+<a href="#bc" data-tab="bc"><svg viewBox="0 0 24 24"><rect x="3" y="6.5" width="12.5" height="11" rx="2"/><path d="M15.5 10.4 21 7.5v9l-5.5-2.9"/></svg><span>Broadcast</span></a>
 <a href="#gates" data-tab="gates"><svg viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M5.5 20.5V8.5l6.5-4 6.5 4v12"/><path d="M9.5 20.5v-6h5v6"/></svg><span>Gates</span></a>
 <a href="#auto" data-tab="auto"><svg viewBox="0 0 24 24"><path d="M20.5 3.5 3.5 10.6l6.9 2.5 2.5 6.9z"/><path d="M10.4 13.1 20.5 3.5"/></svg><span>Automatic messages</span></a>
 <a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-5M12 16.5V7M17 16.5v-8"/></svg><span>Reports</span></a>
@@ -1020,6 +1089,44 @@ html.no-a-settings #auto .au-sw input{pointer-events:none;opacity:.55}
 </section>
 <section class="set-moved"><div><h2>Moved</h2><p>The automatic AOC messages have their own page; the From names and AOC templates are in Messages.</p></div><div><a class="lk" href="#auto">Automatic messages ›</a><a class="lk" href="#templates">From names and templates ›</a></div></section>
 </main>
+<main id="bc" hidden>
+<section class="bc-top">
+ <div class="pg-h"><h2>Broadcast</h2><details class="help"><summary aria-label="About the broadcast desk">?</summary><div><p>The live broadcast desk: what OBS shows on the streaming pilot’s simulator PC, with its scenes switched from here. OBS sends the stream to YouTube itself; none of it goes through Polaris.</p><p>On that PC: OBS Studio with its WebSocket Server on (OBS › Tools › WebSocket Server Settings), and Polaris Navdata 1.7 or later set up for it on the EFB there (Ground › Simulator PC › Broadcast). Put the pilot’s flight on the desk under Setup: their PC joins within about half a minute.</p><p>Pick a scene to see it in Preview; TAKE (or Space) puts it on air, and what was on air comes back to Preview. Keys 1–9 pick the scenes in order. The auto director switches by the flight’s phase by itself (a phase with several scenes takes them in turn, every few minutes); TAKE turns it off.</p><p>The overlays are a Browser source in OBS showing the link under Setup; they show only while the flight is on the desk. A new link stops the old one.</p><p>Starting and ending the stream from here works only if it is allowed on the EFB on the simulator PC. If the PC drops off the desk, OBS keeps streaming what is on air.</p><p>The pictures here are small and come only while this page is open; they cost the stream nothing.</p></div></details>
+ <div class="bc-st" id="bcSt"></div>
+ <button type="button" id="bcSetB" aria-expanded="false" aria-controls="bcSet">Setup</button></div>
+ <div id="bcMsg"></div>
+ <div class="bc-set" id="bcSet" hidden>
+  <label class="au-sw"><input type="checkbox" id="bcOnC" class="bc-act"><span><b>Flight on the desk</b><small>The pilot’s simulator PC joins while it is on.</small></span></label>
+  <div class="bc-g">
+   <div><label for="bcPilot">Streaming pilot</label><input type="text" id="bcPilot" class="bc-act" placeholder="PAW0006" maxlength="10" autocomplete="off" spellcheck="false"></div>
+   <div><label for="bcSlate">“Back soon” scene</label><select id="bcSlate" class="bc-act"></select></div>
+   <div><label for="bcTitle">Overlay title</label><input type="text" id="bcTitle" class="bc-act" placeholder="First flight" maxlength="80"></div>
+   <div><label for="bcSub">Line under it</label><input type="text" id="bcSub" class="bc-act" placeholder="From the pilot’s plan" maxlength="120"></div>
+  </div>
+  <div class="actions"><button type="button" class="primary bc-act" id="bcSave">Save</button></div>
+  <div class="bc-url" id="bcUrlW" hidden><label for="bcUrl">The overlay, for OBS</label><div class="bc-urlr"><input type="text" id="bcUrl" readonly><button type="button" id="bcCopy">Copy</button><button type="button" class="bc-act" id="bcTok">New link</button><a id="bcDemo" target="_blank" rel="noopener">See it with sample numbers</a></div>
+   <p class="hint">OBS › Sources › + › Browser: this link, 1920 × 1080, at the top of each camera scene.</p></div>
+ </div>
+</section>
+<section class="bc-mon">
+ <div class="bc-pgm" id="bcPgm"><div class="bc-cap"><b>Program</b><span id="bcPgmN">—</span><em id="bcAir" hidden>ON AIR</em></div><div class="bc-fr"><img id="bcPgmI" alt="" hidden><span class="bc-ph" id="bcPgmE">No picture</span></div></div>
+ <div class="bc-pvw"><div class="bc-cap"><b>Preview</b><span id="bcPvwN">—</span></div><div class="bc-fr" id="bcPvwF"><img id="bcPvwI" alt="" hidden><span class="bc-ph" id="bcPvwE">Pick a scene below</span></div>
+  <div class="bc-take"><button type="button" class="primary bc-act" id="bcTake" disabled>TAKE</button><button type="button" class="bc-act" id="bcBrb">Back soon</button></div>
+  <p class="hint">Keys 1–9 pick a scene · Space takes it</p></div>
+</section>
+<section class="bc-wall"><div class="lh"><h2>Cameras and scenes</h2><button type="button" class="bc-act bc-sm" id="bcRef">Ask OBS again</button></div><div class="bc-tiles" id="bcTiles"></div></section>
+<div class="bc-cols">
+ <section class="bc-ovs"><h2>Overlays on the picture</h2><div id="bcOv"></div></section>
+ <section class="bc-auto"><div class="lh"><h2>Auto director</h2><label class="au-sw"><input type="checkbox" id="bcAuto" class="bc-act" aria-label="Auto director"></label></div><p class="hint" id="bcAutoH"></p><div id="bcRules"></div>
+  <label for="bcEvery">Change every</label><select id="bcEvery" class="bc-act"><option value="60">minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></section>
+ <section class="bc-fl"><h2>The flight</h2><div id="bcFl"></div></section>
+</div>
+<div class="bc-cols">
+ <section class="bc-hl"><h2>Stream health</h2><div id="bcHl"></div></section>
+ <section class="bc-em"><h2>If something goes wrong</h2><div id="bcEm"></div></section>
+ <section class="bc-lg"><h2>Log</h2><div id="bcLog"></div></section>
+</div>
+</main>
 <main id="navdata" hidden>
 <section class="nd-top">
  <div class="pg-h"><h2>Nav Data</h2><details class="help"><summary aria-label="About Nav Data">?</summary><div><p>Where the EFB’s navigation data comes from, region by region, and whether each source is current. Most sources update themselves; China’s AIP data set is uploaded here each AIRAC, because the CAAC eAIP needs a sign-in.</p><p>The sources are checked about every 6 hours, a few at a time. Check asks one again now; Check all goes through them three at a time, with a bar to show how far it has got, and Stop ends it after the ones in hand. Nothing here changes the data itself.</p></div></details><span class="nd-sum" id="ndSum"></span><button type="button" id="ndAll">Check all</button></div>
@@ -1077,8 +1184,8 @@ const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"shor
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 /* ---------- pages: the sidebar's sections, one at a time (Nov 2026). Old addresses (#mail, #live, #ot, #inbox,
    #stands, #aoc) open the page that has their part now. ---------- */
-const PG={home:"home",tasks:"tasks",fw:"live",gates:"stands",auto:"auto",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
-const PG_T={home:"Home",tasks:"Tasks",fw:"Flight Watch",gates:"Gates",auto:"Automatic messages",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
+const PG={home:"home",tasks:"tasks",fw:"live",bc:"bc",gates:"stands",auto:"auto",reports:"ot",navdata:"navdata",pilots:"pilots",cal:"cal",comms:"comms",docs:"docs",settings:"settings"};
+const PG_T={home:"Home",tasks:"Tasks",fw:"Flight Watch",bc:"Broadcast",gates:"Gates",auto:"Automatic messages",reports:"Reports",navdata:"Nav Data",pilots:"Pilots",cal:"Calendar",comms:"Messages",docs:"Documents",settings:"Settings"};
 const PG_OLD={live:"fw",stands:"gates",ot:"reports",mail:"comms",inbox:"comms",aoc:"comms",templates:"comms",sent:"comms"};
 const PG_LOAD={},PG_TICK={};let pgNow="",pgTimer=0,pgAsk="";
 const pgOf=()=>{const h=location.hash.slice(1);return PG[h]?h:PG_OLD[h]||"home"};
@@ -1101,8 +1208,8 @@ function route(){pgFix();if(document.querySelector(".deny"))return;let p=pgOf();
    and is asked again (/admin/api/me) when the page comes back into view, so a role changed meanwhile shows. Data is
    asked for only from a page the role sees (the server checks the same: READS in mail.js). ---------- */
 let ROLE="admin",PERM=null,ME_AT=0,ROLES_ON=false;
-const RL_PAGES=[["fw","Flight Watch"],["gates","Gates"],["settings","Automatic messages"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"]];
-const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["settings","Change automatic messages","On or off, timing and wording; the From names and AOC templates in Messages","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
+const RL_PAGES=[["fw","Flight Watch"],["bc","Broadcast"],["gates","Gates"],["settings","Automatic messages"],["reports","Reports"],["navdata","Nav Data"],["pilots","Pilots"],["cal","Calendar"],["comms","Messages"],["docs","Documents"]];
+const RL_ACTS=[["msg","Send messages","Notices, AOC messages and inbox replies, also from Flight Watch and Pilots","comms"],["gates","Change gates","The gate plan, and a flight’s gate (sends GATE CHANGE)","gates"],["delay","Delay reasons","On a flight in Flight Watch, and in Reports","reports"],["cal","Edit the calendar","Entries, and which vAMSYS events show","cal"],["docs","Upload and edit documents","New documents, their details, replacing a file","docs"],["docsdel","Delete documents","","docs"],["pilots","Sign pilots out","Ends a pilot’s EFB sign-ins on every device","pilots"],["navdata","Nav Data checks and uploads","Checking sources, uploading AIP Japan and China charts","navdata"],["live","Direct the live broadcast","Scenes, overlays and the auto director on Broadcast; starting and ending the stream","bc"],["settings","Change automatic messages","On or off, timing and wording; the From names and AOC templates in Messages","settings"],["tasks","Publish tasks","Make tasks for any department, change and delete them, and see what every department is doing",""]];
 /* Automatic messages is the role page "settings" (its name before Nov 2026); Settings itself (People, Roles) is for administrators */
 const pgHas=p=>!PERM||(p==="settings"?PERM.can.has("roles"):PERM.pages.has(p==="auto"?"settings":p));
 function permSet(j){ROLE=j.role||"admin";ROLES_ON=!!j.roles;const R=document.documentElement;
@@ -2795,6 +2902,173 @@ function plProfUi(){const el=$("#plProf"),u=PL.sel,m=$("#pilots");if(!el)return;
   (pgHas("docs")&&D.length?'<div class="fo-s"><h4>Documents to confirm</h4>'+D.map(d=>{const r=(A[d.id]||{})[u],ok=r&&r.v===d.v;return '<div class="pf-m"><span class="pf-d '+(ok?"ok":"no")+'">'+(ok?"✓":"–")+"</span><span>"+esc(d.title)+"</span><time>"+(ok?cmWhen(r.t):r?"read v"+r.v:"not read")+"</time></div>"}).join("")+"</div>":"")}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-plp],[data-plx]");if(!b)return;
  if(b.dataset.plp){plOpen(b.dataset.plp);return}PL.sel="";plUi();plProfUi()});
+/* ---------- Broadcast (Nov 2026): the live broadcast desk (desk.js). What OBS shows on the streaming pilot's simulator
+   PC, through Polaris Navdata there, and its scenes switched from here: TAKE puts Preview on air, the auto director
+   switches by the flight's phase, the overlays are OBS's Browser source showing /live/o/<token>. Those who see the page
+   watch; those who may direct the live broadcast change it (the server decides which, by the role). OBS's pictures
+   come only while this page is open and in view. ---------- */
+const BC={ws:null,want:false,role:"",me:"",cfg:null,pc:{on:false},pvw:"",imgs:{},log:[],plan:null,oo:null,land:null,fl:null,flAt:0,ph:"",n:0,cb:{},arm:"",armT:0,hidT:0,tileKey:"",retry:0,dirty:false,conn:false};
+const BC_PH=[["parked","Parked"],["taxi","Taxi"],["takeoff","Takeoff"],["climb","Climb"],["cruise","Cruise"],["descent","Descent"],["approach","Approach"],["landing","Landing"]];
+const BC_PN=Object.fromEntries(BC_PH);
+const BC_OV=[["lt","Name and route","Bottom left"],["data","Flight data","Bottom right"],["map","Map","Top right"],["live","LIVE and logo","Top left"]];
+const BC_SLATE=/back|brb|soon|slate|hold|break|intermission|稍後|休息|待機/i;
+const bcDir=()=>BC.role==="dir";
+const bcPcOn=()=>!!(BC.pc&&BC.pc.on);
+const bcObsOn=()=>bcPcOn()&&BC.pc.obs&&BC.pc.obs.st==="on";
+const bcScenes=()=>(bcObsOn()&&BC.pc.scenes)||[];
+const bcSlate=()=>{const c=BC.cfg||{},L=bcScenes();return c.slate&&L.includes(c.slate)?c.slate:L.find(s=>BC_SLATE.test(s))||""};
+const bcDur=ms=>{const s=Math.max(0,Math.floor((ms||0)/1000));return String(Math.floor(s/3600)).padStart(2,"0")+":"+String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+const bcHm=t=>new Date(t).toISOString().slice(11,16)+"Z";
+const bcK=v=>Math.round(v).toLocaleString("en-US");
+const bcSt=()=>(bcPcOn()&&BC.pc.stats)||null;
+function bcSay(t,ok){const m=$("#bcMsg");if(!m)return;m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":"";if(t&&ok)setTimeout(()=>{if(m.textContent===t)m.innerHTML=""},3500)}
+/* the desk, live */
+function bcOpen(){if(BC.ws||!BC.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/admin/api/desk/ws")}catch(e){return}
+ BC.ws=w;w.onopen=()=>{BC.conn=true};
+ w.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)bcIn(j)};
+ w.onclose=()=>{if(BC.ws!==w)return;BC.ws=null;BC.conn=false;BC.role="";bcAll();if(BC.want){clearTimeout(BC.retry);BC.retry=setTimeout(bcOpen,3000)}};
+ w.onerror=()=>{}}
+function bcClose(){BC.want=false;clearTimeout(BC.retry);const w=BC.ws;BC.ws=null;BC.conn=false;if(w)try{w.close()}catch(e){}}
+setInterval(()=>{if(BC.ws&&BC.ws.readyState===1)try{BC.ws.send("ping")}catch(e){}},30000);
+function bcIn(j){const P=BC.pc;switch(j.t){
+ case "hello":BC.role=j.role;BC.me=j.me||"";BC.cfg=j.cfg;BC.pc=j.pc||{on:false};BC.pvw=j.pvw||"";BC.log=j.log||[];BC.plan=j.plan||null;BC.oo=j.oo||null;BC.land=j.land||null;BC.fl=BC.pc.fl||null;BC.flAt=BC.pc.flAt||0;BC.ph=BC.pc.ph||"";BC.imgs={};BC.tileKey="";bcAll();break;
+ case "cfg":BC.cfg=j.cfg;bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcMon();break;
+ case "pc":BC.pc=j.pc||{on:false};if(!BC.pc.on){BC.imgs={};BC.fl=null;BC.ph=""}else{BC.fl=BC.pc.fl||null;BC.ph=BC.pc.ph||""}BC.tileKey="";bcAll();break;
+ case "obs":if(P.on){P.obs=j.obs;if(!j.obs||j.obs.st!=="on"){P.scenes=[];P.pgm="";BC.imgs={}}}BC.tileKey="";bcAll();break;
+ case "scenes":if(P.on){P.scenes=j.list||[];P.pgm=j.pgm||""}bcTiles();bcMon();bcAuto();bcSetUi(false);bcEm();break;
+ case "pgm":if(P.on)P.pgm=j.name||"";bcTiles();bcMon();break;
+ case "pvw":BC.pvw=j.name||"";bcTiles();bcMon();break;
+ case "shot":BC.imgs[j.name]=j.img;bcShot(j.name);break;
+ case "stats":if(P.on){P.stats=j.stats;P.statsAt=j.at||Date.now()}bcStatus();bcHealth();bcEm();bcMon();break;
+ case "fl":BC.fl=j.f;BC.flAt=j.at||Date.now();if(j.ph)BC.ph=j.ph;bcFlight();break;
+ case "ph":BC.ph=j.ph||"";bcFlight();bcAuto();break;
+ case "plan":BC.plan=j.plan||null;bcFlight();bcSetUi(false);break;
+ case "oo":BC.oo=j.oo||null;BC.land=j.land||null;bcFlight();break;
+ case "log":BC.log.push(j.e);if(BC.log.length>100)BC.log.shift();bcLogUi();break;
+ case "ack":{const f=BC.cb[j.id];delete BC.cb[j.id];if(f)f(j);else if(!j.ok)bcSay(j.err);break}
+ default:}}
+function bcAll(){bcStatus();bcSetUi(true);bcMon();bcTiles();bcOvs();bcAuto();bcFlight();bcHealth();bcEm();bcLogUi()}
+/* the chips at the top */
+function bcStatus(){const el=$("#bcSt");if(!el)return;const c=BC.cfg,ch=(k,t)=>'<span class="bc-c '+k+'"><i></i>'+esc(t)+"</span>";
+ if(!BC.conn||!c){el.innerHTML=ch("warn","Connecting to the desk…");return}
+ const s=bcSt(),out=[];
+ if(!c.on)out.push(ch("","No flight on the desk"));
+ else if(!bcPcOn())out.push(ch("warn","Waiting for "+c.pilot+"’s simulator PC"));
+ else{out.push(ch("ok","Simulator PC · Navdata "+(BC.pc.v||""))),out.push(bcObsOn()?ch("ok","OBS"):ch("bad","OBS not connected"))}
+ if(s&&s.stream&&s.stream.on)out.push('<span class="bc-c air" id="bcClock"><i></i>ON AIR '+bcDur(s.stream.dur+(Date.now()-(BC.pc.statsAt||Date.now())))+"</span>");
+ else if(bcObsOn())out.push(ch("","Off air"));
+ if(s&&s.rec&&s.rec.on)out.push(ch("bad","REC"));
+ if(BC.role==="view")out.push(ch("","Watching only"));
+ el.innerHTML=out.join("")}
+function bcClock(){const e=$("#bcClock"),s=bcSt();if(e&&s&&s.stream&&s.stream.on)e.lastChild.textContent="ON AIR "+bcDur(s.stream.dur+(Date.now()-(BC.pc.statsAt||Date.now())))}
+/* Setup: the fields keep what is being typed */
+function bcSetUi(force){const c=BC.cfg;if(!c)return;const d=bcDir();
+ if(force||!BC.dirty){$("#bcOnC").checked=!!c.on;$("#bcPilot").value=c.pilot||"";$("#bcTitle").value=c.title||"";$("#bcSub").value=c.sub||"";BC.dirty=false}
+ const auto=bcScenes().find(s=>BC_SLATE.test(s)),L=bcScenes().slice();if(c.slate&&!L.includes(c.slate))L.unshift(c.slate);
+ const want=BC.dirty?$("#bcSlate").value:c.slate||"";
+ $("#bcSlate").innerHTML='<option value="">'+esc(auto?"Automatic: "+auto:bcScenes().length?"Automatic: none sounds like it":"Automatic (from OBS’s scenes)")+"</option>"+L.map(s=>'<option value="'+esc(s)+'"'+(s===want?" selected":"")+">"+esc(s)+"</option>").join("");
+ const P=BC.plan;$("#bcSub").placeholder=P?[P.ac,[P.dep&&(P.dep.name||P.dep.icao),P.arr&&(P.arr.name||P.arr.icao)].filter(Boolean).join(" → ")].filter(Boolean).join(" · "):"From the pilot’s plan";
+ $("#bcUrlW").hidden=!(d&&c.token);$("#bcSetB").hidden=!d;if(!d)$("#bcSet").hidden=true;document.querySelectorAll("#bc .bc-take,#bc .bc-pvw .hint").forEach(x=>{x.hidden=!d});if(d&&c.token){const u=location.origin+"/live/o/"+c.token;$("#bcUrl").value=u;$("#bcDemo").href=u+"?demo=1"}
+ document.querySelectorAll("#bcSet .bc-act").forEach(x=>{x.disabled=!d})}
+/* Program and Preview */
+function bcPic(img,ph,name,why){const src=name&&BC.imgs[name];if(src){if(img.getAttribute("src")!==src)img.src=src;img.hidden=false;ph.hidden=true}else{img.hidden=true;img.removeAttribute("src");ph.hidden=false;ph.textContent=why}}
+function bcMon(){if(!$("#bcPgmI"))return;const on=bcObsOn(),g=on?BC.pc.pgm:"",p=on?BC.pvw:"",s=bcSt(),air=!!(s&&s.stream&&s.stream.on);
+ $("#bcPgmN").textContent=g||"—";$("#bcAir").hidden=!air;$("#bcPgm").classList.toggle("air",air);
+ bcPic($("#bcPgmI"),$("#bcPgmE"),g,!BC.conn?"Connecting…":!bcPcOn()?"The simulator PC is not on the desk":!on?"OBS is not connected on the simulator PC":"Waiting for OBS’s picture…");
+ $("#bcPvwN").textContent=p||"—";$("#bcPvwF").classList.toggle("pv",!!p);
+ bcPic($("#bcPvwI"),$("#bcPvwE"),p,p?"Waiting for OBS’s picture…":on?"Pick a scene below":"—");
+ const t=$("#bcTake");t.disabled=!bcDir()||!on||!p||p===g;$("#bcBrb").disabled=!bcDir()||!on}
+/* the scenes, from OBS, in its order */
+function bcTiles(){const el=$("#bcTiles");if(!el)return;const L=bcScenes(),g=bcObsOn()?BC.pc.pgm:"",p=BC.pvw,key=L.join("|")+"#"+g+"#"+p+"#"+BC.role;
+ if(!L.length){BC.tileKey="";el.innerHTML='<p class="empty" style="grid-column:1/-1;margin:0">'+(!BC.conn?"Connecting…":!(BC.cfg&&BC.cfg.on)?"Put a flight on the desk under Setup: its scenes in OBS show here.":!bcPcOn()?"OBS’s scenes show here once the simulator PC is on the desk.":!bcObsOn()?"OBS is not connected on the simulator PC: "+esc((BC.pc.obs&&BC.pc.obs.err)||"open OBS there."):"OBS has no scenes.")+"</p>";$("#bcRef").disabled=!bcDir()||!bcPcOn();return}
+ $("#bcRef").disabled=!bcDir();if(key===BC.tileKey)return;BC.tileKey=key;
+ el.innerHTML=L.map((s,i)=>{const on=s===g,pv=s===p&&!on;return '<button type="button" class="bc-tile bc-act'+(on?" on":pv?" pv":"")+'" data-bcs="'+esc(s)+'" aria-label="'+esc(s+(on?", on air":pv?", in preview":""))+'"><span class="bc-fr"><img alt="" hidden data-bcimg="'+esc(s)+'"><span class="bc-ph">'+esc(s)+"</span>"+(on?'<span class="bc-tag">ON AIR</span>':pv?'<span class="bc-tag pv">PREVIEW</span>':"")+'</span><span class="bc-tn">'+(i<9?"<i>"+(i+1)+"</i>":"")+"<span>"+esc(s)+"</span></span></button>"}).join("");
+ L.forEach(bcShot);if(!bcDir())el.querySelectorAll(".bc-act").forEach(x=>{x.disabled=true})}
+function bcShot(name){const src=BC.imgs[name];if(!src)return;el:{for(const im of document.querySelectorAll("#bcTiles img[data-bcimg]"))if(im.dataset.bcimg===name){if(im.getAttribute("src")!==src)im.src=src;im.hidden=false;const ph=im.nextElementSibling;if(ph)ph.hidden=true;break el}}
+ if(bcObsOn()&&(name===BC.pc.pgm||name===BC.pvw))bcMon()}
+/* the overlays (OBS's Browser source shows them) */
+function bcOvs(){const el=$("#bcOv"),c=BC.cfg;if(!el)return;if(!c){el.innerHTML='<span class="empty">Connecting…</span>';return}
+ el.innerHTML=BC_OV.map(([k,t,s])=>'<label class="au-sw"><input type="checkbox" class="bc-act" data-bcov="'+k+'"'+(c.ov[k]?" checked":"")+(bcDir()?"":" disabled")+"><span><b>"+esc(t)+"</b><small>"+esc(s)+"</small></span></label>").join("")}
+/* the auto director: which scenes for which phase */
+function bcAuto(){const el=$("#bcRules"),c=BC.cfg;if(!el)return;if(!c){el.innerHTML="";$("#bcAutoH").textContent="";return}
+ const A=c.auto,L=bcScenes(),d=bcDir();$("#bcAuto").checked=!!A.on;$("#bcAuto").disabled=!d;$("#bcEvery").value=String(A.every);$("#bcEvery").disabled=!d;
+ $("#bcAutoH").textContent=A.on?"On"+(BC.ph?" · now "+(BC_PN[BC.ph]||BC.ph):"")+". TAKE turns it off.":"Off: you are directing.";
+ el.innerHTML=BC_PH.map(([k,n])=>{const R=(A.rules&&A.rules[k])||[],left=L.filter(s=>!R.includes(s));
+  return '<div class="bc-rule'+(BC.ph===k?" now":"")+'"><b>'+esc(n)+'</b><div class="bc-chips">'+(R.length?R.map((s,i)=>'<span class="bc-chip"><span>'+esc(s)+"</span>"+(d?'<button type="button" data-bcrm="'+k+"|"+i+'" aria-label="Remove '+esc(s)+'">×</button>':"")+"</span>").join(""):'<span class="none" title="The scene stays as it is">—</span>')+
+  (d&&left.length?'<select data-bcadd="'+k+'" aria-label="Add a scene for '+esc(n)+'"><option value="">+ Add</option>'+left.map(s=>'<option value="'+esc(s)+'">'+esc(s)+"</option>").join("")+"</select>":"")+"</div></div>"}).join("")}
+/* the flight: the plan, the numbers from the simulator, the block times */
+function bcFlight(){const el=$("#bcFl");if(!el)return;const P=BC.plan,f=BC.fl,c=BC.cfg;
+ if(!c||!c.pilot){el.innerHTML='<span class="empty">No streaming pilot set (Setup).</span>';return}
+ const a=P&&P.arr,gc=(la,lo,lb,lob)=>{const R=Math.PI/180,x=Math.sin((lb-la)*R/2)**2+Math.cos(la*R)*Math.cos(lb*R)*Math.sin((lob-lo)*R/2)**2;return 2*3440.065*Math.asin(Math.min(1,Math.sqrt(x)))};
+ const fresh=f&&Date.now()-BC.flAt<15000,eta=fresh&&!f.g&&f.gs>60&&a&&a.la!=null&&f.la!=null?bcHm(Date.now()+gc(f.la,f.lo,a.la,a.lo)/f.gs*3600e3):P&&P.inn?bcHm(P.inn)+" planned":"—";
+ const kv=(k,v)=>"<div><small>"+k+"</small><b>"+v+"</b></div>",O=BC.oo||{};
+ el.innerHTML='<p class="bc-fh">'+(P?"<b>"+esc(P.flight||P.cs||c.pilot)+"</b>"+esc([P.ac,(P.dep&&P.dep.icao||"?")+" → "+(P.arr&&P.arr.icao||"?")].filter(Boolean).join(" · ")):"<b>"+esc(c.pilot)+"</b>No plan loaded in the EFB yet")+"</p>"+
+  '<div class="bc-kv">'+kv("Phase",esc(BC.ph?BC_PN[BC.ph]||BC.ph:"—"))+kv("Altitude",fresh?bcK(f.alt)+"<i>ft</i>":"—")+kv("Ground speed",fresh?bcK(f.gs)+"<i>kt</i>":"—")+kv("Heading",fresh&&f.h!=null?String(Math.round(((f.h%360)+360)%360)||360).padStart(3,"0")+"°":"—")+kv("Vertical speed",fresh?(f.vs>0?"+":"")+bcK(f.vs)+"<i>fpm</i>":"—")+kv("Arrival",esc(eta))+"</div>"+
+  '<div class="bc-oo">'+["OUT","OFF","ON","IN"].map(k=>"<span>"+k+" <b>"+(O[k]?O[k].replace(":","")+"Z":"—")+"</b></span>").join("")+(BC.land&&BC.land.fpm!=null?"<span>Touchdown <b>"+bcK(BC.land.fpm)+" fpm"+(BC.land.g?", "+BC.land.g.toFixed(2)+" G":"")+"</b></span>":"")+"</div>"+
+  (bcPcOn()&&!fresh?'<p class="hint">No numbers from the simulator yet: is it running on that PC?</p>':"")}
+/* what OBS says about the stream, the recording and itself */
+function bcHealth(){const el=$("#bcHl");if(!el)return;const s=bcSt(),r=(k,t,v)=>'<div class="bc-hr '+k+'"><i></i><span>'+esc(t)+"</span><b>"+esc(v)+"</b></div>",out=[];
+ out.push(bcPcOn()?r("ok","Polaris Navdata","On the desk · "+(BC.pc.v||"")):r(BC.cfg&&BC.cfg.on?"warn":"","Polaris Navdata",BC.cfg&&BC.cfg.on?"Not on the desk yet":"—"));
+ const o=bcPcOn()&&BC.pc.obs;out.push(!o?r("","OBS","—"):o.st==="on"?r("ok","OBS","Connected"+(o.v?" · WebSocket "+o.v:"")):r("bad","OBS",o.err||"Not connected"));
+ if(s&&s.stream){const t=s.stream,drop=t.frames?t.skip/t.frames*100:0;
+  out.push(t.on?r(t.rec?"warn":"ok","Stream",t.rec?"Reconnecting…":"On air · "+bcDur(t.dur)):r("","Stream","Off air"));
+  if(t.on){out.push(r(t.kbps<1000?"warn":"ok","Upload",(t.kbps/1000).toFixed(1)+" Mbps"+(t.cong>.2?" · congested":"")));out.push(r(drop>1?"bad":drop>.2?"warn":"ok","Dropped frames (network)",drop.toFixed(1)+" %"))}}
+ if(s&&s.obs){const g=s.obs,rd=g.rtotal?g.rskip/g.rtotal*100:0,en=g.ototal?g.oskip/g.ototal*100:0;out.push(r(g.fps<25?"warn":"ok","OBS frame rate",g.fps+" fps"));out.push(r(rd>1||en>1?"warn":"ok","Frames missed (render · encode)",rd.toFixed(1)+" % · "+en.toFixed(1)+" %"));out.push(r(g.cpu>80?"warn":"ok","OBS on the CPU",g.cpu+" %"))}
+ if(s&&s.rec)out.push(s.rec.on?r("ok","Recording (backup)","On · "+bcDur(s.rec.dur)):r("","Recording (backup)","Off"));
+ if(bcPcOn())out.push(r(BC.pc.remote?"ok":"","Start and end from here",BC.pc.remote?"Allowed":"Off on the PC"));
+ el.innerHTML=out.join("")}
+/* the buttons for a bad moment; ending the stream asks to be pressed twice */
+function bcEm(){const el=$("#bcEm");if(!el)return;const s=bcSt(),on=bcObsOn(),d=bcDir(),rem=bcPcOn()&&BC.pc.remote,air=!!(s&&s.stream&&s.stream.on),rec=!!(s&&s.rec&&s.rec.on),sl=bcSlate();
+ const b=(id,t,ok,arm)=>'<button type="button" class="bc-act'+(BC.arm===id?" arm":"")+'" id="'+id+'"'+(d&&ok?"":" disabled")+">"+esc(BC.arm===id?arm:t)+"</button>";
+ el.innerHTML=b("bcBrb2",sl?"Back soon (“"+sl+"”)":"Back soon: pick its scene under Setup",on&&!!sl,"")+
+  (air?b("bcStop","End the stream…",on&&rem,"Press again to end the stream"):b("bcStart","Start the stream…",on&&rem,"Press again to start the stream"))+
+  (rec?b("bcRecS","Stop the recording…",on&&rem,"Press again to stop the recording"):b("bcRec","Start the recording (backup)",on&&rem,""))+
+  (bcPcOn()&&!rem?'<p class="hint">Start and end: off on the simulator PC (its EFB, Ground › Simulator PC › Broadcast).</p>':"")}
+function bcArm(id,go){if(BC.arm===id&&Date.now()-BC.armT<5000){BC.arm="";go()}else{BC.arm=id;BC.armT=Date.now();setTimeout(()=>{if(BC.arm===id&&Date.now()-BC.armT>=4900){BC.arm="";bcEm()}},5000)}bcEm()}
+function bcLogUi(){const el=$("#bcLog");if(!el)return;const L=BC.log.slice(-40).reverse();
+ el.innerHTML=L.length?L.map(e=>'<div class="bc-l"><time>'+bcHm(e.t)+"</time><div>"+esc(e.what)+(e.by?"<small>"+esc(e.by)+"</small>":"")+"</div></div>").join(""):'<span class="empty">Nothing yet.</span>'}
+/* directing */
+function bcCmd(op,name,x,done){if(!bcDir())return;const w=BC.ws;if(!w||w.readyState!==1){bcSay("Not connected to the desk: trying again…");return}
+ const id="c"+(++BC.n);BC.cb[id]=j=>{if(!j.ok)bcSay(j.err||"Not done");if(done)done(j)};
+ try{w.send(JSON.stringify({cmd:Object.assign({id,op,name:name||""},x||{})}))}catch(e){bcSay("Not connected to the desk")}}
+function bcPick(name){if(!bcDir()||!bcScenes().includes(name))return;BC.pvw=name;bcTiles();bcMon();try{BC.ws.send(JSON.stringify({pvw:name}))}catch(e){}}
+function bcTake(){const p=BC.pvw,g=bcObsOn()?BC.pc.pgm:"";if(!bcDir()||!p||p===g)return;bcCmd("scene",p,{swap:true})}
+function bcBrb(){const s=bcSlate();if(!s){bcSay("No “Back soon” scene yet: pick one under Setup (or name one Back soon in OBS)");return}bcCmd("scene",s,{swap:false})}
+async function bcPost(body,okMsg){try{const j=await api("/admin/api/desk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(j&&j.cfg)BC.cfg=j.cfg;if(okMsg)bcSay(okMsg,true);return true}catch(e){bcSay(e.message);return false}finally{bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm()}}
+const bcCfg=(cfg,okMsg)=>bcPost({op:"cfg",cfg},okMsg);
+function bcRules(k,fn){const R=JSON.parse(JSON.stringify((BC.cfg&&BC.cfg.auto.rules)||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];return bcCfg({auto:{rules:R}})}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bc button,#bc [data-bcs]");if(!t||t.disabled)return;
+ if(t.dataset.bcs!=null){bcPick(t.dataset.bcs);return}
+ if(t.dataset.bcrm){const [k,i]=t.dataset.bcrm.split("|");bcRules(k,L=>L.filter((x,n)=>n!==+i));return}
+ switch(t.id){
+  case "bcSetB":{const s=$("#bcSet");s.hidden=!s.hidden;t.setAttribute("aria-expanded",String(!s.hidden));if(!s.hidden)bcSetUi(false);break}
+  case "bcTake":bcTake();break;
+  case "bcBrb":case "bcBrb2":bcBrb();break;
+  case "bcRef":bcCmd("refresh","",null,j=>{if(j.ok)bcSay("OBS asked again for its scenes",true)});break;
+  case "bcSave":bcCfg({on:$("#bcOnC").checked,pilot:$("#bcPilot").value.trim().toUpperCase(),title:$("#bcTitle").value,sub:$("#bcSub").value,slate:$("#bcSlate").value},"Saved").then(ok=>{if(ok){BC.dirty=false;bcSetUi(true)}});break;
+  case "bcCopy":{const u=$("#bcUrl").value;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>bcSay("The overlay link is copied",true),()=>{$("#bcUrl").select();bcSay("Copy the selected link")});break}
+  case "bcTok":if(BC.arm==="bcTok"&&Date.now()-BC.armT<5000){BC.arm="";t.textContent="New link";bcPost({op:"token"},"A new overlay link: put it in OBS’s Browser source").then(()=>{})}else{BC.arm="bcTok";BC.armT=Date.now();t.textContent="Press again: the old link stops";setTimeout(()=>{if(BC.arm==="bcTok"){BC.arm="";t.textContent="New link"}},5000)}break;
+  case "bcStart":bcArm("bcStart",()=>bcCmd("start"));break;
+  case "bcStop":bcArm("bcStop",()=>bcCmd("stop"));break;
+  case "bcRec":bcCmd("recstart");break;
+  case "bcRecS":bcArm("bcRecS",()=>bcCmd("recstop"));break;
+  default:}});
+document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest("#bc"))return;
+ if(t.dataset.bcov){bcCfg({ov:{[t.dataset.bcov]:t.checked}});return}
+ if(t.dataset.bcadd){const v=t.value;if(v)bcRules(t.dataset.bcadd,L=>L.concat([v]));return}
+ if(t.id==="bcAuto"){bcCfg({auto:{on:t.checked}});return}
+ if(t.id==="bcEvery"){bcCfg({auto:{every:+t.value}});return}
+ if(t.id==="bcOnC"){const p=$("#bcPilot").value.trim().toUpperCase();bcCfg(Object.assign({on:t.checked},p?{pilot:p}:{}),t.checked?"On the desk: the simulator PC joins within about half a minute":"Off the desk").then(ok=>{if(!ok)t.checked=!t.checked});return}
+ if(t.id==="bcSlate")BC.dirty=true});
+document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#bcSet")&&e.target.matches("input[type=text]"))BC.dirty=true});
+document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;const t=e.target;if(t&&t.closest&&t.closest("input,select,textarea,[contenteditable],details"))return;
+ if(/^[1-9]$/.test(e.key)){const s=bcScenes()[+e.key-1];if(s){e.preventDefault();bcPick(s)}}
+ else if(e.key===" "){e.preventDefault();bcTake()}});
+/* open only while the page shows (and it is in view): the PC sends its pictures only then */
+PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll()};
+window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")bcClose()});
+document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(BC.hidT);if(document.hidden)BC.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")bcClose()},60000);else if(!BC.want){BC.want=true;bcOpen()}});
+setInterval(()=>{if(pgNow==="bc"&&!document.hidden)bcClock()},1000);
 if(!document.querySelector(".deny")){if(!window.PM_PERM)meLoad();load();preview();if(opsOk("set"))opsGet("set",6e5).then(j=>setApply(j.settings)).catch(()=>{})}
 window.addEventListener("hashchange",route);route();
 </script>

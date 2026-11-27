@@ -18,8 +18,8 @@ inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.1";
 // window need not poll for it.
 inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.1";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.1.0"
-#define POLARIS_CAM_VERSION_WIDE L"0.1.0"
+#define POLARIS_CAM_VERSION "0.1.1"
+#define POLARIS_CAM_VERSION_WIDE L"0.1.1"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
 inline constexpr std::uint32_t LinkVersion = 1;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
@@ -223,6 +223,37 @@ inline void write_control(Link& link, Write&& write) noexcept {
   write(link.control);
   InterlockedIncrement(&link.control.serial);
 }
+// The shape the bridge gives the camera views for a broadcast: the pane every
+// ticked camera renders at, and those cameras; the others keep their own
+// small size, and the memory a large view takes. Another shape takes the
+// bridge's reshape transition, which stops every camera for a moment, so a
+// new one is taken only once the window has asked for it for SettleMs:
+// ticking three cameras in a row is one transition, not three. Off is taken
+// at once.
+struct Shape {
+  std::uint32_t pane = 0, feeds = 0;
+  friend bool operator==(const Shape&, const Shape&) = default;
+};
+class ShapeSettle {
+ public:
+  static constexpr std::uint64_t SettleMs = 700;
+  Shape update(const Request& request, std::uint64_t now_ms) noexcept {
+    const Shape asked = request.on ? Shape{request.pane(), request.feed_mask} : Shape{};
+    if (!(asked == asked_)) {
+      asked_ = asked;
+      since_ms_ = now_ms;
+    }
+    if (!(applied_ == asked_) && (!asked_.pane || now_ms < since_ms_ || now_ms - since_ms_ >= SettleMs))
+      applied_ = asked_;
+    return applied_;
+  }
+  // The shape in force is the one asked for.
+  bool settled() const noexcept { return applied_ == asked_; }
+
+ private:
+  Shape asked_, applied_;
+  std::uint64_t since_ms_ = 0;
+};
 // Whole-value reads and writes of the fields both sides touch.
 inline LONG load(const LONG& value) noexcept {
   return InterlockedCompareExchange(const_cast<LONG volatile*>(&value), 0, 0);

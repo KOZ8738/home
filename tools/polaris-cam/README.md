@@ -67,10 +67,14 @@ That is tested by flying.
 
 ## How a picture travels
 
-1. The bridge's worker reads the window's request from the shared block and, while it asks for a broadcast, publishes the
-   aircraft's profile with every camera pane at the broadcast size, two rows short (1920×1078 or 1280×718: a view that is
-   never the size of one of the simulator's own full-screen textures, which the bridge would otherwise have to watch too).
-2. Taxi Cam's camera manager renders the wanted views at the broadcast rate and its capture manager snapshots each one.
+1. The bridge's worker reads the window's request from the shared block and, once the window has asked for the same
+   cameras and size for 0.7 s, publishes the aircraft's profile with the ticked cameras' panes at the broadcast size, two
+   rows short (1920×1078 or 1280×718: a view that is never the size of one of the simulator's own full-screen textures,
+   which the bridge would otherwise have to watch too). The other views keep the aircraft's own small panes, and the
+   graphics memory a large view takes. Another shape takes Taxi Cam's reshape transition, which stops every camera for a
+   moment.
+2. Taxi Cam's camera manager renders the ticked views that have the broadcast shape, at the broadcast rate, and its
+   capture manager snapshots each one.
 3. `scene_runtime::service` hands each snapshot to that view's `BroadcastOutput`, which converts it on a private queue
    (the two missing rows repeat the first and last) into the one of its three shared textures that is neither the newest
    nor being read, and announces it once the GPU has finished.

@@ -861,6 +861,8 @@ DWORD run_impl() {
   polaris_cam::Request cast;
   std::uint64_t cast_read_ms{};
   bool cast_was_on = false;
+  polaris_cam::ShapeSettle cast_settle;
+  polaris_cam::Shape cast_logged;
   if (cast_link.open()) {
     scene_runtime::set_broadcast_link(cast_link.get());
     if (HANDLE pump = CreateThread(nullptr, 0, cast_pump_run, nullptr, 0, nullptr))
@@ -1121,8 +1123,16 @@ DWORD run_impl() {
       link->status.protocol = polaris_cam::LinkVersion;
       link->status.heartbeat_ms = now;
     }
-    // The size every camera view renders at while broadcasting; 0 otherwise.
-    const std::uint32_t cast_pane = cast.pane();
+    // The shape the ticked camera views take while broadcasting (pane 0
+    // otherwise), once the window has settled on it.
+    const auto cast_shape = cast_settle.update(cast, now);
+    const std::uint32_t cast_pane = cast_shape.pane, cast_feeds = cast_shape.feeds;
+    if (!(cast_shape == cast_logged)) {
+      cast_logged = cast_shape;
+      char detail[128];
+      std::snprintf(detail, sizeof(detail), "Polaris Cam camera shape: %ux%u cameras=0x%x", cast_pane >> 16, cast_pane & 0xffffu, cast_feeds);
+      log_status(status, detail);
+    }
     // Process-wide GPU memory against the OS budget, once a second; the
     // watchdog's trip line reads the latest values from atomics.
     if (now >= next_video_sample && win::graphics_ready()) {
@@ -1622,11 +1632,12 @@ DWORD run_impl() {
     const bool layout_changed = settings.profile == profiles::DiscoveredProfileId && !profiles::discovered_current(settings.discovered);
     // The user's display choices for the profile (another panel or display
     // area per side) are another profile too. A new layout brings new ones.
-    // Polaris Cam: the broadcast picture size is one of those choices (it
-    // reshapes every camera), so turning the broadcast on or off, or another
-    // size, takes the same transition.
-    const bool choices_changed = layout_changed || !profiles::override_current(profiles::base_profile(settings.profile),
-                                                                               settings.display_override, settings.door_side, cast_pane);
+    // Polaris Cam: the broadcast's camera shape is one of those choices (it
+    // reshapes the ticked cameras), so turning the broadcast on or off,
+    // another size or other cameras take the same transition.
+    const bool choices_changed =
+        layout_changed || !profiles::override_current(profiles::base_profile(settings.profile), settings.display_override,
+                                                      settings.door_side, cast_pane, cast_feeds);
     // Choices that give the cameras another shape (a reshaped display area,
     // another panel on a set-up aircraft, or the door camera's display) resize them: the transition
     // below takes the kept pair to the new panes (resize_kept_panes).
@@ -1636,7 +1647,7 @@ DWORD run_impl() {
       const auto* current = profiles::find(settings.profile);
       if (base && current && profiles::valid_override(*base, settings.display_override)) {
         auto next = *base;
-        profiles::apply_choices(next, *base, settings.display_override, settings.door_side, cast_pane);
+        profiles::apply_choices(next, *base, settings.display_override, settings.door_side, cast_pane, cast_feeds);
         // A placed or removed lower display changes the sides: a transition too.
         reshaped = next.camera_panes != current->camera_panes || next.sides != current->sides;
       }
@@ -1649,7 +1660,7 @@ DWORD run_impl() {
     if (connected && settings.enabled && choices_changed && !layout_changed && !reshaped && !changing_profile && applied_profile &&
         settings.profile == applied_profile) {
       const auto& o = settings.display_override;
-      const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane);
+      const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane, cast_feeds);
       if (chosen)
         win::set_aircraft_profile(settings.profile);
       char detail[384];
@@ -1711,7 +1722,7 @@ DWORD run_impl() {
         }
         if (choices_changed) {
           const auto& o = settings.display_override;
-          const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane);
+          const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane, cast_feeds);
           char detail[384];
           std::snprintf(detail, sizeof(detail),
                         "Display choices: %s profile=%u panels=%s,%s,%s areas=%u,%u,%u,%u/%u,%u,%u,%u/%u,%u,%u,%u door=%u",
@@ -1958,13 +1969,22 @@ DWORD run_impl() {
     const unsigned door_wanted = admitted ? door_side & sides : 0;
     // Polaris Cam: while its window asks for the broadcast, the cameras render
     // for the broadcast pictures wherever the main view is, as for the scene
-    // test, and no cockpit display is written: every camera has the broadcast
-    // shape, which no display's picture is composed from. cast.on alone decides
-    // that, so a lapse in readiness only pauses the pictures.
+    // test, and no cockpit display is written: cast.on alone decides that, so
+    // a lapse in readiness only pauses the pictures. Only the ticked cameras
+    // that have the broadcast shape in the profile in force render: one still
+    // waiting for it would render at its cockpit size, a picture that is never
+    // sent. While none has it, the scene is not wanted at all (it parks).
+    unsigned cast_render = 0;
+    if (cast.on)
+      if (const auto* shaped = profiles::find(applied_profile ? applied_profile : settings.profile))
+        for (unsigned feed = 0; feed < profiles::CameraViews; ++feed)
+          if (((cast.feed_mask >> feed) & 1u) && shaped->camera_panes[feed][0] == static_cast<std::int32_t>(cast.width) &&
+              shaped->camera_panes[feed][1] == static_cast<std::int32_t>(polaris_cam::pane_height(cast.height)))
+            cast_render |= 1u << feed;
     const unsigned mask = degraded || cast.on ? 0u : wanted & ~door_wanted;
     const unsigned door = degraded || cast.on ? 0u : door_wanted;
-    const bool wanted_test_scene =
-        connected && session_settings && session.ready && settings.enabled && aircraft_matches && (settings.scene_test || cast.on);
+    const bool wanted_test_scene = connected && session_settings && session.ready && settings.enabled && aircraft_matches &&
+                                   (settings.scene_test || cast_render != 0);
     const bool test_scene = wanted_test_scene && !degraded;
     // Trips count toward a repeated-stall hold only while cameras are wanted;
     // the hold lasts until the pilot turns them off (a known OFF, never a
@@ -2021,7 +2041,9 @@ DWORD run_impl() {
       const auto warm_scene = native_camera::scene_snapshot();
       const auto warm_output = scene_runtime::snapshot(key);
       const auto previous_warm_phase = prewarm.phase();
-      background_warmup = prewarm.observe(now, warm_readiness().eligible(), mask || test_scene,
+      // Polaris Cam: a broadcast is a foreground request even while its cameras
+      // are being shaped, so no background warmup renders them at cockpit size.
+      background_warmup = prewarm.observe(now, warm_readiness().eligible(), mask || test_scene || cast.on,
                                           {requested && engine_camera::owned_ready(warm_scene.pair.owned_ids, warm_scene.ready),
                                            warm_output.output, warm_output.frames, warm_output.completed_frames},
                                           failed || warm_output.failed || warm_scene.pair.state == engine_camera::State::failed ||
@@ -2152,9 +2174,10 @@ DWORD run_impl() {
     // camera; only the wanted ones render and share the rate.
     const unsigned set_feeds = profiles::CameraViews;
     const unsigned taxi_bits = (1u << (rate_profile ? profiles::taxi_feeds(*rate_profile) : 2u)) - 1;
-    // Polaris Cam: the cameras its window ticked, any of the four.
+    // Polaris Cam: the ticked cameras that have the broadcast shape (above).
+    // Never 0 while broadcasting: the schedule takes 0 as every camera.
     const unsigned wanted_feeds =
-        cast.on ? cast.feed_mask
+        cast.on ? (cast_render ? cast_render : cast.feed_mask)
                 : (mask || test_scene || background_warmup ? taxi_bits : 0u) | (door_render ? 1u << profiles::DoorFeed : 0u);
     const unsigned desired_feeds = std::max(1u, static_cast<unsigned>(std::popcount(wanted_feeds ? wanted_feeds : taxi_bits)));
     const unsigned pfd_refresh_hz = rate_profile ? rate_profile->pfd_refresh_hz : 0;
@@ -2456,12 +2479,13 @@ DWORD run_impl() {
                           : degraded                                                 ? polaris_cam::reason_stalled
                           : failed || output.failed                                  ? polaris_cam::reason_failed
                           : live                                                     ? polaris_cam::reason_none
+                          : !cast_settle.settled() || cast_render != cast.feed_mask  ? polaris_cam::reason_resizing
                                                                                      : polaris_cam::reason_starting;
       out.reason = reason;
       out.state = !cast.on ? polaris_cam::link_idle
                   : live   ? polaris_cam::link_live
-                  : reason == polaris_cam::reason_starting ? polaris_cam::link_waiting
-                                                           : polaris_cam::link_not_ready;
+                  : reason == polaris_cam::reason_starting || reason == polaris_cam::reason_resizing ? polaris_cam::link_waiting
+                                                                                                      : polaris_cam::link_not_ready;
       std::snprintf(out.message, sizeof(out.message), "%.150s", output.failed ? output.message : scene.message.c_str());
     }
     status.identity_sample_ms = identity.fresh ? identity.sample_ms : 0;

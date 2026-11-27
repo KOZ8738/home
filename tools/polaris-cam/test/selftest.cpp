@@ -329,24 +329,54 @@ void verify_request() {
   auto shaped = base;
   profiles::apply_choices(shaped, base, none, MaxDisplaySides, 0);
   expect(shaped.camera_panes == base.camera_panes, "without a broadcast the cameras keep the aircraft's own shapes");
-  profiles::apply_choices(shaped, base, none, MaxDisplaySides, pane_code(1920, 1080));
-  bool all = true;
-  for (const auto& pane : shaped.camera_panes)
-    all = all && pane[0] == 1920 && pane[1] == 1078;
-  expect(all, "with one, all four cameras are 1920x1078");
+  profiles::apply_choices(shaped, base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101);
+  const auto broadcast = [](const std::array<std::int32_t, 2>& pane) { return pane[0] == 1920 && pane[1] == 1078; };
+  expect(broadcast(shaped.camera_panes[0]) && broadcast(shaped.camera_panes[2]), "with one, the ticked cameras 1 and 3 are 1920x1078");
+  expect(shaped.camera_panes[1] == base.camera_panes[1] && shaped.camera_panes[3] == base.camera_panes[3],
+         "and the unticked cameras 2 and 4 keep the aircraft's own, small, size");
   expect(!profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080), "a 1920x1078 texture is no camera's before it is published");
-  const auto* published = profiles::publish_override(&base, none, MaxDisplaySides, pane_code(1920, 1080));
-  expect(published && profiles::find(base.id) == published && published->camera_panes[profiles::DoorFeed][1] == 1078,
+  const auto* published = profiles::publish_override(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101);
+  expect(published && profiles::find(base.id) == published && broadcast(published->camera_panes[2]) &&
+             published->camera_panes[profiles::DoorFeed] == base.camera_panes[profiles::DoorFeed],
          "published, the aircraft's profile has that shape");
   expect(profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080),
          "and a 1920x1078 texture is a camera's, while the simulator's own 1920x1080 ones are not");
-  expect(profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080)) &&
-             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1280, 720)) &&
-             !profiles::override_current(&base, none, MaxDisplaySides, 0),
-         "another size, or none, is another profile to publish");
-  published = profiles::publish_override(&base, none, MaxDisplaySides, 0);
+  expect(profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0111) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1280, 720), 0b0101) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, 0, 0),
+         "other cameras, another size, or none, is another profile to publish");
+  published = profiles::publish_override(&base, none, MaxDisplaySides, 0, 0b0101);
   expect(published && published->camera_panes == base.camera_panes && !profiles::camera_candidate(1920, 1078),
          "the broadcast off publishes the aircraft's own shapes again");
+  expect(profiles::override_current(&base, none, MaxDisplaySides, 0, 0) && profiles::override_current(&base, none, MaxDisplaySides, 0, 0b1111),
+         "with the broadcast off, which cameras were ticked makes no other profile");
+
+  std::printf("-- settling on a camera shape\n");
+  ShapeSettle settle;
+  Request ask;
+  const auto shape_of = [](std::uint32_t width, std::uint32_t height, std::uint32_t feeds) { return Shape{pane_code(width, height), feeds}; };
+  expect(settle.update(ask, 1000) == Shape{} && settle.settled(), "off: no shape");
+  ask.on = true;
+  ask.width = 1280;
+  ask.height = 720;
+  ask.feed_mask = 0b0001;
+  expect(settle.update(ask, 2000) == Shape{} && !settle.settled(), "turned on: not at once");
+  expect(settle.update(ask, 2000 + ShapeSettle::SettleMs - 1) == Shape{}, "nor just before it has settled");
+  expect(settle.update(ask, 2000 + ShapeSettle::SettleMs) == shape_of(1280, 720, 0b0001) && settle.settled(), "then camera 1 at 1280x718");
+  ask.feed_mask = 0b0011;
+  expect(settle.update(ask, 3000) == shape_of(1280, 720, 0b0001), "camera 2 ticked: the shape in force stays for now");
+  ask.feed_mask = 0b0111;
+  settle.update(ask, 3400);
+  ask.feed_mask = 0b1111;
+  expect(settle.update(ask, 3800) == shape_of(1280, 720, 0b0001) && !settle.settled(), "cameras 3 and 4 ticked soon after: still the first");
+  expect(settle.update(ask, 3800 + ShapeSettle::SettleMs) == shape_of(1280, 720, 0b1111), "once settled, all four at once: one transition");
+  ask.height = 1080;
+  ask.width = 1920;
+  expect(settle.update(ask, 6000) == shape_of(1280, 720, 0b1111) && settle.update(ask, 7000) == shape_of(1920, 1080, 0b1111),
+         "another size: the same wait");
+  ask.on = false;
+  expect(settle.update(ask, 7001) == Shape{} && settle.settled(), "off: at once");
 
   std::printf("-- the cameras over the simulator's frames\n");
   const auto opened = [](unsigned rate, unsigned wanted, unsigned frame_ms, unsigned frames) {

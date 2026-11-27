@@ -424,7 +424,7 @@ const T=location.pathname.split("/")[3]||"",DEMO=/[?&]demo=1(&|$)/.test(location
 const dbg=t=>{if(!DBG)return;let e=$("#dbg");if(!e){e=document.createElement("pre");e.id="dbg";e.style.cssText="position:absolute;left:3rem;top:6rem;max-width:60rem;white-space:pre-wrap;font:12px monospace;background:rgba(0,0,0,.7);color:#7FD6DE;padding:8px 10px;border-radius:6px;margin:0";document.body.appendChild(e)}e.textContent+=new Date().toISOString().slice(11,19)+" "+t+"\\n"};
 const esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 const PN={parked:"At the gate",taxi:"Taxiing",takeoff:"Takeoff",climb:"Climbing",cruise:"Cruising",descent:"Descending",approach:"On approach",landing:"Landing"};
-let C=null,P=null,F=null,PH="",TRK=[],map=null,laid=false,fitAt=0,ws=null,dead=false,plain=false;
+let C=null,P=null,F=null,PH="",TRK=[],map=null,laid=false,fitAt=0,ws=null,dead=false,plain=false,cv=null;
 const nm=(a,b,c,d)=>{const R=Math.PI/180,x=Math.sin((c-a)*R/2)**2+Math.cos(a*R)*Math.cos(c*R)*Math.sin((d-b)*R/2)**2;return 2*3440.065*Math.asin(Math.min(1,Math.sqrt(x)))};
 const k=v=>Math.round(v).toLocaleString("en-US"),hm=t=>new Date(t).toISOString().slice(11,16)+"Z";
 function eta(){const a=P&&P.arr;if(F&&!F.g&&F.gs>60&&a&&a.la!=null&&F.la!=null)return hm(Date.now()+nm(F.la,F.lo,a.la,a.lo)/F.gs*3600e3);return P&&P.inn?hm(P.inn):"—"}
@@ -454,7 +454,25 @@ function lay2(){if(!plain)dark();const E={type:"FeatureCollection",features:[]};
  const c=document.createElement("canvas");c.width=c.height=72;const g=c.getContext("2d");g.translate(36,36);g.scale(3,3);const A=new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");
  g.lineJoin="round";g.strokeStyle="#0B1426";g.lineWidth=1.4;g.stroke(A);g.fillStyle="#fff";g.fill(A);map.addImage("ac",g.getImageData(0,0,72,72),{pixelRatio:2});
  map.addLayer({id:"ac",type:"symbol",source:"ac",layout:{"icon-image":"ac","icon-rotate":["get","h"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true}})}
-function draw(){if(!map||!laid)return;try{draw2()}catch(e){dbg("draw: "+e.message)}}
+function draw(){if(cv){try{cvDraw()}catch(e){dbg("draw: "+e.message)}return}if(!map||!laid)return;try{draw2()}catch(e){dbg("draw: "+e.message)}}
+/* without WebGL (or without the map library): the route, the track and the aircraft drawn on a plain chart */
+function cvOn(why){if(cv)return;dbg("drawn without the map library: "+why);try{if(map)map.remove()}catch(e){}map=null;const el=$("#map");el.textContent="";cv=document.createElement("canvas");cv.style.display="block";el.appendChild(cv);laid=true;paint()}
+function cvDraw(){const el=$("#map"),W=el.clientWidth,H=el.clientHeight;if(!W||!H)return;const d=window.devicePixelRatio||1;
+ if(cv.width!==Math.round(W*d)||cv.height!==Math.round(H*d)){cv.width=Math.round(W*d);cv.height=Math.round(H*d);cv.style.width=W+"px";cv.style.height=H+"px"}
+ const g=cv.getContext("2d");g.setTransform(d,0,0,d,0,0);const bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#10223A");bg.addColorStop(1,"#0A1628");g.fillStyle=bg;g.fillRect(0,0,W,H);
+ const R=unwrap((P&&P.route)||[]),pos=F&&F.la!=null?[F.la,F.lo]:null,tk=unwrap(TRK.map(q=>[q[0],q[1]]).concat(pos?[pos]:[])),all=R.concat(tk);if(!all.length)return;
+ let w=1e3,e=-1e3,s=90,n=-90;all.forEach(q=>{w=Math.min(w,q[0]);e=Math.max(e,q[0]);s=Math.min(s,q[1]);n=Math.max(n,q[1])});
+ if(e-w<1){w-=.5;e+=.5}if(n-s<1){s-=.5;n+=.5}
+ const k=Math.max(.2,Math.cos((s+n)/2*Math.PI/180)),pad=28,sc=Math.min((W-2*pad)/((e-w)*k),(H-2*pad)/(n-s)),ox=(W-(e-w)*k*sc)/2,oy=(H-(n-s)*sc)/2,X=lo=>ox+(lo-w)*k*sc,Y=la=>oy+(n-la)*sc;
+ const span=Math.max(e-w,n-s),step=span>60?20:span>30?10:span>12?5:span>5?2:1;g.strokeStyle="rgba(143,166,196,.13)";g.lineWidth=1;g.beginPath();
+ for(let x=Math.ceil((w-span)/step)*step;x<=e+span;x+=step){g.moveTo(X(x),0);g.lineTo(X(x),H)}for(let y=Math.ceil((s-span)/step)*step;y<=n+span;y+=step){g.moveTo(0,Y(y));g.lineTo(W,Y(y))}g.stroke();
+ const ln=(L,c,wd,dash)=>{if(L.length<2)return;g.strokeStyle=c;g.lineWidth=wd;g.setLineDash(dash||[]);g.lineCap="round";g.lineJoin="round";g.beginPath();L.forEach((q,i)=>i?g.lineTo(X(q[0]),Y(q[1])):g.moveTo(X(q[0]),Y(q[1])));g.stroke();g.setLineDash([])};
+ ln(R,"#6F86A8",2,[6,5]);ln(tk,"#E2B86A",3.5);
+ const ap=(q,lab)=>{if(!q)return;const x=X(q[0]),y=Y(q[1]);g.fillStyle="#fff";g.strokeStyle="#1A6772";g.lineWidth=2;g.beginPath();g.arc(x,y,4.5,0,7);g.fill();g.stroke();
+  if(lab){g.font="600 12px Jost,system-ui,sans-serif";const tw=g.measureText(lab).width;g.fillStyle="#B9CBE3";g.fillText(lab,Math.max(6,Math.min(W-6-tw,x-tw/2)),y+(y>H-30?-10:19))}};
+ if(R.length){ap(R[0],P&&P.dep&&P.dep.icao);ap(R[R.length-1],P&&P.arr&&P.arr.icao)}
+ if(pos){const q=tk[tk.length-1],h=((F.k!=null&&F.gs>40?F.k:F.h)||0)+(F.mv||0);g.save();g.translate(X(q[0]),Y(q[1]));g.rotate(h*Math.PI/180);g.scale(1.3,1.3);
+  const A=new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");g.lineJoin="round";g.strokeStyle="#0B1426";g.lineWidth=1.4;g.stroke(A);g.fillStyle="#fff";g.fill(A);g.restore()}}
 function draw2(){
  const R=unwrap((P&&P.route)||[]),pos=F&&F.la!=null?[F.la,F.lo]:null;
  map.getSource("route").setData({type:"Feature",geometry:{type:"LineString",coordinates:R.length>1?R:[[0,0],[0,0]]}});
@@ -465,9 +483,9 @@ function draw2(){
  /* the whole route and the aircraft, again every few minutes */
  if(Date.now()-fitAt>180000){const pts=R.concat(pos?[[pos[1],pos[0]]]:[]);if(pts.length){fitAt=Date.now();let w=1e3,e=-1e3,s=90,n=-90;pts.forEach(q=>{w=Math.min(w,q[0]);e=Math.max(e,q[0]);s=Math.min(s,q[1]);n=Math.max(n,q[1])});
   if(e-w<.4){w-=.4;e+=.4}if(n-s<.3){s-=.3;n+=.3}map.fitBounds([[w,s],[e,n]],{padding:28,maxZoom:9,duration:pts.length>1&&laid?1200:0})}}}
-function mapOn(){if(map)return;if(typeof maplibregl==="undefined"){dbg("no map library");return}try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/positron",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});dbg("map made");
+function mapOn(){if(map||cv)return;if(typeof maplibregl==="undefined"){cvOn("not loaded");return}try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/positron",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});dbg("map made");
  map.on("style.load",()=>{laid=false;lay()});map.on("load",()=>{dbg("load");if(!laid)lay()});map.on("error",e=>dbg("map error: "+((e&&e.error&&e.error.message)||"?")));
- setTimeout(()=>{if(!laid&&map){plain=true;try{map.setStyle({version:8,sources:{},layers:[{id:"bg",type:"background",paint:{"background-color":"#0D1B2E"}}]})}catch(e){}}},12000)}catch(e){dbg("map: "+e.message);map=null}}
+ setTimeout(()=>{if(!laid&&map){plain=true;try{map.setStyle({version:8,sources:{},layers:[{id:"bg",type:"background",paint:{"background-color":"#0D1B2E"}}]})}catch(e){}}},12000)}catch(e){map=null;cvOn(e.message)}}
 function open(){if(dead)return;try{ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/live/o/"+T+"/ws")}catch(e){setTimeout(open,5000);return}
  ws.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(x){return}
   if(j.t==="ov"){if(j.cfg)C=j.cfg;if("plan"in j)P=j.plan;if(j.trk)TRK=j.trk;if("fl"in j)F=j.fl;if(j.ph!=null)PH=j.ph;fitAt=0}

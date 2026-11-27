@@ -25,7 +25,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "../src/camera/render_schedule.hpp"
 #include "../src/graphics/broadcast_output.hpp"
+#include "../src/profiles/discovered.hpp"
 #include "../src/shared/broadcast_link.hpp"
 
 namespace {
@@ -245,7 +247,105 @@ bool near_rgb(std::uint32_t pixel, double r, double g, double b, int tolerance =
   return near_code(pixel, 16, r, tolerance) && near_code(pixel, 8, g, tolerance) && near_code(pixel, 0, b, tolerance) && (pixel >> 24) == 0xff;
 }
 
+// What the bridge decides without the GPU: the request it reads from the
+// window, the camera shape it publishes for it, and how Taxi Cam's schedule
+// spreads the cameras the window ticked over the simulator's frames.
+void verify_request() {
+  std::printf("-- the window's request\n");
+  Link link{};
+  Request request;
+  request.on = true;
+  expect(read_control(link, 1000, request) && !request.on, "a block nobody wrote asks for nothing");
+  const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat) {
+    write_control(link, [&](Control& c) {
+      c.enabled = enabled;
+      c.width = width;
+      c.height = height;
+      c.fps = 30;
+      c.feed_mask = mask;
+      c.use_mounts = 1;
+      c.heartbeat_ms = heartbeat;
+      for (auto& mount : c.mounts) {
+        const double values[6]{0, 2, 10, -10, 0, 1.2};
+        std::memcpy(mount, values, sizeof(values));
+      }
+    });
+  };
+  write(1, 1920, 1080, 0b0101, 1000);
+  expect(read_control(link, 1000, request) && request.on && request.pane() == ((1920u << 16) | 1078u) && request.feed_mask == 0b0101 &&
+             request.use_mounts && request.fps == 30,
+         "1080p: on, cameras rendered 1920x1078, the mounts taken");
+  expect(read_control(link, 990, request) && request.on, "a heartbeat written just after the bridge read the clock is fresh");
+  expect(read_control(link, 1000 + ControlStaleMs, request) && request.on, "still fresh at the limit");
+  expect(read_control(link, 1001 + ControlStaleMs, request) && !request.on && request.pane() == 0, "stale after it: off, no broadcast shape");
+  write(1, 1280, 720, 0xf, 5000);
+  expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u), "720p: cameras rendered 1280x718");
+  write(1, 1920, 1088, 0xf, 5000);
+  expect(read_control(link, 5000, request) && !request.on, "another size is not a request");
+  write(1, 1920, 1080, 0, 5000);
+  expect(read_control(link, 5000, request) && !request.on, "no camera ticked is not a request");
+  write(0, 1920, 1080, 0xf, 5000);
+  expect(read_control(link, 5000, request) && !request.on, "the tick box off is off");
+  write(1, 1920, 1080, 0xf, 5000);
+  link.control.mounts[2][5] = 2.0;  // a view angle Taxi Cam refuses
+  expect(read_control(link, 5000, request) && request.on && !request.use_mounts, "a mount outside Taxi Cam's limits: its own mounts stay");
+  InterlockedIncrement(&link.control.serial);
+  expect(!read_control(link, 5000, request), "a write in progress is not read");
+
+  std::printf("-- the camera shape\n");
+  using namespace taxi_camera;
+  const auto& base = profiles::A380;
+  const profiles::DisplayOverride none{};
+  auto shaped = base;
+  profiles::apply_choices(shaped, base, none, MaxDisplaySides, 0);
+  expect(shaped.camera_panes == base.camera_panes, "without a broadcast the cameras keep the aircraft's own shapes");
+  profiles::apply_choices(shaped, base, none, MaxDisplaySides, pane_code(1920, 1080));
+  bool all = true;
+  for (const auto& pane : shaped.camera_panes)
+    all = all && pane[0] == 1920 && pane[1] == 1078;
+  expect(all, "with one, all four cameras are 1920x1078");
+  expect(!profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080), "a 1920x1078 texture is no camera's before it is published");
+  const auto* published = profiles::publish_override(&base, none, MaxDisplaySides, pane_code(1920, 1080));
+  expect(published && profiles::find(base.id) == published && published->camera_panes[profiles::DoorFeed][1] == 1078,
+         "published, the aircraft's profile has that shape");
+  expect(profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080),
+         "and a 1920x1078 texture is a camera's, while the simulator's own 1920x1080 ones are not");
+  expect(profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080)) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1280, 720)) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, 0),
+         "another size, or none, is another profile to publish");
+  published = profiles::publish_override(&base, none, MaxDisplaySides, 0);
+  expect(published && published->camera_panes == base.camera_panes && !profiles::camera_candidate(1920, 1078),
+         "the broadcast off publishes the aircraft's own shapes again");
+
+  std::printf("-- the cameras over the simulator's frames\n");
+  const auto opened = [](unsigned rate, unsigned wanted, unsigned frame_ms, unsigned frames) {
+    native_camera::RenderSchedule schedule;
+    schedule.configure(rate, Feeds, 0, wanted);
+    std::array<unsigned, Feeds> count{};
+    for (unsigned i = 0; i < frames + 20; ++i) {
+      const auto gates = schedule.tick(1000 + std::uint64_t{i} * frame_ms);
+      if (i >= 20)  // after its frame-time estimate has settled
+        for (unsigned feed = 0; feed < Feeds; ++feed)
+          count[feed] += gates[feed] ? 1 : 0;
+    }
+    return count;
+  };
+  auto count = opened(30, 0b0001, 16, 625);  // 62.5 simulator frames a second for ten seconds
+  expect(count[0] >= 290 && count[0] <= 310 && !count[1] && !count[2] && !count[3], "one camera at 30 on a 62 fps simulator: about every other frame");
+  // 30 x 2 x 16 ms is 0.96 of a camera per frame, which the schedule takes as one: exactly every other frame each.
+  count = opened(30, 0b1010, 16, 625);
+  expect(!count[0] && count[1] >= 312 && count[1] <= 313 && !count[2] && count[3] >= 312 && count[3] <= 313,
+         "cameras 2 and 4 at 30: each on every other frame, the others never");
+  count = opened(60, 0b1111, 33, 300);  // more than a 30 fps simulator can give
+  expect(count[0] == 300 && count[1] == 300 && count[2] == 300 && count[3] == 300, "four cameras at 60 on a 30 fps simulator: every camera on every frame, no more");
+  count = opened(10, 0b0111, 20, 500);
+  expect(count[0] >= 95 && count[0] <= 105 && count[1] >= 95 && count[1] <= 105 && count[2] >= 95 && count[2] <= 105 && !count[3],
+         "three cameras at 10 on a 50 fps simulator: ten a second each");
+}
+
 int verify(bool hardware) {
+  verify_request();
   Gpu gpu;
   if (!gpu.open(hardware)) {
     std::printf("FAIL  no Direct3D 12 device\n");

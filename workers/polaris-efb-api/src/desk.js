@@ -420,7 +420,8 @@ html,body{margin:0;width:100vw;height:100vh;overflow:hidden;background:transpare
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script>
 (function(){"use strict";
-const T=location.pathname.split("/")[3]||"",DEMO=/[?&]demo=1(&|$)/.test(location.search),$=s=>document.querySelector(s);
+const T=location.pathname.split("/")[3]||"",DEMO=/[?&]demo=1(&|$)/.test(location.search),DBG=/[?&]debug=1(&|$)/.test(location.search),$=s=>document.querySelector(s);
+const dbg=t=>{if(!DBG)return;let e=$("#dbg");if(!e){e=document.createElement("pre");e.id="dbg";e.style.cssText="position:absolute;left:3rem;top:6rem;max-width:60rem;white-space:pre-wrap;font:12px monospace;background:rgba(0,0,0,.7);color:#7FD6DE;padding:8px 10px;border-radius:6px;margin:0";document.body.appendChild(e)}e.textContent+=new Date().toISOString().slice(11,19)+" "+t+"\\n"};
 const esc=v=>String(v==null?"":v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 const PN={parked:"At the gate",taxi:"Taxiing",takeoff:"Takeoff",climb:"Climbing",cruise:"Cruising",descent:"Descending",approach:"On approach",landing:"Landing"};
 let C=null,P=null,F=null,PH="",TRK=[],map=null,laid=false,fitAt=0,ws=null,dead=false,plain=false;
@@ -444,15 +445,17 @@ function dark(){for(const L of map.getStyle().layers){try{
  else if(L.type==="fill"){const w=/water|ocean|lake|river/.test(L.id);map.setPaintProperty(L.id,"fill-color",w?"#081426":"#13253C");map.setPaintProperty(L.id,"fill-opacity",w?1:.55)}
  else if(L.type==="line")map.setPaintProperty(L.id,"line-color",/water|river/.test(L.id)?"#0A1A30":/boundary|admin/.test(L.id)?"#3A5172":"#1E3150");
  else if(L.type==="symbol"){map.setPaintProperty(L.id,"text-color","#8FA6C4");map.setPaintProperty(L.id,"text-halo-color","#0B1426")}}catch(e){}}}
-function lay(){if(!map||laid)return;laid=true;if(!plain)dark();const E={type:"FeatureCollection",features:[]};
+function lay(){if(!map||laid)return;laid=true;dbg("style loaded"+(plain?" (plain)":""));try{lay2()}catch(e){dbg("lay: "+e.message)}fitAt=0;paint()}
+function lay2(){if(!plain)dark();const E={type:"FeatureCollection",features:[]};
  ["route","trk","ends","ac"].forEach(s=>map.addSource(s,{type:"geojson",data:E}));
  map.addLayer({id:"route",type:"line",source:"route",paint:{"line-color":"#6F86A8","line-width":2,"line-dasharray":[2,1.6]}});
  map.addLayer({id:"trk",type:"line",source:"trk",paint:{"line-color":"#E2B86A","line-width":3.5},layout:{"line-cap":"round","line-join":"round"}});
  map.addLayer({id:"ends",type:"circle",source:"ends",paint:{"circle-radius":4.5,"circle-color":"#fff","circle-stroke-color":"#1A6772","circle-stroke-width":2}});
  const c=document.createElement("canvas");c.width=c.height=72;const g=c.getContext("2d");g.translate(36,36);g.scale(3,3);const A=new Path2D("M0-10L1.7-3.5L9 1V3.2L1.7 1.6L1.3 6.4L3.8 8.4V10L0 9L-3.8 10V8.4L-1.3 6.4L-1.7 1.6L-9 3.2V1L-1.7-3.5Z");
  g.lineJoin="round";g.strokeStyle="#0B1426";g.lineWidth=1.4;g.stroke(A);g.fillStyle="#fff";g.fill(A);map.addImage("ac",g.getImageData(0,0,72,72),{pixelRatio:2});
- map.addLayer({id:"ac",type:"symbol",source:"ac",layout:{"icon-image":"ac","icon-rotate":["get","h"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true}});fitAt=0;paint()}
-function draw(){if(!map||!laid)return;
+ map.addLayer({id:"ac",type:"symbol",source:"ac",layout:{"icon-image":"ac","icon-rotate":["get","h"],"icon-rotation-alignment":"map","icon-allow-overlap":true,"icon-ignore-placement":true}})}
+function draw(){if(!map||!laid)return;try{draw2()}catch(e){dbg("draw: "+e.message)}}
+function draw2(){
  const R=unwrap((P&&P.route)||[]),pos=F&&F.la!=null?[F.la,F.lo]:null;
  map.getSource("route").setData({type:"Feature",geometry:{type:"LineString",coordinates:R.length>1?R:[[0,0],[0,0]]}});
  const tk=unwrap(TRK.map(q=>[q[0],q[1]]).concat(pos?[pos]:[]));map.getSource("trk").setData({type:"Feature",geometry:{type:"LineString",coordinates:tk.length>1?tk:[[0,0],[0,0]]}});
@@ -462,8 +465,9 @@ function draw(){if(!map||!laid)return;
  /* the whole route and the aircraft, again every few minutes */
  if(Date.now()-fitAt>180000){const pts=R.concat(pos?[[pos[1],pos[0]]]:[]);if(pts.length){fitAt=Date.now();let w=1e3,e=-1e3,s=90,n=-90;pts.forEach(q=>{w=Math.min(w,q[0]);e=Math.max(e,q[0]);s=Math.min(s,q[1]);n=Math.max(n,q[1])});
   if(e-w<.4){w-=.4;e+=.4}if(n-s<.3){s-=.3;n+=.3}map.fitBounds([[w,s],[e,n]],{padding:28,maxZoom:9,duration:pts.length>1&&laid?1200:0})}}}
-function mapOn(){if(map||typeof maplibregl==="undefined")return;try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/positron",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});map.on("style.load",()=>{laid=false;lay()});
- setTimeout(()=>{if(!laid&&map){plain=true;try{map.setStyle({version:8,sources:{},layers:[{id:"bg",type:"background",paint:{"background-color":"#0D1B2E"}}]})}catch(e){}}},12000)}catch(e){map=null}}
+function mapOn(){if(map)return;if(typeof maplibregl==="undefined"){dbg("no map library");return}try{map=new maplibregl.Map({container:"map",style:"https://tiles.openfreemap.org/styles/positron",center:[0,30],zoom:2,interactive:false,attributionControl:{compact:true},fadeDuration:0});dbg("map made");
+ map.on("style.load",()=>{laid=false;lay()});map.on("load",()=>{dbg("load");if(!laid)lay()});map.on("error",e=>dbg("map error: "+((e&&e.error&&e.error.message)||"?")));
+ setTimeout(()=>{if(!laid&&map){plain=true;try{map.setStyle({version:8,sources:{},layers:[{id:"bg",type:"background",paint:{"background-color":"#0D1B2E"}}]})}catch(e){}}},12000)}catch(e){dbg("map: "+e.message);map=null}}
 function open(){if(dead)return;try{ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/live/o/"+T+"/ws")}catch(e){setTimeout(open,5000);return}
  ws.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(x){return}
   if(j.t==="ov"){if(j.cfg)C=j.cfg;if("plan"in j)P=j.plan;if(j.trk)TRK=j.trk;if("fl"in j)F=j.fl;if(j.ph!=null)PH=j.ph;fitAt=0}

@@ -22,11 +22,12 @@ is written to the cockpit displays then. With the broadcast off it behaves as Ta
 
 | File | Change |
 | --- | --- |
-| `src/shared/broadcast_link.hpp` (new) | The shared-memory block between the bridge and the window: what the window asks for (on, size, rate, cameras, mounts, memory guard) and what the bridge reports (state, graphics memory, its version, the newest picture of each camera); the memory guard. |
+| `src/shared/broadcast_link.hpp` (new) | The shared-memory block between the bridge and the window: what the window asks for (on, size, rate, cameras, mounts, memory guard, draw distance) and what the bridge reports (state, graphics memory, its version, the newest picture of each camera); the memory guard. |
 | `src/graphics/broadcast_output.hpp`, `.cpp` (new) | One camera's picture: the snapshot through the simulator's exposure and tone curve (the compositor's conversion, without its bloom) into one of three `B8G8R8A8` textures shared by name. |
 | `src/graphics/scene_runtime.hpp`, `.cpp` | While broadcasting, each view's snapshots go to its `BroadcastOutput` instead of the composition. |
 | `src/bridge/bridge_main.cpp` | Reads the window's request each pass; the broadcast size as a camera shape (the existing reshape transition); cameras wanted as for the scene test, with no display written, unless the memory guard pauses them; the broadcast's own rate, cameras and mounts; status for the window; the camera service on a second thread while broadcasting. |
 | `src/profiles/discovered.hpp` | `apply_choices`, `override_current`, `publish_override` take the broadcast pane. |
+| `src/camera/view_clip.hpp`, `.cpp`, `src/camera/probe.hpp`, `.cpp` | `limit_camera_far` caps the far distances each camera view is given (the main view's) at the broadcast's draw distance, set through `request_scene_draw_distance`; `plausible_camera_clip` moved into the header. |
 | `src/viewer/` (new) | `polaris-cam.exe`, the window: settings, a 2×2 preview, an output window per camera. Direct3D 11, copies only. |
 | `src/app/companion.cpp`, `app.rc`, `src/bridge/bridge.rc` | The title and file descriptions say it is the Polaris Cam build; the updater is off. |
 | `src/camera/mount_config.cpp` | `<windows.h>` in lower case, to build on Linux. |
@@ -86,6 +87,11 @@ stops wanting the cameras: the views park as with the broadcast off, but keep th
 pictures, and render again once 1.6 GB has been free for 15 s. The readings are the bridge's existing once-a-second
 `QueryVideoMemoryInfo` ones; the window can turn the guard off.
 
-The shared block has a name of its own for each version of its layout (`Local\PolarisCam.Link.2`), since the bridge stays
+The window can also ask for a draw distance. Taxi Cam gives each camera view's camera the main view's far distances (the
+culling frustum's far and the default far that the depth range and the shared object-LOD viewer list read, about 357 km in
+MSFS 2024) before every view update; while broadcasting, both are capped at the distance asked for, from the next update
+on, and the main view's come back when the broadcast stops.
+
+The shared block has a name of its own for each version of its layout (`Local\PolarisCam.Link.3`), since the bridge stays
 in the simulator until it exits: a window of a newer version finds a bridge of an older one under the older name, and says
 that the simulator has to be restarted.

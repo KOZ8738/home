@@ -865,6 +865,7 @@ DWORD run_impl() {
   polaris_cam::Shape cast_logged;
   polaris_cam::MemoryGuard cast_guard;
   bool cast_guard_logged = false;
+  std::uint32_t cast_draw_distance = 0;  // metres asked of the camera views; 0 the main view's
   if (cast_link.open()) {
     std::snprintf(cast_link.get()->status.version, sizeof(cast_link.get()->status.version), "%s", POLARIS_CAM_VERSION);
     scene_runtime::set_broadcast_link(cast_link.get());
@@ -2274,6 +2275,19 @@ DWORD run_impl() {
       if (native_camera::request_scene_mounts(mounts))
         applied_mounts = wanted_mounts;
     }
+    // Polaris Cam: the window's draw distance for the camera views while
+    // broadcasting; the main view's, as Taxi Cam's own, otherwise. From the
+    // views' next update on, whatever they are doing.
+    if (const std::uint32_t distance = cast.on ? cast.draw_distance_m : 0; distance != cast_draw_distance) {
+      cast_draw_distance = distance;
+      native_camera::request_scene_draw_distance(static_cast<float>(distance));
+      char detail[96];
+      if (distance)
+        std::snprintf(detail, sizeof(detail), "Polaris Cam draw distance: %u m", distance);
+      else
+        std::snprintf(detail, sizeof(detail), "Polaris Cam draw distance: the main view's");
+      log_status(status, detail);
+    }
     // The broadcast textures stay for as long as the window asks, so a pause
     // or a lapse leaves the last picture on show.
     scene_runtime::set_broadcast(key, cast.on ? cast.width : 0, cast.height, cast.feed_mask);
@@ -2281,9 +2295,10 @@ DWORD run_impl() {
     if (cast.on != cast_was_on) {
       cast_was_on = cast.on;
       char detail[160];
-      std::snprintf(detail, sizeof(detail), "Polaris Cam %s broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u memory_guard=%u",
+      std::snprintf(detail, sizeof(detail),
+                    "Polaris Cam %s broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u memory_guard=%u draw_distance_m=%u",
                     POLARIS_CAM_VERSION, cast.on ? "on" : "off", cast.width, cast.height, cast.fps, cast.feed_mask, cast.use_mounts ? 1u : 0u,
-                    cast.memory_guard ? 1u : 0u);
+                    cast.memory_guard ? 1u : 0u, cast.draw_distance_m);
       log_status(status, detail);
     }
     if (!startup.observed && (mask || test_scene)) {
@@ -2965,9 +2980,9 @@ DWORD run_impl() {
       // Per camera and for the main view: near plane / culling far / default far, metres.
       char clip_detail[448];
       std::snprintf(clip_detail, sizeof(clip_detail),
-                    "Camera draw distance: pose_proven=%d writes=%llu "
+                    "Camera draw distance: pose_proven=%d writes=%llu limit=%u "
                     "error=%s main=%.3g/%.6g/%.6g feed0=%.3g/%.6g/%.6g feed1=%.3g/%.6g/%.6g feed2=%.3g/%.6g/%.6g",
-                    scene.pose_session_proven ? 1 : 0, static_cast<unsigned long long>(scene.draw_clip_writes),
+                    scene.pose_session_proven ? 1 : 0, static_cast<unsigned long long>(scene.draw_clip_writes), cast_draw_distance,
                     scene.draw_clip_error && *scene.draw_clip_error ? scene.draw_clip_error : "none", scene.main_clip[0],
                     scene.main_clip[1], scene.main_clip[2], scene.draw_clip[0][0], scene.draw_clip[0][1], scene.draw_clip[0][2],
                     scene.draw_clip[1][0], scene.draw_clip[1][1], scene.draw_clip[1][2], scene.draw_clip[2][0], scene.draw_clip[2][1],

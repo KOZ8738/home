@@ -56,6 +56,19 @@ constexpr std::array<Preset, 6> Presets{{
 constexpr int CustomPreset = static_cast<int>(Presets.size());
 constexpr std::array<int, Feeds> DefaultPresets{0, 1, 3, 4};
 constexpr std::array<unsigned, 10> FpsChoices{5, 10, 15, 20, 24, 25, 30, 40, 50, 60};
+// The cameras' draw distance in metres; 0 as far as the main view.
+struct DrawDistance {
+  std::uint32_t metres;
+  const wchar_t* name;
+};
+constexpr std::array<DrawDistance, 6> DrawDistances{{
+    {0, L"同主畫面（最遠）"},
+    {50000, L"50 公里"},
+    {20000, L"20 公里"},
+    {10000, L"10 公里"},
+    {5000, L"5 公里"},
+    {2000, L"2 公里"},
+}};
 
 enum ControlId : int {
   IdEnable = 100,
@@ -68,6 +81,7 @@ enum ControlId : int {
   IdHint,
   IdReset,
   IdGuard,
+  IdDistance,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -80,6 +94,7 @@ struct Settings {
   std::uint32_t mask = 1;
   bool windows = false;
   bool memory_guard = true;  // the cameras pause while graphics memory runs out
+  std::uint32_t draw_distance = 0;  // one of DrawDistances
   std::array<Mount, Feeds> mounts{};
   std::array<int, Feeds> presets = DefaultPresets;
   std::uint32_t width() const noexcept { return height == 720 ? 1280u : 1920u; }
@@ -229,6 +244,11 @@ void load_settings() {
     s.mask = 1;
   s.windows = GetPrivateProfileIntW(L"general", L"windows", 0, path.c_str()) == 1;
   s.memory_guard = GetPrivateProfileIntW(L"general", L"memory_guard", 1, path.c_str()) != 0;
+  const auto distance = static_cast<std::uint32_t>(GetPrivateProfileIntW(L"general", L"draw_distance", 0, path.c_str()));
+  s.draw_distance = 0;
+  for (const auto& choice : DrawDistances)
+    if (choice.metres == distance)
+      s.draw_distance = distance;
   app.aircraft = L"default";
   load_mounts(app.aircraft);
 }
@@ -246,6 +266,7 @@ void save_settings() {
   put(L"cameras", s.mask);
   put(L"windows", s.windows ? 1 : 0);
   put(L"memory_guard", s.memory_guard ? 1 : 0);
+  put(L"draw_distance", s.draw_distance);
   save_mounts();
 }
 
@@ -264,6 +285,7 @@ void write_link() {
     c.feed_mask = s.mask;
     c.use_mounts = 1;
     c.memory_guard = s.memory_guard ? 1 : 0;
+    c.draw_distance_m = s.draw_distance;
     c.heartbeat_ms = app.heartbeat_ms;
     for (unsigned feed = 0; feed < Feeds; ++feed)
       for (unsigned i = 0; i < 6; ++i)
@@ -821,7 +843,7 @@ void layout() {
   RECT client{};
   GetClientRect(app.main, &client);
   // The help text takes what is left of the panel's height.
-  const int hint_top = px(530);
+  const int hint_top = px(558);
   SetWindowPos(control(IdHint), nullptr, px(Margin), hint_top, px(PanelWidth - Margin - 8),
                std::max(static_cast<int>(client.bottom) - hint_top - px(Margin), px(20)), SWP_NOZORDER | SWP_NOACTIVATE);
   InvalidateRect(app.main, nullptr, TRUE);
@@ -868,6 +890,9 @@ void fill_controls() {
   SendMessageW(control(IdFps), CB_SETCURSEL, static_cast<WPARAM>(choice), 0);
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
   Button_SetCheck(control(IdGuard), s.memory_guard ? BST_CHECKED : BST_UNCHECKED);
+  for (std::size_t i = 0; i < DrawDistances.size(); ++i)
+    if (DrawDistances[i].metres == s.draw_distance)
+      SendMessageW(control(IdDistance), CB_SETCURSEL, static_cast<WPARAM>(i), 0);
   app.filling = false;
   fill_mount_fields();
 }
@@ -889,35 +914,39 @@ void create_controls() {
     SendMessageW(fps, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
   make(L"STATIC", L"fps（每顆鏡頭）", 0, 142, 176, 150, 20, -1);
-  make(L"STATIC", L"鏡頭（勾選的才會渲染）", 0, Margin, 208, 300, 20, -1, app.bold);
+  make(L"STATIC", L"繪製距離", WS_GROUP, Margin, 206, 70, 20, -1);
+  HWND distance = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, 202, 140, 240, IdDistance);
+  for (const auto& choice : DrawDistances)
+    SendMessageW(distance, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(choice.name));
+  make(L"STATIC", L"近一點較省", 0, 238, 206, 90, 20, -1);
+  make(L"STATIC", L"鏡頭（勾選的才會渲染）", 0, Margin, 236, 300, 20, -1, app.bold);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
-    const int y = 232 + static_cast<int>(feed) * 28;
+    const int y = 260 + static_cast<int>(feed) * 28;
     make(L"BUTTON", text, BS_AUTOCHECKBOX | WS_TABSTOP, Margin, y, 70, 22, IdCamera + static_cast<int>(feed));
     HWND preset = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, y - 2, 238, 240, IdPreset + static_cast<int>(feed));
     for (const auto& item : Presets)
       SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item.name));
     SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
   }
-  make(L"STATIC", L"調整位置", 0, Margin, 352, 70, 20, -1, app.bold);
-  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 90, 348, 100, 200, IdSelect);
+  make(L"STATIC", L"調整位置", 0, Margin, 380, 70, 20, -1, app.bold);
+  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 90, 376, 100, 200, IdSelect);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     SendMessageW(select, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
-  make(L"BUTTON", L"重設", WS_TABSTOP, 200, 347, 60, 26, IdReset);
+  make(L"BUTTON", L"重設", WS_TABSTOP, 200, 375, 60, 26, IdReset);
   // Two columns: position on the left, direction and view angle on the right.
   constexpr std::array<int, 6> Column{0, 0, 0, 1, 1, 1}, Row{0, 1, 2, 0, 1, 2};
   for (unsigned i = 0; i < 6; ++i) {
-    const int x = Margin + Column[i] * 160, y = 382 + Row[i] * 32;
+    const int x = Margin + Column[i] * 160, y = 410 + Row[i] * 32;
     make(L"STATIC", FieldNames[i], 0, x, y + 4, 66, 20, -1);
     make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 68, y, 76, 25, IdField + static_cast<int>(i));
   }
-  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 492, 300, 22, IdWindows);
+  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 520, 300, 22, IdWindows);
   make(L"STATIC",
-       L"直播模式開啟時，駕駛艙螢幕上的滑行鏡頭會暫停。\r\n\r\n"
        L"在預覽上：左鍵拖曳 轉向　右鍵拖曳 平移\r\n"
        L"滾輪 前進後退　Ctrl＋滾輪 拉近拉遠\r\n"
        L"雙擊 放大這顆／回到四格\r\n"
@@ -926,14 +955,15 @@ void create_controls() {
        L"OBS：來源 → 視窗擷取 → 選「Polaris Cam 1」…\r\n"
        L"擷取方式選「Windows 10 (1903 以上)」。\r\n"
        L"輸出視窗可拖到別的螢幕或被其他視窗蓋住，但不要最小化；在輸出視窗上按右鍵可關閉。",
-       0, Margin, 488, PanelWidth - Margin - 8, 200, IdHint);
+       0, Margin, 516, PanelWidth - Margin - 8, 200, IdHint);
 }
 
 // --- changes ----------------------------------------------------------------
 void settings_changed(bool mounts_only = false) {
   if (!mounts_only)
-    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d", app.settings.enabled ? L"on" : L"off", app.settings.width(),
-         app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0, app.settings.memory_guard ? 1 : 0);
+    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d draw distance %u m", app.settings.enabled ? L"on" : L"off",
+         app.settings.width(), app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0,
+         app.settings.memory_guard ? 1 : 0, app.settings.draw_distance);
   write_link();
   if (mounts_only)
     save_mounts();
@@ -1076,6 +1106,11 @@ void on_command(int id, int code) {
     settings_changed();
   } else if (id == IdGuard && code == BN_CLICKED) {
     s.memory_guard = Button_GetCheck(control(IdGuard)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdDistance && code == CBN_SELCHANGE) {
+    const auto choice = SendMessageW(control(IdDistance), CB_GETCURSEL, 0, 0);
+    if (choice >= 0 && choice < static_cast<LRESULT>(DrawDistances.size()))
+      s.draw_distance = DrawDistances[static_cast<std::size_t>(choice)].metres;
     settings_changed();
   } else if (id == IdSelect && code == CBN_SELCHANGE) {
     const auto choice = SendMessageW(control(IdSelect), CB_GETCURSEL, 0, 0);
@@ -1303,7 +1338,7 @@ LRESULT CALLBACK main_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
       return 0;
     case WM_GETMINMAXINFO: {
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize = {px(900), px(620)};
+      info->ptMinTrackSize = {px(900), px(650)};
       return 0;
     }
     case WM_DPICHANGED: {
@@ -1467,7 +1502,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   type.hCursor = LoadCursorW(nullptr, IDC_SIZEALL);
   RegisterClassExW(&type);
 
-  app.main = CreateWindowExW(0, MainClass, AppTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1180, 720, nullptr,
+  app.main = CreateWindowExW(0, MainClass, AppTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1180, 760, nullptr,
                              nullptr, instance, nullptr);
   if (!app.main)
     return 1;
@@ -1492,7 +1527,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   for (unsigned index = 0; index < Feeds; ++index)
     app.feeds[index].cell = CreateWindowExW(0, CellClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 16, 9, app.main, nullptr, instance,
                                             reinterpret_cast<void*>(static_cast<UINT_PTR>(index)));
-  SetWindowPos(app.main, nullptr, 0, 0, px(1180), px(720), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+  SetWindowPos(app.main, nullptr, 0, 0, px(1180), px(760), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   fill_controls();
   layout();
   write_link();

@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace taxi_camera::native_camera {
@@ -22,7 +24,10 @@ struct CameraClip {
 
 // Finite, positive near, default far beyond near, and a culling far that is
 // either negative (falls back to the default) or beyond near.
-bool plausible_camera_clip(const CameraClip& clip) noexcept;
+inline bool plausible_camera_clip(const CameraClip& clip) noexcept {
+  return std::isfinite(clip.near_plane) && std::isfinite(clip.far_plane) && std::isfinite(clip.default_far) && clip.near_plane > 0 &&
+         clip.default_far > clip.near_plane && (clip.far_plane < 0 || clip.far_plane > clip.near_plane);
+}
 
 // One exact read of +0x5F0..+0x5FB. Any current-process camera address; the
 // caller must hold it inside a validated engine update. False on misalignment,
@@ -36,6 +41,21 @@ bool read_camera_clip(std::uint64_t camera_address, CameraClip& clip) noexcept;
 // target. False when the needed input is implausible; the caller then writes
 // nothing.
 bool camera_far_target(const CameraClip& own, const CameraClip& main, CameraClip& target) noexcept;
+
+// Polaris Cam: a target drawn no farther than limit metres, for the broadcast
+// cameras' draw distance. Both far values are capped; a negative culling far
+// stays negative, as it falls back to the capped default. A limit of 0 (or
+// one that is not a finite positive distance) leaves the target as it is, and
+// so does a cap that would leave the far no longer beyond the near plane.
+inline CameraClip limit_camera_far(const CameraClip& target, float limit) noexcept {
+  if (!std::isfinite(limit) || limit <= 0)
+    return target;
+  CameraClip out = target;
+  out.default_far = std::min(out.default_far, limit);
+  if (out.far_plane >= 0)
+    out.far_plane = std::min(out.far_plane, limit);
+  return plausible_camera_clip(out) ? out : target;
+}
 
 struct CameraClipResult {
   bool complete = false;

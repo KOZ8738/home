@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 #include "../src/camera/render_schedule.hpp"
+#include "../src/camera/view_clip.hpp"
 #include "../src/graphics/broadcast_output.hpp"
 #include "../src/profiles/discovered.hpp"
 #include "../src/shared/broadcast_link.hpp"
@@ -287,7 +288,7 @@ void verify_request() {
   request.on = true;
   expect(read_control(link, 1000, request) && !request.on, "a block nobody wrote asks for nothing");
   const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat,
-                         std::uint32_t memory_guard = 1) {
+                         std::uint32_t memory_guard = 1, std::uint32_t draw_distance = 0) {
     write_control(link, [&](Control& c) {
       c.enabled = enabled;
       c.width = width;
@@ -296,6 +297,7 @@ void verify_request() {
       c.feed_mask = mask;
       c.use_mounts = 1;
       c.memory_guard = memory_guard;
+      c.draw_distance_m = draw_distance;
       c.heartbeat_ms = heartbeat;
       for (auto& mount : c.mounts) {
         const double values[6]{0, 2, 10, -10, 0, 1.2};
@@ -305,14 +307,23 @@ void verify_request() {
   };
   write(1, 1920, 1080, 0b0101, 1000);
   expect(read_control(link, 1000, request) && request.on && request.pane() == ((1920u << 16) | 1078u) && request.feed_mask == 0b0101 &&
-             request.use_mounts && request.fps == 30 && request.memory_guard,
-         "1080p: on, cameras rendered 1920x1078, the mounts taken, the memory guard on");
+             request.use_mounts && request.fps == 30 && request.memory_guard && request.draw_distance_m == 0,
+         "1080p: on, cameras rendered 1920x1078, the mounts taken, the memory guard on, as far as the main view");
   expect(read_control(link, 990, request) && request.on, "a heartbeat written just after the bridge read the clock is fresh");
   expect(read_control(link, 1000 + ControlStaleMs, request) && request.on, "still fresh at the limit");
   expect(read_control(link, 1001 + ControlStaleMs, request) && !request.on && request.pane() == 0, "stale after it: off, no broadcast shape");
   write(1, 1280, 720, 0xf, 5000, 0);
   expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u) && !request.memory_guard,
          "720p: cameras rendered 1280x718; the memory guard off");
+  const auto distance = [&](std::uint32_t metres) {
+    write(1, 1920, 1080, 0xf, 5000, 1, metres);
+    return read_control(link, 5000, request) && request.on ? request.draw_distance_m : 0xffffffffu;
+  };
+  expect(distance(10000) == 10000 && distance(MinimumDrawDistanceM) == MinimumDrawDistanceM &&
+             distance(MaximumDrawDistanceM) == MaximumDrawDistanceM,
+         "a draw distance is taken as asked");
+  expect(distance(MinimumDrawDistanceM - 1) == 0 && distance(MaximumDrawDistanceM + 1) == 0 && distance(0) == 0,
+         "one outside 1 to 400 km is as far as the main view");
   write(1, 1920, 1088, 0xf, 5000);
   expect(read_control(link, 5000, request) && !request.on, "another size is not a request");
   write(1, 1920, 1080, 0, 5000);
@@ -381,6 +392,20 @@ void verify_request() {
   ask.on = false;
   expect(settle.update(ask, 7001) == Shape{} && settle.settled(), "off: at once");
 
+  std::printf("-- the cameras' draw distance\n");
+  {
+    using taxi_camera::native_camera::CameraClip;
+    using taxi_camera::native_camera::limit_camera_far;
+    const CameraClip main{0.05f, 356700.f, 356700.f};  // the camera with the main view's far, as the log shows it
+    expect(limit_camera_far(main, 10000.f) == CameraClip{0.05f, 10000.f, 10000.f}, "10 km: both far values 10 km, the near plane kept");
+    expect(limit_camera_far(main, 0.f) == main && limit_camera_far(main, std::nanf("")) == main && limit_camera_far(main, -5.f) == main,
+           "0, or no distance at all: as far as the main view");
+    expect(limit_camera_far(main, 500000.f) == main, "farther than the main view: the main view's");
+    expect(limit_camera_far({0.05f, -1.f, 356700.f}, 5000.f) == CameraClip{0.05f, -1.f, 5000.f},
+           "a culling far that falls back to the default stays so, the default capped");
+    expect(limit_camera_far(main, 0.01f) == main, "a cap inside the near plane is refused");
+  }
+
   std::printf("-- the memory guard\n");
   {
     MemoryGuard guard;
@@ -411,20 +436,26 @@ void verify_request() {
   }
 
   std::printf("-- a bridge of an earlier version\n");
-  {
-    HANDLE block = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(LinkHead), L"Local\\PolarisCam.Link.1");
-    auto* head = block ? static_cast<LinkHead*>(MapViewOfFile(block, FILE_MAP_WRITE, 0, 0, sizeof(LinkHead))) : nullptr;
-    expect(head != nullptr, "the block of 0.1.0 and 0.1.1 can be made");
-    if (head) {
+  for (const auto& older : OlderLinks) {
+    // That version's block as its bridge writes it, as far as its heartbeat.
+    wchar_t name[48];
+    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(older.version));
+    const auto size = static_cast<DWORD>(older.pid + 4);
+    HANDLE block = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, size, name);
+    auto* bytes = block ? static_cast<unsigned char*>(MapViewOfFile(block, FILE_MAP_WRITE, 0, 0, size)) : nullptr;
+    expect(bytes != nullptr, older.version == 1 ? "the block of 0.1.0 and 0.1.1 can be made" : "the block of 0.1.2 can be made");
+    if (bytes) {
       const auto now = GetTickCount64();
       expect(older_bridge(now) == 0, "a block nobody writes into: no bridge");
-      head->magic = LinkMagic;
-      head->version = 1;
-      head->pid = 4242;
-      head->heartbeat_ms = now;
-      expect(older_bridge(now) == 1, "a bridge of 0.1.1 writing its heartbeat is found");
+      const std::uint32_t magic = LinkMagic, pid = 4242;
+      std::memcpy(bytes, &magic, sizeof(magic));
+      std::memcpy(bytes + 4, &older.version, sizeof(older.version));
+      std::memcpy(bytes + older.heartbeat, &now, sizeof(now));
+      std::memcpy(bytes + older.pid, &pid, sizeof(pid));
+      expect(older_bridge(now) == older.version, older.version == 1 ? "a bridge of 0.1.1 writing its heartbeat is found"
+                                                                    : "a bridge of 0.1.2 writing its heartbeat is found");
       expect(older_bridge(now + StatusStaleMs + 1) == 0, "one that stopped is not");
-      UnmapViewOfFile(head);
+      UnmapViewOfFile(bytes);
     }
     if (block)
       CloseHandle(block);

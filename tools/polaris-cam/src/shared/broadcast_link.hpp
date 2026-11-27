@@ -16,21 +16,26 @@ namespace polaris_cam {
 // newest complete picture. Each LinkVersion has a block of its own, under
 // its own name: a window and a bridge of different versions never share one,
 // and the window can still see a bridge of an earlier version (older_bridge).
-inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.2";
+inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.3";
 // Set by the bridge each time a camera has a new picture (auto-reset), so the
 // window need not poll for it.
-inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.2";
+inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.3";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.1.2"
-#define POLARIS_CAM_VERSION_WIDE L"0.1.2"
+#define POLARIS_CAM_VERSION "0.1.3"
+#define POLARIS_CAM_VERSION_WIDE L"0.1.3"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
-// 1: 0.1.0 and 0.1.1. 2: the memory guard, and the bridge's own version.
-inline constexpr std::uint32_t LinkVersion = 2;
+// 1: 0.1.0 and 0.1.1. 2: 0.1.2, the memory guard and the bridge's own
+// version. 3: the cameras' draw distance.
+inline constexpr std::uint32_t LinkVersion = 3;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
 inline constexpr unsigned Slots = 3;  // textures per camera: newest, being read, being written
 inline constexpr std::uint32_t NoSlot = Slots;
 inline constexpr std::uint64_t ControlStaleMs = 5000;  // a window that stopped writing is off
 inline constexpr unsigned MinimumFps = 5, MaximumFps = 60, DefaultFps = 30;
+// How far the cameras draw, in metres: 0 is as far as the main view (MSFS
+// 2024 draws about 357 km). Nearer, the views have less scenery to cull,
+// draw and keep: terrain, objects and clouds end there.
+inline constexpr std::uint32_t MinimumDrawDistanceM = 1000, MaximumDrawDistanceM = 400000;
 
 // right, up, forward in metres from the aircraft's reference point; pitch and
 // yaw in degrees (yaw 0 looks forward, 90 right, 180 aft); fov in radians.
@@ -62,6 +67,8 @@ struct Control {
   std::uint32_t feed_mask;      // bit per camera that renders
   std::uint32_t use_mounts;     // 1: mounts below instead of Taxi Cam's own
   std::uint32_t memory_guard;   // 1: the cameras pause while graphics memory runs out (MemoryGuard)
+  std::uint32_t draw_distance_m;  // MinimumDrawDistanceM..MaximumDrawDistanceM, or 0
+  std::uint32_t reserved;
   std::uint64_t heartbeat_ms;  // the window's GetTickCount64
   double mounts[Feeds][6];
 };
@@ -130,17 +137,20 @@ struct Link {
   Status status;
 };
 
-// The start of the block, the same in every LinkVersion so far: as far as
-// the bridge's heartbeat and process.
-struct LinkHead {
-  std::uint32_t magic, version;
-  Control control;
-  std::uint64_t heartbeat_ms;  // Status::heartbeat_ms
-  std::uint32_t pid;           // Status::pid
+// Where the bridge of each earlier version writes its heartbeat and process
+// id: right after its Control, at the start of its Status. A version that
+// changes the size of Control adds its own line when the next one is made.
+struct OlderLink {
+  std::uint32_t version;
+  std::size_t heartbeat, pid;  // offsets in its block
 };
-static_assert(sizeof(Control) == 232, "LinkVersion 1's Control: a bridge of 0.1.0 or 0.1.1 is found by it");
-static_assert(offsetof(Link, status) + offsetof(Status, heartbeat_ms) == offsetof(LinkHead, heartbeat_ms) &&
-              offsetof(Link, status) + offsetof(Status, pid) == offsetof(LinkHead, pid));
+inline constexpr OlderLink OlderLinks[]{
+    {1, 240, 248},  // 0.1.0, 0.1.1
+    {2, 240, 248},  // 0.1.2
+};
+static_assert(std::size(OlderLinks) == LinkVersion - 1);
+static_assert(offsetof(Link, status) == 248 && offsetof(Status, heartbeat_ms) == 0 && offsetof(Status, pid) == 8,
+              "this version's heartbeat, for the line the next version adds");
 
 // "Local\PolarisCam.<pid>.<generation>.<feed><slot>"
 inline void texture_name(wchar_t* out, std::size_t count, std::uint32_t pid, std::uint32_t generation, unsigned feed, unsigned slot) noexcept {
@@ -201,20 +211,25 @@ inline constexpr std::uint64_t StatusStaleMs = 3000;  // a bridge that stopped w
 // The LinkVersion of a bridge of an earlier version that is running in the
 // simulator (one loaded before the files were replaced), or 0.
 inline std::uint32_t older_bridge(std::uint64_t now_ms) noexcept {
-  for (std::uint32_t version = 1; version < LinkVersion; ++version) {
+  for (const auto& older : OlderLinks) {
     wchar_t name[48];
-    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(version));
+    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(older.version));
     HANDLE mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, name);
     if (!mapping)
       continue;
     bool running = false;
-    if (const auto* head = static_cast<const LinkHead*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(LinkHead)))) {
-      running = head->magic == LinkMagic && head->pid != 0 && fresh_heartbeat(head->heartbeat_ms, now_ms, StatusStaleMs);
-      UnmapViewOfFile(head);
+    if (const auto* block = static_cast<const unsigned char*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, older.pid + 4))) {
+      std::uint32_t magic = 0, pid = 0;
+      std::uint64_t heartbeat = 0;
+      std::memcpy(&magic, block, sizeof(magic));
+      std::memcpy(&heartbeat, block + older.heartbeat, sizeof(heartbeat));
+      std::memcpy(&pid, block + older.pid, sizeof(pid));
+      running = magic == LinkMagic && pid != 0 && fresh_heartbeat(heartbeat, now_ms, StatusStaleMs);
+      UnmapViewOfFile(block);
     }
     CloseHandle(mapping);
     if (running)
-      return version;
+      return older.version;
   }
   return 0;
 }
@@ -224,6 +239,7 @@ struct Request {
   std::uint32_t width = 0, height = 0, fps = DefaultFps, feed_mask = 0;
   bool use_mounts = false;
   bool memory_guard = false;
+  std::uint32_t draw_distance_m = 0;  // 0: as far as the main view
   std::array<Mount, Feeds> mounts{};
   std::uint32_t pane() const noexcept { return on ? pane_code(width, height) : 0u; }
 };
@@ -256,6 +272,8 @@ inline bool read_control(const Link& link, std::uint64_t now_ms, Request& out) n
   request.feed_mask = copy.feed_mask & ((1u << Feeds) - 1);
   request.use_mounts = copy.use_mounts == 1;
   request.memory_guard = copy.memory_guard == 1;
+  request.draw_distance_m =
+      copy.draw_distance_m >= MinimumDrawDistanceM && copy.draw_distance_m <= MaximumDrawDistanceM ? copy.draw_distance_m : 0;
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     if (!valid_mount(copy.mounts[feed]))
       request.use_mounts = false;

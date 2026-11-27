@@ -104,6 +104,20 @@ jobs:
           name: window-test
           path: window-test
           retention-days: 30
+      # also as files of a release of their own, where they can be opened without signing in
+      - name: Keep the screenshots on the polaris-cam-test release
+        if: always() && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls window-test/*.png >/dev/null 2>&1 || exit 0
+          if ! gh release view polaris-cam-test -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create polaris-cam-test -R "$GITHUB_REPOSITORY" --prerelease --latest=false --target "$GITHUB_SHA" \
+              --title "Polaris Cam: what the last build's test showed" \
+              --notes "Screenshots from the last Build Polaris Cam run: the Polaris Cam window against a stand-in for the bridge, on a machine with no simulator and no graphics card. The pictures are the stand-in's test pattern. The download itself is on the polaris-cam release."
+          fi
+          gh release upload polaris-cam-test -R "$GITHUB_REPOSITORY" window-test/*.png --clobber
 
   publish:
     needs: [build, test]

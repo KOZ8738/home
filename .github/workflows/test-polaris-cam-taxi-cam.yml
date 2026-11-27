@@ -1,0 +1,72 @@
+# Runs Taxi Cam's own test suite on Polaris Cam's sources, whenever they change on main or by hand.
+#
+# Polaris Cam is a changed copy of Taxi Cam (tools/polaris-cam). Taxi Cam's repository has the tests for everything it
+# does with the broadcast off: its camera views, their capture, the picture on the cockpit displays. This puts Polaris
+# Cam's src/ over Taxi Cam at the commit it was changed from and runs Taxi Cam's validation (software Direct3D 12),
+# so a change made for the broadcast that breaks Taxi Cam's own behaviour is seen here. It gates nothing: the
+# download is built and published by build-polaris-cam.yml.
+name: Polaris Cam under Taxi Cam's tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/polaris-cam/src/**'
+      - 'tools/polaris-cam/tools/**'
+      - '.github/workflows/test-polaris-cam-taxi-cam.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-polaris-cam-taxi-cam
+  cancel-in-progress: true
+
+env:
+  TAXI_CAM_COMMIT: adccfd6a54000d9b12693dc9868fcbe839e6a6fc
+
+jobs:
+  taxi-cam-tests:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: home
+      - name: Taxi Cam at the commit Polaris Cam is changed from
+        run: |
+          git clone --quiet https://github.com/rthoms334/taxi-cam taxi-cam
+          git -C taxi-cam checkout --quiet $env:TAXI_CAM_COMMIT
+          git -C taxi-cam log --oneline -1
+      - name: Polaris Cam's sources over it
+        run: |
+          Copy-Item -Recurse -Force home/tools/polaris-cam/src/* taxi-cam/src/
+          Copy-Item -Force home/tools/polaris-cam/tools/diagnostics/image_inventory.cpp taxi-cam/tools/diagnostics/
+          # the one source file Taxi Cam's build does not know
+          $build = Get-Content -Raw taxi-cam/build.ps1
+          $old = "'src/graphics/scene_frame_output.cpp','src/graphics/scene_runtime.cpp',"
+          if (-not $build.Contains($old)) { throw 'build.ps1 does not list its graphics sources as expected.' }
+          $build.Replace($old, $old + "'src/graphics/broadcast_output.cpp',") | Set-Content -NoNewline taxi-cam/build.ps1
+          git -C taxi-cam status --short
+      - name: The compiler Taxi Cam pins
+        working-directory: taxi-cam
+        run: ./bootstrap.ps1
+      - name: Taxi Cam's build and validation
+        working-directory: taxi-cam
+        run: |
+          Start-Transcript -Path build/ci-validation.log
+          try {
+            ./build.ps1 -Validate -WarpOnly
+          } finally {
+            Stop-Transcript
+          }
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: taxi-cam-validation
+          path: taxi-cam/build/ci-validation.log
+          retention-days: 30

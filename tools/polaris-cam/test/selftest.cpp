@@ -393,9 +393,57 @@ void verify_waiting_status() {
   expect(!ticked_cameras_all_failed(link_idle, reason_none, 0b0011, 0b0011), "with the broadcast off: the bridge's own words");
 }
 
+void verify_sent_size() {
+  std::printf("-- the size the window's status line gives while pictures are sent\n");
+  // A status with feed_mask, and each camera as {state, generation, width, height}.
+  struct Camera {
+    FeedState state;
+    LONG generation;
+    std::uint32_t width, height;
+  };
+  const auto status = [](std::uint32_t mask, std::array<Camera, Feeds> cameras) {
+    Status s{};
+    s.state = link_live;
+    s.feed_mask = mask;
+    for (unsigned feed = 0; feed < Feeds; ++feed) {
+      s.feeds[feed].state = cameras[feed].state;
+      s.feeds[feed].generation = cameras[feed].generation;
+      s.feeds[feed].width = cameras[feed].width;
+      s.feeds[feed].height = cameras[feed].height;
+    }
+    return s;
+  };
+  const auto is = [](const Status& s, std::uint32_t width, std::uint32_t height) {
+    std::uint32_t w = 1, h = 1;
+    return sent_size(s, w, h) && w == width && h == height;
+  };
+  const auto none = [](const Status& s) {
+    std::uint32_t w = 7, h = 7;
+    return !sent_size(s, w, h) && w == 7 && h == 7;
+  };
+  constexpr Camera Off{feed_off, 0, 0, 0};
+  expect(is(status(0b0011, {{{feed_live, 1, 1920, 1080}, {feed_live, 2, 1920, 1080}, Off, Off}}), 1920, 1080),
+         "cameras 1 and 2 send 1920x1080: 1920x1080");
+  expect(is(status(0b0011, {{{feed_live, 1, 1920, 1080}, {feed_waiting, 5, 1280, 720}, Off, Off}}), 1920, 1080),
+         "720p just asked for: camera 1 still sends 1080, camera 2's new textures have no picture yet: still 1920x1080");
+  expect(none(status(0b0011, {{{feed_waiting, 0, 1920, 1080}, {feed_waiting, 5, 1280, 720}, Off, Off}})),
+         "both cameras changing size, neither has a picture: no size");
+  expect(is(status(0b0011, {{{feed_live, 6, 1280, 720}, {feed_live, 5, 1280, 720}, Off, Off}}), 1280, 720),
+         "both cameras send their first 1280x720 pictures: 1280x720");
+  expect(none(status(0b0011, {{{feed_live, 1, 1920, 1080}, {feed_live, 5, 1280, 720}, Off, Off}})),
+         "camera 1 sends 1080 and camera 2 already 720: no size, and not the window's setting");
+  expect(is(status(0b0001, {{{feed_live, 1, 1920, 1080}, Off, {feed_live, 3, 1280, 720}, Off}}), 1920, 1080),
+         "camera 3 not rendered by the bridge: its pictures are not counted");
+  expect(is(status(0b0011, {{{feed_live, 1, 1920, 1080}, {feed_live, 0, 1280, 720}, Off, Off}}), 1920, 1080),
+         "camera 2 marked live with its textures just withdrawn: not counted");
+  expect(none(status(0b0001, {{{feed_live, 1, 0, 0}, Off, Off, Off}})), "a camera live at no valid size: no size");
+  expect(none(status(0, {{{feed_live, 1, 1920, 1080}, Off, Off, Off}})), "no camera rendered by the bridge: no size");
+}
+
 int verify(bool hardware) {
   verify_request();
   verify_waiting_status();
+  verify_sent_size();
   Gpu gpu;
   if (!gpu.open(hardware, true)) {
     std::printf("FAIL  no Direct3D 12 device\n");

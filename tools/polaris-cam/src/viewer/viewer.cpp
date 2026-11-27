@@ -637,10 +637,17 @@ void update_status(std::uint64_t now) {
       case link_idle:
         text = L"已連上模擬器。勾選「直播模式」開始。";
         break;
-      case link_live:
-        std::swprintf(line, 256, L"直播中：%u×%u，每顆鏡頭 %u fps。", app.settings.width(), app.settings.height, s.fps);
+      case link_live: {
+        // The size the bridge sends (sent_size), not this window's setting;
+        // none while its cameras send different sizes.
+        std::uint32_t width = 0, height = 0;
+        if (sent_size(s, width, height))
+          std::swprintf(line, 256, L"直播中：%u×%u，每顆鏡頭 %u fps。", width, height, s.fps);
+        else
+          std::swprintf(line, 256, L"直播中：每顆鏡頭 %u fps。", s.fps);
         text = line;
         break;
+      }
       default: {
         // The ticked cameras and those of them that failed (update_failure).
         const std::uint32_t ticked = app.settings.mask & ((1u << Feeds) - 1);

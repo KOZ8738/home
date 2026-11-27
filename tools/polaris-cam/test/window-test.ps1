@@ -7,6 +7,8 @@
 # the screen is saved as a picture, and a second polaris-cam.exe (--check) reads every camera's
 # newest picture back through Direct3D 11 from another process, as OBS's source will see it; what
 # it reads must be what the bridge sent.
+# The windows keep their settings and log in <Out>\settings (POLARIS_CAM_SETTINGS), never in
+# %APPDATA%\Polaris Cam: the settings of the person who runs it are left alone.
 param([Parameter(Mandatory)][string]$Bin, [string]$Out = 'window-test')
 $ErrorActionPreference = 'Stop'
 $Bin = (Resolve-Path $Bin).Path
@@ -15,7 +17,8 @@ $Out = (Resolve-Path $Out).Path
 # the software adapter may have another number in each process
 $env:POLARIS_CAM_WARP = '1'
 $expected = Join-Path $Out 'expected.txt'
-$settings = Join-Path $env:APPDATA 'Polaris Cam'
+$settings = Join-Path $Out 'settings'
+$env:POLARIS_CAM_SETTINGS = $settings
 
 function Save-Screen([string]$Path) {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing

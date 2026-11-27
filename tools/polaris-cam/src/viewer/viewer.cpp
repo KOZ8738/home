@@ -460,6 +460,30 @@ bool open_textures(Feed& feed, unsigned index, std::uint32_t pid, std::uint32_t 
 void output_title(wchar_t* text, std::size_t count, unsigned index) {
   std::swprintf(text, count, L"Polaris Cam %u", index + 1);
 }
+// Where a camera's output window was last dragged to: its top-left corner,
+// in [output] of the same ini. None while that point is on no screen now.
+bool load_output_place(unsigned index, POINT& at) {
+  wchar_t name[16], text[64]{};
+  std::swprintf(name, 16, L"camera%u", index + 1);
+  GetPrivateProfileStringW(L"output", name, L"", text, 64, ini_path().c_str());
+  int x = 0, y = 0;
+  if (std::swscanf(text, L"%d,%d", &x, &y) != 2)
+    return false;
+  const POINT saved{x, y};
+  if (!MonitorFromPoint(saved, MONITOR_DEFAULTTONULL))
+    return false;
+  at = saved;
+  return true;
+}
+void save_output_place(unsigned index, HWND window) {
+  RECT rect{};
+  if (!GetWindowRect(window, &rect))
+    return;
+  wchar_t name[16], text[64];
+  std::swprintf(name, 16, L"camera%u", index + 1);
+  std::swprintf(text, 64, L"%ld,%ld", rect.left, rect.top);
+  WritePrivateProfileStringW(L"output", name, text, ini_path().c_str());
+}
 void close_output(Feed& feed) {
   close_chain(feed.output_chain);
   if (feed.output)
@@ -510,7 +534,9 @@ void sync_output(unsigned index) {
     wchar_t title[32];
     output_title(title, 32, index);
     const int offset = px(48) * static_cast<int>(index + 1);
-    feed.output = CreateWindowExW(0, OutputClass, title, WS_POPUP, offset, offset, static_cast<int>(width), static_cast<int>(height), nullptr,
+    POINT at{offset, offset};  // kept when there is no saved place on a screen
+    load_output_place(index, at);
+    feed.output = CreateWindowExW(0, OutputClass, title, WS_POPUP, at.x, at.y, static_cast<int>(width), static_cast<int>(height), nullptr,
                                   nullptr, app.instance, reinterpret_cast<void*>(static_cast<UINT_PTR>(index)));
     if (!feed.output)
       return;
@@ -927,17 +953,36 @@ void fill_mount_fields() {
   }
   app.filling = false;
 }
+// Shows the rate that is sent: a rate from the ini that is not one of
+// FpsChoices (33) gets an item of its own, in order, and is selected.
+void select_fps(std::uint32_t fps) {
+  HWND combo = control(IdFps);
+  const auto count = SendMessageW(combo, CB_GETCOUNT, 0, 0);
+  LRESULT item = 0, insert = count;
+  for (; item < count; ++item) {
+    const auto value = static_cast<std::uint32_t>(SendMessageW(combo, CB_GETITEMDATA, static_cast<WPARAM>(item), 0));
+    if (value == fps)
+      break;
+    if (value > fps && insert == count)
+      insert = item;
+  }
+  if (item == count) {
+    wchar_t text[8];
+    std::swprintf(text, 8, L"%u", fps);
+    item = SendMessageW(combo, CB_INSERTSTRING, static_cast<WPARAM>(insert == count ? -1 : insert), reinterpret_cast<LPARAM>(text));
+    if (item < 0)
+      return;
+    SendMessageW(combo, CB_SETITEMDATA, static_cast<WPARAM>(item), static_cast<LPARAM>(fps));
+  }
+  SendMessageW(combo, CB_SETCURSEL, static_cast<WPARAM>(item), 0);
+}
 void fill_controls() {
   app.filling = true;
   const auto& s = app.settings;
   Button_SetCheck(control(IdEnable), s.enabled ? BST_CHECKED : BST_UNCHECKED);
   Button_SetCheck(control(IdSize1080), s.height == 1080 ? BST_CHECKED : BST_UNCHECKED);
   Button_SetCheck(control(IdSize720), s.height == 720 ? BST_CHECKED : BST_UNCHECKED);
-  int choice = 0;
-  for (std::size_t i = 0; i < FpsChoices.size(); ++i)
-    if (FpsChoices[i] <= s.fps)
-      choice = static_cast<int>(i);
-  SendMessageW(control(IdFps), CB_SETCURSEL, static_cast<WPARAM>(choice), 0);
+  select_fps(s.fps);
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
   app.filling = false;
   fill_mount_fields();
@@ -952,10 +997,13 @@ void create_controls() {
   make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 144, 64, 22, IdSize720);
   make(L"STATIC", L"幀數", WS_GROUP, Margin, 176, 40, 20, -1);
   HWND fps = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 64, 172, 72, 240, IdFps);
+  // Each item holds its rate as item data (select_fps adds one the list lacks).
   for (const auto value : FpsChoices) {
     wchar_t text[8];
     std::swprintf(text, 8, L"%u", value);
-    SendMessageW(fps, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
+    const auto item = SendMessageW(fps, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
+    if (item >= 0)
+      SendMessageW(fps, CB_SETITEMDATA, static_cast<WPARAM>(item), static_cast<LPARAM>(value));
   }
   make(L"STATIC", L"fps（每顆鏡頭）", 0, 142, 176, 150, 20, -1);
   make(L"STATIC", L"鏡頭（勾選的才會渲染）", 0, Margin, 208, 300, 20, -1, app.bold);
@@ -1127,8 +1175,8 @@ void on_command(int id, int code) {
     settings_changed();
   } else if (id == IdFps && code == CBN_SELCHANGE) {
     const auto choice = SendMessageW(control(IdFps), CB_GETCURSEL, 0, 0);
-    if (choice >= 0 && choice < static_cast<LRESULT>(FpsChoices.size()))
-      s.fps = FpsChoices[static_cast<std::size_t>(choice)];
+    if (choice >= 0)
+      s.fps = static_cast<std::uint32_t>(SendMessageW(control(IdFps), CB_GETITEMDATA, static_cast<WPARAM>(choice), 0));
     settings_changed();
   } else if (id == IdWindows && code == BN_CLICKED) {
     s.windows = Button_GetCheck(control(IdWindows)) == BST_CHECKED;
@@ -1337,6 +1385,10 @@ LRESULT CALLBACK output_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
     }
     case WM_NCHITTEST:
       return HTCAPTION;  // drag it anywhere, by any part
+    case WM_EXITSIZEMOVE:
+      // Dragged: it opens there next time (load_output_place).
+      save_output_place(feed_of(window), window);
+      return 0;
     case WM_GETMINMAXINFO: {
       // Larger than the screen is fine: the picture has the size it has.
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);

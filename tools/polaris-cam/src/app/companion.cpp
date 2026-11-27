@@ -58,6 +58,10 @@ using win::decimal, win::tr, win::tr_format;
 constexpr UINT TrayMessage = WM_APP + 1, StatusMessage = WM_APP + 2, WhatsNewMessage = WM_APP + 3, WhatsNewImageMessage = WM_APP + 4,
                ExitWithSimulatorMessage = WM_APP + 5, AreaPickerMessage = WM_APP + 6, LvarMessage = WM_APP + 7;
 constexpr win::ChangelogVersion InstalledVersion{TAXI_CAM_VERSION_MAJOR, TAXI_CAM_VERSION_MINOR, TAXI_CAM_VERSION_PATCH};
+// Polaris Cam: a changed copy of Taxi Cam (its bridge also sends broadcast
+// pictures to the Polaris Cam window). The window's title says so, and it
+// does not update itself from Taxi Cam's releases (check_updates).
+constexpr bool PolarisCamBuild = true;
 constexpr wchar_t WindowClass[] = L"380TaxiCamera.Settings";
 constexpr wchar_t DonationUrl[] = L"https://www.paypal.com/donate/?hosted_button_id=EPVELD44P6NXW";
 constexpr wchar_t GithubUrl[] = L"https://github.com/rthoms334/taxi-cam";
@@ -7892,6 +7896,17 @@ void stop_service() {
 void check_updates(bool manual) {
   if (preview_ui || update_prompt)
     return;
+  // Polaris Cam: this build is changed from Taxi Cam's release of the same
+  // number, and Taxi Cam's updater would install Taxi Cam's own next release
+  // in its place. Its builds come from the Polaris Cam download instead.
+  if (PolarisCamBuild) {
+    next_update_check = GetTickCount64() + 24ULL * 60 * 60 * 1000;
+    if (manual) {
+      notice = L"This is the Polaris Cam build of Taxi Cam: newer builds come from the Polaris Cam download.";
+      InvalidateRect(window, nullptr, FALSE);
+    }
+    return;
+  }
   if (updater.begin(installation, manual)) {
     next_update_check = GetTickCount64() + 24ULL * 60 * 60 * 1000;
     if (manual) {
@@ -9450,7 +9465,7 @@ int WINAPI wWinMain(HINSTANCE app, HINSTANCE, LPWSTR, int) {
   if (!RegisterClassExW(&type))
     return 1;
   dpi = GetDpiForSystem();
-  HWND main = CreateWindowExW(WS_EX_APPWINDOW, WindowClass, L"Taxi Cam",
+  HWND main = CreateWindowExW(WS_EX_APPWINDOW, WindowClass, PolarisCamBuild ? L"Taxi Cam (Polaris Cam build)" : L"Taxi Cam",
                               (WS_OVERLAPPEDWINDOW & ~(WS_THICKFRAME | WS_MAXIMIZEBOX)) | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
                               scale(ClientWidth), scale(ClientHeight), nullptr, nullptr, instance, nullptr);
   if (!main)

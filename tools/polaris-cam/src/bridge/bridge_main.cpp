@@ -15,6 +15,7 @@
 #include "../hooks/render_boundary_observer.hpp"
 #include "../shared/camera_rate_policy.hpp"
 #include "../shared/companion_control.hpp"
+#include "../shared/broadcast_link.hpp"
 #include "../shared/door_camera.hpp"
 #include "../shared/hook_timing.hpp"
 #include "../shared/lock_holder_priority.hpp"
@@ -625,6 +626,24 @@ void log_render_target_shapes(const win::Status& status, std::uint64_t now) noex
   logged_total = total;
   logged_ms = now;
 }
+// Polaris Cam: while the broadcast runs, the camera service also runs on its
+// own thread every few milliseconds, so that a finished picture reaches the
+// window when the GPU has it and not at the worker loop's next 25 ms pass.
+// scene_runtime::service is serialized by its own mutex.
+std::atomic<bool> cast_pump_on{};
+DWORD WINAPI cast_pump_run(void*) noexcept {
+  for (;;) {
+    if (!cast_pump_on.load(std::memory_order_acquire)) {
+      Sleep(100);
+      continue;
+    }
+    try {
+      scene_runtime::service();
+    } catch (...) {
+    }
+    Sleep(3);
+  }
+}
 // Dedicated thread: reads counters, never takes a bridge lock, and flips the
 // graphics gate. The worker applies the camera disarm on its next iteration.
 DWORD WINAPI watchdog_run(void*) noexcept {
@@ -832,6 +851,20 @@ DWORD run_impl() {
     log_status(status, "Presentation watchdog started.");
   } else
     log_status(status, "Presentation watchdog unavailable.");
+  // Polaris Cam: the block shared with its window (broadcast_link.hpp). What
+  // the window asks for is read at the top of every pass; without the block,
+  // or without a window, this is Taxi Cam as it comes.
+  polaris_cam::LinkMapping cast_link;
+  polaris_cam::Request cast;
+  std::uint64_t cast_read_ms{};
+  bool cast_was_on = false;
+  if (cast_link.open()) {
+    scene_runtime::set_broadcast_link(cast_link.get());
+    if (HANDLE pump = CreateThread(nullptr, 0, cast_pump_run, nullptr, 0, nullptr))
+      CloseHandle(pump);
+    log_status(status, "Polaris Cam link opened.");
+  } else
+    log_status(status, "Polaris Cam link unavailable; broadcast pictures are off.");
   // The Windows companion owns mount settings for native sessions.
   TaxiButtonIntent intent;
   DisplayExposureController exposure;
@@ -1071,6 +1104,22 @@ DWORD run_impl() {
     control.refresh(mailbox);
     const auto now = GetTickCount64();
     worker_heartbeat_ms.store(now, std::memory_order_release);
+    if (auto* link = cast_link.get()) {
+      // A window in the middle of a write is read on the next pass; one that
+      // stopped altogether is off.
+      polaris_cam::Request next;
+      if (polaris_cam::read_control(*link, now, next)) {
+        cast = next;
+        cast_read_ms = now;
+      } else if (now - cast_read_ms > polaris_cam::ControlStaleMs) {
+        cast = {};
+      }
+      link->status.pid = GetCurrentProcessId();
+      link->status.protocol = polaris_cam::LinkVersion;
+      link->status.heartbeat_ms = now;
+    }
+    // The size every camera view renders at while broadcasting; 0 otherwise.
+    const std::uint32_t cast_pane = cast.pane();
     // Process-wide GPU memory against the OS budget, once a second; the
     // watchdog's trip line reads the latest values from atomics.
     if (now >= next_video_sample && win::graphics_ready()) {
@@ -1570,8 +1619,11 @@ DWORD run_impl() {
     const bool layout_changed = settings.profile == profiles::DiscoveredProfileId && !profiles::discovered_current(settings.discovered);
     // The user's display choices for the profile (another panel or display
     // area per side) are another profile too. A new layout brings new ones.
+    // Polaris Cam: the broadcast picture size is one of those choices (it
+    // reshapes every camera), so turning the broadcast on or off, or another
+    // size, takes the same transition.
     const bool choices_changed = layout_changed || !profiles::override_current(profiles::base_profile(settings.profile),
-                                                                               settings.display_override, settings.door_side);
+                                                                               settings.display_override, settings.door_side, cast_pane);
     // Choices that give the cameras another shape (a reshaped display area,
     // another panel on a set-up aircraft, or the door camera's display) resize them: the transition
     // below takes the kept pair to the new panes (resize_kept_panes).
@@ -1581,7 +1633,7 @@ DWORD run_impl() {
       const auto* current = profiles::find(settings.profile);
       if (base && current && profiles::valid_override(*base, settings.display_override)) {
         auto next = *base;
-        profiles::apply_choices(next, *base, settings.display_override, settings.door_side);
+        profiles::apply_choices(next, *base, settings.display_override, settings.door_side, cast_pane);
         // A placed or removed lower display changes the sides: a transition too.
         reshaped = next.camera_panes != current->camera_panes || next.sides != current->sides;
       }
@@ -1594,7 +1646,7 @@ DWORD run_impl() {
     if (connected && settings.enabled && choices_changed && !layout_changed && !reshaped && !changing_profile && applied_profile &&
         settings.profile == applied_profile) {
       const auto& o = settings.display_override;
-      const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side);
+      const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane);
       if (chosen)
         win::set_aircraft_profile(settings.profile);
       char detail[384];
@@ -1656,7 +1708,7 @@ DWORD run_impl() {
         }
         if (choices_changed) {
           const auto& o = settings.display_override;
-          const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side);
+          const auto* chosen = profiles::publish_override(profiles::base_profile(settings.profile), o, settings.door_side, cast_pane);
           char detail[384];
           std::snprintf(detail, sizeof(detail),
                         "Display choices: %s profile=%u panels=%s,%s,%s areas=%u,%u,%u,%u/%u,%u,%u,%u/%u,%u,%u,%u door=%u",
@@ -1812,6 +1864,15 @@ DWORD run_impl() {
         // and a repeated-stall hold from the previous aircraft is released.
         cameras_wanted.store(false, std::memory_order_release);
         request_hold_release(true, status);
+        if (auto* link = cast_link.get(); link && cast.on) {
+          // The cameras are being taken to the broadcast size, or the flight
+          // or the aircraft is not ready for any camera yet.
+          link->status.state = unsupported ? polaris_cam::link_not_ready : polaris_cam::link_waiting;
+          link->status.reason = unsupported      ? polaris_cam::reason_aircraft
+                                : !public_ready  ? polaris_cam::reason_loading
+                                                 : polaris_cam::reason_resizing;
+          std::snprintf(link->status.message, sizeof(link->status.message), "%.150s", pending.message);
+        }
         Sleep(25);
         continue;
       }
@@ -1892,17 +1953,23 @@ DWORD run_impl() {
     // The door camera takes its side over from the taxi cameras while it is on.
     const unsigned door_side = profile && settings.door_on && settings.door_side < MaxDisplaySides ? 1u << settings.door_side : 0;
     const unsigned door_wanted = admitted ? door_side & sides : 0;
-    const unsigned mask = degraded ? 0u : wanted & ~door_wanted;
-    const unsigned door = degraded ? 0u : door_wanted;
+    // Polaris Cam: while its window asks for the broadcast, the cameras render
+    // for the broadcast pictures wherever the main view is, as for the scene
+    // test, and no cockpit display is written: every camera has the broadcast
+    // shape, which no display's picture is composed from. cast.on alone decides
+    // that, so a lapse in readiness only pauses the pictures.
+    const unsigned mask = degraded || cast.on ? 0u : wanted & ~door_wanted;
+    const unsigned door = degraded || cast.on ? 0u : door_wanted;
     const bool wanted_test_scene =
-        connected && session_settings && session.ready && settings.enabled && aircraft_matches && settings.scene_test;
+        connected && session_settings && session.ready && settings.enabled && aircraft_matches && (settings.scene_test || cast.on);
     const bool test_scene = wanted_test_scene && !degraded;
     // Trips count toward a repeated-stall hold only while cameras are wanted;
     // the hold lasts until the pilot turns them off (a known OFF, never a
     // readiness lapse or a stale button reading).
     cameras_wanted.store(wanted || door_wanted || wanted_test_scene, std::memory_order_release);
     request_hold_release(
-        stall_hold_known_off(connected, settings.enabled != 0, settings.scene_test != 0, requested_mask, uses_buttons, buttons.valid),
+        stall_hold_known_off(connected, settings.enabled != 0, settings.scene_test != 0 || cast.on, requested_mask, uses_buttons,
+                             buttons.valid),
         status);
     const auto intent_observed_ms = GetTickCount64();
     if (!mask && !door && !test_scene && !prewarm.active())
@@ -2082,8 +2149,10 @@ DWORD run_impl() {
     // camera; only the wanted ones render and share the rate.
     const unsigned set_feeds = profiles::CameraViews;
     const unsigned taxi_bits = (1u << (rate_profile ? profiles::taxi_feeds(*rate_profile) : 2u)) - 1;
+    // Polaris Cam: the cameras its window ticked, any of the four.
     const unsigned wanted_feeds =
-        (mask || test_scene || background_warmup ? taxi_bits : 0u) | (door_render ? 1u << profiles::DoorFeed : 0u);
+        cast.on ? cast.feed_mask
+                : (mask || test_scene || background_warmup ? taxi_bits : 0u) | (door_render ? 1u << profiles::DoorFeed : 0u);
     const unsigned desired_feeds = std::max(1u, static_cast<unsigned>(std::popcount(wanted_feeds ? wanted_feeds : taxi_bits)));
     const unsigned pfd_refresh_hz = rate_profile ? rate_profile->pfd_refresh_hz : 0;
     const double update_hz = update_meter.update(now, native_camera::scene_update_count());
@@ -2098,7 +2167,9 @@ DWORD run_impl() {
     }
     // Auto steps through 1, 2 and all cameras per frame while the cameras run;
     // a step up needs a camera the current level does not render.
-    const bool automatic = settings.camera_mode == static_cast<std::uint32_t>(CameraMode::automatic);
+    // Polaris Cam: the broadcast has its own rate, per camera, whatever the
+    // camera mode and however often the cockpit displays redraw.
+    const bool automatic = !cast.on && settings.camera_mode == static_cast<std::uint32_t>(CameraMode::automatic);
     if (automatic) {
       AutoCameraPolicy::Input auto_input;
       auto_input.now_ms = now;
@@ -2119,7 +2190,8 @@ DWORD run_impl() {
                                                                   kMinimumCameraRate, kMaximumCameraRate)
                                                      : kPerformanceCameraRate;
     } else {
-      effective_rate = effective_camera_rate(camera_mode_target(settings.camera_mode, settings.camera_rate), pfd_refresh_hz);
+      effective_rate = cast.on ? effective_camera_rate(cast.fps, 0)
+                               : effective_camera_rate(camera_mode_target(settings.camera_mode, settings.camera_rate), pfd_refresh_hz);
     }
     const double reachable = automatic && std::isfinite(update_hz) ? update_hz * per_frame / desired_feeds
                                                                    : reachable_camera_rate(effective_rate.rate, update_hz);
@@ -2146,14 +2218,28 @@ DWORD run_impl() {
       stale_ms = win::waiting_stale_ms(expected_rate);
       scene_runtime::set_waiting_stale_ms(stale_ms);
     }
-    if (connected && applied_mounts != settings.mounts) {
+    // Polaris Cam: its window's camera positions while broadcasting; Taxi
+    // Cam's own come back when it stops.
+    const profiles::CameraMounts& wanted_mounts = cast.on && cast.use_mounts ? cast.mounts : settings.mounts;
+    if (connected && applied_mounts != wanted_mounts) {
       native_camera::MountPair mounts;
       for (unsigned i = 0; i < mounts.size(); ++i) {
-        const auto& m = settings.mounts[i];
+        const auto& m = wanted_mounts[i];
         mounts[i] = {{m[0], m[1], m[2]}, m[3], m[4], static_cast<float>(m[5])};
       }
       if (native_camera::request_scene_mounts(mounts))
-        applied_mounts = settings.mounts;
+        applied_mounts = wanted_mounts;
+    }
+    // The broadcast textures stay for as long as the window asks, so a pause
+    // or a lapse leaves the last picture on show.
+    scene_runtime::set_broadcast(key, cast.on ? cast.width : 0, cast.height, cast.feed_mask);
+    cast_pump_on.store(cast.on, std::memory_order_release);
+    if (cast.on != cast_was_on) {
+      cast_was_on = cast.on;
+      char detail[160];
+      std::snprintf(detail, sizeof(detail), "Polaris Cam broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u", cast.on ? "on" : "off",
+                    cast.width, cast.height, cast.fps, cast.feed_mask, cast.use_mounts ? 1u : 0u);
+      log_status(status, detail);
     }
     if (!startup.observed && (mask || test_scene)) {
       startup.observed = true;
@@ -2344,6 +2430,37 @@ DWORD run_impl() {
       view_ms = (1000.0 - update_meter.rate() * 1000.0 / camera_off_hz) / (reached * feeds);
     status.auto_level = auto_policy.level();
     status.auto_floor = std::isfinite(auto_policy.base()) ? static_cast<float>(auto_policy.floor()) : 0.f;
+    if (auto* link = cast_link.get()) {
+      // What the Polaris Cam window shows beside its pictures.
+      auto& out = link->status;
+      out.adapter = win::graphics_adapter_luid();
+      out.sim_fps = status.update_hz;
+      out.view_ms = std::isfinite(view_ms) ? static_cast<float>(view_ms) : 0.f;
+      out.fps = cast.on ? status.effective_rate : 0;
+      out.feed_mask = cast.on ? cast.feed_mask : 0;
+      static_assert(sizeof(out.aircraft) >= sizeof(status.aircraft_path));
+      std::memcpy(out.aircraft, identity.path.data(), sizeof(status.aircraft_path));
+      out.aircraft[sizeof(out.aircraft) - 1] = '\0';
+      bool live = false;
+      for (unsigned feed = 0; feed < polaris_cam::Feeds; ++feed)
+        // A picture announced by the service thread since `now` was read is newer still.
+        live = live || (((out.feed_mask >> feed) & 1u) && out.feeds[feed].state == polaris_cam::feed_live &&
+                        (out.feeds[feed].published_ms >= now || now - out.feeds[feed].published_ms < 2000));
+      const auto reason = !cast.on                                                   ? polaris_cam::reason_none
+                          : !connected || !settings.enabled || !session_settings     ? polaris_cam::reason_not_connected
+                          : !session.ready                                           ? polaris_cam::reason_loading
+                          : !aircraft_matches                                        ? polaris_cam::reason_aircraft
+                          : degraded                                                 ? polaris_cam::reason_stalled
+                          : failed || output.failed                                  ? polaris_cam::reason_failed
+                          : live                                                     ? polaris_cam::reason_none
+                                                                                     : polaris_cam::reason_starting;
+      out.reason = reason;
+      out.state = !cast.on ? polaris_cam::link_idle
+                  : live   ? polaris_cam::link_live
+                  : reason == polaris_cam::reason_starting ? polaris_cam::link_waiting
+                                                           : polaris_cam::link_not_ready;
+      std::snprintf(out.message, sizeof(out.message), "%.150s", output.failed ? output.message : scene.message.c_str());
+    }
     status.identity_sample_ms = identity.fresh ? identity.sample_ms : 0;
     status.aircraft_session_epoch = session_epoch;
     // Read acknowledgement first: a retired command must never be paired with

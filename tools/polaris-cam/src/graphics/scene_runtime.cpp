@@ -2,6 +2,7 @@
 #include "../bridge/native_hooks.hpp"
 #include "../hooks/render_boundary_observer.hpp"
 #include "../shared/door_camera.hpp"
+#include "broadcast_output.hpp"
 #include "camera_compositor_d3d12.hpp"
 #include "display_keep.hpp"
 #include "scene_frame_output.hpp"
@@ -55,6 +56,17 @@ struct Device {
   // Latest simulator tone-curve table, until the composition accepts it.
   std::vector<std::uint32_t> tone_table;
   bool tone_table_pending = false;
+  // Polaris Cam: one broadcast picture per camera view (set_broadcast).
+  struct Cast {
+    BroadcastOutput output;
+    unsigned writing = polaris_cam::NoSlot;  // Slot of the submitted picture, until it completes.
+    unsigned newest = polaris_cam::NoSlot;   // Slot of the newest complete picture.
+    std::uint64_t frames = 0;
+    bool tone_pending = false;
+    bool refused = false;  // Its output could not be made; the other cameras carry on.
+  };
+  std::array<Cast, SceneFeeds> casts;
+  std::uint32_t cast_width = 0, cast_height = 0, cast_mask = 0;
 };
 struct Runtime {
   std::mutex mutex;
@@ -62,6 +74,10 @@ struct Runtime {
   bool gpu_timing_enabled = false;
   // Camera-image age that brings the PLEASE WAIT page back; 0 disables it.
   std::uint64_t waiting_stale_ms = 0;
+  // Polaris Cam: the block shared with its window, and the last texture set's number.
+  polaris_cam::Link* cast_link = nullptr;
+  HANDLE cast_event = nullptr;  // polaris_cam::FrameEventName
+  std::uint32_t cast_generation = 0;
   std::array<Device, SceneCaptureManager::MaximumDevices> devices;
 };
 Runtime& runtime() {
@@ -642,8 +658,25 @@ bool set_tone_curve(std::uint64_t key, float exposure, const std::uint32_t* tabl
   if (table) {
     item->tone_table.assign(table, table + CameraCompositorD3D12::ToneTableTexels);
     item->tone_table_pending = item->door_tone_pending = true;
+    for (auto& cast : item->casts)
+      cast.tone_pending = true;
   }
   return true;
+}
+void set_broadcast_link(polaris_cam::Link* link) {
+  const std::lock_guard lock(runtime().mutex);
+  runtime().cast_link = link;
+  if (link && !runtime().cast_event)
+    runtime().cast_event = CreateEventW(nullptr, FALSE, FALSE, polaris_cam::FrameEventName);
+}
+void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask) {
+  const std::lock_guard lock(runtime().mutex);
+  if (auto* item = find(key)) {
+    const bool on = polaris_cam::valid_size(width, height) && feed_mask;
+    item->cast_width = on ? width : 0;
+    item->cast_height = on ? height : 0;
+    item->cast_mask = on ? feed_mask & ((1u << SceneFeeds) - 1) : 0;
+  }
 }
 void set_ground_speed(std::uint64_t key, float knots, bool valid) {
   const std::lock_guard lock(runtime().mutex);
@@ -726,6 +759,149 @@ bool service_door(Device& item) {
     item.door_ready = true;
     item.door_ms = GetTickCount64();
     ++item.status.door_pages;
+  }
+  return true;
+}
+// Polaris Cam. The broadcast pictures: every wanted camera view's newest
+// snapshot is converted on its own into one of its three shared textures, and
+// announced to the window once the GPU has finished it. A snapshot whose
+// submission is deferred stays leased and is recorded again on the next pass.
+// A camera whose output cannot be made is left out; the others carry on.
+// With the broadcast off it only lets the textures go: the snapshots are left
+// for the cockpit displays' composition.
+// False marks the device failed (private submission ordering).
+bool service_broadcast(Device& item) {
+  static_assert(SceneFeeds == polaris_cam::Feeds && CameraCompositorD3D12::ToneTableTexels == BroadcastOutput::ToneTableTexels);
+  auto* link = runtime().cast_link;
+  const bool on = item.cast_width != 0;
+  bool sent = false;
+  for (unsigned feed = 0; feed < SceneFeeds; ++feed) {
+    auto& cast = item.casts[feed];
+    auto& frame = item.pending[feed];
+    auto* announced = link ? &link->status.feeds[feed] : nullptr;
+    const auto drop = [&] {
+      if (frame.token)
+        manager().discard_frame(frame.token);
+      frame = {};
+    };
+    const auto withdraw = [&](polaris_cam::FeedState state) {
+      cast.newest = polaris_cam::NoSlot;
+      cast.frames = 0;
+      if (!announced)
+        return;
+      polaris_cam::store(announced->generation, 0);
+      polaris_cam::store(announced->published, 0);
+      announced->state = state;
+    };
+    // The submitted picture has completed: it is the newest from here on.
+    if (cast.writing != polaris_cam::NoSlot && cast.output.idle()) {
+      cast.newest = cast.writing;
+      cast.writing = polaris_cam::NoSlot;
+      ++cast.frames;
+      if (announced) {
+        announced->published_ms = GetTickCount64();
+        polaris_cam::store(announced->published, static_cast<LONG64>(polaris_cam::publication(cast.frames, cast.newest)));
+        announced->state = polaris_cam::feed_live;
+        if (runtime().cast_event)
+          SetEvent(runtime().cast_event);
+      }
+    }
+    if (!((item.cast_mask >> feed) & 1u)) {
+      // Not broadcast: its textures go once it is idle. While other cameras
+      // are, its snapshots have no use either (nothing is composed).
+      if (on)
+        drop();
+      else
+        cast.refused = false;  // Turning the broadcast on again tries again.
+      if (cast.output.generation() && cast.writing == polaris_cam::NoSlot && cast.output.release_textures())
+        withdraw(polaris_cam::feed_off);
+      else if (announced && !cast.output.generation())
+        announced->state = polaris_cam::feed_off;
+      continue;
+    }
+    if (cast.refused) {
+      drop();
+      continue;
+    }
+    if (frame.token && !scene_handoff().is_current(frame.match))
+      drop();
+    if (!cast.output.initialized()) {
+      if (!cast.output.initialize(item.native)) {
+        cast.refused = true;
+        if (announced)
+          announced->state = polaris_cam::feed_failed;
+        drop();
+        continue;
+      }
+      cast.tone_pending = !item.tone_table.empty();
+    }
+    if (cast.output.width() != item.cast_width || cast.output.height() != item.cast_height) {
+      // Another picture size: new textures under a new number, once nothing
+      // of the old size is executing. A snapshot of the old size is refused
+      // by prepare below and dropped.
+      if (cast.writing != polaris_cam::NoSlot || !cast.output.idle())
+        continue;
+      withdraw(polaris_cam::feed_waiting);
+      const auto generation = ++runtime().cast_generation;
+      if (!cast.output.resize(item.cast_width, item.cast_height, GetCurrentProcessId(), generation, feed)) {
+        cast.refused = true;
+        if (announced)
+          announced->state = polaris_cam::feed_failed;
+        drop();
+        continue;
+      }
+      if (announced) {
+        announced->width = item.cast_width;
+        announced->height = item.cast_height;
+        polaris_cam::store(announced->reading, static_cast<LONG>(polaris_cam::NoSlot));
+        polaris_cam::store(announced->generation, static_cast<LONG>(generation));
+      }
+    }
+    if (!frame.token || cast.writing != polaris_cam::NoSlot || !cast.output.idle())
+      continue;
+    // A refused table (never while idle, as here) is offered again next time.
+    if (cast.output.set_tone_curve(item.status.tone_exposure, cast.tone_pending ? item.tone_table.data() : nullptr) &&
+        item.status.tone_exposure > 0)
+      cast.tone_pending = false;
+    cast.output.set_display_exposure(item.status.display_exposure_ev);
+    // Never the newest picture nor the one the window is copying from.
+    const auto reading = announced ? static_cast<unsigned>(polaris_cam::load(announced->reading)) : polaris_cam::NoSlot;
+    unsigned slot = 0;
+    while (slot < polaris_cam::Slots - 1 && (slot == cast.newest || slot == reading))
+      ++slot;
+    if (!cast.output.prepare(frame.resource, scene_format(frame.resource), slot)) {
+      // Nothing was submitted, so the snapshot goes back to capture: one of
+      // another size (the cameras are being resized), or a failed output.
+      if (cast.output.failed()) {
+        cast.refused = true;
+        if (announced)
+          announced->state = polaris_cam::feed_failed;
+      }
+      drop();
+      continue;
+    }
+    const auto submission = manager().begin_private_submission(item.key, cast.output.queue());
+    if (!submission.receipt) {
+      if (submission.deferred && cast.output.discard_prepared())
+        continue;
+      item.status.message = "Broadcast queue ordering failed.";
+      return false;
+    }
+    const bool submitted = cast.output.submit();
+    const bool ordered = manager().end_private_submission(submission.receipt);
+    if (!submitted || !ordered) {
+      item.status.message = "Broadcast submission failed.";
+      return false;
+    }
+    manager().finish_consumption(frame.token, submission.fence, submission.value);
+    frame = {};
+    cast.writing = slot;
+    sent = true;
+  }
+  if (sent) {
+    // Counted as compositions: capture recovery and the status watch them.
+    ++item.status.frames;
+    item.status.message = "Broadcast pictures are being sent to Polaris Cam.";
   }
   return true;
 }
@@ -837,6 +1013,16 @@ void service() {
       }
     }
     publish_queue_patches(item);
+    // Polaris Cam: while broadcasting, the snapshots go to the broadcast
+    // pictures and nothing is composed for the cockpit displays.
+    if (item.status.initialized) {
+      if (!service_broadcast(item)) {
+        item.status.failed = true;
+        continue;
+      }
+      if (item.cast_width)
+        continue;
+    }
     if (item.status.initialized && !service_door(item)) {
       item.status.failed = true;
       continue;

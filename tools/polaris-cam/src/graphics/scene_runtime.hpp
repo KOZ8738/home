@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../profiles/catalog.hpp"
+#include "../shared/broadcast_link.hpp"
 #include "pfd_stamp_d3d12.hpp"
 #include "scene_capture_manager.hpp"
 
@@ -147,6 +148,14 @@ void set_reference_guides(std::uint64_t key, bool enabled);
 // door): film grain with darker edges, and black and white. The taxi cameras'
 // apply to the camera composition, the door camera's to the door page.
 void set_camera_look(std::uint64_t key, std::uint32_t grain, std::uint32_t black_and_white);
+// Polaris Cam. The broadcast pictures: while width is not 0, each camera view
+// in feed_mask has its newest snapshot written to a shared texture of that
+// size (BroadcastOutput) and announced in the link's Status; the cockpit
+// displays are not composed. 0 lets the textures go. The link is the bridge's
+// mapping of the block shared with the Polaris Cam window; it stays valid
+// until the process ends.
+void set_broadcast_link(polaris_cam::Link* link);
+void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask);
 void service();
 Snapshot snapshot(std::uint64_t key);
 // The door page's counters alone, without the GPU timing and capture

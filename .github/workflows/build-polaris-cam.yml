@@ -1,0 +1,130 @@
+# Builds Polaris Cam (the broadcast cameras for MSFS 2024, a changed copy of Taxi Cam, GPL-3.0-only) whenever its
+# files change on main, or by hand (Actions > Build Polaris Cam > Run workflow).
+#
+# 1. build: on Linux, with the llvm-mingw release Taxi Cam's own build pins (same compiler, same flags).
+# 2. test: on Windows, without a simulator, on the software Direct3D adapter: the pictures the bridge makes are
+#    checked against the same arithmetic, and the real Polaris Cam window is run against a stand-in for the bridge;
+#    what it shows is kept as screenshots with the run.
+# 3. publish (main only, after the test): PolarisCam.zip goes on the repository's "polaris-cam" release, replacing the
+#    one before, so https://github.com/KOZ8738/home/releases/download/polaris-cam/PolarisCam.zip is the newest build.
+name: Build Polaris Cam
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/polaris-cam/**'
+      - '.github/workflows/build-polaris-cam.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-polaris-cam
+  cancel-in-progress: true
+
+env:
+  LLVM_MINGW_URL: https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-ubuntu-22.04-x86_64.tar.xz
+  LLVM_MINGW_SHA256: 2258c745e3155870c80793f3e8c80b28fbde11b9ff73c4c78783635b3440b092
+  LLVM_MINGW_DIR: llvm-mingw-20260908-ucrt-ubuntu-22.04-x86_64
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.v }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: The compiler (llvm-mingw 20260908, LLVM 23.1.1)
+        run: |
+          curl -fsSL -o /tmp/llvm-mingw.tar.xz "$LLVM_MINGW_URL"
+          echo "$LLVM_MINGW_SHA256  /tmp/llvm-mingw.tar.xz" | sha256sum -c
+          tar -xJf /tmp/llvm-mingw.tar.xz -C /tmp
+      - name: Build
+        run: LLVM_MINGW=/tmp/$LLVM_MINGW_DIR BUILD_NUMBER=$GITHUB_RUN_NUMBER tools/polaris-cam/build-linux.sh "$RUNNER_TEMP/out"
+      - name: Version
+        id: v
+        run: echo "v=$(sed -n 's/^#define POLARIS_CAM_VERSION "\(.*\)"/\1/p' tools/polaris-cam/src/shared/broadcast_link.hpp)" >> "$GITHUB_OUTPUT"
+      - name: Package
+        run: |
+          set -e
+          d="$RUNNER_TEMP/zip/Polaris Cam"
+          mkdir -p "$d" bin
+          cp "$RUNNER_TEMP/out/taxi-cam.exe" "$RUNNER_TEMP/out/taxi-camera-bridge.dll" "$RUNNER_TEMP/out/polaris-cam.exe" "$d/"
+          cp tools/polaris-cam/LICENSE "$d/LICENSE.txt"
+          cp tools/polaris-cam/licenses/native-runtime-notices.txt "$d/THIRD_PARTY_NOTICES.txt"
+          # with a byte-order mark and Windows line ends, for Notepad
+          printf '\xEF\xBB\xBF' > "$d/使用說明.txt"
+          sed "s/@VERSION@/${{ steps.v.outputs.v }}/; s/@COMMIT@/${GITHUB_SHA}/; s/\$/\r/" tools/polaris-cam/dist/README.txt >> "$d/使用說明.txt"
+          # Python's zipfile marks the Chinese file name as UTF-8, which Windows then shows as it is
+          python3 - "$RUNNER_TEMP/zip" PolarisCam.zip <<'PY'
+          import os, sys, zipfile
+          root, out = sys.argv[1], sys.argv[2]
+          with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+              for folder, _, files in os.walk(root):
+                  for name in sorted(files):
+                      path = os.path.join(folder, name)
+                      z.write(path, os.path.relpath(path, root))
+          PY
+          cp "$RUNNER_TEMP/out/"*.exe "$RUNNER_TEMP/out/"*.dll bin/
+          cp tools/polaris-cam/test/window-test.ps1 bin/
+          ls -la bin PolarisCam.zip
+      - uses: actions/upload-artifact@v6
+        with:
+          name: PolarisCam-${{ steps.v.outputs.v }}
+          path: PolarisCam.zip
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bin
+          path: bin
+          if-no-files-found: error
+          retention-days: 7
+
+  test:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: bin
+          path: bin
+      - name: The pictures the bridge makes, against the same arithmetic (software Direct3D 12)
+        run: .\bin\polaris-cam-selftest.exe --verify
+        timeout-minutes: 10
+      - name: The Polaris Cam window, against a stand-in for the bridge
+        shell: pwsh
+        run: .\bin\window-test.ps1 -Bin bin -Out window-test
+        timeout-minutes: 15
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: window-test
+          path: window-test
+          retention-days: 30
+
+  publish:
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: PolarisCam-${{ needs.build.outputs.version }}
+      # the "polaris-cam" tag moves to this commit; the release keeps its name, with this version in its title
+      - name: Publish to the polaris-cam release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.build.outputs.version }}
+        run: |
+          notes="Polaris Cam $V (prototype), built from ${GITHUB_SHA::7}: broadcast cameras for MSFS 2024. Up to four camera views placed anywhere on the aircraft, at 1080p or 720p and 5 to 60 pictures a second, each in a window of its own for OBS to capture. It is a changed copy of Taxi Cam 1.4.2 (https://github.com/rthoms334/taxi-cam, GPL-3.0-only) and is under the same licence; its source is tools/polaris-cam in this repository at that commit. Unzip, close Taxi Cam if it is installed, then open taxi-cam.exe and polaris-cam.exe from the folder; 使用說明.txt has the steps."
+          git tag -f polaris-cam "$GITHUB_SHA" && git push -f origin refs/tags/polaris-cam
+          if gh release view polaris-cam >/dev/null 2>&1; then
+            gh release edit polaris-cam --title "Polaris Cam $V" --notes "$notes" --latest=false
+          else
+            gh release create polaris-cam --title "Polaris Cam $V" --notes "$notes" --latest=false
+          fi
+          gh release upload polaris-cam PolarisCam.zip --clobber

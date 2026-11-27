@@ -30,6 +30,7 @@
 #include "../src/graphics/broadcast_output.hpp"
 #include "../src/profiles/discovered.hpp"
 #include "../src/shared/broadcast_link.hpp"
+#include "../src/viewer/waiting_status.hpp"
 
 namespace {
 using taxi_camera::BroadcastOutput;
@@ -374,8 +375,27 @@ void verify_request() {
          "three cameras at 10 on a 50 fps simulator: ten a second each");
 }
 
+void verify_waiting_status() {
+  std::printf("-- the window's status while the cameras are created\n");
+  const auto all_failed = [](std::uint32_t ticked, std::uint32_t failed) {
+    return ticked_cameras_all_failed(link_waiting, reason_starting, ticked, failed);
+  };
+  expect(all_failed(0b0011, 0b0011), "cameras 1 and 2 ticked, both failed: they all failed");
+  expect(!all_failed(0b0011, 0b0001), "cameras 1 and 2 ticked, only 1 failed: 2 is still being created");
+  expect(!all_failed(0, 0), "no camera ticked: not that they all failed");
+  expect(!all_failed(0, 0b0101), "no camera ticked, unticked ones failed: not that they all failed");
+  expect(all_failed(0b0001, 0b0101), "camera 1 ticked and failed, unticked camera 3 failed too: they all failed");
+  expect(!all_failed(0b0011, 0b0101), "cameras 1 and 2 ticked, 1 and unticked 3 failed: 2 is still being created");
+  expect(all_failed(0b1111, 0b1111), "all four ticked and failed: they all failed");
+  expect(!ticked_cameras_all_failed(link_live, reason_none, 0b0011, 0b0011), "while pictures are sent: the bridge's own words");
+  expect(!ticked_cameras_all_failed(link_not_ready, reason_failed, 0b0011, 0b0011), "when the bridge says they failed: its own words");
+  expect(!ticked_cameras_all_failed(link_not_ready, reason_loading, 0b0011, 0b0011), "while the flight loads: the bridge's own words");
+  expect(!ticked_cameras_all_failed(link_idle, reason_none, 0b0011, 0b0011), "with the broadcast off: the bridge's own words");
+}
+
 int verify(bool hardware) {
   verify_request();
+  verify_waiting_status();
   Gpu gpu;
   if (!gpu.open(hardware, true)) {
     std::printf("FAIL  no Direct3D 12 device\n");

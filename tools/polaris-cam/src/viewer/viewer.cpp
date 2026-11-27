@@ -27,6 +27,7 @@
 #include <string>
 #include "../shared/broadcast_link.hpp"
 #include "../shared/version.hpp"
+#include "waiting_status.hpp"
 
 namespace {
 using namespace polaris_cam;
@@ -640,11 +641,22 @@ void update_status(std::uint64_t now) {
         std::swprintf(line, 256, L"直播中：%u×%u，每顆鏡頭 %u fps。", app.settings.width(), app.settings.height, s.fps);
         text = line;
         break;
-      default:
+      default: {
+        // The ticked cameras and those of them that failed (update_failure).
+        const std::uint32_t ticked = app.settings.mask & ((1u << Feeds) - 1);
+        std::uint32_t failed = 0;
+        for (unsigned index = 0; index < Feeds; ++index)
+          if (app.feeds[index].failure != FeedFailure::none)
+            failed |= 1u << index;
+        if (ticked_cameras_all_failed(s.state, s.reason, ticked, failed)) {
+          text = L"勾選的鏡頭都無法啟動。關掉再開直播模式可再試。";
+          break;
+        }
         text = reason_text(s.reason);
         if (s.reason == reason_failed || s.reason == reason_aircraft)
           text += L"\r\n" + widen(s.message, sizeof(s.message));
         break;
+      }
     }
     if (s.sim_fps > 0) {
       if (s.view_ms > 0 && s.state == link_live)

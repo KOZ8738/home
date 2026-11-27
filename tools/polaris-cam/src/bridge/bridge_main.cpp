@@ -629,9 +629,12 @@ void log_render_target_shapes(const win::Status& status, std::uint64_t now) noex
 // Polaris Cam: while the broadcast runs, the camera service also runs on its
 // own thread every few milliseconds, so that a finished picture reaches the
 // window when the GPU has it and not at the worker loop's next 25 ms pass.
-// scene_runtime::service is serialized by its own mutex.
+// scene_runtime::service is serialized by its own mutex. It takes the locks
+// the worker takes there, which simulator threads wait on within budgets, so
+// it is marked as the worker is (lock_holder_priority.hpp).
 std::atomic<bool> cast_pump_on{};
 DWORD WINAPI cast_pump_run(void*) noexcept {
+  lock_holder_priority::mark_worker_thread();
   for (;;) {
     if (!cast_pump_on.load(std::memory_order_acquire)) {
       Sleep(100);
@@ -641,7 +644,7 @@ DWORD WINAPI cast_pump_run(void*) noexcept {
       scene_runtime::service();
     } catch (...) {
     }
-    Sleep(3);
+    Sleep(4);
   }
 }
 // Dedicated thread: reads counters, never takes a bridge lock, and flips the

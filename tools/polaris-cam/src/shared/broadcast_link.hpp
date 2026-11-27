@@ -163,6 +163,14 @@ class LinkMapping {
   Link* link_ = nullptr;
 };
 
+// Whether the other side wrote its heartbeat within the last limit_ms. Both
+// sides read the same clock (GetTickCount64), but not at the same moment: a
+// heartbeat written just after now_ms was read is later than now_ms, and is
+// as fresh as can be.
+inline constexpr bool fresh_heartbeat(std::uint64_t heartbeat_ms, std::uint64_t now_ms, std::uint64_t limit_ms) noexcept {
+  return heartbeat_ms != 0 && (heartbeat_ms >= now_ms || now_ms - heartbeat_ms <= limit_ms);
+}
+inline constexpr std::uint64_t StatusStaleMs = 3000;  // a bridge that stopped writing is gone
 // What the bridge acts on: a complete, checked copy of Control.
 struct Request {
   bool on = false;
@@ -189,7 +197,7 @@ inline bool read_control(const Link& link, std::uint64_t now_ms, Request& out) n
   if (InterlockedCompareExchange(serial, 0, 0) != before)
     return false;
   Request request;
-  const bool fresh = copy.heartbeat_ms && now_ms >= copy.heartbeat_ms && now_ms - copy.heartbeat_ms <= ControlStaleMs;
+  const bool fresh = fresh_heartbeat(copy.heartbeat_ms, now_ms, ControlStaleMs);
   request.on = fresh && copy.enabled == 1 && valid_size(copy.width, copy.height) && (copy.feed_mask & ((1u << Feeds) - 1)) != 0;
   request.width = copy.width;
   request.height = copy.height;

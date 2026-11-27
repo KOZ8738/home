@@ -123,6 +123,7 @@ struct App {
   std::uint64_t heartbeat_ms = 0, labels_ms = 0, rate_ms = 0;
   std::wstring status_text;
   bool filling = false;  // controls are being set from code
+  bool ticking = false;  // tick() is running
 } app;
 
 template <typename T>
@@ -256,8 +257,7 @@ void write_link() {
 }
 bool bridge_present(std::uint64_t now) {
   const auto* link = app.link.get();
-  return link && link->status.pid && link->status.heartbeat_ms && now >= link->status.heartbeat_ms &&
-         now - link->status.heartbeat_ms < 3000;
+  return link && link->status.pid && fresh_heartbeat(link->status.heartbeat_ms, now, StatusStaleMs);
 }
 
 // --- Direct3D 11 ---------------------------------------------------------
@@ -631,7 +631,17 @@ void fill_mount_fields();
 RECT cell_rect(unsigned index);
 RECT label_rect(unsigned index);
 
+// One pass: the heartbeat, the bridge's state, every camera's newest picture.
+// Run after each wait in the main loop and from a timer, which also fires
+// while Windows runs a loop of its own (a window being dragged, a menu), so
+// the pictures and the heartbeat do not stop then.
 void tick() {
+  if (app.ticking)
+    return;
+  app.ticking = true;
+  struct Done {
+    ~Done() { app.ticking = false; }
+  } done;
   const auto now = GetTickCount64();
   auto* link = app.link.get();
   if (now - app.heartbeat_ms >= 500)
@@ -699,11 +709,25 @@ RECT preview_area() {
   return {px(PanelWidth + Margin), px(Margin), std::max(client.right - px(Margin), static_cast<LONG>(px(PanelWidth + Margin + 64))),
           std::max(client.bottom - px(Margin), static_cast<LONG>(px(Margin + 64)))};
 }
-// The cell's whole slot: its label line and, below it, the 16:9 picture.
+// The previews: two columns of 16:9 pictures, each under its label line, as
+// large as the area allows and packed from its top left.
+SIZE cell_size() {
+  const RECT area = preview_area();
+  const int gap = px(12), border = px(2), label = px(LabelHeight);
+  int width = std::max<int>((area.right - area.left - gap) / 2 - 2 * border, 32), height = width * 9 / 16;
+  const int available = (area.bottom - area.top - gap) / 2 - label - 2 * border;
+  if (height > available) {
+    height = std::max(available, 18);
+    width = height * 16 / 9;
+  }
+  return {width, height};
+}
+// The cell's whole slot: its label line and, below it, the picture in its frame.
 RECT slot_rect(unsigned index) {
   const RECT area = preview_area();
-  const int gap = px(12);
-  const int width = (area.right - area.left - gap) / 2, height = (area.bottom - area.top - gap) / 2;
+  const SIZE cell = cell_size();
+  const int gap = px(12), border = px(2), label = px(LabelHeight);
+  const int width = cell.cx + 2 * border, height = label + cell.cy + 2 * border;
   const int left = area.left + static_cast<int>(index % 2) * (width + gap), top = area.top + static_cast<int>(index / 2) * (height + gap);
   return {left, top, left + width, top + height};
 }
@@ -714,14 +738,9 @@ RECT label_rect(unsigned index) {
 }
 RECT cell_rect(unsigned index) {
   const RECT slot = slot_rect(index);
-  const int top = slot.top + px(LabelHeight), available_w = slot.right - slot.left - 2 * px(2), available_h = slot.bottom - top - 2 * px(2);
-  int width = std::max(available_w, 16), height = width * 9 / 16;
-  if (height > available_h) {
-    height = std::max(available_h, 9);
-    width = height * 16 / 9;
-  }
-  const int left = slot.left + px(2) + (available_w - width) / 2;
-  return {left, top + px(2), left + width, top + px(2) + height};
+  const SIZE cell = cell_size();
+  const int left = slot.left + px(2), top = slot.top + px(LabelHeight) + px(2);
+  return {left, top, left + cell.cx, top + cell.cy};
 }
 HWND control(int id) {
   return GetDlgItem(app.main, id);
@@ -784,8 +803,7 @@ void create_controls() {
   make(L"STATIC", AppTitle, 0, Margin, 12, 200, 28, -1, app.title);
   make(L"STATIC", L"原型 " POLARIS_CAM_VERSION_WIDE L"（Taxi Cam " TAXI_CAM_VERSION_WIDE L"）", SS_RIGHT, 150, 20, 178, 18, -1);
   make(L"STATIC", L"", 0, Margin, 44, PanelWidth - Margin - 8, 64, IdStatus);
-  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 114, 110, 22, IdEnable, app.bold);
-  make(L"STATIC", L"（開啟時駕駛艙螢幕的滑行鏡頭會暫停）", 0, 126, 117, 204, 18, -1);
+  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 112, 110, 22, IdEnable, app.bold);
   make(L"STATIC", L"畫質", 0, Margin, 146, 40, 20, -1);
   make(L"BUTTON", L"1080p", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 64, 144, 72, 22, IdSize1080);
   make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 144, 64, 22, IdSize720);
@@ -822,6 +840,7 @@ void create_controls() {
   }
   make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 452, 300, 22, IdWindows);
   make(L"STATIC",
+       L"直播模式開啟時，駕駛艙螢幕上的滑行鏡頭會暫停。\r\n\r\n"
        L"調整鏡頭：先點右邊的預覽，再用鍵盤\r\n"
        L"W/S 前後　A/D 左右　R/F 上下\r\n"
        L"方向鍵 轉向與俯仰　+/− 視角\r\n"
@@ -1128,6 +1147,9 @@ LRESULT CALLBACK main_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
     case WM_COMMAND:
       on_command(LOWORD(wparam), HIWORD(wparam));
       return 0;
+    case WM_TIMER:
+      tick();
+      return 0;
     case WM_SIZE:
       if (app.main)
         layout();
@@ -1328,6 +1350,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   update_status(GetTickCount64());
   for (unsigned index = 0; index < Feeds; ++index)
     sync_output(index);
+  SetTimer(app.main, 1, USER_TIMER_MINIMUM, nullptr);
   ShowWindow(app.main, show);
   UpdateWindow(app.main);
 

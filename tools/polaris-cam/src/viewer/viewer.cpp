@@ -68,6 +68,7 @@ enum ControlId : int {
   IdStatus,
   IdHint,
   IdReset,
+  IdMountTitle,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -135,6 +136,8 @@ struct App {
   std::wstring status_text;
   bool filling = false;  // controls are being set from code
   bool ticking = false;  // tick() is running
+  // The help line shows the keys (a click on it opens and closes them).
+  bool hint_open = false;
   // The preview shown alone, large (a double click); Feeds: all four.
   unsigned enlarged = Feeds;
   // A mouse drag on a preview: which button, and where the cursor was.
@@ -627,7 +630,7 @@ void update_status(std::uint64_t now) {
   if (!link) {
     text = L"無法建立與模擬器之間的共享區。";
   } else if (!bridge_present(now)) {
-    text = L"尚未連上模擬器。\r\n請開啟 MSFS 2024，執行同資料夾的 taxi-cam.exe 並按 Connect。";
+    text = L"尚未連上模擬器";
   } else if (link->status.protocol != LinkVersion) {
     text = L"模擬器裡的 bridge 版本和這個視窗不同：請關閉 MSFS，兩個程式都用同一份下載檔重新開啟。";
   } else {
@@ -635,7 +638,7 @@ void update_status(std::uint64_t now) {
     wchar_t line[256];
     switch (s.state) {
       case link_idle:
-        text = L"已連上模擬器。勾選「直播模式」開始。";
+        text = L"已連上模擬器";
         break;
       case link_live: {
         // The size the bridge sends (sent_size), not this window's setting;
@@ -885,7 +888,20 @@ HWND make(const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, i
   SendMessageW(window, WM_SETFONT, reinterpret_cast<WPARAM>(font ? font : app.font), TRUE);
   return window;
 }
-constexpr std::array<const wchar_t*, 6> FieldNames{L"往右 (m)", L"往上 (m)", L"往前 (m)", L"抬頭 (°)", L"右轉 (°)", L"視角 (°)"};
+constexpr std::array<const wchar_t*, 6> FieldNames{L"左右 (m)", L"上下 (m)", L"前後 (m)", L"俯仰 (°)", L"轉向 (°)", L"視角 (°)"};
+// The help line: one line until it is clicked, then the keys.
+constexpr const wchar_t* HintShort = L"在預覽上拖曳可調位置。點這行看按鍵。";
+constexpr const wchar_t* HintKeys =
+    L"請開啟 MSFS 2024，執行同資料夾的 taxi-cam.exe 並按 Connect。\r\n\r\n"
+    L"直播模式開啟時，駕駛艙螢幕上的滑行鏡頭會暫停。\r\n\r\n"
+    L"在預覽上：左鍵拖曳 轉向　右鍵拖曳 平移\r\n"
+    L"滾輪 前進後退　Ctrl＋滾輪 拉近拉遠\r\n"
+    L"雙擊 放大這顆／回到四格\r\n"
+    L"點過預覽後按住 W A S D 移動、Q E 下上、\r\n"
+    L"方向鍵 轉向；Shift 快、Ctrl 慢。\r\n\r\n"
+    L"OBS：來源 → 視窗擷取 → 選「Polaris Cam 1」…\r\n"
+    L"擷取方式選「Windows 10 (1903 以上)」。\r\n"
+    L"輸出視窗可拖到別的螢幕或被其他視窗蓋住，但不要最小化；在輸出視窗上按右鍵可關閉。";
 // A mount value as its field shows it: metres to the centimetre, degrees to a tenth.
 void field_text(wchar_t* text, std::size_t count, unsigned i, const Mount& mount) {
   if (i == 5)
@@ -902,6 +918,9 @@ void fill_mount_fields() {
     SetDlgItemTextW(app.main, IdField + static_cast<int>(i), text);
   }
   SendMessageW(control(IdSelect), CB_SETCURSEL, app.selected, 0);
+  wchar_t title[32];
+  std::swprintf(title, 32, L"鏡頭 %u 的位置", app.selected + 1);
+  SetDlgItemTextW(app.main, IdMountTitle, title);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     SendMessageW(control(IdPreset + static_cast<int>(feed)), CB_SETCURSEL, static_cast<WPARAM>(app.settings.presets[feed]), 0);
     Button_SetCheck(control(IdCamera + static_cast<int>(feed)), (app.settings.mask >> feed) & 1u ? BST_CHECKED : BST_UNCHECKED);
@@ -950,14 +969,14 @@ void create_controls() {
       SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item.name));
     SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
   }
-  make(L"STATIC", L"調整位置", 0, Margin, 352, 70, 20, -1, app.bold);
-  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 90, 348, 100, 200, IdSelect);
+  make(L"STATIC", L"", 0, Margin, 352, 110, 20, IdMountTitle, app.bold);  // "鏡頭 N 的位置" (fill_mount_fields)
+  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 348, 100, 200, IdSelect);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     SendMessageW(select, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
-  make(L"BUTTON", L"重設", WS_TABSTOP, 200, 347, 60, 26, IdReset);
+  make(L"BUTTON", L"重設", WS_TABSTOP, 240, 347, 60, 26, IdReset);
   // Two columns: position on the left, direction and view angle on the right.
   constexpr std::array<int, 6> Column{0, 0, 0, 1, 1, 1}, Row{0, 1, 2, 0, 1, 2};
   for (unsigned i = 0; i < 6; ++i) {
@@ -966,17 +985,7 @@ void create_controls() {
     make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 68, y, 76, 25, IdField + static_cast<int>(i));
   }
   make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 492, 300, 22, IdWindows);
-  make(L"STATIC",
-       L"直播模式開啟時，駕駛艙螢幕上的滑行鏡頭會暫停。\r\n\r\n"
-       L"在預覽上：左鍵拖曳 轉向　右鍵拖曳 平移\r\n"
-       L"滾輪 前進後退　Ctrl＋滾輪 拉近拉遠\r\n"
-       L"雙擊 放大這顆／回到四格\r\n"
-       L"點過預覽後按住 W A S D 移動、Q E 下上、\r\n"
-       L"方向鍵 轉向；Shift 快、Ctrl 慢。\r\n\r\n"
-       L"OBS：來源 → 視窗擷取 → 選「Polaris Cam 1」…\r\n"
-       L"擷取方式選「Windows 10 (1903 以上)」。\r\n"
-       L"輸出視窗可拖到別的螢幕或被其他視窗蓋住，但不要最小化；在輸出視窗上按右鍵可關閉。",
-       0, Margin, 488, PanelWidth - Margin - 8, 200, IdHint);
+  make(L"STATIC", HintShort, SS_NOTIFY, Margin, 488, PanelWidth - Margin - 8, 200, IdHint);
 }
 
 // --- changes ----------------------------------------------------------------
@@ -1161,6 +1170,9 @@ void on_command(int id, int code) {
     s.mounts[app.selected] = Presets[static_cast<std::size_t>(preset)].mount;
     fill_mount_fields();
     settings_changed(true);
+  } else if (id == IdHint && code == STN_CLICKED) {
+    app.hint_open = !app.hint_open;
+    SetDlgItemTextW(app.main, IdHint, app.hint_open ? HintKeys : HintShort);
   } else if (id >= IdField && id < IdField + 6 && code == EN_KILLFOCUS) {
     read_mount_fields();
   } else if (id == IDOK) {
@@ -1190,8 +1202,10 @@ void paint_main(HDC dc) {
       std::swprintf(text, 160, L"鏡頭 %u｜%ls｜%u×%u｜暫停中", index + 1, name.c_str(), feed.width, feed.height);
     else if (feed.live)
       std::swprintf(text, 160, L"鏡頭 %u｜%ls｜%u×%u｜%.1f fps", index + 1, name.c_str(), feed.width, feed.height, feed.fps);
+    else if (ticked)
+      std::swprintf(text, 160, L"鏡頭 %u｜%ls", index + 1, name.c_str());
     else
-      std::swprintf(text, 160, L"鏡頭 %u｜%ls%ls", index + 1, name.c_str(), ticked ? L"" : L"｜未勾選");
+      std::swprintf(text, 160, L"鏡頭 %u｜未勾選", index + 1);
     SelectObject(dc, selected ? app.bold : app.font);
     SetTextColor(dc, selected ? RGB(0, 90, 200) : RGB(40, 40, 40));
     DrawTextW(dc, text, -1, &label, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);

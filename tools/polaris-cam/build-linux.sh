@@ -8,6 +8,8 @@
 #                         companion taxi-cam.exe, Taxi Cam's own window
 #                         viewer   polaris-cam.exe, the Polaris Cam window
 #                         selftest polaris-cam-selftest.exe, run by the build on Windows (test/selftest.cpp)
+#                         encodetest polaris-cam-encode-test.exe, the H.264 encode test run by hand (test/encode_test.cpp);
+#                                  not built unless named
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:?out dir}; shift
@@ -91,4 +93,9 @@ if wants selftest; then
   "$CXX" "${COMMON[@]}" -municode "$ROOT/test/selftest.cpp" $(paths src/graphics/broadcast_output.cpp) "${LIBS[@]}" -Wl,--no-insert-timestamp \
     -o "$OUT/polaris-cam-selftest.exe"
   echo "built polaris-cam-selftest.exe"
+fi
+if wants encodetest; then
+  "$CXX" "${COMMON[@]}" -municode "$ROOT/test/encode_test.cpp" -ld3d11 -ldxgi -lmfplat -lmfuuid -lole32 -lwinmm \
+    -Wl,--no-insert-timestamp -o "$OUT/polaris-cam-encode-test.exe"
+  echo "built polaris-cam-encode-test.exe"
 fi

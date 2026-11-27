@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polaris Cam 監看測試</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600&family=Inter:wght@400;600&family=Noto+Sans+TC:wght@400;600&display=swap">
+<style>
+/* VOICE: a station engineer's test sheet: exact, calm, every number explained in plain words.
+   IDEA: the monitoring desk of a broadcast control room: a monitor showing a test card, a readout strip, tally lamps beside it.
+   PICTURE: the monitor itself, playing the clip through WebCodecs in real time, with its readout strip.
+   COLOUR and TYPE: steel panel, black bezel, white, alarm red for faults, a quiet green for pass; night #16191c. Inter Tight 600 titles, Inter + Noto Sans TC text.
+   LAYOUT: monitor (3/5) beside the tally board, then the drop zone, each clip's sheet, the browser, the summary; stacked below 860px. */
+:root{color-scheme:light dark;--bg:light-dark(#d5dbe0,#16191c);--panel:light-dark(#ffffff,#1f2428);--ink:light-dark(#0b0d0f,#e8ecef);--muted:light-dark(#47515a,#9ba6af);--line:light-dark(#b8c1c9,#30373d);--bezel:#0b0d0f;--red:light-dark(#c81e14,#ff5a4f);--ok:light-dark(#0f7a3d,#52c785);--warn:light-dark(#985a00,#ffb44d);--accent:#e8251a}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;overflow-x:clip}
+h1,h2{font-family:"Inter Tight","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-weight:600;line-height:1.05;text-wrap:balance;margin:0}
+h1{font-size:clamp(32px,4.4vw,48px)}h2{font-size:22px;margin-bottom:12px}
+.band{padding:clamp(20px,3vw,40px) max(4vw,16px);max-width:1320px;margin:0 auto}
+.top{padding-bottom:8px}.lede{max-width:70ch;color:var(--muted);margin:12px 0 0}
+.desk{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:24px;align-items:start;padding-top:16px}
+.monitor{background:var(--bezel);border-radius:12px;padding:12px;box-shadow:0 1px 0 #ffffff14 inset,0 18px 40px -24px #000c}
+.screen{position:relative;aspect-ratio:16/9;background:#000;border-radius:4px;overflow:hidden}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.screen-note{position:absolute;inset:0;display:grid;place-items:center;color:#cfd6dc;font-size:17px;text-align:center;padding:16px}
+.strip{display:flex;flex-wrap:wrap;gap:6px 22px;color:#9aa6b0;font-size:14px;padding:10px 4px 2px;font-variant-numeric:tabular-nums}
+.strip b{color:#f2f5f7;font-weight:600}
+.controls{display:flex;flex-wrap:wrap;gap:10px;padding:10px 4px 2px}
+button,.pick{font:600 15px/1 Inter,"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;min-height:44px;padding:0 18px;border-radius:8px;border:1px solid #3a434b;background:#20262c;color:#f2f5f7;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+button:hover,.pick:hover{background:#2a3138}button:disabled{opacity:.45;cursor:default}
+button:focus-visible,.pick:focus-within,.drop:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.pick input{position:absolute;width:1px;height:1px;opacity:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.tally ul{list-style:none;margin:0;padding:0}
+.tally li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 12px;padding:11px 0;border-top:1px solid var(--line)}
+.tally li:first-child{border-top:0;padding-top:2px}
+.tally .what{font-weight:600}.tally .why{grid-column:2;color:var(--muted);font-size:14px}
+.lamp{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 14px/1 Inter,system-ui,sans-serif;color:#fff;background:#7d8790;grid-row:span 2}
+.lamp[data-s=ok]{background:var(--ok)}.lamp[data-s=bad]{background:var(--red)}.lamp[data-s=warn]{background:var(--warn)}.lamp[data-s=info]{background:#5c6b78}
+.lamp[data-s=wait]{background:transparent;border:2px solid #7d8790;color:#7d8790}
+.drop{border:2px dashed var(--line);border-radius:12px;min-height:110px;display:grid;place-items:center;text-align:center;padding:18px;color:var(--muted);background:var(--panel);cursor:pointer}
+.drop.over{border-color:var(--accent);color:var(--ink)}
+.clips{display:grid;gap:16px;margin-top:16px}
+.clip h3{margin:0;font-size:18px}.clip .meta{color:var(--muted);font-size:14px;margin:2px 0 10px}
+.clip ul{list-style:none;margin:0;padding:0}
+.clip li{display:grid;grid-template-columns:24px 6.5em minmax(0,1fr);gap:10px;padding:6px 0;border-top:1px solid var(--line);align-items:baseline}
+.clip li .lamp{width:20px;height:20px;font-size:12px;grid-row:auto;align-self:center}
+.clip li b{font-weight:600}
+.clip .row-actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap}
+.clip .row-actions button{background:transparent;color:var(--ink);border-color:var(--line)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+.sw{display:grid;grid-template-columns:30px 30px minmax(0,1fr);gap:6px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.sw i{display:block;height:30px;border-radius:4px;border:1px solid var(--line)}
+details{margin-top:10px}summary{cursor:pointer;color:var(--muted);min-height:32px}
+table{border-collapse:collapse;width:100%;font-size:15px}th,td{padding:8px 10px;border-top:1px solid var(--line);text-align:left}
+td.c{text-align:center}thead th{border-top:0;color:var(--muted);font-weight:600}
+textarea{width:100%;min-height:260px;font:13px/1.5 ui-monospace,"Cascadia Mono",Consolas,monospace;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:12px}
+.copyrow{display:flex;gap:12px;align-items:center;margin-top:10px}.copyrow button{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.muted{color:var(--muted)}.small{font-size:14px}
+pre,.scroll{overflow-x:auto}
+@media(max-width:860px){.desk{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.clip li{grid-template-columns:24px minmax(0,1fr)}.clip li span:last-child{grid-column:2}table{font-size:13px}}
+@media(prefers-reduced-motion:no-preference){.drop{transition:border-color .2s,color .2s}}
+</style>
+</head>
+<body>
+<header class="band top">
+  <h1>Polaris Cam 監看畫面測試</h1>
+  <p class="lede">用 WebCodecs 在瀏覽器裡解 H.264，看員工後台能不能這樣即時顯示 Polaris Cam 的畫面。打開就先播內建測試片；再把編碼測試程式做的 <b>.pch264</b> 檔拖進來，用你的顯示卡做的片子再測一次。</p>
+</header>
+
+<main class="band desk">
+  <section class="monitor" aria-label="監看畫面">
+    <div class="screen"><canvas id="screen" width="960" height="540"></canvas><div id="screen-note" class="screen-note">準備中…</div></div>
+    <div class="strip"><span>片子 <b id="s-clip">—</b></span><span>第 <b id="s-frame">—</b> 格</span><span>解碼延遲 <b id="s-lat">—</b></span><span><b id="s-dec">—</b></span></div>
+    <div class="controls">
+      <button id="replay" type="button" disabled>再播一次</button>
+      <label class="pick"><input id="files" type="file" accept=".pch264,.h264,.264" multiple>選 .pch264 檔…</label>
+    </div>
+  </section>
+  <aside class="panel tally" aria-label="結果">
+    <h2>結果</h2>
+    <ul id="tally">
+      <li data-k="support"><span class="lamp" data-s="wait">…</span><span class="what">這個 Chrome 能解 H.264</span><span class="why">檢查中</span></li>
+      <li data-k="builtin"><span class="lamp" data-s="wait">…</span><span class="what">內建測試片能播</span><span class="why">等一下</span></li>
+      <li data-k="yours"><span class="lamp" data-s="wait">…</span><span class="what">你的顯示卡做的片子能播</span><span class="why">把 .pch264 檔拖進來</span></li>
+      <li data-k="colour"><span class="lamp" data-s="wait">…</span><span class="what">顏色正確</span><span class="why">等一下</span></li>
+      <li data-k="join"><span class="lamp" data-s="wait">…</span><span class="what">中途打開也能看</span><span class="why">等一下</span></li>
+      <li data-k="latency"><span class="lamp" data-s="wait">…</span><span class="what">即時播放不卡</span><span class="why">等一下</span></li>
+    </ul>
+  </aside>
+</main>
+
+<section class="band" aria-label="測試片">
+  <div id="drop" class="drop" tabindex="0" role="button">把 encode-test-results 裡最新那個資料夾的 .pch264 檔拖到這裡（可以一次拖好幾個），或按這裡選檔。</div>
+  <div id="clips" class="clips"></div>
+</section>
+
+<section class="band">
+  <h2>這個瀏覽器</h2>
+  <p id="browser" class="muted small">檢查中…</p>
+  <div class="scroll"><table id="support"><thead><tr><th>H.264 種類</th><th>硬體解碼</th><th>軟體解碼</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="band">
+  <h2>結果摘要</h2>
+  <p class="muted small">全部測完後按「複製」，貼回對話裡。</p>
+  <textarea id="summary" readonly aria-label="結果摘要"></textarea>
+  <div class="copyrow"><button id="copy" type="button">複製</button><span id="copied" class="muted small" aria-live="polite"></span></div>
+</section>
+
+<script type="application/octet-stream" id="builtin">@BUILTIN_CLIP@</script>
+<script>
+{
+const DEFAULT_PATTERN = {background:[24,28,36],patches:[{name:'white',x:.04,y:.06,w:.1,h:.18,rgb:[255,255,255]},{name:'black',x:.16,y:.06,w:.1,h:.18,rgb:[0,0,0]},{name:'gray',x:.28,y:.06,w:.1,h:.18,rgb:[128,128,128]},{name:'red',x:.4,y:.06,w:.1,h:.18,rgb:[230,30,30]},{name:'green',x:.52,y:.06,w:.1,h:.18,rgb:[30,200,60]},{name:'blue',x:.64,y:.06,w:.1,h:.18,rgb:[30,60,230]},{name:'yellow',x:.76,y:.06,w:.1,h:.18,rgb:[240,200,40]},{name:'sky',x:.88,y:.06,w:.1,h:.18,rgb:[120,170,230]}],gradient:{x:.04,y:.32,w:.92,h:.08},bar:{x:.04,y:.5,w:.92,h:.14,width:.02,step:.008},counter:{x:.04,y:.8,w:.48,h:.0711,bits:12}};
+const NAMES = {white:'白',black:'黑',gray:'灰',red:'紅',green:'綠',blue:'藍',yellow:'黃',sky:'天藍'};
+const ICON = {ok:'✓',bad:'✗',warn:'!',info:'i',wait:'…'};
+const WORD = {ok:'OK',bad:'不行',warn:'注意',info:'資訊',wait:'等'};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const num = (v, d = 1) => Number.isFinite(v) ? v.toFixed(d) : '—';
+const hex2 = v => v.toString(16).padStart(2, '0');
+const stats = list => { if (!list.length) return null; const s = [...list].sort((a, b) => a - b); return {mean: s.reduce((a, b) => a + b, 0) / s.length, p95: s[Math.min(s.length - 1, Math.floor(s.length * .95))], max: s[s.length - 1], n: s.length}; };
+const concat = (...parts) => { const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out; };
+
+// ---- H.264 bitstream ----
+function findNals(u8) {
+  const codes = [], n = u8.length;
+  for (let p = 0; p + 3 <= n;) {
+    const b2 = u8[p + 2];
+    if (b2 > 1) { p += 3; continue; }
+    if (u8[p] === 0 && u8[p + 1] === 0 && b2 === 1) { codes.push(p, 3); p += 3; continue; }
+    if (p + 4 <= n && u8[p] === 0 && u8[p + 1] === 0 && b2 === 0 && u8[p + 3] === 1) { codes.push(p, 4); p += 4; continue; }
+    p++;
+  }
+  const out = [];
+  for (let k = 0; k < codes.length; k += 2) {
+    const start = codes[k] + codes[k + 1], end = k + 2 < codes.length ? codes[k + 2] : n;
+    if (start < end) out.push({code: codes[k], start, end, type: u8[start] & 31});
+  }
+  return out;
+}
+// Plain Annex B has no frame boundaries: a picture starts at an access unit delimiter, at SPS/PPS/SEI
+// after a picture, or at a slice whose first_mb_in_slice is 0.
+function splitAccessUnits(u8) {
+  const aus = []; let start = -1, vcl = false;
+  for (const nal of findNals(u8)) {
+    const t = nal.type, isVcl = t >= 1 && t <= 5;
+    const firstSlice = isVcl && nal.start + 1 < nal.end && (u8[nal.start + 1] & 0x80) !== 0;
+    if (vcl && (t === 9 || t === 7 || t === 8 || t === 6 || firstSlice)) { aus.push(u8.subarray(start, nal.code)); start = nal.code; vcl = false; }
+    if (start < 0) start = nal.code;
+    if (isVcl) vcl = true;
+  }
+  if (start >= 0 && vcl) aus.push(u8.subarray(start));
+  return aus;
+}
+class Bits {
+  constructor(u8) { this.u8 = u8; this.pos = 0; }
+  bit() { if (this.pos >= this.u8.length * 8) throw new Error('SPS 太短'); const v = this.u8[this.pos >> 3] >> (7 - (this.pos & 7)) & 1; this.pos++; return v; }
+  bits(n) { let v = 0; for (let i = 0; i < n; i++) v = v * 2 + this.bit(); return v; }
+  ue() { let z = 0; while (this.bit() === 0) if (++z > 31) throw new Error('SPS 讀不懂'); return z ? 2 ** z - 1 + this.bits(z) : 0; }
+  se() { const k = this.ue(); return k & 1 ? (k + 1) / 2 : -k / 2; }
+}
+function parseSps(nal) {
+  const raw = []; let zeros = 0;
+  for (let i = 1; i < nal.length; i++) { const b = nal[i]; if (zeros >= 2 && b === 3) { zeros = 0; continue; } raw.push(b); zeros = b === 0 ? zeros + 1 : 0; }
+  const b = new Bits(Uint8Array.from(raw));
+  const s = {profile: b.bits(8), constraints: b.bits(8), level: b.bits(8), chroma: 1};
+  b.ue();
+  if ([100, 110, 122, 244, 44, 83, 86, 118, 128, 138, 139, 134, 135].includes(s.profile)) {
+    s.chroma = b.ue(); if (s.chroma === 3) b.bit();
+    s.depth = b.ue() + 8; b.ue(); b.bit();
+    if (b.bit()) for (let i = 0; i < (s.chroma !== 3 ? 8 : 12); i++) if (b.bit()) { let last = 8, next = 8; for (let j = 0; j < (i < 6 ? 16 : 64); j++) { if (next) next = (last + b.se() + 256) % 256; last = next || last; } }
+  }
+  b.ue();
+  s.poc = b.ue();
+  if (s.poc === 0) b.ue(); else if (s.poc === 1) { b.bit(); b.se(); b.se(); const n = b.ue(); for (let i = 0; i < n; i++) b.se(); }
+  s.refs = b.ue(); b.bit();
+  const wMbs = b.ue() + 1, hMap = b.ue() + 1, frameOnly = b.bit();
+  if (!frameOnly) b.bit();
+  b.bit();
+  let crop = [0, 0, 0, 0]; if (b.bit()) crop = [b.ue(), b.ue(), b.ue(), b.ue()];
+  const cx = s.chroma === 1 || s.chroma === 2 ? 2 : 1, cy = (s.chroma === 1 ? 2 : 1) * (2 - frameOnly);
+  s.width = wMbs * 16 - cx * (crop[0] + crop[1]); s.height = (2 - frameOnly) * hMap * 16 - cy * (crop[2] + crop[3]);
+  s.vui = !!b.bit();
+  if (s.vui) {
+    if (b.bit() && b.bits(8) === 255) b.bits(32);
+    if (b.bit()) b.bit();
+    s.signal = !!b.bit();
+    if (s.signal) { b.bits(3); s.fullRange = !!b.bit(); if (b.bit()) { s.primaries = b.bits(8); s.transfer = b.bits(8); s.matrix = b.bits(8); } }
+    if (b.bit()) { b.ue(); b.ue(); }
+    if (b.bit()) { s.tick = b.bits(32); s.scale = b.bits(32); b.bit(); }
+    const hrd = () => { const n = b.ue() + 1; b.bits(8); for (let i = 0; i < n; i++) { b.ue(); b.ue(); b.bit(); } b.bits(20); };
+    const nalHrd = b.bit(); if (nalHrd) hrd();
+    const vclHrd = b.bit(); if (vclHrd) hrd();
+    if (nalHrd || vclHrd) b.bit();
+    b.bit();
+    s.restriction = !!b.bit();
+    if (s.restriction) { b.bit(); b.ue(); b.ue(); b.ue(); b.ue(); s.reorder = b.ue(); s.dpb = b.ue(); }
+  }
+  return s;
+}
+const PROFILE = {66: 'Baseline', 77: 'Main', 88: 'Extended', 100: 'High', 110: 'High 10', 122: 'High 4:2:2', 244: 'High 4:4:4'};
+const MATRIX = {0: 'RGB', 1: 'BT.709', 2: '未指定', 5: 'BT.601', 6: 'BT.601', 9: 'BT.2020'};
+function spsText(s) {
+  const profile = (s.profile === 66 && s.constraints & 0x40 ? 'Constrained ' : '') + (PROFILE[s.profile] || 'profile ' + s.profile);
+  const colour = s.matrix != null ? `色彩標示 ${MATRIX[s.matrix] || s.matrix}、${s.fullRange ? '全範圍' : '有限範圍'}` : s.signal ? `${s.fullRange ? '全範圍' : '有限範圍'}，沒標色彩矩陣` : '沒標色彩';
+  const reorder = s.restriction ? `重排上限 ${s.reorder} 格` : (s.poc === 2 ? '不會重排（POC 2）' : '沒寫重排上限');
+  return `${profile} ${s.level / 10}、${s.width}×${s.height}、POC ${s.poc}、${reorder}、${colour}`;
+}
+
+// ---- clips ----
+function parsePch(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  const length = dv.getUint32(8, true);
+  const header = JSON.parse(new TextDecoder().decode(u8.subarray(12, 12 + length)));
+  const aus = [];
+  for (let p = 12 + length; p + 20 <= u8.length;) {
+    const size = dv.getUint32(p, true), index = dv.getUint32(p + 16, true);
+    if (p + 20 + size > u8.length) break;
+    aus.push({index, data: u8.subarray(p + 20, p + 20 + size)});
+    p += 20 + size;
+  }
+  return {header, aus};
+}
+function makeClip(name, buf, builtin = false) {
+  const u8 = new Uint8Array(buf);
+  const pch = u8.length > 12 && new TextDecoder().decode(u8.subarray(0, 8)) === 'PCH264v1';
+  const {header, aus} = pch ? parsePch(buf) : {header: null, aus: splitAccessUnits(u8).map((data, index) => ({index, data}))};
+  if (!aus.length) throw new Error('裡面沒有 H.264 畫面');
+  let spsNal = null, ppsNal = null;
+  const frames = aus.map(au => {
+    let key = false, sps = false, pps = false;
+    for (const nal of findNals(au.data)) {
+      if (nal.type === 5) key = true;
+      if (nal.type === 7) { sps = true; spsNal ||= au.data.subarray(nal.start, nal.end); }
+      if (nal.type === 8) { pps = true; ppsNal ||= au.data.subarray(nal.start, nal.end); }
+    }
+    return {index: au.index, data: au.data, key, hasSps: sps && pps};
+  });
+  if (!spsNal) throw new Error('找不到 SPS，這不像 H.264 檔');
+  const sps = parseSps(spsNal);
+  const start = Uint8Array.of(0, 0, 0, 1);
+  const fps = header?.fps || (sps.tick && sps.scale ? Math.round(sps.scale / (2 * sps.tick) * 100) / 100 : 30);
+  const bytes = frames.reduce((n, f) => n + f.data.length, 0);
+  return {
+    name, builtin, header, frames, sps, fps,
+    label: builtin ? '內建測試片' : name.replace(/\.(pch264|h264|264)$/i, ''),
+    codec: `avc1.${hex2(sps.profile)}${hex2(sps.constraints)}${hex2(sps.level)}`,
+    width: sps.width, height: sps.height,
+    pattern: header?.pattern || DEFAULT_PATTERN, assumedPattern: !header?.pattern,
+    spsPps: concat(start, spsNal, start, ppsNal || new Uint8Array()),
+    mbps: bytes * 8 / (frames.length / fps) / 1e6,
+  };
+}
+
+// ---- reading the test picture ----
+const rectOf = (a, W, H) => [Math.round(a.x * W), Math.round(a.y * H), Math.round((a.x + a.w) * W), Math.round((a.y + a.h) * H)];
+function inner([l, t, r, b]) { const x0 = Math.round(l + (r - l) / 4), y0 = Math.round(t + (b - t) / 4); return [x0, y0, Math.max(x0 + 1, Math.round(r - (r - l) / 4)), Math.max(y0 + 1, Math.round(b - (b - t) / 4))]; }
+function average(ctx, rect) {
+  const [l, t, r, b] = inner(rect), d = ctx.getImageData(l, t, r - l, b - t).data;
+  let R = 0, G = 0, B = 0; for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; B += d[i + 2]; }
+  const n = d.length / 4; return [R / n, G / n, B / n];
+}
+function readCounter(ctx, W, H, c) {
+  let v = 0;
+  for (let i = 0; i < c.bits; i++) { const [r, g, b] = average(ctx, rectOf({x: c.x + c.w * i / c.bits, y: c.y, w: c.w / c.bits, h: c.h}, W, H)); v = v * 2 + ((r + g + b) / 3 > 128 ? 1 : 0); }
+  return v;
+}
+const readGradient = (ctx, W, H, g) => [.03, .5, .97].map(t => { const c = average(ctx, rectOf({x: g.x + g.w * t - .005, y: g.y, w: .01, h: g.h}, W, H)); return {t, expect: 255 * t, got: (c[0] + c[1] + c[2]) / 3}; });
+async function readYuv(frame, pattern) {
+  const f = frame.format;
+  if (!f) return {note: '這格在顯示卡上，讀不到原始 YUV'};
+  if (!['I420', 'I420A', 'NV12'].includes(f)) return {note: '畫面格式是 ' + f + '，沒有讀 YUV'};
+  const buf = new Uint8Array(frame.allocationSize()), layout = await frame.copyTo(buf);
+  const W = frame.visibleRect.width, H = frame.visibleRect.height;
+  return {format: f, patches: pattern.patches.map(p => {
+    const [l, t, r, b] = inner(rectOf(p, W, H));
+    let y = 0, n = 0, u = 0, v = 0, m = 0;
+    for (let yy = t; yy < b; yy++) for (let xx = l; xx < r; xx++) { y += buf[layout[0].offset + yy * layout[0].stride + xx]; n++; }
+    for (let yy = t >> 1; yy < b >> 1; yy++) for (let xx = l >> 1; xx < r >> 1; xx++) {
+      if (f === 'NV12') { const o = layout[1].offset + yy * layout[1].stride + xx * 2; u += buf[o]; v += buf[o + 1]; }
+      else { u += buf[layout[1].offset + yy * layout[1].stride + xx]; v += buf[layout[2].offset + yy * layout[2].stride + xx]; }
+      m++;
+    }
+    return [y / n, u / m, v / m];
+  })};
+}
+
+// ---- colour: what each mistake would look like ----
+const K = {709: [.2126, .0722], 601: [.299, .114]};
+function toYcc(rgb, m, full) {
+  const [kr, kb] = K[m], [r, g, b] = rgb.map(v => v / 255), y = kr * r + (1 - kr - kb) * g + kb * b, cb = (b - y) / (2 - 2 * kb), cr = (r - y) / (2 - 2 * kr);
+  return full ? [255 * y, 128 + 255 * cb, 128 + 255 * cr] : [16 + 219 * y, 128 + 224 * cb, 128 + 224 * cr];
+}
+function toRgb(ycc, m, full) {
+  const [kr, kb] = K[m], y = full ? ycc[0] / 255 : (ycc[0] - 16) / 219, cb = (ycc[1] - 128) / (full ? 255 : 224), cr = (ycc[2] - 128) / (full ? 255 : 224);
+  const r = y + (2 - 2 * kr) * cr, b = y + (2 - 2 * kb) * cb, g = (y - kr * r - kb * b) / (1 - kr - kb);
+  return [r, g, b].map(v => Math.min(255, Math.max(0, v * 255)));
+}
+const HYP = [
+  {id: 'ok', text: '正確（BT.709、有限範圍）', enc: [709, false], dec: [709, false]},
+  {id: 'dec601', text: '解碼時用了 BT.601 的公式', enc: [709, false], dec: [601, false]},
+  {id: 'enc601', text: '編碼時用了 BT.601 的公式', enc: [601, false], dec: [709, false]},
+  {id: 'limited-as-full', text: '有限範圍被當成全範圍（黑不夠黑、白不夠白）', enc: [709, false], dec: [709, true]},
+  {id: 'full-as-limited', text: '全範圍被當成有限範圍（太暗、太亮的地方被切掉）', enc: [709, true], dec: [709, false]},
+];
+const YHYP = [{text: 'BT.709 有限範圍', m: 709, full: false}, {text: 'BT.601 有限範圍', m: 601, full: false}, {text: 'BT.709 全範圍', m: 709, full: true}, {text: 'BT.601 全範圍', m: 601, full: true}];
+const gap = (a, b) => { let e = 0, n = 0; a.forEach((v, i) => v.forEach((x, k) => { e += Math.abs(x - b[i][k]); n++; })); return e / n; };
+function judgeColour(samples, pattern) {
+  if (!samples.length) return null;
+  const measured = pattern.patches.map((_, i) => [0, 1, 2].map(k => samples.reduce((s, x) => s + x.patches[i][k], 0) / samples.length));
+  const scores = HYP.map(h => ({h, err: gap(measured, pattern.patches.map(p => toRgb(toYcc(p.rgb, ...h.enc), ...h.dec)))})).sort((a, b) => a.err - b.err);
+  const gradient = [0, 1, 2].map(i => ({t: samples[0].gradient[i].t, expect: samples[0].gradient[i].expect, got: samples.reduce((s, x) => s + x.gradient[i].got, 0) / samples.length}));
+  return {measured, best: scores[0], correct: scores.find(s => s.h.id === 'ok').err, gradient};
+}
+function judgeYuv(yuv, pattern) {
+  if (!yuv?.patches) return null;
+  const scores = YHYP.map(h => ({h, err: gap(yuv.patches, pattern.patches.map(p => toYcc(p.rgb, h.m, h.full)))})).sort((a, b) => a.err - b.err);
+  return {best: scores[0], format: yuv.format};
+}
+
+// ---- decoding ----
+const configFor = (clip, hw) => ({codec: clip.codec, codedWidth: clip.width, codedHeight: clip.height, optimizeForLatency: true, hardwareAcceleration: hw});
+const chunk = (clip, f, data = f.data) => new EncodedVideoChunk({type: f.key ? 'key' : 'delta', timestamp: Math.round(f.index * 1e6 / clip.fps), data});
+async function decode(clip, hw, {from = 0, count = Infinity, prepend = false, onFrame = null} = {}) {
+  const r = {sent: 0, out: 0, order: 0, last: -1, error: null};
+  let decoder;
+  try {
+    decoder = new VideoDecoder({
+      output: frame => {
+        const idx = Math.round(frame.timestamp * clip.fps / 1e6);
+        r.out++; if (idx <= r.last) r.order++; r.last = idx;
+        try { onFrame?.(frame, idx); } catch (e) { r.error ||= '讀畫面時出錯：' + e.message; } finally { frame.close(); }
+      },
+      error: e => { r.error ||= e.message || String(e); },
+    });
+    decoder.configure(configFor(clip, hw));
+  } catch (e) { r.error = e.message; return r; }
+  const first = clip.frames.findIndex(f => f.index >= from);
+  for (let i = first; i >= 0 && i < clip.frames.length && i < first + count; i++) {
+    if (r.error || decoder.state !== 'configured') break;
+    const f = clip.frames[i];
+    try { decoder.decode(chunk(clip, f, i === first && prepend && !f.hasSps ? concat(clip.spsPps, f.data) : f.data)); r.sent++; }
+    catch (e) { r.error = e.message; break; }
+    if (decoder.decodeQueueSize > 12) await new Promise(ok => { decoder.addEventListener('dequeue', ok, {once: true}); setTimeout(ok, 40); });
+  }
+  try { if (decoder.state === 'configured') await decoder.flush(); } catch (e) { r.error ||= e.message; }
+  try { decoder.close(); } catch {}
+  return r;
+}
+async function measure(clip, hw) {
+  const W = clip.width, H = clip.height, pattern = clip.pattern;
+  const ctx = new OffscreenCanvas(W, H).getContext('2d', {willReadFrequently: true});
+  const m = {hw, counterOk: 0, counterBad: [], samples: [], colorSpace: null, format: null, yuv: null};
+  const yuvAt = clip.frames[Math.min(45, clip.frames.length - 1)].index;
+  let yuvJob = null;
+  const r = await decode(clip, hw, {onFrame: (frame, idx) => {
+    if (!m.colorSpace) { m.colorSpace = frame.colorSpace?.toJSON?.() || null; m.format = frame.format; }
+    ctx.drawImage(frame, 0, 0, W, H);
+    const v = readCounter(ctx, W, H, pattern.counter);
+    if (v === idx % 2 ** pattern.counter.bits) m.counterOk++; else if (m.counterBad.length < 12) m.counterBad.push([idx, v]);
+    if (idx % 30 === 15 || idx === yuvAt) m.samples.push({idx, patches: pattern.patches.map(p => average(ctx, rectOf(p, W, H))), gradient: readGradient(ctx, W, H, pattern.gradient)});
+    if (idx === yuvAt && !yuvJob) { const copy = frame.clone(); yuvJob = readYuv(copy, pattern).catch(e => ({note: e.message})).finally(() => copy.close()); }
+  }});
+  if (yuvJob) m.yuv = await yuvJob;
+  return Object.assign(m, r);
+}
+async function lateJoin(clip, hw) {
+  const W = clip.width, H = clip.height, ctx = new OffscreenCanvas(W, H).getContext('2d', {willReadFrequently: true});
+  const rows = [];
+  for (const k of clip.frames.filter(f => f.key && f.index > 0).slice(0, 4)) {
+    const row = {index: k.index, hasSps: k.hasSps, first: null, value: null};
+    const onFrame = (frame, idx) => { if (row.first === null) { row.first = idx; ctx.drawImage(frame, 0, 0, W, H); row.value = readCounter(ctx, W, H, clip.pattern.counter); } };
+    const r = await decode(clip, hw, {from: k.index, count: 10, onFrame});
+    row.ok = !r.error && r.out > 0; row.error = r.error;
+    if (!row.ok && !k.hasSps) { row.first = null; const p = await decode(clip, hw, {from: k.index, count: 10, prepend: true, onFrame}); row.patched = !p.error && p.out > 0; }
+    row.right = row.first === k.index && (clip.assumedPattern || row.value === k.index % 2 ** clip.pattern.counter.bits);
+    rows.push(row);
+  }
+  return rows;
+}
+async function analyse(clip) {
+  let m = await measure(clip, 'prefer-hardware');
+  if (m.error || !m.out) { const why = m.error || '沒有畫面出來'; m = await measure(clip, 'no-preference'); m.hwError = why; }
+  clip.analysis = m;
+  clip.colour = judgeColour(m.samples, clip.pattern);
+  clip.yuv = judgeYuv(m.yuv, clip.pattern);
+  clip.join = m.out ? await lateJoin(clip, m.hw) : [];
+}
+
+// ---- the monitor: real-time playback ----
+let playToken = 0, lastPlayed = null;
+async function play(clip) {
+  const token = ++playToken; lastPlayed = clip; $('#replay').disabled = true;
+  const canvas = $('#screen'), ctx = canvas.getContext('2d');
+  canvas.width = clip.width; canvas.height = clip.height;
+  $('#screen-note').hidden = true; $('#s-clip').textContent = clip.label;
+  const hw = clip.analysis?.out ? clip.analysis.hw : 'no-preference';
+  $('#s-dec').textContent = hw === 'prefer-hardware' ? '硬體解碼' : '軟體解碼';
+  const sent = new Map(), lat = [], gaps = [];
+  let outs = 0, calls = 0, held = 0, last = 0, error = null;
+  const decoder = new VideoDecoder({
+    output: frame => {
+      const now = performance.now(), idx = Math.round(frame.timestamp * clip.fps / 1e6), t = sent.get(idx);
+      if (t !== undefined) lat.push(now - t);
+      if (last) gaps.push(now - last);
+      last = now; outs++;
+      if (token === playToken) ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+      frame.close();
+      if (token === playToken && (outs % 3 === 1 || outs === clip.frames.length)) { $('#s-frame').textContent = idx; $('#s-lat').textContent = t === undefined ? '—' : num(now - t) + ' ms'; }
+    },
+    error: e => { error ||= e.message; },
+  });
+  try { decoder.configure(configFor(clip, hw)); } catch (e) { error = e.message; }
+  const t0 = performance.now() + 30;
+  for (let i = 0; i < clip.frames.length && !error && token === playToken && decoder.state === 'configured'; i++) {
+    const wait = t0 + i * 1000 / clip.fps - performance.now();
+    if (wait > 1) await sleep(wait);
+    const f = clip.frames[i];
+    sent.set(f.index, performance.now());
+    try { decoder.decode(chunk(clip, f)); } catch (e) { error = e.message; break; }
+    calls++; held = Math.max(held, calls - outs);
+  }
+  try { if (decoder.state === 'configured') await decoder.flush(); } catch (e) { error ||= e.message; }
+  try { decoder.close(); } catch {}
+  if (token !== playToken) return;
+  $('#replay').disabled = false;
+  if (error) { $('#screen-note').hidden = false; $('#screen-note').textContent = '播放出錯：' + error; }
+  clip.play = {lat: stats(lat), gap: gaps.length ? Math.max(...gaps) : null, shown: outs, total: clip.frames.length, held, error, hw};
+  render();
+}
+
+// ---- verdicts ----
+const keyList = c => c.frames.filter(f => f.key).map(f => f.index);
+function checks(c) {
+  const a = c.analysis, n = c.frames.length, out = [];
+  const add = (s, label, detail) => out.push({s, label, detail});
+  if (!a) return out;
+  add(!a.error && a.out === n ? 'ok' : a.out ? 'warn' : 'bad', '解碼', `${a.out}/${n} 格，${a.hw === 'prefer-hardware' ? '硬體解碼' : '軟體解碼'}${a.hwError ? `（硬體解碼不行：${a.hwError}）` : ''}${a.error ? `；錯誤：${a.error}` : ''}`);
+  if (!a.out) return out;
+  add(a.order ? 'bad' : 'ok', '順序', a.order ? `${a.order} 格順序亂了` : '照順序出來');
+  add(a.counterOk === a.out ? 'ok' : a.counterOk > a.out * .9 ? 'warn' : 'bad', '畫面編號', `${a.counterOk}/${a.out} 格對得上${a.counterBad.length ? '；對不上：' + a.counterBad.slice(0, 4).map(([i, v]) => `第 ${i} 格讀到 ${v}`).join('、') : ''}${c.assumedPattern ? '（檔案沒有說明，當作測試圖）' : ''}`);
+  if (c.colour) {
+    const col = c.colour, right = col.best.h.id === 'ok';
+    add(right ? (col.best.err <= 6 ? 'ok' : 'warn') : 'bad', '顏色', right ? `正確，平均差 ${num(col.best.err)}` : `${col.best.h.text}（平均差 ${num(col.best.err)}，照正確的算差 ${num(col.correct)}）`);
+    const i = name => c.pattern.patches.findIndex(p => p.name === name), black = col.measured[i('black')], white = col.measured[i('white')];
+    if (black && white) add(Math.max(...black) < 12 && Math.min(...white) > 243 ? 'ok' : 'warn', '黑和白', `黑 ${black.map(v => Math.round(v)).join('/')}、白 ${white.map(v => Math.round(v)).join('/')}（應該是 0 和 255）`);
+  }
+  if (c.yuv) add(c.yuv.best.h.m === 709 && !c.yuv.best.h.full ? 'ok' : 'bad', '編碼端', `原始畫面是 ${c.yuv.best.h.text}（平均差 ${num(c.yuv.best.err)}，${c.yuv.format}）`);
+  else if (a.yuv?.note) add('info', '編碼端', a.yuv.note);
+  const keys = keyList(c), forced = c.header?.forcedKey, withSps = c.frames.filter(f => f.key && f.hasSps).length;
+  add(keys.length ? 'ok' : 'bad', '關鍵格', `${keys.join('、') || '沒有'}${forced != null && n > forced ? `；第 ${forced} 格要求的${keys.includes(forced) ? '有出現' : '沒出現'}` : ''}；${withSps}/${keys.length} 個帶 SPS/PPS`);
+  if (c.join) {
+    const j = c.join;
+    if (!j.length) add('warn', '中途加入', '只有第 0 格是關鍵格，沒辦法測');
+    else {
+      const s = j.every(r => r.ok && r.right) ? 'ok' : j.every(r => (r.ok || r.patched)) ? 'warn' : 'bad';
+      add(s, '中途加入', j.map(r => `從第 ${r.index} 格：${r.ok ? (r.right ? '直接能播' : '能播但畫面不對') : r.patched ? '補上 SPS/PPS 才能播' : '不能播' + (r.error ? `（${r.error}）` : '')}`).join('；'));
+    }
+  }
+  if (c.play) {
+    const p = c.play, l = p.lat, smooth = !p.error && p.shown === p.total && p.held <= 2 && l && l.p95 < 50;
+    add(smooth ? 'ok' : 'warn', '即時播放', p.error ? `出錯：${p.error}` : `播出 ${p.shown}/${p.total} 格；解碼延遲平均 ${num(l?.mean)} ms、95% ${num(l?.p95)} ms、最慢 ${num(l?.max)} ms；兩格最長隔 ${num(p.gap, 0)} ms；解碼器最多同時壓 ${p.held} 格`);
+  }
+  const cs = a.colorSpace;
+  add('info', '位元流', spsText(c.sps) + (cs ? `；Chrome 看成 ${cs.matrix || '?'}/${cs.primaries || '?'}/${cs.transfer || '?'}、${cs.fullRange ? '全範圍' : '有限範圍'}` : ''));
+  return out;
+}
+function clipMeta(c) {
+  const h = c.header;
+  return [`${c.width}×${c.height}`, `${c.fps} fps`, `${c.frames.length} 格`, `${num(c.mbps, 2)} Mbps`, c.codec, h?.encoder, h?.adapter && `${h.adapter}${h.driver ? '（驅動 ' + h.driver + '）' : ''}`, h?.latencyMs && h.latencyMs.mean > 0 && `編碼延遲平均 ${num(h.latencyMs.mean)} ms`].filter(Boolean).join(' · ');
+}
+function clipCard(c, i) {
+  if (c.failed) return `<article class="panel clip"><h3>${esc(c.label)}</h3><ul><li><span class="lamp" data-s="bad" aria-hidden="true">${ICON.bad}</span><b>讀檔</b><span>${esc(WORD.bad)}：${esc(c.failed)}</span></li></ul></article>`;
+  const list = checks(c);
+  const col = c.colour;
+  const swatches = col ? c.pattern.patches.map((p, k) => `<div class="sw"><i style="background:rgb(${p.rgb.join(',')})" title="應該"></i><i style="background:rgb(${col.measured[k].map(Math.round).join(',')})" title="實際"></i><span>${esc(NAMES[p.name] || p.name)} ${p.rgb.join('/')} → ${col.measured[k].map(Math.round).join('/')}</span></div>`).join('') : '';
+  const grad = col ? col.gradient.map(g => `${Math.round(g.t * 100)}% 處 ${Math.round(g.got)}（應該 ${Math.round(g.expect)}）`).join('、') : '';
+  return `<article class="panel clip"><h3>${esc(c.label)}</h3><p class="meta">${esc(clipMeta(c))}</p>
+    ${c.analysis ? `<ul>${list.map(x => `<li><span class="lamp" data-s="${x.s}" aria-hidden="true">${ICON[x.s]}</span><b>${esc(x.label)}</b><span>${esc(WORD[x.s])}：${esc(x.detail)}</span></li>`).join('')}</ul>` : '<p class="muted">測試中…</p>'}
+    ${col ? `<details><summary>顏色明細（左：應該，右：實際）</summary><div class="swatches">${swatches}</div><p class="small muted">黑到白的漸層：${esc(grad)}</p></details>` : ''}
+    <div class="row-actions"><button type="button" data-play="${i}"${c.analysis?.out ? '' : ' disabled'}>在上面播這個</button></div></article>`;
+}
+
+// ---- the page ----
+const clips = [];
+let support = null;
+let work = Promise.resolve();
+const enqueue = job => (work = work.then(job).catch(e => { console.error(e); setNote('出錯：' + e.message); }));
+const setNote = text => { const n = $('#screen-note'); n.hidden = false; n.textContent = text; };
+function lamp(key, s, why) {
+  const li = $(`#tally [data-k="${key}"]`);
+  li.querySelector('.lamp').dataset.s = s; li.querySelector('.lamp').textContent = ICON[s];
+  li.querySelector('.why').textContent = why;
+}
+function worst(list) { return list.some(x => x.s === 'bad') ? 'bad' : list.some(x => x.s === 'warn') ? 'warn' : 'ok'; }
+function render() {
+  const open = [...document.querySelectorAll('#clips details')].map(d => d.open);
+  $('#clips').innerHTML = clips.map(clipCard).join('');
+  document.querySelectorAll('#clips details').forEach((d, i) => { d.open = !!open[i]; });
+  if (support) lamp('support', support.hw ? 'ok' : support.sw ? 'warn' : 'bad', support.hw ? '硬體和軟體都能解' : support.sw ? '只能用軟體解，比較吃 CPU' : '不能解 H.264，後台不能用這個方法');
+  const done = clips.filter(c => c.analysis);
+  const builtin = done.find(c => c.builtin), yours = done.filter(c => !c.builtin), broken = clips.filter(c => c.failed && !c.builtin);
+  if (builtin) { const s = worst(checks(builtin).filter(x => ['解碼', '順序', '畫面編號'].includes(x.label))); lamp('builtin', s, s === 'ok' ? `能播，${builtin.analysis.hw === 'prefer-hardware' ? '硬體' : '軟體'}解碼` : '有問題，看下面內建測試片的明細'); }
+  if (yours.length || broken.length) {
+    const s = broken.length ? 'bad' : worst(yours.flatMap(c => checks(c).filter(x => ['解碼', '順序', '畫面編號'].includes(x.label))));
+    lamp('yours', s, s === 'ok' ? `${yours.length} 個檔都能播` : broken.length ? `${broken.length} 個檔讀不了` : '有的不能播，看下面的明細');
+  }
+  if (clips.some(c => c.builtin && c.failed)) lamp('builtin', 'bad', '內建測試片讀不了');
+  const basis = yours.length ? yours : done, from = yours.length ? '（你的片子）' : '（內建片）';
+  const pick = label => basis.flatMap(c => checks(c).filter(x => x.label === label));
+  const col = pick('顏色');
+  if (col.length) lamp('colour', worst(col), (worst(col) === 'ok' ? '正確' : col.find(x => x.s !== 'ok').detail) + from);
+  const join = pick('中途加入');
+  if (join.length) lamp('join', worst(join), ({ok: '從任何關鍵格開始都能播', warn: '可以，但伺服器要先補 SPS/PPS', bad: '有的關鍵格開始播不了'})[worst(join)] + from);
+  const played = [...basis].reverse().find(c => c.play);
+  if (played) { const x = checks(played).find(x => x.label === '即時播放'); lamp('latency', x.s, `平均延遲 ${num(played.play.lat?.mean)} ms，最慢 ${num(played.play.lat?.max)} ms（${played.label}）`); }
+  $('#summary').value = summaryText();
+}
+function summaryText() {
+  const now = new Date(), pad = v => String(v).padStart(2, '0');
+  const lines = [`Polaris Cam 監看畫面測試 ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`, '瀏覽器：' + browserText(), '顯示卡（Chrome 看到的）：' + gpuText()];
+  if (support) lines.push('H.264 解碼支援：' + support.rows.map(r => `${r.name} 硬體${r.hw ? '✓' : '✗'} 軟體${r.sw ? '✓' : '✗'}`).join(' | '));
+  for (const c of clips) {
+    if (c.failed) { lines.push('', `[${c.label}] 讀不了：${c.failed}`); continue; }
+    lines.push('', `[${c.label}] ${clipMeta(c)}`);
+    for (const x of checks(c)) lines.push(`  [${WORD[x.s]}] ${x.label}：${x.detail}`);
+    if (c.colour) lines.push('  顏色明細：' + c.pattern.patches.map((p, k) => `${NAMES[p.name] || p.name} ${c.colour.measured[k].map(Math.round).join('/')}`).join('，'));
+  }
+  return lines.join('\n');
+}
+function browserText() {
+  const ua = navigator.userAgent, chrome = ua.match(/(Chrome|Edg|Firefox|Version)\/([\d.]+)/);
+  const os = /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android' : /Linux/.test(ua) ? 'Linux' : '其他';
+  return `${chrome ? chrome[1].replace('Edg', 'Edge').replace('Version', 'Safari') + ' ' + chrome[2] : ua}（${os}，${navigator.hardwareConcurrency || '?'} 執行緒）`;
+}
+let gpuName = null;
+function gpuText() {
+  if (gpuName !== null) return gpuName;
+  try { const gl = document.createElement('canvas').getContext('webgl'), ext = gl.getExtension('WEBGL_debug_renderer_info'); gpuName = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)); }
+  catch { gpuName = '不明'; }
+  return gpuName;
+}
+async function checkSupport() {
+  const kinds = [['avc1.42E01E', 'Baseline 3.0'], ['avc1.4D401F', 'Main 3.1'], ['avc1.64001F', 'High 3.1'], ['avc1.640028', 'High 4.0'], ['avc1.640033', 'High 5.1']];
+  const ask = async (codec, hw) => { try { return (await VideoDecoder.isConfigSupported({codec, codedWidth: 1920, codedHeight: 1080, hardwareAcceleration: hw})).supported; } catch { return false; } };
+  const rows = [];
+  for (const [codec, name] of kinds) rows.push({codec, name, hw: await ask(codec, 'prefer-hardware'), sw: await ask(codec, 'prefer-software')});
+  support = {rows, hw: rows.some(r => r.hw), sw: rows.some(r => r.sw)};
+  $('#support tbody').innerHTML = rows.map(r => `<tr><td>${esc(r.name)} <span class="muted small">${esc(r.codec)}</span></td><td class="c">${r.hw ? '✓ 可以' : '✗ 不行'}</td><td class="c">${r.sw ? '✓ 可以' : '✗ 不行'}</td></tr>`).join('');
+  $('#browser').textContent = `${browserText()}；顯示卡：${gpuText()}`;
+}
+async function addClip(name, buf, {autoplay = false, builtin = false} = {}) {
+  let clip;
+  try { clip = makeClip(name, buf, builtin); }
+  catch (e) { clips.push({label: name, failed: e.message, builtin}); render(); return null; }
+  clips.push(clip); render();
+  await analyse(clip); render();
+  if (autoplay) await play(clip);
+  return clip;
+}
+async function addFiles(files) {
+  let first = true;
+  for (const file of files) {
+    const buf = await file.arrayBuffer();
+    enqueue(() => addClip(file.name, buf, {autoplay: first}));
+    first = false;
+  }
+}
+
+$('#files').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+const drop = $('#drop');
+drop.addEventListener('click', () => $('#files').click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#files').click(); } });
+addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) drop.classList.remove('over'); });
+addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer?.files?.length) addFiles([...e.dataTransfer.files]); });
+$('#replay').addEventListener('click', () => { if (lastPlayed) enqueue(() => play(lastPlayed)); });
+$('#clips').addEventListener('click', e => { const b = e.target.closest('[data-play]'); if (b) enqueue(() => play(clips[Number(b.dataset.play)])); });
+$('#copy').addEventListener('click', async () => {
+  const text = $('#summary').value;
+  try { await navigator.clipboard.writeText(text); $('#copied').textContent = '已複製。'; }
+  catch { const t = $('#summary'); t.focus(); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch {} $('#copied').textContent = ok ? '已複製。' : '請按 Ctrl+C 複製選起來的文字。'; }
+});
+window.polarisTest = {load: (name, buf) => enqueue(() => addClip(name, buf)), idle: () => work, clips};
+
+if (!('VideoDecoder' in window)) {
+  setNote('這個瀏覽器沒有 WebCodecs。請用新版的 Chrome 或 Edge 打開。');
+  lamp('support', 'bad', '沒有 WebCodecs（VideoDecoder）');
+  $('#browser').textContent = browserText();
+  $('#summary').value = summaryText();
+} else {
+  enqueue(checkSupport).then(render);
+  enqueue(async () => {
+    const text = $('#builtin').textContent.trim();
+    const bytes = Uint8Array.from(atob(text), ch => ch.charCodeAt(0));
+    await addClip('builtin.pch264', bytes.buffer, {autoplay: true, builtin: true});
+  });
+}
+}
+</script>
+</body>
+</html>

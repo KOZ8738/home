@@ -66,6 +66,18 @@ real capture manager, and `scene_runtime::service` has to bring each snapshot to
 What none of them can show is the part inside the simulator: the views at this size, their cost, and how long it runs.
 That is tested by flying.
 
+Two checks are run by hand, for watching the cameras in the staff page as H.264 played by WebCodecs (not built yet):
+
+- `test/encode_test.cpp` (`./build-linux.sh out encodetest` makes `polaris-cam-encode-test.exe`) encodes a test picture
+  the way Polaris Cam would: a BGRA texture, made NV12 by the D3D11 video processor, then the graphics card's own Media
+  Foundation H.264 encoder in low-latency mode, at 960×540, 1920×1080, four 960×540 streams at once, and as fast as it
+  goes. It reports the latency and key frames, and writes the clips as `.pch264` (the frames with a header describing the
+  test picture) and plain `.h264`.
+- `test/webcodecs_test.html` is a page that decodes such clips with WebCodecs and checks them: every frame there and in
+  order, the frame number drawn in each picture, the colours against what each colour mistake would look like, playback
+  started from each key frame (as a viewer joining would), and the decode latency in real time. `test/make_webcodecs_test.py
+  page.html` builds it with a libx264 clip of the same test picture inside, so it has something to play on its own.
+
 ## How a picture travels
 
 1. The bridge's worker reads the window's request from the shared block and, once the window has asked for the same

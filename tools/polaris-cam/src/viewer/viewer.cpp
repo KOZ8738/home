@@ -141,8 +141,10 @@ void drop(T*& object) noexcept {
     object->Release();
   object = nullptr;
 }
-// What happened, for a report: %APPDATA%\Polaris Cam\polaris-cam.log, started
-// afresh with each run. Events only, never a line per picture.
+// What happened, for a report: polaris-cam.log beside the settings (ini_path).
+// Each run is added to the end under a line with its date, so the run before a
+// restart is still there; past 1 MB the file becomes polaris-cam.previous.log
+// before a run starts a new one. Events only, never a line per picture.
 FILE* log_file = nullptr;
 void note(const wchar_t* format, ...) {
   if (!log_file)
@@ -162,7 +164,20 @@ int px(int value) noexcept {
 }
 
 // --- saved settings -------------------------------------------------------
+// %APPDATA%\Polaris Cam\polaris-cam.ini, or the folder POLARIS_CAM_SETTINGS
+// names: the build's window test sets it, so that it never touches the
+// settings of the person who runs it.
 std::wstring ini_path() {
+  if (const DWORD length = GetEnvironmentVariableW(L"POLARIS_CAM_SETTINGS", nullptr, 0); length > 1) {
+    std::wstring path(length, L'\0');
+    path.resize(GetEnvironmentVariableW(L"POLARIS_CAM_SETTINGS", path.data(), length));
+    while (!path.empty() && (path.back() == L'\\' || path.back() == L'/'))
+      path.pop_back();
+    if (!path.empty()) {
+      CreateDirectoryW(path.c_str(), nullptr);
+      return path + L"\\polaris-cam.ini";
+    }
+  }
   wchar_t folder[MAX_PATH]{};
   if (FAILED(SHGetFolderPathW(nullptr, CSIDL_APPDATA | CSIDL_FLAG_CREATE, nullptr, SHGFP_TYPE_CURRENT, folder)))
     return L"polaris-cam.ini";
@@ -1400,7 +1415,21 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   {
     auto path = ini_path();
     path.replace(path.size() - 3, 3, L"log");
-    log_file = _wfopen(path.c_str(), L"w, ccs=UTF-8");
+    // Past 1 MB, put aside before it is opened; otherwise this run is added.
+    WIN32_FILE_ATTRIBUTE_DATA existing{};
+    if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &existing) &&
+        ((static_cast<std::uint64_t>(existing.nFileSizeHigh) << 32) | existing.nFileSizeLow) > 1024 * 1024) {
+      auto previous = path;
+      previous.replace(previous.size() - 4, 4, L".previous.log");
+      MoveFileExW(path.c_str(), previous.c_str(), MOVEFILE_REPLACE_EXISTING);
+    }
+    log_file = _wfopen(path.c_str(), L"a, ccs=UTF-8");
+    if (log_file) {
+      SYSTEMTIME time{};
+      GetLocalTime(&time);
+      std::fwprintf(log_file, L"==== %04u-%02u-%02u %02u:%02u:%02u ====\n", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute,
+                    time.wSecond);
+    }
   }
   note(L"Polaris Cam " POLARIS_CAM_VERSION_WIDE L" (Taxi Cam " TAXI_CAM_VERSION_WIDE L")");
   note(app.link.open() ? L"link: open" : L"link: unavailable");

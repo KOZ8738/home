@@ -7,6 +7,7 @@
 #include "../camera/mount_config.hpp"
 #include "../camera/probe.hpp"
 #include "../camera/view_cascades.hpp"
+#include "../graphics/broadcast_output.hpp"
 #include "../graphics/camera_compositor_d3d12.hpp"
 #include "../graphics/capture_progress.hpp"
 #include "../graphics/display_exposure.hpp"
@@ -866,6 +867,7 @@ DWORD run_impl() {
   polaris_cam::MemoryGuard cast_guard;
   bool cast_guard_logged = false;
   std::uint32_t cast_draw_distance = 0;  // metres asked of the camera views; 0 the main view's
+  bool cast_antialias_logged = false;
   if (cast_link.open()) {
     std::snprintf(cast_link.get()->status.version, sizeof(cast_link.get()->status.version), "%s", POLARIS_CAM_VERSION);
     scene_runtime::set_broadcast_link(cast_link.get());
@@ -2290,15 +2292,20 @@ DWORD run_impl() {
     }
     // The broadcast textures stay for as long as the window asks, so a pause
     // or a lapse leaves the last picture on show.
-    scene_runtime::set_broadcast(key, cast.on ? cast.width : 0, cast.height, cast.feed_mask);
+    scene_runtime::set_broadcast(key, cast.on ? cast.width : 0, cast.height, cast.feed_mask, cast.antialias);
     cast_pump_on.store(cast.on, std::memory_order_release);
-    if (cast.on != cast_was_on) {
+    if (cast.on != cast_was_on || (cast.on && cast.antialias != cast_antialias_logged)) {
       cast_was_on = cast.on;
-      char detail[160];
+      cast_antialias_logged = cast.antialias;
+      char detail[224];
+      // The anti-aliasing shader compiles once, on this worker thread; the
+      // pictures go out without it if it does not.
       std::snprintf(detail, sizeof(detail),
-                    "Polaris Cam %s broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u memory_guard=%u draw_distance_m=%u",
+                    "Polaris Cam %s broadcast: %s size=%ux%u fps=%u cameras=0x%x own_mounts=%u memory_guard=%u draw_distance_m=%u "
+                    "antialias=%u fxaa_shader=%u",
                     POLARIS_CAM_VERSION, cast.on ? "on" : "off", cast.width, cast.height, cast.fps, cast.feed_mask, cast.use_mounts ? 1u : 0u,
-                    cast.memory_guard ? 1u : 0u, cast.draw_distance_m);
+                    cast.memory_guard ? 1u : 0u, cast.draw_distance_m, cast.antialias ? 1u : 0u,
+                    cast.on && cast.antialias ? (BroadcastOutput::antialias_shader_ready() ? 1u : 0u) : 0u);
       log_status(status, detail);
     }
     if (!startup.observed && (mask || test_scene)) {

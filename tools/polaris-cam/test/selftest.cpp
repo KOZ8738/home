@@ -556,6 +556,39 @@ int verify(bool hardware) {
       snapshot->Release();
     }
 
+    // 1b. Anti-aliasing: a diagonal edge black to white is softened where it
+    // steps, and nothing away from it changes.
+    expect(BroadcastOutput::antialias_shader_ready(), "the anti-aliasing shader compiles");
+    std::vector<std::uint32_t> diagonal(std::size_t{width} * pane);
+    const UINT shift = width / 4;
+    for (UINT y = 0; y < pane; ++y)
+      for (UINT x = 0; x < width; ++x)
+        diagonal[std::size_t{y} * width + x] = x > y + shift ? rgba8(255, 255, 255) : rgba8(0, 0, 0);
+    snapshot = make_snapshot(gpu, DXGI_FORMAT_R8G8B8A8_UNORM, width, pane, diagonal);
+    if (snapshot) {
+      output.set_antialias(true);
+      expect(output.antialias(), "anti-aliasing is on, with its intermediate picture");
+      expect(output.prepare(snapshot, DXGI_FORMAT_R8G8B8A8_UNORM, 0) && output.submit() && wait_idle(output), "it is recorded in two passes and runs");
+      const auto picture = read_picture(gpu, output.texture(0));
+      if (!picture.empty()) {
+        // Picture row y + 1 is the view's row y.
+        const auto red = [&](UINT x, UINT view_y) { return (picture[std::size_t{view_y + 1} * width + x] >> 16) & 0xffu; };
+        expect(picture[std::size_t{pane / 2 + 1} * width + width / 8] == 0xff000000u && picture[std::size_t{11} * width + width - 10] == 0xffffffffu,
+               "far from the edge, black and white as they were");
+        unsigned softened = 0;
+        for (UINT y = 100; y < 110; ++y) {
+          const UINT edge = y + shift;  // the last black pixel of the row
+          const auto inside = red(edge, y), outside = red(edge + 1, y);
+          softened += (inside > 10 && inside < 245) || (outside > 10 && outside < 245) ? 1 : 0;
+          expect(red(edge - 4, y) == 0 && red(edge + 5, y) == 255, "four pixels away it is unchanged");
+        }
+        expect(softened >= 8, "along the edge the steps are softened");
+      }
+      output.set_antialias(false);
+      expect(!output.antialias(), "and off again");
+      snapshot->Release();
+    }
+
     // 2. An HDR view without a tone curve: Taxi Cam's exposure and Reinhard.
     std::vector<std::uint32_t> hdr(std::size_t{width} * pane, r11g11b10(0.5f, 1.0f, 2.0f));
     for (UINT x = 0; x < width / 2; ++x)

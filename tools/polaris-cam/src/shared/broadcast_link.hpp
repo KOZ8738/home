@@ -21,11 +21,12 @@ inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.3";
 // window need not poll for it.
 inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.3";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.1.4"
-#define POLARIS_CAM_VERSION_WIDE L"0.1.4"
+#define POLARIS_CAM_VERSION "0.1.5"
+#define POLARIS_CAM_VERSION_WIDE L"0.1.5"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
 // 1: 0.1.0 and 0.1.1. 2: 0.1.2, the memory guard and the bridge's own
-// version. 3: the cameras' draw distance.
+// version. 3: the cameras' draw distance; from 0.1.5 the anti-aliasing in a
+// word that was reserved, which a bridge before it does not read.
 inline constexpr std::uint32_t LinkVersion = 3;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
 inline constexpr unsigned Slots = 3;  // textures per camera: newest, being read, being written
@@ -68,7 +69,7 @@ struct Control {
   std::uint32_t use_mounts;     // 1: mounts below instead of Taxi Cam's own
   std::uint32_t memory_guard;   // 1: the cameras pause while graphics memory runs out (MemoryGuard)
   std::uint32_t draw_distance_m;  // MinimumDrawDistanceM..MaximumDrawDistanceM, or 0
-  std::uint32_t reserved;
+  std::uint32_t antialias;        // 1: FXAA over the pictures (0.1.5; 0 from a window before it)
   std::uint64_t heartbeat_ms;  // the window's GetTickCount64
   double mounts[Feeds][6];
 };
@@ -240,6 +241,7 @@ struct Request {
   bool use_mounts = false;
   bool memory_guard = false;
   std::uint32_t draw_distance_m = 0;  // 0: as far as the main view
+  bool antialias = false;
   std::array<Mount, Feeds> mounts{};
   std::uint32_t pane() const noexcept { return on ? pane_code(width, height) : 0u; }
 };
@@ -274,6 +276,7 @@ inline bool read_control(const Link& link, std::uint64_t now_ms, Request& out) n
   request.memory_guard = copy.memory_guard == 1;
   request.draw_distance_m =
       copy.draw_distance_m >= MinimumDrawDistanceM && copy.draw_distance_m <= MaximumDrawDistanceM ? copy.draw_distance_m : 0;
+  request.antialias = copy.antialias == 1;
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     if (!valid_mount(copy.mounts[feed]))
       request.use_mounts = false;

@@ -67,6 +67,7 @@ struct Device {
   };
   std::array<Cast, SceneFeeds> casts;
   std::uint32_t cast_width = 0, cast_height = 0, cast_mask = 0;
+  bool cast_antialias = false;
 };
 struct Runtime {
   std::mutex mutex;
@@ -389,6 +390,7 @@ bool prepare(std::uint64_t key) {
   // retried and reported by the initialization below.
   CameraCompositorD3D12::prepare_shaders();
   PfdStampD3D12::prepare_shaders();
+  BroadcastOutput::prepare_shaders();
   const std::lock_guard lock(runtime().mutex);
   auto* item = find(key);
   if (!item || item->status.failed)
@@ -669,13 +671,14 @@ void set_broadcast_link(polaris_cam::Link* link) {
   if (link && !runtime().cast_event)
     runtime().cast_event = CreateEventW(nullptr, FALSE, FALSE, polaris_cam::FrameEventName);
 }
-void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask) {
+void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask, bool antialias) {
   const std::lock_guard lock(runtime().mutex);
   if (auto* item = find(key)) {
     const bool on = polaris_cam::valid_size(width, height) && feed_mask;
     item->cast_width = on ? width : 0;
     item->cast_height = on ? height : 0;
     item->cast_mask = on ? feed_mask & ((1u << SceneFeeds) - 1) : 0;
+    item->cast_antialias = on && antialias;
   }
 }
 void set_ground_speed(std::uint64_t key, float knots, bool valid) {
@@ -864,6 +867,7 @@ bool service_broadcast(Device& item) {
         item.status.tone_exposure > 0)
       cast.tone_pending = false;
     cast.output.set_display_exposure(item.status.display_exposure_ev);
+    cast.output.set_antialias(item.cast_antialias);
     // Never the newest picture nor the one the window is copying from.
     const auto reading = announced ? static_cast<unsigned>(polaris_cam::load(announced->reading)) : polaris_cam::NoSlot;
     unsigned slot = 0;

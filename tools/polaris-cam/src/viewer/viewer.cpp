@@ -84,6 +84,7 @@ enum ControlId : int {
   IdGuard,
   IdDistance,
   IdSavePreset,
+  IdAntialias,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -99,6 +100,7 @@ struct Settings {
   bool windows = false;
   bool memory_guard = true;  // the cameras pause while graphics memory runs out
   std::uint32_t draw_distance = 0;  // one of DrawDistances
+  bool antialias = true;  // FXAA over the pictures
   std::array<Mount, Feeds> mounts{};
   std::array<int, Feeds> presets = DefaultPresets;
   std::uint32_t width() const noexcept { return height == 720 ? 1280u : 1920u; }
@@ -299,6 +301,7 @@ void load_settings() {
     s.mask = 1;
   s.windows = GetPrivateProfileIntW(L"general", L"windows", 0, path.c_str()) == 1;
   s.memory_guard = GetPrivateProfileIntW(L"general", L"memory_guard", 1, path.c_str()) != 0;
+  s.antialias = GetPrivateProfileIntW(L"general", L"antialias", 1, path.c_str()) != 0;
   const auto distance = static_cast<std::uint32_t>(GetPrivateProfileIntW(L"general", L"draw_distance", 0, path.c_str()));
   s.draw_distance = 0;
   for (const auto& choice : DrawDistances)
@@ -323,6 +326,7 @@ void save_settings() {
   put(L"windows", s.windows ? 1 : 0);
   put(L"memory_guard", s.memory_guard ? 1 : 0);
   put(L"draw_distance", s.draw_distance);
+  put(L"antialias", s.antialias ? 1 : 0);
   save_mounts();
 }
 
@@ -342,6 +346,7 @@ void write_link() {
     c.use_mounts = 1;
     c.memory_guard = s.memory_guard ? 1 : 0;
     c.draw_distance_m = s.draw_distance;
+    c.antialias = s.antialias ? 1 : 0;
     c.heartbeat_ms = app.heartbeat_ms;
     for (unsigned feed = 0; feed < Feeds; ++feed)
       for (unsigned i = 0; i < 6; ++i)
@@ -963,6 +968,7 @@ void fill_controls() {
   SendMessageW(control(IdFps), CB_SETCURSEL, static_cast<WPARAM>(choice), 0);
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
   Button_SetCheck(control(IdGuard), s.memory_guard ? BST_CHECKED : BST_UNCHECKED);
+  Button_SetCheck(control(IdAntialias), s.antialias ? BST_CHECKED : BST_UNCHECKED);
   for (std::size_t i = 0; i < DrawDistances.size(); ++i)
     if (DrawDistances[i].metres == s.draw_distance)
       SendMessageW(control(IdDistance), CB_SETCURSEL, static_cast<WPARAM>(i), 0);
@@ -979,6 +985,7 @@ void create_controls() {
   make(L"STATIC", L"畫質", 0, Margin, 146, 40, 20, -1);
   make(L"BUTTON", L"1080p", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 64, 144, 72, 22, IdSize1080);
   make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 144, 64, 22, IdSize720);
+  make(L"BUTTON", L"抗鋸齒", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 222, 144, 106, 22, IdAntialias);
   make(L"STATIC", L"幀數", WS_GROUP, Margin, 176, 40, 20, -1);
   HWND fps = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 64, 172, 72, 240, IdFps);
   for (const auto value : FpsChoices) {
@@ -1033,9 +1040,9 @@ void create_controls() {
 // --- changes ----------------------------------------------------------------
 void settings_changed(bool mounts_only = false) {
   if (!mounts_only)
-    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d draw distance %u m", app.settings.enabled ? L"on" : L"off",
-         app.settings.width(), app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0,
-         app.settings.memory_guard ? 1 : 0, app.settings.draw_distance);
+    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d draw distance %u m antialias %d",
+         app.settings.enabled ? L"on" : L"off", app.settings.width(), app.settings.height, app.settings.fps, app.settings.mask,
+         app.settings.windows ? 1 : 0, app.settings.memory_guard ? 1 : 0, app.settings.draw_distance, app.settings.antialias ? 1 : 0);
   write_link();
   if (mounts_only)
     save_mounts();
@@ -1236,6 +1243,9 @@ void on_command(int id, int code) {
     settings_changed();
   } else if (id == IdGuard && code == BN_CLICKED) {
     s.memory_guard = Button_GetCheck(control(IdGuard)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdAntialias && code == BN_CLICKED) {
+    s.antialias = Button_GetCheck(control(IdAntialias)) == BST_CHECKED;
     settings_changed();
   } else if (id == IdDistance && code == CBN_SELCHANGE) {
     const auto choice = SendMessageW(control(IdDistance), CB_GETCURSEL, 0, 0);

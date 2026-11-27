@@ -23,7 +23,7 @@ is written to the cockpit displays then. With the broadcast off it behaves as Ta
 | File | Change |
 | --- | --- |
 | `src/shared/broadcast_link.hpp` (new) | The shared-memory block between the bridge and the window: what the window asks for (on, size, rate, cameras, mounts, memory guard, draw distance) and what the bridge reports (state, graphics memory, its version, the newest picture of each camera); the memory guard. |
-| `src/graphics/broadcast_output.hpp`, `.cpp` (new) | One camera's picture: the snapshot through the simulator's exposure and tone curve (the compositor's conversion, without its bloom) into one of three `B8G8R8A8` textures shared by name. |
+| `src/graphics/broadcast_output.hpp`, `.cpp` (new) | One camera's picture: the snapshot through the simulator's exposure and tone curve (the compositor's conversion, without its bloom) into one of three `B8G8R8A8` textures shared by name; with anti-aliasing on, through an intermediate picture and an FXAA pass. |
 | `src/graphics/scene_runtime.hpp`, `.cpp` | While broadcasting, each view's snapshots go to its `BroadcastOutput` instead of the composition. |
 | `src/bridge/bridge_main.cpp` | Reads the window's request each pass; the broadcast size as a camera shape (the existing reshape transition); cameras wanted as for the scene test, with no display written, unless the memory guard pauses them; the broadcast's own rate, cameras and mounts; status for the window; the camera service on a second thread while broadcasting. |
 | `src/profiles/discovered.hpp` | `apply_choices`, `override_current`, `publish_override` take the broadcast pane. |
@@ -86,6 +86,11 @@ While the simulator's process has less than 0.8 GB of the graphics memory budget
 stops wanting the cameras: the views park as with the broadcast off, but keep their size, their textures and their last
 pictures, and render again once 1.6 GB has been free for 15 s. The readings are the bridge's existing once-a-second
 `QueryVideoMemoryInfo` ones; the window can turn the guard off.
+
+MSFS draws a render-to-texture view such as these without its anti-aliasing or post passes (Taxi Cam's architecture notes,
+camera AA), so the window can ask for FXAA instead: `BroadcastOutput` then converts each snapshot into an intermediate
+picture and runs an FXAA pass (after the quality version of Timothy Lottes' algorithm, written here) from it into the
+shared texture. If that shader does not compile, the pictures go out without it.
 
 The window can also ask for a draw distance. Taxi Cam gives each camera view's camera the main view's far distances (the
 culling frustum's far and the default far that the depth range and the shared object-LOD viewer list read, about 357 km in

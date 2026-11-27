@@ -48,15 +48,107 @@ float4 ps_main(float4 position : SV_Position) : SV_Target {
   if (Mode == 2 && all(isfinite(rgb))) return float4(simulator_rgb(rgb), 1);
   return float4(hdr_channel(rgb.r), hdr_channel(rgb.g), hdr_channel(rgb.b), 1);
 }
+// Anti-aliasing, the second pass over the picture ps_main made (Source):
+// FXAA, after the quality version of Timothy Lottes' fast approximate
+// anti-aliasing. Edges are found by the contrast in luma (gamma-encoded, as
+// the picture is); a pixel on one is resampled across it, the more the nearer
+// it is to where the edge ends, and a pixel that stands out from all of its
+// neighbours (a thin line, a lone dot) is blended a little as well.
+static const float EdgeThreshold = 0.125, EdgeThresholdMinimum = 0.0312, SubpixelBlend = 0.75;
+static const float SearchSteps[11] = {1, 1, 1, 1, 1.5, 2, 2, 2, 2, 4, 8};
+float luma(float3 rgb) {
+  return dot(rgb, float3(0.299, 0.587, 0.114));
+}
+float luma_at(float2 uv) {
+  return luma(Source.SampleLevel(LinearClamp, uv, 0).rgb);
+}
+float4 ps_fxaa(float4 position : SV_Position) : SV_Target {
+  uint width = 1, height = 1;
+  Source.GetDimensions(width, height);
+  float2 texel = float2(1.0 / (float)width, 1.0 / (float)height);
+  float2 uv = position.xy * texel;
+  float3 centre = Source.SampleLevel(LinearClamp, uv, 0).rgb;
+  float m = luma(centre);
+  float n = luma_at(uv + float2(0, -texel.y)), s = luma_at(uv + float2(0, texel.y));
+  float w = luma_at(uv + float2(-texel.x, 0)), e = luma_at(uv + float2(texel.x, 0));
+  float lowest = min(m, min(min(n, s), min(w, e))), highest = max(m, max(max(n, s), max(w, e)));
+  float range = highest - lowest;
+  if (range < max(EdgeThresholdMinimum, highest * EdgeThreshold))
+    return float4(centre, 1);
+  float nw = luma_at(uv + float2(-texel.x, -texel.y)), ne = luma_at(uv + float2(texel.x, -texel.y));
+  float sw = luma_at(uv + float2(-texel.x, texel.y)), se = luma_at(uv + float2(texel.x, texel.y));
+  float neighbourhood = (2 * (n + s + w + e) + (nw + ne + sw + se)) / 12;
+  float contrast = saturate(abs(neighbourhood - m) / range);
+  float blend = (3 - 2 * contrast) * contrast * contrast;
+  float subpixel = blend * blend * SubpixelBlend;
+  // A horizontal edge changes most from row to row, a vertical one from column to column.
+  float across_rows = abs(nw + sw - 2 * w) + 2 * abs(n + s - 2 * m) + abs(ne + se - 2 * e);
+  float across_columns = abs(nw + ne - 2 * n) + 2 * abs(w + e - 2 * m) + abs(sw + se - 2 * s);
+  bool horizontal = across_rows >= across_columns;
+  // Across the edge: towards the neighbour that differs most.
+  float before = horizontal ? n : w, after = horizontal ? s : e;
+  float gradient_before = abs(before - m), gradient_after = abs(after - m);
+  float across = horizontal ? texel.y : texel.x;
+  float side = 0.5 * (after + m);
+  if (gradient_before >= gradient_after) {
+    across = -across;
+    side = 0.5 * (before + m);
+  }
+  float gradient = 0.25 * max(gradient_before, gradient_after);
+  // From halfway across, along the edge both ways to where its luma changes.
+  float2 edge = uv;
+  if (horizontal)
+    edge.y += 0.5 * across;
+  else
+    edge.x += 0.5 * across;
+  float2 along = horizontal ? float2(texel.x, 0) : float2(0, texel.y);
+  float2 uv1 = edge - along, uv2 = edge + along;
+  float end1 = 0, end2 = 0;
+  bool found1 = false, found2 = false;
+  [loop] for (int i = 0; i < 11; ++i) {
+    if (!found1) {
+      end1 = luma_at(uv1) - side;
+      found1 = abs(end1) >= gradient;
+    }
+    if (!found2) {
+      end2 = luma_at(uv2) - side;
+      found2 = abs(end2) >= gradient;
+    }
+    if (found1 && found2)
+      break;
+    if (!found1)
+      uv1 -= along * SearchSteps[i];
+    if (!found2)
+      uv2 += along * SearchSteps[i];
+  }
+  float distance1 = horizontal ? uv.x - uv1.x : uv.y - uv1.y;
+  float distance2 = horizontal ? uv2.x - uv.x : uv2.y - uv.y;
+  bool nearer1 = distance1 < distance2;
+  float span = distance1 + distance2;
+  float edge_offset = 0.5 - min(distance1, distance2) / span;
+  // Only when the nearer end lies across the side's average from the centre.
+  bool towards = ((nearer1 ? end1 : end2) < 0) != (m < side);
+  float offset = max(towards ? edge_offset : 0, subpixel);
+  float2 resampled = uv;
+  if (horizontal)
+    resampled.y += offset * across;
+  else
+    resampled.x += offset * across;
+  return float4(Source.SampleLevel(LinearClamp, resampled, 0).rgb, 1);
+}
 )";
 constexpr DXGI_FORMAT ToneFormat = DXGI_FORMAT_R10G10B10A2_UNORM;
 constexpr UINT ToneRowPitch = 256;  // 64 texels x 4 bytes, already D3D12-aligned
 constexpr UINT RootConstants = 4;
-constexpr UINT ToneSlot = 1, SrvCount = 2;  // after the source at 0
+constexpr UINT ToneSlot = 1, PictureSlot = 2, SrvCount = 3;  // after the source at 0
+// The intermediate picture's RTV, after the three shared textures'.
+constexpr UINT PictureRtv = BroadcastOutput::Slots;
+constexpr std::array<const char*, 3> ShaderEntries{"vs_main", "ps_main", "ps_fxaa"};
 
 struct ShaderCache {
   SRWLOCK lock = SRWLOCK_INIT;
-  std::array<ID3DBlob*, 2> bytecode{};  // vertex, pixel; kept until the process ends
+  std::array<ID3DBlob*, 3> bytecode{};  // vertex, pixel, anti-aliasing; kept until the process ends
+  bool antialias_failed = false;        // tried once: the pictures go out without it
 };
 ShaderCache& shader_cache() noexcept {
   static ShaderCache cache;
@@ -65,19 +157,19 @@ ShaderCache& shader_cache() noexcept {
 ID3DBlob* cached_shader(unsigned index) noexcept {
   auto& cache = shader_cache();
   AcquireSRWLockExclusive(&cache.lock);
-  if (!cache.bytecode[index]) {
+  if (!cache.bytecode[index] && !(index == 2 && cache.antialias_failed)) {
     ID3DBlob* blob = nullptr;
     ID3DBlob* diagnostics = nullptr;
     const HRESULT status =
-        D3DCompile(Shader, sizeof(Shader) - 1, "polaris_cam_broadcast", nullptr, nullptr, index ? "ps_main" : "vs_main",
-                   index ? "ps_5_0" : "vs_5_0", D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS,
-                   0, &blob, &diagnostics);
+        D3DCompile(Shader, sizeof(Shader) - 1, "polaris_cam_broadcast", nullptr, nullptr, ShaderEntries[index], index ? "ps_5_0" : "vs_5_0",
+                   D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS, 0, &blob, &diagnostics);
     if (diagnostics)
       diagnostics->Release();
     if (SUCCEEDED(status) && blob)
       cache.bytecode[index] = blob;
     else if (blob)
       blob->Release();
+    cache.antialias_failed = index == 2 && !cache.bytecode[index];
   }
   auto* bytecode = cache.bytecode[index];
   ReleaseSRWLockExclusive(&cache.lock);
@@ -119,7 +211,12 @@ void drop(T*& object) noexcept {
 }  // namespace
 
 bool BroadcastOutput::prepare_shaders() noexcept {
+  // The anti-aliasing shader is optional: the pictures go out without it.
+  cached_shader(2);
   return cached_shader(0) && cached_shader(1);
+}
+bool BroadcastOutput::antialias_shader_ready() noexcept {
+  return cached_shader(2) != nullptr;
 }
 bool BroadcastOutput::fail(const char* error) noexcept {
   failed_ = true;
@@ -149,7 +246,7 @@ bool BroadcastOutput::initialize(ID3D12Device* device) noexcept {
   if (FAILED(device_->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&srv_heap_))))
     return fail("Creating the broadcast SRV heap failed.");
   heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-  heap.NumDescriptors = Slots;
+  heap.NumDescriptors = Slots + 1;  // and the intermediate picture's
   heap.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
   if (FAILED(device_->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&rtv_heap_))))
     return fail("Creating the broadcast RTV heap failed.");
@@ -160,6 +257,9 @@ bool BroadcastOutput::initialize(ID3D12Device* device) noexcept {
   view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
   view.Texture2D.MipLevels = 1;
   device_->CreateShaderResourceView(nullptr, &view, srv_heap_->GetCPUDescriptorHandleForHeapStart());
+  auto picture = srv_heap_->GetCPUDescriptorHandleForHeapStart();
+  picture.ptr += SIZE_T{PictureSlot} * device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+  device_->CreateShaderResourceView(nullptr, &view, picture);
   return create_tone_table() && create_pipeline();
 }
 bool BroadcastOutput::create_tone_table() noexcept {
@@ -274,6 +374,13 @@ bool BroadcastOutput::create_pipeline() noexcept {
   pipeline.SampleDesc.Count = 1;
   if (FAILED(device_->CreateGraphicsPipelineState(&pipeline, IID_PPV_ARGS(&pipeline_))))
     return fail("Creating the broadcast pipeline failed.");
+  // The same, for the anti-aliasing pass. Without it the pictures are sent as
+  // ps_main makes them.
+  if (auto* fxaa = cached_shader(2)) {
+    pipeline.PS = {fxaa->GetBufferPointer(), fxaa->GetBufferSize()};
+    if (FAILED(device_->CreateGraphicsPipelineState(&pipeline, IID_PPV_ARGS(&fxaa_pipeline_))))
+      fxaa_pipeline_ = nullptr;
+  }
   return true;
 }
 
@@ -284,6 +391,7 @@ void BroadcastOutput::close_textures() noexcept {
     handles_[slot] = nullptr;
     drop(textures_[slot]);
   }
+  drop(picture_);
   width_ = height_ = 0;
   generation_ = 0;
 }
@@ -330,6 +438,27 @@ bool BroadcastOutput::resize(UINT width, UINT height, std::uint32_t pid, std::ui
     auto handle = rtv_heap_->GetCPUDescriptorHandleForHeapStart();
     handle.ptr += SIZE_T{slot} * stride;
     device_->CreateRenderTargetView(textures_[slot], nullptr, handle);
+  }
+  // The intermediate picture the anti-aliasing pass reads: this process's
+  // alone, kept in PIXEL_SHADER_RESOURCE between pictures. Without it the
+  // pictures go out without anti-aliasing.
+  desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+  if (fxaa_pipeline_ && SUCCEEDED(device_->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &desc,
+                                                                   D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, nullptr,
+                                                                   IID_PPV_ARGS(&picture_)))) {
+    auto rtv = rtv_heap_->GetCPUDescriptorHandleForHeapStart();
+    rtv.ptr += SIZE_T{PictureRtv} * stride;
+    device_->CreateRenderTargetView(picture_, nullptr, rtv);
+    D3D12_SHADER_RESOURCE_VIEW_DESC view{};
+    view.Format = Format;
+    view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    view.Texture2D.MipLevels = 1;
+    auto srv = srv_heap_->GetCPUDescriptorHandleForHeapStart();
+    srv.ptr += SIZE_T{PictureSlot} * device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    device_->CreateShaderResourceView(picture_, &view, srv);
+  } else {
+    picture_ = nullptr;
   }
   width_ = width;
   height_ = height;
@@ -416,11 +545,17 @@ bool BroadcastOutput::prepare(ID3D12Resource* source, DXGI_FORMAT format, unsign
   } display{!hdr ? 0u : tone ? 2u : 1u, tone ? static_cast<float>(11190.6 * 16 * 300e-4) * tone_exposure_ : std::exp2(exposure_ev_),
             static_cast<INT>((height_ - desc.Height) / 2), static_cast<INT>(desc.Height) - 1};
   static_assert(sizeof(display) == RootConstants * sizeof(UINT));
-  auto rtv = rtv_heap_->GetCPUDescriptorHandleForHeapStart();
-  rtv.ptr += SIZE_T{slot} * device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-  auto tone_srv = srv_heap_->GetGPUDescriptorHandleForHeapStart();
-  tone_srv.ptr += UINT64{ToneSlot} * device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-  transition(list_, textures_[slot], D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
+  const auto rtv_stride = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+  const auto srv_stride = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+  auto rtv = rtv_heap_->GetCPUDescriptorHandleForHeapStart(), picture_rtv = rtv;
+  rtv.ptr += SIZE_T{slot} * rtv_stride;
+  picture_rtv.ptr += SIZE_T{PictureRtv} * rtv_stride;
+  auto tone_srv = srv_heap_->GetGPUDescriptorHandleForHeapStart(), picture_srv = tone_srv;
+  tone_srv.ptr += UINT64{ToneSlot} * srv_stride;
+  picture_srv.ptr += UINT64{PictureSlot} * srv_stride;
+  // With anti-aliasing the conversion goes into the intermediate picture,
+  // and the second pass from there into the shared texture.
+  const bool antialias = antialias_ && fxaa_pipeline_ && picture_;
   list_->SetGraphicsRootSignature(root_signature_);
   list_->SetPipelineState(pipeline_);
   ID3D12DescriptorHeap* heaps[]{srv_heap_};
@@ -433,6 +568,15 @@ bool BroadcastOutput::prepare(ID3D12Resource* source, DXGI_FORMAT format, unsign
   const D3D12_RECT scissor{0, 0, static_cast<LONG>(width_), static_cast<LONG>(height_)};
   list_->RSSetViewports(1, &viewport);
   list_->RSSetScissorRects(1, &scissor);
+  if (antialias) {
+    transition(list_, picture_, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    list_->OMSetRenderTargets(1, &picture_rtv, FALSE, nullptr);
+    list_->DrawInstanced(3, 1, 0, 0);
+    transition(list_, picture_, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    list_->SetPipelineState(fxaa_pipeline_);
+    list_->SetGraphicsRootDescriptorTable(0, picture_srv);
+  }
+  transition(list_, textures_[slot], D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET);
   list_->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
   list_->DrawInstanced(3, 1, 0, 0);
   // COMMON again before the window may read it from Direct3D 11.

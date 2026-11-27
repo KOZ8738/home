@@ -151,11 +151,12 @@ void set_camera_look(std::uint64_t key, std::uint32_t grain, std::uint32_t black
 // Polaris Cam. The broadcast pictures: while width is not 0, each camera view
 // in feed_mask has its newest snapshot written to a shared texture of that
 // size (BroadcastOutput) and announced in the link's Status; the cockpit
-// displays are not composed. 0 lets the textures go. The link is the bridge's
+// displays are not composed. 0 lets the textures go. antialias: FXAA over the
+// pictures (BroadcastOutput::set_antialias). The link is the bridge's
 // mapping of the block shared with the Polaris Cam window; it stays valid
 // until the process ends.
 void set_broadcast_link(polaris_cam::Link* link);
-void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask);
+void set_broadcast(std::uint64_t key, std::uint32_t width, std::uint32_t height, std::uint32_t feed_mask, bool antialias = false);
 void service();
 Snapshot snapshot(std::uint64_t key);
 // The door page's counters alone, without the GPU timing and capture

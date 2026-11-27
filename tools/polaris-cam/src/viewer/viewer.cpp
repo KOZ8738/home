@@ -66,6 +66,7 @@ enum ControlId : int {
   IdWindows,
   IdStatus,
   IdHint,
+  IdReset,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -124,6 +125,14 @@ struct App {
   std::wstring status_text;
   bool filling = false;  // controls are being set from code
   bool ticking = false;  // tick() is running
+  // The preview shown alone, large (a double click); Feeds: all four.
+  unsigned enlarged = Feeds;
+  // A mouse drag on a preview: which button, and where the cursor was.
+  int drag = 0;  // 0 none, 1 turn (left button), 2 move (right button)
+  POINT drag_at{};
+  bool dragged = false;
+  std::uint64_t keys_ms = 0;        // last pass of the held-key movement
+  std::uint64_t mounts_dirty_ms = 0;  // unsaved mount changes since then; 0 none
 } app;
 
 template <typename T>
@@ -628,6 +637,10 @@ void update_status(std::uint64_t now) {
   }
 }
 void fill_mount_fields();
+bool adjusting(HWND focus);
+void held_keys(std::uint64_t now);
+void apply_mount(Mount mount);
+void save_mounts();
 RECT cell_rect(unsigned index);
 RECT label_rect(unsigned index);
 
@@ -644,6 +657,11 @@ void tick() {
   } done;
   const auto now = GetTickCount64();
   auto* link = app.link.get();
+  held_keys(now);
+  if (app.mounts_dirty_ms && now - app.mounts_dirty_ms >= 1000) {
+    app.mounts_dirty_ms = 0;
+    save_mounts();
+  }
   if (now - app.heartbeat_ms >= 500)
     write_link();
   const bool present_bridge = bridge_present(now);
@@ -713,6 +731,16 @@ RECT preview_area() {
 // large as the area allows and packed from its top left.
 SIZE cell_size() {
   const RECT area = preview_area();
+  if (app.enlarged < Feeds) {
+    const int border = px(2), label = px(LabelHeight);
+    int width = std::max<int>(area.right - area.left - 2 * border, 32), height = width * 9 / 16;
+    const int available = area.bottom - area.top - label - 2 * border;
+    if (height > available) {
+      height = std::max(available, 18);
+      width = height * 16 / 9;
+    }
+    return {width, height};
+  }
   const int gap = px(12), border = px(2), label = px(LabelHeight);
   int width = std::max<int>((area.right - area.left - gap) / 2 - 2 * border, 32), height = width * 9 / 16;
   const int available = (area.bottom - area.top - gap) / 2 - label - 2 * border;
@@ -728,6 +756,8 @@ RECT slot_rect(unsigned index) {
   const SIZE cell = cell_size();
   const int gap = px(12), border = px(2), label = px(LabelHeight);
   const int width = cell.cx + 2 * border, height = label + cell.cy + 2 * border;
+  if (app.enlarged < Feeds)
+    return index == app.enlarged ? RECT{area.left, area.top, area.left + width, area.top + height} : RECT{};
   const int left = area.left + static_cast<int>(index % 2) * (width + gap), top = area.top + static_cast<int>(index / 2) * (height + gap);
   return {left, top, left + width, top + height};
 }
@@ -748,13 +778,14 @@ HWND control(int id) {
 void layout() {
   for (unsigned index = 0; index < Feeds; ++index) {
     const RECT cell = cell_rect(index);
+    const bool shown = app.enlarged >= Feeds || index == app.enlarged;
     SetWindowPos(app.feeds[index].cell, nullptr, cell.left, cell.top, cell.right - cell.left, cell.bottom - cell.top,
-                 SWP_NOZORDER | SWP_NOACTIVATE);
+                 SWP_NOZORDER | SWP_NOACTIVATE | (shown ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
   }
   RECT client{};
   GetClientRect(app.main, &client);
   // The help text takes what is left of the panel's height.
-  const int hint_top = px(488);
+  const int hint_top = px(530);
   SetWindowPos(control(IdHint), nullptr, px(Margin), hint_top, px(PanelWidth - Margin - 8),
                std::max(static_cast<int>(client.bottom) - hint_top - px(Margin), px(20)), SWP_NOZORDER | SWP_NOACTIVATE);
   InvalidateRect(app.main, nullptr, TRUE);
@@ -765,7 +796,7 @@ HWND make(const wchar_t* type, const wchar_t* text, DWORD style, int x, int y, i
   SendMessageW(window, WM_SETFONT, reinterpret_cast<WPARAM>(font ? font : app.font), TRUE);
   return window;
 }
-constexpr std::array<const wchar_t*, 6> FieldNames{L"右 (m)", L"上 (m)", L"前 (m)", L"俯仰 (°)", L"偏航 (°)", L"視角 (°)"};
+constexpr std::array<const wchar_t*, 6> FieldNames{L"往右 (m)", L"往上 (m)", L"往前 (m)", L"抬頭 (°)", L"右轉 (°)", L"視角 (°)"};
 // A mount value as its field shows it: metres to the centimetre, degrees to a tenth.
 void field_text(wchar_t* text, std::size_t count, unsigned i, const Mount& mount) {
   if (i == 5)
@@ -837,18 +868,22 @@ void create_controls() {
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     SendMessageW(select, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
+  make(L"BUTTON", L"重設", WS_TABSTOP, 200, 347, 60, 26, IdReset);
+  // Two columns: position on the left, direction and view angle on the right.
+  constexpr std::array<int, 6> Column{0, 0, 0, 1, 1, 1}, Row{0, 1, 2, 0, 1, 2};
   for (unsigned i = 0; i < 6; ++i) {
-    const int x = Margin + static_cast<int>(i % 3) * 106, y = 380 + static_cast<int>(i / 3) * 30;
-    make(L"STATIC", FieldNames[i], 0, x, y + 3, 52, 20, -1);
-    make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 52, y, 46, 23, IdField + static_cast<int>(i));
+    const int x = Margin + Column[i] * 160, y = 382 + Row[i] * 32;
+    make(L"STATIC", FieldNames[i], 0, x, y + 4, 66, 20, -1);
+    make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 68, y, 76, 25, IdField + static_cast<int>(i));
   }
-  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 452, 300, 22, IdWindows);
+  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 492, 300, 22, IdWindows);
   make(L"STATIC",
        L"直播模式開啟時，駕駛艙螢幕上的滑行鏡頭會暫停。\r\n\r\n"
-       L"調整鏡頭：先點右邊的預覽，再用鍵盤\r\n"
-       L"W/S 前後　A/D 左右　R/F 上下\r\n"
-       L"方向鍵 轉向與俯仰　+/− 視角\r\n"
-       L"按住 Shift 加大十倍，Ctrl 縮為十分之一。\r\n\r\n"
+       L"在預覽上：左鍵拖曳 轉向　右鍵拖曳 平移\r\n"
+       L"滾輪 前進後退　Ctrl＋滾輪 拉近拉遠\r\n"
+       L"雙擊 放大這顆／回到四格\r\n"
+       L"點過預覽後按住 W A S D 移動、Q E 下上、\r\n"
+       L"方向鍵 轉向；Shift 快、Ctrl 慢。\r\n\r\n"
        L"OBS：來源 → 視窗擷取 → 選「Polaris Cam 1」…\r\n"
        L"擷取方式選「Windows 10 (1903 以上)」。\r\n"
        L"輸出視窗可拖到別的螢幕或被其他視窗蓋住，但不要最小化；在輸出視窗上按右鍵可關閉。",
@@ -898,77 +933,89 @@ void read_mount_fields() {
     mount[i] = i == 5 ? value * Pi / 180.0 : value;
     changed = true;
   }
-  if (!changed)
-    return;
-  if (valid_mount(mount.data())) {
-    app.settings.mounts[app.selected] = mount;
-    app.settings.presets[app.selected] = CustomPreset;
-    settings_changed(true);
-  }
+  if (changed)
+    apply_mount(mount);
   fill_mount_fields();
 }
-// Keyboard adjustment of the selected camera. Aircraft axes, so the numbers
-// in the fields move the way the key says.
-bool nudge(WPARAM key) {
-  const bool coarse = GetKeyState(VK_SHIFT) < 0, fine = GetKeyState(VK_CONTROL) < 0;
-  const double scale = coarse ? 10.0 : fine ? 0.1 : 1.0;
-  const double metres = 0.05 * scale, degrees = 1.0 * scale;
-  Mount mount = app.settings.mounts[app.selected];
-  switch (key) {
-    case 'W':
-      mount[2] += metres;
-      break;
-    case 'S':
-      mount[2] -= metres;
-      break;
-    case 'D':
-      mount[0] += metres;
-      break;
-    case 'A':
-      mount[0] -= metres;
-      break;
-    case 'R':
-      mount[1] += metres;
-      break;
-    case 'F':
-      mount[1] -= metres;
-      break;
-    case VK_RIGHT:
-      mount[4] += degrees;
-      break;
-    case VK_LEFT:
-      mount[4] -= degrees;
-      break;
-    case VK_UP:
-      mount[3] += degrees;
-      break;
-    case VK_DOWN:
-      mount[3] -= degrees;
-      break;
-    case VK_OEM_PLUS:
-    case VK_ADD:
-      mount[5] -= degrees * Pi / 180.0;  // a narrower angle is "closer"
-      break;
-    case VK_OEM_MINUS:
-    case VK_SUBTRACT:
-      mount[5] += degrees * Pi / 180.0;
-      break;
-    default:
-      return false;
-  }
+// Mount changes. They reach the bridge at once (write_link is a few bytes of
+// shared memory) and are saved a moment after the last one, so a drag does
+// not write the file on every step.
+void apply_mount(Mount mount) {
   if (mount[4] > 180)
     mount[4] -= 360;
   if (mount[4] < -180)
     mount[4] += 360;
   mount[3] = std::clamp(mount[3], -MaximumPitch, MaximumPitch);
   mount[5] = std::clamp(mount[5], MinimumFov, MaximumFov);
+  for (unsigned i = 0; i < 3; ++i)
+    mount[i] = std::clamp(mount[i], -200.0, 200.0);
   if (!valid_mount(mount.data()))
-    return true;
+    return;
   app.settings.mounts[app.selected] = mount;
-  app.settings.presets[app.selected] = CustomPreset;
+  if (app.settings.presets[app.selected] != CustomPreset) {
+    app.settings.presets[app.selected] = CustomPreset;
+    app.filling = true;
+    SendMessageW(control(IdPreset + static_cast<int>(app.selected)), CB_SETCURSEL, CustomPreset, 0);
+    app.filling = false;
+  }
   fill_mount_fields();
-  settings_changed(true);
-  return true;
+  write_link();
+  app.mounts_dirty_ms = GetTickCount64();
+}
+// Movement in the camera's own directions, in the aircraft's axes (right, up,
+// forward): forward is where it looks, level; right is square to that.
+void move_camera(Mount& mount, double forward, double right, double up) {
+  const double yaw = mount[4] * Pi / 180.0;
+  mount[0] += std::sin(yaw) * forward + std::cos(yaw) * right;
+  mount[2] += std::cos(yaw) * forward - std::sin(yaw) * right;
+  mount[1] += up;
+}
+double speed_scale() {
+  return GetKeyState(VK_SHIFT) < 0 ? 4.0 : GetKeyState(VK_CONTROL) < 0 ? 0.2 : 1.0;
+}
+// Held keys move the selected camera smoothly while a preview has the
+// keyboard: 1 m/s and 45 degrees/s, four times with Shift, a fifth with Ctrl.
+void held_keys(std::uint64_t now) {
+  const double seconds = app.keys_ms && now > app.keys_ms ? std::min((now - app.keys_ms) / 1000.0, 0.1) : 0.0;
+  app.keys_ms = now;
+  if (!seconds || GetForegroundWindow() != app.main || !adjusting(GetFocus()))
+    return;
+  const auto down = [](int key) { return GetAsyncKeyState(key) < 0; };
+  const double forward = (down('W') ? 1 : 0) - (down('S') ? 1 : 0), right = (down('D') ? 1 : 0) - (down('A') ? 1 : 0),
+               up = (down('E') || down('R') ? 1 : 0) - (down('Q') || down('F') ? 1 : 0),
+               turn = (down(VK_RIGHT) ? 1 : 0) - (down(VK_LEFT) ? 1 : 0), tilt = (down(VK_UP) ? 1 : 0) - (down(VK_DOWN) ? 1 : 0),
+               zoom = (down(VK_OEM_PLUS) || down(VK_ADD) ? 1 : 0) - (down(VK_OEM_MINUS) || down(VK_SUBTRACT) ? 1 : 0);
+  if (!forward && !right && !up && !turn && !tilt && !zoom)
+    return;
+  const double scale = speed_scale();
+  Mount mount = app.settings.mounts[app.selected];
+  move_camera(mount, forward * seconds * scale, right * seconds * scale, up * seconds * scale);
+  mount[4] += turn * 45 * seconds * scale;
+  mount[3] += tilt * 45 * seconds * scale;
+  mount[5] -= zoom * (20 * Pi / 180) * seconds * scale;  // a narrower angle is closer
+  apply_mount(mount);
+}
+// A drag on a preview. The camera turns the way the mouse moves, as in Taxi
+// Cam's own live view: across the whole picture is its whole view angle.
+void drag_to(HWND cell, POINT at) {
+  const int dx = at.x - app.drag_at.x, dy = at.y - app.drag_at.y;
+  if (!dx && !dy)
+    return;
+  app.drag_at = at;
+  app.dragged = true;
+  RECT client{};
+  GetClientRect(cell, &client);
+  const double width = std::max<LONG>(client.right, 1);
+  Mount mount = app.settings.mounts[app.selected];
+  if (app.drag == 1) {
+    const double per_pixel = mount[5] * 180.0 / Pi / width;  // the view angle across the picture
+    mount[4] += dx * per_pixel;
+    mount[3] -= dy * per_pixel;
+  } else {
+    const double per_pixel = 3.0 / width * speed_scale();  // the picture's width is 3 m of movement
+    move_camera(mount, 0, dx * per_pixel, -dy * per_pixel);
+  }
+  apply_mount(mount);
 }
 void on_command(int id, int code) {
   if (app.filling)
@@ -1018,6 +1065,13 @@ void on_command(int id, int code) {
     app.selected = feed;
     fill_mount_fields();
     settings_changed(true);
+  } else if (id == IdReset && code == BN_CLICKED) {
+    // Back to the camera's starting place: its preset, or its default one.
+    const int preset = s.presets[app.selected] < CustomPreset ? s.presets[app.selected] : DefaultPresets[app.selected];
+    s.presets[app.selected] = preset;
+    s.mounts[app.selected] = Presets[static_cast<std::size_t>(preset)].mount;
+    fill_mount_fields();
+    settings_changed(true);
   } else if (id >= IdField && id < IdField + 6 && code == EN_KILLFOCUS) {
     read_mount_fields();
   } else if (id == IDOK) {
@@ -1033,6 +1087,8 @@ const wchar_t* preset_name(unsigned feed) {
 void paint_main(HDC dc) {
   SetBkMode(dc, TRANSPARENT);
   for (unsigned index = 0; index < Feeds; ++index) {
+    if (app.enlarged < Feeds && index != app.enlarged)
+      continue;
     const auto& feed = app.feeds[index];
     RECT label = label_rect(index);
     const bool selected = index == app.selected, ticked = (app.settings.mask >> index) & 1u;
@@ -1098,8 +1154,52 @@ LRESULT CALLBACK cell_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
       return 0;
     }
     case WM_LBUTTONDOWN:
+    case WM_RBUTTONDOWN:
       SetFocus(window);
-      select_camera(feed_of(window));
+      if (feed_of(window) != app.selected)
+        select_camera(feed_of(window));
+      app.drag = message == WM_LBUTTONDOWN ? 1 : 2;
+      app.drag_at = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      app.dragged = false;
+      SetCapture(window);
+      SetCursor(LoadCursorW(nullptr, app.drag == 1 ? IDC_HAND : IDC_SIZEALL));
+      return 0;
+    case WM_MOUSEMOVE:
+      if (app.drag && GetCapture() == window)
+        drag_to(window, {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)});
+      return 0;
+    case WM_LBUTTONUP:
+    case WM_RBUTTONUP:
+    case WM_CAPTURECHANGED:
+      if (app.drag && GetCapture() == window && message != WM_CAPTURECHANGED)
+        ReleaseCapture();
+      app.drag = 0;
+      return 0;
+    case WM_LBUTTONDBLCLK:
+      // One preview large, or the four again.
+      app.enlarged = app.enlarged < Feeds ? Feeds : feed_of(window);
+      layout();
+      SetFocus(window);
+      return 0;
+    case WM_MOUSEWHEEL: {
+      const double notches = GET_WHEEL_DELTA_WPARAM(wparam) / static_cast<double>(WHEEL_DELTA);
+      Mount mount = app.settings.mounts[app.selected];
+      if (GET_KEYSTATE_WPARAM(wparam) & MK_CONTROL)
+        mount[5] -= notches * 3 * Pi / 180;  // closer
+      else
+        move_camera(mount, notches * 0.25 * (GET_KEYSTATE_WPARAM(wparam) & MK_SHIFT ? 4 : 1), 0, 0);
+      apply_mount(mount);
+      return 0;
+    }
+    case WM_SETCURSOR:
+      if (LOWORD(lparam) == HTCLIENT) {
+        SetCursor(LoadCursorW(nullptr, app.drag == 2 ? IDC_SIZEALL : IDC_HAND));
+        return TRUE;
+      }
+      return DefWindowProcW(window, message, wparam, lparam);
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+      InvalidateRect(app.main, nullptr, TRUE);
       return 0;
     case WM_GETDLGCODE:
       return DLGC_WANTARROWS | DLGC_WANTCHARS;
@@ -1317,7 +1417,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   RegisterClassExW(&type);
   type.lpfnWndProc = cell_proc;
   type.lpszClassName = CellClass;
+  type.style = CS_DBLCLKS;
   RegisterClassExW(&type);
+  type.style = 0;
   type.lpfnWndProc = output_proc;
   type.lpszClassName = OutputClass;
   type.hCursor = LoadCursorW(nullptr, IDC_SIZEALL);
@@ -1368,7 +1470,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
         quit = true;
         break;
       }
-      if (message.message == WM_KEYDOWN && adjusting(GetFocus()) && nudge(message.wParam))
+      // Held keys are read in tick(); here they are only kept from the dialog keys.
+      if ((message.message == WM_KEYDOWN || message.message == WM_CHAR) && adjusting(GetFocus()) && message.wParam != VK_TAB)
         continue;
       if (IsDialogMessageW(app.main, &message))
         continue;

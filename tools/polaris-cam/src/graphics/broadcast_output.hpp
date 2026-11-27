@@ -36,6 +36,11 @@ class BroadcastOutput {
   bool initialize(ID3D12Device* device) noexcept;
   bool initialized() const noexcept { return pipeline_ != nullptr && !failed_; }
   bool failed() const noexcept { return failed_; }
+  // Back to a new output, so that initialize can try again after a failure:
+  // every GPU object and the textures are let go. Refused (false) while a
+  // recording is prepared or submitted work may still be executing, which
+  // stays so after a failed completion signal.
+  bool reset() noexcept;
 
   // The three shared textures at this picture size, named for (pid,
   // generation, feed). Only while idle with nothing prepared; the previous

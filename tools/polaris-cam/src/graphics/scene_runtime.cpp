@@ -809,10 +809,18 @@ bool service_broadcast(Device& item) {
     if (!((item.cast_mask >> feed) & 1u)) {
       // Not broadcast: its textures go once it is idle. While other cameras
       // are, its snapshots have no use either (nothing is composed).
-      if (on)
+      if (on) {
         drop();
-      else
-        cast.refused = false;  // Turning the broadcast on again tries again.
+      } else {
+        // Turning the broadcast on again tries again: a failed output is made
+        // new first, once nothing of it is being written.
+        if (cast.output.failed()) {
+          if (cast.writing != polaris_cam::NoSlot || !cast.output.reset())
+            continue;
+          withdraw(polaris_cam::feed_off);
+        }
+        cast.refused = false;
+      }
       if (cast.output.generation() && cast.writing == polaris_cam::NoSlot && cast.output.release_textures())
         withdraw(polaris_cam::feed_off);
       else if (announced && !cast.output.generation())

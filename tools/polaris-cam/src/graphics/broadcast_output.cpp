@@ -293,6 +293,39 @@ bool BroadcastOutput::release_textures() noexcept {
   close_textures();
   return true;
 }
+bool BroadcastOutput::reset() noexcept {
+  if (prepared_)
+    return false;
+  if (fence_ && device_) {
+    // A removed device runs nothing more; otherwise all of it has to be done.
+    const auto completed = fence_->GetCompletedValue();
+    const bool done = completed != UINT64_MAX && completed >= submitted_;
+    if (!done && SUCCEEDED(device_->GetDeviceRemovedReason()))
+      return false;
+  }
+  close_textures();
+  if (tone_mapped_ && tone_upload_)
+    tone_upload_->Unmap(0, nullptr);
+  tone_mapped_ = nullptr;
+  drop(tone_upload_);
+  drop(tone_table_);
+  drop(pipeline_);
+  drop(root_signature_);
+  drop(rtv_heap_);
+  drop(srv_heap_);
+  drop(fence_);
+  drop(list_);
+  drop(allocator_);
+  drop(queue_);
+  drop(device_);
+  exposure_ev_ = -8.8f;
+  tone_exposure_ = 0;
+  tone_pending_ = tone_ready_ = tone_recorded_ = tone_was_ready_ = false;
+  submitted_ = 0;
+  prepared_ = failed_ = false;
+  error_ = "";
+  return true;
+}
 bool BroadcastOutput::resize(UINT width, UINT height, std::uint32_t pid, std::uint32_t generation, unsigned feed) noexcept {
   if (!initialized() || prepared_ || !idle() || !polaris_cam::valid_size(width, height) || !generation || feed >= polaris_cam::Feeds)
     return false;

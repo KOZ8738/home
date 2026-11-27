@@ -28,7 +28,7 @@ is written to the cockpit displays then. With the broadcast off it behaves as Ta
 | `src/bridge/bridge_main.cpp` | Reads the window's request each pass; the broadcast size as a camera shape (the existing reshape transition); cameras wanted as for the scene test, with no display written, unless the memory guard pauses them; the broadcast's own rate, cameras and mounts; status for the window; the camera service on a second thread while broadcasting. |
 | `src/profiles/discovered.hpp` | `apply_choices`, `override_current`, `publish_override` take the broadcast pane. |
 | `src/camera/view_clip.hpp`, `.cpp`, `src/camera/probe.hpp`, `.cpp` | `limit_camera_far` caps the far distances each camera view is given (the main view's) at the broadcast's draw distance, set through `request_scene_draw_distance`; `plausible_camera_clip` moved into the header. |
-| `src/viewer/` (new) | `polaris-cam.exe`, the window: settings, a 2×2 preview, an output window per camera. Direct3D 11, copies only. |
+| `src/viewer/` (new) | `polaris-cam.exe`, the window: settings, a 2×2 preview, an output window per camera, camera positions with presets the user can replace per aircraft. Direct3D 11, copies only. |
 | `src/app/companion.cpp`, `app.rc`, `src/bridge/bridge.rc` | The title and file descriptions say it is the Polaris Cam build; the updater is off. |
 | `src/camera/mount_config.cpp` | `<windows.h>` in lower case, to build on Linux. |
 | `test/`, `build-linux.sh`, `dist/` (new) | The self-test, the build, and the text that goes in the download. |

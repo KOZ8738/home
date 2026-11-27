@@ -24,6 +24,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cwchar>
+#include <optional>
 #include <string>
 #include "../shared/broadcast_link.hpp"
 #include "../shared/version.hpp"
@@ -82,9 +83,12 @@ enum ControlId : int {
   IdReset,
   IdGuard,
   IdDistance,
+  IdSavePreset,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
+  IdSaveAs = 300,  // + preset: the menu of "存為預設"
+  IdRestore = 320,  // + preset
 };
 
 struct Settings {
@@ -127,7 +131,10 @@ struct App {
   LinkMapping link;
   HANDLE frame_event = nullptr;
   Settings settings;
-  std::wstring aircraft;  // the key the mounts are saved under
+  std::wstring aircraft;  // the key the mounts and the user's presets are saved under
+  // The user's own position for each preset on this aircraft (load_presets);
+  // none: the built-in one.
+  std::array<std::optional<Mount>, Presets.size()> own_presets{};
   std::array<Feed, Feeds> feeds;
   unsigned selected = 0;
   // Direct3D 11 on the simulator's GPU.
@@ -203,6 +210,54 @@ std::wstring aircraft_key(const char* path) {
     key += (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ? static_cast<wchar_t>(c) : L'_';
   return key.empty() ? L"default" : key;
 }
+// --- presets -------------------------------------------------------------
+// Each preset can be replaced by a position of the user's own, for the
+// aircraft that is loaded (every model has its own reference point):
+// [presets:<aircraft>] preset1..preset6, as right,up,forward,pitch,yaw,fov.
+std::wstring presets_section() {
+  return L"presets:" + (app.aircraft.empty() ? std::wstring(L"default") : app.aircraft);
+}
+void load_presets() {
+  const auto path = ini_path();
+  const auto section = presets_section();
+  for (std::size_t i = 0; i < Presets.size(); ++i) {
+    wchar_t name[16], text[160]{};
+    std::swprintf(name, 16, L"preset%u", static_cast<unsigned>(i + 1));
+    GetPrivateProfileStringW(section.c_str(), name, L"", text, 160, path.c_str());
+    Mount mount{};
+    app.own_presets[i].reset();
+    if (std::swscanf(text, L"%lf,%lf,%lf,%lf,%lf,%lf", &mount[0], &mount[1], &mount[2], &mount[3], &mount[4], &mount[5]) == 6 &&
+        valid_mount(mount.data()))
+      app.own_presets[i] = mount;
+  }
+}
+void save_preset(std::size_t i) {
+  wchar_t name[16], text[160];
+  std::swprintf(name, 16, L"preset%u", static_cast<unsigned>(i + 1));
+  const auto section = presets_section();
+  if (const auto& own = app.own_presets[i]) {
+    const auto& m = *own;
+    std::swprintf(text, 160, L"%.3f,%.3f,%.3f,%.2f,%.2f,%.4f", m[0], m[1], m[2], m[3], m[4], m[5]);
+    WritePrivateProfileStringW(section.c_str(), name, text, ini_path().c_str());
+  } else {
+    WritePrivateProfileStringW(section.c_str(), name, nullptr, ini_path().c_str());  // back to the built-in one
+  }
+}
+// Where a preset puts a camera on this aircraft.
+Mount preset_mount(int preset) {
+  const auto i = static_cast<std::size_t>(preset);
+  return app.own_presets[i] ? *app.own_presets[i] : Presets[i].mount;
+}
+// "二排中", without the built-in description.
+std::wstring preset_short(std::size_t i) {
+  const std::wstring name = Presets[i].name;
+  return name.substr(0, name.find(L'（'));
+}
+// What the lists show: the built-in description, or that it is the user's own.
+std::wstring preset_label(std::size_t i) {
+  return app.own_presets[i] ? preset_short(i) + L"（自己調的）" : std::wstring(Presets[i].name);
+}
+
 void load_mounts(const std::wstring& key) {
   const auto path = ini_path();
   const auto section = L"mounts:" + key;
@@ -218,7 +273,7 @@ void load_mounts(const std::wstring& key) {
       app.settings.presets[feed] = preset >= 0 && preset <= CustomPreset ? preset : CustomPreset;
     } else {
       app.settings.presets[feed] = DefaultPresets[feed];
-      app.settings.mounts[feed] = Presets[static_cast<std::size_t>(DefaultPresets[feed])].mount;
+      app.settings.mounts[feed] = preset_mount(DefaultPresets[feed]);
     }
   }
 }
@@ -250,6 +305,7 @@ void load_settings() {
     if (choice.metres == distance)
       s.draw_distance = distance;
   app.aircraft = L"default";
+  load_presets();
   load_mounts(app.aircraft);
 }
 void save_settings() {
@@ -677,7 +733,8 @@ void update_status(std::uint64_t now) {
       text += line;
     }
     if (std::strncmp(s.version, POLARIS_CAM_VERSION, sizeof(s.version)) != 0) {
-      std::swprintf(line, 256, L"\r\nMSFS 裡的 Polaris Cam 是 %ls，這個視窗是 " POLARIS_CAM_VERSION_WIDE L"：請完全關閉 MSFS 再開。",
+      // Same link version, so they work together; the bridge changes only when MSFS restarts.
+      std::swprintf(line, 256, L"\r\nMSFS 裡的 bridge 是 %ls，重開 MSFS 後換成 " POLARIS_CAM_VERSION_WIDE L"。",
                     widen(s.version, sizeof(s.version)).c_str());
       text += line;
     }
@@ -690,6 +747,7 @@ void update_status(std::uint64_t now) {
   }
 }
 void fill_mount_fields();
+void fill_preset_lists();
 bool adjusting(HWND focus);
 void held_keys(std::uint64_t now);
 void apply_mount(Mount mount);
@@ -724,7 +782,9 @@ void tick() {
     if (key != app.aircraft && key != L"default") {
       save_mounts();
       app.aircraft = key;
+      load_presets();
       load_mounts(key);
+      fill_preset_lists();
       fill_mount_fields();
       write_link();
     }
@@ -862,6 +922,19 @@ void field_text(wchar_t* text, std::size_t count, unsigned i, const Mount& mount
   else
     std::swprintf(text, count, i < 3 ? L"%.2f" : L"%.1f", mount[i]);
 }
+// The four cameras' preset lists: the presets as they are on this aircraft, and 自訂.
+void fill_preset_lists() {
+  app.filling = true;
+  for (unsigned feed = 0; feed < Feeds; ++feed) {
+    HWND list = control(IdPreset + static_cast<int>(feed));
+    SendMessageW(list, CB_RESETCONTENT, 0, 0);
+    for (std::size_t i = 0; i < Presets.size(); ++i)
+      SendMessageW(list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(preset_label(i).c_str()));
+    SendMessageW(list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
+    SendMessageW(list, CB_SETCURSEL, static_cast<WPARAM>(app.settings.presets[feed]), 0);
+  }
+  app.filling = false;
+}
 void fill_mount_fields() {
   app.filling = true;
   const auto& mount = app.settings.mounts[app.selected];
@@ -925,19 +998,18 @@ void create_controls() {
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     const int y = 260 + static_cast<int>(feed) * 28;
     make(L"BUTTON", text, BS_AUTOCHECKBOX | WS_TABSTOP, Margin, y, 70, 22, IdCamera + static_cast<int>(feed));
-    HWND preset = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, y - 2, 238, 240, IdPreset + static_cast<int>(feed));
-    for (const auto& item : Presets)
-      SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item.name));
-    SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
+    make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, y - 2, 238, 240, IdPreset + static_cast<int>(feed));
   }
+  fill_preset_lists();
   make(L"STATIC", L"調整位置", 0, Margin, 380, 70, 20, -1, app.bold);
-  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 90, 376, 100, 200, IdSelect);
+  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 90, 376, 88, 200, IdSelect);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     SendMessageW(select, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
-  make(L"BUTTON", L"重設", WS_TABSTOP, 200, 375, 60, 26, IdReset);
+  make(L"BUTTON", L"重設", WS_TABSTOP, 184, 375, 56, 26, IdReset);
+  make(L"BUTTON", L"存為預設…", WS_TABSTOP, 246, 375, 82, 26, IdSavePreset);
   // Two columns: position on the left, direction and view angle on the right.
   constexpr std::array<int, 6> Column{0, 0, 0, 1, 1, 1}, Row{0, 1, 2, 0, 1, 2};
   for (unsigned i = 0; i < 6; ++i) {
@@ -1086,6 +1158,64 @@ void drag_to(HWND cell, POINT at) {
   }
   apply_mount(mount);
 }
+// "存為預設…": the selected camera's position as one of this aircraft's
+// presets, or a preset back to its built-in position.
+void show_preset_menu() {
+  HMENU menu = CreatePopupMenu(), restore = CreatePopupMenu();
+  if (!menu || !restore) {
+    if (menu)
+      DestroyMenu(menu);
+    if (restore)
+      DestroyMenu(restore);
+    return;
+  }
+  // Without an aircraft there is no reference point to keep a position for.
+  const bool aircraft = app.aircraft != L"default";
+  wchar_t text[160];
+  if (aircraft)
+    std::swprintf(text, 160, L"把鏡頭 %u 現在的位置，存成這架飛機（%ls）的：", app.selected + 1, app.aircraft.c_str());
+  else
+    std::swprintf(text, 160, L"連上模擬器、載入飛機後才能存（每架飛機的原點不同）");
+  AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, text);
+  bool own = false;
+  for (std::size_t i = 0; i < Presets.size(); ++i) {
+    std::swprintf(text, 160, L"「%ls」%ls", preset_short(i).c_str(), app.own_presets[i] ? L"（取代自己調的）" : L"");
+    AppendMenuW(menu, MF_STRING | (aircraft ? 0u : MF_GRAYED), static_cast<UINT_PTR>(IdSaveAs + static_cast<int>(i)), text);
+    AppendMenuW(restore, MF_STRING | (app.own_presets[i] ? 0u : MF_GRAYED), static_cast<UINT_PTR>(IdRestore + static_cast<int>(i)),
+                preset_short(i).c_str());
+    own = own || app.own_presets[i].has_value();
+  }
+  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+  AppendMenuW(menu, MF_POPUP | (own && aircraft ? 0u : MF_GRAYED), reinterpret_cast<UINT_PTR>(restore), L"還原成原本的預設位置");
+  RECT button{};
+  GetWindowRect(control(IdSavePreset), &button);
+  TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_LEFTBUTTON, button.left, button.bottom, 0, app.main, nullptr);
+  DestroyMenu(menu);  // and the submenu with it
+}
+// save: the preset becomes the selected camera's position, and that camera
+// that preset. Otherwise: the preset is the built-in one again. Either way no
+// camera moves: one that showed the preset at its old place keeps the place,
+// as 自訂.
+void change_preset(std::size_t preset, bool save) {
+  if (preset >= Presets.size() || app.aircraft == L"default")
+    return;
+  auto& s = app.settings;
+  if (save)
+    app.own_presets[preset] = s.mounts[app.selected];
+  else
+    app.own_presets[preset].reset();
+  save_preset(preset);
+  for (unsigned feed = 0; feed < Feeds; ++feed)
+    if (s.presets[feed] == static_cast<int>(preset) && s.mounts[feed] != preset_mount(static_cast<int>(preset)))
+      s.presets[feed] = CustomPreset;
+  if (save)
+    s.presets[app.selected] = static_cast<int>(preset);
+  note(L"preset %u on %ls: %ls", static_cast<unsigned>(preset + 1), app.aircraft.c_str(), save ? L"saved from the selected camera" : L"built-in again");
+  fill_preset_lists();
+  fill_mount_fields();
+  save_mounts();
+  InvalidateRect(app.main, nullptr, TRUE);
+}
 void on_command(int id, int code) {
   if (app.filling)
     return;
@@ -1135,7 +1265,7 @@ void on_command(int id, int code) {
     const auto choice = SendMessageW(control(id), CB_GETCURSEL, 0, 0);
     if (choice >= 0 && choice < CustomPreset) {
       s.presets[feed] = static_cast<int>(choice);
-      s.mounts[feed] = Presets[static_cast<std::size_t>(choice)].mount;
+      s.mounts[feed] = preset_mount(static_cast<int>(choice));
     } else {
       s.presets[feed] = CustomPreset;
     }
@@ -1146,9 +1276,15 @@ void on_command(int id, int code) {
     // Back to the camera's starting place: its preset, or its default one.
     const int preset = s.presets[app.selected] < CustomPreset ? s.presets[app.selected] : DefaultPresets[app.selected];
     s.presets[app.selected] = preset;
-    s.mounts[app.selected] = Presets[static_cast<std::size_t>(preset)].mount;
+    s.mounts[app.selected] = preset_mount(preset);
     fill_mount_fields();
     settings_changed(true);
+  } else if (id == IdSavePreset && code == BN_CLICKED) {
+    show_preset_menu();
+  } else if (id >= IdSaveAs && id < IdSaveAs + CustomPreset && code == 0) {
+    change_preset(static_cast<std::size_t>(id - IdSaveAs), true);
+  } else if (id >= IdRestore && id < IdRestore + CustomPreset && code == 0) {
+    change_preset(static_cast<std::size_t>(id - IdRestore), false);
   } else if (id >= IdField && id < IdField + 6 && code == EN_KILLFOCUS) {
     read_mount_fields();
   } else if (id == IDOK) {
@@ -1157,9 +1293,9 @@ void on_command(int id, int code) {
 }
 
 // --- painting ---------------------------------------------------------------
-const wchar_t* preset_name(unsigned feed) {
+std::wstring preset_name(unsigned feed) {
   const int preset = app.settings.presets[feed];
-  return preset >= 0 && preset < CustomPreset ? Presets[static_cast<std::size_t>(preset)].name : L"自訂";
+  return preset >= 0 && preset < CustomPreset ? preset_label(static_cast<std::size_t>(preset)) : std::wstring(L"自訂");
 }
 void paint_main(HDC dc) {
   SetBkMode(dc, TRANSPARENT);

@@ -21,8 +21,8 @@ inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.3";
 // window need not poll for it.
 inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.3";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.1.3"
-#define POLARIS_CAM_VERSION_WIDE L"0.1.3"
+#define POLARIS_CAM_VERSION "0.1.4"
+#define POLARIS_CAM_VERSION_WIDE L"0.1.4"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
 // 1: 0.1.0 and 0.1.1. 2: 0.1.2, the memory guard and the bridge's own
 // version. 3: the cameras' draw distance.

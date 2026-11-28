@@ -8,6 +8,8 @@
 #                         companion taxi-cam.exe, Taxi Cam's own window
 #                         viewer   polaris-cam.exe, the Polaris Cam window
 #                         selftest polaris-cam-selftest.exe, run by the build on Windows (test/selftest.cpp)
+#         and, only when named: remotetest polaris-cam-remote-test.exe, the back-office stream against a stand-in
+#                         relay in Node (test/remote_stream_test.cpp)
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:?out dir}; shift
@@ -81,8 +83,8 @@ if wants companion; then
 fi
 if wants viewer; then
   "$WINDRES" -I "$OUT/generated" -I "$ROOT/src/viewer" -i "$ROOT/src/viewer/viewer.rc" -O coff -o "$OUT/obj/viewer.res.o"
-  "$CXX" "${COMMON[@]}" -municode -mwindows "$ROOT/src/viewer/viewer.cpp" "$OUT/obj/viewer.res.o" -ld3d11 -ldxgi -ldxguid -lcomctl32 \
-    -lshell32 -lole32 -lgdi32 -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
+  "$CXX" "${COMMON[@]}" -municode -mwindows "$ROOT/src/viewer/viewer.cpp" "$ROOT/src/viewer/remote_stream.cpp" "$OUT/obj/viewer.res.o" \
+    -ld3d11 -ldxgi -ldxguid -lcomctl32 -lshell32 -lole32 -lgdi32 -lwinhttp -lwindowscodecs -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
   echo "built polaris-cam.exe"
 fi
 if wants selftest; then
@@ -91,4 +93,9 @@ if wants selftest; then
   "$CXX" "${COMMON[@]}" -municode "$ROOT/test/selftest.cpp" $(paths src/graphics/broadcast_output.cpp) "${LIBS[@]}" -Wl,--no-insert-timestamp \
     -o "$OUT/polaris-cam-selftest.exe"
   echo "built polaris-cam-selftest.exe"
+fi
+if wants remotetest; then
+  "$CXX" "${COMMON[@]}" "$ROOT/test/remote_stream_test.cpp" "$ROOT/src/viewer/remote_stream.cpp" -ld3d11 -ldxgi -ldxguid -lole32 -lwinhttp \
+    -lwindowscodecs -Wl,--no-insert-timestamp -o "$OUT/polaris-cam-remote-test.exe"
+  echo "built polaris-cam-remote-test.exe"
 fi

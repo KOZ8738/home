@@ -27,6 +27,7 @@
 #include <string>
 #include "../shared/broadcast_link.hpp"
 #include "../shared/version.hpp"
+#include "remote_stream.hpp"
 #include "waiting_status.hpp"
 
 namespace {
@@ -69,6 +70,9 @@ enum ControlId : int {
   IdHint,
   IdReset,
   IdMountTitle,
+  IdRemote,
+  IdRemoteUrl,
+  IdRemoteStatus,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
@@ -82,6 +86,9 @@ struct Settings {
   bool windows = false;
   std::array<Mount, Feeds> mounts{};
   std::array<int, Feeds> presets = DefaultPresets;
+  // The back office (remote_stream.hpp): sent there or not, and the link it gave.
+  bool remote = false;
+  std::wstring remote_url;
   std::uint32_t width() const noexcept { return height == 720 ? 1280u : 1920u; }
 };
 
@@ -150,7 +157,11 @@ struct App {
   bool dragged = false;
   std::uint64_t keys_ms = 0;        // last pass of the held-key movement
   std::uint64_t mounts_dirty_ms = 0;  // unsaved mount changes since then; 0 none
+  std::uint64_t remote_dirty_ms = 0;  // the link typed in since then and not used yet; 0 none
+  std::wstring remote_status;
 } app;
+// The cameras sent to the back office, off the window's thread.
+remote::RemoteStream remote_stream;
 
 template <typename T>
 void drop(T*& object) noexcept {
@@ -257,6 +268,10 @@ void load_settings() {
   if (!s.mask)
     s.mask = 1;
   s.windows = GetPrivateProfileIntW(L"general", L"windows", 0, path.c_str()) == 1;
+  s.remote = GetPrivateProfileIntW(L"remote", L"enabled", 0, path.c_str()) == 1;
+  wchar_t url[2048]{};
+  GetPrivateProfileStringW(L"remote", L"url", L"", url, 2048, path.c_str());
+  s.remote_url = url;
   app.aircraft = L"default";
   load_mounts(app.aircraft);
 }
@@ -273,6 +288,8 @@ void save_settings() {
   put(L"fps", s.fps);
   put(L"cameras", s.mask);
   put(L"windows", s.windows ? 1 : 0);
+  WritePrivateProfileStringW(L"remote", L"enabled", s.remote ? L"1" : L"0", path.c_str());
+  WritePrivateProfileStringW(L"remote", L"url", s.remote_url.c_str(), path.c_str());
   save_mounts();
 }
 
@@ -313,6 +330,7 @@ void close_textures(Feed& feed) {
   feed.shown_slot = NoSlot;
 }
 void close_gpu() {
+  remote_stream.release_gpu();  // its copies are on this device
   for (auto& feed : app.feeds) {
     close_textures(feed);
     close_chain(feed.cell_chain);
@@ -618,6 +636,8 @@ void show_newest(unsigned index, std::uint64_t now) {
     close_gpu();
     return;
   }
+  // The back office's copy, when its turn has come (never waits for the GPU).
+  remote_stream.maybe_capture(index, app.device, app.context, feed.textures[slot], feed.width, feed.height, now);
   feed.frames = published_frames(static_cast<std::uint64_t>(published));
   feed.shown_slot = slot;
   feed.shown_ms = now;
@@ -714,6 +734,8 @@ void update_status(std::uint64_t now) {
   }
 }
 void fill_mount_fields();
+void apply_remote();
+void update_remote(std::uint64_t now);
 bool adjusting(HWND focus);
 void held_keys(std::uint64_t now);
 void apply_mount(Mount mount);
@@ -782,6 +804,8 @@ void tick() {
   }
   if (now - app.heartbeat_ms >= 500)
     write_link();
+  if (app.remote_dirty_ms && now - app.remote_dirty_ms >= 800)
+    apply_remote();
   const bool present_bridge = bridge_present(now);
   if (link && present_bridge) {
     // The aircraft path and message, read whole. A read during the bridge's
@@ -820,6 +844,8 @@ void tick() {
     if (app.device)
       for (unsigned index = 0; index < Feeds && app.device; ++index)
         show_newest(index, now);
+    if (app.device)
+      remote_stream.poll(app.device, app.context);
   } else if (app.device) {
     note(L"bridge: gone");
     app.bridge_pid = 0;
@@ -846,6 +872,7 @@ void tick() {
   if (now - app.labels_ms >= 500) {
     app.labels_ms = now;
     update_status(now);
+    update_remote(now);
     for (unsigned index = 0; index < Feeds; ++index) {
       const RECT label = label_rect(index);
       InvalidateRect(app.main, &label, TRUE);
@@ -919,7 +946,7 @@ void layout() {
   RECT client{};
   GetClientRect(app.main, &client);
   // The help text takes what is left of the panel's height.
-  const int hint_top = px(530);
+  const int hint_top = px(606);
   SetWindowPos(control(IdHint), nullptr, px(Margin), hint_top, px(PanelWidth - Margin - 8),
                std::max(static_cast<int>(client.bottom) - hint_top - px(Margin), px(20)), SWP_NOZORDER | SWP_NOACTIVATE);
   InvalidateRect(app.main, nullptr, TRUE);
@@ -1000,6 +1027,8 @@ void fill_controls() {
   Button_SetCheck(control(IdSize720), s.height == 720 ? BST_CHECKED : BST_UNCHECKED);
   select_fps(s.fps);
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
+  Button_SetCheck(control(IdRemote), s.remote ? BST_CHECKED : BST_UNCHECKED);
+  SetDlgItemTextW(app.main, IdRemoteUrl, s.remote_url.c_str());
   app.filling = false;
   fill_mount_fields();
 }
@@ -1049,7 +1078,56 @@ void create_controls() {
     make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 68, y, 76, 25, IdField + static_cast<int>(i));
   }
   make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 492, 300, 22, IdWindows);
-  make(L"STATIC", HintShort, SS_NOTIFY, Margin, 488, PanelWidth - Margin - 8, 200, IdHint);
+  // The back office: a tick box, the link it gave, and how sending goes.
+  make(L"STATIC", L"後台監看", 0, Margin, 526, 70, 20, -1, app.bold);
+  make(L"BUTTON", L"傳送到後台", BS_AUTOCHECKBOX | WS_TABSTOP, 96, 524, 140, 22, IdRemote);
+  make(L"STATIC", L"後台連線連結", 0, Margin, 556, 86, 20, -1);
+  HWND url = make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, 104, 552, PanelWidth - 104 - 8, 25, IdRemoteUrl);
+  SendMessageW(url, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"貼上後台複製的連結"));
+  make(L"STATIC", L"", SS_ENDELLIPSIS | SS_NOPREFIX, Margin, 582, PanelWidth - Margin - 8, 20, IdRemoteStatus);
+  make(L"STATIC", HintShort, SS_NOTIFY, Margin, 606, PanelWidth - Margin - 8, 200, IdHint);
+}
+
+// --- the back office ----------------------------------------------------------
+const wchar_t* preset_name(unsigned feed);
+// The cameras the hello names: ticked or not, their place's name, the size sent.
+void remote_cams() {
+  std::array<remote::CamInfo, remote::Cams> cams{};
+  unsigned width = 0, height = 0;
+  remote::output_size(app.settings.width(), app.settings.height, width, height);
+  for (unsigned index = 0; index < Feeds && index < remote::Cams; ++index) {
+    const std::wstring name = preset_name(index);
+    cams[index].on = (app.settings.mask >> index) & 1u;
+    cams[index].name = name.substr(0, name.find(L'（'));
+    cams[index].width = width;
+    cams[index].height = height;
+  }
+  remote_stream.set_cams(cams);
+}
+// The tick box and the link as they are now: connects again only when either changed.
+void apply_remote() {
+  app.remote_dirty_ms = 0;
+  HWND field = control(IdRemoteUrl);
+  std::wstring url(static_cast<std::size_t>(std::max(GetWindowTextLengthW(field), 0)) + 1, L'\0');
+  url.resize(static_cast<std::size_t>(std::max(GetWindowTextW(field, url.data(), static_cast<int>(url.size())), 0)));
+  if (url != app.settings.remote_url) {
+    app.settings.remote_url = url;
+    save_settings();
+  }
+  remote_cams();
+  remote_stream.configure(app.settings.remote, app.settings.remote_url);
+  update_remote(GetTickCount64());
+}
+void update_remote(std::uint64_t now) {
+  remote_cams();
+  const auto text = remote_stream.status_text(now);
+  if (text == app.remote_status)
+    return;
+  // A change of state, not every new rate; never the link itself, which is the cameras' key.
+  if (app.remote_status.compare(0, 6, text, 0, 6) != 0)
+    note(L"remote: %ls", text.c_str());
+  app.remote_status = text;
+  SetDlgItemTextW(app.main, IdRemoteStatus, text.c_str());
 }
 
 // --- changes ----------------------------------------------------------------
@@ -1058,6 +1136,7 @@ void settings_changed(bool mounts_only = false) {
     note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d", app.settings.enabled ? L"on" : L"off", app.settings.width(),
          app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0);
   write_link();
+  remote_cams();
   if (mounts_only)
     save_mounts();
   else
@@ -1197,6 +1276,16 @@ void on_command(int id, int code) {
   } else if (id == IdWindows && code == BN_CLICKED) {
     s.windows = Button_GetCheck(control(IdWindows)) == BST_CHECKED;
     settings_changed();
+  } else if (id == IdRemote && code == BN_CLICKED) {
+    s.remote = Button_GetCheck(control(IdRemote)) == BST_CHECKED;
+    note(L"settings: remote %ls", s.remote ? L"on" : L"off");
+    save_settings();
+    apply_remote();
+  } else if (id == IdRemoteUrl && code == EN_CHANGE) {
+    app.remote_dirty_ms = GetTickCount64();  // used once the typing stops (tick)
+  } else if (id == IdRemoteUrl && code == EN_KILLFOCUS) {
+    if (app.remote_dirty_ms)
+      apply_remote();
   } else if (id == IdSelect && code == CBN_SELCHANGE) {
     const auto choice = SendMessageW(control(IdSelect), CB_GETCURSEL, 0, 0);
     if (choice >= 0)
@@ -1241,6 +1330,8 @@ void on_command(int id, int code) {
     read_mount_fields();
   } else if (id == IDOK) {
     read_mount_fields();  // Enter in a field
+    if (app.remote_dirty_ms)
+      apply_remote();
   }
 }
 
@@ -1437,7 +1528,7 @@ LRESULT CALLBACK main_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
       return 0;
     case WM_GETMINMAXINFO: {
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize = {px(900), px(620)};
+      info->ptMinTrackSize = {px(900), px(690)};
       return 0;
     }
     case WM_DPICHANGED: {
@@ -1645,6 +1736,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   layout();
   write_link();
   update_status(GetTickCount64());
+  remote_cams();
+  remote_stream.configure(app.settings.remote, app.settings.remote_url);
+  update_remote(GetTickCount64());
   for (unsigned index = 0; index < Feeds; ++index)
     sync_output(index);
   SetTimer(app.main, 1, USER_TIMER_MINIMUM, nullptr);
@@ -1676,6 +1770,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   app.settings.enabled = false;
   write_link();
   save_mounts();
+  remote_stream.stop();
   for (auto& feed : app.feeds)
     close_output(feed);
   close_gpu();

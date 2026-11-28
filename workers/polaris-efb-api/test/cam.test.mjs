@@ -1,7 +1,10 @@
-/* Polaris Cam relay (src/cam.js) and its admin routes (src/mail.js): plain Node 22, no npm packages.
+/* Polaris Cam relay (src/cam.js), its admin routes (src/mail.js) and the admin page's players (src/admin.js: Broadcast,
+   Flight Watch): plain Node 22, no npm packages.
      node workers/polaris-efb-api/test/cam.test.mjs
    The Workers runtime is stood in for here: WebSocketPair, a Response that takes status 101, the Durable Object's
-   ctx (WebSockets with tags, storage), Cloudflare Access's keys (a key made here signs the test sign-ins), KV. */
+   ctx (WebSockets with tags, storage), Cloudflare Access's keys (a key made here signs the test sign-ins), KV; and
+   for several channels at once (Broadcast's 'cam' and each 'pilot:<ID>'), a namespace of objects with their own
+   storage, which can be taken out of memory and woken again (hibernation). */
 import assert from 'node:assert/strict';
 
 /* ---- the runtime, stood in for ---- */
@@ -30,8 +33,9 @@ globalThis.Response = class extends RealResponse {
 let NOW = Date.now();
 const realNow = Date.now; Date.now = () => NOW;
 
-const { CamRelay, camAdmin, camPublic, frameIn, helloIn, CAM_GONE } = await import('../src/cam.js');
+const { CamRelay, camAdmin, camPublic, frameIn, helloIn, CAM_GONE, CAM_TICKET, normPilot, pilotOk, onlineIn } = await import('../src/cam.js');
 const { mailAdmin } = await import('../src/mail.js');
+const { navWsTicket, wsTicket } = await import('../src/auth.js');
 
 function mkCtx() {
   const socks = [], store = new Map();
@@ -133,8 +137,10 @@ async function signIn(email) {
   return h + '.' + p + '.' + b64u(new Uint8Array(sig));
 }
 const roles = {
-  people: { 'dir@p.test': { role: 'director' }, 'watch@p.test': { role: 'watcher' }, 'ops@p.test': { role: 'nobc' } },
-  roles: { director: { name: 'Director', pages: ['bc'], can: ['live'] }, watcher: { name: 'Watcher', pages: ['bc'], can: [] }, nobc: { name: 'Ops', pages: ['fw'], can: ['msg'] } },
+  people: { 'dir@p.test': { role: 'director' }, 'watch@p.test': { role: 'watcher' }, 'ops@p.test': { role: 'nobc' },
+    'fw@p.test': { role: 'fwonly' }, 'fwdir@p.test': { role: 'fwdir' }, 'cal@p.test': { role: 'calonly' }, 'adm@p.test': { role: 'admin' } },
+  roles: { director: { name: 'Director', pages: ['bc'], can: ['live'] }, watcher: { name: 'Watcher', pages: ['bc'], can: [] }, nobc: { name: 'Ops', pages: ['fw'], can: ['msg'] },
+    fwonly: { name: 'Flight Watch', pages: ['fw'], can: [] }, fwdir: { name: 'Flight Watch lead', pages: ['fw'], can: ['live'] }, calonly: { name: 'Calendar', pages: ['cal'], can: ['cal'] } },
 };
 const kv = { m: new Map([['admin:v1:roles', JSON.stringify(roles)]]), async get(k, t) { const v = this.m.get(k); return v == null ? null : t === 'json' ? JSON.parse(v) : v; }, async put(k, v) { this.m.set(k, v); } };
 const ORIGIN = 'https://efb-api.example';
@@ -626,6 +632,455 @@ await test('admin player: when Polaris Cam says a camera is now JPEG, off or gon
   P.camIn({ t: 'pub', pub: { on: true, mode: 'h264', cams: [{ i: 0, on: true }] }, watchers: 1 }); assert.equal(st.decs[0].state, 'configured');
   P.camIn({ t: 'pub', pub: { on: true, mode: 'jpeg', cams: [{ i: 0, on: true }] }, watchers: 1 }); assert.equal(st.decs[0].state, 'closed');
   assert.equal(st.made, st.closed);
+});
+
+/* ---- 8. several channels: Broadcast's own ('cam') and each pilot's ('pilot:<ID>'), one object each ---- */
+function mkCluster() {
+  const objs = new Map(), pending = [];
+  const env = { SESSION_KEY: 'polaris-cam-test-session-key' };
+  const obj = (id) => {
+    let o = objs.get(id);
+    if (!o) { const ctx = mkCtx(); ctx.waitUntil = (p) => { pending.push(p); }; o = { ctx, relay: new CamRelay(ctx, env) }; objs.set(id, o); }
+    return o;
+  };
+  env.CAM = { idFromName: (n) => 'id:' + n, get: (id) => ({ fetch: (input, init) => obj(id).relay.fetch(input instanceof Request ? input : new Request(input, init)) }) };
+  return {
+    env, objs, of: (name) => obj('id:' + name),
+    has: (name) => objs.has('id:' + name),
+    /* what the objects were told to do in the background (the list of who is online), done */
+    async settle() { while (pending.length) await pending.shift(); },
+    /* the object leaves memory and is woken again: the same storage and sockets (and what is kept with them), nothing else */
+    hibernate(name) { const o = obj('id:' + name); o.relay = new CamRelay(o.ctx, env); return o.relay; },
+  };
+}
+const LIVE = 'https://efb-api.example';
+async function pubAt(C, path) { const r = await camPublic(up(LIVE + path), new URL(LIVE + path), C.env); assert.equal(r.status, 101); return r.webSocket.peer; }
+const ticketJoin = (C, ticket) => pubAt(C, '/live/cam/pilot/ws' + (ticket == null ? '' : '?ticket=' + encodeURIComponent(ticket)));
+const navJoin = async (C, u) => ticketJoin(C, await navWsTicket(C.env, u));
+const linkJoin = (C, pilot, token) => pubAt(C, '/live/cam/p/' + pilot + '/' + token + '/ws');
+const bcJoin = (C, token) => pubAt(C, '/live/cam/' + token + '/ws');
+const chan = (pilot) => (pilot ? 'pilot:' + pilot : 'cam');
+async function stateAt(C, pilot, role = 'dir') { return (await C.of(chan(pilot)).relay.fetch(new Request('https://cam/state?role=' + role + (pilot ? '&pilot=' + pilot : '')))).json(); }
+async function viewerAt(C, pilot, role = 'view') { const r = await C.of(chan(pilot)).relay.fetch(up('https://cam/ws?role=' + role + (pilot ? '&pilot=' + pilot : ''))); assert.equal(r.status, 101); return r.webSocket.peer; }
+const sendAt = (C, pilot, ws, m) => C.of(chan(pilot)).relay.webSocketMessage(ws, m);
+async function leaveAt(C, pilot, ws, code = 1000) { ws.readyState = 3; await C.of(chan(pilot)).relay.webSocketClose(ws, code, '', true); }
+async function rotateAt(C, pilot) { return (await C.of(chan(pilot)).relay.fetch(new Request('https://cam/token' + (pilot ? '?pilot=' + pilot : ''), { method: 'POST', body: JSON.stringify({ who: 't@p.test' }) }))).json(); }
+async function onlineNow(C) { await C.settle(); const u = new URL(ORIGIN + '/admin/api/cam/online'); return (await (await camAdmin(new Request(u), u, C.env, 'x@p.test', false, false)).json()).online; }
+
+await test('pilot IDs: normPilot trims and upper-cases 2-16 letters and digits; anything else is not one', async () => {
+  assert.equal(normPilot(' paw0006 '), 'PAW0006'); assert.equal(normPilot('AB'), 'AB'); assert.equal(normPilot('A'.repeat(16)), 'A'.repeat(16));
+  for (const bad of ['', 'A', 'A'.repeat(17), 'PAW-0006', 'PAW 0006', 'PAW_06', 'pilot:PAW', null, undefined, {}, 'ＰＡＷ０６']) assert.equal(normPilot(bad), '', String(bad));
+  assert.equal(pilotOk('paw0012'), true); assert.equal(pilotOk('x'), false);
+});
+
+await test('pilot channel, signed in by Polaris Navdata: a good ticket joins pilot:<ID>, which says { t:"id" } then { t:"watch" }; a missing, wrong, other-kind or old ticket is closed 4001', async () => {
+  const C = mkCluster();
+  const p = await navJoin(C, 'paw0006');
+  assert.equal(p.closed, null); assert.deepEqual(p.tags, ['pub']);
+  assert.deepEqual(p.texts().slice(0, 2), [{ t: 'id', pilot: 'PAW0006' }, { t: 'watch', n: 0 }]);
+  assert.equal(p.att.pilot, 'PAW0006'); assert.equal(p.att.auth, 'ticket');
+  assert.equal(C.of('pilot:PAW0006').relay.pilot, 'PAW0006');
+  /* its own channel, not Broadcast's: no PC there */
+  assert.equal((await stateAt(C, 'PAW0006', 'view')).pub.on, true);
+  assert.equal((await stateAt(C, '', 'view')).pub.on, false);
+  const v = await viewerAt(C, 'PAW0006'); assert.deepEqual(lastOf(p, 'watch'), { t: 'watch', n: 1 });
+  assert.equal(v.texts()[0].pub.on, true);
+  /* turned away, closed 4001 (so Polaris Cam asks Navdata for a new ticket) */
+  const bad = [null, '', 'nope', 'wn.e30.AAAA', await wsTicket(C.env, 'PAW0006'), await navWsTicket({ SESSION_KEY: 'another-key' }, 'PAW0006'),
+    await navWsTicket(C.env, 'A'), await navWsTicket(C.env, 'PAW-0006'), await navWsTicket(C.env, 'X'.repeat(17))];
+  for (const t of bad) { const b = await ticketJoin(C, t); assert.deepEqual(b.closed, { code: 4001, reason: CAM_TICKET }, String(t)); }
+  assert.equal(CAM_TICKET, 'Polaris Cam ticket expired or invalid');
+  const old = await navWsTicket(C.env, 'PAW0006'); NOW += 61000;
+  assert.equal((await ticketJoin(C, old)).closed.code, 4001);
+  assert.equal(p.closed, null);                                         /* none of them touched the one connected */
+  /* not a WebSocket: 426; no Durable Object: 503 */
+  const u = LIVE + '/live/cam/pilot/ws?ticket=x';
+  assert.equal((await camPublic(new Request(u), new URL(u), C.env)).status, 426);
+  assert.equal((await camPublic(up(u), new URL(u), { SESSION_KEY: 'k' })).status, 503);
+  /* the route: all three forms go to camPublic, and "pilot" is never a token of Broadcast's */
+  const src = (await import('node:fs')).readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+  const re = new RegExp(/if \(\/(\^\\\/live\\\/cam\\\/.*?)\/\.test\(new URL\(req\.url\)\.pathname\)\) \{ try \{ return await camPublic/.exec(src)[1]);
+  for (const ok of ['/live/cam/pilot/ws', '/live/cam/pilot/ws/', '/live/cam/p/PAW0006/' + 'a'.repeat(32) + '/ws', '/live/cam/' + 'a'.repeat(32) + '/ws']) assert.ok(re.test(ok), ok);
+  for (const no of ['/live/cam/pilot', '/live/cam/p/PAW0006/ws/x', '/live/cam//ws', '/live/camx/a/ws']) assert.equal(re.test(no), false, no);
+  const viaToken = await camPublic(up(LIVE + '/live/cam/pilot/ws'), new URL(LIVE + '/live/cam/pilot/ws'), C.env);
+  assert.equal(viaToken.webSocket.peer.closed.code, 4001);              /* not 4004: it was not taken for a Broadcast link */
+});
+
+await test('several pilots at once: PAW0006 and PAW0012 do not take over from each other; pictures, hellos and watch counts stay on their own channel; a second PAW0006 takes over only PAW0006 (4000)', async () => {
+  const C = mkCluster();
+  const a = await navJoin(C, 'PAW0006'), b = await navJoin(C, 'PAW0012');
+  assert.equal(a.closed, null); assert.equal(b.closed, null);
+  const va = await viewerAt(C, 'PAW0006'), vb = await viewerAt(C, 'PAW0012'), vb2 = await viewerAt(C, 'PAW0012', 'dir');
+  assert.equal(lastOf(a, 'watch').n, 1); assert.equal(lastOf(b, 'watch').n, 2);
+  await sendAt(C, 'PAW0006', a, frame({ cam: 0, seq: 1 })); await sendAt(C, 'PAW0012', b, frame({ cam: 1, seq: 7 }));
+  await sendAt(C, 'PAW0012', b, h264({ cam: 2, key: true, seq: 8 }));
+  assert.deepEqual(va.bins().map(seqOf), [1]); assert.deepEqual(vb.bins().map(seqOf), [7, 8]); assert.deepEqual(vb2.bins().map(seqOf), [7, 8]);
+  await sendAt(C, 'PAW0006', a, JSON.stringify({ t: 'hello', v: '2.1.0', mode: 'h264', cams: [{ i: 0, name: 'Cockpit' }] }));
+  assert.equal(lastOf(va, 'pub').pub.v, '2.1.0');
+  assert.equal([...vb.texts(), ...vb2.texts()].some((m) => m.pub && m.pub.v === '2.1.0'), false);
+  /* a page leaving PAW0012 changes only PAW0012's count */
+  await leaveAt(C, 'PAW0012', vb); assert.equal(lastOf(b, 'watch').n, 1); assert.equal(lastOf(a, 'watch').n, 1);
+  /* a second PC for PAW0006: only the old PAW0006 goes */
+  const a2 = await navJoin(C, 'PAW0006');
+  assert.deepEqual(a.closed, { code: 4000, reason: 'Another Polaris Cam took over' });
+  assert.equal(b.closed, null); assert.equal(a2.closed, null);
+  assert.deepEqual(a2.texts().slice(0, 2), [{ t: 'id', pilot: 'PAW0006' }, { t: 'watch', n: 1 }]);
+  await leaveAt(C, 'PAW0006', a, 4000); assert.equal((await stateAt(C, 'PAW0006', 'view')).pub.on, true);
+  /* Broadcast's own channel: a PC there takes over no pilot, and its pages see neither pilot's pictures */
+  const m = await bcJoin(C, (await stateAt(C, '', 'dir')).token), vm2 = await viewerAt(C, '');
+  assert.equal(m.closed, null); assert.equal(a2.closed, null); assert.equal(b.closed, null);
+  assert.equal(m.texts().some((x) => x.t === 'id'), false);             /* Broadcast's own channel has no pilot to say */
+  await sendAt(C, 'PAW0006', a2, frame({ seq: 50 })); await sendAt(C, 'PAW0012', b, frame({ seq: 60 }));
+  assert.equal(vm2.bins().length, 0); assert.deepEqual(va.bins().map(seqOf), [1, 50]);
+  await sendAt(C, '', m, frame({ seq: 70 })); assert.deepEqual(vm2.bins().map(seqOf), [70]); assert.equal(va.bins().length, 2);
+});
+
+await test('a pilot\'s own link /live/cam/p/<ID>/<token>/ws: its channel\'s own token (not Broadcast\'s, not another pilot\'s), a new one apart from Broadcast\'s; a wrong one is closed 4004, and a new link never stops a PC signed in with Navdata', async () => {
+  const C = mkCluster();
+  const tok = (await stateAt(C, 'PAW0006')).token, bc = (await stateAt(C, '')).token, tok12 = (await stateAt(C, 'PAW0012')).token;
+  assert.match(tok, /^[A-Za-z0-9_-]{24,40}$/); assert.notEqual(tok, bc); assert.notEqual(tok, tok12);
+  assert.equal((await stateAt(C, 'PAW0006', 'view')).token, undefined);
+  const p = await linkJoin(C, 'paw0006', tok);                          /* the ID is read as upper case */
+  assert.equal(p.closed, null); assert.deepEqual(p.texts().slice(0, 2), [{ t: 'id', pilot: 'PAW0006' }, { t: 'watch', n: 0 }]); assert.equal(p.att.auth, 'token');
+  for (const [pilot, t] of [['PAW0006', bc], ['PAW0006', tok12], ['PAW0012', tok], ['PAW0006', 'x'.repeat(30)], ['PAW-06', tok], ['A', tok]]) assert.deepEqual((await linkJoin(C, pilot, t)).closed, { code: 4004, reason: CAM_GONE }, pilot + ' ' + t);
+  assert.equal((await bcJoin(C, tok)).closed.code, 4004);              /* a pilot's token is not Broadcast's link */
+  assert.equal(p.closed, null);
+  /* a new link for PAW0006: that PC stops (4004), the old link no longer works, Broadcast's and PAW0012's are as they were */
+  const d = await viewerAt(C, 'PAW0006', 'dir'), w = await viewerAt(C, 'PAW0006', 'view'), dbc = await viewerAt(C, '', 'dir');
+  const j = await rotateAt(C, 'PAW0006');
+  assert.notEqual(j.token, tok); assert.equal(j.pub.on, false); assert.deepEqual(p.closed, { code: 4004, reason: CAM_GONE });
+  assert.deepEqual(lastOf(d, 'token'), { t: 'token', token: j.token }); assert.equal(JSON.stringify(w.texts()).includes(j.token), false);
+  assert.equal(dbc.texts().some((m) => m.t === 'token'), false);
+  assert.equal((await stateAt(C, '')).token, bc); assert.equal((await stateAt(C, 'PAW0012')).token, tok12);
+  assert.equal((await linkJoin(C, 'PAW0006', tok)).closed.code, 4004);
+  const p2 = await linkJoin(C, 'PAW0006', j.token); assert.equal(p2.closed, null);
+  /* and Broadcast's new link leaves the pilots' alone */
+  const nb = await rotateAt(C, ''); assert.notEqual(nb.token, bc); assert.equal(p2.closed, null); assert.equal((await stateAt(C, 'PAW0006')).token, j.token);
+  /* a PC signed in by Navdata on PAW0012 is not a link's: a new PAW0012 link does not stop it */
+  const n = await navJoin(C, 'PAW0012'); const j12 = await rotateAt(C, 'PAW0012');
+  assert.notEqual(j12.token, tok12); assert.equal(n.closed, null); assert.equal(j12.pub.on, true);
+  /* the ticket is checked only for /live/cam/pilot/ws: auth=ticket is no way round a link, nor a way onto Broadcast's channel */
+  const R = mkRelay(); await state(R, 'dir');
+  const sneak = await join(R, 'https://cam/pub?auth=ticket'); assert.equal(sneak.closed.code, 4004);
+  const sneak2 = await C.of('cam').relay.fetch(up('https://cam/pub?auth=ticket&pilot=')); assert.equal(sneak2.webSocket.peer.closed.code, 4004);
+  /* not a WebSocket: 426 */
+  const u = LIVE + '/live/cam/p/PAW0006/' + j.token + '/ws'; assert.equal((await camPublic(new Request(u), new URL(u), C.env)).status, 426);
+});
+
+await test('who is online (GET /admin/api/cam/online): on as a PC connects, its hello, off as it goes (also after the objects were away from memory); written only then; a wrong entry is put right when a page opens that channel', async () => {
+  const C = mkCluster();
+  assert.deepEqual(await onlineNow(C), {});
+  let writes = 0; const put = C.of('cam').ctx.storage.put; C.of('cam').ctx.storage.put = async (k, v) => { if (k === 'online') writes++; return put(k, v); };
+  const a = await navJoin(C, 'PAW0006'), at = NOW;
+  let o = await onlineNow(C);
+  assert.deepEqual(o, { PAW0006: { v: '', mode: 'jpeg', cams: [], at } }); assert.equal(writes, 1);
+  await sendAt(C, 'PAW0006', a, JSON.stringify({ t: 'hello', v: '2.1.0', mode: 'h264', cams: [{ i: 0, name: 'Cockpit <1>', w: 1280, h: 720 }, { i: 2, name: 'Wing', codec: 'jpeg', on: false }] }));
+  o = await onlineNow(C);
+  assert.equal(o.PAW0006.v, '2.1.0'); assert.equal(o.PAW0006.mode, 'h264'); assert.equal(o.PAW0006.at, at);
+  assert.deepEqual(o.PAW0006.cams.map((c) => [c.i, c.name, c.codec, c.on]), [[0, 'Cockpit 1', 'h264', true], [2, 'Wing', 'jpeg', false]]);
+  assert.equal(writes, 2);
+  /* pictures and pages change nothing kept */
+  for (let s = 1; s <= 20; s++) await sendAt(C, 'PAW0006', a, frame({ seq: s }));
+  const v = await viewerAt(C, 'PAW0006'); await leaveAt(C, 'PAW0006', v); await stateAt(C, 'PAW0006', 'view');
+  await onlineNow(C); assert.equal(writes, 2);
+  /* a second pilot by link, then the first one goes */
+  const b = await linkJoin(C, 'PAW0012', (await stateAt(C, 'PAW0012')).token);
+  assert.deepEqual(Object.keys(await onlineNow(C)).sort(), ['PAW0006', 'PAW0012']);
+  await leaveAt(C, 'PAW0006', a);
+  assert.deepEqual(Object.keys(await onlineNow(C)), ['PAW0012']);
+  /* PAW0012's object leaves memory; its PC's socket closing wakes it: it still knows whose channel it is */
+  const r12 = C.hibernate('pilot:PAW0012'); assert.equal(r12.pilot, '');
+  b.readyState = 3; await r12.webSocketClose(b, 1006, '', false);
+  assert.deepEqual(await onlineNow(C), {});
+  /* the same for a hello after the object was away: listed under the right pilot, with when it connected */
+  const c = await navJoin(C, 'PAW0020'), cAt = NOW; NOW += 5000;
+  const r20 = C.hibernate('pilot:PAW0020');
+  await r20.webSocketMessage(c, JSON.stringify({ t: 'hello', v: '3.0.0', mode: 'jpeg', cams: [{ i: 1, name: 'Overhead' }] }));
+  o = await onlineNow(C); assert.equal(o.PAW0020.v, '3.0.0'); assert.equal(o.PAW0020.at, cAt); assert.equal(r20.pilot, 'PAW0020');
+  /* Broadcast's own object leaves memory too: the list is read back from storage */
+  C.hibernate('cam'); assert.deepEqual(Object.keys(await onlineNow(C)), ['PAW0020']);
+  /* a PC on Broadcast's own channel is no pilot: not listed */
+  await bcJoin(C, (await stateAt(C, '')).token); assert.deepEqual(Object.keys(await onlineNow(C)), ['PAW0020']);
+  /* put right: an entry for a PC that went without a word ... */
+  await C.of('cam').relay.fetch(new Request('https://cam/presence', { method: 'POST', body: JSON.stringify({ pilot: 'PAW0031', on: true, pub: { v: '1', mode: 'jpeg', cams: [], at: 1 } }) }));
+  assert.ok('PAW0031' in await onlineNow(C));
+  await viewerAt(C, 'PAW0031'); assert.equal('PAW0031' in await onlineNow(C), false);
+  /* ... and one missing while its PC is on */
+  await C.of('cam').relay.fetch(new Request('https://cam/presence', { method: 'POST', body: JSON.stringify({ pilot: 'PAW0020', on: false }) }));
+  assert.equal('PAW0020' in await onlineNow(C), false);
+  await viewerAt(C, 'PAW0020'); assert.equal((await onlineNow(C)).PAW0020.v, '3.0.0');
+  /* nonsense is refused; a pilot's channel keeps no list */
+  for (const body of [{}, { pilot: 'bad id', on: true }, 'x']) assert.equal((await C.of('cam').relay.fetch(new Request('https://cam/presence', { method: 'POST', body: JSON.stringify(body) }))).status, 400);
+  assert.equal((await C.of('pilot:PAW0020').relay.fetch(new Request('https://cam/presence', { method: 'POST', body: JSON.stringify({ pilot: 'PAW0099', on: true }) }))).status, 404);
+});
+
+await test('who is online, as kept: malformed entries dropped, at most 200 (the latest seen); a lone relay without the namespace (no env.CAM) never fails', async () => {
+  const C = mkCluster(), M = C.of('cam');
+  M.ctx.store.set('online', { PAW0001: { v: '1.0', mode: 'h264', cams: [{ i: 9 }, { i: 0, name: 'A' }], at: 5, seen: 9 }, 'bad id': { at: 1 }, paw0002: { at: 1 }, PAW0003: 'x', PAW0004: [1], PAW0005: null, PAW0006: { at: -4, mode: 'vp9' } });
+  C.hibernate('cam');
+  const o = await onlineNow(C);
+  assert.deepEqual(Object.keys(o).sort(), ['PAW0001', 'PAW0006']);
+  assert.deepEqual(o.PAW0001, { v: '1.0', mode: 'h264', cams: [{ i: 0, name: 'A', on: true, w: 0, h: 0, codec: 'h264' }], at: 5 });
+  assert.deepEqual(o.PAW0006, { v: '', mode: 'jpeg', cams: [], at: 0 });
+  assert.equal('seen' in o.PAW0001, false);
+  const many = {}; for (let i = 0; i < 250; i++) many['P' + String(i).padStart(4, '0')] = { at: i, seen: 1000 + i };
+  assert.equal(Object.keys(onlineIn(many)).length, 200); assert.ok('P0249' in onlineIn(many)); assert.equal('P0049' in onlineIn(many), false);
+  M.ctx.store.set('online', many); C.hibernate('cam');
+  await C.of('cam').relay.fetch(new Request('https://cam/presence', { method: 'POST', body: JSON.stringify({ pilot: 'NEW1', on: true, pub: { at: 1 } }) }));
+  const after = await onlineNow(C); assert.equal(Object.keys(after).length, 200); assert.ok('NEW1' in after); assert.equal(Object.keys(M.ctx.store.get('online')).length, 200);
+  /* the single relay the older tests use: a pilot's channel there has nobody to tell, and says nothing */
+  const R = mkRelay();
+  const r = await R.relay.fetch(up('https://cam/pub?auth=ticket&pilot=PAW0006')); assert.equal(r.status, 101);
+  assert.equal(r.webSocket.peer.closed, null); assert.equal(R.relay.presence(true), null);
+  await leave(R, r.webSocket.peer); assert.equal((await state(R, 'view')).pub.on, false);
+});
+
+/* ---- 9. who may watch whom (mail.js -> camAdmin) ---- */
+await test('roles: Flight Watch only (no Broadcast, no "live"): who is online, a pilot\'s state and pictures (no token); not Broadcast\'s own channel, no new link', async () => {
+  const C = mkCluster(), ptok = (await stateAt(C, 'PAW0006')).token;
+  await navJoin(C, 'PAW0006');
+  for (const who of ['fw@p.test', 'ops@p.test']) {
+    const on = await admin(C, who, '/admin/api/cam/online'); assert.equal(on.status, 200);
+    assert.deepEqual(Object.keys((await on.json()).online), ['PAW0006']);
+    const g = await admin(C, who, '/admin/api/cam?pilot=paw0006'); assert.equal(g.status, 200);
+    const gj = await g.json(); assert.equal('token' in gj, false); assert.equal(gj.pub.on, true);
+    const w = await admin(C, who, '/admin/api/cam/ws?pilot=PAW0006', { ws: true }); assert.equal(w.status, 101);
+    const wv = w.webSocket.peer; assert.deepEqual(wv.tags, ['view']);
+    const h = wv.texts()[0]; assert.equal(h.t, 'hello'); assert.equal(h.role, 'view'); assert.equal('token' in h, false); assert.equal(JSON.stringify(wv.texts()).includes(ptok), false);
+    assert.equal((await admin(C, who, '/admin/api/cam')).status, 403);
+    assert.equal((await admin(C, who, '/admin/api/cam?pilot=')).status, 403);   /* no pilot: Broadcast's own */
+    assert.equal((await admin(C, who, '/admin/api/cam/ws', { ws: true })).status, 403);
+    assert.equal((await admin(C, who, '/admin/api/cam', { method: 'POST', body: { op: 'token' } })).status, 403);
+    assert.equal((await admin(C, who, '/admin/api/cam', { method: 'POST', body: { op: 'token', pilot: 'PAW0006' } })).status, 403);
+    assert.equal((await admin(C, who, '/admin/api/cam?pilot=PAW-6')).status, 400);
+    assert.equal((await admin(C, who, '/admin/api/cam/ws?pilot=x', { ws: true })).status, 400);
+    assert.equal((await admin(C, who, '/admin/api/cam/ws?pilot=PAW0006', { ws: true, origin: 'https://evil.example' })).status, 403);
+    assert.equal((await admin(C, who, '/admin/api/cam/ws?pilot=PAW0006')).status, 426);
+  }
+  assert.equal((await stateAt(C, 'PAW0006')).token, ptok);
+  /* a role that sees neither page: nothing at all */
+  for (const p of ['/admin/api/cam/online', '/admin/api/cam?pilot=PAW0006', '/admin/api/cam']) assert.equal((await admin(C, 'cal@p.test', p)).status, 403, p);
+  assert.equal((await admin(C, 'cal@p.test', '/admin/api/cam/ws?pilot=PAW0006', { ws: true })).status, 403);
+  assert.equal((await admin(C, 'stranger@p.test', '/admin/api/cam/online')).status, 403);
+});
+
+await test('roles: a Broadcast watcher (no "live"): Broadcast\'s own and any pilot\'s, read and live, never a token; no new link of either', async () => {
+  const C = mkCluster(), btok = (await stateAt(C, '')).token, ptok = (await stateAt(C, 'PAW0006')).token;
+  for (const [p, t] of [['/admin/api/cam', btok], ['/admin/api/cam?pilot=PAW0006', ptok]]) {
+    const r = await admin(C, 'watch@p.test', p); assert.equal(r.status, 200); assert.equal('token' in (await r.json()), false);
+    const w = await admin(C, 'watch@p.test', p.replace('/admin/api/cam', '/admin/api/cam/ws'), { ws: true }); assert.equal(w.status, 101);
+    assert.equal(w.webSocket.peer.texts()[0].role, 'view'); assert.equal(JSON.stringify(w.webSocket.peer.texts()).includes(t), false);
+  }
+  assert.equal((await admin(C, 'watch@p.test', '/admin/api/cam/online')).status, 200);
+  assert.equal((await admin(C, 'watch@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token' } })).status, 403);
+  assert.equal((await admin(C, 'watch@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token', pilot: 'PAW0006' } })).status, 403);
+  assert.equal((await stateAt(C, '')).token, btok); assert.equal((await stateAt(C, 'PAW0006')).token, ptok);
+});
+
+await test('roles: directors ("live") and administrators read and renew both links, each apart; "live" without Broadcast only the pilots\'', async () => {
+  const C = mkCluster();
+  for (const who of ['dir@p.test', 'adm@p.test']) {
+    const btok = (await stateAt(C, '')).token, ptok = (await stateAt(C, 'PAW0006')).token;
+    assert.equal((await (await admin(C, who, '/admin/api/cam')).json()).token, btok);
+    assert.equal((await (await admin(C, who, '/admin/api/cam?pilot=PAW0006')).json()).token, ptok);
+    const dw = (await admin(C, who, '/admin/api/cam/ws?pilot=PAW0006', { ws: true })).webSocket.peer, bw = (await admin(C, who, '/admin/api/cam/ws', { ws: true })).webSocket.peer;
+    assert.equal(dw.texts()[0].role, 'dir'); assert.equal(dw.texts()[0].token, ptok); assert.equal(bw.texts()[0].token, btok);
+    /* the pilot's new link: to that channel's directors, Broadcast's unchanged */
+    const r = await admin(C, who, '/admin/api/cam', { method: 'POST', body: { op: 'token', pilot: 'paw0006' } }); assert.equal(r.status, 200);
+    const nt = (await r.json()).token; assert.notEqual(nt, ptok);
+    assert.equal((await stateAt(C, 'PAW0006')).token, nt); assert.equal((await stateAt(C, '')).token, btok);
+    assert.deepEqual(lastOf(dw, 'token'), { t: 'token', token: nt }); assert.equal(bw.texts().some((m) => m.t === 'token'), false);
+    /* Broadcast's new link: the pilot's unchanged */
+    const rb = await admin(C, who, '/admin/api/cam', { method: 'POST', body: { op: 'token' } }); assert.equal(rb.status, 200);
+    const nb = (await rb.json()).token; assert.notEqual(nb, btok); assert.equal((await stateAt(C, 'PAW0006')).token, nt);
+    assert.equal(lastOf(bw, 'token').token, nb);
+    assert.equal((await admin(C, who, '/admin/api/cam', { method: 'POST', body: { op: 'token', pilot: 'bad id' } })).status, 400);
+    /* a pilot named only in the address still means that pilot's link, never Broadcast's own */
+    const rq = await admin(C, who, '/admin/api/cam?pilot=PAW0006', { method: 'POST', body: { op: 'token' } }); assert.equal(rq.status, 200);
+    const nq = (await rq.json()).token; assert.notEqual(nq, nt); assert.equal((await stateAt(C, 'PAW0006')).token, nq); assert.equal((await stateAt(C, '')).token, nb);
+  }
+  /* "live" with Flight Watch but not Broadcast: the pilots' links, not Broadcast's */
+  const ptok = (await stateAt(C, 'PAW0012')).token;
+  assert.equal((await (await admin(C, 'fwdir@p.test', '/admin/api/cam?pilot=PAW0012')).json()).token, ptok);
+  assert.equal((await admin(C, 'fwdir@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token', pilot: 'PAW0012' } })).status, 200);
+  assert.equal((await admin(C, 'fwdir@p.test', '/admin/api/cam')).status, 403);
+  assert.equal((await admin(C, 'fwdir@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token' } })).status, 403);
+  /* camAdmin called as before (no hasBc): Broadcast's own channel as it was */
+  const u = new URL(ORIGIN + '/admin/api/cam'); assert.equal((await camAdmin(new Request(u), u, C.env, 'x', false)).status, 200);
+});
+
+/* ---- 10. the admin page: Broadcast's automatic linkage and Flight Watch's Cockpit Monitor (admin.js, in a stand-in page) ---- */
+const uiSrc = (() => {
+  const a = ADMIN_HTML.indexOf('/* Polaris Cam (cam.js): its cockpit cameras'), b = ADMIN_HTML.indexOf('PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll();bcCamOn()};');
+  assert.ok(a > 0 && b > a, 'the players in admin.js');
+  return ADMIN_HTML.slice(a, b) + '\n;globalThis.__ui={CAM,CAMP,CAMB,FWV,FW_CAM,CAM_VIEWS,bcCamLink,bcCamOn,bcCamOff,camUi,fwCamSync,fwCamLoad,fwCamRows,fwCamStrip,fwCamUi};';
+})();
+function mkUi({ perm = null } = {}) {
+  const vm = globalThis.__vm, S = { socks: [], timers: [], T: 0, online: {}, flights: [], rows: [], shown: [], calls: [], doc: {}, win: {} };
+  class WS { constructor(u) { this.url = u; this.readyState = 0; this.sent = []; this.closed = false; S.socks.push(this); } send(m) { this.sent.push(m); } close() { this.closed = true; this.readyState = 3; } }
+  const els = {};
+  const el = (id) => els[id] || (els[id] = { id, hidden: true, innerHTML: '', textContent: '', value: '', placeholder: '', title: '', disabled: false, classList: { toggle() {} }, setAttribute() {}, querySelector: () => null });
+  const document = {
+    hidden: false,
+    querySelector: (s) => (/^#[A-Za-z0-9_-]+$/.test(s) ? el(s) : null),
+    querySelectorAll: (s) => (s === '#lvList [data-cs]' ? S.rows : []),
+    addEventListener: (t, f) => { (S.doc[t] = S.doc[t] || []).push(f); },
+    createElement: () => ({ className: '', innerHTML: '', title: '' }),
+  };
+  const window = { addEventListener: (t, f) => { (S.win[t] = S.win[t] || []).push(f); }, pmLive: { flights: () => S.flights.map((f) => ({ ...f })), show: (cs) => S.shown.push(cs) } };
+  const g = {
+    document, window, $: (s) => document.querySelector(s), esc: (s) => String(s), location: { origin: ORIGIN, protocol: 'https:', host: 'efb-api.example' },
+    WebSocket: WS, Date, Blob, URL, console, performance: { now: () => S.T }, requestAnimationFrame: () => 0, navigator: {},
+    setTimeout: (fn, ms) => { const t = { fn, at: S.T + (ms || 0), id: S.timers.length + 1 }; S.timers.push(t); return t.id; },
+    clearTimeout: (id) => { S.timers = S.timers.filter((t) => t.id !== id); }, setInterval: () => 0,
+    PERM: perm, pgNow: '', BC: { cfg: null }, FO: { f: null }, pgHas: () => true, bcSay: () => {},
+    api: async (path, opt) => { S.calls.push([path, opt && opt.method || 'GET', opt && opt.body]); if (path === '/admin/api/cam/online') return { online: JSON.parse(JSON.stringify(S.online)) }; if (opt && opt.method === 'POST') return { ok: true, token: 'N'.repeat(30) }; return { token: 'G'.repeat(30), pub: { on: false } }; },
+  };
+  vm.createContext(g); vm.runInContext(uiSrc, g);
+  const U = {
+    g, S, ui: g.__ui, $: (s) => el(s),
+    open: () => S.socks.filter((w) => !w.closed),
+    fw: () => S.socks.filter((w) => !w.closed && /\?pilot=/.test(w.url) && w.fw),
+    hello: (w, j = {}) => { w.readyState = 1; w.onmessage({ data: JSON.stringify({ t: 'hello', role: 'view', watchers: 1, pub: { on: false, cams: [] }, ...j }) }); },
+    say: (w, j) => w.onmessage({ data: JSON.stringify(j) }),
+    drop: (w) => { w.readyState = 3; w.closed = true; w.onclose(); },   /* the server or the network closed it */
+    advance: (ms) => { S.T += ms; for (;;) { const due = S.timers.filter((t) => t.at <= S.T).sort((x, y) => x.at - y.at)[0]; if (!due) break; S.timers = S.timers.filter((t) => t !== due); due.fn(); } },
+    fireDoc: (t, e = {}) => (S.doc[t] || []).forEach((f) => f(e)),
+    fireWin: (t, e = {}) => (S.win[t] || []).forEach((f) => f(e)),
+    /* a click on something with these data- attributes (closest() finds it only for a selector that names one of them) */
+    click: (data) => { const t = { dataset: data, disabled: false, id: '', textContent: '' }; t.closest = (sel) => (Object.keys(data).some((k) => sel.includes('[data-' + k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()) + ']')) ? t : null); U.fireDoc('click', { target: t }); return t; },
+    row: (cs) => { const kids = []; const r = { dataset: { cs }, kids, querySelector: (q) => (q === '.fw-cb' ? kids.find((k) => k.className === 'fw-cb') || null : q === '.lv-cs' ? { appendChild: (s) => { s.remove = () => kids.splice(kids.indexOf(s), 1); kids.push(s); } } : null) }; S.rows.push(r); return r; },
+  };
+  return U;
+}
+const pilotWs = (U) => U.open().filter((w) => /\?pilot=/.test(w.url));
+
+await test('admin page, Broadcast (Option A): a PC on Broadcast\'s own channel shows first ("Direct link"); else the streaming pilot\'s own channel ("Auto · <ID>"); else Offline; never two streams at once', async () => {
+  const U = mkUi(), { ui, g } = U, st = () => U.$('#bcCamSt').innerHTML;
+  g.pgNow = 'bc'; g.BC.cfg = { pilot: 'paw0006' };
+  ui.bcCamOn();
+  assert.deepEqual(U.open().map((w) => w.url), ['wss://efb-api.example/admin/api/cam/ws']);   /* nothing for the pilot before Broadcast's own says */
+  const m = U.open()[0];
+  U.hello(m, { role: 'dir', token: 'T'.repeat(30) });
+  assert.equal(U.open().length, 2); const p1 = pilotWs(U)[0];
+  assert.equal(p1.url, 'wss://efb-api.example/admin/api/cam/ws?pilot=PAW0006'); assert.equal(ui.CAMB.src, 'pilot');
+  assert.match(st(), /Auto · PAW0006/); assert.match(st(), /Connecting/);
+  assert.equal(U.$('#bcCamW').hidden, false); assert.equal(U.$('#bcCamUrl').value, ORIGIN + '/live/cam/' + 'T'.repeat(30));   /* the link stays as the fallback */
+  U.hello(p1, { pub: { on: true, v: '2.0.0', mode: 'h264', cams: [{ i: 0, on: true, codec: 'h264' }] } });
+  assert.match(st(), /Auto · PAW0006/); assert.match(st(), /Online/); assert.match(st(), /v2\.0\.0/);
+  /* case 1: a PC comes on Broadcast's own channel: the pilot's socket goes at once */
+  U.say(m, { t: 'pub', pub: { on: true, v: '1.9.0', mode: 'jpeg', cams: [] }, watchers: 1 });
+  assert.equal(p1.closed, true); assert.deepEqual(U.open(), [m]); assert.equal(ui.CAMB.src, 'master');
+  assert.match(st(), /Direct link/); assert.doesNotMatch(st(), /Auto/); assert.match(st(), /v1\.9\.0/);
+  g.BC.cfg = { pilot: 'PAW0012' }; ui.bcCamLink(); assert.deepEqual(U.open(), [m]);     /* still only the one */
+  /* it goes: Auto again, for the pilot set now */
+  U.say(m, { t: 'pub', pub: { on: false, cams: [] }, watchers: 1 });
+  assert.equal(U.open().length, 2); const p2 = pilotWs(U)[0]; assert.match(p2.url, /\?pilot=PAW0012$/); assert.equal(ui.CAMB.src, 'pilot');
+  /* another streaming pilot (Setup): the one before closes, then the new one opens */
+  g.BC.cfg = { pilot: 'PAW0013' }; ui.bcCamLink();
+  assert.equal(p2.closed, true); assert.equal(pilotWs(U).length, 1); const p3 = pilotWs(U)[0]; assert.match(p3.url, /PAW0013$/);
+  /* Broadcast's own socket drops and comes back: the pilot's stays meanwhile */
+  U.drop(m); assert.equal(p3.closed, false); assert.equal(ui.CAMB.src, 'pilot');
+  U.advance(3000); const m2 = U.open().find((w) => /cam\/ws$/.test(w.url)); assert.ok(m2 && m2 !== m);
+  U.hello(m2, { role: 'dir' }); assert.equal(p3.closed, false); assert.equal(U.open().length, 2);
+  /* case 3: no streaming pilot: Offline, only Broadcast's own open */
+  g.BC.cfg = { pilot: '' }; ui.bcCamLink();
+  assert.equal(p3.closed, true); assert.equal(ui.CAMB.src, ''); assert.deepEqual(U.open(), [m2]); assert.match(st(), /Offline/); assert.doesNotMatch(st(), /Auto|Direct/);
+  g.BC.cfg = { pilot: 'not a pilot!' }; ui.bcCamLink(); assert.deepEqual(U.open(), [m2]);
+  /* hidden for a minute: everything closes; back in view: open again */
+  g.BC.cfg = { pilot: 'PAW0006' }; ui.bcCamLink(); assert.equal(U.open().length, 2);
+  g.document.hidden = true; U.fireDoc('visibilitychange'); U.advance(59000); assert.equal(U.open().length, 2);
+  U.advance(1000); assert.equal(U.open().length, 0); assert.equal(ui.CAMB.src, '');
+  g.document.hidden = false; U.fireDoc('visibilitychange'); assert.equal(U.open().length, 1);
+  U.hello(U.open()[0]); assert.equal(pilotWs(U).length, 1);
+  /* leaving Broadcast closes both */
+  g.pgNow = 'fw'; U.fireWin('pm:tab'); assert.equal(U.open().length, 0);
+  assert.ok(U.S.socks.every((w) => w.closed));
+});
+
+await test('admin page, Flight Watch: who is online marks their flights and the strip; the open flight\'s pilot is watched at once while online, never while not (Connect waits), one pilot at a time; closed when the flight changes or closes, the page is left, or the tab is hidden a minute', async () => {
+  const U = mkUi({ perm: { pages: new Set(['fw']), can: new Set(['live']) } }), { ui, g } = U;
+  const one = () => assert.ok(pilotWs(U).length <= 1, 'never two pilots at once');
+  g.pgNow = 'fw';
+  U.S.online = { PAW0006: { v: '2.0.0', mode: 'h264', cams: [{ i: 0, on: true }], at: 1 }, PAW0099: { v: '2.0.0', mode: 'jpeg', cams: [], at: 2 } };
+  U.S.flights = [{ cs: 'PAW806', pilot: 'PAW0006', sample: false }, { cs: 'PAW812', pilot: 'PAW0012', sample: false }, { cs: 'PAW900', pilot: '', sample: false }, { cs: 'PAW1', pilot: 'PAW0099', sample: true }];
+  const r806 = U.row('PAW806'), r812 = U.row('PAW812'), r1 = U.row('PAW1');
+  await ui.fwCamLoad();
+  assert.equal(r806.kids.length, 1); assert.equal(r806.kids[0].className, 'fw-cb'); assert.equal(r812.kids.length, 0); assert.equal(r1.kids.length, 0);   /* not the sample */
+  const strip = U.$('#fwCam'); assert.equal(strip.hidden, false);
+  assert.match(strip.innerHTML, /2 online/); assert.match(strip.innerHTML, /data-fwcp="PAW0006"[^]*PAW806/); assert.match(strip.innerHTML, /data-fwcp="PAW0099"[^]*on ground/);
+  assert.equal(U.open().length, 0);                                       /* no one is watched before a flight is open */
+  /* a flight whose pilot is online: watched at once */
+  g.FO.f = { cs: 'PAW806', pilot: 'PAW0006' }; ui.fwCamSync(true); one();
+  let w = pilotWs(U); assert.equal(w.length, 1); assert.equal(w[0].url, 'wss://efb-api.example/admin/api/cam/ws?pilot=PAW0006');
+  assert.match(U.$('#foCam').innerHTML, /Cockpit Monitor <small>PAW0006/); assert.match(U.$('#foCam').innerHTML, /Manual link for PAW0006/);
+  U.hello(w[0], { role: 'dir', token: 'P'.repeat(30), pub: { on: true, v: '2.0.0', mode: 'h264', cams: [{ i: 0, on: true, codec: 'h264' }, { i: 1, on: true, codec: 'h264' }] } });
+  assert.match(U.$('#foCamSt').innerHTML, /Online/); assert.match(U.$('#foCamSt').innerHTML, /2 cameras/);
+  assert.equal(U.$('#foCamG').hidden, false); assert.equal(U.$('#foCamGo').textContent, 'Pause');
+  assert.equal(U.$('#foCamUrl').value, ORIGIN + '/live/cam/p/PAW0006/' + 'P'.repeat(30));
+  /* the panel drawn again with the same flight (pm:sel): the same socket, not a second */
+  ui.fwCamSync(true); assert.equal(pilotWs(U).length, 1); assert.equal(w[0].closed, false);
+  /* another flight, its pilot offline: the first closes, nothing opens (no idle socket) */
+  g.FO.f = { cs: 'PAW812', pilot: 'PAW0012' }; ui.fwCamSync(true);
+  assert.equal(w[0].closed, true); assert.equal(U.open().length, 0);
+  assert.match(U.$('#foCamSt').innerHTML, /Offline/); assert.equal(U.$('#foCamGo').textContent, 'Connect'); assert.equal(U.$('#foCamG').hidden, true);
+  assert.equal(U.$('#foCamUrl').value, '');
+  /* a director opens the manual link: asked of the pilot's channel */
+  U.$('#foCamK').id = 'foCamK'; U.$('#foCamK').open = true; U.fireDoc('toggle', { target: U.$('#foCamK') }); await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(U.S.calls.pop(), ['/admin/api/cam?pilot=PAW0012', 'GET', undefined]); assert.equal(U.$('#foCamUrl').value, ORIGIN + '/live/cam/p/PAW0012/' + 'G'.repeat(30));
+  /* Connect: waits for their Polaris Cam */
+  U.click({ fwc: 'go' }); one(); w = pilotWs(U); assert.equal(w.length, 1); assert.match(w[0].url, /PAW0012$/);
+  U.hello(w[0], { pub: { on: false, cams: [] } }); assert.equal(w[0].closed, false); assert.match(U.$('#foCamSt').innerHTML, /Waiting for Polaris Cam/);
+  assert.equal(U.$('#foCamGo').textContent, 'Cancel');
+  /* Cancel: back to Offline, no socket; Connect again */
+  U.click({ fwc: 'go' }); assert.equal(w[0].closed, true); assert.equal(U.open().length, 0); assert.match(U.$('#foCamSt').innerHTML, /Offline/); assert.equal(U.$('#foCamGo').textContent, 'Connect');
+  U.click({ fwc: 'go' }); one(); w = pilotWs(U); assert.equal(w.length, 1); U.hello(w[0], { pub: { on: false, cams: [] } });
+  U.say(w[0], { t: 'pub', pub: { on: true, v: '2.0.0', mode: 'jpeg', cams: [] }, watchers: 1 });
+  assert.ok('PAW0012' in ui.FW_CAM.online); assert.equal(r812.kids.length, 1);                 /* its own channel counts: marked now */
+  /* Pause, then Watch */
+  U.click({ fwc: 'go' }); assert.equal(w[0].closed, true); assert.equal(U.open().length, 0); assert.match(U.$('#foCamSt').innerHTML, /Paused/); assert.equal(U.$('#foCamGo').textContent, 'Watch');
+  await ui.fwCamLoad(); assert.equal(U.open().length, 0);                                          /* paused stays paused */
+  U.click({ fwc: 'go' }); one(); w = pilotWs(U); assert.equal(w.length, 1);
+  U.hello(w[0], { pub: { on: true, mode: 'jpeg', cams: [] } });
+  /* they go: closed at once (no idle socket), the mark goes; back on the list's next ask: watched again */
+  U.say(w[0], { t: 'pub', pub: { on: false, cams: [] }, watchers: 1 });
+  assert.equal(w[0].closed, true); assert.equal(U.open().length, 0); assert.equal(r812.kids.length, 0);
+  U.S.online.PAW0012 = { v: '2.0.0', mode: 'jpeg', cams: [], at: 3 }; await ui.fwCamLoad(); one();
+  w = pilotWs(U); assert.equal(w.length, 1); assert.match(w[0].url, /PAW0012$/);
+  U.hello(w[0], { pub: { on: true, mode: 'jpeg', cams: [] } });
+  /* the flight closes: closed */
+  g.FO.f = null; ui.fwCamSync(true); assert.equal(U.open().length, 0); assert.equal(U.$('#foCam').innerHTML, '');
+  /* a pilot with no flight on the map, from the strip: watched under it; a pilot with a flight: that flight opens */
+  U.click({ fwcp: 'PAW0099' }); one(); w = pilotWs(U); assert.equal(w.length, 1); assert.match(w[0].url, /PAW0099$/);
+  assert.equal(U.$('#fwCamGround').hidden, false); assert.match(U.$('#fwCamGround').innerHTML, /Cockpit Monitor <small>PAW0099/); assert.match(U.$('#fwCamGround').innerHTML, /on the map: parked, or testing/);
+  U.click({ fwcp: 'PAW0006' }); assert.deepEqual(U.S.shown, ['PAW806']);
+  /* ... which (as live.js opens it) replaces the pilot on ground: never two */
+  g.FO.f = { cs: 'PAW806', pilot: 'PAW0006' }; ui.fwCamSync(true); one();
+  assert.equal(w[0].closed, true); assert.match(pilotWs(U)[0].url, /PAW0006$/); assert.equal(U.$('#fwCamGround').hidden, true); assert.equal(U.$('#fwCamGround').innerHTML, '');
+  assert.equal(ui.FW_CAM.ground, '');
+  /* the tab hidden for a minute: closed; back in view: watched again */
+  g.document.hidden = true; U.fireDoc('visibilitychange'); U.advance(59000); assert.equal(pilotWs(U).length, 1);
+  U.advance(1000); assert.equal(U.open().length, 0);
+  g.document.hidden = false; U.fireDoc('visibilitychange'); one(); assert.equal(pilotWs(U).length, 1);
+  await new Promise((r) => setTimeout(r, 0));
+  /* leaving Flight Watch: closed */
+  g.pgNow = 'bc'; U.fireWin('pm:tab'); assert.equal(pilotWs(U).length, 0);
+  g.pgNow = 'fw'; U.fireWin('pm:tab'); one();
+  /* a sample flight, or one without a pilot ID: no monitor */
+  g.FO.f = { cs: 'PAW1', pilot: 'PAW0099', sample: true }; ui.fwCamSync(true); assert.equal(U.open().length, 0); assert.equal(U.$('#foCam').innerHTML, '');
+  g.FO.f = { cs: 'PAW900', pilot: '' }; ui.fwCamSync(true); assert.equal(U.open().length, 0);
+  /* a role without "live": no manual link */
+  const V = mkUi({ perm: { pages: new Set(['fw']), can: new Set() } }); V.g.pgNow = 'fw'; V.g.FO.f = { cs: 'PAW806', pilot: 'PAW0006' }; V.ui.fwCamSync(true);
+  assert.match(V.$('#foCam').innerHTML, /Cockpit Monitor/); assert.doesNotMatch(V.$('#foCam').innerHTML, /Manual link/);
+});
+
+/* ---- 11. the files changed parse: each with node --check, and the admin page's own scripts as the browser gets them ---- */
+await test('syntax: cam.js, mail.js, index.js, admin.js pass node --check; every inline <script> of the admin page parses', async () => {
+  const { execFileSync } = await import('node:child_process'), { fileURLToPath } = await import('node:url');
+  for (const f of ['cam.js', 'mail.js', 'index.js', 'admin.js', 'auth.js']) execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../src/' + f, import.meta.url))], { stdio: 'pipe' });
+  const vm = globalThis.__vm, L = [...ADMIN_HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((x) => x[1]);
+  assert.ok(L.length >= 2 && L.some((s) => s.includes('function mkCamView(')));
+  for (const s of L) assert.doesNotThrow(() => new vm.Script(s, { filename: 'admin-inline.js' }));
 });
 
 globalThis.fetch = realFetch; Date.now = realNow;

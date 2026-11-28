@@ -1,15 +1,27 @@
-/* ---------- Polaris Cam (Operations admin › Broadcast, Nov 2026) ----------
-   The cockpit cameras of the streaming pilot's simulator PC, live in the admin: Polaris Cam on that PC sends each
-   camera's latest picture here, and this server passes it on to the staff who have the Broadcast page open. Its own
-   Durable Object, apart from the broadcast desk (desk.js): whatever happens to the pictures, the desk carries on.
-     GET  /admin/api/cam                   -> { pub, watchers, token (directors only) }   (staff who see Broadcast)
-     POST /admin/api/cam  { op:'token' }   a new connection link; the old one stops        (staff who may direct)
-     GET  /admin/api/cam/ws                (WebSocket) the pictures, live: a director's ('dir') or a watcher's ('view')
-     GET  /live/cam/<token>/ws             (WebSocket) Polaris Cam on the simulator PC (no sign-in: the token)
+/* ---------- Polaris Cam (Operations admin › Broadcast and Flight Watch, Nov 2026) ----------
+   The cockpit cameras of a pilot's simulator PC, live in the admin: Polaris Cam on that PC sends each camera's latest
+   picture here, and this server passes it on to the staff watching. Its own Durable Object class, apart from the
+   broadcast desk (desk.js): whatever happens to the pictures, the desk carries on. One object a channel:
+     'cam'          Broadcast's own channel: the streaming PC connected by hand, with Broadcast's link (as before)
+     'pilot:<ID>'   each pilot's own channel (ID: 2-16 letters and digits, upper case, e.g. PAW0006), for Flight Watch,
+                    and for Broadcast when no PC is on its own channel but a streaming pilot is set (its "Auto" source)
+   The 'cam' object also keeps the small list of the pilots whose Polaris Cam is on now: each pilot's object tells it
+   when theirs connects, says hello or goes (never a word a picture).
+     GET  /admin/api/cam[?pilot=ID]        -> { pub, watchers, token (directors only) }
+     POST /admin/api/cam  { op:'token'[, pilot] }   a new connection link; the old one stops     (staff who may direct)
+     GET  /admin/api/cam/ws[?pilot=ID]     (WebSocket) the pictures, live: a director's ('dir') or a watcher's ('view')
+     GET  /admin/api/cam/online            -> { online: { ID: { v, mode, cams, at } } }   whose Polaris Cam is on now
+          Broadcast's own channel is for staff who see Broadcast; a pilot's for those who see Flight Watch or Broadcast.
+     GET  /live/cam/<token>/ws             (WebSocket) Polaris Cam, on Broadcast's own channel (no sign-in: the token)
+     GET  /live/cam/pilot/ws?ticket=       (WebSocket) Polaris Cam, on its pilot's channel, signed in by Polaris Navdata
+                                           (a ticket from /api/nav/ticket, good for 60 s)
+     GET  /live/cam/p/<ID>/<token>/ws      (WebSocket) Polaris Cam, on that pilot's channel with the channel's own link
+                                           (made in Flight Watch, for a PC without Polaris Navdata)
    Text messages are JSON:
      Polaris Cam -> here    { t:'hello', v, mode:'jpeg'|'h264', cams:[{ i:0..3, name, on, w, h, codec:'jpeg'|'h264' }] }
                             (a camera without its own codec has the top-level mode)
-     here -> Polaris Cam    { t:'watch', n }   how many staff are watching (0: no one, nothing need be sent)
+     here -> Polaris Cam    { t:'id', pilot }  on a pilot's channel, as it connects: whose channel it is on
+                            { t:'watch', n }   how many staff are watching (0: no one, nothing need be sent)
                             { t:'key', cam }   an H.264 key frame (IDR, with SPS/PPS) of that camera, now please
                                                (at most once a second a camera, however many pages ask)
      here -> the admin      { t:'hello', role, token (dir only), pub, watchers }, { t:'pub', pub, watchers },
@@ -17,6 +29,9 @@
      the admin -> here      { t:'ack', cam, seq }   the last picture of that camera the page has had
                             { t:'key', cam }   its decoder needs a key frame (passed on to Polaris Cam, as above)
      either way             "ping" -> "pong" (answered without waking the object)
+   Polaris Cam is closed with 4000 when another Polaris Cam takes over its channel; 4001 when its ticket is missing,
+   wrong or old (it asks Polaris Navdata for a new one and connects again); 4004 when its link is not, or no longer,
+   the channel's link (a new link on a pilot's channel stops only the PCs that came with a link, not Navdata's).
    Binary messages are a picture, the same from Polaris Cam to here as from here to the admin: a 16-byte header,
    little-endian, then the picture:
      0 'P' (0x50) · 1 version 1 · 2 camera 0..3 · 3 codec (1 JPEG, 2 H.264 Annex-B) · 4 flags (bit 0: key frame;
@@ -24,19 +39,25 @@
      10-11 duration_ms (the time a frame stands for; 0: the page takes 33) · 12-15 seq (each camera's own, rising, > 0) ·
      16.. the picture: a JPEG starts FF D8; H.264 is Annex-B, starting 00 00 01 or 00 00 00 01 (5 bytes at least).
      18 bytes to 1 MiB in all.
-   Kept in storage: cfg { token, by, at }. Not kept: the pictures. In memory only, so a page opened midway shows
-   something at once: a JPEG camera's latest picture; an H.264 camera's frames since its latest key frame (the GOP: at
-   most 75 frames and 768 KB a camera; past that it stops keeping them until the next key frame, and a page opening
-   then asks Polaris Cam for one). Dropped when Polaris Cam leaves or comes back, and a camera's when its codec changes.
+   Kept in storage: cfg { token, by, at } (each channel its own link); on 'cam' also online { ID: { v, mode, cams, at,
+   seen } } (at most 200, written only as a PC connects, says hello or goes). Kept with Polaris Cam's socket (so it
+   lasts while the object is away from memory): { at, pub, pilot, auth }. Not kept: the pictures. In memory only, so a
+   page opened midway shows something at once: a JPEG camera's latest picture; an H.264 camera's frames since its latest
+   key frame (the GOP: at most 75 frames and 768 KB a camera; past that it stops keeping them until the next key frame,
+   and a page opening then asks Polaris Cam for one). Dropped when Polaris Cam leaves or comes back, and a camera's when
+   its codec changes.
    A slow page is not sent more than it can take. JPEG: once 8 pictures of a camera have gone to it without an ack that
    catches up, that camera pauses for that page (one fresh picture every 3 s, to see if it has caught up) until it acks.
    H.264: once 45 frames are out unacked, it is sent no more frames that depend on the ones it missed: nothing until a
    key frame, and while it is still behind only one key frame every 3 s; when its acks bring it under 15, Polaris Cam is
    asked for a key frame, and the next one starts it again. A page never gets a broken GOP. */
+import { navWsTicketUser } from './auth.js';
 
 const CAMS = 4, HDR = 16, MIN_LEN = HDR + 2, MIN_H264 = HDR + 5, MAX_LEN = 1048576, PROBE_MS = 3000, RING = 96;
 const LAG_JPEG = 8, LAG_H264 = 45, RESUME_H264 = 15, GOP_FRAMES = 75, GOP_BYTES = 768 * 1024, KEY_MS = 1000;
 export const CAM_GONE = 'This Polaris Cam link is no longer in use';
+export const CAM_TICKET = 'Polaris Cam ticket expired or invalid';
+const ONLINE_MAX = 200;
 const line = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const tokOk = (t) => typeof t === 'string' && /^[A-Za-z0-9_-]{24,40}$/.test(t);
 const newTok = () => { const b = new Uint8Array(18); crypto.getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -44,6 +65,22 @@ const dim = (v) => { const x = Math.round(Number(v)); return Number.isFinite(x) 
 const json = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const upgrade = (req) => (req.headers.get('Upgrade') || '').toLowerCase() === 'websocket';
 const stub = (env) => env.CAM.get(env.CAM.idFromName('cam'));
+/* a pilot ID as the channels are named by it: 2-16 letters and digits, upper case ('' when it is not one) */
+export const normPilot = (v) => { const s = String(v == null ? '' : v).trim().toUpperCase(); return /^[A-Z0-9]{2,16}$/.test(s) ? s : ''; };
+export const pilotOk = (v) => normPilot(v) !== '';
+const pilotStub = (env, p) => env.CAM.get(env.CAM.idFromName('pilot:' + p));
+/* a WebSocket answered and closed at once, the code saying why (to Polaris Cam) */
+function refuse(code, why) { const [client, server] = Object.values(new WebSocketPair()); server.accept(); server.close(code, why); return new Response(null, { status: 101, webSocket: client }); }
+/* the list of whose Polaris Cam is on, as kept: well-formed entries only, at most ONLINE_MAX (the latest seen) */
+export function onlineIn(o) {
+  const out = [];
+  if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) {
+    const p = normPilot(k); if (!p || p !== k || !v || typeof v !== 'object' || Array.isArray(v)) continue;
+    const h = helloIn(v); out.push([p, { v: h.v, mode: h.mode, cams: h.cams, at: Math.max(0, +v.at || 0), seen: Math.max(0, +v.seen || 0) }]);
+  }
+  out.sort((a, b) => b[1].seen - a[1].seen);
+  return Object.fromEntries(out.slice(0, ONLINE_MAX));
+}
 
 /* what Polaris Cam says about itself, as kept */
 export function helloIn(j) {
@@ -73,29 +110,65 @@ export function frameIn(buf) {
 }
 
 /* ---- routes ---- */
-/* the admin (from mail.js, after Cloudflare Access and the role: direct = may direct the live broadcast) */
-export async function camAdmin(req, url, env, who, direct) {
+/* the admin (from mail.js, after Cloudflare Access and the role: direct = may direct the live broadcast; hasBc = sees
+   Broadcast; mail.js lets in only those who see Flight Watch or Broadcast). Broadcast's own channel is for those who
+   see Broadcast; a pilot's (?pilot=, or pilot in the POST) for all of them; the link, and a new one, for directors */
+export async function camAdmin(req, url, env, who, direct, hasBc = true) {
   if (!env.CAM) return json({ error: 'Polaris Cam is not set up on the server yet' }, 503);
   const path = url.pathname.replace(/\/+$/, ''), role = direct ? 'dir' : 'view';
+  if (path === '/admin/api/cam/online') {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return json({ error: 'Method not allowed' }, 405);
+    return stub(env).fetch('https://cam/online');
+  }
+  if (path !== '/admin/api/cam' && path !== '/admin/api/cam/ws') return json({ error: 'Not found' }, 404);
+  /* which channel: a pilot's, or Broadcast's own */
+  let raw = url.searchParams.get('pilot');
+  if (path === '/admin/api/cam' && req.method === 'POST') {
+    if (!direct) return json({ error: 'Your role cannot direct the live broadcast' }, 403);
+    /* JSON only: a plain form posted from another site cannot make a new link */
+    if (!/application\/json/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
+    const t = await req.text(); if (t.length > 2000) return json({ error: 'Too large' }, 413);
+    let b; try { b = JSON.parse(t); } catch (e) { return json({ error: 'Bad body' }, 400); }
+    if (!b || typeof b !== 'object' || b.op !== 'token') return json({ error: 'Not something Polaris Cam can do' }, 400);
+    /* the pilot in the body; one only in the address still counts (never Broadcast's own link by mistake) */
+    if (b.pilot != null && String(b.pilot).trim() !== '') raw = String(b.pilot);
+  }
+  let pilot = '';
+  if (raw != null && raw.trim() !== '') { pilot = normPilot(raw); if (!pilot) return json({ error: 'A pilot ID is 2 to 16 letters and digits, like PAW0006' }, 400); }
+  else if (!hasBc) return json({ error: 'Your role does not see Broadcast. An administrator can change that under Settings › Roles.' }, 403);
+  const S = pilot ? pilotStub(env, pilot) : stub(env), q = pilot ? '&pilot=' + pilot : '';
   if (path === '/admin/api/cam/ws') {
     if (!upgrade(req)) return json({ error: 'WebSocket only' }, 426);
     /* only the admin's own page (not another site the staff member has open) */
     const o = req.headers.get('Origin'); if (o && o !== url.origin) return json({ error: 'Not allowed' }, 403);
-    return stub(env).fetch(new Request('https://cam/ws?role=' + role, req));
+    return S.fetch(new Request('https://cam/ws?role=' + role + q, req));
   }
-  if (req.method === 'GET') return stub(env).fetch('https://cam/state?role=' + role);
+  if (req.method === 'GET' || req.method === 'HEAD') return S.fetch('https://cam/state?role=' + role + q);
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!direct) return json({ error: 'Your role cannot direct the live broadcast' }, 403);
-  /* JSON only: a plain form posted from another site cannot make a new link */
-  if (!/application\/json/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
-  const t = await req.text(); if (t.length > 2000) return json({ error: 'Too large' }, 413);
-  let b; try { b = JSON.parse(t); } catch (e) { return json({ error: 'Bad body' }, 400); }
-  if (!b || b.op !== 'token') return json({ error: 'Not something Polaris Cam can do' }, 400);
-  return stub(env).fetch('https://cam/token', { method: 'POST', body: JSON.stringify({ who: who || '' }) });
+  return S.fetch('https://cam/token' + (pilot ? '?pilot=' + pilot : ''), { method: 'POST', body: JSON.stringify({ who: who || '' }) });
 }
-/* Polaris Cam on the simulator PC (no sign-in: the token in the link) */
+/* Polaris Cam on the simulator PC (no sign-in: the token in the link, or Polaris Navdata's ticket) */
 export async function camPublic(req, url, env) {
-  const m = url.pathname.match(/^\/live\/cam\/([^/]{1,200})\/ws\/?$/); if (!m) return json({ error: 'Not found' }, 404);
+  const path = url.pathname;
+  /* signed in by Polaris Navdata on that PC: its pilot's own channel, nothing to paste */
+  if (/^\/live\/cam\/pilot\/ws\/?$/.test(path)) {
+    if (!upgrade(req)) return new Response('WebSocket only', { status: 426 });
+    if (!env.CAM) return new Response('Not set up on the server', { status: 503 });
+    let u = ''; try { u = normPilot(await navWsTicketUser(env, url.searchParams.get('ticket') || '')); } catch (e) { u = ''; }
+    if (!u) return refuse(4001, CAM_TICKET);
+    return pilotStub(env, u).fetch(new Request('https://cam/pub?auth=ticket&pilot=' + u, req));
+  }
+  /* a pilot's channel, with its own link (made in Flight Watch) */
+  let m = path.match(/^\/live\/cam\/p\/([^/]{1,40})\/([^/]{1,200})\/ws\/?$/);
+  if (m) {
+    if (!upgrade(req)) return new Response('WebSocket only', { status: 426 });
+    if (!env.CAM) return new Response('Not set up on the server', { status: 503 });
+    let p = ''; try { p = normPilot(decodeURIComponent(m[1])); } catch (e) { p = ''; }
+    if (!p) return refuse(4004, CAM_GONE);
+    return pilotStub(env, p).fetch(new Request('https://cam/pub?t=' + encodeURIComponent(m[2]) + '&pilot=' + p, req));
+  }
+  /* Broadcast's own channel, with Broadcast's link */
+  m = path.match(/^\/live\/cam\/([^/]{1,200})\/ws\/?$/); if (!m) return json({ error: 'Not found' }, 404);
   if (!upgrade(req)) return new Response('WebSocket only', { status: 426 });
   if (!env.CAM) return new Response('Not set up on the server', { status: 503 });
   return stub(env).fetch(new Request('https://cam/pub?t=' + encodeURIComponent(m[1]), req));
@@ -105,6 +178,8 @@ export async function camPublic(req, url, env) {
 export class CamRelay {
   constructor(ctx, env) {
     this.ctx = ctx; this.env = env; this.cfg = null;
+    this.pilot = '';                         /* whose channel this is ('pilot:<ID>'), '' on Broadcast's own ('cam') */
+    this.online = null;                      /* on 'cam': whose Polaris Cam is on { ID: { v, mode, cams, at, seen } }, once read */
     this.pub = null;                         /* { v, mode, cams, at } while Polaris Cam is here */
     this.offAt = 0;                          /* when it left */
     this.last = new Array(CAMS).fill(null);  /* each JPEG camera's latest picture { buf, seq, w, h, at } */
@@ -128,6 +203,34 @@ export class CamRelay {
   send(w, m) { if (!w) return false; try { w.send(typeof m === 'string' || m instanceof ArrayBuffer ? m : JSON.stringify(m)); return true; } catch (e) { return false; } }
   to(list, m) { const s = typeof m === 'string' ? m : JSON.stringify(m); for (const w of list) this.send(w, s); }
   pubSock(except) { return this.socks('pub', except)[0] || null; }
+  att(w) { try { return (w && w.deserializeAttachment && w.deserializeAttachment()) || null; } catch (e) { return null; } }
+  /* whose channel this is: as asked for, or as kept with Polaris Cam's socket (the object may have been away from
+     memory since, and woken by that socket closing) */
+  pilotOf(ws) {
+    if (this.pilot) return this.pilot;
+    let L = []; try { L = this.ctx.getWebSockets('pub'); } catch (e) { L = []; }
+    for (const w of [ws, ...L]) { const a = this.att(w), p = a && normPilot(a.pilot); if (p) { this.pilot = p; return p; } }
+    return '';
+  }
+  /* a pilot's channel tells Broadcast's own object (the list of who is online) that its Polaris Cam is on or gone:
+     as it connects, says hello or goes, and when a page finds the list wrong. Best effort: never in the way */
+  presence(on, ws) {
+    const p = this.pilotOf(ws), C = this.env && this.env.CAM;
+    if (!p || !C || typeof C.idFromName !== 'function' || typeof C.get !== 'function') return null;
+    let body = { pilot: p, on: false, pub: null };
+    if (on) { const P = this.pubOut(); body = { pilot: p, on: true, pub: { v: P.v, mode: P.mode, cams: P.cams, at: P.at } }; }
+    let pr = null;
+    try {
+      pr = Promise.resolve(C.get(C.idFromName('cam')).fetch('https://cam/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).catch(() => null);
+    } catch (e) { return null; }
+    try { if (this.ctx.waitUntil) this.ctx.waitUntil(pr); } catch (e) { /* not on this runtime */ }
+    return pr;
+  }
+  /* on 'cam': the list of whose Polaris Cam is on, from storage the first time */
+  async onlineList() {
+    if (!this.online) { let o = null; try { o = await this.ctx.storage.get('online'); } catch (e) { o = null; } this.online = onlineIn(o); }
+    return this.online;
+  }
   /* Polaris Cam as the pages see it (after the relay was away from memory: what it said, kept with its socket) */
   pubOut(except) {
     const w = this.pubSock(except);
@@ -222,14 +325,42 @@ export class CamRelay {
     if (!this.pub && !this.last.some(Boolean) && !this.gop.some(Boolean) && this.offAt) return;
     this.pub = null; this.offAt = Date.now(); this.clearPictures();
     this.to(this.viewers(), { t: 'pub', pub: this.pubOut(ws), watchers: this.watchers() });
+    this.presence(false, ws);
   }
   async fetch(req) {
     const url = new URL(req.url), p = url.pathname, cfg = await this.conf();
-    if (p === '/state') return json(this.state(url.searchParams.get('role') === 'dir' ? 'dir' : 'view'));
+    /* a pilot's channel is told whose it is by every request the routes make of it (Broadcast's own never is) */
+    const qp = normPilot(url.searchParams.get('pilot')); if (qp && !this.pilot) this.pilot = qp;
+    /* on 'cam': the list of whose Polaris Cam is on (kept only as a PC connects, says hello or goes) */
+    if (p === '/online') {
+      const L = await this.onlineList();
+      return json({ online: Object.fromEntries(Object.entries(L).map(([k, v]) => [k, { v: v.v, mode: v.mode, cams: v.cams.map((c) => ({ ...c })), at: v.at }])) });
+    }
+    if (p === '/presence' && req.method === 'POST') {
+      if (this.pilot) return json({ error: 'Not found' }, 404);
+      const b = await req.json().catch(() => null), u = normPilot(b && b.pilot);
+      if (!u) return json({ error: 'Bad body' }, 400);
+      const L = await this.onlineList(), had = L[u];
+      if (b.on) {
+        const P = b.pub && typeof b.pub === 'object' ? b.pub : {}, h = helloIn(P);
+        const n = { v: h.v, mode: h.mode, cams: h.cams, at: Math.max(0, +P.at || 0) || Date.now(), seen: Date.now() };
+        const same = !!had && JSON.stringify([had.v, had.mode, had.cams, had.at]) === JSON.stringify([n.v, n.mode, n.cams, n.at]);
+        L[u] = n;
+        /* written only when it says something new (a page finding it right changes nothing kept) */
+        if (!same) { this.online = onlineIn(L); await this.ctx.storage.put('online', this.online); }
+      } else if (had) { delete L[u]; await this.ctx.storage.put('online', L); }
+      return json({ ok: true });
+    }
+    if (p === '/state') {
+      const r = json(this.state(url.searchParams.get('role') === 'dir' ? 'dir' : 'view'));
+      if (this.pilot) this.presence(!!this.pubSock());   /* the list put right, if it was wrong */
+      return r;
+    }
     if (p === '/token' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));
       cfg.token = newTok(); cfg.by = line(b && b.who, 120); cfg.at = Date.now(); await this.ctx.storage.put('cfg', cfg);
-      const old = this.socks('pub');
+      /* the PCs that came with the old link stop; one Polaris Navdata signed in (a pilot's channel) is not a link's */
+      const old = this.socks('pub').filter((w) => { const a = this.att(w); return !(a && a.auth === 'ticket'); });
       for (const w of old) { try { w.close(4004, CAM_GONE); } catch (e) { /* gone */ } }
       if (old.length) this.dropPub(old[0]);
       this.to(this.socks('dir'), { t: 'token', token: cfg.token });
@@ -239,13 +370,17 @@ export class CamRelay {
     const [client, server] = Object.values(new WebSocketPair());
     const ok = () => new Response(null, { status: 101, webSocket: client });
     if (p === '/pub') {
-      if (url.searchParams.get('t') !== cfg.token) { server.accept(); server.close(4004, CAM_GONE); return ok(); }
-      /* one Polaris Cam at a time: a new one replaces the old */
+      /* Polaris Navdata's ticket was checked on the way here (camPublic), and only for a pilot's channel; else the link */
+      const pilot = qp && qp === this.pilot ? qp : '', byTicket = !!pilot && url.searchParams.get('auth') === 'ticket';
+      if (!byTicket && url.searchParams.get('t') !== cfg.token) { server.accept(); server.close(4004, CAM_GONE); return ok(); }
+      /* one Polaris Cam a channel: a new one replaces the old */
       for (const w of this.socks('pub')) { try { w.close(4000, 'Another Polaris Cam took over'); } catch (e) { /* gone */ } }
       this.ctx.acceptWebSocket(server, ['pub']);
       const at = Date.now(); this.pub = { v: '', mode: 'jpeg', cams: [], at }; this.clearPictures();
-      try { server.serializeAttachment({ at }); } catch (e) { /* kept in memory only */ }
+      try { server.serializeAttachment({ at, pub: this.pub, pilot, auth: byTicket ? 'ticket' : 'token' }); } catch (e) { /* kept in memory only */ }
+      if (pilot) this.send(server, { t: 'id', pilot });
       this.tellAll();
+      if (pilot) this.presence(true, server);
       return ok();
     }
     if (p === '/ws') {
@@ -263,6 +398,8 @@ export class CamRelay {
       }
       this.send(this.pubSock(), { t: 'watch', n: this.watchers() });
       this.to(this.viewers(server), { t: 'pub', pub: this.pubOut(), watchers: this.watchers() });
+      /* a pilot's channel: the list put right, if it was wrong (a PC that went without a word) */
+      if (this.pilot) this.presence(!!this.pubSock());
       return ok();
     }
     server.accept(); server.close(4004, 'Not found'); return ok();
@@ -284,12 +421,14 @@ export class CamRelay {
     await this.conf();
     if (role === 'pub') {
       if (j.t !== 'hello') return;
-      const was = this.pub || {}, h = helloIn(j);
+      const a = this.att(ws) || {}, was = this.pub || a.pub || a, h = helloIn(j);
       this.pub = { ...h, at: +was.at || Date.now() };
       /* a camera whose codec changed: what was kept of it is of no use now */
       for (const k of h.cams) { if (k.codec === 'h264') this.last[k.i] = null; else this.gop[k.i] = null; }
-      try { ws.serializeAttachment({ at: this.pub.at, pub: this.pub }); } catch (e) { /* kept in memory only */ }
+      const pilot = this.pilotOf(ws);
+      try { ws.serializeAttachment({ at: this.pub.at, pub: this.pub, pilot, auth: a.auth === 'ticket' ? 'ticket' : 'token' }); } catch (e) { /* kept in memory only */ }
       this.to(this.viewers(), { t: 'pub', pub: this.pubOut(), watchers: this.watchers() });
+      if (pilot) this.presence(true, ws);
       return;
     }
     if (role !== 'dir' && role !== 'view') return;

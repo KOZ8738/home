@@ -918,6 +918,22 @@ main#bc{display:block;max-width:1480px}main#bc[hidden]{display:none!important}
 .bc-cc canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .bc-cc .bc-cap em{background:none;color:var(--label);font-weight:500;letter-spacing:0;padding:0;font-variant-numeric:tabular-nums}
 @media(max-width:600px){.bc-cg{grid-template-columns:minmax(0,1fr)}}
+.bc-c.bc-src{background:color-mix(in srgb,var(--accent) 12%,transparent);border-color:color-mix(in srgb,var(--accent) 40%,transparent);color:var(--ink);font-weight:600}
+/* Flight Watch: who has Polaris Cam on, and the open flight's Cockpit Monitor (the camera grid as Broadcast's, smaller) */
+.fw-cam{padding:10px 16px}.fw-cps{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fw-cp{display:inline-flex;align-items:center;gap:6px;margin:0;padding:3px 10px 3px 8px;height:auto;border-radius:999px;font-size:12.5px;font-weight:500;background:var(--soft);border:1px solid var(--line);color:var(--ink)}
+.fw-cp:hover{border-color:var(--accent)}.fw-cp.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fw-cp i,.fw-cb i{width:7px;height:7px;border-radius:50%;background:#30A46C;flex:none}
+.fw-cp b{font:600 12px "IBM Plex Mono",ui-monospace,Consolas,monospace}.fw-cp small{color:var(--label);font-size:11.5px}
+.fw-camg{max-height:none;padding:0 16px 12px}.fw-camg .fo-s{border-top:0;padding-top:10px}
+.lv-f .fw-cb{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:1px 6px;border-radius:4px;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.08em;color:var(--green);background:color-mix(in srgb,#30A46C 14%,transparent);vertical-align:2px}
+.fo-camh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.fo-camh h4{margin:0}
+.fo-camb{display:flex;gap:4px}.fo-camb button{margin:0;padding:3px 10px;font-size:12px;height:26px}
+.fo-camst{margin-left:0}.fo-cg{gap:8px;margin-top:10px}.fo-cg .bc-cc{padding:6px}
+.fo-cg .bc-cap{gap:6px;margin-bottom:6px;min-height:18px}.fo-cg .bc-cap b{font-size:10.5px}.fo-cg .bc-cap span{font-size:12.5px}.fo-cg:not(.one) .bc-cap em{display:none}
+@media(max-width:600px){.fo-cg{grid-template-columns:repeat(2,minmax(0,1fr))}.fo-cg.one{grid-template-columns:minmax(0,1fr)}}
+.fo-camk{margin-top:10px}.fo-camk summary{cursor:pointer;font-size:12.5px;color:var(--accent)}.fo-camk .bc-urlr{margin-top:8px}.fo-camk .bc-urlr input{flex:1 1 200px;font-size:12px}
+.fo-camhint{margin:8px 0 0}
 .bc-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
 @media(max-width:1180px){.bc-cols{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.bc-mon,.bc-cols{grid-template-columns:1fr}}
@@ -1100,7 +1116,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </main>
 <main id="bc" hidden>
 <section class="bc-top">
- <div class="pg-h"><h2>Broadcast</h2><details class="help"><summary aria-label="About the broadcast desk">?</summary><div><p>The live broadcast desk: what OBS shows on the streaming pilot’s simulator PC, with its scenes switched from here. OBS sends the stream to YouTube itself; none of it goes through Polaris.</p><p>On that PC: OBS Studio with its WebSocket Server on (OBS › Tools › WebSocket Server Settings), and Polaris Navdata 1.7 or later set up for it on the EFB there (Ground › Simulator PC › Broadcast). Put the pilot’s flight on the desk under Setup: their PC joins within about half a minute.</p><p>Pick a scene to see it in Preview; TAKE (or Space) puts it on air, and what was on air comes back to Preview. Keys 1–9 pick the scenes in order. The auto director switches by the flight’s phase by itself (a phase with several scenes takes them in turn, every few minutes); TAKE turns it off.</p><p>The overlays are a Browser source in OBS showing the link under Setup; they show only while the flight is on the desk. A new link stops the old one.</p><p>Starting and ending the stream from here works only if it is allowed on the EFB on the simulator PC. If the PC drops off the desk, OBS keeps streaming what is on air.</p><p>The pictures here are small and come only while this page is open; they cost the stream nothing.</p></div></details>
+ <div class="pg-h"><h2>Broadcast</h2><details class="help"><summary aria-label="About the broadcast desk">?</summary><div><p>The live broadcast desk: what OBS shows on the streaming pilot’s simulator PC, with its scenes switched from here. OBS sends the stream to YouTube itself; none of it goes through Polaris.</p><p>On that PC: OBS Studio with its WebSocket Server on (OBS › Tools › WebSocket Server Settings), and Polaris Navdata 1.7 or later set up for it on the EFB there (Ground › Simulator PC › Broadcast). Put the pilot’s flight on the desk under Setup: their PC joins within about half a minute.</p><p>Pick a scene to see it in Preview; TAKE (or Space) puts it on air, and what was on air comes back to Preview. Keys 1–9 pick the scenes in order. The auto director switches by the flight’s phase by itself (a phase with several scenes takes them in turn, every few minutes); TAKE turns it off.</p><p>The overlays are a Browser source in OBS showing the link under Setup; they show only while the flight is on the desk. A new link stops the old one.</p><p>Starting and ending the stream from here works only if it is allowed on the EFB on the simulator PC. If the PC drops off the desk, OBS keeps streaming what is on air.</p><p>The pictures here are small and come only while this page is open; they cost the stream nothing.</p><p><b>Polaris Cam</b> shows the cockpit cameras of that PC. With the Streaming pilot set and Polaris Cam there signing in by itself with Polaris Navdata, they show here automatically (<b>Auto</b>), as they do in Flight Watch. The Polaris Cam connection link under Setup stays the fallback for a PC without Navdata: while a PC is connected with it, its cameras show instead (<b>Direct link</b>).</p></div></details>
  <div class="bc-st" id="bcSt"></div>
  <button type="button" id="bcSetB" aria-expanded="false" aria-controls="bcSet">Setup</button></div>
  <div id="bcMsg"></div>
@@ -1116,7 +1132,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
   <div class="bc-url" id="bcUrlW" hidden><label for="bcUrl">The overlay, for OBS</label><div class="bc-urlr"><input type="text" id="bcUrl" readonly><button type="button" id="bcCopy">Copy</button><button type="button" class="bc-act" id="bcTok">New link</button><a id="bcDemo" target="_blank" rel="noopener">See it with sample numbers</a></div>
    <p class="hint">OBS › Sources › + › Browser: this link, 1920 × 1080, at the top of each camera scene.</p></div>
   <div class="bc-url" id="bcCamW" hidden><label for="bcCamUrl">Polaris Cam connection link</label><div class="bc-urlr"><input type="text" id="bcCamUrl" readonly><button type="button" id="bcCamCopy">Copy</button><button type="button" id="bcCamTok">New link</button></div>
-   <p class="hint">Polaris Cam on the streaming pilot’s simulator PC: paste this link there. A new link stops the old one.</p></div>
+   <p class="hint">Only for a Polaris Cam that does not sign in with Polaris Navdata (with Navdata, the streaming pilot’s cameras show by themselves): paste this link into Polaris Cam on the simulator PC. While a PC is connected with it, Broadcast shows that PC. A new link stops the old one.</p></div>
  </div>
 </section>
 <section class="bc-mon">
@@ -1127,7 +1143,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </section>
 <section class="bc-cam" id="bcCam"><div class="lh"><h2>Polaris Cam</h2><div class="bc-st" id="bcCamSt"></div></div>
  <div class="bc-cg" id="bcCamG"><button type="button" class="bc-cc" data-camc="0"><div class="bc-cap"><b>Cam 1</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="1"><div class="bc-cap"><b>Cam 2</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="2"><div class="bc-cap"><b>Cam 3</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="3"><div class="bc-cap"><b>Cam 4</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button></div>
- <p class="hint">The cockpit cameras from Polaris Cam on the simulator PC, only while this page is open. Click a camera to see it large; click again for all four.</p></section>
+ <p class="hint">The cockpit cameras from Polaris Cam on the simulator PC, only while this page is open: the streaming pilot’s own when their Polaris Cam signs in with Polaris Navdata (Auto), or the PC connected with the link under Setup (Direct link), which comes first. Click a camera to see it large; click again for all four.</p></section>
 <section class="bc-wall"><div class="lh"><h2>Cameras and scenes</h2><button type="button" class="bc-act bc-sm" id="bcRef">Ask OBS again</button></div><div class="bc-tiles" id="bcTiles"></div></section>
 <div class="bc-cols">
  <section class="bc-ovs"><h2>Overlays on the picture</h2><div id="bcOv"></div></section>
@@ -1177,7 +1193,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </main>
 <main id="live" hidden>
 <div class="lv-stage"><canvas id="lvGlobe" aria-label="Globe with Polaris flights"></canvas><div class="lv-src" id="lvSrc"></div><div class="lv-ctl"><button data-lv="in" aria-label="Zoom in">+</button><button data-lv="out" aria-label="Zoom out">−</button><button data-lv="all" aria-label="Whole globe" title="Whole globe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button></div></div>
-<aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden><div id="lvDetMain"></div><div class="fo" id="lvOps"></div></div></aside>
+<aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="fw fw-cam" id="fwCam" hidden></div><div class="fw fw-camg" id="fwCamGround" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden><div id="lvDetMain"></div><div class="fo" id="lvOps"></div></div></aside>
 </main>
 <!--PERM-->
 <script>
@@ -2019,10 +2035,11 @@ function foInfoUi(force){const f=FO.f,el=$("#foInfo");if(!f||!el)return;
  const open=new Set([...el.querySelectorAll("details[open]")].map(d=>d.dataset.aid)),r=foRec(f);
  el.innerHTML=foOooiHtml(f,r)+foGatesHtml(f)+foLsHtml(f,r)+foLogHtml(f);
  el.querySelectorAll("details[data-aid]").forEach(d=>{if(open.has(d.dataset.aid))d.open=true})}
-function foUi(){const box=$("#lvOps");if(!box)return;const f=FO.f;if(!f){box.innerHTML="";return}
- box.innerHTML='<div id="foInfo"></div><div id="foMsg">'+foMsgHtml(f)+"</div>";foTplUi();foInfoUi(true);foLoad()}
+function foUi(){const box=$("#lvOps");if(!box)return;const f=FO.f;if(!f){box.innerHTML="";fwCamSync(true);return}
+ /* the Cockpit Monitor has its own place: the parts drawn again with the data never touch its pictures */
+ box.innerHTML='<div id="foCam"></div><div id="foInfo"></div><div id="foMsg">'+foMsgHtml(f)+"</div>";foTplUi();foInfoUi(true);foLoad();fwCamSync(true)}
 /* the flight list: how late a flight is, beside its altitude */
-function foRows(){const o=opsV("ooo");if(!o)return;const now=Date.now(),F=window.pmLive?window.pmLive.flights():[];
+function foRows(){fwCamRows();const o=opsV("ooo");if(!o)return;const now=Date.now(),F=window.pmLive?window.pmLive.flights():[];
  document.querySelectorAll("#lvList [data-cs]").forEach(row=>{const cs=row.dataset.cs,r=(o.live||[]).find(x=>x.cs===cs&&!x.tomb);let t="";
   if(r&&r.std&&r.off==null){const dl=r.out?otLate(r.out,r.std):now>r.std?otLate(now,r.std):null;if(dl>15)t="DEP +"+dl}
   else if(r&&r.sta&&r.in==null){const f=F.find(x=>x.cs===cs),al=f&&f.eta?otLate(f.eta,r.sta):null;if(al>15)t="ARR +"+al}
@@ -2060,7 +2077,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  if(b.id==="foMSend"){const subject=$("#foSubj").value.trim(),body=$("#foMBody").value.trim();if(!subject||!body){foSay("Write a subject and a message.");return}
   b.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({to:foTo(f),from:$("#foFrom").value,subject,body,keepAtt:[],newAtt:[]})});
    $("#foSubj").value="";$("#foMBody").value="";foSay("Mail sent to the "+f.cs+" crew.",true);load()}catch(er){foSay(er.message)}finally{b.disabled=false}}});
-PG_LOAD.fw=()=>{fwLoad();foLoad()};PG_TICK.fw=[()=>foLoad(),45000];
+PG_LOAD.fw=()=>{fwLoad();foLoad();fwCamLoad()};PG_TICK.fw=[()=>foLoad(),45000];
 /* ---------- Messages page: Inbox, Sent and Scheduled on the left; the conversation, the message or the composer on the right ---------- */
 const CM={seg:"inbox",pane:"empty",item:""};
 function cmUi(){const s=CM.seg,P=CM.pane;
@@ -2945,8 +2962,8 @@ function bcOpen(){if(BC.ws||!BC.want||document.querySelector(".deny"))return;let
 function bcClose(){BC.want=false;clearTimeout(BC.retry);const w=BC.ws;BC.ws=null;BC.conn=false;if(w)try{w.close()}catch(e){}}
 setInterval(()=>{if(BC.ws&&BC.ws.readyState===1)try{BC.ws.send("ping")}catch(e){}},30000);
 function bcIn(j){const P=BC.pc;switch(j.t){
- case "hello":BC.role=j.role;BC.me=j.me||"";BC.cfg=j.cfg;BC.pc=j.pc||{on:false};BC.pvw=j.pvw||"";BC.log=j.log||[];BC.plan=j.plan||null;BC.oo=j.oo||null;BC.land=j.land||null;BC.fl=BC.pc.fl||null;BC.flAt=BC.pc.flAt||0;BC.ph=BC.pc.ph||"";BC.imgs={};BC.tileKey="";bcAll();break;
- case "cfg":BC.cfg=j.cfg;bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcMon();break;
+ case "hello":BC.role=j.role;BC.me=j.me||"";BC.cfg=j.cfg;BC.pc=j.pc||{on:false};BC.pvw=j.pvw||"";BC.log=j.log||[];BC.plan=j.plan||null;BC.oo=j.oo||null;BC.land=j.land||null;BC.fl=BC.pc.fl||null;BC.flAt=BC.pc.flAt||0;BC.ph=BC.pc.ph||"";BC.imgs={};BC.tileKey="";bcAll();bcCamLink();break;
+ case "cfg":BC.cfg=j.cfg;bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcMon();bcCamLink();break;
  case "pc":BC.pc=j.pc||{on:false};if(!BC.pc.on){BC.imgs={};BC.fl=null;BC.ph=""}else{BC.fl=BC.pc.fl||null;BC.ph=BC.pc.ph||""}BC.tileKey="";bcAll();break;
  case "obs":if(P.on){P.obs=j.obs;if(!j.obs||j.obs.st!=="on"){P.scenes=[];P.pgm="";BC.imgs={}}}BC.tileKey="";bcAll();break;
  case "scenes":if(P.on){P.scenes=j.list||[];P.pgm=j.pgm||""}bcTiles();bcMon();bcAuto();bcSetUi(false);bcEm();break;
@@ -3048,7 +3065,7 @@ function bcCmd(op,name,x,done){if(!bcDir())return;const w=BC.ws;if(!w||w.readySt
 function bcPick(name){if(!bcDir()||!bcScenes().includes(name))return;BC.pvw=name;bcTiles();bcMon();try{BC.ws.send(JSON.stringify({pvw:name}))}catch(e){}}
 function bcTake(){const p=BC.pvw,g=bcObsOn()?BC.pc.pgm:"";if(!bcDir()||!p||p===g)return;bcCmd("scene",p,{swap:true})}
 function bcBrb(){const s=bcSlate();if(!s){bcSay("No “Back soon” scene yet: pick one under Setup (or name one Back soon in OBS)");return}bcCmd("scene",s,{swap:false})}
-async function bcPost(body,okMsg){try{const j=await api("/admin/api/desk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(j&&j.cfg)BC.cfg=j.cfg;if(okMsg)bcSay(okMsg,true);return true}catch(e){bcSay(e.message);return false}finally{bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm()}}
+async function bcPost(body,okMsg){try{const j=await api("/admin/api/desk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(j&&j.cfg)BC.cfg=j.cfg;if(okMsg)bcSay(okMsg,true);return true}catch(e){bcSay(e.message);return false}finally{bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcCamLink()}}
 const bcCfg=(cfg,okMsg)=>bcPost({op:"cfg",cfg},okMsg);
 function bcRules(k,fn){const R=JSON.parse(JSON.stringify((BC.cfg&&BC.cfg.auto.rules)||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];return bcCfg({auto:{rules:R}})}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bc button,#bc [data-bcs]");if(!t||t.disabled)return;
@@ -3082,127 +3099,265 @@ document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.
    ('P', 1, camera, codec, flags, 0, width, height, duration_ms, seq: little-endian) and a JPEG (codec 1) or H.264
    Annex-B (codec 2: decoded here with WebCodecs, where the browser has it). The page says what it has had (ack) every
    0.4 s, or sooner after 4 JPEGs or 8 H.264 frames, so the server knows it keeps up. H.264 plays about half a second
-   behind, to be smooth; every VideoFrame is closed as soon as it is drawn or dropped, and at most 24 wait a camera */
-const CAM={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,raf:0,
- c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0}))};
+   behind, to be smooth; every VideoFrame is closed as soon as it is drawn or dropped, and at most 24 wait a camera.
+   One player (mkCamView) a WebSocket: Broadcast's own channel (CAM), the streaming pilot's channel that Broadcast shows
+   while no PC is on its own (CAMP, "Auto"), and the pilot of the flight open in Flight Watch (FWV). Two players can share
+   one grid of four cameras (Broadcast's): only the one whose live() is true draws in it or writes its captions */
 /* CAM_DQ: frames the decoder may have queued before it counts as stuck; above a whole GOP replayed at once (75) */
-const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650,CAM_DQ=90;
-const camCell=i=>document.querySelector('#bcCamG [data-camc="'+i+'"]');
+const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650,CAM_DQ=90,CAM_VIEWS=[];
 const camWC=()=>typeof VideoDecoder==="function"&&typeof EncodedVideoChunk==="function";
+/* a pilot ID as Polaris Cam's channels are named by it: 2-16 letters and digits, upper case ("" when it is not one) */
+const camPilot=v=>{const s=String(v==null?"":v).trim().toUpperCase();return /^[A-Z0-9]{2,16}$/.test(s)?s:""};
 /* the codec string ('avc1.' + profile, constraints, level) from the SPS (NAL type 7) of a key frame's Annex-B bytes */
 function camAvcCodec(b,w){const n=b.length,hx=x=>(x|256).toString(16).slice(1);
  for(let i=0;i+6<n;i++){if(b[i]===0&&b[i+1]===0&&b[i+2]===1){if((b[i+3]&31)===7)return "avc1."+hx(b[i+4])+hx(b[i+5])+hx(b[i+6]);i+=2}}
  return w>1280?"avc1.640028":"avc1.64001f"}
-function camOpen(){if(CAM.ws||!CAM.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/admin/api/cam/ws")}catch(e){return}
- w.binaryType="arraybuffer";CAM.ws=w;
- w.onmessage=e=>{if(CAM.ws!==w)return;if(typeof e.data==="string"){let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)camIn(j)}else if(e.data instanceof ArrayBuffer)camFrame(e.data)};
- w.onclose=()=>{if(CAM.ws!==w)return;CAM.ws=null;CAM.role="";camBlank();camUi();if(CAM.want){clearTimeout(CAM.retry);CAM.retry=setTimeout(camOpen,3000)}};
- w.onerror=()=>{}}
-function camClose(){CAM.want=false;clearTimeout(CAM.retry);const w=CAM.ws;CAM.ws=null;CAM.role="";if(w)try{w.close()}catch(e){}camBlank()}
-/* the frames waiting to be drawn, closed; and the decoder, closed (nothing of either is left behind) */
-function camQDrop(c){while(c.q.length){const x=c.q.shift();try{x.frame.close()}catch(e){}}c.lastAt=0;c.lastTs=0}
-function camDecStop(i){const c=CAM.c[i],d=c.dec;c.dec=null;c.cfg="";c.cw=0;c.ch=0;if(d)try{if(d.state!=="closed")d.close()}catch(e){}camQDrop(c)}
-function camBlank(){CAM.c.forEach((c,i)=>{camDecStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=camCell(i);if(el)el.querySelector("canvas").hidden=true})}
-function camIn(j){switch(j.t){
- case "hello":CAM.role=j.role||"";CAM.token=j.token||"";CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;camBlank();camUi();break;
- case "pub":{const was=CAM.pub&&CAM.pub.on;CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;if(was&&!CAM.pub.on)camBlank();else camNotH264();camUi();break}
- case "token":CAM.token=j.token||"";camUi();break;
- default:}}
-/* a camera Polaris Cam now says is off, gone or JPEG: its decoder and frames go now, not at its next picture */
-function camNotH264(){const P=CAM.pub||{},L=P.cams||[];if(!P.on||!L.length)return;
- for(let i=0;i<4;i++){const c=CAM.c[i],k=L.find(x=>x.i===i);if(k&&k.on!==false&&(k.codec||P.mode)==="h264")continue;
-  if(c.dec||c.q.length)camDecStop(i);c.needKey=true}}
-function camFrame(buf){if(buf.byteLength<18)return;const b=new Uint8Array(buf,0,16),d=new DataView(buf);
- if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=CAM.c[i],seq=d.getUint32(12,true),now=Date.now(),codec=b[3];
- if(codec!==1&&codec!==2)return;
- c.seq=seq;c.w=d.getUint16(6,true);c.h=d.getUint16(8,true);c.dur=d.getUint16(10,true)||33;c.ts.push(now);while(c.ts.length&&now-c.ts[0]>2000)c.ts.shift();
- if(++c.un>=(codec===2?8:4))camAck(i);
- if(codec===2){camH264(i,buf,(b[4]&1)===1);return}
- /* JPEG: back from H.264, its decoder and frames go at once */
- if(c.codec!==1){if(c.dec||c.q.length)camDecStop(i);c.codec=1;c.nowc=false;c.needKey=true}
- if(c.busy){c.next=buf;return}camDraw(i,buf)}
-function camAck(i){const c=CAM.c[i],w=CAM.ws;if(!c.seq||c.seq===c.acked||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"ack",cam:i,seq:c.seq}));c.acked=c.seq;c.un=0}catch(e){}}
-/* a key frame of that camera, please (at most once a second from here; the server holds back the rest) */
-function camKey(i,now){const c=CAM.c[i],w=CAM.ws;now=now||Date.now();if(now-c.keyAt<1000||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"key",cam:i}));c.keyAt=now}catch(e){}}
-function camH264(i,buf,key){const c=CAM.c[i];
- if(c.codec!==2){c.codec=2;c.next=null;c.needKey=true}
- if(!camWC()){if(!c.nowc){c.nowc=true;camCaps()}return}
- const data=new Uint8Array(buf,16);
- if(!c.dec||c.needKey||c.cw!==c.w||c.ch!==c.h){
-  if(!key){camKey(i);return}   /* nothing to decode until a key frame */
-  const codec=camAvcCodec(data,c.w);
-  if(!c.dec||c.dec.state!=="configured"||c.cfg!==codec||c.cw!==c.w||c.ch!==c.h){camDecStop(i);
-   let dec;try{dec=new VideoDecoder({output:f=>camOut(i,dec,f),error:()=>{if(c.dec===dec)camDecErr(i)}});
-    dec.configure({codec,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"})}   /* no description: SPS/PPS come in the stream */
-   catch(e){if(dec)try{dec.close()}catch(x){}c.keyAt=0;camKey(i);return}
-   c.dec=dec;c.cfg=codec;c.cw=c.w;c.ch=c.h}
-  c.needKey=false}
- c.tsUs+=c.dur*1000;
- try{if(!key&&c.dec.decodeQueueSize>CAM_DQ)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){camDecErr(i)}}
-/* the decoder failed: start it again from the next key frame (asked for at once) */
-function camDecErr(i){const c=CAM.c[i];camDecStop(i);c.needKey=true;c.keyAt=0;camKey(i)}
-function camOut(i,dec,f){const c=CAM.c[i];if(c.dec!==dec){f.close();return}
- c.q.push({frame:f,at:performance.now(),ts:f.timestamp});
- while(c.q.length>CAM_Q||(document.hidden&&c.q.length))c.q.shift().frame.close();
- camRaf()}
-function camRaf(){if(!CAM.raf&&CAM.c.some(c=>c.q.length))CAM.raf=requestAnimationFrame(camTick)}
-/* each screen refresh: the next frame of each H.264 camera, when it is due. The first at once; then at the stream's own
-   pace, a little slower while less than ~0.45 s waits (so about half a second builds up), the oldest dropped past ~0.65 s */
-function camTick(t){CAM.raf=0;t=t||performance.now();
- for(let i=0;i<4;i++){const c=CAM.c[i],q=c.q;if(!q.length)continue;
-  if(document.hidden){camQDrop(c);continue}
-  const span=()=>(q[q.length-1].ts-q[0].ts)/1000;
-  if(span()>CAM_HIGH)while(q.length>1&&span()>CAM_BUF){q.shift().frame.close();c.lastAt=0}
-  const h=q[0],due=c.lastAt?c.lastAt+Math.max(0,(h.ts-c.lastTs)/1000)*(span()<CAM_LOW?1.1:1):0;
-  if(t<due)continue;
-  q.shift();
-  try{camPaint(i,h.frame,h.frame.displayWidth||c.w,h.frame.displayHeight||c.h)}catch(e){}finally{h.frame.close()}
-  c.lastAt=due&&t-due<50?due:t;c.lastTs=h.ts}
- camRaf()}
-function camPaint(i,src,w,h){const c=CAM.c[i],el=camCell(i);if(!el||!CAM.ws||!CAM.pub.on)return;const cv=el.querySelector("canvas");
- if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}cv.getContext("2d").drawImage(src,0,0,w,h);if(cv.hidden){cv.hidden=false;c.shown=true;camCaps()}}
-function camDraw(i,buf){const c=CAM.c[i];if(!camCell(i))return;c.busy=true;
- const done=()=>{c.busy=false;if(c.next){const n=c.next;c.next=null;if(c.codec===1)camDraw(i,n)}};
- const paint=(src,w,h)=>{if(c.codec===1)camPaint(i,src,w,h)};
- const blob=new Blob([new Uint8Array(buf,16)],{type:"image/jpeg"});
- if(typeof createImageBitmap==="function"){createImageBitmap(blob).then(bm=>{try{paint(bm,bm.width,bm.height)}catch(e){}finally{if(bm.close)bm.close()}done()},()=>done());return}
- const u=URL.createObjectURL(blob),im=new Image();
- im.onload=()=>{URL.revokeObjectURL(u);try{paint(im,im.naturalWidth,im.naturalHeight)}catch(e){}done()};
- im.onerror=()=>{URL.revokeObjectURL(u);done()};im.src=u}
 const camFps=c=>{const L=c.ts;if(L.length<2||Date.now()-L[L.length-1]>2000)return 0;return (L.length-1)*1000/Math.max(1,L[L.length-1]-L[0])};
-function camCaps(){const P=CAM.pub||{},L=P.cams||[];
- for(let i=0;i<4;i++){const el=camCell(i);if(!el)continue;const c=CAM.c[i],k=L.find(x=>x.i===i),cap=el.querySelector(".bc-cap"),ph=el.querySelector(".bc-ph");
-  const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c),md=c.codec===2?"H.264":c.codec===1?"JPEG":"";
-  cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
-  cap.querySelector("em").textContent=[md,w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
-  const shown=!el.querySelector("canvas").hidden&&!(c.codec===2&&c.nowc);
-  if(c.codec===2&&c.nowc)el.querySelector("canvas").hidden=true;
-  ph.hidden=shown;if(!shown)ph.textContent=c.codec===2&&c.nowc?"H.264 needs Chrome or Edge":!CAM.ws?"Not connected":!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!CAM.watchers?"Waiting":"No picture yet";
-  el.classList.toggle("z",CAM.zoom===i);el.setAttribute("aria-pressed",String(CAM.zoom===i))}
- $("#bcCamG").classList.toggle("one",CAM.zoom>=0)}
-/* the mode of the cameras that are on: H.264, JPEG, or both */
-function camMode(){const P=CAM.pub||{},s=new Set((P.cams||[]).filter(k=>k.on!==false).map(k=>k.codec||P.mode));CAM.c.forEach(c=>{if(c.codec)s.add(c.codec===2?"h264":"jpeg")});
- if(!s.size)s.add(P.mode==="h264"?"h264":"jpeg");return s.size>1?"H.264 + JPEG":s.has("h264")?"H.264":"JPEG"}
-function camUi(){const P=CAM.pub||{},st=$("#bcCamSt");if(!st)return;
- const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>";
- st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",camMode())+ch("",CAM.watchers+" watching"):ch("bad","Offline");
+/* four cameras, as Broadcast's grid has them (Flight Watch draws its own with its card) */
+const camGridHtml=()=>[0,1,2,3].map(i=>'<button type="button" class="bc-cc" data-camc="'+i+'"><div class="bc-cap"><b>Cam '+(i+1)+'</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button>').join("");
+/* one player. o: grid (its .bc-cg, a selector), url(V) (the WebSocket's path), live(V) (may it draw in the grid now;
+   always, without), ui(V) (its status, around its captions), onIn(V,j) (after each message, and { t:"close" } when the
+   socket drops), idle(V) (what a camera says while there is no socket), page (whose captions' fps are kept fresh) */
+function mkCamView(o){
+ const V={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,raf:0,page:o.page||"",
+  c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0}))};
+ const live=()=>!o.live||!!o.live(V);
+ const cell=i=>live()?document.querySelector(o.grid+' [data-camc="'+i+'"]'):null;
+ V.live=live;V.cell=cell;
+ V.open=()=>{if(V.ws||!V.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+o.url(V))}catch(e){return}
+  w.binaryType="arraybuffer";V.ws=w;
+  w.onmessage=e=>{if(V.ws!==w)return;if(typeof e.data==="string"){let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)V.msg(j)}else if(e.data instanceof ArrayBuffer)V.frame(e.data)};
+  w.onclose=()=>{if(V.ws!==w)return;V.ws=null;V.role="";V.blank();V.ui();if(o.onIn)o.onIn(V,{t:"close"});if(V.want){clearTimeout(V.retry);V.retry=setTimeout(V.open,3000)}};
+  w.onerror=()=>{}};
+ /* closed for good (until opened again): its socket, decoders and frames, and what it knew of Polaris Cam */
+ V.close=()=>{V.want=false;clearTimeout(V.retry);clearTimeout(V.hidT);const w=V.ws;V.ws=null;V.role="";V.token="";V.pub={on:false,cams:[]};V.watchers=0;V.zoom=-1;if(w)try{w.close()}catch(e){}V.blank()};
+ /* the frames waiting to be drawn, closed; and the decoder, closed (nothing of either is left behind) */
+ V.qDrop=c=>{while(c.q.length){const x=c.q.shift();try{x.frame.close()}catch(e){}}c.lastAt=0;c.lastTs=0};
+ V.decStop=i=>{const c=V.c[i],d=c.dec;c.dec=null;c.cfg="";c.cw=0;c.ch=0;if(d)try{if(d.state!=="closed")d.close()}catch(e){}V.qDrop(c)};
+ V.blank=()=>{V.c.forEach((c,i)=>{V.decStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=cell(i);if(el)el.querySelector("canvas").hidden=true})};
+ V.msg=j=>{switch(j.t){
+  case "hello":V.role=j.role||"";V.token=j.token||"";V.pub=j.pub||{on:false,cams:[]};V.watchers=j.watchers||0;V.blank();V.ui();break;
+  case "pub":{const was=V.pub&&V.pub.on;V.pub=j.pub||{on:false,cams:[]};V.watchers=j.watchers||0;if(was&&!V.pub.on)V.blank();else V.notH264();V.ui();break}
+  case "token":V.token=j.token||"";V.ui();break;
+  default:}
+  if(o.onIn)o.onIn(V,j)};
+ /* a camera Polaris Cam now says is off, gone or JPEG: its decoder and frames go now, not at its next picture */
+ V.notH264=()=>{const P=V.pub||{},L=P.cams||[];if(!P.on||!L.length)return;
+  for(let i=0;i<4;i++){const c=V.c[i],k=L.find(x=>x.i===i);if(k&&k.on!==false&&(k.codec||P.mode)==="h264")continue;
+   if(c.dec||c.q.length)V.decStop(i);c.needKey=true}};
+ V.frame=buf=>{if(buf.byteLength<18)return;const b=new Uint8Array(buf,0,16),d=new DataView(buf);
+  if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=V.c[i],seq=d.getUint32(12,true),now=Date.now(),codec=b[3];
+  if(codec!==1&&codec!==2)return;
+  c.seq=seq;c.w=d.getUint16(6,true);c.h=d.getUint16(8,true);c.dur=d.getUint16(10,true)||33;c.ts.push(now);while(c.ts.length&&now-c.ts[0]>2000)c.ts.shift();
+  if(++c.un>=(codec===2?8:4))V.ack(i);
+  if(codec===2){V.h264(i,buf,(b[4]&1)===1);return}
+  /* JPEG: back from H.264, its decoder and frames go at once */
+  if(c.codec!==1){if(c.dec||c.q.length)V.decStop(i);c.codec=1;c.nowc=false;c.needKey=true}
+  if(c.busy){c.next=buf;return}V.draw(i,buf)};
+ V.ack=i=>{const c=V.c[i],w=V.ws;if(!c.seq||c.seq===c.acked||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"ack",cam:i,seq:c.seq}));c.acked=c.seq;c.un=0}catch(e){}};
+ /* a key frame of that camera, please (at most once a second from here; the server holds back the rest) */
+ V.key=(i,now)=>{const c=V.c[i],w=V.ws;now=now||Date.now();if(now-c.keyAt<1000||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"key",cam:i}));c.keyAt=now}catch(e){}};
+ V.h264=(i,buf,key)=>{const c=V.c[i];
+  if(c.codec!==2){c.codec=2;c.next=null;c.needKey=true}
+  if(!camWC()){if(!c.nowc){c.nowc=true;V.caps()}return}
+  const data=new Uint8Array(buf,16);
+  if(!c.dec||c.needKey||c.cw!==c.w||c.ch!==c.h){
+   if(!key){V.key(i);return}   /* nothing to decode until a key frame */
+   const codec=camAvcCodec(data,c.w);
+   if(!c.dec||c.dec.state!=="configured"||c.cfg!==codec||c.cw!==c.w||c.ch!==c.h){V.decStop(i);
+    let dec;try{dec=new VideoDecoder({output:f=>V.out(i,dec,f),error:()=>{if(c.dec===dec)V.decErr(i)}});
+     dec.configure({codec,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"})}   /* no description: SPS/PPS come in the stream */
+    catch(e){if(dec)try{dec.close()}catch(x){}c.keyAt=0;V.key(i);return}
+    c.dec=dec;c.cfg=codec;c.cw=c.w;c.ch=c.h}
+   c.needKey=false}
+  c.tsUs+=c.dur*1000;
+  try{if(!key&&c.dec.decodeQueueSize>CAM_DQ)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){V.decErr(i)}};
+ /* the decoder failed: start it again from the next key frame (asked for at once) */
+ V.decErr=i=>{const c=V.c[i];V.decStop(i);c.needKey=true;c.keyAt=0;V.key(i)};
+ V.out=(i,dec,f)=>{const c=V.c[i];if(c.dec!==dec){f.close();return}
+  c.q.push({frame:f,at:performance.now(),ts:f.timestamp});
+  while(c.q.length>CAM_Q||(document.hidden&&c.q.length))c.q.shift().frame.close();
+  V.rafGo()};
+ V.rafGo=()=>{if(!V.raf&&V.c.some(c=>c.q.length))V.raf=requestAnimationFrame(V.tick)};
+ /* each screen refresh: the next frame of each H.264 camera, when it is due. The first at once; then at the stream's own
+    pace, a little slower while less than ~0.45 s waits (so about half a second builds up), the oldest dropped past ~0.65 s */
+ V.tick=t=>{V.raf=0;t=t||performance.now();
+  for(let i=0;i<4;i++){const c=V.c[i],q=c.q;if(!q.length)continue;
+   if(document.hidden){V.qDrop(c);continue}
+   const span=()=>(q[q.length-1].ts-q[0].ts)/1000;
+   if(span()>CAM_HIGH)while(q.length>1&&span()>CAM_BUF){q.shift().frame.close();c.lastAt=0}
+   const h=q[0],due=c.lastAt?c.lastAt+Math.max(0,(h.ts-c.lastTs)/1000)*(span()<CAM_LOW?1.1:1):0;
+   if(t<due)continue;
+   q.shift();
+   try{V.paint(i,h.frame,h.frame.displayWidth||c.w,h.frame.displayHeight||c.h)}catch(e){}finally{h.frame.close()}
+   c.lastAt=due&&t-due<50?due:t;c.lastTs=h.ts}
+  V.rafGo()};
+ V.paint=(i,src,w,h)=>{const c=V.c[i],el=cell(i);if(!el||!V.ws||!V.pub.on)return;const cv=el.querySelector("canvas");
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}cv.getContext("2d").drawImage(src,0,0,w,h);if(cv.hidden){cv.hidden=false;c.shown=true;V.caps()}};
+ V.draw=(i,buf)=>{const c=V.c[i];if(!cell(i))return;c.busy=true;
+  const done=()=>{c.busy=false;if(c.next){const n=c.next;c.next=null;if(c.codec===1)V.draw(i,n)}};
+  const paint=(src,w,h)=>{if(c.codec===1)V.paint(i,src,w,h)};
+  const blob=new Blob([new Uint8Array(buf,16)],{type:"image/jpeg"});
+  if(typeof createImageBitmap==="function"){createImageBitmap(blob).then(bm=>{try{paint(bm,bm.width,bm.height)}catch(e){}finally{if(bm.close)bm.close()}done()},()=>done());return}
+  const u=URL.createObjectURL(blob),im=new Image();
+  im.onload=()=>{URL.revokeObjectURL(u);try{paint(im,im.naturalWidth,im.naturalHeight)}catch(e){}done()};
+  im.onerror=()=>{URL.revokeObjectURL(u);done()};im.src=u};
+ /* each camera's caption, and what it says while there is no picture; one camera large (zoom) or all four */
+ V.caps=()=>{if(!live())return;const P=V.pub||{},L=P.cams||[];
+  for(let i=0;i<4;i++){const el=cell(i);if(!el)continue;const c=V.c[i],k=L.find(x=>x.i===i),cap=el.querySelector(".bc-cap"),ph=el.querySelector(".bc-ph");
+   const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c),md=c.codec===2?"H.264":c.codec===1?"JPEG":"";
+   cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
+   cap.querySelector("em").textContent=[md,w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
+   const shown=!el.querySelector("canvas").hidden&&!(c.codec===2&&c.nowc);
+   if(c.codec===2&&c.nowc)el.querySelector("canvas").hidden=true;
+   ph.hidden=shown;if(!shown)ph.textContent=c.codec===2&&c.nowc?"H.264 needs Chrome or Edge":!V.ws?(o.idle?o.idle(V):"Not connected"):!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!V.watchers?"Waiting":"No picture yet";
+   el.classList.toggle("z",V.zoom===i);el.setAttribute("aria-pressed",String(V.zoom===i))}
+  const g=$(o.grid);if(g)g.classList.toggle("one",V.zoom>=0)};
+ /* the mode of the cameras that are on: H.264, JPEG, or both */
+ V.mode=()=>{const P=V.pub||{},s=new Set((P.cams||[]).filter(k=>k.on!==false).map(k=>k.codec||P.mode));V.c.forEach(c=>{if(c.codec)s.add(c.codec===2?"h264":"jpeg")});
+  if(!s.size)s.add(P.mode==="h264"?"h264":"jpeg");return s.size>1?"H.264 + JPEG":s.has("h264")?"H.264":"JPEG"};
+ V.ui=()=>{if(o.ui)o.ui(V);else V.caps()};
+ V.zoomTo=i=>{V.zoom=V.zoom===i?-1:i;V.caps()};
+ CAM_VIEWS.push(V);return V}
+/* Broadcast's grid, shared by its two players: Broadcast's own channel (CAM: always open while the page shows, so it
+   knows whether a PC is on it, and has the link) and the streaming pilot's (CAMP, open only while no PC is on Broadcast's
+   own). CAMB.src says whose the grid is now: "master", "pilot", or "" (nobody's: CAM says Offline there) */
+const CAMB={src:"",pilot:"",hidT:0,link:null};
+const CAM=mkCamView({grid:"#bcCamG",page:"bc",url:()=>"/admin/api/cam/ws",live:()=>CAMB.src!=="pilot",ui:()=>camUi(),onIn:()=>{if(CAMB.link)CAMB.link()}});
+const CAMP=mkCamView({grid:"#bcCamG",page:"bc",url:()=>"/admin/api/cam/ws?pilot="+encodeURIComponent(CAMB.pilot),live:()=>CAMB.src==="pilot",ui:()=>camUi(),idle:()=>"Connecting…"});
+/* Broadcast's own player, by the names the rest of the page knows it by */
+const camIn=j=>CAM.msg(j),camFrame=buf=>CAM.frame(buf),camBlank=()=>CAM.blank(),camClose=()=>CAM.close(),camTick=t=>CAM.tick(t),camAck=i=>CAM.ack(i);
+const camCaps=()=>(CAMB.src==="pilot"?CAMP:CAM).caps();
+/* Broadcast's status line: where the pictures come from (Direct link: a PC on Broadcast's own channel; Auto: the
+   streaming pilot's own), then as Polaris Cam is; the link under Setup, for directors */
+function camUi(){const st=$("#bcCamSt");if(!st)return;const pv=CAMB.src==="pilot",V=pv?CAMP:CAM,P=V.pub||{};
+ const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>",src=t=>'<span class="bc-c bc-src">'+esc(t)+"</span>";
+ st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):(pv?src("Auto · "+CAMB.pilot):CAM.pub&&CAM.pub.on?src("Direct link"):"")+
+  (!V.ws||!V.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",V.mode())+ch("",V.watchers+" watching"):ch("bad","Offline"));
  const W=$("#bcCamW");W.hidden=!(CAM.role==="dir"&&CAM.token);if(!W.hidden)$("#bcCamUrl").value=location.origin+"/live/cam/"+CAM.token;
- camCaps()}
+ V.caps()}
 async function camTok(t){if(CAM.armT&&Date.now()-CAM.armT<5000){CAM.armT=0;t.textContent="New link";t.disabled=true;
   try{const j=await api("/admin/api/cam",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({op:"token"})});if(j&&j.token)CAM.token=j.token;if(j&&j.pub)CAM.pub=j.pub;bcSay("A new Polaris Cam link: paste it into Polaris Cam on the simulator PC",true)}
-  catch(e){bcSay(e.message)}finally{t.disabled=false;camUi()}return}
+  catch(e){bcSay(e.message)}finally{t.disabled=false;camUi();bcCamLink()}return}
  CAM.armT=Date.now();t.textContent="Press again: the old link stops";setTimeout(()=>{if(CAM.armT&&Date.now()-CAM.armT>=4900){CAM.armT=0;t.textContent="New link"}},5000)}
+/* Broadcast, Option A: whose cameras it shows. A PC on Broadcast's own channel (its link, under Setup) comes first:
+   "Direct link". Else, with a streaming pilot set (Setup), that pilot's own channel, where their Polaris Cam signs in
+   by itself with Polaris Navdata: "Auto · <pilot>". Else nobody's: Offline. Never two streams at once: the pilot's
+   player is closed as soon as a PC is on Broadcast's own. Asked again when either says something, when the streaming
+   pilot changes, and as the page opens, closes, hides or shows */
+function bcCamLink(){const sp=camPilot(BC.cfg&&BC.cfg.pilot),on=pgNow==="bc"&&CAM.want;
+ let src=!on?"":!CAM.role?CAMB.src:CAM.pub&&CAM.pub.on?"master":"pilot";   /* while CAM reconnects, as it was */
+ if(src==="pilot"&&!sp)src="";
+ if(CAMP.want&&(src!=="pilot"||CAMB.pilot!==sp))CAMP.close();             /* its pictures go while the grid is still its */
+ if(src!==CAMB.src){CAMB.src=src;CAM.zoom=-1;CAMP.zoom=-1}
+ if(src==="pilot"&&!CAMP.want){CAMB.pilot=sp;CAMP.want=true;CAMP.open()}
+ camUi()}
+CAMB.link=bcCamLink;
+function bcCamOn(){CAM.want=true;CAM.open();bcCamLink()}
+function bcCamOff(){CAM.close();bcCamLink()}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bcCamG [data-camc],#bcCamCopy,#bcCamTok");if(!t||t.disabled)return;
- if(t.dataset.camc!=null){const i=+t.dataset.camc;CAM.zoom=CAM.zoom===i?-1:i;camCaps();return}
+ if(t.dataset.camc!=null){(CAMB.src==="pilot"?CAMP:CAM).zoomTo(+t.dataset.camc);return}
  if(t.id==="bcCamCopy"){const u=$("#bcCamUrl").value;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>bcSay("The Polaris Cam link is copied",true),()=>{$("#bcCamUrl").select();bcSay("Copy the selected link")});return}
  if(t.id==="bcCamTok")camTok(t)});
-setInterval(()=>{for(let i=0;i<4;i++)camAck(i)},400);
-setInterval(()=>{if(CAM.ws&&CAM.ws.readyState===1)try{CAM.ws.send("ping")}catch(e){}},30000);
-setInterval(()=>{if(pgNow==="bc"&&!document.hidden)camCaps()},1000);
-window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")camClose()});
-document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(CAM.hidT);if(document.hidden)CAM.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")camClose()},60000);else if(!CAM.want){CAM.want=true;camOpen();camUi()}});
+/* every player: its acks every 0.4 s, the keep-alive every 30 s, its captions (fps) every second while its page shows */
+setInterval(()=>{CAM_VIEWS.forEach(V=>{for(let i=0;i<4;i++)V.ack(i)})},400);
+setInterval(()=>{CAM_VIEWS.forEach(V=>{if(V.ws&&V.ws.readyState===1)try{V.ws.send("ping")}catch(e){}})},30000);
+setInterval(()=>{if(document.hidden)return;CAM_VIEWS.forEach(V=>{if(V.ws&&V.page===pgNow)V.caps()})},1000);
+window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")bcCamOff()});
+document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(CAMB.hidT);if(document.hidden)CAMB.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")bcCamOff()},60000);else if(!CAM.want)bcCamOn()});
+/* ---------- Flight Watch: the cockpit cameras (Polaris Cam, cam.js) of the pilots whose PC has it on. Who is online is
+   asked every 15 s while the page shows (and as it opens or comes back into view): their flights get a CAM mark in the
+   list, and the strip above it lists them all, with a pilot who has no flight on the map (parked, or testing) too.
+   The open flight's pilot, or the pilot picked in the strip, is watched in the Cockpit Monitor: at once while they are
+   online, never while they are not (Connect waits for them), one pilot at a time. Closed as soon as the flight changes
+   or closes, the page is left, or the browser tab has been hidden for a minute: their PC then sends nothing. ---------- */
+const FW_CAM={online:{},busy:false,off:false,pilot:"",ground:"",paused:false,manual:false,away:false,hidT:0,tok:"",armT:0};
+const fwCamDir=()=>!PERM||PERM.can.has("live");
+const fwCamOn=p=>!!p&&Object.prototype.hasOwnProperty.call(FW_CAM.online,p);
+/* each pilot's flight on the map (not the sample flights) */
+function fwCamFlights(){const F=window.pmLive?window.pmLive.flights():[],by={};F.forEach(f=>{const p=!f.sample&&camPilot(f.pilot);if(p&&!by[p])by[p]=f});return by}
+const FWV=mkCamView({grid:"#foCamG",page:"fw",url:()=>"/admin/api/cam/ws?pilot="+encodeURIComponent(FW_CAM.pilot),ui:()=>fwCamUi(),onIn:(V,j)=>fwCamIn(V,j),
+ idle:()=>FW_CAM.paused?"Paused":fwCamOn(FW_CAM.pilot)?"Connecting…":"Polaris Cam is offline"});
+/* whom the monitor is for: the open flight's pilot, or (no flight open) the pilot picked in the strip */
+function fwCamTarget(){if(pgNow!=="fw"||document.querySelector(".deny"))return "";const f=FO.f;return f?(f.sample?"":camPilot(f.pilot)):FW_CAM.ground}
+/* the monitor as it should be now: another pilot closes the one before at once; open while the pilot is online (or
+   Connect was pressed), not paused, and the tab has not been hidden for a minute */
+function fwCamSync(draw){if(FO.f)FW_CAM.ground="";const p=fwCamTarget();
+ if(p!==FW_CAM.pilot){FWV.close();FW_CAM.pilot=p;FW_CAM.paused=false;FW_CAM.manual=false;FW_CAM.tok="";FW_CAM.armT=0;draw=true}
+ if(draw)fwCamCard();
+ const go=!!p&&!FW_CAM.paused&&!FW_CAM.away&&(FW_CAM.manual||fwCamOn(p)||!!(FWV.ws&&FWV.pub&&FWV.pub.on));
+ if(go&&!FWV.want){FWV.want=true;FWV.open()}else if(!go&&FWV.want)FWV.close();
+ fwCamUi()}
+function fwCamIn(V,j){const p=FW_CAM.pilot;if(!p)return;
+ /* what the pilot's own channel says counts over the list; once they are on, Connect has done its part (when they go, so does the socket) */
+ if(j.t==="hello"||j.t==="pub"){const P=V.pub||{};if(P.on)FW_CAM.manual=false;if(P.on)FW_CAM.online[p]={v:P.v||"",mode:P.mode||"jpeg",cams:P.cams||[],at:P.at||0};else delete FW_CAM.online[p];fwCamStrip();fwCamRows()}
+ if(V.token)FW_CAM.tok=V.token;
+ fwCamSync()}
+async function fwCamLoad(){if(FW_CAM.busy||FW_CAM.off||document.querySelector(".deny")||!pgHas("fw"))return;FW_CAM.busy=true;
+ try{const j=await api("/admin/api/cam/online"),o=(j&&j.online)||{},n={};
+  for(const k of Object.keys(o)){const p=camPilot(k);if(p&&o[k]&&typeof o[k]==="object")n[p]=o[k]}
+  const p=FW_CAM.pilot;if(p&&FWV.ws&&FWV.role){if(FWV.pub&&FWV.pub.on)n[p]=FWV.pub;else delete n[p]}
+  FW_CAM.online=n}
+ catch(e){if(/not set up/i.test(e.message))FW_CAM.off=true}
+ finally{FW_CAM.busy=false}
+ fwCamStrip();fwCamRows();fwCamSync()}
+/* the flight list: CAM beside the callsign of a flight whose pilot's Polaris Cam is on */
+function fwCamRows(){const by={};(window.pmLive?window.pmLive.flights():[]).forEach(f=>{const p=!f.sample&&camPilot(f.pilot);if(p&&fwCamOn(p))by[f.cs]=p});
+ document.querySelectorAll("#lvList [data-cs]").forEach(row=>{const p=by[row.dataset.cs];let s=row.querySelector(".fw-cb");
+  if(!p){if(s)s.remove();return}
+  if(!s){s=document.createElement("span");s.className="fw-cb";s.innerHTML="<i></i>CAM";(row.querySelector(".lv-cs")||row).appendChild(s)}
+  s.title=p+": Polaris Cam is on"})}
+/* the strip: every pilot online, with their flight's callsign (a click opens it) or "on ground" (a click watches them here) */
+function fwCamStrip(){const el=$("#fwCam");if(!el)return;const L=Object.keys(FW_CAM.online).sort(),F=fwCamFlights();
+ if(!L.length){el.hidden=true;el.innerHTML="";return}
+ el.hidden=false;
+ el.innerHTML='<div class="fw-h"><b>Cockpit cameras</b><span>'+L.length+' online</span></div><div class="fw-cps">'+L.map(p=>{const f=F[p];
+  return '<button type="button" class="fw-cp'+(FW_CAM.ground===p?" on":"")+'" data-fwcp="'+esc(p)+'" aria-pressed="'+(FW_CAM.ground===p)+'" title="'+esc(f?"Open "+f.cs+" and watch its cockpit":"Watch "+p+"’s cockpit here: no flight on the map")+'"><i></i><b>'+esc(p)+"</b><small>"+esc(f?f.cs:"on ground")+"</small></button>"}).join("")+"</div>"}
+/* the Cockpit Monitor's card: in the open flight's panel, or under the strip for a pilot picked there */
+const fwCamHtml=(p,g)=>'<div class="fo-s fo-cam"><div class="fo-camh"><h4>Cockpit Monitor <small>'+esc(p)+'</small></h4><div class="fo-camb"><button type="button" data-fwc="go" id="foCamGo">Connect</button>'+(g?'<button type="button" data-fwc="x" title="Close" aria-label="Close">✕</button>':"")+"</div></div>"+
+ '<div class="bc-st fo-camst" id="foCamSt"></div><div class="bc-cg fo-cg" id="foCamG" hidden>'+camGridHtml()+"</div>"+
+ (fwCamDir()?'<details class="fo-camk" id="foCamK"><summary>Manual link for '+esc(p)+'</summary><div class="bc-urlr"><input type="text" id="foCamUrl" readonly placeholder="Loading…" aria-label="Polaris Cam link for '+esc(p)+'"><button type="button" data-fwc="copy">Copy</button><button type="button" data-fwc="tok">New link</button></div><p class="hint">For a PC whose Polaris Cam does not sign in with Polaris Navdata: paste this link into Polaris Cam there. A new link stops the PC on the old one (not one signed in with Navdata).</p><div id="foCamSay"></div></details>':"")+
+ '<p class="hint fo-camhint">'+(g?"No flight of "+esc(p)+" on the map: parked, or testing. ":"")+"Only while you watch: their PC sends nothing otherwise. Click a camera to see it large.</p></div>";
+function fwCamCard(){const p=FW_CAM.pilot,fl=!!FO.f,fc=$("#foCam"),gc=$("#fwCamGround");
+ if(fc)fc.innerHTML=fl&&p?fwCamHtml(p,false):"";
+ if(gc){const g=!fl&&!!p;gc.innerHTML=g?fwCamHtml(p,true):"";gc.hidden=!g}
+ fwCamStrip()}
+function fwCamUi(){const st=$("#foCamSt");if(!st)return;const p=FW_CAM.pilot,V=FWV,P=V.pub||{},ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>";
+ const n=(P.cams||[]).filter(k=>k.on!==false).length;
+ st.innerHTML=FW_CAM.paused?ch("","Paused"):V.ws&&V.role?(P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",V.mode())+(n?ch("",n+" camera"+(n===1?"":"s")):"")+ch("",V.watchers+" watching"):ch("bad","Offline")+(FW_CAM.manual?ch("","Waiting for Polaris Cam"):"")):V.want?ch("","Connecting…"):fwCamOn(p)?ch("ok","Online"):ch("bad","Offline");
+ const wait=V.want&&FW_CAM.manual&&!P.on,b=$("#foCamGo");if(b){b.textContent=wait?"Cancel":V.want?"Pause":FW_CAM.paused||fwCamOn(p)?"Watch":"Connect";
+  b.title=wait?"Stop waiting for their Polaris Cam":V.want?"Stop the pictures: their PC sends nothing then":fwCamOn(p)?"See the cockpit cameras":"Wait for their Polaris Cam to come on, and show it then"}
+ const g=$("#foCamG");if(g)g.hidden=!V.want;
+ const u=$("#foCamUrl");if(u){u.value=FW_CAM.tok?location.origin+"/live/cam/p/"+p+"/"+FW_CAM.tok:"";u.placeholder=FW_CAM.tok?"":"Loading…"}
+ V.caps()}
+const fwCamSay=(t,ok)=>{const m=$("#foCamSay");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
+/* the pilot's own link (directors): asked for when it is opened, unless their channel's hello brought it */
+async function fwCamTokGet(){const p=FW_CAM.pilot;if(!p||FW_CAM.tok)return;
+ try{const j=await api("/admin/api/cam?pilot="+encodeURIComponent(p));if(p===FW_CAM.pilot&&j&&j.token){FW_CAM.tok=j.token;fwCamUi()}}catch(e){fwCamSay(e.message)}}
+async function fwCamTok(b){const p=FW_CAM.pilot;if(!p)return;
+ if(FW_CAM.armT&&Date.now()-FW_CAM.armT<5000){FW_CAM.armT=0;b.textContent="New link";b.disabled=true;
+  try{const j=await api("/admin/api/cam",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({op:"token",pilot:p})});
+   if(p===FW_CAM.pilot&&j&&j.token){FW_CAM.tok=j.token;fwCamSay("A new link for "+p+": paste it into Polaris Cam on their PC",true)}}
+  catch(e){fwCamSay(e.message)}finally{b.disabled=false;fwCamUi()}return}
+ FW_CAM.armT=Date.now();b.textContent="Press again: the old link stops";setTimeout(()=>{if(FW_CAM.armT&&Date.now()-FW_CAM.armT>=4900){FW_CAM.armT=0;const x=$('#foCamK [data-fwc="tok"]');if(x)x.textContent="New link"}},5000)}
+document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.id==="foCamK"&&d.open)fwCamTokGet()},true);
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#foCamG [data-camc],[data-fwc],[data-fwcp]");if(!t||t.disabled)return;
+ if(t.dataset.camc!=null){FWV.zoomTo(+t.dataset.camc);return}
+ if(t.dataset.fwcp){const p=t.dataset.fwcp,f=fwCamFlights()[p];
+  if(f&&window.pmLive){FW_CAM.ground="";window.pmLive.show(f.cs);fwCamSync()}else{FW_CAM.ground=FW_CAM.ground===p?"":p;fwCamSync()}return}
+ const k=t.dataset.fwc;
+ if(k==="go"){if(FWV.want){if(!(FW_CAM.manual&&!(FWV.pub&&FWV.pub.on)))FW_CAM.paused=true;FW_CAM.manual=false}else{FW_CAM.paused=false;FW_CAM.away=false;if(!fwCamOn(FW_CAM.pilot))FW_CAM.manual=true}fwCamSync();return}
+ if(k==="x"){FW_CAM.ground="";fwCamSync();return}
+ if(k==="copy"){const u=$("#foCamUrl");if(!u||!u.value)return;(navigator.clipboard?navigator.clipboard.writeText(u.value):Promise.reject()).then(()=>fwCamSay("The link is copied",true),()=>{u.select();fwCamSay("Copy the selected link")});return}
+ if(k==="tok")fwCamTok(t)});
+setInterval(()=>{if(pgNow==="fw"&&!document.hidden)fwCamLoad()},15000);
+window.addEventListener("pm:tab",()=>fwCamSync());
+window.addEventListener("pm:live",()=>{fwCamRows();fwCamStrip()});
+document.addEventListener("visibilitychange",()=>{clearTimeout(FW_CAM.hidT);
+ if(document.hidden){FW_CAM.hidT=setTimeout(()=>{if(document.hidden&&!FW_CAM.away){FW_CAM.away=true;fwCamSync()}},60000);return}
+ if(FW_CAM.away){FW_CAM.away=false;fwCamSync()}if(pgNow==="fw")fwCamLoad()});
 /* open only while the page shows (and it is in view): the PC sends its pictures only then */
-PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll();CAM.want=true;camOpen();camUi()};
+PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll();bcCamOn()};
 window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")bcClose()});
 document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(BC.hidT);if(document.hidden)BC.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")bcClose()},60000);else if(!BC.want){BC.want=true;bcOpen()}});
 setInterval(()=>{if(pgNow==="bc"&&!document.hidden)bcClock()},1000);

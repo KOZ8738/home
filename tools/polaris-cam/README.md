@@ -30,7 +30,7 @@ cockpit displays then. With the broadcast off it behaves as Taxi Cam does.
 | `src/profiles/discovered.hpp` | `apply_choices`, `override_current`, `publish_override` take the broadcast pane. |
 | `src/camera/view_clip.hpp`, `.cpp`, `src/camera/probe.hpp`, `.cpp` | `limit_camera_far` caps the far distances each camera view is given (the main view's) at the broadcast's draw distance, set through `request_scene_draw_distance`; `plausible_camera_clip` moved into the header. |
 | `src/viewer/` (new) | `polaris-cam.exe`, the window: settings, a 2×2 preview, an output window per camera (each remembers where it was), camera positions with presets the user can replace per aircraft. Direct3D 11, copies only. |
-| `src/viewer/remote_stream.hpp`, `.cpp`, `h264_encoder.hpp`, `.cpp` (new) | The cameras sent to the website's back office ("後台監看") over one WebSocket to its relay: at most 960×540, as H.264 from the graphics card's own encoder (Media Foundation), or as JPEG where there is none; only while someone there watches. |
+| `src/viewer/remote_stream.hpp`, `.cpp`, `h264_encoder.hpp`, `.cpp` (new) | The cameras sent to the website's back office ("後台監看") over one WebSocket to its relay: at most 960×540, as H.264 from the graphics card's own encoder (Media Foundation), or as JPEG where there is none; only while someone there watches. With no link, the automatic mode: as the pilot Polaris Navdata on the PC is paired as (its key from `%LOCALAPPDATA%\Polaris Navdata\cloud.json`, under the Windows user's DPAPI, buys a one-use ticket at `POST /api/nav/ticket` for `/live/cam/pilot/ws`); a link may be the Broadcast one or a pilot's own (`/live/cam/p/<pilot>/<token>`). |
 | `src/app/companion.cpp`, `app.rc`, `src/bridge/bridge.rc` | The title and file descriptions say it is the Polaris Cam build; the updater is off. |
 | `src/camera/mount_config.cpp` | `<windows.h>` in lower case, to build on Linux. |
 | `test/`, `build-linux.sh`, `dist/` (new) | The self-test, the build, and the text that goes in the download. |
@@ -117,3 +117,6 @@ four bytes of the old message): the window never reads half of one and half of t
   status line, plainer labels and the key help collapsed, the OBS windows' places remembered, an fps from the ini shown as
   it is sent, the guarded aircraft path and message, and the cameras sent to the back office (JPEG, then H.264 from the
   graphics card).
+- 0.3.0: the back office without a link: the link left empty, Polaris Cam connects as the pilot Polaris Navdata on the
+  PC is paired as (not paired yet, it connects once the pilot pairs; the pairing refused, once it is paired again), and
+  takes a pilot's own link (`/live/cam/p/<pilot>/<token>`) beside the Broadcast one. The shared block is still version 4.

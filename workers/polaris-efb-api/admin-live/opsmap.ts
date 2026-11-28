@@ -431,19 +431,20 @@ export class OpsMap implements MapApi {
     const user = (e: { originalEvent?: unknown }) => { if (e && e.originalEvent) { this.touch(); this.opts.onUserMove?.(); } };
     m.on('dragstart', user); m.on('zoomstart', user); m.on('rotatestart', user);
     m.on('moveend', () => this.near());
-    const hit = (p: { x: number; y: number }, layers: string[]) => {
+    const hit = (p: { x: number; y: number }, layers: string[], r = 12) => {
       const L = layers.filter((l) => m.getLayer(l));
-      return L.length ? m.queryRenderedFeatures([[p.x - 12, p.y - 12], [p.x + 12, p.y + 12]], { layers: L }) : [];
+      return L.length ? m.queryRenderedFeatures([[p.x - r, p.y - r], [p.x + r, p.y + r]], { layers: L }) : [];
     };
     m.on('click', (e: { point: { x: number; y: number }; lngLat: unknown }) => {
       const a = hit(e.point, ['pm-ac']);
       if (a.length) { this.opts.onPick(String(a[0].properties.cs)); return; }
+      // the controllers' marks and labels before a VATSIM aircraft: drawn over the traffic, a busy airport's would hide them
+      const am = hit(e.point, ['atc-a'], 4);
+      if (am.length) { this.note(am[0].geometry.coordinates, this.atcNote('A:' + am[0].properties.ic)); return; }
+      const ac = hit(e.point, ['atc-t', 'atc-ta'], 4);
+      if (ac.length) { this.note(e.lngLat, this.atcNote(String(ac[0].properties.k))); return; }
       const v = hit(e.point, ['vs-ac', 'vs-gnd']);
       if (v.length) { const p = v[0].properties; this.note(v[0].geometry.coordinates, `<b>${esc(p.c)}</b>${p.ac ? ' · ' + esc(p.ac) : ''}<br>${esc(p.dep || '····')} → ${esc(p.arr || '····')}<br>${p.g < 50 ? 'On the ground' : esc(lvl(+p.a)) + ' · ' + Math.round(+p.g) + ' kt'}<br><small>VATSIM</small>`); return; }
-      const am = hit(e.point, ['atc-a']);
-      if (am.length) { this.note(am[0].geometry.coordinates, this.atcNote('A:' + am[0].properties.ic)); return; }
-      const ac = hit(e.point, ['atc-t', 'atc-ta']);
-      if (ac.length) { this.note(e.lngLat, this.atcNote(String(ac[0].properties.k))); return; }
       const s = hit(e.point, ['sig-f']);
       // a controller's area under the tap (the smallest), unless a SIGMET there is smaller still
       const af = m.getLayer('atc-f') ? m.queryRenderedFeatures(e.point, { layers: ['atc-f'] }) : [];
@@ -538,17 +539,17 @@ export class OpsMap implements MapApi {
     // the Polaris airports: always shown, and the base map's names give way to them; gone close in, where the airport itself shows
     L({ id: 'pm-apt', type: 'symbol', source: 'pm-apt', maxzoom: 12.5, layout: { 'icon-image': ['case', ['!=', ['get', 'c'], ''], ['concat', 'apt-', ['get', 'c']], 'apt'], 'icon-size': ['case', ['==', ['get', 'sel'], 1], 1.25, 1], 'icon-allow-overlap': true,
       'text-field': ['get', 'code'], 'text-font': ['Noto Sans Bold'], 'text-size': ['case', ['==', ['get', 'sel'], 1], 12, 10.5], 'text-offset': [0, 0.95], 'text-anchor': 'top', 'text-optional': true, 'symbol-sort-key': ['-', 1, ['get', 'sel']] }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
-    // controllers' callsigns (a centre's at its label point, an approach's under its bottom edge) and the airports' D/G/T/A
+    // traffic
+    L({ id: 'vs-gnd', type: 'symbol', source: 'vs', minzoom: 9, filter: ['<', ['get', 'g'], 50], layout: { 'icon-image': 'vs-gnd', 'icon-size': acSize([[9, 0.3], [11, 0.36]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
+    L({ id: 'vs-ac', type: 'symbol', source: 'vs', filter: ['>=', ['get', 'g'], 50], layout: { 'icon-image': 'vs-ac', 'icon-size': acSize([[1, 0.22], [6, 0.32], [11, 0.4]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.55, 6, 0.85] } });
+    L({ id: 'vs-l', type: 'symbol', source: 'vs', minzoom: 6.5, layout: { 'text-field': ['get', 'c'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [1.1, 0], 'text-anchor': 'left', 'text-optional': true }, paint: { 'text-color': this.dark ? '#8FA3AF' : '#5E707A', 'text-halo-color': C.halo, 'text-halo-width': 1.2 } });
+    // over the traffic (a busy airport's would hide them), under the Polaris flights: controllers' callsigns (a centre's at its label point, an approach's under its bottom edge) and the airports' D/G/T/A
     const chipL = { 'text-field': ['get', 't'], 'text-font': ['Noto Sans Bold'], 'text-size': 10.5, 'icon-image': 'atc-chip', 'icon-text-fit': 'both', 'icon-text-fit-padding': [1, 5, 1, 5], 'text-padding': 2 };
     L({ id: 'atc-t', type: 'symbol', source: 'atct', minzoom: 1.6, filter: ['==', ['get', 'app'], 0], layout: chipL, paint: { 'text-color': AC.chipInk } });
     L({ id: 'atc-ta', type: 'symbol', source: 'atct', minzoom: 3.5, filter: ['==', ['get', 'app'], 1], layout: { ...chipL, 'text-anchor': 'top', 'text-offset': [0, 0.5] }, paint: { 'text-color': AC.chipInk } });
     const lit = (l: 'D' | 'G' | 'T' | 'A') => ['case', ['in', l, ['get', 'm']], AC[l], AC.off];
     L({ id: 'atc-a', type: 'symbol', source: 'atca', minzoom: 4, layout: { 'text-field': ['format', ['get', 'ic'], {}, '\n', {}, 'D', { 'text-color': lit('D') }, ' ', {}, 'G', { 'text-color': lit('G') }, ' ', {}, 'T', { 'text-color': lit('T') }, ' ', {}, 'A', { 'text-color': lit('A') }],
       'text-font': ['Noto Sans Bold'], 'text-size': 10.5, 'text-anchor': 'left', 'text-justify': 'left', 'text-offset': [0.8, 0], 'text-padding': 2 }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
-    // traffic
-    L({ id: 'vs-gnd', type: 'symbol', source: 'vs', minzoom: 9, filter: ['<', ['get', 'g'], 50], layout: { 'icon-image': 'vs-gnd', 'icon-size': acSize([[9, 0.3], [11, 0.36]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
-    L({ id: 'vs-ac', type: 'symbol', source: 'vs', filter: ['>=', ['get', 'g'], 50], layout: { 'icon-image': 'vs-ac', 'icon-size': acSize([[1, 0.22], [6, 0.32], [11, 0.4]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.55, 6, 0.85] } });
-    L({ id: 'vs-l', type: 'symbol', source: 'vs', minzoom: 6.5, layout: { 'text-field': ['get', 'c'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [1.1, 0], 'text-anchor': 'left', 'text-optional': true }, paint: { 'text-color': this.dark ? '#8FA3AF' : '#5E707A', 'text-halo-color': C.halo, 'text-halo-width': 1.2 } });
     // the Polaris flights
     L({ id: 'pm-trail', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 0], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': C.trail, 'line-width': 1.2 } });
     L({ id: 'pm-trail-gap', type: 'line', source: 'pm-trail', filter: ['==', ['get', 'sel'], 2], layout: { 'line-cap': 'round' }, paint: { 'line-color': C.route, 'line-width': 1.5, 'line-opacity': 0.45 } });

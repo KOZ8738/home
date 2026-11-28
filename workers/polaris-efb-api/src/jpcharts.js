@@ -118,7 +118,7 @@ function mk(R) {
       const apt = String(url.searchParams.get('apt') || ''), eff = String(url.searchParams.get('eff') || ''), i = +url.searchParams.get('i');
       if (!aptOk(apt) || !effOk(eff) || !Number.isInteger(i) || i < 0 || i >= FILES_MAX) return jsonRes({ error: 'Bad chart' }, 400);
       /* the chart itself, as the admin page sends it (a form on another site cannot send these types) */
-      if (!/application\/(pdf|octet-stream)/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send the chart as application/pdf' }, 415);
+      if (!/^application\/(pdf|octet-stream)\b/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send the chart as application/pdf' }, 415);
       const n = +(req.headers.get('Content-Length') || 0); if (n > PDF_MAX) return jsonRes({ error: 'That PDF is too large' }, 413);
       const buf = await req.arrayBuffer(); const u = new Uint8Array(buf, 0, Math.min(5, buf.byteLength));
       if (buf.byteLength > PDF_MAX) return jsonRes({ error: 'That PDF is too large' }, 413);
@@ -126,7 +126,7 @@ function mk(R) {
       await env.CHARTS.put(OK(apt, eff, i), buf, { httpMetadata: { contentType: 'application/pdf' } });
       return jsonRes({ ok: true, s: buf.byteLength });
     }
-    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
     let b = {}; try { b = await req.json(); } catch (e) {}
     const apt = String(b.apt || '');
     if (!aptOk(apt)) return jsonRes({ error: 'Bad aerodrome' }, 400);

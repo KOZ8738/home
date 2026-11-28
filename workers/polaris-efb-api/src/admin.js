@@ -55,9 +55,8 @@ button.warn{color:var(--red);border-color:var(--red-l)}button:disabled{opacity:.
 .tag.s{background:var(--ok-bg);color:var(--green)}.tag.d{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
 .to-one{margin-top:4px;padding:2px 14px 12px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;background:var(--soft)}.to-one input#toPilot{text-transform:uppercase}
 .lv-dbtn button.msg{background:var(--teal);border-color:var(--teal);color:#fff;display:inline-flex;align-items:center;gap:6px}.lv-dbtn button.msg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}.lv-dbtn button.msg:disabled{opacity:.45}
-.lv-dbtn button.aoc{display:inline-flex;align-items:center;gap:6px;color:#B0487F;border-color:color-mix(in srgb,#D98AB4 60%,var(--line))}.lv-dbtn button.aoc svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}.lv-dbtn button.aoc:disabled{opacity:.45}
-:root[data-theme=dark] .lv-dbtn button.aoc,:root[data-theme=dark] .tag.a,:root[data-theme=dark] .mail.aoc b{color:#E3A3C6}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .lv-dbtn button.aoc,:root:not([data-theme=light]) .tag.a,:root:not([data-theme=light]) .mail.aoc b{color:#E3A3C6}}.tag.q{background:var(--q-bg);color:var(--q)}
+.lv-dbtn button.aoc{display:inline-flex;align-items:center;gap:6px}.lv-dbtn button.aoc svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}.lv-dbtn button.aoc:disabled{opacity:.45}
+.tag.q{background:var(--q-bg);color:var(--q)}
 .msg{margin-top:12px;padding:10px 12px;border-radius:4px;font-size:14px}.msg.ok{background:var(--ok-bg);color:var(--green)}.msg.err{background:var(--err-bg);color:var(--red)}
 .deny{max-width:640px;margin:60px auto;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:24px;font-size:15px}
 .empty{color:var(--label);font-size:14px}
@@ -69,10 +68,6 @@ main#pilots{display:block;max-width:1180px}main#pilots[hidden]{display:none!impo
 .pl-t td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}.pl-t td.pl-p b{font:600 14px "IBM Plex Mono",ui-monospace,Consolas,monospace;margin-right:8px}.pl-t td.pl-p span{color:var(--label)}
 .pl-t td.pl-x{text-align:right}.pl-t td.pl-x button{padding:4px 10px;font-size:12.5px;margin-left:6px}.pl-t tr.off td{color:var(--label)}
 .pl-s{display:inline-block;font-size:11.5px;font-weight:600;letter-spacing:.03em;border-radius:9px;padding:2px 8px}.pl-s.on{background:var(--ok-bg);color:var(--green)}.pl-s.was{background:var(--soft);color:var(--label);border:1px solid var(--line)}.pl-s.no{color:var(--label)}
-/* ---------- header tabs ---------- */
-.tabs{display:flex;gap:4px;margin-left:10px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:3px}
-.tabs a{font:500 13.5px Jost,system-ui,sans-serif;color:var(--label);text-decoration:none;padding:5px 14px;border-radius:5px;display:flex;align-items:center;gap:7px}
-.tabs a:hover{color:var(--ink)}.tabs a[aria-current=true]{background:var(--bg);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .lv-n{font:600 10.5px/1 Jost,system-ui,sans-serif;background:var(--teal);color:#fff;border-radius:9px;padding:3px 6px}
 /* ---------- Live tab ---------- */
 #live{--g-bg:#EEF3F3;--g-sphere:#DCE7E8;--g-land:#FFFFFF;--g-edge:#B9CBCD;--g-grat:rgba(26,103,114,.10);--g-rim:rgba(26,103,114,.25);--g-glow:rgba(26,103,114,.14);--g-route:#A78970;--g-plane:#1A6772;--g-trail:rgba(26,103,114,.35);--g-label:#0F2A2E;--g-ground:#EEF3F2;--g-apron:#D8E0E1;--g-twy:#C4CFD1;--g-rwy:#6F7D81;--g-rwy-mark:#FFFFFF;--g-rwy-tag:#1D1F22;--g-cl:#D4A21E;--g-twy-tag:#F2C230;--g-bldg:#B5C2C5;--g-stand:#51696C;
@@ -81,7 +76,7 @@ main#pilots{display:block;max-width:1180px}main#pilots[hidden]{display:none!impo
  --p-gate:#8E8E94;--p-taxi:#D9C2AD;--p-to:#7CC2C9;--p-cr:#9AD6DC;--p-de:#E8B86A;--p-arr:#8FCFA6}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]) #live{--g-bg:#0B0D10;--g-sphere:#12171C;--g-land:#1F262D;--g-edge:#323C46;--g-grat:rgba(255,255,255,.045);--g-rim:rgba(255,255,255,.08);--g-glow:rgba(124,194,201,.13);--g-route:#E2C08C;--g-plane:#C9B39F;--g-trail:rgba(201,179,159,.3);--g-label:rgba(255,255,255,.75);--g-ground:#181D23;--g-apron:#2B343D;--g-twy:#3B4752;--g-rwy:#6B7783;--g-rwy-mark:rgba(255,255,255,.82);--g-rwy-tag:#0E1013;--g-cl:#C9A13A;--g-twy-tag:#E9BC2F;--g-bldg:#36424D;--g-stand:#9AA7AE;
  --p-gate:#8E8E94;--p-taxi:#D9C2AD;--p-to:#7CC2C9;--p-cr:#9AD6DC;--p-de:#E8B86A;--p-arr:#8FCFA6}}
-main#live{max-width:none;margin:0;padding:0;gap:0;display:grid;grid-template-columns:minmax(0,1fr) 400px;height:calc(100vh - 59px);height:calc(100svh - 59px)}
+main#live{max-width:none;margin:0;padding:0;gap:0;display:grid}
 main#live[hidden]{display:none!important}
 .lv-stage{position:relative;background:var(--g-bg);overflow:hidden;min-height:0}
 #lvGlobe{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}#lvGlobe.dragging{cursor:grabbing}#lvGlobe.over-plane{cursor:pointer}
@@ -130,9 +125,9 @@ main#live[hidden]{display:none!important}
 .lv-srcb{display:inline-block;margin-top:6px;white-space:nowrap;font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.04em;border-radius:9px;padding:2px 8px}.lv-srcb.va{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}.lv-srcb.vs{color:var(--label);background:var(--soft);border:1px solid var(--line)}
 .lv-acars{font-size:12px;color:var(--label);margin-top:12px}.lv-acars b{color:var(--ink);font-weight:600}
 .lv-route{margin-top:14px;font-size:13px}.lv-route summary{cursor:pointer;color:var(--accent)}.lv-route p{font:12.5px/1.6 "IBM Plex Mono",ui-monospace,Consolas,monospace;color:var(--label);margin:8px 0 0;word-break:break-word}
-@media(max-width:900px){main#live{grid-template-columns:1fr;grid-template-rows:56vh auto;height:auto}.lv-side{border-left:0;border-top:1px solid var(--line);overflow:visible}.tabs{margin-left:auto}.who{display:none}}
+@media(max-width:900px){main#live{grid-template-rows:56vh auto}.lv-side{border-left:0;border-top:1px solid var(--line);overflow:visible}.who{display:none}}
 @media(prefers-reduced-motion:reduce){.lv-dot,.lv-steps li.now span{animation:none}}
-@media(max-width:560px){header{padding:0 12px;gap:10px}.brand{gap:0}.brand span{display:none}.brand .logo{height:22px}.tabs a{padding:5px 10px}.thm button{padding:5px 6px}}
+@media(max-width:560px){header{padding:0 12px;gap:10px}.brand{gap:0}.brand span{display:none}.brand .logo{height:22px}.thm button{padding:5px 6px}}
 
 .preview a{color:var(--accent)}
 .thm{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.thm button{border:0;border-radius:0;background:transparent;color:var(--label);padding:5px 9px;display:grid;place-items:center}.thm button+button{border-left:1px solid var(--line)}.thm button[aria-pressed=true]{background:var(--soft);color:var(--accent)}.thm svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -174,13 +169,10 @@ main#docs{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}main#docs[hidden]
 .ac-box .h{text-align:center;font-weight:600;letter-spacing:.08em;margin-bottom:12px}
 .ac-box .b{border:1px solid #5A5A5E;padding:12px 14px;min-height:80px;white-space:pre-wrap;word-break:break-word}.ac-box .b i{display:block;font-style:normal;color:#D98AB4;font-weight:600;margin-bottom:6px}
 /* (the AOC list rows are .mail.aoc now) */
-.ac-m{padding:12px 6px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
-.ac-m b{font-weight:600;color:#B0487F;letter-spacing:.04em}.ac-m .meta{color:var(--label);font-size:12.5px}.ac-m p{grid-column:1/3;margin:2px 0 0;white-space:pre-wrap;word-break:break-word;font:13px/1.5 "IBM Plex Mono",ui-monospace,Consolas,monospace}
-.ac-m button{grid-row:1/3;grid-column:2;padding:4px 10px;font-size:12.5px;align-self:start}
 .ac-chk{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:14px}.ac-chk input{width:auto;margin:0}
-/* a phone or a narrow window: one column, and the section tabs scroll sideways */
+/* a phone or a narrow window: one column */
 @media(max-width:900px){main#docs{grid-template-columns:1fr}}
-@media(max-width:700px){.tabs{min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}.tabs a{flex:none;white-space:nowrap}.thm{flex:none}}
+@media(max-width:700px){.thm{flex:none}}
 /* ---------- Messages tab: Mail or AOC ---------- */
 .kind{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
 .kd{display:flex;gap:10px;align-items:flex-start;margin:0;padding:11px 13px;border:1px solid var(--line);border-radius:6px;cursor:pointer;font-weight:400;color:var(--ink);background:var(--field)}
@@ -190,8 +182,7 @@ main#docs{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}main#docs[hidden]
 .lh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.lh h2{margin:0}
 .kf{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.kf button{border:0;border-radius:0;padding:4px 11px;font-size:12.5px;background:transparent;color:var(--label)}.kf button+button{border-left:1px solid var(--line)}.kf button[aria-pressed=true]{background:var(--soft);color:var(--accent);font-weight:600}
 #list{margin-top:12px}
-.tag.a{background:color-mix(in srgb,#D98AB4 22%,transparent);color:#B0487F}
-.mail.aoc b{color:#B0487F;letter-spacing:.04em}.mail.aoc p{grid-column:1/2;margin:2px 0 0;white-space:pre-wrap;word-break:break-word;font:13px/1.5 "IBM Plex Mono",ui-monospace,Consolas,monospace}
+.mail.aoc b{letter-spacing:.04em}.mail.aoc p{grid-column:1/2;margin:2px 0 0;white-space:pre-wrap;word-break:break-word;font:13px/1.5 "IBM Plex Mono",ui-monospace,Consolas,monospace}
 @media(max-width:560px){.kind{grid-template-columns:1fr}}
 .radio label[hidden]{display:none}input#crCs,input#crAdd{text-transform:uppercase}
 .cr-add{display:flex;gap:6px}.cr-add input{flex:1;min-width:0}.cr-add button{margin:0;flex:none}
@@ -211,7 +202,7 @@ main#docs{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}main#docs[hidden]
 .fw-t small{display:block;color:var(--label);font-size:12px;margin-top:2px;word-break:break-word}
 .fw-b{display:flex;gap:4px}.fw-b button{margin:0;padding:3px 8px;font-size:12px;height:26px}
 #lvList .lv-f.fw-amber{box-shadow:inset 3px 0 0 #E5A00D}#lvList .lv-f.fw-red{box-shadow:inset 3px 0 0 #E5484D}
-.fw-n{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:#E5A00D;color:#fff;font:600 10.5px Jost,system-ui,sans-serif;margin-left:2px}.fw-n.red{background:#E5484D}
+.fw-n{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:#E5A00D;color:#fff;font:600 10.5px Jost,system-ui,sans-serif;margin-left:2px}
 :root[data-theme=dark] .fw-a.red .fw-t{color:#FF8A8E}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .fw-a.red .fw-t{color:#FF8A8E}}
 @media(prefers-reduced-motion:reduce){.fw-a.red i{animation:none}}
 /* ---------- On-time tab ---------- */
@@ -285,7 +276,7 @@ header{position:sticky;top:0;z-index:20}
 .side a svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .side a:hover{background:var(--soft);color:var(--ink)}
 .side a[aria-current=true]{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
-.side .sg{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--off);padding:16px 10px 5px}
+.side .sg{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--label);padding:16px 10px 5px}
 .side .sx{margin-top:auto}
 .side .lv-n{background:var(--soft);color:var(--label);border:1px solid var(--line);padding:2px 6px}
 .side a[aria-current=true] .lv-n{background:var(--bg)}
@@ -313,10 +304,14 @@ main#live{height:calc(100vh - var(--hdr));height:calc(100svh - var(--hdr))}
 .help>summary:hover,.help[open]>summary{color:var(--accent);border-color:var(--accent)}
 .help>div{position:absolute;z-index:30;top:30px;left:-10px;width:min(380px,80vw);background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.14);padding:12px 14px;font-size:13px;color:var(--ink);line-height:1.5;text-transform:none;letter-spacing:0}
 .help>div p{margin:0 0 8px}.help>div p:last-child{margin:0}
+/* the live connections cannot get through and the sign-in has likely run out (P2, Nov 2026) */
+.ws-auth{position:fixed;z-index:80;left:50%;bottom:18px;transform:translateX(-50%);width:min(560px,calc(100vw - 24px));margin:0;display:flex;gap:12px;align-items:center;box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.ws-auth span{flex:1}.ws-auth button{flex:none}
+.fo-err{margin:0 0 8px;font-size:13px}
 a.lk{color:var(--accent);text-decoration:none;font-size:13px;font-weight:500}a.lk:hover{text-decoration:underline}
-/* status colours only: the AOC button and tag are no longer pink */
-.lv-dbtn button.aoc,.tag.a,.mail.aoc b{color:var(--ink)!important;border-color:var(--line)}
-.tag.a{background:var(--soft);border:1px solid var(--line);color:var(--label)!important}
+/* status colours only: the AOC button and tag are not pink (the pink rules are gone, P2 Nov 2026) */
+.lv-dbtn button.aoc,.tag.a,.mail.aoc b{color:var(--ink);border-color:var(--line)}
+.tag.a{background:var(--soft);border:1px solid var(--line);color:var(--label)}
 
 /* ---------- Home ---------- */
 main#home{max-width:1380px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:start}
@@ -432,7 +427,7 @@ i.doing,.hm-i.doing>i{background:var(--tk-doing)}i.todo,.hm-i.todo>i{background:
 
 /* ---------- Messages: the Inbox and what was sent, with the conversation or the composer beside ---------- */
 main#comms{max-width:1380px;grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start}
-.cm-side{padding:0;display:flex;flex-direction:column;min-height:0;position:sticky;top:83px;max-height:calc(100vh - 107px)}
+.cm-side{padding:0;display:flex;flex-direction:column;min-height:0;position:sticky;top:83px;max-height:calc(100vh - 83px - 16px);max-height:calc(100svh - 83px - 16px)}
 .cm-h{display:flex;align-items:center;gap:10px;padding:16px 18px 0}.cm-h h2{margin:0}
 .cm-new{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 18px 12px}
 .cm-new button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 10px;font-size:13.5px}
@@ -648,6 +643,7 @@ main#live{grid-template-columns:minmax(0,1fr) 440px}
 .fo-t span{display:block;font:600 10px Jost,system-ui,sans-serif;letter-spacing:.08em;color:var(--label)}
 .fo-t b{display:block;font:500 13px "IBM Plex Mono",ui-monospace,Consolas,monospace;margin-top:2px}
 .fo-t .no b{color:var(--off)}.fo-t .sch{background:var(--soft)}
+@media(max-width:420px){.fo-t{grid-template-columns:repeat(3,minmax(0,1fr))}.fo-t>div:nth-child(3n+1){border-left:0}.fo-t>div:nth-child(n+4){border-top:1px solid var(--line)}}
 .fo-d{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--label)}.fo-d b{color:var(--ink);font-weight:500}
 .fo-d .late{color:var(--red);font-weight:600}.fo-d .ok{color:var(--green);font-weight:600}
 .fo-r{display:flex;gap:8px;align-items:center;margin-top:10px}.fo-r label{margin:0;font-size:12.5px;white-space:nowrap}.fo-r select{padding:6px 8px;font-size:13px}
@@ -839,7 +835,7 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
  .hm-c b{font-size:22px}
  .hm-col{gap:12px}
  /* a ? explanation opens across the page, not off its right edge */
- .help{position:static}.help>div{top:auto;left:12px;right:12px;width:auto;margin-top:8px}
+ .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;margin-top:8px}
  /* wide tables scroll sideways with the pilot or date column kept in view */
  .pl-t th:first-child,.pl-t td:first-child,.ot-tb th:first-child,.ot-tb td:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}
 }
@@ -1005,8 +1001,8 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
  .side.more-l{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px);mask-image:linear-gradient(to right,transparent,#000 40px)}
  .side.more-l.more-r{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
  .nd-flt{top:calc(var(--hdr) + var(--navh))}
- /* a ? explanation opens across the page, not off its edge, on an iPad as on a phone */
- .help{position:static}.help>div{top:auto;left:12px;right:12px;width:auto;margin-top:8px}
+ /* a ? explanation opens in the flow of the page, under its ?, on an iPad as on a phone (not over what follows) */
+ .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;margin-top:8px}
 }
 /* in the EFB's Admin app (a frame): a lower header, and on a narrow screen a shorter map, so the flight list and the open
    flight's panel (the Cockpit Monitor) show without scrolling far */
@@ -1015,7 +1011,7 @@ html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}
 @media(max-width:900px){html.in-efb main#live{grid-template-rows:40dvh auto}}
 @media(max-width:900px) and (max-height:500px){html.in-efb main#live{grid-template-rows:60dvh auto}}
 </style></head><body>
-<header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Operations</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
+<header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Operations</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button type="button" data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button type="button" data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button type="button" data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
 <!--DENIED-->
 <nav class="side" id="side" aria-label="Sections">
 <a href="#home" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.5l8.5 6.7"/><path d="M5.8 9.6V20h12.4V9.6"/><path d="M10 20v-5.5h4V20"/></svg><span>Home</span></a>
@@ -1077,7 +1073,7 @@ html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}
  <textarea id="setFroms" class="set-froms" spellcheck="false"></textarea>
  <label>AOC templates</label>
  <div class="set-tpl" id="setTpl"><span class="empty">Loading…</span></div>
- <div class="actions"><button type="button" id="setTplAdd">Add template</button><button class="primary" id="setSave">Save</button></div>
+ <div class="actions"><button type="button" id="setTplAdd">Add template</button><button type="button" class="primary" id="setSave">Save</button></div>
  <div id="setMsg"></div>
  </div>
  <div id="cmCompose" hidden>
@@ -1107,7 +1103,7 @@ html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}
  <label>Preview</label><div class="ac-box"><div class="h">AOC MSG DISPLAY</div><div class="b" id="acPre"><i>CREW MESSAGE</i></div></div>
  <label class="ac-chk"><input type="checkbox" id="acPush" checked> Also send a notification to the pilots’ devices</label>
  </div>
- <div class="actions"><button class="primary" id="send">Send to all pilots</button><button id="cancel" hidden>Cancel editing</button></div>
+ <div class="actions"><button type="button" class="primary" id="send">Send to all pilots</button><button type="button" id="cancel" hidden>Cancel editing</button></div>
  <div id="msg"></div>
  <p class="hint" id="kindHint"></p>
  </div>
@@ -1227,7 +1223,7 @@ html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}
  <div><label for="dcRev">Revision</label><input type="text" id="dcRev" maxlength="40" placeholder="Rev 26-01" autocomplete="off"></div></div>
  <label class="ac-chk"><input type="checkbox" id="dcAck"> Pilots confirm they have read it</label>
  <div class="dc-prog" id="dcProg" hidden><span></span></div>
- <div class="actions"><button class="primary" id="dcSave">Upload</button><button id="dcCancel" hidden>Cancel editing</button></div>
+ <div class="actions"><button type="button" class="primary" id="dcSave">Upload</button><button type="button" id="dcCancel" hidden>Cancel editing</button></div>
  <div id="dcMsg"></div>
  
 </section>
@@ -1241,7 +1237,7 @@ html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}
 <section class="pl-prof" id="plProf" hidden></section>
 </main>
 <main id="live" hidden>
-<div class="lv-stage"><canvas id="lvGlobe" aria-label="Globe with Polaris flights"></canvas><div class="lv-src" id="lvSrc"></div><div class="lv-ctl"><button data-lv="in" aria-label="Zoom in">+</button><button data-lv="out" aria-label="Zoom out">−</button><button data-lv="all" aria-label="Whole globe" title="Whole globe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button></div></div>
+<div class="lv-stage"><canvas id="lvGlobe" aria-label="Globe with Polaris flights"></canvas><div class="lv-src" id="lvSrc"></div><div class="lv-ctl"><button type="button" data-lv="in" aria-label="Zoom in">+</button><button type="button" data-lv="out" aria-label="Zoom out">−</button><button type="button" data-lv="all" aria-label="Whole globe" title="Whole globe"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg></button></div></div>
 <aside class="lv-side"><div class="fw" id="fwBox" hidden></div><div class="fw fw-cam" id="fwCam" hidden></div><div class="fw fw-camg" id="fwCamGround" hidden></div><div class="lv-sum" id="lvSum"></div><div class="lv-list" id="lvList"></div><div class="lv-det" id="lvDet" hidden><div id="lvDetMain"></div><div class="fo" id="lvOps"></div></div></aside>
 </main>
 <!--PERM-->
@@ -1257,8 +1253,16 @@ function thmUi(){let t="auto";try{t=localStorage.getItem("pmTheme")||"auto"}catc
 document.addEventListener("click",e=>{const b=e.target.closest("[data-thm]");if(!b)return;const t=b.dataset.thm;try{t==="auto"?localStorage.removeItem("pmTheme"):localStorage.setItem("pmTheme",t)}catch(x){}if(t==="auto")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=t;thmUi()});
 thmUi();
 let S={mails:[],edit:null,keep:[],add:[]};
-/* a refusal throws an Error with its message, its status and what the server sent (a 409's plan, say) */
-const api=async(path,opt)=>{const r=await fetch(path,{credentials:"same-origin",...(opt||{})});let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw Object.assign(new Error((j&&j.error)||("HTTP "+r.status)),{status:r.status,data:j});return j};
+/* a refusal throws an Error with its message, its status and what the server sent (a 409's plan, say). A request with
+   no answer in 45 s (opt.timeout: longer ones) is stopped and throws too (status 0, timeout), so nothing is left
+   waiting for it for ever (P2, Nov 2026) */
+const api=async(path,opt)=>{const o={...(opt||{})},ms=+o.timeout||45000;delete o.timeout;
+ const c=typeof AbortController==="function"?new AbortController():null,T=c?setTimeout(()=>c.abort(),ms):0;
+ const late=()=>Object.assign(new Error("No answer from the server in "+Math.round(ms/1000)+" s. Check whether it went through before you try again."),{status:0,timeout:true});
+ let r,j=null;
+ try{r=await fetch(path,{credentials:"same-origin",...o,...(c?{signal:c.signal}:{})});try{j=await r.json()}catch(e){if(c&&c.signal.aborted)throw late()}}
+ catch(e){if(c&&c.signal.aborted)throw late();throw e}finally{if(T)clearTimeout(T)}
+ if(!r.ok)throw Object.assign(new Error((j&&j.error)||("HTTP "+r.status)),{status:r.status,data:j});return j};
 const say=(t,ok)=>{$("#msg").innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
 const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})+" "+new Date(ms).toISOString().slice(11,16)+"Z";
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
@@ -1304,11 +1308,15 @@ if(window.PM_PERM){permSet(window.PM_PERM);ME_AT=Date.now()}
 const OPS_PG={live:["fw","pilots"],ooo:["fw","reports","pilots"],stands:["gates","auto","fw"],aoc:["comms","fw"],set:["auto","comms","fw"],nav:["navdata"]};
 const opsOk=k=>(OPS_PG[k]||[]).some(pgHas);
 const OPS={},OPS_URL={live:"/admin/api/live",ooo:"/admin/api/ooo",stands:"/admin/api/stands",aoc:"/admin/api/aoc",set:"/admin/api/settings",nav:"/admin/api/navdata"};
+/* each request is numbered (n, the one on its way: pn); opsDrop, after a write, notes the last one asked before it
+   (dn). A forced refresh (age 0) never takes a request that set out before the write: it asks again. An answer is kept
+   only while no later request's answer has been (an), so a slow old one never puts back what was there before (P2) */
 function opsGet(k,age){if(!opsOk(k))return Promise.reject(new Error("Your role does not see this"));const o=OPS[k]||(OPS[k]={at:0,v:null,p:null,err:""});
- if(o.p)return o.p;if(o.v&&Date.now()-o.at<(age==null?30000:age))return Promise.resolve(o.v);
- o.p=api(OPS_URL[k]).then(v=>{o.v=v;o.at=Date.now();o.err="";return v},e=>{o.err=e.message;if(o.v)return o.v;throw e}).finally(()=>{o.p=null});return o.p}
+ if(o.p&&(age!==0||(o.pn||0)>(o.dn||0)))return o.p;if(o.v&&Date.now()-o.at<(age==null?30000:age))return Promise.resolve(o.v);
+ const n=o.n=(o.n||0)+1,p=api(OPS_URL[k]).then(v=>{if(n<(o.an||0))return o.v||v;o.an=n;o.v=v;o.at=n>(o.dn||0)?Date.now():0;o.err="";return v},e=>{if(n>=(o.an||0))o.err=e.message;if(o.v)return o.v;throw e}).finally(()=>{if(o.p===p)o.p=null});
+ o.p=p;o.pn=n;return p}
 const opsV=k=>OPS[k]&&OPS[k].v;
-const opsDrop=k=>{if(OPS[k])OPS[k].at=0};
+const opsDrop=k=>{const o=OPS[k];if(o){o.at=0;o.dn=o.n||0}};
 /* ACCEPT (Nov 2026): an AOC message to a pilot or a crew stays on their EFB until they accept it. v is what
    /admin/api/aoc answers: rc[id] = [{u, d: on the pilot's EFB since, a: accepted at}], for messages since ackFrom. */
 const akZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
@@ -1403,11 +1411,12 @@ document.querySelectorAll("input[name=kind]").forEach(x=>x.addEventListener("cha
 document.querySelectorAll("input[name=to]").forEach(x=>x.addEventListener("change",toUi));["toPilot","toCid"].forEach(i=>$("#"+i).addEventListener("input",()=>{$("#toName").value="";$("#toCs").value="";toUi()}));
 /* an attachment is kept as the file it is; it goes up on its own when the mail is sent (attUp), never as base64 */
 const ATT_EXT={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",txt:"text/plain"};
-$("#file").addEventListener("change",e=>{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
- S.add.push({name:f.name,type:f.type||ATT_EXT[String(f.name).split(".").pop().toLowerCase()]||"",size:f.size,file:f,id:""})}e.target.value="";attsUi()});
+$("#file").addEventListener("change",e=>{try{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
+ S.add.push({name:f.name,type:f.type||ATT_EXT[String(f.name).split(".").pop().toLowerCase()]||"",size:f.size,file:f,id:""})}}
+ catch(er){say("The file could not be added: "+((er&&er.message)||er))}finally{e.target.value=""}attsUi()});
 /* each new attachment, uploaded (once: its id is kept for a second try of the same mail) */
 async function attUp(){for(const f of S.add){if(f.id)continue;say("Uploading "+f.name+"…",true);
- const j=await api("/admin/api/mail/att",{method:"POST",headers:{"Content-Type":"application/octet-stream","X-Type":f.type||"application/octet-stream","X-Name":encodeURIComponent(f.name)},body:f.file});f.id=j.att.id}}
+ const j=await api("/admin/api/mail/att",{method:"POST",headers:{"Content-Type":"application/octet-stream","X-Type":f.type||"application/octet-stream","X-Name":encodeURIComponent(f.name)},body:f.file,timeout:120000});f.id=j.att.id}}
 /* ---------- Pilots tab ---------- */
 const PL={list:null,err:""};
 const ago=ms=>{if(!ms)return "—";const d=Math.round((Date.now()-ms)/60000);return d<1?"just now":d<60?d+" min ago":d<1440?Math.round(d/60)+" h ago":new Date(ms).toLocaleDateString(undefined,{dateStyle:"medium"})};
@@ -1458,7 +1467,7 @@ function ibForm(t){const k=JSON.stringify([t.th,t.pilot,IB.depts]);if(IB.fk===k&
  IB.fk=k;const nb=$("#ibBody");nb.value=keep?keep.v:IB.drafts[t.th]||"";
  if(keep){$("#ibMsg").innerHTML=keep.m;if(keep.fb){nb.focus();try{nb.setSelectionRange(keep.s,keep.e)}catch(x){}}else if(keep.fa)$("#ibAs").focus()}
  ibSendUi()}
-async function ibLoad(){if(!pgHas("comms"))return;IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
+async function ibLoad(){if(!pgHas("comms"))return;const q=IB.lq=(IB.lq||0)+1;IB.err="";try{const j=await api("/admin/api/inbox");if(q!==IB.lq)return;IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){if(q!==IB.lq)return;IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
 $("#ibDept").addEventListener("change",e=>{IB.dept=e.target.value;ibUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],[data-ibs],[data-ibdone],#ibSend");if(!b)return;
  if(b.dataset.ibs){IB.show=b.dataset.ibs;document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));ibUi();return}
@@ -1492,6 +1501,7 @@ function dcForm(){const d=DC.edit?dcDoc(DC.edit):null;$("#dcFormTitle").textCont
 function dcReset(){DC.edit=null;DC.file=null;DC.cover="";DC.pages=0;["dcFile","dcTitle","dcFolder","dcRev"].forEach(i=>$("#"+i).value="");$("#dcAck").checked=false;$("#dcPre").hidden=true;dcForm();dcUi()}
 /* one piece, with upload progress */
 function dcPut(url,blob,onp){return new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open("POST",url);x.setRequestHeader("Content-Type","application/octet-stream");
+ x.timeout=120000;x.ontimeout=()=>rej(new Error("This piece took more than 2 minutes to upload. Check the connection and try again."));
  x.upload.onprogress=e=>onp(e.loaded);x.onload=()=>{let j=null;try{j=JSON.parse(x.responseText)}catch(e){}if(x.status>=200&&x.status<300)res(j);else rej(new Error((j&&j.error)||("HTTP "+x.status)))};
  x.onerror=()=>rej(new Error("The upload was cut off. Check the connection and try again."));x.send(blob)})}
 $("#dcFile").addEventListener("change",async e=>{const f=e.target.files[0];DC.file=null;DC.cover="";DC.pages=0;$("#dcPre").hidden=true;if(!f)return;
@@ -1625,7 +1635,7 @@ function stMapMake(L){const a=L.airport||{};if(L.notFound||!isFinite(a.lat)||!is
  return {name:a.name||"",S,refs:new Set(S.map(s=>s.n)),nr,base,labs,med,bb}}
 function stFit(W,H){const m=ST.maps[ST.sel],b=m.bb,bw=Math.max(200,b[2]-b[0]),bh=Math.max(200,b[3]-b[1]),k=Math.max(.01,Math.min(4,(W-70)/bw,(H-70)/bh));
  ST.M={i:ST.sel,k,tx:W/2-k*(b[0]+b[2])/2,ty:H/2-k*(b[1]+b[3])/2,W,H}}
-function stZoomTo(k2,px,py){const M=ST.M;if(!M)return;k2=Math.max(.01,Math.min(8,k2));M.tx=px-(px-M.tx)*(k2/M.k);M.ty=py-(py-M.ty)*(k2/M.k);M.k=k2;gmDraw()}
+function stZoomTo(k2,px,py){const M=ST.M;if(!M)return;k2=Math.max(.01,Math.min(8,k2));M.tx=px-(px-M.tx)*(k2/M.k);M.ty=py-(py-M.ty)*(k2/M.k);M.k=k2;gmMove(true)}
 function stOvHtml(m,M,W,H){const i=ST.sel,sets=stSets(),vat=stVat(i),giv=stGiven(i),hl=ST.tryRes&&ST.tryRes.stand?stNorm(ST.tryRes.stand):"";
  const dm=m.med*M.k,R=dm>=24?7:dm>=13?5:3.5,lab=dm>=30,inV=(X,Y)=>X>-30&&X<W+30&&Y>-30&&Y<H+30;let h="";
  for(const l of m.labs){const X=M.k*l.x+M.tx,Y=M.k*l.y+M.ty;if(inV(X,Y)&&(l.c!=="rw"||M.k>.12))h+='<text class="ml '+l.c+'" x="'+X.toFixed(1)+'" y="'+Y.toFixed(1)+'">'+esc(l.t)+"</text>"}
@@ -1638,13 +1648,23 @@ function stOvHtml(m,M,W,H){const i=ST.sel,sets=stSets(),vat=stVat(i),giv=stGiven
    +(R>=7&&k>=0&&!oc?'<text class="dn '+c+'" y="3.2">'+(k+1)+"</text>":"")
    +(lab||s.n===hl||on?'<text class="lb" y="'+(R+12)+'">'+esc(s.n)+"</text>":"")+"</g>"}
  return h}
-const GM={p:new Map(),down:null,moved:false,pinch:null,raf:0};
+const GM={p:new Map(),down:null,moved:false,pinch:null,raf:0,mraf:0,at:null,settle:0};
 function gmDraw(){if(GM.raf)return;GM.raf=requestAnimationFrame(()=>{GM.raf=0;stMapDraw()})}
+/* (P2, Nov 2026) while the map is dragged or zoomed, each frame only moves what is drawn: the map's own transform, and
+   the stands' layer scaled and moved from where it was drawn (GM.at), with no layout read and no layer written again.
+   The layer is drawn again when the drag ends, or 180 ms after the last zoom (settle) */
+function gmMove(settle){const M=ST.M;if(!M)return;
+ if(!GM.at){gmDraw();return}
+ if(!GM.mraf)GM.mraf=requestAnimationFrame(()=>{GM.mraf=0;const M=ST.M,A=GM.at,b=$("#stBase"),ov=$("#stOv");if(!M||!A||!b||!ov)return;
+  b.setAttribute("transform","matrix("+M.k+" 0 0 "+M.k+" "+M.tx.toFixed(2)+" "+M.ty.toFixed(2)+")");
+  const s=M.k/A.k;ov.setAttribute("transform","matrix("+s+" 0 0 "+s+" "+(M.tx-s*A.tx).toFixed(2)+" "+(M.ty-s*A.ty).toFixed(2)+")");
+  const pop=$("#stPop");if(pop&&!pop.hidden)pop.hidden=true});
+ if(settle){clearTimeout(GM.settle);GM.settle=setTimeout(()=>{GM.settle=0;if(!GM.down)stMapDraw()},180)}}
 function stMapDraw(){const svg=$("#stSvg"),box=$("#stGm");if(!svg||!box)return;const m=ST.maps[ST.sel];if(!m||!m.S)return;
  const W=box.clientWidth||800,H=W<600?360:470;svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.style.height=H+"px";
  if(!ST.M||ST.M.i!==ST.sel)stFit(W,H);else if(ST.M.W!==W||ST.M.H!==H){ST.M.tx+=(W-ST.M.W)/2;ST.M.ty+=(H-ST.M.H)/2;ST.M.W=W;ST.M.H=H}
  const M=ST.M;$("#stBase").setAttribute("transform","matrix("+M.k+" 0 0 "+M.k+" "+M.tx.toFixed(2)+" "+M.ty.toFixed(2)+")");
- $("#stOv").innerHTML=stOvHtml(m,M,W,H);
+ const ov=$("#stOv");ov.removeAttribute("transform");ov.innerHTML=stOvHtml(m,M,W,H);GM.at={k:M.k,tx:M.tx,ty:M.ty};
  const pop=$("#stPop"),s=ST.pop&&m.S.find(x=>x.n===ST.pop);
  if(!s){pop.hidden=true;pop.innerHTML="";return}
  const X=M.k*s.x+M.tx,Y=M.k*s.y+M.ty;if(X<0||X>W||Y<0||Y>H){pop.hidden=true;return}
@@ -1722,11 +1742,11 @@ function stTakenBefore(res){const i=ST.sel,m=ST.maps[i],refs=m&&m.refs&&m.S.leng
  for(const r of stRules()){if(!(r.ac==="all"||!r.ac||(r.ac==="wide")===H))continue;if(r.fl&&r.fl!=="all"&&r.fl!==fl)continue;let L=stExpand(r.stands).stands;if(refs&&L.some(x=>refs.has(stNorm(x))))L=L.filter(x=>refs.has(stNorm(x)));
   for(const s of L){const n=stNorm(s);if(n===want)return out;if(vat.has(n)||pol.has(n))out.push(s)}}return out}
 let stTryT=0;function stTry(){clearTimeout(stTryT);const i=ST.sel,el=$("#stTryR");if(!el||!i)return;if(!stRules().length){el.innerHTML='<span class="lbl">→ no rules, so no gate</span>';if(ST.tryRes){ST.tryRes=null;stMapRefresh()}return}
- stTryT=setTimeout(async()=>{try{const r=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apts:ST.plan.apts,icao:i,fl:ST.tryFl,wide:ST.tryAc==="wide"})});if(ST.sel!==i)return;
+ stTryT=setTimeout(async()=>{const q=ST.tq=(ST.tq||0)+1;try{const r=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apts:ST.plan.apts,icao:i,fl:ST.tryFl,wide:ST.tryAc==="wide"})});if(q!==ST.tq||ST.sel!==i)return;
   ST.tryRes=r;const t=$("#stTryR");if(!t)return;
   if(r.stand){const tb=stTakenBefore(r);t.innerHTML="→ gets <b>"+esc(r.stand)+"</b>"+(r.term?" · "+esc(r.term):"")+(tb.length?' <span class="lbl">('+esc(tb.slice(0,6).join(", "))+(tb.length>6?" …":"")+" taken)</span>":"")+(ST.view==="map"?' <span class="lbl">· ringed on the map</span>':"")}
   else t.innerHTML=r.none==="full"?'→ <span class="gt-cg">every gate is taken</span> <span class="lbl">(the crew are told to contact ground)</span>':'→ <span class="lbl">no rule fits this flight, so no gate</span>';
-  stMapRefresh()}catch(e){const t=$("#stTryR");if(t)t.innerHTML='<span class="gt-bad">'+esc(e.message)+"</span>"}},350)}
+  stMapRefresh()}catch(e){if(q!==ST.tq)return;const t=$("#stTryR");if(t)t.innerHTML='<span class="gt-bad">'+esc(e.message)+"</span>"}},350)}
 
 /* ---- the gates sent ---- */
 /* a gate's "Change" row: the new gate and terminal being written (v), drawn under its flight's row */
@@ -1748,12 +1768,13 @@ function stLogUi(){const el=$("#stLog");if(!el)return;const keep=stChgOpen(el),e
  for(const x of keep){const b=Array.from(el.querySelectorAll("[data-stchg]")).find(y=>y.dataset.stchg===x.k);if(!b)continue;
   const r=stChgRow(b.closest("tr"),x.k,x.v);if(x.f>=0){const I=r.querySelectorAll("input")[x.f];if(I){I.focus();if(x.s)try{I.setSelectionRange(x.s[0],x.s[1])}catch(e){}}}}}
 /* full: the page opened (draw it all); otherwise only what may have moved (a rule being written stays as it is) */
-async function stLoad(full){if(!["gates","auto","fw"].some(pgHas))return;ST.err="";
- try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=stClone(j.plan);OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=stClone(j.plan);
+/* (P2) ST.lq: the latest load, or a save; an answer from before either is dropped, so the plan just saved never goes back */
+async function stLoad(full){if(!["gates","auto","fw"].some(pgHas))return;const q=ST.lq=(ST.lq||0)+1;ST.err="";
+ try{const j=await api("/admin/api/stands");if(q!==ST.lq)return;ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=stClone(j.plan);OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=stClone(j.plan);
   stStateUi();if(pgNow==="auto")auUi();
   if(!ST.sel){const k=Object.keys(ST.plan.apts).sort();ST.sel=k[0]||Object.keys(ST.apts)[0]||""}
   if(pgNow==="gates"){if(full||!ST.ready){ST.ready=true;stAptsUi();stMainUi();stMap(ST.sel);stBusy(ST.sel)}else{stAptsUi();stMapRefresh()}}}
- catch(e){ST.err=e.message}if(pgNow==="gates")stLogUi()}
+ catch(e){if(q!==ST.lq)return;ST.err=e.message}if(pgNow==="gates")stLogUi()}
 const stDirty=()=>{ST.dirty=true;stSay("");stActUi()};
 function stChanged(){stDirty();stAptsUi();stMapRefresh();stTry()}
 document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest("#stands"))return;
@@ -1764,7 +1785,7 @@ document.addEventListener("input",e=>{const t=e.target;if(!t.closest||!t.closest
 document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closest("#stands"))return;
  if(t.tagName==="SELECT"&&t.dataset.str!=null){const r=stRules()[+t.dataset.str];if(r){r[t.dataset.f]=t.value;stRulesUi();stChanged()}return}
  if(t.id==="stTryAc"){ST.tryAc=t.value;stTry();return}if(t.id==="stTryFl"){ST.tryFl=t.value;stTry()}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ST.pop&&pgNow==="gates"){ST.pop="";stMapRefresh();return}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ST.pop&&pgNow==="gates"&&!(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||""))){ST.pop="";stMapRefresh();return}
  if(e.key==="Enter"&&e.target.id==="stFind"){const b=document.querySelector("#stApts [data-staadd],#stApts [data-sta]");if(b){e.preventDefault();b.click()}}});
 /* the map: drag to move, the wheel or two fingers to zoom, a click on a stand for what it is */
 document.addEventListener("pointerdown",e=>{const svg=e.target.closest&&e.target.closest("#stSvg");if(!svg||!ST.M)return;GM.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -1773,11 +1794,12 @@ document.addEventListener("pointerdown",e=>{const svg=e.target.closest&&e.target
  try{svg.setPointerCapture(e.pointerId)}catch(x){}});
 document.addEventListener("pointermove",e=>{if(!GM.p.has(e.pointerId)||!ST.M)return;GM.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(GM.p.size>=2&&GM.pinch){const [a,b]=[...GM.p.values()],svg=$("#stSvg");if(!svg)return;const r=svg.getBoundingClientRect();stZoomTo(GM.pinch.k*Math.hypot(a.x-b.x,a.y-b.y)/GM.pinch.d,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);return}
- const D=GM.down;if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(!GM.moved&&Math.hypot(dx,dy)<5)return;GM.moved=true;ST.M.tx=D.tx+dx;ST.M.ty=D.ty+dy;gmDraw()});
+ const D=GM.down;if(!D)return;const dx=e.clientX-D.x,dy=e.clientY-D.y;if(!GM.moved&&Math.hypot(dx,dy)<5)return;GM.moved=true;ST.M.tx=D.tx+dx;ST.M.ty=D.ty+dy;gmMove()});
 document.addEventListener("pointerup",e=>{if(!GM.p.has(e.pointerId))return;GM.p.delete(e.pointerId);if(GM.p.size<2)GM.pinch=null;
- if(!GM.p.size){const D=GM.down;GM.down=null;if(D&&!GM.moved&&ST.M){const g=D.t.closest&&D.t.closest("[data-sn]");ST.pop=g?(ST.pop===g.dataset.sn?"":g.dataset.sn):"";stMapDraw()}}
+ if(!GM.p.size){const D=GM.down;GM.down=null;if(D&&!GM.moved&&ST.M){const g=D.t.closest&&D.t.closest("[data-sn]");ST.pop=g?(ST.pop===g.dataset.sn?"":g.dataset.sn):"";stMapDraw()}
+  else if(D&&GM.moved&&ST.M){clearTimeout(GM.settle);GM.settle=0;stMapDraw()}}
  else if(ST.M){const [a]=[...GM.p.values()];GM.down={x:a.x,y:a.y,tx:ST.M.tx,ty:ST.M.ty,t:e.target};GM.moved=true}});
-document.addEventListener("pointercancel",e=>{GM.p.delete(e.pointerId);if(!GM.p.size){GM.down=null;GM.pinch=null}});
+document.addEventListener("pointercancel",e=>{GM.p.delete(e.pointerId);if(!GM.p.size){const D=GM.down;GM.down=null;GM.pinch=null;if(D&&GM.moved&&ST.M)stMapDraw()}});
 document.addEventListener("wheel",e=>{const svg=e.target.closest&&e.target.closest("#stSvg");if(!svg||!ST.M)return;e.preventDefault();const r=svg.getBoundingClientRect();stZoomTo(ST.M.k*Math.exp(-e.deltaY*(e.deltaMode?.05:.0015)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
 window.addEventListener("resize",()=>{if(pgNow==="gates"&&$("#stGm"))gmDraw()});
 document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#stands button");if(!b||!ST.plan)return;const P=ST.plan.apts,R=stRules(),d=b.dataset;
@@ -1795,7 +1817,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  if(d.st==="discard"){if(!confirm("Discard the changes to the gate plan?"))return;ST.plan=stClone(ST.saved);ST.dirty=false;ST.ed=-1;stSay("");stAptsUi();stMainUi();return}
  if(d.strm!=null){const k=+d.strm;if(R[k]&&R[k].stands&&!confirm("Remove rule "+(k+1)+" at "+ST.sel+"?"))return;R.splice(k,1);ST.ed=-1;stRulesUi();stChanged();return}
  if(d.stup!=null){const k=+d.stup;[R[k-1],R[k]]=[R[k],R[k-1]];ST.ed=k-1;stRulesUi();stChanged();return}
- if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stBody())});
+ if(b.id==="stSave"){b.disabled=true;ST.lq=(ST.lq||0)+1;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stBody())});ST.lq++;
    ST.saved=stClone(j.plan);ST.plan=stClone(j.plan);ST.dirty=false;ST.ed=-1;opsDrop("stands");stStateUi();stAptsUi();stRulesUi();stMapRefresh();stTry();
    stSay("Saved. "+(j.plan.on||j.plan.dep?"Gates are given from this plan from now on.":"The gate messages are off, so nothing is sent until they are turned on in Automatic messages."),true)}
   catch(er){b.disabled=false;
@@ -1865,7 +1887,7 @@ function rlUi(){const el=$("#rlList");if(!el)return;
   +'<div class="rl-h">Pages they see</div><p class="rl-note">Their Home shows only what is on these pages, and the server keeps the other pages’ data from them.</p><div class="rl-g"><label class="rl-c"><input type="checkbox" checked disabled><span>Home and Tasks</span></label>'+RL_PAGES.map(x=>'<label class="rl-c"><input type="checkbox" data-rlpg="'+x[0]+'"'+(E.pages.has(x[0])?" checked":"")+"><span>"+esc(x[1])+"</span></label>").join("")+"</div>"
   +'<div class="rl-h">What they can change</div><div class="rl-g acts">'+RL_ACTS.map(x=>'<label class="rl-c"><input type="checkbox" data-rlact="'+x[0]+'"'+(E.can.has(x[0])?" checked":"")+"><span>"+esc(x[1])+(x[2]?"<small>"+esc(x[2])+"</small>":"")+"</span></label>").join("")+"</div>"
   +'<div class="actions"><button class="primary" type="button" id="rlEdSave">'+(E.id?"Save":"Make role")+'</button><button type="button" id="rlEdCancel">Cancel</button>'+(E.id?'<button type="button" class="warn" id="rlEdDel"'+(cur&&cur.n?' title="Give its people another role first"':"")+">Delete role</button>":"")+"</div>"}
-async function rlPost(body,el,ok){if(RL.busy)return false;RL.busy=true;if(el)el.disabled=true;
+async function rlPost(body,el,ok){if(RL.busy){rlUi();seSay(body.op?"#rlRMsg":"#rlMsg","Wait a moment: the change before this one is still being saved. Then make this one again.");return false}RL.busy=true;if(el)el.disabled=true;
  try{const j=await api("/admin/api/roles",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});rlSetData(j);
   if(ok)ok();meLoad();return true}
  catch(e){seSay(body.op?"#rlRMsg":"#rlMsg",e.message);return false}finally{RL.busy=false;if(el)el.disabled=false;rlUi()}}
@@ -2037,8 +2059,10 @@ function caKeep(){const f=CA.form;if(!f||!$("#caT"))return;const r=caRead();
  Object.assign(f,{title:$("#caT").value,type:$("#caType").value,allDay:$("#caAll").checked,s:isFinite(r.s)?r.s:f.s,e:isFinite(r.e)?r.e:f.e,rep:$("#caRep").value,until:$("#caUntil").value?Date.parse($("#caUntil").value+"T23:59:00Z"):0,loc:$("#caLoc").value,body:$("#caBody").value,remind:+$("#caRem").value,efb:$("#caEfb").checked});
  const cs=$("#caCs");if(cs)f.cs=cs.value.toUpperCase().replace(/[^A-Z0-9]/g,"")}
 function caUi(){caGridUi();caSideUi()}
-async function caLoad(){if(CA.busy||!pgHas("cal"))return;CA.busy=true;try{const j=await api("/admin/api/cal");CA.items=j.items||[];CA.vam=j.vam||{};CA.vamsys=j.vamsys||[];CA.vamErr=j.vamsysErr||"";CA.err="";CA.loaded=true}catch(e){CA.err=e.message}finally{CA.busy=false}
- if(!CA.m)CA.m=caMonth0(Date.now());if(!CA.form)caUi();else caGridUi()}
+/* one load at a time; one asked for meanwhile (after a save, say) runs once more when it is done, and waits for that */
+async function caLoad(){if(!pgHas("cal"))return;if(CA.busy){CA.pend=true;return CA.tail||(CA.tail=new Promise(r=>{CA.tailR=r}))}CA.busy=true;try{const j=await api("/admin/api/cal");CA.items=j.items||[];CA.vam=j.vam||{};CA.vamsys=j.vamsys||[];CA.vamErr=j.vamsysErr||"";CA.err="";CA.loaded=true}catch(e){CA.err=e.message}finally{CA.busy=false}
+ if(!CA.m)CA.m=caMonth0(Date.now());if(!CA.form)caUi();else caGridUi();
+ if(CA.pend){CA.pend=false;const r=CA.tailR;CA.tail=null;CA.tailR=null;try{await caLoad()}finally{if(r)r()}}}
 function caNew(day){const base=day!=null?day:caDay0(Date.now()),s=base+(day!=null?12:Math.min(23,new Date().getUTCHours()+1))*36e5;
  CA.form={title:"",type:"group",s,e:s+2*36e5,allDay:false,rep:"",until:0,loc:"",body:"",remind:60,efb:true,to:null,m:[],cs:""};CA.sel=null;caUi();setTimeout(()=>{const t=$("#caT");if(t)t.focus()},40)}
 document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("#cal [data-ca],#cal [data-cai],#cal [data-cad],#cal [data-carm]");if(!t)return;const a=t.dataset;
@@ -2087,13 +2111,20 @@ async function fwLoad(){if(FW.busy||document.querySelector(".deny")||!pgHas("fw"
  catch(e){FW.err="Flight Watch: "+e.message}finally{FW.busy=false}fwUi()}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest(".fw button");if(!b)return;
  if(b.dataset.fwshow){if(window.pmLive)window.pmLive.show(b.dataset.fwshow);return}
- if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(!a||!window.pmLive)return;const m0=FO.mode;FO.mode="aoc";window.pmLive.show(a.cs);
-  /* open now (or already): its AOC; another flight kept open (an unsent message there): as it was */
-  if(FO.f&&FO.f.cs===a.cs){FO.mode="aoc";foModeUi()}else if(FO.f)FO.mode=m0;setTimeout(()=>{const x=$("#foBody");if(x)x.focus()},400);return}
+ if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(!a||!window.pmLive)return;const m0=FO.mode;
+  /* already open: switched to AOC where it is (opening it again would be asked about, and keep Mail) */
+  if(FO.f&&FO.f.cs===a.cs){FO.mode="aoc";if($("#foAoc"))foModeUi();else foUi();if(pgNow!=="fw")location.hash="#fw"}
+  else{FO.mode="aoc";window.pmLive.show(a.cs);
+   /* open now: its AOC; another flight kept open (an unsent message there): as it was */
+   if(FO.f&&FO.f.cs===a.cs){FO.mode="aoc";foModeUi()}else if(FO.f)FO.mode=m0}
+  setTimeout(()=>{if(FO.f&&FO.f.cs===a.cs&&FO.mode==="aoc"){const x=$("#foBody");if(x)x.focus()}},400);return}
  if(b.dataset.fwseen){FW.seen[b.dataset.fwseen]=Date.now();fwSave();fwUi();return}
  if(b.dataset.fw==="unhide"){FW.seen={};fwSave();fwUi()}});
 /* the list is drawn again with every update: mark its rows again */
-{const l=$("#lvList");if(l)new MutationObserver(()=>{fwRows();foRows()}).observe(l,{childList:true})}
+/* (P2) the list's marks, the CAM tags and the camera strip, once a frame however many updates asked for them */
+let fwRowsRaf=0;function fwRowsNow(){fwRowsRaf=0;fwRows();foRows();fwCamStrip()}
+function fwRowsSoon(){if(!fwRowsRaf)fwRowsRaf=requestAnimationFrame(fwRowsNow)}
+{const l=$("#lvList");if(l)new MutationObserver(fwRowsSoon).observe(l,{childList:true})}
 if(!document.querySelector(".deny")){fwLoad();setInterval(()=>{if(document.hidden)return;if(pgNow==="fw"||pgNow==="home"||Date.now()%90000<30000)fwLoad()},30000);
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)fwLoad()})}
 /* ---------- Flight Watch: the open flight's operations under its head (live.ts draws the map, the list and the head):
@@ -2111,33 +2142,37 @@ function foAoc(f){const L=(opsV("aoc")||{}).msgs||[],since=Date.now()-18*36e5;
  return L.filter(m=>m.t>=since&&m.to&&((m.to.cs&&m.to.cs===f.cs)||(f.pilot&&(m.to.pilot===f.pilot||(m.to.m||[]).some(x=>x.pilot===f.pilot))))).sort((a,b)=>b.t-a.t)}
 const foTo=f=>({crew:true,cs:f.cs,m:f.pilot||f.cid?[{pilot:f.pilot||"",cid:f.cid||"",name:f.name&&f.name!==f.pilot?f.name:""}]:[]});
 async function foLoad(force){const age=force?0:20000;await Promise.allSettled([opsGet("ooo",age),opsGet("stands",age),opsGet("aoc",age)]);foInfoUi();foRows()}
+/* (P2, Nov 2026) a part whose data could not be read says so, with Retry: never "Not sent", "None" or "Loading…" for
+   what was simply not read. With data from before, that is shown, and the line says it is not current */
+const foErr=k=>{const o=OPS[k];return o&&o.err?'<div class="msg err fo-err">'+esc(o.err)+(o.v?" (showing what came before)":"")+' <button type="button" class="lnk" data-foretry>Retry</button></div>':""};
+const foWait=(k,h)=>OPS[k]&&OPS[k].err?foErr(k):'<p class="hint" style="margin:0">'+(h||"Loading…")+"</p>";
 function foOooiHtml(f,r){
- if(!r)return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4><p class="hint" style="margin:0">'+(opsV("ooo")?"No times yet: the Worker picks a flight up within two minutes of it showing on the map.":"Loading…")+"</p></div>";
+ if(!r)return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4>'+(opsV("ooo")?foErr("ooo")+'<p class="hint" style="margin:0">No times yet: the Worker picks a flight up within two minutes of it showing on the map.</p>':foWait("ooo"))+"</div>";
  const now=Date.now(),cell=(k,t,sch,alt)=>'<div class="'+(t?"":"no ")+(sch?"sch":"")+'"><span>'+k+"</span><b>"+(t?foZ(t):alt||"–")+"</b></div>";
  const dl=r.out?otLate(r.out,r.std):r.std&&now>r.std?otLate(now,r.std):null,eta=r.in?null:f.eta,al=r.in?otLate(r.in,r.sta):r.sta&&eta?otLate(eta,r.sta):null;
  const dep=!r.std?"no booking, so no STD":r.out?"off the gate "+foChip(dl):now>r.std?'<span class="'+(dl>15?"late":"")+'">still at the gate, '+foMin(dl)+"</span>":"STD in "+Math.max(1,Math.round((r.std-now)/6e4))+" min";
  const arr=r.in?"at the gate "+foChip(al):eta?"ETA <b>"+foZ(eta)+"</b>"+(al!=null?" · "+foChip(al)+" expected":""):"–";
  const late=dl>15||al>15||r.reason,R=(opsV("ooo")||{}).reasons||[];
- return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4><div class="fo-t">'+cell("STD",r.std,1,"–")+cell("OUT",r.out)+cell("OFF",r.off||null,0,r.off===0?"air":"")+cell("ON",r.on)+cell("IN",r.in)+cell("STA",r.sta,1,"–")+"</div>"+
+ return '<div class="fo-s"><h4>OOOI <small>UTC</small></h4>'+foErr("ooo")+'<div class="fo-t">'+cell("STD",r.std,1,"–")+cell("OUT",r.out)+cell("OFF",r.off||null,0,r.off===0?"air":"")+cell("ON",r.on)+cell("IN",r.in)+cell("STA",r.sta,1,"–")+"</div>"+
   '<div class="fo-d"><span><b>Departure</b> '+dep+"</span><span><b>Arrival</b> "+arr+"</span></div>"+
   (late&&R.length?'<div class="fo-r"><label for="foReason">Delay reason</label><select id="foReason">'+R.map(x=>'<option value="'+esc(x[0])+'"'+((r.reason||"")===x[0]?" selected":"")+">"+esc(x[1])+"</option>").join("")+"</select></div>":"")+"</div>"}
-function foGatesHtml(f){const G=foGates(f),plan=(opsV("stands")||{}).plan,lead=(plan&&plan.lead)||30,E=FO.edit;
+function foGatesHtml(f){if(!opsV("stands"))return '<div class="fo-s"><h4>Gates</h4>'+foWait("stands")+'<div id="foGSay"></div></div>';const G=foGates(f),plan=(opsV("stands")||{}).plan,lead=(plan&&plan.lead)||30,E=FO.edit;
  const row=kind=>{const x=G[kind],apt=kind==="dep"?f.dep:f.arr,lbl=kind==="dep"?"Departure":"Arrival";if(!apt)return "";
   const ed=E&&E.kind===kind?'<div class="fo-ge"><input type="text" id="foGate" maxlength="8" placeholder="Gate" value="'+esc(E.stand||"")+'" autocomplete="off" spellcheck="false"><input type="text" id="foTerm" maxlength="20" placeholder="Terminal" value="'+esc(E.term||"")+'" autocomplete="off" spellcheck="false" style="flex:0 1 96px">'+(x?"":'<button type="button" data-fog="pick" title="The first free gate in the plan">From plan</button>')+'<button type="button" class="primary" data-fog="send">'+(x?"Send GATE CHANGE":"Send gate")+'</button><button type="button" data-fog="x">Cancel</button></div>':"";
   if(x)return '<div class="fo-g"><span class="k">'+lbl+"<b>"+esc(apt)+'</b></span><span class="v">'+(x.stand?"Gate "+esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):kind==="dep"?"Any free gate":"Contact ground")+"<small>"+(x.changed?"Changed ":"Sent ")+foZ(x.changed||x.t)+" · "+(x.by==="AUTO"?"automatic":esc(String(x.by||"").split("@")[0]))+"</small></span>"+(ed||f.sample?"":'<button type="button" data-fog="chg" data-fokind="'+kind+'">Change</button>')+ed+"</div>";
   const past=kind==="dep"&&!["gate","taxiout"].includes(f.phase);
   const why=kind==="dep"?(past?"Not needed: the flight has left the gate":plan&&plan.dep?"Goes when the crew check in":"Automatic departure gates are off"):plan&&plan.on?"Goes about "+lead+" min before landing":"Automatic arrival gates are off";
   return '<div class="fo-g none"><span class="k">'+lbl+"<b>"+esc(apt)+'</b></span><span class="v">Not sent<small>'+why+"</small></span>"+(past||ed||f.sample?"":'<button type="button" data-fog="new" data-fokind="'+kind+'">Assign</button>')+ed+"</div>"};
- return '<div class="fo-s"><h4>Gates</h4>'+row("dep")+row("arr")+'<div id="foGSay"></div></div>'}
-function foLsHtml(f,r){const L=foAoc(f).find(m=>m.title==="LOADSHEET FINAL"),plan=(opsV("stands")||{}).plan,now=Date.now();let h;
+ return '<div class="fo-s"><h4>Gates</h4>'+foErr("stands")+row("dep")+row("arr")+'<div id="foGSay"></div></div>'}
+function foLsHtml(f,r){if(!opsV("aoc"))return '<div class="fo-s"><h4>Final loadsheet</h4>'+foWait("aoc")+"</div>";const L=foAoc(f).find(m=>m.title==="LOADSHEET FINAL"),plan=(opsV("stands")||{}).plan,now=Date.now();let h;
  if(L)h='<span class="ok">Sent '+foZ(L.t)+"</span>"+akChip(L,opsV("aoc"))+'<details class="fo-a" data-aid="ls'+esc(L.id)+'"><summary><b>LOADSHEET FINAL</b><small>show</small></summary><pre>'+esc(L.body)+"</pre></details>";
  else if(plan&&plan.ls===false)h="Off<small>Automatic final loadsheets are off in Automatic messages.</small>";
  else if(r&&r.std&&now<r.std-15*6e4)h="Not yet<small>Goes at "+foZ(r.std-15*6e4)+", 15 minutes before STD, if the crew checked in with their SimBrief plan loaded.</small>";
  else if(r&&r.std)h="Not sent<small>The crew did not check in with a SimBrief plan loaded, so there were no weights to send.</small>";
  else h="Not sent<small>No booking (STD) for this flight.</small>";
- return '<div class="fo-s"><h4>Final loadsheet</h4><div class="fo-ls">'+h+"</div></div>"}
-function foLogHtml(f){const L=foAoc(f);
- return '<div class="fo-s"><h4>AOC to this flight <small>'+(L.length?L.length+" in the last 18 h":"")+"</small></h4>"+(L.length?L.slice(0,10).map(m=>'<details class="fo-a" data-aid="'+esc(m.id)+'"><summary><b>'+esc(m.title)+"</b><time>"+foZ(m.t)+"</time>"+akChip(m,opsV("aoc"))+"<small>"+(m.by==="AUTO"?"automatic":esc(String(m.by||"").split("@")[0]))+"</small></summary><pre>"+esc(m.body)+"</pre>"+akList(m,opsV("aoc"))+"</details>").join(""):'<p class="hint" style="margin:0">None in the last 18 hours.</p>')+"</div>"}
+ return '<div class="fo-s"><h4>Final loadsheet</h4>'+foErr("aoc")+'<div class="fo-ls">'+h+"</div></div>"}
+function foLogHtml(f){if(!opsV("aoc"))return '<div class="fo-s"><h4>AOC to this flight</h4>'+foWait("aoc")+"</div>";const L=foAoc(f);
+ return '<div class="fo-s"><h4>AOC to this flight <small>'+(L.length?L.length+" in the last 18 h":"")+"</small></h4>"+foErr("aoc")+(L.length?L.slice(0,10).map(m=>'<details class="fo-a" data-aid="'+esc(m.id)+'"><summary><b>'+esc(m.title)+"</b><time>"+foZ(m.t)+"</time>"+akChip(m,opsV("aoc"))+"<small>"+(m.by==="AUTO"?"automatic":esc(String(m.by||"").split("@")[0]))+"</small></summary><pre>"+esc(m.body)+"</pre>"+akList(m,opsV("aoc"))+"</details>").join(""):'<p class="hint" style="margin:0">None in the last 18 hours.</p>')+"</div>"}
 function foMsgHtml(f){if(f.sample)return '<div class="fo-s"><h4>Message the crew</h4><p class="hint" style="margin:0">Sample flight: made up for the preview, so there is nobody to write to.</p></div>';
  const a=FO.mode==="aoc";
  return '<div class="fo-s fo-c"><div class="fo-ch"><h4>Message the crew</h4><div class="kf" role="group" aria-label="Send as"><button type="button" data-fom="aoc" aria-pressed="'+a+'">AOC</button><button type="button" data-fom="mail" aria-pressed="'+!a+'">Mail</button></div></div>'+
@@ -2182,7 +2217,9 @@ window.pmLeave=cs=>{const f=FO.f;if(!f||f.cs!==cs)return true;const d=foDraft();
 window.addEventListener("pm:sel",e=>{const old=FO.f;if(old){const d=foDraft();if(foDraftHas(d))FO.drafts[old.cs]=d;else delete FO.drafts[old.cs]}
  FO.f=e.detail;FO.edit=null;const d=FO.f&&FO.drafts[FO.f.cs];if(d)FO.mode=d.mode;foUi();
  if(d){foDraftPut(d);foSay("The message you had not sent is here again.",true)}});
-window.addEventListener("pm:live",e=>{const L=e.detail||[];if(FO.f){const n=L.find(x=>x.cs===FO.f.cs);if(n){const ph=FO.f.phase;FO.f=n;if(n.phase!==ph)foInfoUi()}}foRows()});
+window.addEventListener("pm:live",e=>{const L=e.detail||[];if(FO.f){const n=L.find(x=>x.cs===FO.f.cs);if(n){const ph=FO.f.phase;FO.f=n;if(n.phase!==ph)foInfoUi()}}fwRowsSoon()});
+/* Retry, on a part of the panel whose data did not come */
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#lvOps [data-foretry]");if(!b||!FO.f)return;b.disabled=true;try{await foLoad(true)}finally{foInfoUi(true)}});
 document.addEventListener("input",e=>{const t=e.target;if(FO.edit&&(t.id==="foGate"||t.id==="foTerm"))FO.edit[t.id==="foGate"?"stand":"term"]=t.value});
 document.addEventListener("change",async e=>{const t=e.target,f=FO.f;if(!f)return;
  if(t.id==="foReason"){const r=foRec(f);if(!r)return;t.disabled=true;
@@ -2205,8 +2242,10 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
   if(!stand){$("#foGate").focus();return}b.disabled=true;
   try{if(E.x)await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k:E.x.k,t:E.x.t,stand,term:term||undefined})});
    else{const r=foRec(f);await api("/admin/api/stands/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:E.kind,cs:f.cs,dep:f.dep,arr:f.arr,ac:f.ac,acName:f.acName,fpAc:f.fpAc,wake:f.wake,eta:E.kind==="dep"?r&&r.std:f.eta,pilot:f.pilot,cid:f.cid,name:f.name,stand,term})})}
-   FO.edit=null;opsDrop("stands");opsDrop("aoc");await foLoad(true);foInfoUi(true);$("#foGSay").innerHTML='<div class="msg ok">Sent to the '+esc(f.cs)+" crew.</div>"}
-  catch(er){$("#foGSay").innerHTML='<div class="msg err">'+esc(er.message)+"</div>";b.disabled=false}return}
+   const mine=()=>FO.f&&FO.f.cs===f.cs;if(mine())FO.edit=null;opsDrop("stands");opsDrop("aoc");await foLoad(true);
+   /* (P2) another flight opened meanwhile: its panel is not told of this one */
+   if(mine()){foInfoUi(true);const s=$("#foGSay");if(s)s.innerHTML='<div class="msg ok">Sent to the '+esc(f.cs)+" crew.</div>"}}
+  catch(er){if(FO.f&&FO.f.cs===f.cs){const s=$("#foGSay");if(s)s.innerHTML='<div class="msg err">'+esc(er.message)+"</div>"}b.disabled=false}return}
  if(b.id==="foSend"){const body=$("#foBody").value.trim();if(!body){foSay("Write the message first.");$("#foBody").focus();return}if(/___/.test(body)){foSay("Fill in the ___ first.");tplCaret($("#foBody"));return}
   b.disabled=true;try{await api("/admin/api/aoc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("#foTitle").value,body,to:foTo(f),push:$("#foPush").checked})});
    $("#foBody").value="";$("#foTitle").value="CREW MESSAGE";foSay("AOC sent to the "+f.cs+" crew.",true);opsDrop("aoc");foLoad(true);load()}catch(er){foSay(er.message)}finally{b.disabled=false}return}
@@ -2379,9 +2418,10 @@ const tkZ=t=>new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short"
 const tkLate=(t,now)=>t.state!=="done"&&!!t.due&&t.due<now;
 /* for me: on me, or nobody's yet in my department */
 const tkMineOf=t=>t.state!=="done"&&(t.who===TK.me||(!t.who&&t.dept===TK.role));
-async function tkLoad(){if(document.querySelector(".deny"))return;
- try{const j=await api("/admin/api/tasks");TK.list=j.tasks||[];TK.depts=j.depts||[];TK.people=j.people||[];TK.me=j.me||"";TK.role=j.role||"";TK.pub=!!j.pub;TK.mail=j.mail||null;TK.err=""}
- catch(e){TK.err=e.message}
+/* (P2) TK.lq: the latest load, or a change: an answer that set out before either is dropped */
+async function tkLoad(){if(document.querySelector(".deny"))return;const q=TK.lq=(TK.lq||0)+1;
+ try{const j=await api("/admin/api/tasks");if(q!==TK.lq)return;TK.list=j.tasks||[];TK.depts=j.depts||[];TK.people=j.people||[];TK.me=j.me||"";TK.role=j.role||"";TK.pub=!!j.pub;TK.mail=j.mail||null;TK.err=""}
+ catch(e){if(q!==TK.lq)return;TK.err=e.message}
  tkCount();if(pgNow==="tasks")tkUi(1);if(pgNow==="home")hmUi()}
 function tkCount(){const n=(TK.list||[]).filter(tkMineOf).length,b=$("#tkCount");if(b){b.hidden=!n;b.textContent=n}}
 function tkSort(L,st){return L.slice().sort(st==="done"?(a,b)=>b.done-a.done:(a,b)=>(b.pri-a.pri)||((a.due||9e15)-(b.due||9e15))||(st==="doing"?a.started-b.started:b.t-a.t))}
@@ -2446,15 +2486,18 @@ async function tkOpen(id){TK.sel=id;if(!TK.det||TK.det.task.id!==id)TK.det=null;
  try{const j=await api("/admin/api/tasks?id="+encodeURIComponent(id));if(TK.sel===id){TK.det=j;tkMerge(j.task)}}
  catch(e){if(TK.sel===id){TK.sel="";TK.det=null;tkSay(e.message)}}
  if(pgNow==="tasks")tkUi()}
-async function tkPost(body,el,ok){if(TK.busy)return null;TK.busy=true;if(el)el.disabled=true;
+/* one change at a time: one made while another is on its way waits for it, then goes (never dropped) */
+let tkQ=Promise.resolve();
+function tkPost(body,el,ok){if(el)el.disabled=true;const p=tkQ.then(()=>tkPost1(body,el,ok));tkQ=p.then(()=>{},()=>{});return p}
+async function tkPost1(body,el,ok){TK.busy=true;TK.lq=(TK.lq||0)+1;if(el)el.disabled=true;
  try{const j=await api("/admin/api/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   tkSay(null);if(j.task){tkMerge(j.task);if(TK.sel===j.task.id)TK.det={task:j.task,evs:j.evs||[]}}
   if(body.op==="del"){TK.list=(TK.list||[]).filter(t=>t.id!==body.id);if(TK.sel===body.id){TK.sel="";TK.det=null}}
   if(ok)ok(j);return j}
  catch(e){tkSay(e.message,false,["state","who","note"].includes(body.op)&&!!TK.sel);return null}
- finally{TK.busy=false;if(el)el.disabled=false;tkCount();tkUi();if(pgNow==="home")hmUi()}}
+ finally{TK.busy=false;TK.lq++;if(el)el.disabled=false;tkCount();tkUi();if(pgNow==="home")hmUi()}}
 async function tkTick(){await tkLoad();if(!TK.sel||pgNow!=="tasks")return;
- try{const id=TK.sel,j=await api("/admin/api/tasks?id="+encodeURIComponent(id));if(TK.sel===id&&!TK.busy){TK.det=j;tkMerge(j.task);if(!tkBusyIn())tkDetUi()}}catch(e){}}
+ try{const id=TK.sel,q=TK.lq,j=await api("/admin/api/tasks?id="+encodeURIComponent(id));if(TK.sel===id&&!TK.busy&&q===TK.lq){TK.det=j;tkMerge(j.task);if(!tkBusyIn())tkDetUi()}}catch(e){}}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-tk],[data-tknew],[data-tkmine],[data-tkx],[data-tkst],[data-tkedit],[data-tkdel],#tkNoteAdd,#tkFSave,#tkFCancel,[data-hmtk],[data-hmdept]");if(!b)return;
  if(b.dataset.tk){tkOpen(b.dataset.tk);return}
  if(b.dataset.hmtk){TK.sel=b.dataset.hmtk;TK.det=null;location.hash="#tasks";return}
@@ -2796,7 +2839,7 @@ function ndTabsUi(v){const el=$("#ndTabs");if(!el)return;const n=v.src.filter(nd
   return '<button type="button" role="tab" data-ndtab="'+esc(k)+'"'+(k==="attn"&&n?' class="attn"':"")+' aria-selected="'+(k===cur)+'">'+esc(l)+" <i>"+c+"</i>"+(b?'<b title="'+b+' need attention">'+b+"</b>":"")+"</button>"}).join("")}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-ndtab]");if(!b)return;ND.tab=b.dataset.ndtab;try{localStorage.setItem("ndTab",ND.tab)}catch(x){}ndUi();ndAllBtn()});
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#ndSum i.bad,#ndSum i.warn");if(!b)return;ND.tab="attn";try{localStorage.setItem("ndTab","attn")}catch(x){}ndUi();ndAllBtn()});
-document.addEventListener("input",e=>{if(!e.target||e.target.id!=="ndQ")return;ND.q=e.target.value;ndUi();ndAllBtn()});
+let ndQT=0;document.addEventListener("input",e=>{if(!e.target||e.target.id!=="ndQ")return;ND.q=e.target.value;clearTimeout(ndQT);ndQT=setTimeout(()=>{ndUi();ndAllBtn()},120)});
 /* the sources the view shows that the server checks: what Check all (or Check these) goes through */
 function ndVisChk(v){const c=ndChk(v);return ndSections(v).flatMap(r=>r.L.map(s=>s.id)).filter(i=>c.has(i))}
 const ndWhole=()=>ND.tab==="all"&&!ND.q.trim();
@@ -2833,7 +2876,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  try{const j=await api("/admin/api/navdata/remind-test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});if(j.status)OPS.nav={at:Date.now(),v:j.status,p:null,err:""};if(!j.ok)ND.rmMsg=j.err||"Not sent"}
  catch(er){ND.rmMsg=er.message}finally{ND.rm=false;ndUi()}});
 async function ndLoad(force){try{await opsGet("nav",force?0:60000)}catch(e){}if(pgNow==="navdata")ndUi()}
-async function ndPostChk(body){const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});OPS.nav={at:Date.now(),v,p:null,err:""}}
+async function ndPostChk(body){const v=await api("/admin/api/navdata/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),timeout:120000});OPS.nav={at:Date.now(),v,p:null,err:""}}
 async function ndCheck(id){if(ND.busy)return;ND.busy=id;ndAllBtn();ndUi();
  try{await ndPostChk({id})}
  catch(e){if(OPS.nav)OPS.nav.err=e.message;else OPS.nav={at:0,v:null,p:null,err:e.message}}
@@ -2879,7 +2922,11 @@ function ndJcHtml(s,rg){const A=(s.jc&&s.jc.apts)||[],now=Date.now(),t=e=>Date.U
 const ndMsg=rg=>{const b=document.querySelector('[data-nddrop="'+rg+'"] b');if(b)b.textContent=ND.up[rg].msg};
 async function ndRun(rg,fn){const c=ND.up[rg];if(c.busy)return;c.busy=true;c.err="";c.ok="";c.msg="Opening…";ndUi();
  try{c.ok=await fn(c)}catch(e){c.err=(e&&e.message)||String(e)}finally{c.busy=false;c.msg="";await ndLoad(true)}}
-const ndPost=(u,b)=>api(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+const ndPost=(u,b)=>api(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b),timeout:120000});
+/* (P2) a timeout for a fetch of its own (the chart uploads): 2 minutes */
+const ndTmo=ms=>{if(typeof AbortSignal!=="undefined"&&typeof AbortSignal.timeout==="function")return AbortSignal.timeout(ms);if(typeof AbortController!=="function")return undefined;const c=new AbortController();setTimeout(()=>c.abort(),ms);return c.signal};
+/* (P2) leaving the page while a document or a Nav Data upload is under way asks first */
+window.addEventListener("beforeunload",e=>{if((typeof DC!=="undefined"&&DC.busy)||Object.values(ND.up||{}).some(c=>c&&c.busy)){e.preventDefault();e.returnValue=""}});
 /* China: one AIRAC per zip */
 const ndCnFile=f=>ndRun("cn",async c=>{if(!/\\.zip$/i.test(f.name))throw new Error("Choose the zip file: CN_AIP-DS_…_AIRAC….zip.");if(f.size>80*1048576)throw new Error("That file is too large to be the AIP data set.");
  const o=await CNP.open(await f.arrayBuffer(),p=>{c.msg="Checking each file against checksum.xml… "+Math.round(p*100)+"%";ndMsg("cn")});
@@ -2915,7 +2962,7 @@ const ndJcFiles=items=>ndRun("jpc",async c=>{const G={};
  const total=todo.reduce((s,x)=>s+x.F.length,0),bytes=todo.reduce((s,x)=>s+x.size,0);let sent=0,sentB=0;
  for(const x of todo){let next=0;const files=[];
   const one=async()=>{for(;;){const i=next++;if(i>=x.F.length)return;const f=x.F[i];
-   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/jpcharts/put?apt="+x.a+"&eff="+x.e+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file});
+   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/jpcharts/put?apt="+x.a+"&eff="+x.e+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file,signal:ndTmo(120000)});
      if(!r.ok){let j=null;try{j=await r.json()}catch(e){}throw new Error((j&&j.error)||"HTTP "+r.status)}break}
     catch(e){if(tr>=2)throw new Error(x.a+" "+f.name+": "+e.message)}}
    files[i]={i,file:f.name,s:f.file.size};sent++;sentB+=f.file.size;c.msg="Uploading "+x.a+" · "+sent+" of "+total+" charts · "+ndMB(sentB)+" of "+ndMB(bytes);ndMsg("jpc")}};
@@ -2946,7 +2993,7 @@ const ndCcFiles=items=>ndRun("cnc",async c=>{let ad=null;const byT=new Map();
  const total=todo.reduce((s,x)=>s+x.F.length,0),bytes=todo.reduce((s,x)=>s+x.size,0);let sent=0,sentB=0;
  for(const x of todo){let next=0;const files=[];
   const one=async()=>{for(;;){const i=next++;if(i>=x.F.length)return;const f=x.F[i];
-   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/cncharts/put?apt="+x.a+"&eff="+eff+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file});
+   for(let tr=0;;tr++){try{const r=await fetch("/admin/api/navdata/cncharts/put?apt="+x.a+"&eff="+eff+"&i="+i,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/pdf"},body:f.file,signal:ndTmo(120000)});
      if(!r.ok){let j=null;try{j=await r.json()}catch(e){}throw new Error((j&&j.error)||"HTTP "+r.status)}break}
     catch(e){if(tr>=2)throw new Error(x.a+" "+f.name+": "+e.message)}}
    files[i]={i,file:f.name,s:f.file.size,chg:f.chg?1:0};sent++;sentB+=f.file.size;c.msg="AIRAC "+cyc+" · uploading "+x.a+" · "+sent+" of "+total+" charts · "+ndMB(sentB)+" of "+ndMB(bytes);ndMsg("cnc")}};
@@ -3026,8 +3073,8 @@ function auUi(){const el=$("#auList");if(!el)return;const v=ST.saved;
    +(open?auEdHtml(k):"")+"</div>"}).join("");
  if(AT.open)auPrev(AT.open)}
 function auPrev(k){const K=auKind(k);if(!K)return;if(K.preview&&!AT.dirty[k]){$("#auPT").textContent=K.preview.title;$("#auPB").textContent=K.preview.body;$("#auPB").classList.remove("err");return}
- clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(AT.open!==k)return;$("#auPT").textContent=r.title;$("#auPB").textContent=r.body;$("#auPB").classList.remove("err")}
-  catch(e){if(AT.open!==k)return;$("#auPB").textContent=e.message;$("#auPB").classList.add("err")}},350)}
+ clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{const q=AT.pq=(AT.pq||0)+1;try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(q!==AT.pq||AT.open!==k)return;$("#auPT").textContent=r.title;$("#auPB").textContent=r.body;$("#auPB").classList.remove("err")}
+  catch(e){if(q!==AT.pq||AT.open!==k)return;$("#auPB").textContent=e.message;$("#auPB").classList.add("err")}},350)}
 /* on and off, and the arrival gate's timing: only the switches changed are sent (part "sw"); the gates are not, so a
    switch never puts back gates as they were when this page loaded. Someone else's newer switches (409): nothing is
    saved, and the page takes theirs (the error says so) */
@@ -3121,13 +3168,15 @@ function bcSay(t,ok){const m=$("#bcMsg");if(!m)return;m.innerHTML=t?'<div class=
 function bcOpen(){if(BC.ws||!BC.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/admin/api/desk/ws")}catch(e){return}
  BC.ws=w;w.onopen=()=>{BC.conn=true};
  w.onmessage=e=>{let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)bcIn(j)};
- w.onclose=()=>{if(BC.ws!==w)return;BC.ws=null;BC.conn=false;BC.role="";bcAll();if(BC.want){clearTimeout(BC.retry);BC.retry=setTimeout(bcOpen,3000)}};
+ w.onclose=e=>{if(BC.ws!==w)return;BC.ws=null;BC.conn=false;BC.role="";bcCbDrop();bcAll();if(BC.want){clearTimeout(BC.retry);BC.retry=setTimeout(bcOpen,wsRetry(BC,e))}};
  w.onerror=()=>{}}
+/* the desk's connection went: commands still waiting for an answer may or may not have been done (P2) */
+function bcCbDrop(){const L=Object.entries(BC.cb||{});BC.cb={};for(const [id,f] of L)try{f({t:"ack",id,ok:false,err:"Disconnected: check whether it happened"})}catch(e){}}
 function bcClose(){BC.want=false;clearTimeout(BC.retry);const w=BC.ws;BC.ws=null;BC.conn=false;if(w)try{w.close()}catch(e){}}
 setInterval(()=>{if(BC.ws&&BC.ws.readyState===1)try{BC.ws.send("ping")}catch(e){}},30000);
 function bcIn(j){const P=BC.pc;switch(j.t){
- case "hello":BC.role=j.role;BC.me=j.me||"";BC.cfg=j.cfg;BC.pc=j.pc||{on:false};BC.pvw=j.pvw||"";BC.log=j.log||[];BC.plan=j.plan||null;BC.oo=j.oo||null;BC.land=j.land||null;BC.fl=BC.pc.fl||null;BC.flAt=BC.pc.flAt||0;BC.ph=BC.pc.ph||"";BC.imgs={};BC.tileKey="";bcAll();bcCamLink();break;
- case "cfg":BC.cfg=j.cfg;bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcMon();bcCamLink();break;
+ case "hello":wsOk(BC);BC.role=j.role;BC.me=j.me||"";BC.cfg=j.cfg;BC.pc=j.pc||{on:false};BC.pvw=j.pvw||"";BC.log=j.log||[];BC.plan=j.plan||null;BC.oo=j.oo||null;BC.land=j.land||null;BC.fl=BC.pc.fl||null;BC.flAt=BC.pc.flAt||0;BC.ph=BC.pc.ph||"";BC.imgs={};BC.tileKey="";bcAll();bcCamLink();break;
+ case "cfg":BC.cfg=j.cfg;if(BC.rw&&BC.cfg&&BC.cfg.auto)BC.cfg.auto.rules=BC.rw;bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcMon();bcCamLink();break;
  case "pc":BC.pc=j.pc||{on:false};if(!BC.pc.on){BC.imgs={};BC.fl=null;BC.ph=""}else{BC.fl=BC.pc.fl||null;BC.ph=BC.pc.ph||""}BC.tileKey="";bcAll();break;
  case "obs":if(P.on){P.obs=j.obs;if(!j.obs||j.obs.st!=="on"){P.scenes=[];P.pgm="";BC.imgs={}}}BC.tileKey="";bcAll();break;
  case "scenes":if(P.on){P.scenes=j.list||[];P.pgm=j.pgm||""}bcTiles();bcMon();bcAuto();bcSetUi(false);bcEm();break;
@@ -3238,7 +3287,17 @@ function bcTake(){const p=BC.pvw,g=bcObsOn()?BC.pc.pgm:"";if(!bcDir()||!p||p===g
 function bcBrb(){const s=bcSlate();if(!s){bcSay("No “Back soon” scene yet: pick one under Setup (or name one Back soon in OBS)");return}bcCmd("scene",s,{swap:false})}
 async function bcPost(body,okMsg){try{const j=await api("/admin/api/desk",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(j&&j.cfg)BC.cfg=j.cfg;if(okMsg)bcSay(okMsg,true);return true}catch(e){bcSay(e.message);return false}finally{bcSetUi(false);bcStatus();bcOvs();bcAuto();bcEm();bcCamLink()}}
 const bcCfg=(cfg,okMsg)=>bcPost({op:"cfg",cfg},okMsg);
-function bcRules(k,fn){const R=JSON.parse(JSON.stringify((BC.cfg&&BC.cfg.auto.rules)||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];return bcCfg({auto:{rules:R}})}
+/* (P2, Nov 2026) a rule changed shows at once (BC.rw: the rules as they will be), and goes to the desk one change after
+   another, each with all those before it: rapid × and + Add never undo each other. One refused puts back the rules the
+   desk last had */
+let bcRQ=Promise.resolve();
+function bcRules(k,fn){if(!BC.cfg||!BC.cfg.auto)return Promise.resolve(false);if(!BC.rw)BC.rsv=JSON.parse(JSON.stringify(BC.cfg.auto.rules||{}));
+ const R=JSON.parse(JSON.stringify(BC.cfg.auto.rules||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];BC.rw=R;BC.cfg.auto.rules=R;bcAuto();
+ const go=async()=>{if(BC.rw!==R)return true;   /* a later change is waiting: it carries this one */
+  const ok=await bcCfg({auto:{rules:R}});
+  if(BC.rw===R){BC.rw=null;if(!ok&&BC.cfg&&BC.cfg.auto){BC.cfg.auto.rules=BC.rsv||{};bcAuto()}}else if(BC.cfg&&BC.cfg.auto){BC.cfg.auto.rules=BC.rw;bcAuto()}
+  return ok};
+ const p=bcRQ.then(go);bcRQ=p.then(()=>{},()=>{});return p}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bc button,#bc [data-bcs]");if(!t||t.disabled)return;
  /* a scene, TAKE or Back soon pressed with the mouse gives the focus back to the page, so 1–9 and Space go on working
     (a key on a focused button is the button's own); from the keyboard (detail 0) the focus stays where it is */
@@ -3286,6 +3345,30 @@ document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.
 /* CAM_DQ: frames the decoder may have queued before it counts as stuck; above a whole GOP replayed at once (75) */
 const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650,CAM_DQ=90,CAM_VIEWS=[];
 const camWC=()=>typeof VideoDecoder==="function"&&typeof EncodedVideoChunk==="function";
+/* VideoDecoder.isConfigSupported, asked once a codec string (P2): true, false, or null while its answer is on its way.
+   A browser without it (or one that cannot say) is let try */
+const CAM_SUP=new Map();
+function camSup(codec){if(typeof VideoDecoder!=="function"||typeof VideoDecoder.isConfigSupported!=="function")return true;
+ if(CAM_SUP.has(codec))return CAM_SUP.get(codec);CAM_SUP.set(codec,null);
+ Promise.resolve().then(()=>VideoDecoder.isConfigSupported({codec,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"})).then(r=>{CAM_SUP.set(codec,!(r&&r.supported===false))},()=>{CAM_SUP.set(codec,true)});
+ return null}
+/* the live connections (Broadcast's desk, the cameras), after a drop: again in 3 s, 6, 12, 24, then every 30 s (a
+   little sooner, at random, so pages do not all come back at once); 3 s again once the server says hello. A close for
+   a sign-in that ran out (4401), or three drops in a row, asks /admin/api/me whether the sign-in still holds; if it
+   does not, the page says so, with Reload (P2, Nov 2026). X: the connection's own state (fails) */
+const wsBack=n=>Math.round(Math.min(30000,3000*2**Math.max(0,Math.min(4,n)))*(0.75+Math.random()*0.25));
+function wsRetry(X,e){const n=X.fails=(X.fails||0)+1;if(n>=3||(e&&e.code===4401))wsProbe();return wsBack(n-1)}
+let WS_PROBE=0,WS_NOTE=false;
+function wsProbe(){if(WS_PROBE&&Date.now()-WS_PROBE<20000)return;WS_PROBE=Date.now();
+ /* still signed in: it answers who (a sign-in page instead, from Cloudflare Access, is not signed in) */
+ api("/admin/api/me",{timeout:15000}).then(j=>{if(j&&j.email){if(WS_NOTE)wsNote("")}else wsNote("The live views cannot connect: your sign-in has probably run out. Reload the page to sign in again.",true)},e=>{if(e&&e.timeout)return;
+  if(typeof navigator!=="undefined"&&navigator.onLine===false){wsNote("You are offline: the live views connect again when the network is back.");return}
+  if(e&&e.status>=500){wsNote("The live views cannot connect right now. They keep trying.");return}
+  wsNote("The live views cannot connect: your sign-in has probably run out. Reload the page to sign in again.",true)})}
+function wsNote(t,reload){WS_NOTE=!!t;let el=document.getElementById("wsAuth");if(!t){if(el)el.remove();return}
+ if(!el){el=document.createElement("div");el.id="wsAuth";el.className="msg err ws-auth";el.setAttribute("role","alert");document.body.appendChild(el)}
+ el.innerHTML="<span>"+esc(t)+"</span>"+(reload?'<button type="button" data-wsreload>Reload</button>':"");const b=el.querySelector("[data-wsreload]");if(b)b.addEventListener("click",()=>location.reload())}
+function wsOk(X){X.fails=0;if(WS_NOTE)wsNote("")}
 /* a pilot ID as Polaris Cam's channels are named by it: 2-16 letters and digits, upper case ("" when it is not one) */
 const camPilot=v=>{const s=String(v==null?"":v).trim().toUpperCase();return /^[A-Z0-9]{2,16}$/.test(s)?s:""};
 /* the codec string ('avc1.' + profile, constraints, level) from the SPS (NAL type 7) of a key frame's Annex-B bytes */
@@ -3300,23 +3383,23 @@ const camGridHtml=()=>[0,1,2,3].map(i=>'<button type="button" class="bc-cc" data
    socket drops), idle(V) (what a camera says while there is no socket), page (whose captions' fps are kept fresh) */
 function mkCamView(o){
  const V={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,raf:0,page:o.page||"",
-  c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0}))};
+  c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0,unsup:"",errN:0,retryAt:0}))};
  const live=()=>!o.live||!!o.live(V);
  const cell=i=>live()?document.querySelector(o.grid+' [data-camc="'+i+'"]'):null;
  V.live=live;V.cell=cell;
  V.open=()=>{if(V.ws||!V.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+o.url(V))}catch(e){return}
   w.binaryType="arraybuffer";V.ws=w;
   w.onmessage=e=>{if(V.ws!==w)return;if(typeof e.data==="string"){let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)V.msg(j)}else if(e.data instanceof ArrayBuffer)V.frame(e.data)};
-  w.onclose=()=>{if(V.ws!==w)return;V.ws=null;V.role="";V.blank();V.ui();if(o.onIn)o.onIn(V,{t:"close"});if(V.want){clearTimeout(V.retry);V.retry=setTimeout(V.open,3000)}};
+  w.onclose=e=>{if(V.ws!==w)return;V.ws=null;V.role="";V.blank();V.ui();if(o.onIn)o.onIn(V,{t:"close"});if(V.want){clearTimeout(V.retry);V.retry=setTimeout(V.open,wsRetry(V,e))}};
   w.onerror=()=>{}};
  /* closed for good (until opened again): its socket, decoders and frames, and what it knew of Polaris Cam */
  V.close=()=>{V.want=false;clearTimeout(V.retry);clearTimeout(V.hidT);const w=V.ws;V.ws=null;V.role="";V.token="";V.pub={on:false,cams:[]};V.watchers=0;V.zoom=-1;if(w)try{w.close()}catch(e){}V.blank()};
  /* the frames waiting to be drawn, closed; and the decoder, closed (nothing of either is left behind) */
  V.qDrop=c=>{while(c.q.length){const x=c.q.shift();try{x.frame.close()}catch(e){}}c.lastAt=0;c.lastTs=0};
  V.decStop=i=>{const c=V.c[i],d=c.dec;c.dec=null;c.cfg="";c.cw=0;c.ch=0;if(d)try{if(d.state!=="closed")d.close()}catch(e){}V.qDrop(c)};
- V.blank=()=>{V.c.forEach((c,i)=>{V.decStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=cell(i);if(el)el.querySelector("canvas").hidden=true})};
+ V.blank=()=>{V.c.forEach((c,i)=>{V.decStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.unsup="";c.errN=0;c.retryAt=0;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=cell(i);if(el)el.querySelector("canvas").hidden=true})};
  V.msg=j=>{switch(j.t){
-  case "hello":V.role=j.role||"";V.token=j.token||"";V.pub=j.pub||{on:false,cams:[]};V.watchers=j.watchers||0;V.blank();V.ui();break;
+  case "hello":wsOk(V);V.role=j.role||"";V.token=j.token||"";V.pub=j.pub||{on:false,cams:[]};V.watchers=j.watchers||0;V.blank();V.ui();break;
   case "pub":{const was=V.pub&&V.pub.on;V.pub=j.pub||{on:false,cams:[]};V.watchers=j.watchers||0;if(was&&!V.pub.on)V.blank();else V.notH264();V.ui();break}
   case "token":V.token=j.token||"";V.ui();break;
   default:}
@@ -3344,17 +3427,25 @@ function mkCamView(o){
   if(!c.dec||c.needKey||c.cw!==c.w||c.ch!==c.h){
    if(!key){V.key(i);return}   /* nothing to decode until a key frame */
    const codec=camAvcCodec(data,c.w);
+   /* (P2) can this browser play it? Asked once a codec string; no: said on the camera, nothing more tried until it
+      changes; still asking: the next key frame. After decoder errors in a row it waits before trying again */
+   const sup=camSup(codec);if(sup===false){if(c.unsup!==codec){V.decStop(i);c.unsup=codec;V.caps()}return}if(sup===null)return;
+   if(c.unsup){c.unsup="";V.caps()}
+   if(c.retryAt&&Date.now()<c.retryAt)return;
    if(!c.dec||c.dec.state!=="configured"||c.cfg!==codec||c.cw!==c.w||c.ch!==c.h){V.decStop(i);
     let dec;try{dec=new VideoDecoder({output:f=>V.out(i,dec,f),error:()=>{if(c.dec===dec)V.decErr(i)}});
      dec.configure({codec,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"})}   /* no description: SPS/PPS come in the stream */
-    catch(e){if(dec)try{dec.close()}catch(x){}c.keyAt=0;V.key(i);return}
+    catch(e){if(dec)try{dec.close()}catch(x){}V.decErr(i);return}
     c.dec=dec;c.cfg=codec;c.cw=c.w;c.ch=c.h}
    c.needKey=false}
   c.tsUs+=c.dur*1000;
-  try{if(!key&&c.dec.decodeQueueSize>CAM_DQ)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){V.decErr(i)}};
- /* the decoder failed: start it again from the next key frame (asked for at once) */
- V.decErr=i=>{const c=V.c[i];V.decStop(i);c.needKey=true;c.keyAt=0;V.key(i)};
- V.out=(i,dec,f)=>{const c=V.c[i];if(c.dec!==dec){f.close();return}
+  try{if(!key&&c.dec.decodeQueueSize>CAM_DQ)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){V.decErr(i,!!e&&e.message==="behind")}};
+ /* the decoder failed: start it again from the next key frame, asked for at once. Failing again with no picture between
+    (a profile it cannot play): 2 s, 4, 8 … 30 s before the next try, not a new decoder a second (P2). Only behind: at once */
+ V.decErr=(i,behind)=>{const c=V.c[i];V.decStop(i);c.needKey=true;c.keyAt=0;
+  if(!behind){c.errN=(c.errN||0)+1;if(c.errN>1){c.retryAt=Date.now()+Math.min(30000,1000*2**(c.errN-1));return}}
+  V.key(i)};
+ V.out=(i,dec,f)=>{const c=V.c[i];if(c.dec!==dec){f.close();return}c.errN=0;c.retryAt=0;
   c.q.push({frame:f,at:performance.now(),ts:f.timestamp});
   while(c.q.length>CAM_Q||(document.hidden&&c.q.length))c.q.shift().frame.close();
   V.rafGo()};
@@ -3390,9 +3481,9 @@ function mkCamView(o){
    const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c),md=c.codec===2?"H.264":c.codec===1?"JPEG":"";
    cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
    cap.querySelector("em").textContent=[md,w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
-   const shown=!el.querySelector("canvas").hidden&&!(c.codec===2&&c.nowc);
-   if(c.codec===2&&c.nowc)el.querySelector("canvas").hidden=true;
-   ph.hidden=shown;if(!shown)ph.textContent=c.codec===2&&c.nowc?"H.264 needs Chrome or Edge":!V.ws?(o.idle?o.idle(V):"Not connected"):!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!V.watchers?"Waiting":"No picture yet";
+   const nv=c.codec===2&&(c.nowc||!!c.unsup),shown=!el.querySelector("canvas").hidden&&!nv;
+   if(nv)el.querySelector("canvas").hidden=true;
+   ph.hidden=shown;if(!shown)ph.textContent=nv?(c.unsup?"This browser cannot play this camera’s H.264 ("+c.unsup+")":"H.264 needs Chrome or Edge"):!V.ws?(o.idle?o.idle(V):"Not connected"):!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!V.watchers?"Waiting":"No picture yet";
    el.classList.toggle("z",V.zoom===i);el.setAttribute("aria-pressed",String(V.zoom===i));el.hidden=solo>=0&&i!==solo}
   const g=$(o.grid);if(g){g.classList.toggle("one",V.zoom>=0);g.classList.toggle("solo",solo>=0)}};
  /* the mode of the cameras that are on: H.264, JPEG, or both */
@@ -3453,8 +3544,11 @@ setInterval(()=>{CAM_VIEWS.forEach(V=>{for(let i=0;i<4;i++)V.ack(i)})},400);
    first (capture) and marked done, so Flight Watch's own Esc (it closes the open flight) leaves it; not from a field */
 function camEsc(e){if(e.key!=="Escape"||e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;
  if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
- const V=pgNow==="fw"?FWV:pgNow==="bc"?(CAMB.src==="pilot"?CAMP:CAM):null;if(!V||V.zoom<0)return;
- e.preventDefault();V.zoom=-1;V.caps()}
+ let took=false;
+ /* Broadcast: a button armed for its second press (Start the stream…, New link) goes back as well (P2) */
+ if(pgNow==="bc"&&typeof BC!=="undefined"&&BC.arm){const a=BC.arm;BC.arm="";took=true;if(a==="bcTok"){const x=document.getElementById("bcTok");if(x)x.textContent="New link"}else if(typeof bcEm==="function")bcEm()}
+ const V=pgNow==="fw"?FWV:pgNow==="bc"?(CAMB.src==="pilot"?CAMP:CAM):null;if(V&&V.zoom>=0){V.zoom=-1;V.caps();took=true}
+ if(took)e.preventDefault()}
 document.addEventListener("keydown",camEsc,true);
 setInterval(()=>{CAM_VIEWS.forEach(V=>{if(V.ws&&V.ws.readyState===1)try{V.ws.send("ping")}catch(e){}})},30000);
 setInterval(()=>{if(document.hidden)return;CAM_VIEWS.forEach(V=>{if(V.ws&&V.page===pgNow)V.caps()})},1000);
@@ -3504,10 +3598,10 @@ function fwCamRows(){const by={};(window.pmLive?window.pmLive.flights():[]).forE
   s.title=p+": Polaris Cam is on"})}
 /* the strip: every pilot online, with their flight's callsign (a click opens it) or "on ground" (a click watches them here) */
 function fwCamStrip(){const el=$("#fwCam");if(!el)return;const L=Object.keys(FW_CAM.online).sort(),F=fwCamFlights();
- if(!L.length){el.hidden=true;el.innerHTML="";return}
+ if(!L.length){el.hidden=true;if(el.innerHTML)el.innerHTML="";el._fp="";return}
  el.hidden=false;
- el.innerHTML='<div class="fw-h"><b>Cockpit cameras</b><span>'+L.length+' online</span></div><div class="fw-cps">'+L.map(p=>{const f=F[p];
-  return '<button type="button" class="fw-cp'+(FW_CAM.ground===p?" on":"")+'" data-fwcp="'+esc(p)+'" aria-pressed="'+(FW_CAM.ground===p)+'" title="'+esc(f?"Open "+f.cs+" and watch its cockpit":"Watch "+p+"’s cockpit here: no flight on the map")+'"><i></i><b>'+esc(p)+"</b><small>"+esc(f?f.cs:"on ground")+"</small></button>"}).join("")+"</div>"}
+ const h='<div class="fw-h"><b>Cockpit cameras</b><span>'+L.length+' online</span></div><div class="fw-cps">'+L.map(p=>{const f=F[p];
+  return '<button type="button" class="fw-cp'+(FW_CAM.ground===p?" on":"")+'" data-fwcp="'+esc(p)+'" aria-pressed="'+(FW_CAM.ground===p)+'" title="'+esc(f?"Open "+f.cs+" and watch its cockpit":"Watch "+p+"’s cockpit here: no flight on the map")+'"><i></i><b>'+esc(p)+"</b><small>"+esc(f?f.cs:"on ground")+"</small></button>"}).join("")+"</div>";if(el._fp===h)return;el._fp=h;el.innerHTML=h}
 /* the Cockpit Monitor's card: in the open flight's panel, or under the strip for a pilot picked there */
 const fwCamHtml=(p,g)=>'<div class="fo-s fo-cam"><div class="fo-camh"><h4>Cockpit Monitor <small>'+esc(p)+'</small></h4><div class="fo-camb"><button type="button" data-fwc="go" id="foCamGo">Connect</button>'+(g?'<button type="button" data-fwc="x" title="Close" aria-label="Close">✕</button>':"")+"</div></div>"+
  '<div class="bc-st fo-camst" id="foCamSt"></div><div class="bc-cg fo-cg" id="foCamG" hidden>'+camGridHtml()+"</div>"+

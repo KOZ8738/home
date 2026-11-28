@@ -21,7 +21,19 @@ const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replac
 let mem = null; // { at, list, vam } a short cache for the pilots' side
 async function readIndex(kv) { const v = await kv.get(IDX, 'json'); return Array.isArray(v) ? v : []; }
 async function readVam(kv) { const v = await kv.get(VAM, 'json'); return v && typeof v === 'object' ? v : {}; }
-async function writeIndex(kv, list) { list.sort((a, b) => a.s - b.s); await kv.put(IDX, JSON.stringify(list.slice(-CAL_MAX))); mem = null; }
+async function writeIndex(kv, list) { list.sort((a, b) => a.s - b.s); await kv.put(IDX, JSON.stringify(list)); mem = null; }
+/* room for one more entry (P2, Nov 2026): at CAL_MAX, the entries that are over make way, the oldest first (one-off
+   entries before weekly ones that stopped repeating); an entry still to come, or still repeating, never does. With
+   none over, the new entry is refused (409): nothing is dropped without a word */
+const endOf = (v) => (v.rep === 'weekly' ? +v.until || Infinity : +v.e || +v.s);
+export function calFit(list, now) {
+  if (list.length < CAL_MAX) return list;
+  const over = list.filter((v) => endOf(v) < now).sort((a, b) => (a.rep === 'weekly') - (b.rep === 'weekly') || endOf(a) - endOf(b));
+  const n = list.length - CAL_MAX + 1;
+  if (over.length < n) throw new CalError(409, 'The calendar is full: ' + CAL_MAX + ' entries, all still to come or repeating. Delete some first.');
+  const drop = new Set(over.slice(0, n).map((v) => v.id));
+  return list.filter((v) => !drop.has(v.id));
+}
 /* still worth showing: not over more than 200 days ago (a weekly entry: its last week) */
 const live = (v, now) => (v.rep === 'weekly' ? !v.until || +v.until > now - 200 * 86400_000 : (+v.e || +v.s) > now - 200 * 86400_000);
 const pub = (v) => ({ id: v.id, title: v.title, type: v.type, s: v.s, e: v.e, allDay: !!v.allDay, rep: v.rep || '', until: v.until || 0, loc: v.loc || '', body: v.body || '', remind: v.remind || 0,
@@ -99,13 +111,13 @@ export async function calAdmin(req, url, path, env, who, events) {
     }
     if (req.method !== 'POST') return jsonRes({ error: 'Method not allowed' }, 405);
     /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
-    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new CalError(415, 'Send JSON');
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new CalError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new CalError(400, 'Bad body'); }
     if (path === '/admin/api/cal') {
       const list = await readIndex(kv), old = b.id ? list.find((v) => v.id === b.id) : null;
       if (b.id && !old) throw new CalError(404, 'That entry no longer exists');
-      const v = cleanItem(b, old, who);
-      await writeIndex(kv, [...list.filter((x) => x.id !== v.id), v]);
+      const v = cleanItem(b, old, who), base = old ? list : calFit(list, Date.now());
+      await writeIndex(kv, [...base.filter((x) => x.id !== v.id), v]);
       await remindJob(env, v);
       return jsonRes({ ok: true, item: v });
     }

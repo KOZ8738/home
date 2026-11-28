@@ -185,12 +185,18 @@ function samples(): Raw[] {
 }
 
 /* ---------- data ---------- */
+/* each poll is numbered (P2, Nov 2026): one asked for while another is on its way (the page back in view, a timer)
+   makes the earlier one's answer stale, and only the latest is shown, so an answer that comes late never puts older
+   flights over newer ones (and the open flight's grace is counted once an answer) */
+let pollSeq = 0;
 async function poll(force = false): Promise<void> {
   clearTimeout(S.timer);
   if (!fwOk() || (!force && (document.hidden || !onFw()))) return;
+  const q = ++pollSeq;
   try {
     const r = await fetch('/admin/api/live', { credentials: 'same-origin', cache: 'no-store' });
     const j = await r.json().catch(() => null);
+    if (q !== pollSeq) return;
     if (!r.ok || !j) throw new Error((j && j.error) || 'HTTP ' + r.status);
     S.apts = Object.fromEntries(Object.entries(j.apts || {}).map(([k, v]) => { const a = v as [number, number, string, string]; return [k, { icao: k, lat: a[0], lon: a[1], iata: a[2], city: a[3] }]; }));
     S.upd = j.upd || ''; S.fetched = Date.now(); S.error = ''; S.loaded = true; S.src = j.sources || { vatsim: true, vamsys: false };
@@ -204,6 +210,7 @@ async function poll(force = false): Promise<void> {
     if (raw.length) S.sample = false;
     S.flights = build(raw.length || !S.sample ? raw : samples(), Date.parse(S.upd) || Date.now());
   } catch (e) {
+    if (q !== pollSeq) return;
     S.error = (e as Error).message; S.loaded = true;
   }
   /* the open flight: kept through GRACE answers without it (shown as last seen), then closed. An answer that did not

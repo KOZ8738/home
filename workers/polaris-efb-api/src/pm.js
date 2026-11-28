@@ -18,6 +18,9 @@ import { crew } from './crew.js';
 export const PM_DEPTS = ['Crew Management', 'Flight Operations', 'Training', 'Fleet'];
 export const PM_LIMIT = 20;
 const DAY = 86_400_000, SUBJ_MAX = 120, BODY_MAX = 4000;
+/* read and deleted marks kept per pilot (P2, Nov 2026): at most this many rows in st, so the object's storage stays
+   bounded whatever an EFB sends */
+export const ST_MAX = 500;
 
 class PmError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').slice(0, n);
@@ -99,6 +102,7 @@ export class Mailbox {
     this.sql.exec('INSERT INTO msg (id, t, th, kind, fu, fname, fcs, dept, by, tu, tcid, tcs, tname, subj, body) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       m.id, m.t, m.th, m.kind, m.fu, m.fname, m.fcs, m.dept, m.by, m.tu, m.tcid, m.tcs, m.tname, m.subj, m.body);
     this.sql.exec('INSERT OR REPLACE INTO st (id, who, rd, del) VALUES (?, ?, 1, 0)', m.id, u);
+    this.trimSt(u);
     if (m.kind === 'staff') this.sql.exec("DELETE FROM st WHERE who = 'staff' AND id = ?", m.th);   // a new message re-opens the conversation for staff
     const s2 = this.sent24(u, now);
     /* for the Worker: who gets a push (never sent on to the EFB) */
@@ -109,10 +113,22 @@ export class Mailbox {
   state(who, ids, set) {
     who = up(who, 12); if (!who) throw new PmError(401, 'Sign in first');
     for (const id of (Array.isArray(ids) ? ids : []).slice(0, 300)) {
-      const cur = this.one('SELECT rd, del FROM st WHERE id = ? AND who = ?', String(id), who) || { rd: 0, del: 0 };
-      this.sql.exec('INSERT OR REPLACE INTO st (id, who, rd, del) VALUES (?, ?, ?, ?)', String(id), who, set && set.read != null ? (set.read ? 1 : 0) : cur.rd, set && set.del ? 1 : cur.del);
+      const k = String(id).slice(0, 40);
+      if (!this.one('SELECT id FROM msg WHERE id = ?', k)) continue;   /* not a message: nothing to mark */
+      const cur = this.one('SELECT rd, del FROM st WHERE id = ? AND who = ?', k, who) || { rd: 0, del: 0 };
+      this.sql.exec('INSERT OR REPLACE INTO st (id, who, rd, del) VALUES (?, ?, ?, ?)', k, who, set && set.read != null ? (set.read ? 1 : 0) : cur.rd, set && set.del ? 1 : cur.del);
     }
+    this.trimSt(who);
     return { ok: true };
+  }
+  /* past ST_MAX marks for one pilot, the ones that matter least go, oldest first: those of messages no longer there,
+     then read marks on the pilot's own messages (always shown as read), then other read marks, then deleted marks */
+  trimSt(who) {
+    const n = (this.one('SELECT COUNT(*) AS n FROM st WHERE who = ?', who) || {}).n || 0;
+    if (n <= ST_MAX) return 0;
+    this.sql.exec(`DELETE FROM st WHERE who = ? AND id IN (SELECT s.id FROM st s LEFT JOIN msg m ON m.id = s.id WHERE s.who = ?
+      ORDER BY (m.id IS NULL) DESC, (s.del = 0 AND m.fu = s.who) DESC, s.del ASC, COALESCE(m.t, 0) ASC LIMIT ?)`, who, who, n - ST_MAX);
+    return n - ST_MAX;
   }
 
   /* ---- staff: conversations with a department only ---- */

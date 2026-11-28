@@ -208,7 +208,8 @@ const READS = [
   [/^\/admin\/api\/watch$/, ['fw']],
   [/^\/admin\/api\/navdata(\/|$)/, ['navdata']],
   [/^\/admin\/api\/desk(\/|$)/, ['bc']],
-  [/^\/admin\/api\/cam(\/|$)/, ['bc']],
+  /* Polaris Cam: Broadcast's own channel is for Broadcast (checked again in cam.js), the pilots' for Flight Watch too */
+  [/^\/admin\/api\/cam(\/|$)/, ['bc', 'fw']],
 ];
 const readPages = (path) => { for (const [re, p] of READS) if (re.test(path)) return p; return null; };
 /* the classes the admin page hides what a role does not see or may not change by (Settings › Roles) */
@@ -367,8 +368,9 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Broadcast: the live broadcast desk (desk.js); its WebSocket for whoever sees the page, directing for those who may */
   if (path === '/admin/api/desk' || path === '/admin/api/desk/ws') return deskAdmin(req, url, env, who, perm.can.includes('live'));
-  /* Broadcast: Polaris Cam's cockpit cameras (cam.js): the pictures for whoever sees the page, its link for those who may direct */
-  if (path === '/admin/api/cam' || path === '/admin/api/cam/ws') return camAdmin(req, url, env, who, perm.can.includes('live'));
+  /* Polaris Cam's cockpit cameras (cam.js): Broadcast's own channel for whoever sees Broadcast, each pilot's for whoever
+     sees Flight Watch or Broadcast (READS), and who is online for both; the links for those who may direct */
+  if (path === '/admin/api/cam' || path === '/admin/api/cam/ws' || path === '/admin/api/cam/online') return camAdmin(req, url, env, who, perm.can.includes('live'), role === 'admin' || perm.pages.includes('bc'));
   /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
   if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
   if (path === '/admin/api/live') {

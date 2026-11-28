@@ -407,6 +407,7 @@ bool open_gpu(LUID luid) {
   app.context = context;
   app.adapter = luid;
   app.gpu_error.clear();
+  remote_stream.set_adapter(luid);  // the back office's H.264 encoders open on this card too
   return true;
 }
 // A swap chain of the picture's own size. In a preview cell the picture is

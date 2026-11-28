@@ -3085,7 +3085,8 @@ document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.
    behind, to be smooth; every VideoFrame is closed as soon as it is drawn or dropped, and at most 24 wait a camera */
 const CAM={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,raf:0,
  c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0}))};
-const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650;
+/* CAM_DQ: frames the decoder may have queued before it counts as stuck; above a whole GOP replayed at once (75) */
+const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650,CAM_DQ=90;
 const camCell=i=>document.querySelector('#bcCamG [data-camc="'+i+'"]');
 const camWC=()=>typeof VideoDecoder==="function"&&typeof EncodedVideoChunk==="function";
 /* the codec string ('avc1.' + profile, constraints, level) from the SPS (NAL type 7) of a key frame's Annex-B bytes */
@@ -3104,9 +3105,13 @@ function camDecStop(i){const c=CAM.c[i],d=c.dec;c.dec=null;c.cfg="";c.cw=0;c.ch=
 function camBlank(){CAM.c.forEach((c,i)=>{camDecStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=camCell(i);if(el)el.querySelector("canvas").hidden=true})}
 function camIn(j){switch(j.t){
  case "hello":CAM.role=j.role||"";CAM.token=j.token||"";CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;camBlank();camUi();break;
- case "pub":{const was=CAM.pub&&CAM.pub.on;CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;if(was&&!CAM.pub.on)camBlank();camUi();break}
+ case "pub":{const was=CAM.pub&&CAM.pub.on;CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;if(was&&!CAM.pub.on)camBlank();else camNotH264();camUi();break}
  case "token":CAM.token=j.token||"";camUi();break;
  default:}}
+/* a camera Polaris Cam now says is off, gone or JPEG: its decoder and frames go now, not at its next picture */
+function camNotH264(){const P=CAM.pub||{},L=P.cams||[];if(!P.on||!L.length)return;
+ for(let i=0;i<4;i++){const c=CAM.c[i],k=L.find(x=>x.i===i);if(k&&k.on!==false&&(k.codec||P.mode)==="h264")continue;
+  if(c.dec||c.q.length)camDecStop(i);c.needKey=true}}
 function camFrame(buf){if(buf.byteLength<18)return;const b=new Uint8Array(buf,0,16),d=new DataView(buf);
  if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=CAM.c[i],seq=d.getUint32(12,true),now=Date.now(),codec=b[3];
  if(codec!==1&&codec!==2)return;
@@ -3133,7 +3138,7 @@ function camH264(i,buf,key){const c=CAM.c[i];
    c.dec=dec;c.cfg=codec;c.cw=c.w;c.ch=c.h}
   c.needKey=false}
  c.tsUs+=c.dur*1000;
- try{if(!key&&c.dec.decodeQueueSize>30)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){camDecErr(i)}}
+ try{if(!key&&c.dec.decodeQueueSize>CAM_DQ)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){camDecErr(i)}}
 /* the decoder failed: start it again from the next key frame (asked for at once) */
 function camDecErr(i){const c=CAM.c[i];camDecStop(i);c.needKey=true;c.keyAt=0;camKey(i)}
 function camOut(i,dec,f){const c=CAM.c[i];if(c.dec!==dec){f.close();return}

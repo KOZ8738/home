@@ -468,13 +468,15 @@ const camSrc = (() => {
   return ADMIN_HTML.slice(a, b) + '\n;globalThis.__cam={CAM,camFrame,camIn,camAvcCodec,camBlank,camClose,camTick,camAck,camUi};';
 })();
 function mkPage({ wc = true } = {}) {
-  const vm = globalThis.__vm, st = { made: 0, closed: 0, decs: [], raf: [], T: 1000 };
+  /* st.hold: the decoder keeps what it is given (decodeQueueSize grows) until flush(), as a busy real one does */
+  const vm = globalThis.__vm, st = { made: 0, closed: 0, decs: [], raf: [], T: 1000, hold: false };
   class VideoFrame { constructor(ts) { this.timestamp = ts; this.displayWidth = 960; this.displayHeight = 540; this.done = false; st.made++; } close() { if (!this.done) { this.done = true; st.closed++; } } }
   class VideoDecoder {
     constructor({ output, error }) { this.output = output; this.error = error; this.state = 'unconfigured'; this.decodeQueueSize = 0; this.chunks = []; st.decs.push(this); }
     configure(c) { if (this.state === 'closed') throw new Error('closed'); this.config = c; this.state = 'configured'; }
-    decode(ch) { if (this.state !== 'configured') throw new Error('not configured'); this.chunks.push(ch); this.output(new VideoFrame(ch.timestamp)); }
-    close() { this.state = 'closed'; }
+    decode(ch) { if (this.state !== 'configured') throw new Error('not configured'); this.chunks.push(ch); if (st.hold) this.decodeQueueSize++; else this.output(new VideoFrame(ch.timestamp)); }
+    flush() { const L = this.chunks.slice(this.chunks.length - this.decodeQueueSize); this.decodeQueueSize = 0; for (const ch of L) if (this.state === 'configured') this.output(new VideoFrame(ch.timestamp)); }
+    close() { this.state = 'closed'; this.decodeQueueSize = 0; }
   }
   class EncodedVideoChunk { constructor(o) { this.type = o.type; this.timestamp = o.timestamp; this.data = o.data; } }
   const mkCell = () => {
@@ -588,6 +590,42 @@ await test('admin player: Polaris Cam going offline (and camBlank) closes all fo
   /* and JPEG still works there */
   N.P.camFrame(frame({ seq: 3 })); await new Promise((r) => setTimeout(r, 10));
   assert.equal(N.cells[0].canvas.hidden, false); N.P.camUi(); assert.equal(N.cells[0].ph.hidden, true);
+});
+
+await test('admin player: a whole GOP replayed at once (75 frames queued in the decoder) is not taken for a stuck decoder; past 90 it is', async () => {
+  const { P, st, ws } = mkPage();
+  const c = P.CAM.c[0], keys = () => ws.texts().filter((m) => m.t === 'key');
+  st.hold = true;
+  P.camFrame(h264({ key: true, seq: 1 })); for (let s = 2; s <= 75; s++) P.camFrame(h264({ seq: s }));
+  const d = st.decs[0];
+  assert.equal(st.decs.length, 1); assert.equal(c.dec, d); assert.equal(d.decodeQueueSize, 75); assert.equal(keys().length, 0);
+  st.hold = false; d.flush();
+  assert.equal(d.chunks.length, 75); assert.equal(c.needKey, false); assert.ok(c.q.length > 0 && c.q.length <= 24);
+  /* a decoder that really is stuck: reset, and a key frame asked for */
+  st.hold = true; for (let s = 76; s <= 166; s++) P.camFrame(h264({ seq: s }));
+  assert.equal(d.decodeQueueSize, 91); assert.equal(c.dec, d);
+  P.camFrame(h264({ seq: 167 }));
+  assert.equal(d.state, 'closed'); assert.equal(c.dec, null); assert.equal(c.needKey, true); assert.equal(keys().length, 1);
+  assert.equal(st.made, st.closed);
+});
+
+await test('admin player: when Polaris Cam says a camera is now JPEG, off or gone, its decoder and frames are closed at once', async () => {
+  const { P, st } = mkPage();
+  for (let i = 0; i < 4; i++) { P.camFrame(h264({ cam: i, key: true, seq: 1 })); P.camFrame(h264({ cam: i, seq: 2 })); }
+  const cams = (over) => [0, 1, 2, 3].map((i) => ({ i, name: 'Cam ' + i, on: true, w: 960, h: 540, codec: 'h264', ...(over[i] || {}) }));
+  /* a pub with the cameras as they were: nothing changes */
+  P.camIn({ t: 'pub', pub: { on: true, mode: 'h264', cams: cams({}) }, watchers: 1 });
+  assert.ok(st.decs.every((d) => d.state === 'configured'));
+  /* camera 1 to JPEG, camera 2 off, camera 3 gone from the list; camera 0 stays H.264 */
+  P.camIn({ t: 'pub', pub: { on: true, mode: 'h264', cams: cams({ 1: { codec: 'jpeg' }, 2: { on: false } }).slice(0, 3) }, watchers: 1 });
+  assert.equal(st.decs[0].state, 'configured'); assert.equal(P.CAM.c[0].dec, st.decs[0]); assert.ok(P.CAM.c[0].q.length > 0);
+  for (const i of [1, 2, 3]) { assert.equal(st.decs[i].state, 'closed', 'cam ' + i); assert.equal(P.CAM.c[i].dec, null); assert.equal(P.CAM.c[i].q.length, 0); assert.equal(P.CAM.c[i].needKey, true); }
+  assert.equal(st.made - st.closed, P.CAM.c[0].q.length);
+  /* a pub that lists no cameras yet (before its hello) leaves camera 0 alone; the top-level mode counts when a camera has no codec */
+  P.camIn({ t: 'pub', pub: { on: true, mode: 'h264', cams: [] }, watchers: 1 }); assert.equal(st.decs[0].state, 'configured');
+  P.camIn({ t: 'pub', pub: { on: true, mode: 'h264', cams: [{ i: 0, on: true }] }, watchers: 1 }); assert.equal(st.decs[0].state, 'configured');
+  P.camIn({ t: 'pub', pub: { on: true, mode: 'jpeg', cams: [{ i: 0, on: true }] }, watchers: 1 }); assert.equal(st.decs[0].state, 'closed');
+  assert.equal(st.made, st.closed);
 });
 
 globalThis.fetch = realFetch; Date.now = realNow;

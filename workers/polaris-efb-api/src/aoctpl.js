@@ -59,6 +59,18 @@ export const AOC_KINDS = [
       '[[STA {STA}  {ONTIME}]]', '[[GATE {GATE}[[  TERMINAL {TERMINAL}]]]]', '[[METAR {METAR}]]', '', 'THANK YOU FOR FLYING POLARIS. HAVE A GOOD REST.'].join('\n') },
     sample: { CALLSIGN: 'PAW703', DEP: 'KSFO', ARR: 'KLAX', DATE: '23NOV', OUT: '0931Z', OFF: '0944Z', ON: '1052Z', IN: '1101Z', BLOCK: '1:30', AIR: '1:08', TAXIOUT: '13', TAXIIN: '9',
       STA: '1105Z', ONTIME: 'ON TIME (-4 MIN)', GATE: '52A', TERMINAL: '5', METAR: 'KLAX 231053Z 25008KT 10SM FEW020 18/12 A2996' } },
+  { k: 'rel', name: 'Dispatch release', when: 'When the plan the crew loaded meets the dispatch policy, or the captain accepts what does not (dispatch.js)',
+    fields: [['title', 'Title', 1], ['body', 'Message', 20]],
+    tokens: [['RELNO', 'Release number, as PAW703/23NOV/R1'], ['TIME', 'When it is sent'], ['FLIGHT', 'Callsign'], ['DATE', 'Date, as 23NOV'], ['FROM', 'Departure airport'], ['TO', 'Arrival airport'],
+      ['ALTN', 'Destination alternates'], ['TOALT', 'Takeoff alternate'], ['REG', 'Registration'], ['TYPE', 'Aircraft type'], ['STD', 'Departure time'], ['ETA', 'Arrival time'], ['UNITS', 'KG or LB'],
+      ['BLOCK', 'Block fuel'], ['TAXI', 'Taxi fuel'], ['TRIP', 'Trip fuel'], ['CONT', 'Contingency fuel'], ['ALTNF', 'Alternate fuel'], ['FINAL', 'Final reserve'], ['EXTRA', 'Extra fuel'],
+      ['REMARKS', 'CAPT DISCRETION and remarks, or REMARKS NIL']],
+    def: { title: 'DISPATCH RELEASE', body: ['DISPATCH RELEASE {RELNO}', '{FLIGHT}/{DATE}  {FROM}-{TO}[[  ALTN {ALTN}]]', '[[{REG}  ]]{TYPE}[[  STD {STD}]][[  ETA {ETA}]]', '[[TAKEOFF ALTN {TOALT}]]', '',
+      'FUEL ({UNITS})', 'TRIP  {TRIP:9}', '[[CONT  {CONT:9}]]', '[[ALTN  {ALTNF:9}]]', '[[FINAL {FINAL:9}]]', '[[EXTRA {EXTRA:9}]]', '[[TAXI  {TAXI:9}]]', 'BLOCK {BLOCK:9}', '',
+      '{REMARKS}', '', 'RELEASED BY POLARIS DISPATCH (AUTOMATIC) {TIME}'].join('\n') },
+    sample: { RELNO: 'PAW703/23NOV/R1', TIME: '0850Z', FLIGHT: 'PAW703', DATE: '23NOV', FROM: 'KSFO', TO: 'KLAX', ALTN: 'KONT', TOALT: '', REG: 'N785PL', TYPE: 'A21N', STD: '0945Z', ETA: '1102Z', UNITS: 'KG',
+      BLOCK: '7,850', TAXI: '200', TRIP: '3,950', CONT: '200', ALTNF: '1,250', FINAL: '1,150', EXTRA: '1,100',
+      REMARKS: 'REMARKS:\n- KLAX: THUNDERSTORMS FORECAST AROUND 1102Z' } },
 ];
 const KIND = Object.fromEntries(AOC_KINDS.map((x) => [x.k, x]));
 const LEN = { 1: 60, 2: 300, 3: 600, 4: 800, 5: 800, 8: 1500, 20: 3000 };

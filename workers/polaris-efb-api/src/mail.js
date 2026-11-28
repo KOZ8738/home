@@ -21,6 +21,7 @@ import { docsAdmin } from './docs.js';
 import { aocAdmin } from './aoc.js';
 import { standsAdmin } from './stands.js';
 import { aocTplAdmin } from './aoctpl.js';
+import { dispatchAdmin } from './dispatch.js';
 import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 import { tasksAdmin } from './tasks.js';
@@ -198,6 +199,7 @@ const READS = [
   [/^\/admin\/api\/stands\/try$/, ['gates', 'fw']],
   [/^\/admin\/api\/stands(\/|$)/, ['gates', 'settings', 'fw']],
   [/^\/admin\/api\/aoctpl(\/|$)/, ['gates', 'settings']],
+  [/^\/admin\/api\/dispatch$/, ['settings', 'fw']],
   [/^\/admin\/api\/aoc$/, ['comms', 'fw']],
   [/^\/admin\/api\/(mail|inbox)(\/|$)/, ['comms']],
   [/^\/admin\/api\/settings$/, ['settings', 'comms', 'fw']],
@@ -229,7 +231,7 @@ function roleNeeds(method, path) {
   if (/^\/admin\/api\/docs(\/|$)/.test(path)) return method === 'DELETE' ? 'docsdel' : 'docs';
   if (path === '/admin/api/pilots/signout') return 'pilots';
   if (/^\/admin\/api\/navdata(\/|$)/.test(path)) return 'navdata';
-  if (path === '/admin/api/settings' || path === '/admin/api/aoctpl') return 'settings';
+  if (path === '/admin/api/settings' || path === '/admin/api/aoctpl' || path === '/admin/api/dispatch') return 'settings';
   if (path === '/admin/api/tasks') return 'task';   /* checked in tasks.js: publishers, and a department's own people */
   return 'admin';
 }
@@ -409,6 +411,7 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Stands tab: the stand plan for the automatic stand assignment, and what it sent (see stands.js) */
   if (path === '/admin/api/aoctpl' || path.startsWith('/admin/api/aoctpl/')) return aocTplAdmin(req, path, env, who);
+  if (path === '/admin/api/dispatch') return dispatchAdmin(req, path, env, who);
   if (path === '/admin/api/stands' || path.startsWith('/admin/api/stands/')) return standsAdmin(req, url, path, env, who, opts && opts.stands, lim);
   /* Messages tab, sent as AOC: short company messages to the flight deck, shown in the EFB's Messages (see aoc.js) */
   if (path === '/admin/api/aoc') return aocAdmin(req, url, env, who);

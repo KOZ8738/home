@@ -21,6 +21,7 @@
 import { aocSend } from './aoc.js';
 import { loadsheetMsg, cleanWeights } from './loadsheet.js';
 import { aocTpl } from './aoctpl.js';
+import { readPolicy, checkPlan, fetchTafs, planKey, releaseNo, releaseMsg, logCheck, cleanPlan } from './dispatch.js';
 
 const DAY = 86_400_000, MIN = 60_000;
 /* Flight Watch's tracks (ltrk): a gap longer than this starts a new track; points kept per track; points sent out */
@@ -128,8 +129,10 @@ export class Crew {
       case 'unjob': this.sql.exec('DELETE FROM jobs WHERE id = ?', String(a.id || '')); return { ok: true };
       case 'checkin': { const r = this.checkin(a); await this.wake(); return r; }
       case 'checkout': return this.checkout(a.u);
-      case 'ciOfp': { const r = this.ciOfp(a); await this.wake(); return r; }
-      case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '', from: d.from || '', at: r.at }; }) };
+      case 'ciOfp': { const r = await this.ciOfp(a); await this.wake(); return r; }
+      case 'dispCapt': { const r = await this.dispCapt(a); await this.wake(); return r; }
+      case 'ciList': return { list: this.rows('SELECT u, data FROM ci').map((r) => { const d = JSON.parse(r.data); return { u: r.u, to: d.to || '', altn: d.altn || '', std: d.std || null, sta: d.sta || null, fl: d.callsign || d.flight || '', from: d.from || '', at: r.at,
+        disp: d.disp ? { res: d.disp.res, rel: d.disp.rel ? d.disp.rel.no : '', capt: !!d.disp.capt, at: d.disp.at } : null }; }) };
       /* Documents: a pilot's "I have read it" on a Polaris document that asks for it (docs.js): kv ack:<doc id>:<pilot> -> { v, t } */
       case 'docAck': {
         const id = String(a.id || '').slice(0, 40), u = String(a.u || '').slice(0, 20), v = Math.round(+a.v) || 0;
@@ -377,19 +380,79 @@ export class Crew {
     if (!quiet) this.sql.exec("DELETE FROM jobs WHERE u = ? AND kind = 'trail'", u);
     return { ok: true };
   }
-  /* the weights of the plan for the checked-in flight (from the EFB): the final loadsheet goes 15 minutes before STD */
-  ciOfp(a) {
+  /* the plan for the checked-in flight (from the EFB): its weights (the final loadsheet goes 15 minutes before STD) and
+     its summary for the dispatch release (dispatch.js), checked now; a.recheck checks the same plan again */
+  async ciOfp(a) {
     const u = String(a.u || ''); if (!u) throw new CrewError(400, 'No pilot');
-    if (!a.w) throw new CrewError(400, 'The plan has no weights');
+    if (!a.w && !a.p) throw new CrewError(400, 'The plan has no weights');
     const row = this.one('SELECT bid, data FROM ci WHERE u = ?', u);
     if (!row || String(row.bid) !== String(a.bookingId || '')) throw new CrewError(409, 'Check in to this flight first');
     const d = JSON.parse(row.data), now = Date.now();
-    d.w = a.w; d.wAt = now; this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(d), u);
-    if (d.lsSent) return { ok: true, sent: d.lsSent };
-    if (d.std && now > d.std + 60 * MIN) return { ok: true, late: true };
-    const at = Math.max(now + MIN, d.std ? d.std - 15 * MIN : now + 15 * MIN);
-    this.job('ls:' + u, at, 'ls', u, { bid: d.bookingId });
-    return { ok: true, at };
+    if (a.w) { d.w = a.w; d.wAt = now; }
+    if (a.p) d.p = a.p;
+    this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(d), u);
+    let r;
+    if (!d.w) r = { ok: true };
+    else if (d.lsSent) r = { ok: true, sent: d.lsSent };
+    else if (d.std && now > d.std + 60 * MIN) r = { ok: true, late: true };
+    else { const at = Math.max(now + MIN, d.std ? d.std - 15 * MIN : now + 15 * MIN); this.job('ls:' + u, at, 'ls', u, { bid: d.bookingId }); r = { ok: true, at }; }
+    try { r.disp = await this.dispatch(u, String(d.bookingId), !!a.recheck); } catch (e) { console.warn('[dispatch]', e && e.message); }
+    return r;
+  }
+  /* the dispatch release (dispatch.js): the plan checked against the policy; released (an AOC to the crew) when it
+     meets it, or when the captain has accepted what it does not (dispCapt). Kept with the check-in as d.disp
+     { key, at, res, items, etd, eta, rel: { no, at } | null, capt: { reason, at, keys } | null, n } */
+  async dispatch(u, bid, force) {
+    const P = await readPolicy(this.env); if (!P.on) return null;
+    let row = this.one('SELECT bid, data FROM ci WHERE u = ?', u); if (!row || String(row.bid) !== bid) return null;
+    let d = JSON.parse(row.data); const p = d.p; if (!p) return null;
+    const key = planKey(p), now = Date.now();
+    /* the same plan: a release stands until the pilot asks for a new check (an EFB opened again, even in flight, must
+       not take it away); one not given yet is checked again after 10 minutes (the weather may have improved) */
+    if (!force && d.disp && d.disp.key === key && (d.disp.rel || now - d.disp.at < 10 * MIN)) return d.disp;
+    const wx = await fetchTafs([d.from, d.to, ...(p.alts || []), p.toAlt].filter(Boolean));
+    const chk = checkPlan(d, p, wx, P, Date.now());
+    /* read it again: the check waited for the weather */
+    row = this.one('SELECT bid, data FROM ci WHERE u = ?', u); if (!row || String(row.bid) !== bid) return null;
+    d = JSON.parse(row.data); if (!d.p || planKey(d.p) !== key) return d.disp || null;
+    const prev = d.disp && d.disp.key === key ? d.disp : null, soft = chk.items.filter((x) => x.sev === 'soft').map((x) => x.k);
+    /* the captain's word stands for this plan while nothing new is found */
+    const capt = prev && prev.capt && chk.res === 'hold' && soft.every((k) => prev.capt.keys.includes(k)) ? prev.capt : null;
+    const disp = { key, at: Date.now(), res: capt ? 'capt' : chk.res, items: chk.items, etd: chk.etd, eta: chk.eta, rel: null, capt, n: (d.disp && d.disp.n) || 0 };
+    const ok = disp.res === 'ok' || disp.res === 'remarks' || disp.res === 'capt';
+    if (ok && prev && prev.rel) disp.rel = prev.rel;
+    else if (ok) await this.dispRelease(u, d, disp);
+    else if (!prev || prev.res !== disp.res || prev.rel) {
+      const first = chk.items.find((x) => x.sev === 'hard') || chk.items.find((x) => x.sev === 'soft');
+      this.enqueue({ u }, 'brief', { title: (prev && prev.rel ? 'Dispatch release withdrawn · ' : 'Not released · ') + (d.callsign || d.flight || ''), body: (first ? first.t + '. ' : '') + (disp.res === 'hold' ? 'Plan again, or accept it as captain in the EFB.' : 'Plan again in SimBrief.'), url: '#roster', tag: 'disp-' + bid });
+    }
+    d.disp = disp; this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(d), u);
+    if (!prev || prev.res !== disp.res || (disp.rel && !prev.rel)) await logCheck(this.env, { u, bid, key, cs: d.callsign || d.flight || '', from: d.from || '', to: d.to || '', res: disp.res, rel: disp.rel ? disp.rel.no : '', items: chk.items });
+    return disp;
+  }
+  /* a release number, and the release to the crew as an AOC message */
+  async dispRelease(u, d, disp) {
+    disp.n = (disp.n || 0) + 1; disp.rel = { no: releaseNo(d, disp.n), at: Date.now() };
+    const { title, body } = releaseMsg(d, d.p, disp, Date.now(), await aocTpl(this.env).catch(() => null)), cs = String(d.callsign || d.flight || '').replace(/\s+/g, '').toUpperCase();
+    const to = /^[A-Z0-9]{2,10}$/.test(cs) ? { crew: 1, cs, m: [{ pilot: u, cid: '', name: '' }] } : { pilot: u, cid: '', name: '' };
+    await aocSend(this.env, { title, body, to, push: true, by: 'AUTO', auto: 'rel' }, (t, c, p) => this.enqueue(t, c, p));
+  }
+  /* the captain accepts what is below the policy (soft findings only), with a reason: released CAPT DISCRETION */
+  async dispCapt(a) {
+    const u = String(a.u || ''), reason = String(a.reason || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (reason.length < 4) throw new CrewError(400, 'Write why the flight can go as planned');
+    const row = this.one('SELECT bid, data FROM ci WHERE u = ?', u);
+    if (!row || String(row.bid) !== String(a.bookingId || '')) throw new CrewError(409, 'Check in to this flight first');
+    const d = JSON.parse(row.data), disp = d.disp;
+    if (!disp || !d.p || disp.key !== planKey(d.p)) throw new CrewError(409, 'The plan has not been checked yet');
+    if (disp.rel) return { ok: true, disp };
+    if (disp.res === 'fail') throw new CrewError(409, 'The plan cannot be released as it is: plan again');
+    if (disp.res !== 'hold') throw new CrewError(409, 'Nothing to accept');
+    disp.capt = { reason, at: Date.now(), keys: disp.items.filter((x) => x.sev === 'soft').map((x) => x.k) }; disp.res = 'capt';
+    await this.dispRelease(u, d, disp);
+    this.sql.exec('UPDATE ci SET data = ? WHERE u = ?', JSON.stringify(d), u);
+    await logCheck(this.env, { u, bid: String(d.bookingId), key: disp.key, cs: d.callsign || d.flight || '', from: d.from || '', to: d.to || '', res: 'capt', rel: disp.rel.no, capt: { reason }, items: disp.items });
+    return { ok: true, disp };
   }
   /* Flight Watch's tracks: the server's cron adds a point for each Polaris flight about every 30 s (trackTick in index.js),
      the admin's Flight Watch adds one too while it is open, and reads the tracks of the flights it shows. A flight is its
@@ -701,7 +764,8 @@ export async function crewPublic(req, url, env, h, me, deps) {
         return res(r);
       }
       case '/api/efb/gsx': return res(await crew(env, { op: 'gsxSet', u: me.u, v: b.v, ac: b.ac, fid: b.fid, oo: b.oo, log: b.log }));
-      case '/api/efb/crew/ofp': return res(await crew(env, { op: 'ciOfp', u: me.u, bookingId: String(b.bookingId || ''), w: cleanWeights(b.w) }));
+      case '/api/efb/crew/ofp': return res(await crew(env, { op: 'ciOfp', u: me.u, bookingId: String(b.bookingId || ''), w: b.w ? cleanWeights(b.w) : null, p: cleanPlan(b.p), recheck: b.recheck === true }));
+      case '/api/efb/crew/release': return res(await crew(env, { op: 'dispCapt', u: me.u, bookingId: String(b.bookingId || ''), reason: b.reason }));
       case '/api/efb/crew/checkout': return res(await crew(env, { op: 'checkout', u: me.u }));
       case '/api/efb/crew/sync': return res(await syncPost(env, me, b));
       case '/api/efb/crew/alarms': return res(await crew(env, { op: 'alarmSync', u: me.u, list: b.list }));

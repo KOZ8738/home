@@ -33,6 +33,9 @@
  *   GET/POST /api/efb/pm, /api/efb/pm/state -> pilots' messages to a department (see pm.js)
  *   /api/efb/push/(key|sub|unsub|state|test), /api/efb/crew, /api/efb/crew/(checkin|checkout|alarms) -> Web Push, check-in, Clock alarms (see crew.js)
  *   /api/efb/crew/sync, /api/efb/crew/sync/ofp -> the pilot's SimBrief ID and plan for their other devices (see crew.js)
+ *   POST /api/efb/crew/ofp {bookingId, w, p, recheck} -> the plan's weights (final loadsheet) and its dispatch check (see dispatch.js)
+ *   POST /api/efb/crew/release {bookingId, reason} -> the captain accepts what is below the dispatch policy (see dispatch.js)
+ *   GET/POST /admin/api/dispatch        -> Automatic messages: the dispatch policy and the last checks (see dispatch.js)
  *   GET /api/efb/pirep?id=              -> one of the signed-in pilot's PIREPs with its flown track
  *   GET /api/efb/datalink               -> VATSIM stations whose info mentions DCL/PDC or CPDLC (Hoppie), with the logon code
  *   /admin (Nov 2026): Home, Flight Watch, Gates, Reports, Pilots, Calendar, Messages, Documents, Settings in a sidebar
@@ -73,6 +76,7 @@ import { calPublic } from './cal.js';
 import { oooWatch } from './ooo.js';
 import { inReport } from './inreport.js';
 import { sigRouteWatch } from './sigroute.js';
+import { readPolicy } from './dispatch.js';
 import { pmPublic } from './pm.js';
 export { Mailbox } from './pm.js';
 import { crewPublic, crewSoon, crew as crewCall, posrep, downsample as dsTrack } from './crew.js';
@@ -1805,7 +1809,7 @@ export default {
     /* backup PFD: the simulator PC's attitude and speeds relayed to the pilot's devices (see pfd.js) */
     if (/^\/api\/efb\/pfd\/(ticket|ws)\/?$/.test(new URL(req.url).pathname)) { try { return await pfdRoute(req, new URL(req.url), env, h); } catch (e) { return json({ error: e.message || 'Error' }, 500, h); } }
     /* Web Push and check-in (see crew.js) */
-    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms|ofp|sync|sync\/ofp))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
+    if (/^\/api\/efb\/(push\/(key|sub|unsub|state|test|dnd)|crew(\/(checkin|checkout|alarms|ofp|release|sync|sync\/ofp))?|gsx)\/?$/.test(new URL(req.url).pathname)) {
       const me = await sessionOf(req, env, req.method === 'POST');
       return crewPublic(req, new URL(req.url), env, h, me, { bookings: (u) => bookingsRoute(env, u),
         /* the departure gate, sent after the answer (see stands.js) */
@@ -1845,7 +1849,8 @@ export default {
           l.pdfTest = { name: c.name, file: c.pdf, status: r.status, type: r.headers.get('content-type'), bytes: b.byteLength, head: new TextDecoder().decode(new Uint8Array(b, 0, Math.min(120, b.byteLength))) };
         }
         return l;
-      }, watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute() }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env, ctx), who), ctx }); }
+      }, watch: () => flightWatch({ vatsim: () => vatsimFeed(ctx), vamsys: () => (siteDeps.configured ? siteLive(siteDeps) : Promise.resolve(null)), airport: (i) => airportRoute(i, ctx), sigmets: () => sigmetRoute(),
+        dispOn: () => readPolicy(env).then((p) => p.on), checkins: () => crewCall(env, { op: 'ciList' }).then((r) => r.list) }), signOut: async (u) => { const ok = await signOutPilot(env, u); crewSoon(env, ctx, { op: 'unsubAll', u }); return ok; }, probe: (id) => pirepProbe(env, id), bkProbe: (u) => bookingsProbe(env, u), opsProbe: () => opsProbe(env), navdata: (rq, p, who) => navdataAdmin(rq, p, env, navDeps(env, ctx), who), ctx }); }
     if (req.method !== 'GET') return json({ error: 'Method not allowed' }, 405, h);
     const url = new URL(req.url);
     const configured = Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET);

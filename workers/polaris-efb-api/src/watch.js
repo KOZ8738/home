@@ -6,7 +6,8 @@
      amber  possible diversion (the VATSIM flight plan goes elsewhere than the booking); booked on VATSIM but not
             connected; ACARS not updating (vAMSYS far behind the VATSIM position); holding (the track circles);
             inside a SIGMET at its level; the destination IFR / LIFR or with thunderstorms, freezing precipitation,
-            heavy snow or hail, within two hours of landing */
+            heavy snow or hail, within two hours of landing; with the dispatch release on (dispatch.js), a checked-in flight
+            moving without a release, or released on the captain's discretion */
 import { liveFlights } from './live.js';
 import { prepArea, inArea } from './sigroute.js'; // point in a SIGMET, also across 180°
 
@@ -38,7 +39,8 @@ export function holdingIn(trail) {
 const timeOf = (v) => (v == null || v === '' ? null : typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : Date.parse(v));
 const levelFt = (v) => (v == null || v === '' || !isFinite(+v) ? null : +v < 1000 ? +v * 100 : +v);
 
-/* deps = { vatsim() -> VATSIM rows, vamsys() -> vAMSYS live, airport(icao) -> METAR, sigmets() -> { sigmets } } */
+/* deps = { vatsim() -> VATSIM rows, vamsys() -> vAMSYS live, airport(icao) -> METAR, sigmets() -> { sigmets },
+           checkins() -> the crew's check-ins (crew.js ciList), dispOn() -> is the dispatch release on } */
 export async function flightWatch(deps, now = Date.now()) {
   const [vs, va] = await Promise.all([deps.vatsim().catch(() => null), deps.vamsys().catch(() => null)]);
   if (!vs && !va) throw new Error('neither vAMSYS nor VATSIM answered');
@@ -86,6 +88,17 @@ export async function flightWatch(deps, now = Date.now()) {
     if (cat !== 'IFR' && cat !== 'LIFR' && !hz.length) return;
     for (const f of fl) add(f, 'destwx', 'amber', f.arr + (cat === 'IFR' || cat === 'LIFR' ? ' ' + cat : '') + (hz.length ? ': ' + hz.join(', ') : ''), body);
   }));
+  /* the dispatch release, for the flights whose pilot checked in */
+  const dispOn = deps.dispOn ? await deps.dispOn().catch(() => false) : false, cis = dispOn && deps.checkins ? await deps.checkins().catch(() => null) : null;
+  if (Array.isArray(cis)) {
+    const byCs = new Map(cis.filter((c) => c && c.fl).map((c) => [String(c.fl).replace(/\s+/g, '').toUpperCase(), c]));
+    const RES = { fail: 'the plan could not be released', hold: 'below the policy, not accepted by the captain', ok: 'released', remarks: 'released', capt: 'released' };
+    for (const f of live.flights || []) {
+      const c = byCs.get(String(f.cs || '').toUpperCase()); if (!c || (c.from && f.dep && c.from !== f.dep)) continue;
+      if (!(c.disp && c.disp.rel)) { if (f.gs > 5) add(f, 'norel', 'amber', 'No dispatch release', c.disp ? 'Last check ' + z(c.disp.at) + ': ' + (RES[c.disp.res] || c.disp.res) : 'The plan was never checked: no SimBrief plan in the EFB'); }
+      else if (c.disp.capt) add(f, 'capt', 'amber', 'Released on the captain’s discretion', c.disp.rel + ' · see Automatic messages › Dispatch release');
+    }
+  }
   const order = { red: 0, amber: 1 };
   alerts.sort((a, b) => order[a.sev] - order[b.sev] || a.cs.localeCompare(b.cs));
   return { alerts, flights: (live.flights || []).length, at: new Date(now).toISOString() };

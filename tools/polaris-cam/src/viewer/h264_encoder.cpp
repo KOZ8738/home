@@ -231,12 +231,17 @@ void free_list(IMFActivate** list, UINT32 count) {
 }  // namespace
 
 bool hardware_h264_available() {
+  // Media Foundation set up for the question (and let go after), so the answer
+  // does not depend on whether an encoder happens to be open.
+  if (FAILED(MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET)))
+    return false;
   IMFActivate** list = nullptr;
   UINT32 count = 0;
-  if (!enumerate(&list, &count))
-    return false;
-  free_list(list, count);
-  return count > 0;
+  const bool listed = enumerate(&list, &count);
+  if (listed)
+    free_list(list, count);
+  MFShutdown();
+  return listed && count > 0;
 }
 
 // --- the encoder ------------------------------------------------------------------
@@ -686,11 +691,18 @@ bool H264Encoder::Impl::take_output(std::vector<EncodedFrame>& out) {
   if (buffer.pEvents)
     buffer.pEvents->Release();
   IMFSample* sample = buffer.pSample;
+  // The sample given back, released once: the encoder's own (it hands us a
+  // reference), or ours (the one reference we hold), never both.
+  auto release_sample = [&] {
+    IMFSample* const owned = own;
+    if (sample && sample != owned)
+      sample->Release();
+    drop(own);
+    sample = nullptr;
+  };
   if (status == MF_E_TRANSFORM_STREAM_CHANGE) {
     // The encoder has a new output type to give: take it as it is.
-    drop(own);
-    if (sample && sample != own)
-      sample->Release();
+    release_sample();
     IMFMediaType* type = nullptr;
     status = mft->GetOutputAvailableType(output_id, 0, &type);
     if (SUCCEEDED(status))
@@ -703,15 +715,11 @@ bool H264Encoder::Impl::take_output(std::vector<EncodedFrame>& out) {
     return true;
   }
   if (status == MF_E_TRANSFORM_NEED_MORE_INPUT) {
-    if (sample && sample != own)
-      sample->Release();
-    drop(own);
+    release_sample();
     return true;
   }
   if (FAILED(status) || !sample) {
-    if (sample && sample != own)
-      sample->Release();
-    drop(own);
+    release_sample();
     fatal = true;
     return fail(L"encoder: output", FAILED(status) ? status : E_POINTER);
   }
@@ -727,9 +735,7 @@ bool H264Encoder::Impl::take_output(std::vector<EncodedFrame>& out) {
   LONGLONG time = 0;
   if (SUCCEEDED(sample->GetSampleTime(&time)))
     frame.time_ms = first_ms + static_cast<std::uint64_t>(time / 10000);
-  if (sample != own)
-    sample->Release();
-  drop(own);
+  release_sample();
   ++stats.outputs;
   if (frame.data.empty())
     return true;

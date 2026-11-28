@@ -17,8 +17,9 @@ The download is `PolarisCam.zip` on this repository's
 ## What is changed
 
 Taxi Cam renders its camera views small, composes them into one image and writes that into a cockpit display. Here, while
-the Polaris Cam window asks for it, every view is rendered at the broadcast size instead and sent out on its own; nothing
-is written to the cockpit displays then. With the broadcast off it behaves as Taxi Cam does.
+the Polaris Cam window asks for it, the views of the cameras ticked in the window are rendered at the broadcast size
+instead and each sent out on its own; the others keep their own small size and are not rendered. Nothing is written to the
+cockpit displays then. With the broadcast off it behaves as Taxi Cam does.
 
 | File | Change |
 | --- | --- |

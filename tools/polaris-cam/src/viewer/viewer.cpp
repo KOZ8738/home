@@ -1181,7 +1181,7 @@ void fill_controls() {
   fill_mount_fields();
 }
 // The left panel at 96 DPI, top to bottom (x, y, width, height):
-//   title 16,12 200x28 and version 150,20 178x18
+//   title 16,12 134x28 and version 150,20 178x18 (side by side, apart)
 //   status 16,42 312x72: four lines (state, simulator rate, graphics memory, one more)
 //   直播模式 16,118 110x22 | 顯示記憶體快滿時暫停 140,118 188x22
 //   畫質 16,150 | 1080p 64,148 | 720p 140,148 | 抗鋸齒 (FXAA) 214,148 114x22
@@ -1196,7 +1196,7 @@ void fill_controls() {
 //   remote status 16,604 312x20
 //   help (HintShort, click for HintKeys) from PanelHintTop = 630 to the bottom
 void create_controls() {
-  make(L"STATIC", AppTitle, 0, Margin, 12, 200, 28, -1, app.title);
+  make(L"STATIC", AppTitle, 0, Margin, 12, 134, 28, -1, app.title);
   make(L"STATIC", L"原型 " POLARIS_CAM_VERSION_WIDE L"（Taxi Cam " TAXI_CAM_VERSION_WIDE L"）", SS_RIGHT, 150, 20, 178, 18, -1);
   // Four lines: the state, the simulator's rate, graphics memory, and room for one more.
   make(L"STATIC", L"", 0, Margin, 42, PanelWidth - Margin - 8, 72, IdStatus);

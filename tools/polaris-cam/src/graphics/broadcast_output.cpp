@@ -418,6 +418,7 @@ bool BroadcastOutput::reset() noexcept {
   drop(tone_upload_);
   drop(tone_table_);
   drop(pipeline_);
+  drop(fxaa_pipeline_);  // made with pipeline_: initialize() makes it again
   drop(root_signature_);
   drop(rtv_heap_);
   drop(srv_heap_);
@@ -430,7 +431,7 @@ bool BroadcastOutput::reset() noexcept {
   tone_exposure_ = 0;
   tone_pending_ = tone_ready_ = tone_recorded_ = tone_was_ready_ = false;
   submitted_ = 0;
-  prepared_ = failed_ = false;
+  prepared_ = failed_ = antialias_ = false;
   error_ = "";
   return true;
 }

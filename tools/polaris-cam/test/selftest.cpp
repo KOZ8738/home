@@ -891,6 +891,30 @@ int verify(bool hardware) {
       snapshot->Release();
     }
     expect(!output.failed(), "the remade output never failed");
+
+    std::printf("-- an output that ran FXAA, reset\n");
+    {
+      // Everything an output makes on the device holds the device: after a
+      // reset it is held as often as before, the FXAA pipeline let go too.
+      const auto references = [&] {
+        gpu.device->AddRef();
+        return gpu.device->Release();
+      };
+      BroadcastOutput fxaa;
+      const ULONG before = references();
+      for (unsigned round = 0; round < 2; ++round) {
+        expect(fxaa.initialize(gpu.device) && fxaa.resize(width, height, pid, 7003 + round, 2), "an output for FXAA");
+        expect(!fxaa.antialias(), "anti-aliasing starts off, also after a reset");
+        fxaa.set_antialias(true);
+        expect(fxaa.antialias(), "and is turned on");
+        if (auto* picture = make_snapshot(gpu, DXGI_FORMAT_R8G8B8A8_UNORM, width, pane, ldr)) {
+          expect(fxaa.prepare(picture, DXGI_FORMAT_R8G8B8A8_UNORM, 0) && fxaa.submit() && wait_idle(fxaa), "a picture through FXAA");
+          picture->Release();
+        }
+        expect(fxaa.reset() && !fxaa.initialized() && !fxaa.antialias(), "reset lets it all go");
+        expect(references() == before, "the device is held no more than before: nothing of the output is left");
+      }
+    }
     if (gpu.debug)
       expect(gpu.debug_errors() == 0, "the Direct3D debug layer saw nothing wrong");
   }

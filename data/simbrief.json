@@ -132,6 +132,25 @@
     -118.40805,
     "Los Angeles Intl"
    ]
+  },
+  {
+   "gen": 1795863723,
+   "callsign": "OVO75D",
+   "from": "ZGHA",
+   "to": "RJCC",
+   "type": "A35K",
+   "reg": "B-50AH",
+   "out": 1795866000,
+   "fromPos": [
+    28.19,
+    113.218333,
+    "Huanghua"
+   ],
+   "toPos": [
+    42.775278,
+    141.6925,
+    "New Chitose"
+   ]
   }
  ]
 }

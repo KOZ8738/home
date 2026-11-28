@@ -58,7 +58,13 @@ const masked = (s) => s.replace(TOKEN, TOKEN.slice(0, 4) + '…');
 const t0 = Date.now();
 const stamp = () => ((Date.now() - t0) / 1000).toFixed(1).padStart(7) + 's';
 let logStream = null;
-if (OUT_DIR) { fs.mkdirSync(OUT_DIR, { recursive: true }); logStream = fs.createWriteStream(path.join(OUT_DIR, 'proxy-events.log'), { flags: 'a' }); }
+// A write that fails (a full or briefly unavailable disk) is reported once and the file dropped; the run goes on.
+function fileStream(name, onGone) {
+  const w = fs.createWriteStream(path.join(OUT_DIR, name), { flags: 'a' });
+  w.on('error', (e) => { onGone(); console.error(`soak-proxy: ${name} not written any more: ${e.message}`); });
+  return w;
+}
+if (OUT_DIR) { fs.mkdirSync(OUT_DIR, { recursive: true }); logStream = fileStream('proxy-events.log', () => { logStream = null; }); }
 const events = [];
 function log(...a) {
   const s = stamp() + '  ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
@@ -132,7 +138,8 @@ class WsConn {
     socket.on('data', (c) => this.data(c));
     socket.on('close', () => this.finish());
     socket.on('error', () => { /* 'close' follows */ });
-    if (head && head.length) this.data(head);
+    // what came with the upgrade request (a first frame stuck to it), once the caller has set its handlers
+    if (head && head.length) process.nextTick(() => this.data(head));
   }
   get bufferedAmount() { return this.socket.writableLength; }
   data(chunk) {
@@ -393,8 +400,8 @@ function sample() {
   lastSample = s; series.push(row); if (series.length > 6 * 3600) series.shift();
   if (seriesStream) seriesStream.write(JSON.stringify(row) + '\n');
 }
-let seriesStream = OUT_DIR ? fs.createWriteStream(path.join(OUT_DIR, 'proxy-series.ndjson'), { flags: 'a' }) : null;
-function summarize(p, from, to) {
+let seriesStream = OUT_DIR ? fileStream('proxy-series.ndjson', () => { seriesStream = null; }) : null;
+function summarize(p, from, to, partial = false) {
   const dur = Math.max(0.001, (to.t - from.t) / 1000), cams = to.cams.map((c, i) => {
     const a = from.cams[i];
     return { frames: c.frames - a.frames, keyframes: c.keyframes - a.keyframes, fps: +((c.frames - a.frames) / dur).toFixed(2), kbps: +(((c.bytes - a.bytes) * 8) / dur / 1000).toFixed(1),
@@ -406,7 +413,7 @@ function summarize(p, from, to) {
   const tailFps = tail.length ? +(tail.reduce((a, r) => a + r.fps.reduce((x, y) => x + y, 0), 0) / tail.length).toFixed(2) : 0;
   const tailFpsCam = [0, 1, 2, 3].map((i) => (tail.length ? +(tail.reduce((a, r) => a + r.fps[i], 0) / tail.length).toFixed(2) : 0));
   const sum = (k) => cams.reduce((a, c) => a + c[k], 0);
-  return { name: p.name, step: p.step || '', cycle: PH.cycle, kbpsLimit: p.kbps, startS: +((from.t - t0) / 1000).toFixed(1), endS: +((to.t - t0) / 1000).toFixed(1), durationS: +dur.toFixed(1),
+  return { name: p.name, step: p.step || '', cycle: PH.cycle, kbpsLimit: p.kbps, startS: +((from.t - t0) / 1000).toFixed(1), endS: +((to.t - t0) / 1000).toFixed(1), durationS: +dur.toFixed(1), plannedS: p.sec, partial,
     totalFps: +cams.reduce((a, c) => a + c.fps, 0).toFixed(2), totalKbps: +cams.reduce((a, c) => a + c.kbps, 0).toFixed(1), tailFps, tailFpsCam,
     frames: sum('frames'), keyframes: sum('keyframes'), seqGaps: sum('seqGaps'), gapFrames: sum('gapFrames'), gapKeyViolations: sum('gapKeyViolations'), startNonKey: sum('startNonKey'),
     unexpectedFallbacks: sum('unexpectedFallbacks'), codecs: cams.map((c) => c.codec), h264Cams: cams.filter((c) => c.codec === 'h264' && c.frames > 0).length, cams,
@@ -419,7 +426,8 @@ function closePhase(t = now()) {
   const p = PH.cur;
   if (p.disconnect) Object.assign(p.extra, { reconnectMs: S.reconnectLatenciesMs.slice(p.recFrom), reconnectHelloMs: S.reconnectHelloMs.slice(p.helloFrom), reconnectPending: !!S.pending });
   if (p.name === 'idle_and_resume' && p.step === 'resume' && S.resume) Object.assign(p.extra, { resumeFirstFrameMs: S.resume.firstFrameMs || null, resumeAllKeyMs: S.resume.allKeyMs || null });
-  const s = summarize(p, PH.snap, snapshot(t)); PH.summaries.push(s); PH.cur = null;
+  // cut short (the run's time was up, or stopped): its numbers are not a whole phase's
+  const s = summarize(p, PH.snap, snapshot(t), (t - PH.startedAt) / 1000 < p.sec * 0.9); PH.summaries.push(s); PH.cur = null;
   log(`phase end ${s.name}${s.step ? '/' + s.step : ''}: ${s.totalFps} fps ${s.totalKbps} kbps, gaps ${s.seqGaps}, gap-without-key ${s.gapKeyViolations}, tail ${s.tailFps} fps`);
 }
 function enterPhase(i, t = now()) {
@@ -487,7 +495,7 @@ function pubUpgrade(req, socket, head) {
   if (t < refuseUntil) { S.refusedConnections++; log('refused a connection (blackout): 503'); refuse(socket, 503, 'Service Unavailable'); return; }
   if (MODE === 'upstream') return upstreamUpgrade(req, socket, head);
   if (!handshake(req, socket)) return;
-  const conn = new WsConn(socket, null, { bucket: pubBucket, label: 'pub' });
+  const conn = new WsConn(socket, head, { bucket: pubBucket, label: 'pub' });
   const send = conn.sendText.bind(conn); conn.sendText = (s) => { toPubText(s); return send(s); };
   pubAttach(conn, t);
   relayConnect(conn, `http://127.0.0.1:${PORT}${req.url.split('?')[0]}`, true, {

@@ -177,7 +177,7 @@ live 模式沒有 `idle_and_resume`（觀看人數由正式後台決定），改
 | 檔案 | 內容 |
 |---|---|
 | `summary.md` | 自動判定報告：各階段 fps／kbps／GPU／NVENC、每顆鏡頭 fps、記憶體與 Handle 趨勢、PASS／FAIL 檢查 |
-| `metrics.csv` | 每 5 秒：`polaris-cam.exe` 的 `WorkingSetMB`、`PrivateMB`、`Handles`、`Threads`、`CpuPct`、`Alive`；`nvidia-smi` 的 `GpuUtilPct`、`EncUtilPct`、`VramMB`；代理的 `phase`、`throttleKbps`、`mode`、`totalFps`、`totalKbps`、`totalGaps`、`gapKeyViolations`、`reconnects`、`slowViewerPFramesWhilePaused` 等 |
+| `metrics.csv` | 每 5 秒：`polaris-cam.exe` 的 `WorkingSetMB`、`PrivateMB`、`Handles`、`Threads`、`CpuPct`、`Alive`；`nvidia-smi` 的 `GpuUtilPct`、`EncUtilPct`、`VramMB`；代理的 `phase`、`throttleKbps`、`mode`、`totalFps`、`totalKbps`、`totalGaps`、`gapKeyViolations`、`reconnects`、`slowViewerPFramesWhilePaused`、`cycle`（第幾輪）等 |
 | `metrics-final.json` | 結束時的 `/metrics`（含各階段摘要） |
 | `proxy-final-full.json`、`proxy-series.ndjson` | 含每秒序列（每顆鏡頭每秒 fps／kbit） |
 | `proxy-events.log`、`proxy.log` | 代理事件（階段切換、斷線、重連、違規） |
@@ -189,19 +189,29 @@ live 模式沒有 `idle_and_resume`（觀看人數由正式後台決定），改
 
 ## 八、PASS／FAIL 門檻
 
+長跑會循環多輪：檢查 2–6 逐輪檢查**每一輪**跑滿時長的階段，任何一輪不合格就 FAIL，並在說明中列出是第幾輪、為什麼。
+跑到一半就被結束的階段（不到預定長度 90%，`partial`）不納入。比較基準一律是**第 1 輪** baseline。
+
 | # | 檢查 | 門檻 |
 |---|---|---|
-| 0 | 測試期間無人手動更改設定（local） | `polaris-cam.log` 本次執行內沒有任何 `settings:` 變更行 |
+| 0 | 測試期間無人手動更改設定（local） | `polaris-cam.log` 本次執行內沒有任何 `settings:` 變更行，也就是 Polaris Cam 設定檔維持不變（畫面來源 1080p／30 fps／4 路開／遠端開；遠端實際上傳為各路 960x540 H.264） |
 | 1 | `polaris-cam.exe` 全程存活 | 每次取樣都活著；結束碼 0 代表視窗被關（WM_CLOSE），非 0 疑似當機 |
-| 2 | baseline 與 recovery 4 路皆 H.264 | 兩階段開著的每一路都有 H.264 影格，全程 `unexpectedFallbacks = 0` |
-| 3 | severe_congestion 限速有效且不違規 | 上傳 ≤ 限速 × 1.3 + 40 kbps、`gapFrames > 0`，全程 `gapKeyViolations = 0`、`startNonKey = 0`、`viewerGapKeyViolations = 0` |
-| 4 | 斷線後自動重連 | 每次注入都等到 4 路關鍵格恢復（live 無人觀看時看 `hello`），該階段尾段 fps > 0 |
-| 5 | recovery 回到基準 | recovery 最後 10 秒平均 fps ≥ baseline 最後 10 秒的 90% |
-| 6 | idle_and_resume（local） | idle 開始 3 秒後收到 0 格、idle 期間 NVENC 最高 ≤ max(2%, baseline 平均的 20%)；恢復後 4 路關鍵格 ≤ 5 秒、resume 尾段 fps ≥ baseline 的 80% |
-| 7 | 記憶體／Handle 不失控 | WorkingSet、Private 增加 ≤ max(150 MB, 基線 50%)，Handles 增加 ≤ max(300, 基線 50%)；取樣 ≥ 60 次時，後半段 Private 線性趨勢 ≤ 30 MB／小時 |
+| 2 | 每一輪 baseline 與 recovery 4 路皆 H.264 | 每段開著的每一路都有 H.264 影格，全程 `unexpectedFallbacks = 0` |
+| 3 | 每一輪 severe_congestion 限速有效且不違規 | 每一輪上傳 ≤ 限速 × 1.3 + 40 kbps 且 `gapFrames > 0`（列出最接近上限的一輪）；全程 `gapKeyViolations = 0`、`startNonKey = 0`、`viewerGapKeyViolations = 0` |
+| 4 | 每一輪斷線後自動重連 | 每一輪都有注入、在階段內等到 4 路關鍵格恢復（live 無人觀看時看 `hello`），單次重連 ≤ 35000 ms（自注入起算，含 10 s 拒連與 polaris-cam 的 1／2／4／8 s 退避），該輪尾段 fps > 0；全程恢復次數 = 注入次數 |
+| 5 | 每一輪 recovery 回到基準 | 每一輪 recovery 最後 10 秒平均 fps ≥ 第 1 輪 baseline 最後 10 秒的 90% |
+| 6 | 每一輪 idle_and_resume（local） | 每一輪 idle 開始 3 秒後收到 0 格、NVENC 最高 ≤ max(2%, 第 1 輪 baseline 平均的 20%)；每一輪 resume 4 路關鍵格 ≤ 5 秒、尾段 fps > 0 且 ≥ baseline 的 80% |
+| 7 | 記憶體／Handle 不失控 | 以**第 1 輪** baseline 中位數為基線：結束時 WorkingSet、Private 增加 ≤ max(150 MB, 基線 50%)，Handles 增加 ≤ max(300, 基線 50%)；有 ≥ 3 輪時，各輪 baseline 的 Private 中位數對時間的趨勢 ≤ 30 MB／小時 |
 | 8 | CamRelay 慢觀眾保護（local） | 至少一次被截斷、截斷後 P-frame = 0、探測間隔 ≥ 2.5 秒、每次恢復都在 6 秒內續播 |
 
-任一項 FAIL、執行未跑完或程式中途結束，總結即為 FAIL，`run-soak.ps1` 結束碼為 1。
+總結：
+
+- **PASS**（結束碼 0）：每一項適用的檢查都通過。
+- **FAIL**（結束碼 1）：任一項 FAIL、執行未跑完，或程式中途結束。
+- **INCONCLUSIVE**（結束碼 1，不算通過）：有檢查沒有資料，或 `-Mode live` 全程沒收到任何影格（通常是忘了開著後台 Broadcast 觀看），也就是上傳路徑根本沒被驗證到。
+
+記憶體趨勢只用每輪 baseline 的中位數，不用原始樣本：每次斷線與 idle，編碼器都會釋放約 300 MB（Private 約 507 → 200 MB），
+形成鋸齒；如果對不是整數輪的原始樣本做直線回歸，會被鋸齒帶歪（健康的長跑可能被判 FAIL，真的洩漏也可能被蓋掉）。
 
 ---
 

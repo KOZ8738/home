@@ -72,7 +72,7 @@ function Get-Prop($o, [string]$Name, $Default = $null) {
     $p = $o.PSObject.Properties[$Name]; if ($null -eq $p -or $null -eq $p.Value) { return $Default } return $p.Value
 }
 
-$exitCode = $null; $endedAt = $null
+$exitCode = $null; $endedAt = $null; $gpuName = ''
 if (-not $Rejudge) {
 # ---------------------------------------------------------------- preparation
 $node = Get-Command node -ErrorAction SilentlyContinue
@@ -201,7 +201,7 @@ try {
         Write-Host ''
     }
 
-    $header = 'time,elapsedSec,phase,throttleKbps,mode,Alive,WorkingSetMB,PrivateMB,Handles,Threads,CpuPct,GpuUtilPct,EncUtilPct,VramMB,watchers,pubConnected,totalFps,totalKbps,totalGaps,gapKeyViolations,reconnects,connections,disconnectsInjected,slowViewerPFramesWhilePaused,viewerGapKeyViolations,fastViewerFps'
+    $header = 'time,elapsedSec,phase,throttleKbps,mode,Alive,WorkingSetMB,PrivateMB,Handles,Threads,CpuPct,GpuUtilPct,EncUtilPct,VramMB,watchers,pubConnected,totalFps,totalKbps,totalGaps,gapKeyViolations,reconnects,connections,disconnectsInjected,slowViewerPFramesWhilePaused,viewerGapKeyViolations,fastViewerFps,cycle'
     [System.IO.File]::WriteAllText($csvPath, $header + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
     $warmMax = 60; if ($Mode -eq 'live') { $warmMax = 300 }
     $deadline = (Get-Date).AddSeconds($warmMax + $DurationSec + 90)
@@ -239,7 +239,7 @@ try {
             GpuUtilPct = $gpu; EncUtilPct = $enc; VramMB = $vram; watchers = (Get-Prop $m 'watchers'); pubConnected = [int][bool](Get-Prop $m 'pubConnected' $false)
             totalFps = (Get-Prop $m 'totalFps'); totalKbps = (Get-Prop $m 'totalKbps'); totalGaps = (Get-Prop $m 'totalGaps'); gapKeyViolations = (Get-Prop $m 'gapKeyViolations')
             reconnects = (Get-Prop $m 'reconnects'); connections = (Get-Prop $m 'connections'); disconnectsInjected = (Get-Prop $m 'disconnectsInjected')
-            slowViewerPFramesWhilePaused = (Get-Prop $m 'slowViewerPFramesWhilePaused'); viewerGapKeyViolations = (Get-Prop $m 'viewerGapKeyViolations'); fastViewerFps = $fastFps
+            slowViewerPFramesWhilePaused = (Get-Prop $m 'slowViewerPFramesWhilePaused'); viewerGapKeyViolations = (Get-Prop $m 'viewerGapKeyViolations'); fastViewerFps = $fastFps; cycle = (Get-Prop $m 'cycle')
         }
         $rows.Add([pscustomobject]$row)
         $cells = foreach ($v in $row.Values) { if ($v -is [double] -or $v -is [single] -or $v -is [decimal]) { Num $v } else { [string]$v } }
@@ -284,8 +284,9 @@ try {
     if ($null -ne $savedWarpEnv) { $env:POLARIS_CAM_WARP = $savedWarpEnv }
     if ($window) { try { if ($window.HasExited) { $exitCode = $window.ExitCode } } catch { } }
     $endedAt = Get-Date
+    try { $gpuName = (& nvidia-smi --query-gpu=name --format=csv,noheader 2>$null | Select-Object -First 1) } catch { }
     $info = [ordered]@{ mode = $Mode; preset = $Preset; durationMin = $DurationMin; port = $Port; bin = $Bin; startedAt = $startedAt.ToString('s'); endedAt = $endedAt.ToString('s')
-        crashed = $crashed; crashAt = $crashAt; exitCode = $exitCode; interrupted = $interrupted; sampleSec = $SampleSec }
+        crashed = $crashed; crashAt = $crashAt; exitCode = $exitCode; interrupted = $interrupted; sampleSec = $SampleSec; gpu = $gpuName }
     try { [System.IO.File]::WriteAllText((Join-Path $OutDir 'run-info.json'), ($info | ConvertTo-Json)) } catch { }
 }
 } else {
@@ -299,6 +300,7 @@ try {
         $info = [System.IO.File]::ReadAllText($infoPath) | ConvertFrom-Json
         $Mode = $info.mode; $Preset = $info.preset; $DurationMin = $info.durationMin; $Port = $info.port; $Bin = $info.bin; $SampleSec = $info.sampleSec
         $startedAt = [datetime]$info.startedAt; $endedAt = [datetime]$info.endedAt; $crashed = $info.crashed; $crashAt = $info.crashAt; $exitCode = $info.exitCode; $interrupted = $info.interrupted
+        if ($info.PSObject.Properties['gpu']) { $gpuName = $info.gpu }
     } else {   # a run from before run-info.json: what the files say
         if ($final) { $Mode = $(if ($final.mode -eq 'upstream') { 'live' } else { 'local' }); $Preset = $final.preset; $DurationMin = [int]($final.durationSec / 60); $Port = $final.port }
         $startedAt = [datetime]$rows[0].time; $endedAt = [datetime]$rows[$rows.Count - 1].time
@@ -314,11 +316,6 @@ try {
 function Avg($list) { $a = @($list | Where-Object { Has $_ } | ForEach-Object { [double]$_ }); if (-not $a.Count) { return $null } return ($a | Measure-Object -Average).Average }
 function MaxOf($list) { $a = @($list | Where-Object { Has $_ } | ForEach-Object { [double]$_ }); if (-not $a.Count) { return $null } return ($a | Measure-Object -Maximum).Maximum }
 function Median($list) { $a = @($list | Where-Object { Has $_ } | ForEach-Object { [double]$_ } | Sort-Object); if (-not $a.Count) { return $null } return $a[[int][math]::Floor($a.Count / 2)] }
-function PhaseRows([string]$name, [int]$skipSec = 0) {
-    $sel = @($rows | Where-Object { $_.phase -eq $name -or $_.phase.StartsWith($name + '/') })
-    if ($skipSec -gt 0 -and $sel.Count) { $first = $sel[0].elapsedSec; $sel = @($sel | Where-Object { $_.elapsedSec -ge $first + $skipSec }) }
-    return $sel
-}
 $checks = New-Object System.Collections.Generic.List[object]
 function Check([string]$name, $pass, [string]$detail) {
     $state = 'SKIP'; if ($pass -eq $true) { $state = 'PASS' } elseif ($pass -eq $false) { $state = 'FAIL' }
@@ -326,6 +323,20 @@ function Check([string]$name, $pass, [string]$detail) {
 }
 $phases = @(); if ($final) { $phases = @($final.phases) }
 function Ph([string]$name, [string]$step = '') { return @($phases | Where-Object { $_.name -eq $name -and $_.step -eq $step }) }
+# The runs of a phase that ran their whole length (one cut short by the end of the run says little).
+function Whole([string]$name, [string]$step = '') { return @(Ph $name $step | Where-Object { -not (Get-Prop $_ 'partial' $false) }) }
+function Cyc($p) { return "第 $([int](Get-Prop $p 'cycle' 0) + 1) 輪" }
+# The CSV rows of each run of a phase, in order: rows of one label in a row are one run
+# (the n-th block is the n-th cycle's, also in files from before the cycle column).
+function PhaseBlocks([string]$label) {
+    $blocks = New-Object System.Collections.Generic.List[object]; $cur = $null; $prev = ''
+    foreach ($r in $rows) {
+        if ($r.phase -eq $label) { if ($prev -ne $label) { $cur = New-Object System.Collections.Generic.List[object]; $blocks.Add($cur) }; $cur.Add($r) }
+        $prev = $r.phase
+    }
+    return ,$blocks
+}
+function SkipFirst($block, [int]$sec) { $b = @($block); if (-not $b.Count) { return @() }; $first = $b[0].elapsedSec; return @($b | Where-Object { $_.elapsedSec -ge $first + $sec }) }
 $onCams = 4; if ($final -and $final.hello -and $final.hello.cams) { $onCams = @($final.hello.cams | Where-Object { $_.on }).Count }
 
 $md = New-Object System.Text.StringBuilder
@@ -338,7 +349,6 @@ L ''
 L "- 開始：$($startedAt.ToString('yyyy-MM-dd HH:mm:ss'))　結束：$(if ($endedAt) { $endedAt.ToString('yyyy-MM-dd HH:mm:ss') } else { '-' })　設定時長：$DurationMin 分鐘"
 L "- 模式：``$Mode``　預設：``$Preset``　連接埠：$Port　結果目錄：``$OutDir``"
 if ($Mode -eq 'local') { L "- 程式：``$Bin``（polaris-cam.exe + polaris-cam-selftest.exe --serve --hardware，CamRelay 取自 repo 的 cam.js）" }
-$gpuName = ''; try { $gpuName = (& nvidia-smi --query-gpu=name --format=csv,noheader 2>$null | Select-Object -First 1) } catch { }
 if ($gpuName) { L "- 顯示卡：$gpuName" }
 if ($final) {
     $hv = ''; $hc = ''; if ($final.hello) { $hv = $final.hello.v; $hc = @($final.hello.cams | ForEach-Object { "$($_.i):$($_.codec)$(if ($_.on) { '' } else { '(off)' }) $($_.w)x$($_.h)" }) -join '、' }
@@ -370,7 +380,9 @@ foreach ($p in $phases) {
 
 # memory
 $alive = @($rows | Where-Object { $_.Alive -eq 1 -and (Has $_.WorkingSetMB) })
-$baseRows = @(PhaseRows 'baseline' 10 | Where-Object { $_.Alive -eq 1 -and (Has $_.WorkingSetMB) })
+# the first cycle's baseline (a slow leak would raise a median over every cycle and hide itself)
+$baseBlocks = PhaseBlocks 'baseline'
+$baseRows = @(); if ($baseBlocks.Count) { $baseRows = @(SkipFirst $baseBlocks[0] 10 | Where-Object { $_.Alive -eq 1 -and (Has $_.WorkingSetMB) }) }
 if (-not $baseRows.Count) { $baseRows = @($alive | Select-Object -First 3) }
 $wsBase = Median ($baseRows | ForEach-Object { $_.WorkingSetMB }); $pvBase = Median ($baseRows | ForEach-Object { $_.PrivateMB }); $hBase = Median ($baseRows | ForEach-Object { $_.Handles })
 $wsPeak = MaxOf ($alive | ForEach-Object { $_.WorkingSetMB }); $pvPeak = MaxOf ($alive | ForEach-Object { $_.PrivateMB }); $hPeak = MaxOf ($alive | ForEach-Object { $_.Handles })
@@ -379,7 +391,7 @@ $wsEnd = $null; $pvEnd = $null; $hEnd = $null; if ($lastAlive) { $wsEnd = [doubl
 L ''
 L '## 記憶體與 Handle 趨勢（polaris-cam.exe）'
 L ''
-L '| | 基線（baseline 中位數） | 峰值 | 結束 |'
+L '| | 基線（第 1 輪 baseline 中位數） | 峰值 | 結束 |'
 L '|---|---:|---:|---:|'
 L ("| WorkingSet MB | {0} | {1} | {2} |" -f (Num $wsBase), (Num $wsPeak), (Num $wsEnd))
 L ("| Private MB | {0} | {1} | {2} |" -f (Num $pvBase), (Num $pvPeak), (Num $pvEnd))
@@ -388,82 +400,140 @@ $vramRows = @($rows | Where-Object { (Has $_.VramMB) })
 if ($vramRows.Count) { L ("| VRAM MB（整張卡） | {0} | {1} | {2} |" -f (Num (Median (@($vramRows | Select-Object -First 6) | ForEach-Object { $_.VramMB }))), (Num (MaxOf ($vramRows | ForEach-Object { $_.VramMB }))), (Num ($vramRows[-1].VramMB))) }
 
 # ---------------------------------------------------------------- PASS / FAIL
+# Every check looks at every cycle that ran its whole length: a long run passes only if each one did.
 $f = $final
-$base = Ph 'baseline' | Select-Object -First 1
-$rec = Ph 'recovery' | Select-Object -Last 1
-$sev = @(Ph 'severe_congestion')
-$disc = @(Ph 'disconnect_blackout')
-$watched = $true; if ($Mode -eq 'live') { $watched = $f -and $f.totals.frames -gt 0 }
+$base = Ph 'baseline' | Select-Object -First 1          # the reference: the first cycle's baseline
+$frames = 0; if ($f -and $f.totals) { $frames = [double]$f.totals.frames }
+$watched = $true; if ($Mode -eq 'live') { $watched = $frames -gt 0 }
 
 # 1 alive
 $aliveAll = (@($rows | Where-Object { $_.Alive -ne 1 }).Count -eq 0) -and $rows.Count -gt 0
 if ($Mode -eq 'local') { Check '1. polaris-cam.exe 全程存活無崩潰' ((-not $crashed) -and $aliveAll) ("取樣 $($rows.Count) 次，存活 $(@($rows | Where-Object { $_.Alive -eq 1 }).Count) 次" + $(if ($crashed) { "；$crashAt 結束（exit $exitCode$(if ($exitCode -eq 0) { '：正常結束碼，表示視窗被關閉（WM_CLOSE），不是當機' } else { '：非 0，疑似當機' })）" } else { '' })) }
 else { Check '1. polaris-cam.exe 全程存活無崩潰' $(if ($rows.Count) { $aliveAll } else { $null }) "取樣 $($rows.Count) 次，存活 $(@($rows | Where-Object { $_.Alive -eq 1 }).Count) 次（使用者自己的程式）" }
 
-# 2 h264 in baseline and recovery
-if ($f -and $base -and $rec -and $watched) {
-    $ok2 = $true; $d2 = @()
-    foreach ($p in @($base, $rec)) {
+# 2 h264 in every baseline and recovery
+$hPhases = @(@(Whole 'baseline') + @(Whole 'recovery'))
+if ($f -and $hPhases.Count -and $watched) {
+    $bad2 = @()
+    foreach ($p in $hPhases) {
         $h = @($p.cams | Where-Object { $_.codec -eq 'h264' -and $_.frames -gt 0 }).Count
-        $d2 += "$($p.name)：$h/$onCams 路 H.264"
-        if ($h -lt $onCams) { $ok2 = $false }
+        if ($h -lt $onCams) { $bad2 += "$(Cyc $p) $($p.name) 只有 $h/$onCams 路" }
     }
-    if ($f.unexpectedFallbacks -gt 0) { $ok2 = $false }
-    $d2 += "非預期退回 JPEG $($f.unexpectedFallbacks) 次"
-    Check '2. 4 路在 baseline 與 recovery 穩定以 H.264 上傳' $ok2 ($d2 -join '；')
+    $ok2 = (-not $bad2.Count) -and ($f.unexpectedFallbacks -eq 0)
+    $d2 = "$($hPhases.Count) 段 baseline／recovery " + $(if ($bad2.Count) { '未全為 H.264：' + ($bad2 -join '、') } else { "皆 $onCams/$onCams 路 H.264" }) + "；非預期退回 JPEG $($f.unexpectedFallbacks) 次"
+    Check '2. 4 路在 baseline 與 recovery 穩定以 H.264 上傳' $ok2 $d2
 } else { Check '2. 4 路在 baseline 與 recovery 穩定以 H.264 上傳' $null '沒有資料（未跑到或沒有人觀看）' }
 
-# 3 severe congestion
+# 3 severe congestion, every cycle
+$sev = @(Whole 'severe_congestion')
 if ($f -and $sev.Count -and $watched) {
-    $s = $sev[0]
-    $limited = ($s.totalKbps -le $s.kbpsLimit * 1.3 + 40)
-    $dropped = ($s.gapFrames -gt 0)
+    $bad3 = @(); $worst = $null
+    foreach ($s in $sev) {
+        $cap = $s.kbpsLimit * 1.3 + 40
+        $why = @()
+        if ($s.totalKbps -gt $cap) { $why += "上傳 $(Num $s.totalKbps) kbps 超過上限 $(Num $cap)（未限速）" }
+        if (-not ($s.gapFrames -gt 0)) { $why += '沒有丟格（保護未觸發）' }
+        if ($why.Count) { $bad3 += "$(Cyc $s)：" + ($why -join '、') }
+        if ($null -eq $worst -or ($s.totalKbps / [math]::Max(1, $s.kbpsLimit)) -gt ($worst.totalKbps / [math]::Max(1, $worst.kbpsLimit))) { $worst = $s }
+    }
     $invariantsOk = ($f.gapKeyViolations -eq 0 -and $f.startNonKey -eq 0 -and $f.viewerGapKeyViolations -eq 0)
-    Check '3. severe_congestion 確實限速／丟格，且 gapKeyViolations === 0' ($limited -and $dropped -and $invariantsOk) ("上傳 $(Num $s.totalKbps) kbps（限 $($s.kbpsLimit)）、缺格 $($s.seqGaps) 次共 $($s.gapFrames) 格；全程 gapKeyViolations $($f.gapKeyViolations)、連線首格非關鍵格 $($f.startNonKey)、觀眾端缺格無關鍵格 $($f.viewerGapKeyViolations)")
-} else { Check '3. severe_congestion 確實限速／丟格，且 gapKeyViolations === 0' $null '沒有資料' }
+    $per = ($sev | ForEach-Object { "$(Cyc $_) $(Num $_.totalKbps) kbps／缺格 $($_.seqGaps) 次 $($_.gapFrames) 格" }) -join '；'
+    $d3 = "$($sev.Count) 輪（限 $($sev[0].kbpsLimit) kbps，上限 ×1.3+40）：$per；最接近上限：$(Cyc $worst)" + $(if ($bad3.Count) { '；未通過：' + ($bad3 -join '；') } else { '' }) +
+        "；全程 gapKeyViolations $($f.gapKeyViolations)、連線首格非關鍵格 $($f.startNonKey)、觀眾端缺格無關鍵格 $($f.viewerGapKeyViolations)"
+    Check '3. severe_congestion 每一輪都確實限速／丟格，且 gapKeyViolations === 0' ((-not $bad3.Count) -and $invariantsOk) $d3
+} else { Check '3. severe_congestion 每一輪都確實限速／丟格，且 gapKeyViolations === 0' $null '沒有資料' }
 
-# 4 reconnect
+# 4 reconnect, every cycle (an injection, a 10 s refusal and polaris-cam's 1/2/4/8/15 s back-off fit well inside 35 s)
+$ReconnectMaxMs = 35000
+$disc = @(Whole 'disconnect_blackout')
 if ($f -and $disc.Count) {
-    $d = $disc[0]
-    $lat = @($f.reconnectLatenciesMs); $hl = @($f.reconnectHelloMs)
-    $ok4 = ($f.disconnectsInjected -gt 0) -and (-not $f.reconnectPending)
-    if ($watched) { $ok4 = $ok4 -and ($lat.Count -ge $f.disconnectsInjected) -and ($d.tailFps -gt 0) } else { $ok4 = $ok4 -and ($hl.Count -ge $f.disconnectsInjected) }
-    Check '4. disconnect_blackout 注入後自動重連成功且恢復串流' $ok4 ("注入 $($f.disconnectsInjected) 次；重連後 hello $((($hl | ForEach-Object { "$_ ms" }) -join ', '))；4 路關鍵格恢復 $((($lat | ForEach-Object { "$_ ms" }) -join ', '))（皆自注入起算，含 10 s 拒連）；該階段尾段 $(Num $d.tailFps) fps")
-} else { Check '4. disconnect_blackout 注入後自動重連成功且恢復串流' $null '沒有資料' }
+    $bad4 = @(); $per4 = @()
+    foreach ($d in $disc) {
+        $lat = @(Get-Prop $d 'reconnectMs' @()); $hl = @(Get-Prop $d 'reconnectHelloMs' @())
+        $why = @()
+        if ($d.disconnectsInjected -lt 1) { $why += '沒有注入斷線' }
+        if (Get-Prop $d 'reconnectPending' $false) { $why += '階段結束時仍未重連' }
+        $got = $hl; if ($watched) { $got = $lat }
+        if ($got.Count -lt $d.disconnectsInjected) { $why += '沒有在階段內恢復' }
+        $slow = @($got | Where-Object { [double]$_ -gt $ReconnectMaxMs })
+        if ($slow.Count) { $why += "重連 $(($slow | ForEach-Object { "$_ ms" }) -join ', ') 超過 $ReconnectMaxMs ms" }
+        if ($watched -and -not ($d.tailFps -gt 0)) { $why += "尾段 $(Num $d.tailFps) fps（串流未恢復）" }
+        if ($why.Count) { $bad4 += "$(Cyc $d)：" + ($why -join '、') }
+        $per4 += "$(Cyc $d) hello $(($hl | ForEach-Object { "$_ ms" }) -join ',')／4 路關鍵格 $(($lat | ForEach-Object { "$_ ms" }) -join ',')／尾段 $(Num $d.tailFps) fps"
+    }
+    $allGot = @($f.reconnectHelloMs); if ($watched) { $allGot = @($f.reconnectLatenciesMs) }
+    if ($f.disconnectsInjected -lt 1 -or $allGot.Count -lt $f.disconnectsInjected -or $f.reconnectPending) {
+        $bad4 += "全程：注入 $($f.disconnectsInjected) 次、恢復 $($allGot.Count) 次$(if ($f.reconnectPending) { '，仍有一次未恢復' } else { '' })"
+    }
+    $d4 = "注入 $($f.disconnectsInjected) 次（自注入起算，含 10 s 拒連，上限 $ReconnectMaxMs ms）：" + ($per4 -join '；') + $(if ($bad4.Count) { '；未通過：' + ($bad4 -join '；') } else { '' })
+    Check '4. disconnect_blackout 每一輪注入後都自動重連且恢復串流' (-not $bad4.Count) $d4
+} else { Check '4. disconnect_blackout 每一輪注入後都自動重連且恢復串流' $null '沒有資料' }
 
-# 5 recovery fps
-if ($base -and $rec -and $watched) {
-    $ratio = 0; if ($base.tailFps -gt 0) { $ratio = $rec.tailFps / $base.tailFps }
-    Check '5. recovery 階段 fps 回到基準（不累積延遲）' ($ratio -ge 0.9) ("baseline 尾段 $(Num $base.tailFps) fps → recovery 尾段 $(Num $rec.tailFps) fps（$(Num ($ratio * 100))%，門檻 90%）；recovery 缺格 $($rec.seqGaps) 次")
-} else { Check '5. recovery 階段 fps 回到基準（不累積延遲）' $null '沒有資料' }
+# 5 recovery fps, every cycle, against the first baseline
+$recs = @(Whole 'recovery')
+if ($base -and $recs.Count -and $watched) {
+    $bad5 = @(); $per5 = @()
+    foreach ($r in $recs) {
+        $ratio = 0; if ($base.tailFps -gt 0) { $ratio = $r.tailFps / $base.tailFps }
+        $per5 += "$(Cyc $r) $(Num $r.tailFps) fps（$(Num ($ratio * 100))%，缺格 $($r.seqGaps) 次）"
+        if ($ratio -lt 0.9) { $bad5 += Cyc $r }
+    }
+    Check '5. recovery 每一輪 fps 都回到基準（不累積延遲）' (-not $bad5.Count) ("第 1 輪 baseline 尾段 $(Num $base.tailFps) fps → recovery 尾段：" + ($per5 -join '；') + '（門檻 90%）' + $(if ($bad5.Count) { '；未通過：' + ($bad5 -join '、') } else { '' }))
+} else { Check '5. recovery 每一輪 fps 都回到基準（不累積延遲）' $null '沒有資料' }
 
-# 6 idle and resume
+# 6 idle and resume, every cycle
 if ($Mode -eq 'local') {
-    $idle = Ph 'idle_and_resume' 'idle' | Select-Object -Last 1
-    $res = Ph 'idle_and_resume' 'resume' | Select-Object -Last 1
-    if ($idle -and $res -and $base) {
-        $idleEnc = MaxOf (PhaseRows 'idle_and_resume/idle' 6 | ForEach-Object { $_.EncUtilPct })
-        $baseEnc = Avg (PhaseRows 'baseline' 5 | ForEach-Object { $_.EncUtilPct })
-        $encOk = $true; $encLimit = 2; if ($null -ne $baseEnc) { $encLimit = [math]::Max(2, 0.2 * $baseEnc) }
-        if ($null -ne $idleEnc) { $encOk = $idleEnc -le $encLimit }
-        $resumeKey = Get-Prop $res 'resumeAllKeyMs'
-        $resOk = ($null -ne $resumeKey) -and ($resumeKey -le 5000) -and ($res.tailFps -ge 0.8 * $base.tailFps)
-        Check '6. idle_and_resume：watch=0 停送且 NVENC≈0%，watch=1 立即續播' (($idle.idleFramesAfterGrace -eq 0) -and $encOk -and $resOk) `
-            ("idle（3 s 後）收到 $($idle.idleFramesAfterGrace) 格；idle NVENC 最高 $(Num $idleEnc)%（門檻 $(Num $encLimit)%，baseline 平均 $(Num $baseEnc)%）；恢復後首格 $(Get-Prop $res 'resumeFirstFrameMs') ms、4 路關鍵格 $resumeKey ms；resume 尾段 $(Num $res.tailFps) fps")
-    } else { Check '6. idle_and_resume：watch=0 停送且 NVENC≈0%，watch=1 立即續播' $null '沒有資料' }
-} else { Check '6. idle_and_resume（僅 local 模式）' $null 'live 模式觀看人數由正式後台決定，改跑 normal_cruise' }
+    $idles = @(Ph 'idle_and_resume' 'idle'); $ress = @(Whole 'idle_and_resume' 'resume')
+    $wholeIdles = @($idles | Where-Object { -not (Get-Prop $_ 'partial' $false) })
+    if ($wholeIdles.Count -and $ress.Count -and $base) {
+        $idleBlocks = PhaseBlocks 'idle_and_resume/idle'
+        $baseEnc = $null; if ($baseBlocks.Count) { $baseEnc = Avg (SkipFirst $baseBlocks[0] 5 | ForEach-Object { $_.EncUtilPct }) }
+        $encLimit = 2; if ($null -ne $baseEnc) { $encLimit = [math]::Max(2, 0.2 * $baseEnc) }
+        $bad6 = @(); $per6 = @()
+        for ($i = 0; $i -lt $idles.Count; $i++) {
+            $p = $idles[$i]; if (Get-Prop $p 'partial' $false) { continue }
+            $enc = $null; if ($i -lt $idleBlocks.Count) { $enc = MaxOf (SkipFirst $idleBlocks[$i] 6 | ForEach-Object { $_.EncUtilPct }) }
+            $why = @()
+            if ($p.idleFramesAfterGrace -ne 0) { $why += "3 s 後仍收到 $($p.idleFramesAfterGrace) 格（沒有停送）" }
+            if ($null -ne $enc -and $enc -gt $encLimit) { $why += "NVENC 最高 $(Num $enc)%" }
+            if ($why.Count) { $bad6 += "$(Cyc $p) idle：" + ($why -join '、') }
+            $per6 += "$(Cyc $p) idle 收到 $($p.idleFramesAfterGrace) 格、NVENC 最高 $(Num $enc)%"
+        }
+        foreach ($p in $ress) {
+            $key = Get-Prop $p 'resumeAllKeyMs'
+            $why = @()
+            if ($null -eq $key) { $why += '沒有等到 4 路關鍵格' } elseif ($key -gt 5000) { $why += "4 路關鍵格 $key ms" }
+            if (-not ($p.tailFps -gt 0) -or $p.tailFps -lt 0.8 * $base.tailFps) { $why += "尾段 $(Num $p.tailFps) fps（未回到 baseline 的 80%）" }
+            if ($why.Count) { $bad6 += "$(Cyc $p) resume：" + ($why -join '、') }
+            $per6 += "$(Cyc $p) resume 首格 $(Get-Prop $p 'resumeFirstFrameMs') ms、4 路關鍵格 $key ms、尾段 $(Num $p.tailFps) fps"
+        }
+        Check '6. idle_and_resume 每一輪：watch=0 停送且 NVENC≈0%，watch=1 立即續播' (-not $bad6.Count) `
+            ("$($wholeIdles.Count) 輪 idle／$($ress.Count) 輪 resume（NVENC 門檻 $(Num $encLimit)%，第 1 輪 baseline 平均 $(Num $baseEnc)%；resume：4 路關鍵格 ≤ 5000 ms、尾段 ≥ baseline 80%）：" + ($per6 -join '；') + $(if ($bad6.Count) { '；未通過：' + ($bad6 -join '；') } else { '' }))
+    } else { Check '6. idle_and_resume 每一輪：watch=0 停送且 NVENC≈0%，watch=1 立即續播' $null '沒有資料' }
+} else { $checks.Add([pscustomobject]@{ name = '6. idle_and_resume（僅 local 模式）'; state = 'N/A'; detail = 'live 模式觀看人數由正式後台決定，改跑 normal_cruise' }) }
 
 # 7 memory
 if ($null -ne $wsBase -and $null -ne $wsEnd) {
     $wsGrow = $wsEnd - $wsBase; $pvGrow = $pvEnd - $pvBase; $hGrow = $hEnd - $hBase
     $ok7 = ($wsGrow -le [math]::Max(150, 0.5 * $wsBase)) -and ($pvGrow -le [math]::Max(150, 0.5 * $pvBase)) -and ($hGrow -le [math]::Max(300, 0.5 * $hBase))
     $slope = ''
-    if ($alive.Count -ge 60) {   # a long run: the trend of its second half, MB per hour
-        $half = @($alive | Select-Object -Last ([int]($alive.Count / 2)))
-        $n = $half.Count; $sx = 0.0; $sy = 0.0; $sxx = 0.0; $sxy = 0.0
-        foreach ($r in $half) { $x = [double]$r.elapsedSec / 3600; $y = [double]$r.PrivateMB; $sx += $x; $sy += $y; $sxx += $x * $x; $sxy += $x * $y }
+    # A long run's trend, MB per hour, from the same steady moment of every cycle: each baseline's median Private.
+    # (Raw samples will not do: the encoders let go of ~300 MB in every blackout and idle, a saw-tooth that tilts
+    # a line fitted over any stretch that is not a whole number of cycles.)
+    $pts = @()
+    foreach ($blk in $baseBlocks) {
+        $b = @(SkipFirst $blk 10 | Where-Object { $_.Alive -eq 1 -and (Has $_.PrivateMB) })
+        if ($b.Count) { $pts += [pscustomobject]@{ x = (Avg ($b | ForEach-Object { $_.elapsedSec })) / 3600; y = (Median ($b | ForEach-Object { $_.PrivateMB })) } }
+    }
+    if ($pts.Count -ge 3) {
+        $n = $pts.Count; $sx = 0.0; $sy = 0.0; $sxx = 0.0; $sxy = 0.0
+        foreach ($q in $pts) { $sx += $q.x; $sy += $q.y; $sxx += $q.x * $q.x; $sxy += $q.x * $q.y }
         $den = $n * $sxx - $sx * $sx
-        if ($den -ne 0) { $b = ($n * $sxy - $sx * $sy) / $den; $slope = "；後半段 Private 趨勢 $(Num $b) MB/小時（門檻 30）"; if ($b -gt 30) { $ok7 = $false } }
+        if ($den -ne 0) {
+            $b = ($n * $sxy - $sx * $sy) / $den
+            $slope = "；$n 輪 baseline 的 Private 中位數 $(($pts | ForEach-Object { Num $_.y }) -join '→') MB，趨勢 $(Num $b) MB/小時（門檻 30）"
+            if ($b -gt 30) { $ok7 = $false }
+        }
     }
     Check '7. 記憶體與 Handle 無持續失控暴漲' $ok7 ("WorkingSet $(Num $wsBase)→$(Num $wsEnd) MB（峰值 $(Num $wsPeak)）、Private $(Num $pvBase)→$(Num $pvEnd) MB、Handles $(Num $hBase)→$(Num $hEnd)$slope")
 } else { Check '7. 記憶體與 Handle 無持續失控暴漲' $null '沒有 polaris-cam.exe 的取樣' }
@@ -485,10 +555,12 @@ if (Test-Path $logFile) {
     if ($mark -ge 0) { $manual = @($all[$mark..($all.Count - 1)] | Where-Object { $_ -match '^\S+\s+settings:' }) }
 }
 if ($Mode -eq 'local') {
+    # what went out, as the hello said (the remote stream is at most 960 wide: not the 1080p source)
+    $sent = ''; if ($final -and $final.hello -and $final.hello.cams) { $sent = '；遠端實際上傳 ' + ((@($final.hello.cams | Where-Object { $_.on } | ForEach-Object { "$($_.w)x$($_.h) $($_.codec)" }) | Select-Object -Unique) -join '、') }
     $checks.Insert(0, [pscustomobject]@{ name = '0. 測試期間無人手動更改 polaris-cam 設定'; state = $(if ($manual.Count) { 'FAIL' } else { 'PASS' })
-        detail = $(if ($manual.Count) { "polaris-cam.log 有 $($manual.Count) 筆設定變更（數據不可信）：" + (($manual | Select-Object -First 4) -join '；') } else { '設定全程為 1080p 30 fps、cameras 0xf、遠端開' }) })
+        detail = $(if ($manual.Count) { "polaris-cam.log 有 $($manual.Count) 筆設定變更（數據不可信）：" + (($manual | Select-Object -First 4) -join '；') } else { "Polaris Cam 設定檔全程維持不變（畫面來源 1080p／30 fps／cameras 0xf 4 路開／遠端開）$sent" }) })
 } elseif ($manual.Count) {
-    $checks.Insert(0, [pscustomobject]@{ name = '0. 測試期間的設定變更（live：僅供參考）'; state = 'SKIP'; detail = (($manual | Select-Object -First 4) -join '；') })
+    $checks.Insert(0, [pscustomobject]@{ name = '0. 測試期間的設定變更（live：僅供參考）'; state = 'INFO'; detail = (($manual | Select-Object -First 4) -join '；') })
 }
 
 L ''
@@ -496,7 +568,7 @@ L '## Pass / Fail 門檻檢查'
 L ''
 L '| 檢查 | 結果 | 說明 |'
 L '|---|---|---|'
-foreach ($c in $checks) { $mark = $c.state; if ($c.state -eq 'PASS') { $mark = '✅ PASS' } elseif ($c.state -eq 'FAIL') { $mark = '❌ FAIL' } else { $mark = '➖ SKIP' }; L "| $($c.name) | $mark | $($c.detail) |" }
+foreach ($c in $checks) { $mark = $c.state; if ($c.state -eq 'PASS') { $mark = '✅ PASS' } elseif ($c.state -eq 'FAIL') { $mark = '❌ FAIL' } elseif ($c.state -eq 'SKIP') { $mark = '⚠️ 無資料' } else { $mark = "➖ $($c.state)" }; L "| $($c.name) | $mark | $($c.detail) |" }
 
 # notes from the log (UTF-16, as polaris-cam.exe writes it)
 $logPath = Join-Path $OutDir 'polaris-cam.log'
@@ -521,16 +593,31 @@ if ($f -and $f.events) {
 L ''
 L "檔案：``metrics.csv``（每 $SampleSec 秒）、``metrics-final.json``、``proxy-final-full.json``（含每秒序列）、``proxy-series.ndjson``、``proxy-events.log``、``polaris-cam.log``$(if ($Mode -eq 'local') { '、``serve.log``' })"
 
+# The verdict: PASS only when every check that applies passed. A check with no data (SKIP) proves nothing, so it
+# makes the run INCONCLUSIVE, and so does a live run that never saw a frame: its upload path was not tested at all.
 $fails = @($checks | Where-Object { $_.state -eq 'FAIL' }).Count
 $passes = @($checks | Where-Object { $_.state -eq 'PASS' }).Count
-$verdict = "**總結：PASS**（$passes 項通過，$(@($checks | Where-Object { $_.state -eq 'SKIP' }).Count) 項略過）"
-if ($fails -gt 0 -or $interrupted -or $crashed) { $verdict = "**總結：FAIL**（$fails 項未通過$(if ($interrupted) { '，執行未完成' } else { '' })）" }
+$skips = @($checks | Where-Object { $_.state -eq 'SKIP' })
+$notApplicable = @($checks | Where-Object { $_.state -eq 'N/A' -or $_.state -eq 'INFO' }).Count
+$reasons = @()
+if ($Mode -eq 'live' -and -not ($frames -gt 0)) { $reasons += '`-Mode live` 全程未收到任何影格（確認後台 Broadcast 分頁有開著觀看），上傳路徑未驗證' }
+if ($skips.Count) { $reasons += "$($skips.Count) 項檢查沒有資料（" + (($skips | ForEach-Object { $_.name.Split('.')[0] }) -join '、') + '）' }
+if ($fails -gt 0 -or $interrupted -or $crashed) {
+    $result = 'FAIL'
+    $verdict = "**總結：FAIL**（$fails 項未通過$(if ($interrupted) { '，執行未完成' } else { '' })$(if ($reasons.Count) { '；' + ($reasons -join '；') } else { '' })）"
+} elseif ($reasons.Count) {
+    $result = 'INCONCLUSIVE'
+    $verdict = "**總結：INCONCLUSIVE（未驗證，不算通過）**：" + ($reasons -join '；') + "（另有 $passes 項通過）"
+} else {
+    $result = 'PASS'
+    $verdict = "**總結：PASS**（$passes 項通過$(if ($notApplicable) { "，$notApplicable 項不適用" } else { '' })）"
+}
 $text = $md.ToString().Replace($verdictPlaceholder, $verdict)
 $summaryPath = Join-Path $OutDir 'summary.md'
 [System.IO.File]::WriteAllText($summaryPath, $text, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host ''
-foreach ($c in $checks) { $col = 'Gray'; if ($c.state -eq 'PASS') { $col = 'Green' } elseif ($c.state -eq 'FAIL') { $col = 'Red' }; Write-Host ("  {0,-5} {1}" -f $c.state, $c.name) -ForegroundColor $col }
-Say ($verdict.Replace('**', '')) $(if ($fails -gt 0 -or $interrupted -or $crashed) { 'Red' } else { 'Green' })
+foreach ($c in $checks) { $col = 'Gray'; if ($c.state -eq 'PASS') { $col = 'Green' } elseif ($c.state -eq 'FAIL') { $col = 'Red' } elseif ($c.state -eq 'SKIP') { $col = 'Yellow' }; Write-Host ("  {0,-5} {1}" -f $c.state, $c.name) -ForegroundColor $col }
+Say ($verdict.Replace('**', '')) $(if ($result -eq 'PASS') { 'Green' } elseif ($result -eq 'FAIL') { 'Red' } else { 'Yellow' })
 Say "summary: $summaryPath" 'Cyan'
-if ($fails -gt 0 -or $interrupted -or $crashed) { exit 1 }
+if ($result -ne 'PASS') { exit 1 }
 exit 0

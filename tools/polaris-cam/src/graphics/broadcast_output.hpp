@@ -31,8 +31,11 @@ class BroadcastOutput {
   // GPU objects are kept until the process ends, as SceneFrameOutput's are.
   ~BroadcastOutput() = default;
 
-  // Compiles the two shaders once per process (optional; initialize does it too).
+  // Compiles the shaders once per process (optional; initialize does it too).
   static bool prepare_shaders() noexcept;
+  // Whether the anti-aliasing shader compiled; without it the pictures go out
+  // without anti-aliasing.
+  static bool antialias_shader_ready() noexcept;
   bool initialize(ID3D12Device* device) noexcept;
   bool initialized() const noexcept { return pipeline_ != nullptr && !failed_; }
   bool failed() const noexcept { return failed_; }
@@ -56,6 +59,10 @@ class BroadcastOutput {
   // CameraCompositorD3D12::set_display_exposure / set_tone_curve. A table is
   // taken only while idle (false otherwise: offer it again).
   bool set_display_exposure(float ev) noexcept;
+  // FXAA over each picture from the next prepare on (off at first). It takes a
+  // second pass through an intermediate picture of this size.
+  void set_antialias(bool on) noexcept { antialias_ = on; }
+  bool antialias() const noexcept { return antialias_ && fxaa_pipeline_ != nullptr && picture_ != nullptr; }
   bool set_tone_curve(float exposure, const std::uint32_t* table) noexcept;
   bool tone_curve_active() const noexcept { return tone_exposure_ > 0 && (tone_ready_ || tone_pending_); }
 
@@ -86,6 +93,7 @@ class BroadcastOutput {
   ID3D12Fence* fence_ = nullptr;
   ID3D12RootSignature* root_signature_ = nullptr;
   ID3D12PipelineState* pipeline_ = nullptr;
+  ID3D12PipelineState* fxaa_pipeline_ = nullptr;  // none: no anti-aliasing
   ID3D12DescriptorHeap* srv_heap_ = nullptr;
   ID3D12DescriptorHeap* rtv_heap_ = nullptr;
   ID3D12Resource* tone_table_ = nullptr;
@@ -93,13 +101,14 @@ class BroadcastOutput {
   unsigned char* tone_mapped_ = nullptr;
   std::array<ID3D12Resource*, Slots> textures_{};
   std::array<HANDLE, Slots> handles_{};
+  ID3D12Resource* picture_ = nullptr;  // the anti-aliasing pass's source
   UINT width_ = 0, height_ = 0;
   std::uint32_t generation_ = 0;
   float exposure_ev_ = -8.8f;
   float tone_exposure_ = 0;
   bool tone_pending_ = false, tone_ready_ = false, tone_recorded_ = false, tone_was_ready_ = false;
   std::uint64_t submitted_ = 0;
-  bool prepared_ = false, failed_ = false;
+  bool prepared_ = false, failed_ = false, antialias_ = false;
   const char* error_ = "";
 };
 }  // namespace taxi_camera

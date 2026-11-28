@@ -203,6 +203,10 @@ void note_scene_capture_progress(std::uint64_t now_ms) noexcept;
 void suspend_scene_rendering(bool suspended) noexcept;
 // wanted: a bit per feed that renders (RenderSchedule::configure); 0 renders every feed.
 void request_scene_rate(unsigned rate, unsigned feeds = 2, unsigned per_frame = 0, unsigned wanted = 0) noexcept;
+// Polaris Cam: the farthest the camera views draw, in metres, from their next
+// update on; 0 as far as the main view, as Taxi Cam's own do. Atomic
+// configuration only, read by the observer (view_clip.hpp, limit_camera_far).
+void request_scene_draw_distance(float metres) noexcept;
 // Validated configuration mailbox only. The observer applies separate mounts
 // with a fresh verified aircraft pose before their next activation.
 bool request_scene_profile(std::uint32_t id) noexcept;

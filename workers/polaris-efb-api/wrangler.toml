@@ -55,6 +55,12 @@ class_name = "Taskboard"
 name = "DESK"
 class_name = "LiveDesk"
 
+# CAM  Polaris Cam: the cockpit cameras of the streaming pilot's simulator PC, live on Broadcast; its own object, apart
+#      from the desk, so the pictures never get in the desk's way (src/cam.js)
+[[durable_objects.bindings]]
+name = "CAM"
+class_name = "CamRelay"
+
 # EMAIL  the AIRAC reminder emails to the staff who may update Nav Data (src/airacmail.js), and the task emails to the
 #        staff a task concerns (src/taskmail.js), Cloudflare Email Service.
 #        Sent from MAIL_FROM below. One-time setup in Cloudflare: koz8738.com › Email › Email Routing turned on, and, on the
@@ -86,6 +92,10 @@ new_sqlite_classes = ["Taskboard"]
 [[migrations]]
 tag = "desk-v1"
 new_sqlite_classes = ["LiveDesk"]
+
+[[migrations]]
+tag = "cam-v1"
+new_sqlite_classes = ["CamRelay"]
 
 [triggers]
 crons = ["*/20 * * * *", "*/2 * * * *"]   # */2: automatic stand assignment (src/stands.js)

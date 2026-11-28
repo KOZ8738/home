@@ -8,6 +8,8 @@
 #                         companion taxi-cam.exe, Taxi Cam's own window
 #                         viewer   polaris-cam.exe, the Polaris Cam window
 #                         selftest polaris-cam-selftest.exe, run by the build on Windows (test/selftest.cpp)
+#         and, only when named: remotetest polaris-cam-remote-test.exe, the back-office stream (H.264 on this computer's
+#                         graphics card, and JPEG) against a stand-in relay in Node (test/remote_stream_test.cpp)
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:?out dir}; shift
@@ -43,6 +45,8 @@ ENGINE=(src/camera/probe.cpp src/camera/local_memory.cpp src/camera/code_contrac
   src/camera/view_cascades.cpp src/camera/owned_entry_inventory.cpp src/camera/owned_view.cpp src/camera/view_pool.cpp
   src/hooks/observer_hook.cpp src/hooks/observer_thunk.S tools/diagnostics/image_inventory.cpp)
 LIBS=(-ld3d12 -ldxgi -ldxguid -ld3dcompiler)
+# Media Foundation, for the back office's H.264 (src/viewer/h264_encoder.cpp).
+MEDIA=(-lmfplat -lmfuuid -lmf)
 JOBS=${JOBS:-$(nproc)}
 wants() { [[ " $TARGETS " == *" $1 "* ]]; }
 # Objects are rebuilt when their source or any header is newer.
@@ -81,8 +85,9 @@ if wants companion; then
 fi
 if wants viewer; then
   "$WINDRES" -I "$OUT/generated" -I "$ROOT/src/viewer" -i "$ROOT/src/viewer/viewer.rc" -O coff -o "$OUT/obj/viewer.res.o"
-  "$CXX" "${COMMON[@]}" -municode -mwindows "$ROOT/src/viewer/viewer.cpp" "$OUT/obj/viewer.res.o" -ld3d11 -ldxgi -ldxguid -lcomctl32 \
-    -lshell32 -lole32 -lgdi32 -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
+  "$CXX" "${COMMON[@]}" -municode -mwindows "$ROOT/src/viewer/viewer.cpp" "$ROOT/src/viewer/remote_stream.cpp" \
+    "$ROOT/src/viewer/h264_encoder.cpp" "$OUT/obj/viewer.res.o" -ld3d11 -ldxgi -ldxguid -lcomctl32 -lshell32 -lole32 -loleaut32 -lgdi32 \
+    -lwinhttp -lwindowscodecs "${MEDIA[@]}" -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
   echo "built polaris-cam.exe"
 fi
 if wants selftest; then
@@ -91,4 +96,10 @@ if wants selftest; then
   "$CXX" "${COMMON[@]}" -municode "$ROOT/test/selftest.cpp" $(paths src/graphics/broadcast_output.cpp) "${LIBS[@]}" -Wl,--no-insert-timestamp \
     -o "$OUT/polaris-cam-selftest.exe"
   echo "built polaris-cam-selftest.exe"
+fi
+if wants remotetest; then
+  "$CXX" "${COMMON[@]}" "$ROOT/test/remote_stream_test.cpp" "$ROOT/src/viewer/remote_stream.cpp" "$ROOT/src/viewer/h264_encoder.cpp" \
+    -ld3d11 -ldxgi -ldxguid -lole32 -loleaut32 -lwinhttp -lwindowscodecs "${MEDIA[@]}" -Wl,--no-insert-timestamp \
+    -o "$OUT/polaris-cam-remote-test.exe"
+  echo "built polaris-cam-remote-test.exe"
 fi

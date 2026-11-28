@@ -13,6 +13,7 @@
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
 import { deskAdmin } from './desk.js';
+import { camAdmin } from './cam.js';
 import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
 import { crew, mailTo, mailPayload, crewTo, toMatch } from './crew.js';
@@ -207,6 +208,7 @@ const READS = [
   [/^\/admin\/api\/watch$/, ['fw']],
   [/^\/admin\/api\/navdata(\/|$)/, ['navdata']],
   [/^\/admin\/api\/desk(\/|$)/, ['bc']],
+  [/^\/admin\/api\/cam(\/|$)/, ['bc']],
 ];
 const readPages = (path) => { for (const [re, p] of READS) if (re.test(path)) return p; return null; };
 /* the classes the admin page hides what a role does not see or may not change by (Settings › Roles) */
@@ -217,6 +219,7 @@ function roleNeeds(method, path) {
   if (/^\/admin\/api\/(roles|pirep-probe|bookings-probe|ops-probe|eaip-probe|chart-pdf|chart-fixes|chart-list)(\/|$)/.test(path)) return 'admin';
   if (method === 'GET' || method === 'HEAD' || path === '/admin/api/aoctpl/preview' || path === '/admin/api/stands/try') return 'read';
   if (path === '/admin/api/desk') return 'live';
+  if (path === '/admin/api/cam') return 'live';
   if (/^\/admin\/api\/(mail|aoc|inbox)(\/|$)/.test(path)) return 'msg';
   if (path === '/admin/api/stands') return 'stands';
   if (/^\/admin\/api\/stands\//.test(path)) return 'gates';
@@ -364,6 +367,8 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Broadcast: the live broadcast desk (desk.js); its WebSocket for whoever sees the page, directing for those who may */
   if (path === '/admin/api/desk' || path === '/admin/api/desk/ws') return deskAdmin(req, url, env, who, perm.can.includes('live'));
+  /* Broadcast: Polaris Cam's cockpit cameras (cam.js): the pictures for whoever sees the page, its link for those who may direct */
+  if (path === '/admin/api/cam' || path === '/admin/api/cam/ws') return camAdmin(req, url, env, who, perm.can.includes('live'));
   /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
   if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
   if (path === '/admin/api/live') {

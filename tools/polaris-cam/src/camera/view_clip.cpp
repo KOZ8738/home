@@ -9,11 +9,6 @@
 
 namespace taxi_camera::native_camera {
 
-bool plausible_camera_clip(const CameraClip& clip) noexcept {
-  return std::isfinite(clip.near_plane) && std::isfinite(clip.far_plane) && std::isfinite(clip.default_far) && clip.near_plane > 0 &&
-         clip.default_far > clip.near_plane && (clip.far_plane < 0 || clip.far_plane > clip.near_plane);
-}
-
 bool read_camera_clip(std::uint64_t camera_address, CameraClip& clip) noexcept {
   if (!camera_address || (camera_address & 7) || camera_address > UINTPTR_MAX - kCameraNearOffset - 16)
     return false;

@@ -196,6 +196,7 @@ struct OverrideProfile {
   DisplayOverride choices;
   unsigned door_side = MaxDisplaySides;
   std::uint32_t broadcast_pane = 0;  // Polaris Cam (apply_choices)
+  std::uint32_t broadcast_feeds = 0;
   const AircraftProfile* base{};
   AircraftProfile profile{};
 };
@@ -207,13 +208,17 @@ inline const OverrideProfile* override_published{};
 // side 0's camera area (shape_cameras) from the ones base was made for, and
 // the door camera for its own side's (shape_door; MaxDisplaySides: none).
 // Polaris Cam: broadcast_pane ((width << 16) | height, 0 for none) renders
-// every camera view at that one size instead, for the broadcast pictures; the
-// cockpit displays are not written then (bridge_main.cpp).
+// the camera views in broadcast_feeds (a bit per view) at that one size
+// instead, for the broadcast pictures; the others keep their own, small, size
+// and do not render then. The cockpit displays are not written while the
+// broadcast runs (bridge_main.cpp).
+inline constexpr std::uint32_t AllCameraViews = (1u << CameraViews) - 1;
 inline void apply_choices(AircraftProfile& p,
                           const AircraftProfile& base,
                           const DisplayOverride& choices,
                           unsigned door_side = MaxDisplaySides,
-                          std::uint32_t broadcast_pane = 0) noexcept {
+                          std::uint32_t broadcast_pane = 0,
+                          std::uint32_t broadcast_feeds = AllCameraViews) noexcept {
   // A placed lower display: side 0's display region on the panel named for
   // it, with no cockpit control of its own.
   if (override_sides(base, choices) > base.sides) {
@@ -248,16 +253,23 @@ inline void apply_choices(AircraftProfile& p,
   shape_door(p, door_side);
   const std::int32_t width = static_cast<std::int32_t>(broadcast_pane >> 16), height = static_cast<std::int32_t>(broadcast_pane & 0xffffu);
   if (width >= MinCameraPane && width <= MaxCameraPane && height >= MinCameraPane && height <= MaxCameraPane)
-    for (auto& pane : p.camera_panes)
-      pane = {width, height};
+    for (unsigned feed = 0; feed < CameraViews; ++feed)
+      if ((broadcast_feeds >> feed) & 1u)
+        p.camera_panes[feed] = {width, height};
+}
+// Without a broadcast the cameras it would have shaped do not matter.
+inline std::uint32_t broadcast_feeds_of(std::uint32_t broadcast_pane, std::uint32_t broadcast_feeds) noexcept {
+  return broadcast_pane ? broadcast_feeds & AllCameraViews : 0u;
 }
 inline bool override_current(const AircraftProfile* base,
                              const DisplayOverride& choices,
                              unsigned door_side = MaxDisplaySides,
-                             std::uint32_t broadcast_pane = 0) noexcept {
+                             std::uint32_t broadcast_pane = 0,
+                             std::uint32_t broadcast_feeds = AllCameraViews) noexcept {
   const std::lock_guard lock(discovered_detail::publish_mutex);
   const auto* current = discovered_detail::override_published;
   return current && base && current->base == base && current->door_side == door_side && current->broadcast_pane == broadcast_pane &&
+         current->broadcast_feeds == broadcast_feeds_of(broadcast_pane, broadcast_feeds) &&
          std::memcmp(&current->choices, &choices, sizeof(choices)) == 0;
 }
 // Makes find(base->id) return base with these display choices and the door
@@ -266,13 +278,15 @@ inline bool override_current(const AircraftProfile* base,
 inline const AircraftProfile* publish_override(const AircraftProfile* base,
                                                const DisplayOverride& choices,
                                                unsigned door_side = MaxDisplaySides,
-                                               std::uint32_t broadcast_pane = 0) noexcept {
+                                               std::uint32_t broadcast_pane = 0,
+                                               std::uint32_t broadcast_feeds = AllCameraViews) noexcept {
   if (!base || !valid_override(*base, choices))
     return nullptr;
+  broadcast_feeds = broadcast_feeds_of(broadcast_pane, broadcast_feeds);
   const std::lock_guard lock(discovered_detail::publish_mutex);
   if (const auto* current = discovered_detail::override_published;
       current && current->base == base && current->door_side == door_side && current->broadcast_pane == broadcast_pane &&
-      std::memcmp(&current->choices, &choices, sizeof(choices)) == 0)
+      current->broadcast_feeds == broadcast_feeds && std::memcmp(&current->choices, &choices, sizeof(choices)) == 0)
     return &current->profile;
   auto* next = new (std::nothrow) OverrideProfile{};  // Never freed: older readers keep their profile.
   if (!next)
@@ -280,9 +294,10 @@ inline const AircraftProfile* publish_override(const AircraftProfile* base,
   next->choices = choices;
   next->door_side = door_side;
   next->broadcast_pane = broadcast_pane;
+  next->broadcast_feeds = broadcast_feeds;
   next->base = base;
   next->profile = *base;
-  apply_choices(next->profile, *base, next->choices, door_side, broadcast_pane);
+  apply_choices(next->profile, *base, next->choices, door_side, broadcast_pane, broadcast_feeds);
   discovered_detail::override_published = next;
   override_profile.store(&next->profile, std::memory_order_release);
   return &next->profile;

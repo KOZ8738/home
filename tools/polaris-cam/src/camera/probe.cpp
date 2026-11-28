@@ -53,6 +53,9 @@ struct Runtime {
   std::atomic<bool> enabled{false};
   std::atomic<bool> suspended{false};
   std::atomic<unsigned> requested_settings{kDefaultCameraRate | (2u << 8)};
+  // Polaris Cam: the farthest the camera views draw, metres; 0 as far as the
+  // main view (request_scene_draw_distance, apply_camera_clip).
+  std::atomic<float> draw_distance_limit{0.f};
   // Protected by mutex; never used directly by a native engine call.
   MountPair requested_mounts = default_mounts();
   const profiles::AircraftProfile* requested_profile = &profiles::A380;
@@ -1178,6 +1181,8 @@ void apply_camera_clip(Runtime& runtime, const ec::OwnedViewSnapshot& view, unsi
     runtime.clip_error = "clip_implausible_target";
     return;
   }
+  // Polaris Cam: the broadcast's draw distance, while one is asked for.
+  target = limit_camera_far(target, runtime.draw_distance_limit.load(std::memory_order_relaxed));
   const auto clip = apply_camera_far(view.camera_address, target);
   runtime.last_clips[feed] = clip.complete ? clip.after : clip.before;
   if (clip.complete && clip.write_attempted)
@@ -3392,6 +3397,10 @@ void request_scene_rate(unsigned rate, unsigned feeds, unsigned per_frame, unsig
   const auto settings = std::clamp(rate, kMinimumCameraRate, kMaximumCameraRate) | (std::clamp(feeds, 1u, kMaxCameraFeeds) << 8) |
                         (std::min(per_frame, kMaxCameraFeeds) << 16) | ((wanted & 0xfu) << 20);
   state().requested_settings.store(settings, std::memory_order_release);
+}
+
+void request_scene_draw_distance(float metres) noexcept {
+  state().draw_distance_limit.store(std::isfinite(metres) && metres > 0 ? metres : 0.f, std::memory_order_relaxed);
 }
 
 bool request_scene_profile(std::uint32_t id) noexcept {

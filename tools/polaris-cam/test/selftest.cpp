@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 #include "../src/camera/render_schedule.hpp"
+#include "../src/camera/view_clip.hpp"
 #include "../src/graphics/broadcast_output.hpp"
 #include "../src/profiles/discovered.hpp"
 #include "../src/shared/broadcast_link.hpp"
@@ -287,7 +288,8 @@ void verify_request() {
   Request request;
   request.on = true;
   expect(read_control(link, 1000, request) && !request.on, "a block nobody wrote asks for nothing");
-  const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat) {
+  const auto write = [&](std::uint32_t enabled, std::uint32_t width, std::uint32_t height, std::uint32_t mask, std::uint64_t heartbeat,
+                         std::uint32_t memory_guard = 1, std::uint32_t draw_distance = 0) {
     write_control(link, [&](Control& c) {
       c.enabled = enabled;
       c.width = width;
@@ -295,6 +297,8 @@ void verify_request() {
       c.fps = 30;
       c.feed_mask = mask;
       c.use_mounts = 1;
+      c.memory_guard = memory_guard;
+      c.draw_distance_m = draw_distance;
       c.heartbeat_ms = heartbeat;
       for (auto& mount : c.mounts) {
         const double values[6]{0, 2, 10, -10, 0, 1.2};
@@ -304,13 +308,23 @@ void verify_request() {
   };
   write(1, 1920, 1080, 0b0101, 1000);
   expect(read_control(link, 1000, request) && request.on && request.pane() == ((1920u << 16) | 1078u) && request.feed_mask == 0b0101 &&
-             request.use_mounts && request.fps == 30,
-         "1080p: on, cameras rendered 1920x1078, the mounts taken");
+             request.use_mounts && request.fps == 30 && request.memory_guard && request.draw_distance_m == 0,
+         "1080p: on, cameras rendered 1920x1078, the mounts taken, the memory guard on, as far as the main view");
   expect(read_control(link, 990, request) && request.on, "a heartbeat written just after the bridge read the clock is fresh");
   expect(read_control(link, 1000 + ControlStaleMs, request) && request.on, "still fresh at the limit");
   expect(read_control(link, 1001 + ControlStaleMs, request) && !request.on && request.pane() == 0, "stale after it: off, no broadcast shape");
-  write(1, 1280, 720, 0xf, 5000);
-  expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u), "720p: cameras rendered 1280x718");
+  write(1, 1280, 720, 0xf, 5000, 0);
+  expect(read_control(link, 5000, request) && request.on && request.pane() == ((1280u << 16) | 718u) && !request.memory_guard,
+         "720p: cameras rendered 1280x718; the memory guard off");
+  const auto distance = [&](std::uint32_t metres) {
+    write(1, 1920, 1080, 0xf, 5000, 1, metres);
+    return read_control(link, 5000, request) && request.on ? request.draw_distance_m : 0xffffffffu;
+  };
+  expect(distance(10000) == 10000 && distance(MinimumDrawDistanceM) == MinimumDrawDistanceM &&
+             distance(MaximumDrawDistanceM) == MaximumDrawDistanceM,
+         "a draw distance is taken as asked");
+  expect(distance(MinimumDrawDistanceM - 1) == 0 && distance(MaximumDrawDistanceM + 1) == 0 && distance(0) == 0,
+         "one outside 1 to 400 km is as far as the main view");
   write(1, 1920, 1088, 0xf, 5000);
   expect(read_control(link, 5000, request) && !request.on, "another size is not a request");
   write(1, 1920, 1080, 0, 5000);
@@ -330,24 +344,150 @@ void verify_request() {
   auto shaped = base;
   profiles::apply_choices(shaped, base, none, MaxDisplaySides, 0);
   expect(shaped.camera_panes == base.camera_panes, "without a broadcast the cameras keep the aircraft's own shapes");
-  profiles::apply_choices(shaped, base, none, MaxDisplaySides, pane_code(1920, 1080));
-  bool all = true;
-  for (const auto& pane : shaped.camera_panes)
-    all = all && pane[0] == 1920 && pane[1] == 1078;
-  expect(all, "with one, all four cameras are 1920x1078");
+  profiles::apply_choices(shaped, base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101);
+  const auto broadcast = [](const std::array<std::int32_t, 2>& pane) { return pane[0] == 1920 && pane[1] == 1078; };
+  expect(broadcast(shaped.camera_panes[0]) && broadcast(shaped.camera_panes[2]), "with one, the ticked cameras 1 and 3 are 1920x1078");
+  expect(shaped.camera_panes[1] == base.camera_panes[1] && shaped.camera_panes[3] == base.camera_panes[3],
+         "and the unticked cameras 2 and 4 keep the aircraft's own, small, size");
   expect(!profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080), "a 1920x1078 texture is no camera's before it is published");
-  const auto* published = profiles::publish_override(&base, none, MaxDisplaySides, pane_code(1920, 1080));
-  expect(published && profiles::find(base.id) == published && published->camera_panes[profiles::DoorFeed][1] == 1078,
+  const auto* published = profiles::publish_override(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101);
+  expect(published && profiles::find(base.id) == published && broadcast(published->camera_panes[2]) &&
+             published->camera_panes[profiles::DoorFeed] == base.camera_panes[profiles::DoorFeed],
          "published, the aircraft's profile has that shape");
   expect(profiles::camera_candidate(1920, 1078) && !profiles::camera_candidate(1920, 1080),
          "and a 1920x1078 texture is a camera's, while the simulator's own 1920x1080 ones are not");
-  expect(profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080)) &&
-             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1280, 720)) &&
-             !profiles::override_current(&base, none, MaxDisplaySides, 0),
-         "another size, or none, is another profile to publish");
-  published = profiles::publish_override(&base, none, MaxDisplaySides, 0);
+  expect(profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0101) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1920, 1080), 0b0111) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, pane_code(1280, 720), 0b0101) &&
+             !profiles::override_current(&base, none, MaxDisplaySides, 0, 0),
+         "other cameras, another size, or none, is another profile to publish");
+  published = profiles::publish_override(&base, none, MaxDisplaySides, 0, 0b0101);
   expect(published && published->camera_panes == base.camera_panes && !profiles::camera_candidate(1920, 1078),
          "the broadcast off publishes the aircraft's own shapes again");
+  expect(profiles::override_current(&base, none, MaxDisplaySides, 0, 0) && profiles::override_current(&base, none, MaxDisplaySides, 0, 0b1111),
+         "with the broadcast off, which cameras were ticked makes no other profile");
+
+  std::printf("-- settling on a camera shape\n");
+  ShapeSettle settle;
+  Request ask;
+  const auto shape_of = [](std::uint32_t width, std::uint32_t height, std::uint32_t feeds) { return Shape{pane_code(width, height), feeds}; };
+  expect(settle.update(ask, 1000) == Shape{} && settle.settled(), "off: no shape");
+  ask.on = true;
+  ask.width = 1280;
+  ask.height = 720;
+  ask.feed_mask = 0b0001;
+  expect(settle.update(ask, 2000) == Shape{} && !settle.settled(), "turned on: not at once");
+  expect(settle.update(ask, 2000 + ShapeSettle::SettleMs - 1) == Shape{}, "nor just before it has settled");
+  expect(settle.update(ask, 2000 + ShapeSettle::SettleMs) == shape_of(1280, 720, 0b0001) && settle.settled(), "then camera 1 at 1280x718");
+  ask.feed_mask = 0b0011;
+  expect(settle.update(ask, 3000) == shape_of(1280, 720, 0b0001), "camera 2 ticked: the shape in force stays for now");
+  ask.feed_mask = 0b0111;
+  settle.update(ask, 3400);
+  ask.feed_mask = 0b1111;
+  expect(settle.update(ask, 3800) == shape_of(1280, 720, 0b0001) && !settle.settled(), "cameras 3 and 4 ticked soon after: still the first");
+  expect(settle.update(ask, 3800 + ShapeSettle::SettleMs) == shape_of(1280, 720, 0b1111), "once settled, all four at once: one transition");
+  ask.height = 1080;
+  ask.width = 1920;
+  expect(settle.update(ask, 6000) == shape_of(1280, 720, 0b1111) && settle.update(ask, 7000) == shape_of(1920, 1080, 0b1111),
+         "another size: the same wait");
+  ask.on = false;
+  expect(settle.update(ask, 7001) == Shape{} && settle.settled(), "off: at once");
+
+  std::printf("-- the cameras' draw distance\n");
+  {
+    using taxi_camera::native_camera::CameraClip;
+    using taxi_camera::native_camera::limit_camera_far;
+    const CameraClip main{0.05f, 356700.f, 356700.f};  // the camera with the main view's far, as the log shows it
+    expect(limit_camera_far(main, 10000.f) == CameraClip{0.05f, 10000.f, 10000.f}, "10 km: both far values 10 km, the near plane kept");
+    expect(limit_camera_far(main, 0.f) == main && limit_camera_far(main, std::nanf("")) == main && limit_camera_far(main, -5.f) == main,
+           "0, or no distance at all: as far as the main view");
+    expect(limit_camera_far(main, 500000.f) == main, "farther than the main view: the main view's");
+    expect(limit_camera_far({0.05f, -1.f, 356700.f}, 5000.f) == CameraClip{0.05f, -1.f, 5000.f},
+           "a culling far that falls back to the default stays so, the default capped");
+    expect(limit_camera_far(main, 0.01f) == main, "a cap inside the near plane is refused");
+  }
+
+  std::printf("-- the memory guard\n");
+  {
+    MemoryGuard guard;
+    constexpr std::uint32_t Budget = 13600;  // a 16 GB card's
+    const auto used = [](std::uint32_t free_mb) { return Budget - free_mb; };
+    expect(guard.update(false, used(100), Budget, 1000) == guard_off && !guard.paused(), "not broadcasting, or turned off: off");
+    expect(guard.update(true, 0, 0, 1000) == guard_watching && !guard.paused(), "no reading: the cameras run");
+    expect(guard.update(true, used(MemoryGuard::PauseFreeMb), Budget, 2000) == guard_watching, "0.8 GB free: the cameras run");
+    expect(guard.update(true, used(MemoryGuard::PauseFreeMb - 1), Budget, 3000) == guard_paused, "less: paused at once");
+    expect(guard.update(true, Budget + 200, Budget, 3500) == guard_paused, "over the budget: paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 4000) == guard_paused, "just under 1.6 GB free: still paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 5000) == guard_paused, "1.6 GB free: not at once");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb + 500), Budget, 5000 + MemoryGuard::ResumeHoldMs - 1) == guard_paused,
+           "nor just before 15 s of it");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 5000 + MemoryGuard::ResumeHoldMs) == guard_paused,
+           "a reading under 1.6 GB free at 15 s: still paused");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000) == guard_paused &&
+               guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000 + MemoryGuard::ResumeHoldMs - 1) == guard_paused,
+           "and the 15 s start again from the next one with room");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb), Budget, 30000 + MemoryGuard::ResumeHoldMs) == guard_watching && !guard.paused(),
+           "15 s with 1.6 GB free: the cameras run again");
+    expect(guard.update(true, used(MemoryGuard::ResumeFreeMb - 1), Budget, 50000) == guard_watching, "between the two: they keep running");
+    expect(guard.update(true, used(100), Budget, 51000) == guard_paused && guard.update(true, 0, 0, 52000) == guard_watching,
+           "a reading that fails ends a pause");
+    expect(guard.update(true, used(100), Budget, 53000) == guard_paused && guard.update(false, used(100), Budget, 54000) == guard_off &&
+               guard.update(true, used(MemoryGuard::PauseFreeMb), Budget, 55000) == guard_watching,
+           "so does turning the broadcast or the guard off: on again, it starts afresh");
+  }
+
+  std::printf("-- a bridge of an earlier version\n");
+  // Each line's offsets, from that version's own layout: 0.1.0 to 0.1.2 have
+  // a Control of 232 bytes, 0.1.3 to 0.1.5 one of 240, as 0.2.0 does.
+  static_assert(std::size(OlderLinks) == 3);
+  static_assert(OlderLinks[0].version == 1 && OlderLinks[0].heartbeat == 8 + 232 && OlderLinks[0].pid == 8 + 232 + 8);
+  static_assert(OlderLinks[1].version == 2 && OlderLinks[1].heartbeat == 8 + 232 && OlderLinks[1].pid == 8 + 232 + 8);
+  static_assert(OlderLinks[2].version == 3 && OlderLinks[2].heartbeat == offsetof(Link, status) + offsetof(Status, heartbeat_ms) &&
+                OlderLinks[2].pid == offsetof(Link, status) + offsetof(Status, pid));
+  // A block that is already there belongs to a Polaris Cam that is running
+  // on this computer (a bridge in MSFS, or a window): the test never writes
+  // into it, and older_bridge would find that one too, so it skips them all.
+  bool older_running = false;
+  for (const auto& older : OlderLinks) {
+    wchar_t name[48];
+    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(older.version));
+    if (HANDLE existing = OpenFileMappingW(FILE_MAP_READ, FALSE, name)) {
+      CloseHandle(existing);
+      older_running = true;
+    }
+  }
+  if (older_running)
+    std::printf("SKIP  a Polaris Cam of an earlier version is running here; its block is left alone\n");
+  constexpr const char* Made[]{"the block of 0.1.0 and 0.1.1 can be made", "the block of 0.1.2 can be made",
+                               "the block of 0.1.3 to 0.1.5 can be made"};
+  constexpr const char* Found[]{"a bridge of 0.1.1 writing its heartbeat is found", "a bridge of 0.1.2 writing its heartbeat is found",
+                                "a bridge of 0.1.5 writing its heartbeat is found"};
+  static_assert(std::size(Made) == std::size(OlderLinks) && std::size(Found) == std::size(OlderLinks));
+  for (const auto& older : OlderLinks) {
+    if (older_running)
+      break;
+    // That version's block as its bridge writes it, as far as its heartbeat.
+    wchar_t name[48];
+    std::swprintf(name, 48, L"Local\\PolarisCam.Link.%u", static_cast<unsigned>(older.version));
+    const auto size = static_cast<DWORD>(older.pid + 4);
+    HANDLE block = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, size, name);
+    auto* bytes = block ? static_cast<unsigned char*>(MapViewOfFile(block, FILE_MAP_WRITE, 0, 0, size)) : nullptr;
+    expect(bytes != nullptr, Made[older.version - 1]);
+    if (bytes) {
+      const auto now = GetTickCount64();
+      expect(older_bridge(now) == 0, "a block nobody writes into: no bridge");
+      const std::uint32_t magic = LinkMagic, pid = 4242;
+      std::memcpy(bytes, &magic, sizeof(magic));
+      std::memcpy(bytes + 4, &older.version, sizeof(older.version));
+      std::memcpy(bytes + older.heartbeat, &now, sizeof(now));
+      std::memcpy(bytes + older.pid, &pid, sizeof(pid));
+      expect(older_bridge(now) == older.version, Found[older.version - 1]);
+      expect(older_bridge(now + StatusStaleMs + 1) == 0, "one that stopped is not");
+      UnmapViewOfFile(bytes);
+    }
+    if (block)
+      CloseHandle(block);
+  }
 
   std::printf("-- the cameras over the simulator's frames\n");
   const auto opened = [](unsigned rate, unsigned wanted, unsigned frame_ms, unsigned frames) {
@@ -395,9 +535,11 @@ DWORD WINAPI hammer_text(void* context) {
 }
 void verify_status_text() {
   std::printf("-- the aircraft path and message\n");
-  expect(offsetof(Status, feeds) == 472 && offsetof(Status, text_serial) == 464 && sizeof(Status::message) == 156,
-         "the text serial took the end of the old message: the feeds did not move");
-  expect(LinkVersion == 2, "link version 2");
+  expect(offsetof(Status, feeds) == 496 && offsetof(Status, text_serial) == 492 && sizeof(Status::message) == 156,
+         "the text serial took the end of 0.1.5's message: the feeds did not move");
+  expect(LinkVersion == 4 && std::wcscmp(LinkName, L"Local\\PolarisCam.Link.4") == 0 &&
+             std::wcscmp(FrameEventName, L"Local\\PolarisCam.Frame.4") == 0,
+         "link version 4, under names of its own");
   static Link link{};
   char aircraft[sizeof(Status::aircraft)], message[sizeof(Status::message)];
   expect(read_status_text(link, aircraft, message) && !aircraft[0] && !message[0], "a block nobody wrote reads empty");
@@ -617,6 +759,39 @@ int verify(bool hardware) {
       snapshot->Release();
     }
 
+    // 1b. Anti-aliasing: a diagonal edge black to white is softened where it
+    // steps, and nothing away from it changes.
+    expect(BroadcastOutput::antialias_shader_ready(), "the anti-aliasing shader compiles");
+    std::vector<std::uint32_t> diagonal(std::size_t{width} * pane);
+    const UINT shift = width / 4;
+    for (UINT y = 0; y < pane; ++y)
+      for (UINT x = 0; x < width; ++x)
+        diagonal[std::size_t{y} * width + x] = x > y + shift ? rgba8(255, 255, 255) : rgba8(0, 0, 0);
+    snapshot = make_snapshot(gpu, DXGI_FORMAT_R8G8B8A8_UNORM, width, pane, diagonal);
+    if (snapshot) {
+      output.set_antialias(true);
+      expect(output.antialias(), "anti-aliasing is on, with its intermediate picture");
+      expect(output.prepare(snapshot, DXGI_FORMAT_R8G8B8A8_UNORM, 0) && output.submit() && wait_idle(output), "it is recorded in two passes and runs");
+      const auto picture = read_picture(gpu, output.texture(0));
+      if (!picture.empty()) {
+        // Picture row y + 1 is the view's row y.
+        const auto red = [&](UINT x, UINT view_y) { return (picture[std::size_t{view_y + 1} * width + x] >> 16) & 0xffu; };
+        expect(picture[std::size_t{pane / 2 + 1} * width + width / 8] == 0xff000000u && picture[std::size_t{11} * width + width - 10] == 0xffffffffu,
+               "far from the edge, black and white as they were");
+        unsigned softened = 0;
+        for (UINT y = 100; y < 110; ++y) {
+          const UINT edge = y + shift;  // the last black pixel of the row
+          const auto inside = red(edge, y), outside = red(edge + 1, y);
+          softened += (inside > 10 && inside < 245) || (outside > 10 && outside < 245) ? 1 : 0;
+          expect(red(edge - 4, y) == 0 && red(edge + 5, y) == 255, "four pixels away it is unchanged");
+        }
+        expect(softened >= 8, "along the edge the steps are softened");
+      }
+      output.set_antialias(false);
+      expect(!output.antialias(), "and off again");
+      snapshot->Release();
+    }
+
     // 2. An HDR view without a tone curve: Taxi Cam's exposure and Reinhard.
     std::vector<std::uint32_t> hdr(std::size_t{width} * pane, r11g11b10(0.5f, 1.0f, 2.0f));
     for (UINT x = 0; x < width / 2; ++x)
@@ -716,6 +891,30 @@ int verify(bool hardware) {
       snapshot->Release();
     }
     expect(!output.failed(), "the remade output never failed");
+
+    std::printf("-- an output that ran FXAA, reset\n");
+    {
+      // Everything an output makes on the device holds the device: after a
+      // reset it is held as often as before, the FXAA pipeline let go too.
+      const auto references = [&] {
+        gpu.device->AddRef();
+        return gpu.device->Release();
+      };
+      BroadcastOutput fxaa;
+      const ULONG before = references();
+      for (unsigned round = 0; round < 2; ++round) {
+        expect(fxaa.initialize(gpu.device) && fxaa.resize(width, height, pid, 7003 + round, 2), "an output for FXAA");
+        expect(!fxaa.antialias(), "anti-aliasing starts off, also after a reset");
+        fxaa.set_antialias(true);
+        expect(fxaa.antialias(), "and is turned on");
+        if (auto* picture = make_snapshot(gpu, DXGI_FORMAT_R8G8B8A8_UNORM, width, pane, ldr)) {
+          expect(fxaa.prepare(picture, DXGI_FORMAT_R8G8B8A8_UNORM, 0) && fxaa.submit() && wait_idle(fxaa), "a picture through FXAA");
+          picture->Release();
+        }
+        expect(fxaa.reset() && !fxaa.initialized() && !fxaa.antialias(), "reset lets it all go");
+        expect(references() == before, "the device is held no more than before: nothing of the output is left");
+      }
+    }
     if (gpu.debug)
       expect(gpu.debug_errors() == 0, "the Direct3D debug layer saw nothing wrong");
   }
@@ -886,6 +1085,10 @@ int serve(int seconds, const wchar_t* expected_path, bool hardware) {
     status.view_ms = 5.5f;
     status.fps = request.on ? request.fps : 0;
     status.feed_mask = request.on ? request.feed_mask : 0;
+    status.memory_mb = 2048;
+    status.memory_budget_mb = 8192;
+    status.guard = request.on && request.memory_guard ? guard_watching : guard_off;
+    std::snprintf(status.version, sizeof(status.version), "%s", POLARIS_CAM_VERSION);
     constexpr char aircraft[] = "SimObjects\\Airplanes\\POLARIS_SELFTEST\\presets\\a\\b\\config\\aircraft.CFG";
     write_status_text(*link, aircraft, sizeof(aircraft), "");
     status.reason = !request.on ? reason_none : live ? reason_none : reason_starting;

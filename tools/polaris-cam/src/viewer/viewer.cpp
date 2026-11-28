@@ -24,6 +24,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cwchar>
+#include <optional>
 #include <string>
 #include "../shared/broadcast_link.hpp"
 #include "../shared/version.hpp"
@@ -58,6 +59,19 @@ constexpr std::array<Preset, 6> Presets{{
 constexpr int CustomPreset = static_cast<int>(Presets.size());
 constexpr std::array<int, Feeds> DefaultPresets{0, 1, 3, 4};
 constexpr std::array<unsigned, 10> FpsChoices{5, 10, 15, 20, 24, 25, 30, 40, 50, 60};
+// The cameras' draw distance in metres; 0 as far as the main view.
+struct DrawDistance {
+  std::uint32_t metres;
+  const wchar_t* name;
+};
+constexpr std::array<DrawDistance, 6> DrawDistances{{
+    {0, L"同主畫面（最遠）"},
+    {50000, L"50 公里"},
+    {20000, L"20 公里"},
+    {10000, L"10 公里"},
+    {5000, L"5 公里"},
+    {2000, L"2 公里"},
+}};
 
 enum ControlId : int {
   IdEnable = 100,
@@ -73,10 +87,20 @@ enum ControlId : int {
   IdRemote,
   IdRemoteUrl,
   IdRemoteStatus,
+  IdGuard,
+  IdDistance,
+  IdSavePreset,
+  IdAntialias,
   IdCamera = 200,  // + feed
   IdPreset = 210,  // + feed
   IdField = 220,   // + 0..5
+  IdSaveAs = 300,  // + preset: the menu of "存為預設"
+  IdRestore = 320,  // + preset
 };
+// Every id is one control's or one menu item's alone: the ranges never meet.
+static_assert(IdAntialias < IdCamera && IdCamera + static_cast<int>(Feeds) <= IdPreset && IdPreset + static_cast<int>(Feeds) <= IdField &&
+                  IdField + 6 <= IdSaveAs && IdSaveAs + CustomPreset <= IdRestore,
+              "control ids overlap");
 
 struct Settings {
   bool enabled = false;
@@ -84,6 +108,9 @@ struct Settings {
   std::uint32_t fps = DefaultFps;
   std::uint32_t mask = 1;
   bool windows = false;
+  bool memory_guard = true;  // the cameras pause while graphics memory runs out
+  std::uint32_t draw_distance = 0;  // one of DrawDistances
+  bool antialias = true;  // FXAA over the pictures
   std::array<Mount, Feeds> mounts{};
   std::array<int, Feeds> presets = DefaultPresets;
   // The back office (remote_stream.hpp): sent there or not, and the link it gave.
@@ -128,7 +155,10 @@ struct App {
   LinkMapping link;
   HANDLE frame_event = nullptr;
   Settings settings;
-  std::wstring aircraft;  // the key the mounts are saved under
+  std::wstring aircraft;  // the key the mounts and the user's presets are saved under
+  // The user's own position for each preset on this aircraft (load_presets);
+  // none: the built-in one.
+  std::array<std::optional<Mount>, Presets.size()> own_presets{};
   // The bridge's aircraft path and message, the last complete copy
   // read_status_text gave: a read during a write keeps these.
   char link_aircraft[sizeof(Status::aircraft)]{};
@@ -143,6 +173,7 @@ struct App {
   std::uint64_t gpu_retry_ms = 0;
   std::wstring gpu_error;
   std::uint32_t bridge_pid = 0;
+  std::uint32_t bridge_guard = guard_off;  // the guard state last noted in the log
   std::uint64_t heartbeat_ms = 0, labels_ms = 0, rate_ms = 0;
   std::wstring status_text;
   bool filling = false;  // controls are being set from code
@@ -228,6 +259,54 @@ std::wstring aircraft_key(const char* path) {
     key += (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ? static_cast<wchar_t>(c) : L'_';
   return key.empty() ? L"default" : key;
 }
+// --- presets -------------------------------------------------------------
+// Each preset can be replaced by a position of the user's own, for the
+// aircraft that is loaded (every model has its own reference point):
+// [presets:<aircraft>] preset1..preset6, as right,up,forward,pitch,yaw,fov.
+std::wstring presets_section() {
+  return L"presets:" + (app.aircraft.empty() ? std::wstring(L"default") : app.aircraft);
+}
+void load_presets() {
+  const auto path = ini_path();
+  const auto section = presets_section();
+  for (std::size_t i = 0; i < Presets.size(); ++i) {
+    wchar_t name[16], text[160]{};
+    std::swprintf(name, 16, L"preset%u", static_cast<unsigned>(i + 1));
+    GetPrivateProfileStringW(section.c_str(), name, L"", text, 160, path.c_str());
+    Mount mount{};
+    app.own_presets[i].reset();
+    if (std::swscanf(text, L"%lf,%lf,%lf,%lf,%lf,%lf", &mount[0], &mount[1], &mount[2], &mount[3], &mount[4], &mount[5]) == 6 &&
+        valid_mount(mount.data()))
+      app.own_presets[i] = mount;
+  }
+}
+void save_preset(std::size_t i) {
+  wchar_t name[16], text[160];
+  std::swprintf(name, 16, L"preset%u", static_cast<unsigned>(i + 1));
+  const auto section = presets_section();
+  if (const auto& own = app.own_presets[i]) {
+    const auto& m = *own;
+    std::swprintf(text, 160, L"%.3f,%.3f,%.3f,%.2f,%.2f,%.4f", m[0], m[1], m[2], m[3], m[4], m[5]);
+    WritePrivateProfileStringW(section.c_str(), name, text, ini_path().c_str());
+  } else {
+    WritePrivateProfileStringW(section.c_str(), name, nullptr, ini_path().c_str());  // back to the built-in one
+  }
+}
+// Where a preset puts a camera on this aircraft.
+Mount preset_mount(int preset) {
+  const auto i = static_cast<std::size_t>(preset);
+  return app.own_presets[i] ? *app.own_presets[i] : Presets[i].mount;
+}
+// "二排中", without the built-in description.
+std::wstring preset_short(std::size_t i) {
+  const std::wstring name = Presets[i].name;
+  return name.substr(0, name.find(L'（'));
+}
+// What the lists show: the built-in description, or that it is the user's own.
+std::wstring preset_label(std::size_t i) {
+  return app.own_presets[i] ? preset_short(i) + L"（自己調的）" : std::wstring(Presets[i].name);
+}
+
 void load_mounts(const std::wstring& key) {
   const auto path = ini_path();
   const auto section = L"mounts:" + key;
@@ -243,7 +322,7 @@ void load_mounts(const std::wstring& key) {
       app.settings.presets[feed] = preset >= 0 && preset <= CustomPreset ? preset : CustomPreset;
     } else {
       app.settings.presets[feed] = DefaultPresets[feed];
-      app.settings.mounts[feed] = Presets[static_cast<std::size_t>(DefaultPresets[feed])].mount;
+      app.settings.mounts[feed] = preset_mount(DefaultPresets[feed]);
     }
   }
 }
@@ -272,7 +351,15 @@ void load_settings() {
   wchar_t url[2048]{};
   GetPrivateProfileStringW(L"remote", L"url", L"", url, 2048, path.c_str());
   s.remote_url = url;
+  s.memory_guard = GetPrivateProfileIntW(L"general", L"memory_guard", 1, path.c_str()) != 0;
+  s.antialias = GetPrivateProfileIntW(L"general", L"antialias", 1, path.c_str()) != 0;
+  const auto distance = static_cast<std::uint32_t>(GetPrivateProfileIntW(L"general", L"draw_distance", 0, path.c_str()));
+  s.draw_distance = 0;
+  for (const auto& choice : DrawDistances)
+    if (choice.metres == distance)
+      s.draw_distance = distance;
   app.aircraft = L"default";
+  load_presets();
   load_mounts(app.aircraft);
 }
 void save_settings() {
@@ -288,6 +375,9 @@ void save_settings() {
   put(L"fps", s.fps);
   put(L"cameras", s.mask);
   put(L"windows", s.windows ? 1 : 0);
+  put(L"memory_guard", s.memory_guard ? 1 : 0);
+  put(L"draw_distance", s.draw_distance);
+  put(L"antialias", s.antialias ? 1 : 0);
   WritePrivateProfileStringW(L"remote", L"enabled", s.remote ? L"1" : L"0", path.c_str());
   WritePrivateProfileStringW(L"remote", L"url", s.remote_url.c_str(), path.c_str());
   save_mounts();
@@ -307,6 +397,9 @@ void write_link() {
     c.fps = s.fps;
     c.feed_mask = s.mask;
     c.use_mounts = 1;
+    c.memory_guard = s.memory_guard ? 1 : 0;
+    c.draw_distance_m = s.draw_distance;
+    c.antialias = s.antialias ? 1 : 0;
     c.heartbeat_ms = app.heartbeat_ms;
     for (unsigned feed = 0; feed < Feeds; ++feed)
       for (unsigned i = 0; i < 6; ++i)
@@ -675,18 +768,26 @@ std::wstring widen(const char* text, std::size_t limit) {
     out += static_cast<wchar_t>(static_cast<unsigned char>(text[i]) < 0x80 ? text[i] : '?');
   return out;
 }
+double gigabytes(std::uint32_t mb) {
+  return mb / 1024.0;
+}
 void update_status(std::uint64_t now) {
   std::wstring text;
   const auto* link = app.link.get();
+  wchar_t line[256];
   if (!link) {
     text = L"無法建立與模擬器之間的共享區。";
   } else if (!bridge_present(now)) {
-    text = L"尚未連上模擬器";
+    // The bridge stays loaded in MSFS until MSFS exits: files replaced while
+    // it ran change nothing until then.
+    if (older_bridge(now))
+      text = L"MSFS 裡還是換檔案前載入的舊版 Polaris Cam。\r\n請完全關閉 MSFS 再開，再執行 taxi-cam.exe 並按 Connect。";
+    else
+      text = L"尚未連上模擬器";
   } else if (link->status.protocol != LinkVersion) {
     text = L"模擬器裡的 bridge 版本和這個視窗不同：請關閉 MSFS，兩個程式都用同一份下載檔重新開啟。";
   } else {
     const auto& s = link->status;
-    wchar_t line[256];
     switch (s.state) {
       case link_idle:
         text = L"已連上模擬器";
@@ -703,6 +804,12 @@ void update_status(std::uint64_t now) {
         break;
       }
       default: {
+        if (s.reason == reason_memory) {
+          std::swprintf(line, 256, L"顯示記憶體快滿了，鏡頭先暫停、畫面停在最後一張；剩餘回到 %.1f GB 以上 %u 秒後自動繼續。",
+                        gigabytes(MemoryGuard::ResumeFreeMb), static_cast<unsigned>(MemoryGuard::ResumeHoldMs / 1000));
+          text = line;
+          break;
+        }
         // The ticked cameras and those of them that failed (update_failure).
         const std::uint32_t ticked = app.settings.mask & ((1u << Feeds) - 1);
         std::uint32_t failed = 0;
@@ -726,6 +833,18 @@ void update_status(std::uint64_t now) {
         std::swprintf(line, 256, L"\r\n模擬器 %.0f fps", static_cast<double>(s.sim_fps));
       text += line;
     }
+    if (s.memory_budget_mb) {
+      const std::uint32_t free_mb = s.memory_mb < s.memory_budget_mb ? s.memory_budget_mb - s.memory_mb : 0;
+      std::swprintf(line, 256, L"\r\n顯示記憶體 %.1f / %.1f GB，剩 %.1f GB", gigabytes(s.memory_mb), gigabytes(s.memory_budget_mb),
+                    gigabytes(free_mb));
+      text += line;
+    }
+    if (std::strncmp(s.version, POLARIS_CAM_VERSION, sizeof(s.version)) != 0) {
+      // Same link version, so they work together; the bridge changes only when MSFS restarts.
+      std::swprintf(line, 256, L"\r\nMSFS 裡的 bridge 是 %ls，重開 MSFS 後換成 " POLARIS_CAM_VERSION_WIDE L"。",
+                    widen(s.version, sizeof(s.version)).c_str());
+      text += line;
+    }
     if (!app.gpu_error.empty())
       text += L"\r\n" + app.gpu_error;
   }
@@ -737,6 +856,7 @@ void update_status(std::uint64_t now) {
 void fill_mount_fields();
 void apply_remote();
 void update_remote(std::uint64_t now);
+void fill_preset_lists();
 bool adjusting(HWND focus);
 void held_keys(std::uint64_t now);
 void apply_mount(Mount mount);
@@ -826,15 +946,22 @@ void tick() {
     if (key != app.aircraft && key != L"default") {
       save_mounts();
       app.aircraft = key;
+      load_presets();
       load_mounts(key);
+      fill_preset_lists();
       fill_mount_fields();
       write_link();
     }
     const auto luid = link->status.adapter;
     if (app.bridge_pid != link->status.pid) {
       app.bridge_pid = link->status.pid;
-      note(L"bridge: pid %lu link version %u aircraft %hs", static_cast<unsigned long>(link->status.pid), link->status.protocol,
-           app.link_aircraft);
+      note(L"bridge: pid %lu link version %u Polaris Cam %ls aircraft %hs", static_cast<unsigned long>(link->status.pid), link->status.protocol,
+           widen(link->status.version, sizeof(link->status.version)).c_str(), app.link_aircraft);
+    }
+    if (app.bridge_guard != link->status.guard) {
+      app.bridge_guard = link->status.guard;
+      note(L"memory guard: %ls, %u of %u MB", app.bridge_guard == guard_paused ? L"cameras paused" : app.bridge_guard == guard_watching ? L"watching" : L"off",
+           link->status.memory_mb, link->status.memory_budget_mb);
     }
     if ((luid.LowPart || luid.HighPart) && link->status.protocol == LinkVersion) {
       if (!app.device && now >= app.gpu_retry_ms && !open_gpu(luid))
@@ -883,6 +1010,8 @@ void tick() {
 
 // --- layout -----------------------------------------------------------------
 constexpr int PanelWidth = 336, Margin = 16, LabelHeight = 24;
+// Where the help line starts, below the last control of the panel (create_controls).
+constexpr int PanelHintTop = 630;
 RECT preview_area() {
   RECT client{};
   GetClientRect(app.main, &client);
@@ -947,7 +1076,7 @@ void layout() {
   RECT client{};
   GetClientRect(app.main, &client);
   // The help text takes what is left of the panel's height.
-  const int hint_top = px(606);
+  const int hint_top = px(PanelHintTop);
   SetWindowPos(control(IdHint), nullptr, px(Margin), hint_top, px(PanelWidth - Margin - 8),
                std::max(static_cast<int>(client.bottom) - hint_top - px(Margin), px(20)), SWP_NOZORDER | SWP_NOACTIVATE);
   InvalidateRect(app.main, nullptr, TRUE);
@@ -978,6 +1107,19 @@ void field_text(wchar_t* text, std::size_t count, unsigned i, const Mount& mount
     std::swprintf(text, count, L"%.1f", mount[5] * 180.0 / Pi);
   else
     std::swprintf(text, count, i < 3 ? L"%.2f" : L"%.1f", mount[i]);
+}
+// The four cameras' preset lists: the presets as they are on this aircraft, and 自訂.
+void fill_preset_lists() {
+  app.filling = true;
+  for (unsigned feed = 0; feed < Feeds; ++feed) {
+    HWND list = control(IdPreset + static_cast<int>(feed));
+    SendMessageW(list, CB_RESETCONTENT, 0, 0);
+    for (std::size_t i = 0; i < Presets.size(); ++i)
+      SendMessageW(list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(preset_label(i).c_str()));
+    SendMessageW(list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
+    SendMessageW(list, CB_SETCURSEL, static_cast<WPARAM>(app.settings.presets[feed]), 0);
+  }
+  app.filling = false;
 }
 void fill_mount_fields() {
   app.filling = true;
@@ -1030,19 +1172,42 @@ void fill_controls() {
   Button_SetCheck(control(IdWindows), s.windows ? BST_CHECKED : BST_UNCHECKED);
   Button_SetCheck(control(IdRemote), s.remote ? BST_CHECKED : BST_UNCHECKED);
   SetDlgItemTextW(app.main, IdRemoteUrl, s.remote_url.c_str());
+  Button_SetCheck(control(IdGuard), s.memory_guard ? BST_CHECKED : BST_UNCHECKED);
+  Button_SetCheck(control(IdAntialias), s.antialias ? BST_CHECKED : BST_UNCHECKED);
+  for (std::size_t i = 0; i < DrawDistances.size(); ++i)
+    if (DrawDistances[i].metres == s.draw_distance)
+      SendMessageW(control(IdDistance), CB_SETCURSEL, static_cast<WPARAM>(i), 0);
   app.filling = false;
   fill_mount_fields();
 }
+// The left panel at 96 DPI, top to bottom (x, y, width, height):
+//   title 16,12 134x28 and version 150,20 178x18 (side by side, apart)
+//   status 16,42 312x72: four lines (state, simulator rate, graphics memory, one more)
+//   直播模式 16,118 110x22 | 顯示記憶體快滿時暫停 140,118 188x22
+//   畫質 16,150 | 1080p 64,148 | 720p 140,148 | 抗鋸齒 (FXAA) 214,148 114x22
+//   幀數 16,180 | combo 64,176 72 | fps（每顆鏡頭）142,180
+//   繪製距離 16,210 | combo 90,206 140 | 近一點較省 238,210
+//   鏡頭（勾選的才會渲染）16,240; cameras 1-4 at 264, 292, 320, 348 (22 high, combo 2 above)
+//   鏡頭 N 的位置 16,384 92x20 | select 112,380 76 | 重設 194,379 50x26 | 存為預設… 250,379 78x26
+//   six fields at 414, 446, 478 (25 high; two columns at 16 and 176)
+//   OBS output windows 16,514 300x22
+//   後台監看 16,548 | 傳送到後台 96,546 140x22
+//   後台連線連結 16,578 | link 104,574 224x25
+//   remote status 16,604 312x20
+//   help (HintShort, click for HintKeys) from PanelHintTop = 630 to the bottom
 void create_controls() {
-  make(L"STATIC", AppTitle, 0, Margin, 12, 200, 28, -1, app.title);
+  make(L"STATIC", AppTitle, 0, Margin, 12, 134, 28, -1, app.title);
   make(L"STATIC", L"原型 " POLARIS_CAM_VERSION_WIDE L"（Taxi Cam " TAXI_CAM_VERSION_WIDE L"）", SS_RIGHT, 150, 20, 178, 18, -1);
-  make(L"STATIC", L"", 0, Margin, 44, PanelWidth - Margin - 8, 64, IdStatus);
-  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 112, 110, 22, IdEnable, app.bold);
-  make(L"STATIC", L"畫質", 0, Margin, 146, 40, 20, -1);
-  make(L"BUTTON", L"1080p", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 64, 144, 72, 22, IdSize1080);
-  make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 144, 64, 22, IdSize720);
-  make(L"STATIC", L"幀數", WS_GROUP, Margin, 176, 40, 20, -1);
-  HWND fps = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 64, 172, 72, 240, IdFps);
+  // Four lines: the state, the simulator's rate, graphics memory, and room for one more.
+  make(L"STATIC", L"", 0, Margin, 42, PanelWidth - Margin - 8, 72, IdStatus);
+  make(L"BUTTON", L"直播模式", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 118, 110, 22, IdEnable, app.bold);
+  make(L"BUTTON", L"顯示記憶體快滿時暫停", BS_AUTOCHECKBOX | WS_TABSTOP, 140, 118, 188, 22, IdGuard);
+  make(L"STATIC", L"畫質", 0, Margin, 150, 40, 20, -1);
+  make(L"BUTTON", L"1080p", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 64, 148, 72, 22, IdSize1080);
+  make(L"BUTTON", L"720p", BS_AUTORADIOBUTTON, 140, 148, 64, 22, IdSize720);
+  make(L"BUTTON", L"抗鋸齒 (FXAA)", BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP, 214, 148, 114, 22, IdAntialias);
+  make(L"STATIC", L"幀數", WS_GROUP, Margin, 180, 40, 20, -1);
+  HWND fps = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 64, 176, 72, 240, IdFps);
   // Each item holds its rate as item data (select_fps adds one the list lacks).
   for (const auto value : FpsChoices) {
     wchar_t text[8];
@@ -1051,46 +1216,50 @@ void create_controls() {
     if (item >= 0)
       SendMessageW(fps, CB_SETITEMDATA, static_cast<WPARAM>(item), static_cast<LPARAM>(value));
   }
-  make(L"STATIC", L"fps（每顆鏡頭）", 0, 142, 176, 150, 20, -1);
-  make(L"STATIC", L"鏡頭（勾選的才會渲染）", 0, Margin, 208, 300, 20, -1, app.bold);
+  make(L"STATIC", L"fps（每顆鏡頭）", 0, 142, 180, 150, 20, -1);
+  make(L"STATIC", L"繪製距離", WS_GROUP, Margin, 210, 70, 20, -1);
+  HWND distance = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, 206, 140, 240, IdDistance);
+  for (const auto& choice : DrawDistances)
+    SendMessageW(distance, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(choice.name));
+  make(L"STATIC", L"近一點較省", 0, 238, 210, 90, 20, -1);
+  make(L"STATIC", L"鏡頭（勾選的才會渲染）", 0, Margin, 240, 300, 20, -1, app.bold);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
-    const int y = 232 + static_cast<int>(feed) * 28;
+    const int y = 264 + static_cast<int>(feed) * 28;
     make(L"BUTTON", text, BS_AUTOCHECKBOX | WS_TABSTOP, Margin, y, 70, 22, IdCamera + static_cast<int>(feed));
-    HWND preset = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, y - 2, 238, 240, IdPreset + static_cast<int>(feed));
-    for (const auto& item : Presets)
-      SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item.name));
-    SendMessageW(preset, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"自訂"));
+    make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 90, y - 2, 238, 240, IdPreset + static_cast<int>(feed));
   }
-  make(L"STATIC", L"", 0, Margin, 352, 110, 20, IdMountTitle, app.bold);  // "鏡頭 N 的位置" (fill_mount_fields)
-  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 348, 100, 200, IdSelect);
+  fill_preset_lists();
+  make(L"STATIC", L"", 0, Margin, 384, 92, 20, IdMountTitle, app.bold);  // "鏡頭 N 的位置" (fill_mount_fields)
+  HWND select = make(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, 112, 380, 76, 200, IdSelect);
   for (unsigned feed = 0; feed < Feeds; ++feed) {
     wchar_t text[16];
     std::swprintf(text, 16, L"鏡頭 %u", feed + 1);
     SendMessageW(select, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text));
   }
-  make(L"BUTTON", L"重設", WS_TABSTOP, 240, 347, 60, 26, IdReset);
+  make(L"BUTTON", L"重設", WS_TABSTOP, 194, 379, 50, 26, IdReset);
+  make(L"BUTTON", L"存為預設…", WS_TABSTOP, 250, 379, 78, 26, IdSavePreset);
   // Two columns: position on the left, direction and view angle on the right.
   constexpr std::array<int, 6> Column{0, 0, 0, 1, 1, 1}, Row{0, 1, 2, 0, 1, 2};
   for (unsigned i = 0; i < 6; ++i) {
-    const int x = Margin + Column[i] * 160, y = 382 + Row[i] * 32;
+    const int x = Margin + Column[i] * 160, y = 414 + Row[i] * 32;
     make(L"STATIC", FieldNames[i], 0, x, y + 4, 66, 20, -1);
     make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, x + 68, y, 76, 25, IdField + static_cast<int>(i));
   }
-  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 492, 300, 22, IdWindows);
+  make(L"BUTTON", L"開啟給 OBS 擷取的輸出視窗", BS_AUTOCHECKBOX | WS_TABSTOP, Margin, 514, 300, 22, IdWindows);
   // The back office: a tick box, the link it gave, and how sending goes.
-  make(L"STATIC", L"後台監看", 0, Margin, 526, 70, 20, -1, app.bold);
-  make(L"BUTTON", L"傳送到後台", BS_AUTOCHECKBOX | WS_TABSTOP, 96, 524, 140, 22, IdRemote);
-  make(L"STATIC", L"後台連線連結", 0, Margin, 556, 86, 20, -1);
-  HWND url = make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, 104, 552, PanelWidth - 104 - 8, 25, IdRemoteUrl);
+  make(L"STATIC", L"後台監看", 0, Margin, 548, 70, 20, -1, app.bold);
+  make(L"BUTTON", L"傳送到後台", BS_AUTOCHECKBOX | WS_TABSTOP, 96, 546, 140, 22, IdRemote);
+  make(L"STATIC", L"後台連線連結", 0, Margin, 578, 86, 20, -1);
+  HWND url = make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, 104, 574, PanelWidth - 104 - 8, 25, IdRemoteUrl);
   SendMessageW(url, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"貼上後台複製的連結"));
-  make(L"STATIC", L"", SS_ENDELLIPSIS | SS_NOPREFIX, Margin, 582, PanelWidth - Margin - 8, 20, IdRemoteStatus);
-  make(L"STATIC", HintShort, SS_NOTIFY, Margin, 606, PanelWidth - Margin - 8, 200, IdHint);
+  make(L"STATIC", L"", SS_ENDELLIPSIS | SS_NOPREFIX, Margin, 604, PanelWidth - Margin - 8, 20, IdRemoteStatus);
+  make(L"STATIC", HintShort, SS_NOTIFY, Margin, PanelHintTop, PanelWidth - Margin - 8, 200, IdHint);
 }
 
 // --- the back office ----------------------------------------------------------
-const wchar_t* preset_name(unsigned feed);
+std::wstring preset_name(unsigned feed);
 // The cameras the hello names: ticked or not, their place's name, the size sent.
 void remote_cams() {
   std::array<remote::CamInfo, remote::Cams> cams{};
@@ -1134,8 +1303,9 @@ void update_remote(std::uint64_t now) {
 // --- changes ----------------------------------------------------------------
 void settings_changed(bool mounts_only = false) {
   if (!mounts_only)
-    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d", app.settings.enabled ? L"on" : L"off", app.settings.width(),
-         app.settings.height, app.settings.fps, app.settings.mask, app.settings.windows ? 1 : 0);
+    note(L"settings: %ls %ux%u %u fps cameras 0x%x windows %d memory guard %d draw distance %u m antialias %d",
+         app.settings.enabled ? L"on" : L"off", app.settings.width(), app.settings.height, app.settings.fps, app.settings.mask,
+         app.settings.windows ? 1 : 0, app.settings.memory_guard ? 1 : 0, app.settings.draw_distance, app.settings.antialias ? 1 : 0);
   write_link();
   remote_cams();
   if (mounts_only)
@@ -1259,6 +1429,64 @@ void drag_to(HWND cell, POINT at) {
   }
   apply_mount(mount);
 }
+// "存為預設…": the selected camera's position as one of this aircraft's
+// presets, or a preset back to its built-in position.
+void show_preset_menu() {
+  HMENU menu = CreatePopupMenu(), restore = CreatePopupMenu();
+  if (!menu || !restore) {
+    if (menu)
+      DestroyMenu(menu);
+    if (restore)
+      DestroyMenu(restore);
+    return;
+  }
+  // Without an aircraft there is no reference point to keep a position for.
+  const bool aircraft = app.aircraft != L"default";
+  wchar_t text[160];
+  if (aircraft)
+    std::swprintf(text, 160, L"把鏡頭 %u 現在的位置，存成這架飛機（%ls）的：", app.selected + 1, app.aircraft.c_str());
+  else
+    std::swprintf(text, 160, L"連上模擬器、載入飛機後才能存（每架飛機的原點不同）");
+  AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, text);
+  bool own = false;
+  for (std::size_t i = 0; i < Presets.size(); ++i) {
+    std::swprintf(text, 160, L"「%ls」%ls", preset_short(i).c_str(), app.own_presets[i] ? L"（取代自己調的）" : L"");
+    AppendMenuW(menu, MF_STRING | (aircraft ? 0u : MF_GRAYED), static_cast<UINT_PTR>(IdSaveAs + static_cast<int>(i)), text);
+    AppendMenuW(restore, MF_STRING | (app.own_presets[i] ? 0u : MF_GRAYED), static_cast<UINT_PTR>(IdRestore + static_cast<int>(i)),
+                preset_short(i).c_str());
+    own = own || app.own_presets[i].has_value();
+  }
+  AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+  AppendMenuW(menu, MF_POPUP | (own && aircraft ? 0u : MF_GRAYED), reinterpret_cast<UINT_PTR>(restore), L"還原成原本的預設位置");
+  RECT button{};
+  GetWindowRect(control(IdSavePreset), &button);
+  TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_LEFTBUTTON, button.left, button.bottom, 0, app.main, nullptr);
+  DestroyMenu(menu);  // and the submenu with it
+}
+// save: the preset becomes the selected camera's position, and that camera
+// that preset. Otherwise: the preset is the built-in one again. Either way no
+// camera moves: one that showed the preset at its old place keeps the place,
+// as 自訂.
+void change_preset(std::size_t preset, bool save) {
+  if (preset >= Presets.size() || app.aircraft == L"default")
+    return;
+  auto& s = app.settings;
+  if (save)
+    app.own_presets[preset] = s.mounts[app.selected];
+  else
+    app.own_presets[preset].reset();
+  save_preset(preset);
+  for (unsigned feed = 0; feed < Feeds; ++feed)
+    if (s.presets[feed] == static_cast<int>(preset) && s.mounts[feed] != preset_mount(static_cast<int>(preset)))
+      s.presets[feed] = CustomPreset;
+  if (save)
+    s.presets[app.selected] = static_cast<int>(preset);
+  note(L"preset %u on %ls: %ls", static_cast<unsigned>(preset + 1), app.aircraft.c_str(), save ? L"saved from the selected camera" : L"built-in again");
+  fill_preset_lists();
+  fill_mount_fields();
+  save_mounts();
+  InvalidateRect(app.main, nullptr, TRUE);
+}
 void on_command(int id, int code) {
   if (app.filling)
     return;
@@ -1276,6 +1504,17 @@ void on_command(int id, int code) {
     settings_changed();
   } else if (id == IdWindows && code == BN_CLICKED) {
     s.windows = Button_GetCheck(control(IdWindows)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdGuard && code == BN_CLICKED) {
+    s.memory_guard = Button_GetCheck(control(IdGuard)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdAntialias && code == BN_CLICKED) {
+    s.antialias = Button_GetCheck(control(IdAntialias)) == BST_CHECKED;
+    settings_changed();
+  } else if (id == IdDistance && code == CBN_SELCHANGE) {
+    const auto choice = SendMessageW(control(IdDistance), CB_GETCURSEL, 0, 0);
+    if (choice >= 0 && choice < static_cast<LRESULT>(DrawDistances.size()))
+      s.draw_distance = DrawDistances[static_cast<std::size_t>(choice)].metres;
     settings_changed();
   } else if (id == IdRemote && code == BN_CLICKED) {
     s.remote = Button_GetCheck(control(IdRemote)) == BST_CHECKED;
@@ -1310,7 +1549,7 @@ void on_command(int id, int code) {
     const auto choice = SendMessageW(control(id), CB_GETCURSEL, 0, 0);
     if (choice >= 0 && choice < CustomPreset) {
       s.presets[feed] = static_cast<int>(choice);
-      s.mounts[feed] = Presets[static_cast<std::size_t>(choice)].mount;
+      s.mounts[feed] = preset_mount(static_cast<int>(choice));
     } else {
       s.presets[feed] = CustomPreset;
     }
@@ -1321,12 +1560,18 @@ void on_command(int id, int code) {
     // Back to the camera's starting place: its preset, or its default one.
     const int preset = s.presets[app.selected] < CustomPreset ? s.presets[app.selected] : DefaultPresets[app.selected];
     s.presets[app.selected] = preset;
-    s.mounts[app.selected] = Presets[static_cast<std::size_t>(preset)].mount;
+    s.mounts[app.selected] = preset_mount(preset);
     fill_mount_fields();
     settings_changed(true);
   } else if (id == IdHint && code == STN_CLICKED) {
     app.hint_open = !app.hint_open;
     SetDlgItemTextW(app.main, IdHint, app.hint_open ? HintKeys : HintShort);
+  } else if (id == IdSavePreset && code == BN_CLICKED) {
+    show_preset_menu();
+  } else if (id >= IdSaveAs && id < IdSaveAs + CustomPreset && code == 0) {
+    change_preset(static_cast<std::size_t>(id - IdSaveAs), true);
+  } else if (id >= IdRestore && id < IdRestore + CustomPreset && code == 0) {
+    change_preset(static_cast<std::size_t>(id - IdRestore), false);
   } else if (id >= IdField && id < IdField + 6 && code == EN_KILLFOCUS) {
     read_mount_fields();
   } else if (id == IDOK) {
@@ -1337,9 +1582,9 @@ void on_command(int id, int code) {
 }
 
 // --- painting ---------------------------------------------------------------
-const wchar_t* preset_name(unsigned feed) {
+std::wstring preset_name(unsigned feed) {
   const int preset = app.settings.presets[feed];
-  return preset >= 0 && preset < CustomPreset ? Presets[static_cast<std::size_t>(preset)].name : L"自訂";
+  return preset >= 0 && preset < CustomPreset ? preset_label(static_cast<std::size_t>(preset)) : std::wstring(L"自訂");
 }
 void paint_main(HDC dc) {
   SetBkMode(dc, TRANSPARENT);
@@ -1529,7 +1774,8 @@ LRESULT CALLBACK main_proc(HWND window, UINT message, WPARAM wparam, LPARAM lpar
       return 0;
     case WM_GETMINMAXINFO: {
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize = {px(900), px(690)};
+      // The panel down to its help line (PanelHintTop), one line of it, and the frame.
+      info->ptMinTrackSize = {px(900), px(714)};
       return 0;
     }
     case WM_DPICHANGED: {
@@ -1707,7 +1953,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   type.hCursor = LoadCursorW(nullptr, IDC_SIZEALL);
   RegisterClassExW(&type);
 
-  app.main = CreateWindowExW(0, MainClass, AppTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1180, 720, nullptr,
+  app.main = CreateWindowExW(0, MainClass, AppTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT, 1180, 760, nullptr,
                              nullptr, instance, nullptr);
   if (!app.main)
     return 1;
@@ -1732,7 +1978,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   for (unsigned index = 0; index < Feeds; ++index)
     app.feeds[index].cell = CreateWindowExW(0, CellClass, L"", WS_CHILD | WS_VISIBLE, 0, 0, 16, 9, app.main, nullptr, instance,
                                             reinterpret_cast<void*>(static_cast<UINT_PTR>(index)));
-  SetWindowPos(app.main, nullptr, 0, 0, px(1180), px(720), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+  SetWindowPos(app.main, nullptr, 0, 0, px(1180), px(760), SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
   fill_controls();
   layout();
   write_link();

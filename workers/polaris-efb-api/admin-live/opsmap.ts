@@ -6,9 +6,11 @@
  *     destination and both airports named; aircraft grow to their real size close in, at the stands;
  *   - the Polaris airports, ringed in their flight category from the latest METAR;
  *   - weather radar (RainViewer), SIGMETs / AIRMETs, FIR boundaries and VATSIM traffic, as the EFB's Map shows them;
+ *   - with VATSIM traffic, the controllers online as the EFB shows them: centres' and approaches' areas in the FIR
+ *     green with their callsigns, and an airport's D/G/T/A (the EFB server's /api/efb/vatsim-atc, see vatspy.js);
  *   - close in at a Polaris airport: stand numbers, taxiway names and runway ends (OpenStreetMap, the EFB server).
  * The layer button in the map's corner switches these on and off (kept in this browser). A tap on a Polaris aircraft
- * opens the flight; on a VATSIM aircraft or a SIGMET it shows a short note.
+ * opens the flight; on a VATSIM aircraft, a controller's area or airport, or a SIGMET it shows a short note.
  * If the library cannot load, the browser has no WebGL or the base map's tiles cannot be reached, the canvas globe
  * (globe.ts) is drawn instead; ?globe in the address asks for it.
  */
@@ -181,6 +183,39 @@ function sigCat(h: string): string {
 }
 const SIG_COL = ['match', ['get', 'cat'], 'ts', '#E0342B', 'tb', '#F2A33A', 'ic', '#2BB3C8', 'va', '#C2185B', '#7F8C99'];
 const lvl = (v: number | null) => (v == null ? 'SFC' : v >= 18000 ? 'FL' + String(Math.round(v / 100)).padStart(3, '0') : v === 0 ? 'SFC' : v.toLocaleString('en-US') + ' ft');
+/** the size of a ring's box in square degrees (a tap on two areas picks the smaller) */
+const bbAr = (rings: LL[][]) => { let a = 180, b = 90, c = -180, d = -90; for (const r of rings) for (const [x, y] of r) { if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; } return Math.max(0, (c - a) * (d - b)); };
+
+/* ---------- VATSIM controllers (the EFB server's /api/efb/vatsim-atc, see ../src/vatspy.js) ---------- */
+/** r: the polygons, each [outer ring, holes...] */
+type AtcArea = { k: string; t: 'ctr' | 'fss' | 'app'; id: string; nm: string; lx: number; ly: number; bl?: LL; r: LL[][][]; cs: string[] };
+type AtcCtl = { cs: string; cid: number; n: string; f: string; fac: string; rt: string; on: string; k: string; ap: string; x: string };
+type AtcAtis = { cs: string; f: string; code: string; ap: string; on: string; x: string };
+type AtcAns = { upd: string; h: string; areas: AtcArea[]; ctl: AtcCtl[]; atis: AtcAtis[]; apts: Record<string, [number, number, string, string]> };
+/** an area's label: its shortest callsign without the facility ("RJTG_E_CTR" -> RJTG_E) */
+function atcLbl(a: AtcArea): string {
+  const cs = [...(a.cs || [])].sort((p, q) => p.length - q.length || (p < q ? -1 : 1))[0];
+  if (!cs) return a.id;
+  const p = cs.split('_').filter(Boolean);
+  return p.length > 1 ? p.slice(0, -1).join('_') : cs;
+}
+const ATC_FAC = ['DEL', 'GND', 'TWR', 'APP', 'DEP'];
+const atcFi = (c: AtcCtl) => { const i = ATC_FAC.indexOf(c.fac); return i < 0 ? 9 : i; };
+const atcFq = (f: string) => (!f || f === '199.998' ? '—' : f);
+const atcSince = (on: string) => { const t = Date.parse(on); if (!isFinite(t)) return ''; const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+/** the EFB's colours for them (its --green, --map-firl, --cyan, --red, --amber) */
+const atcCols = (dark: boolean) => (dark
+  ? { fill: '#4FC27E', line: '#5FCF92', ctrA: 0.16, appA: 0.28, chip: '#4FC27E', chipInk: '#06180F', D: '#5CC6E0', G: '#4FC27E', T: '#F06A6A', A: '#EBA537', off: '#56636A' }
+  : { fill: '#2C7A4B', line: '#2C7A4B', ctrA: 0.12, appA: 0.22, chip: '#2C7A4B', chipInk: '#FFFFFF', D: '#0A6E87', G: '#2C7A4B', T: '#B42828', A: '#A4620A', off: '#A9B3B3' });
+/** a label chip, stretched round its text (icon-text-fit) */
+function atcChip(fill: string): ImageData {
+  const c = document.createElement('canvas'); c.width = 24; c.height = 20;
+  const g = c.getContext('2d')!;
+  g.fillStyle = fill; g.beginPath();
+  if (typeof g.roundRect === 'function') g.roundRect(0.5, 0.5, 23, 19, 5); else g.rect(0.5, 0.5, 23, 19);
+  g.fill();
+  return g.getImageData(0, 0, 24, 20);
+}
 
 /** the aircraft (the EFB's glyph), pointing up */
 const GLYPH = 'M0,-10 L1.5,-6.5 L1.5,-2.2 L9,2.2 L9,4 L1.5,2 L1.2,6.6 L4,8.6 L4,10 L0,9 L-4,10 L-4,8.6 L-1.2,6.6 L-1.5,2 L-9,4 L-9,2.2 L-1.5,-2.2 L-1.5,-6.5Z';
@@ -241,6 +276,7 @@ export class OpsMap implements MapApi {
   private wx: Record<string, string> = {};
   private vs: unknown[] = [];
   private sig: unknown[] = [];
+  private atc: AtcAns | null = null;
   private fir: { lines: unknown; labels: unknown } | null = null;
   private radarTiles = '';
   private spinOn = false;
@@ -273,7 +309,7 @@ export class OpsMap implements MapApi {
     (window as unknown as { pmMap?: ML }).pmMap = this.map; // for a look from the console
     this.map.touchZoomRotate?.disableRotation?.();
     this.map.keyboard?.disableRotation?.();
-    this.map.addControl(new lib.AttributionControl({ compact: true, customAttribution: 'Radar <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · SIGMETs aviationweather.gov · FIRs openAIP, VATSpy · Traffic VATSIM' }), 'top-right');
+    this.map.addControl(new lib.AttributionControl({ compact: true, customAttribution: 'Radar <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> · SIGMETs aviationweather.gov · FIRs openAIP, VATSpy · Traffic VATSIM · ATC areas VATSpy, SimAware TRACON (CC BY-SA 4.0)' }), 'top-right');
     this.ready = new Promise<void>((res) => { this.map.once('style.load', () => res()); });
     this.map.on('style.load', () => this.onStyle());
     // the base map's tiles: seen arriving, or failing (then the old globe takes over, see start)
@@ -302,6 +338,7 @@ export class OpsMap implements MapApi {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', watch, { signal });
     // asked only while Flight Watch is on screen
     this.every(() => this.loadVatsim(), 30_000);
+    this.every(() => this.loadAtc(), 60_000);
     this.every(() => this.loadSig(), 300_000);
     this.every(() => this.loadRadar(), 300_000);
     this.every(() => this.loadWx(), 600_000);
@@ -403,12 +440,21 @@ export class OpsMap implements MapApi {
       if (a.length) { this.opts.onPick(String(a[0].properties.cs)); return; }
       const v = hit(e.point, ['vs-ac', 'vs-gnd']);
       if (v.length) { const p = v[0].properties; this.note(v[0].geometry.coordinates, `<b>${esc(p.c)}</b>${p.ac ? ' · ' + esc(p.ac) : ''}<br>${esc(p.dep || '····')} → ${esc(p.arr || '····')}<br>${p.g < 50 ? 'On the ground' : esc(lvl(+p.a)) + ' · ' + Math.round(+p.g) + ' kt'}<br><small>VATSIM</small>`); return; }
+      const am = hit(e.point, ['atc-a']);
+      if (am.length) { this.note(am[0].geometry.coordinates, this.atcNote('A:' + am[0].properties.ic)); return; }
+      const ac = hit(e.point, ['atc-t', 'atc-ta']);
+      if (ac.length) { this.note(e.lngLat, this.atcNote(String(ac[0].properties.k))); return; }
       const s = hit(e.point, ['sig-f']);
+      // a controller's area under the tap (the smallest), unless a SIGMET there is smaller still
+      const af = m.getLayer('atc-f') ? m.queryRenderedFeatures(e.point, { layers: ['atc-f'] }) : [];
+      const at = af.length ? af.reduce((b: { properties: { ar: number } }, f: { properties: { ar: number } }) => (+f.properties.ar < +b.properties.ar ? f : b)) : null;
+      // areas cover most of the map: with a note open, a click in one only closes it
+      if (at && (!s.length || +s[0].properties.ar > +at.properties.ar)) { if (this.popup?.isOpen?.()) { this.popup.remove(); return; } this.note(e.lngLat, this.atcNote(String(at.properties.k))); return; }
       if (s.length) { const p = s[0].properties; this.note(e.lngLat, `<b>${esc(p.kind)} · ${esc(p.hz)}</b>${p.q ? ' ' + esc(p.q) : ''}${p.lv || p.fir ? '<br>' + esc([p.lv, p.fir].filter(Boolean).join(' · ')) : ''}${p.raw ? `<pre>${esc(String(p.raw).slice(0, 600))}</pre>` : ''}`); return; }
       this.popup?.remove();
     });
     m.on('mousemove', (e: { point: { x: number; y: number } }) => {
-      m.getCanvas().style.cursor = hit(e.point, ['pm-ac', 'vs-ac', 'vs-gnd']).length ? 'pointer' : '';
+      m.getCanvas().style.cursor = hit(e.point, ['pm-ac', 'vs-ac', 'vs-gnd', 'atc-a', 'atc-t', 'atc-ta']).length ? 'pointer' : '';
     });
   }
   private note(at: unknown, html: string): void {
@@ -435,8 +481,8 @@ export class OpsMap implements MapApi {
       this.on[k] = i.checked;
       try { localStorage.setItem(LAY_KEY, JSON.stringify(this.on)); } catch { /* private mode */ }
       this.vis();
-      if (i.checked) { if (k === 'vatsim') void this.loadVatsim(true); if (k === 'sig') void this.loadSig(true); if (k === 'radar') void this.loadRadar(true); if (k === 'wx') void this.loadWx(true); if (k === 'fir') void this.loadFir(); }
-      else if (k === 'vatsim') this.drawVatsim();
+      if (i.checked) { if (k === 'vatsim') { void this.loadVatsim(true); this.drawAtc(); void this.loadAtc(true); } if (k === 'sig') void this.loadSig(true); if (k === 'radar') void this.loadRadar(true); if (k === 'wx') void this.loadWx(true); if (k === 'fir') void this.loadFir(); }
+      else if (k === 'vatsim') { this.drawVatsim(); this.drawAtc(); }
       if (k === 'wx') this.drawAirports();
     }, { signal });
   }
@@ -445,7 +491,7 @@ export class OpsMap implements MapApi {
     set(['radar'], this.on.radar);
     set(['sig-f', 'sig-l', 'sig-t'], this.on.sig);
     set(['fir-l', 'fir-lo', 'fir-t'], this.on.fir);
-    set(['vs-ac', 'vs-gnd', 'vs-l'], this.on.vatsim);
+    set(['vs-ac', 'vs-gnd', 'vs-l', 'atc-f', 'atc-l', 'atc-t', 'atc-ta', 'atc-a'], this.on.vatsim);
   }
 
   /* ---------- style: our sources and layers, again after every new base style ---------- */
@@ -456,7 +502,7 @@ export class OpsMap implements MapApi {
   private onStyle(): void {
     const m = this.map, C = this.col, E = fc([]);
     const add = (id: string) => { if (!m.getSource(id)) m.addSource(id, { type: 'geojson', data: E }); };
-    for (const id of ['fir', 'firl', 'sig', 'lay-st', 'lay-twy', 'lay-rw', 'pm-apt', 'vs', 'pm-trail', 'pm-route', 'pm-ac']) add(id);
+    for (const id of ['fir', 'firl', 'sig', 'lay-st', 'lay-twy', 'lay-rw', 'pm-apt', 'vs', 'pm-trail', 'pm-route', 'pm-ac', 'atc', 'atcln', 'atct', 'atca']) add(id);
     const img = (id: string, d: ImageData) => { if (m.hasImage(id)) m.removeImage(id); m.addImage(id, d, { pixelRatio: 2 }); };
     img('pm-ac', plane(C.plane, C.halo));
     img('pm-ac-sel', plane(C.route, C.halo, C.route));
@@ -468,6 +514,12 @@ export class OpsMap implements MapApi {
     const L = (l: Record<string, unknown>, before?: string) => { if (!m.getLayer(l.id as string)) m.addLayer(l, before); };
     // weather, airspace: under the names
     if (this.radarTiles) this.addRadar();
+    // controllers' areas (under the SIGMETs, as on the EFB): centres lighter, approaches stronger
+    const AC = atcCols(this.dark);
+    if (m.hasImage('atc-chip')) m.removeImage('atc-chip');
+    m.addImage('atc-chip', atcChip(AC.chip), { pixelRatio: 2, stretchX: [[6, 18]], stretchY: [[6, 14]], content: [6, 4, 18, 16] });
+    L({ id: 'atc-f', type: 'fill', source: 'atc', paint: { 'fill-color': AC.fill, 'fill-opacity': ['case', ['==', ['get', 'app'], 1], AC.appA, AC.ctrA] } }, below);
+    L({ id: 'atc-l', type: 'line', source: 'atcln', layout: { 'line-join': 'round' }, paint: { 'line-color': AC.line, 'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.8, 5, 1.6] } }, below);
     const strong = ['==', ['get', 'sg'], 1]; // a SIGMET; AIRMET-type areas are drawn quieter
     L({ id: 'sig-f', type: 'fill', source: 'sig', paint: { 'fill-color': SIG_COL, 'fill-opacity': ['case', strong, this.dark ? 0.14 : 0.11, 0.045] } }, below);
     L({ id: 'sig-l', type: 'line', source: 'sig', paint: { 'line-color': SIG_COL, 'line-width': ['case', strong, 1.3, 0.8], 'line-opacity': ['case', strong, 0.85, 0.5] } }, below);
@@ -486,6 +538,13 @@ export class OpsMap implements MapApi {
     // the Polaris airports: always shown, and the base map's names give way to them; gone close in, where the airport itself shows
     L({ id: 'pm-apt', type: 'symbol', source: 'pm-apt', maxzoom: 12.5, layout: { 'icon-image': ['case', ['!=', ['get', 'c'], ''], ['concat', 'apt-', ['get', 'c']], 'apt'], 'icon-size': ['case', ['==', ['get', 'sel'], 1], 1.25, 1], 'icon-allow-overlap': true,
       'text-field': ['get', 'code'], 'text-font': ['Noto Sans Bold'], 'text-size': ['case', ['==', ['get', 'sel'], 1], 12, 10.5], 'text-offset': [0, 0.95], 'text-anchor': 'top', 'text-optional': true, 'symbol-sort-key': ['-', 1, ['get', 'sel']] }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
+    // controllers' callsigns (a centre's at its label point, an approach's under its bottom edge) and the airports' D/G/T/A
+    const chipL = { 'text-field': ['get', 't'], 'text-font': ['Noto Sans Bold'], 'text-size': 10.5, 'icon-image': 'atc-chip', 'icon-text-fit': 'both', 'icon-text-fit-padding': [1, 5, 1, 5], 'text-padding': 2 };
+    L({ id: 'atc-t', type: 'symbol', source: 'atct', minzoom: 1.6, filter: ['==', ['get', 'app'], 0], layout: chipL, paint: { 'text-color': AC.chipInk } });
+    L({ id: 'atc-ta', type: 'symbol', source: 'atct', minzoom: 3.5, filter: ['==', ['get', 'app'], 1], layout: { ...chipL, 'text-anchor': 'top', 'text-offset': [0, 0.5] }, paint: { 'text-color': AC.chipInk } });
+    const lit = (l: 'D' | 'G' | 'T' | 'A') => ['case', ['in', l, ['get', 'm']], AC[l], AC.off];
+    L({ id: 'atc-a', type: 'symbol', source: 'atca', minzoom: 4, layout: { 'text-field': ['format', ['get', 'ic'], {}, '\n', {}, 'D', { 'text-color': lit('D') }, ' ', {}, 'G', { 'text-color': lit('G') }, ' ', {}, 'T', { 'text-color': lit('T') }, ' ', {}, 'A', { 'text-color': lit('A') }],
+      'text-font': ['Noto Sans Bold'], 'text-size': 10.5, 'text-anchor': 'left', 'text-justify': 'left', 'text-offset': [0.8, 0], 'text-padding': 2 }, paint: { 'text-color': C.label, 'text-halo-color': C.halo, 'text-halo-width': 1.4 } });
     // traffic
     L({ id: 'vs-gnd', type: 'symbol', source: 'vs', minzoom: 9, filter: ['<', ['get', 'g'], 50], layout: { 'icon-image': 'vs-gnd', 'icon-size': acSize([[9, 0.3], [11, 0.36]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
     L({ id: 'vs-ac', type: 'symbol', source: 'vs', filter: ['>=', ['get', 'g'], 50], layout: { 'icon-image': 'vs-ac', 'icon-size': acSize([[1, 0.22], [6, 0.32], [11, 0.4]]), 'icon-rotate': ['get', 'h'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 1, 0.55, 6, 0.85] } });
@@ -503,7 +562,7 @@ export class OpsMap implements MapApi {
     L({ id: 'pm-ac-t', type: 'symbol', source: 'pm-ac', filter: isSel, layout: { 'text-field': ['get', 'cs'], 'text-font': ['Noto Sans Bold'], 'text-size': 12.5, 'text-offset': [1.35, 0], 'text-anchor': 'left', 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': C.route, 'text-halo-color': C.halo, 'text-halo-width': 1.6 } });
     this.vis();
-    this.drawAirports(); this.drawFlights(); this.drawVatsim(); this.drawSig(); this.drawLayouts();
+    this.drawAirports(); this.drawFlights(); this.drawVatsim(); this.drawSig(); this.drawLayouts(); this.drawAtc();
     if (this.fir) this.setData('fir', this.fir.lines), this.setData('firl', this.fir.labels);
     this.refresh();
   }
@@ -511,7 +570,7 @@ export class OpsMap implements MapApi {
   /** everything that loads on its own, now (a page come back to, a layer switched on) */
   private refresh(): void {
     if (!this.shown()) return;
-    void this.loadFir(); void this.loadSig(); void this.loadRadar(); void this.loadWx(); void this.loadVatsim();
+    void this.loadFir(); void this.loadSig(); void this.loadRadar(); void this.loadWx(); void this.loadVatsim(); void this.loadAtc();
   }
   private every(fn: () => unknown, ms: number): void { this.timers.push(window.setInterval(() => { if (this.shown() && !document.hidden) void fn(); }, ms)); }
 
@@ -569,6 +628,60 @@ export class OpsMap implements MapApi {
     this.setData('vs', fc(this.on.vatsim ? (this.vs as { properties: { c: string } }[]).filter((f) => !ours.has(f.properties.c)) : []));
   }
 
+  /* ---------- VATSIM controllers (with the VATSIM traffic layer) ---------- */
+  private atcFetchAt = 0;
+  /** every minute; the server answers 304 while nobody logs on or off (the browser keeps the last answer) */
+  private async loadAtc(force = false): Promise<void> {
+    if (!this.on.vatsim || (!force && Date.now() - this.atcFetchAt < 55_000)) return;
+    this.atcFetchAt = Date.now();
+    try {
+      const r = await fetch('/api/efb/vatsim-atc', { cache: 'no-cache' });
+      if (!r.ok) return;
+      const j = (await r.json()) as AtcAns;
+      if (!j || !Array.isArray(j.areas) || !Array.isArray(j.ctl) || !Array.isArray(j.atis) || !j.apts) return;
+      if (this.atc && j.h && j.h === this.atc.h) return;
+      this.atc = j;
+      this.drawAtc();
+    } catch { /* next time */ }
+  }
+  /** the areas (each ring a polygon), their outlines less the stretches on the date line (where VATSpy cuts an area
+   *  in two), their labels, and the airports with D/G/T/A online */
+  private drawAtc(): void {
+    const d = this.on.vatsim ? this.atc : null, F: unknown[] = [], Ln: unknown[] = [], T: unknown[] = [], A: unknown[] = [];
+    for (const a of d?.areas || []) {
+      const app = a.t === 'app' ? 1 : 0, ar = bbAr(a.r.flat()), segs: LL[][] = [];
+      // each polygon with its holes (two polygons of an area may overlap: each is filled on its own)
+      for (const pl of a.r) F.push({ type: 'Feature', geometry: { type: 'Polygon', coordinates: pl }, properties: { k: a.k, app, ar } });
+      for (const r of a.r.flat()) {
+        let cur: LL[] = [];
+        for (let i = 0; i < r.length; i++) {
+          const p = r[i]!, q = r[i - 1];
+          if (q && Math.abs(p[0]) === 180 && p[0] === q[0]) { if (cur.length > 1) segs.push(cur); cur = [p]; continue; }
+          cur.push(p);
+        }
+        if (cur.length > 1) segs.push(cur);
+      }
+      if (segs.length) Ln.push({ type: 'Feature', geometry: { type: 'MultiLineString', coordinates: segs }, properties: { app } });
+      T.push(pt(app && a.bl ? a.bl : [a.lx, a.ly], { t: atcLbl(a), app, k: a.k }));
+    }
+    for (const [ic, v] of Object.entries(d?.apts || {})) if (v && v[3]) A.push(pt([v[1], v[0]], { ic, m: v[3] }));
+    this.setData('atc', fc(F)); this.setData('atcln', fc(Ln)); this.setData('atct', fc(T)); this.setData('atca', fc(A));
+  }
+  /** the note for an area (its controllers) or an airport (its controllers and ATIS) */
+  private atcNote(id: string): string {
+    const d = this.atc; if (!d) return '';
+    const row = (c: AtcCtl) => `<br><b>${esc(atcFq(c.f))}</b> ${esc(c.cs)}<br><small>${esc(c.n || '—')}${c.rt ? ' · ' + esc(c.rt) : ''}${c.on ? ' · online ' + esc(atcSince(c.on)) : ''}</small>`;
+    if (id.startsWith('A:')) {
+      const ic = id.slice(2), v = d.apts[ic];
+      const L = d.ctl.filter((c) => c.ap === ic).sort((p, q) => atcFi(p) - atcFi(q) || (p.cs < q.cs ? -1 : 1)), S = d.atis.filter((a) => a.ap === ic);
+      return `<b>${esc(ic)}</b>${v && v[2] ? ' · ' + esc(v[2]) : ''}` + L.map(row).join('')
+        + S.map((a) => `<br><b>${esc(atcFq(a.f))}</b> ${esc(a.cs)}${a.code ? ' · information ' + esc(a.code) : ''}${a.x ? `<pre>${esc(a.x.slice(0, 600))}</pre>` : ''}`).join('');
+    }
+    const a = d.areas.find((x) => x.k === id); if (!a) return '';
+    const L = d.ctl.filter((c) => c.k === id), kind = a.t === 'fss' ? 'Flight service' : a.t === 'app' ? (L.length && L.every((c) => c.fac === 'DEP') ? 'Departure' : 'Approach') : 'Centre';
+    return `<b>${esc(atcLbl(a))}</b> · ${kind}${a.nm ? `<br><small>${esc(a.nm)}</small>` : ''}` + L.map((c) => row(c) + (c.x ? `<pre>${esc(c.x.slice(0, 400))}</pre>` : '')).join('');
+  }
+
   /* ---------- SIGMETs / AIRMETs ---------- */
   private sigAt = 0;
   private async loadSig(force = false): Promise<void> {
@@ -581,7 +694,7 @@ export class OpsMap implements MapApi {
           const ring = unwrap(s.coords.map((c): LL => [c[1], c[0]]));
           const a = ring[0]!, b = ring[ring.length - 1]!;
           if (a[0] !== b[0] || a[1] !== b[1]) ring.push([a[0], a[1]]);
-          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { kind: s.kind || 'SIGMET', sg: /SIGMET/i.test(String(s.kind || 'SIGMET')) ? 1 : 0, hz: String(s.hazard || '').replace(/_/g, ' '), q: s.qualifier || '', cat: sigCat(s.hazard || ''), lv: !s.base && !s.top ? '' : lvl(s.base) + '–' + lvl(s.top), fir: s.fir || '', raw: s.raw || '' } };
+          return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] }, properties: { ar: bbAr([ring]), kind: s.kind || 'SIGMET', sg: /SIGMET/i.test(String(s.kind || 'SIGMET')) ? 1 : 0, hz: String(s.hazard || '').replace(/_/g, ' '), q: s.qualifier || '', cat: sigCat(s.hazard || ''), lv: !s.base && !s.top ? '' : lvl(s.base) + '–' + lvl(s.top), fir: s.fir || '', raw: s.raw || '' } };
         });
       this.drawSig();
     } catch { /* next time */ }
@@ -625,7 +738,7 @@ export class OpsMap implements MapApi {
   private addRadar(): void {
     const m = this.map;
     if (!m.getSource('radar')) m.addSource('radar', { type: 'raster', tiles: [this.radarTiles], tileSize: 256, maxzoom: 7, attribution: '' });
-    if (!m.getLayer('radar')) m.addLayer({ id: 'radar', type: 'raster', source: 'radar', layout: { visibility: this.on.radar ? 'visible' : 'none' }, paint: { 'raster-opacity': this.dark ? 0.7 : 0.62, 'raster-fade-duration': 0 } }, m.getLayer('sig-f') ? 'sig-f' : m.getLayer('water-name') ? 'water-name' : undefined);
+    if (!m.getLayer('radar')) m.addLayer({ id: 'radar', type: 'raster', source: 'radar', layout: { visibility: this.on.radar ? 'visible' : 'none' }, paint: { 'raster-opacity': this.dark ? 0.7 : 0.62, 'raster-fade-duration': 0 } }, m.getLayer('atc-f') ? 'atc-f' : m.getLayer('sig-f') ? 'sig-f' : m.getLayer('water-name') ? 'water-name' : undefined);
   }
 
   /* ---------- airport weather: the flight category at the Polaris airports ---------- */

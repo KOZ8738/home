@@ -18,6 +18,8 @@
                                                 (/api/efb/cn/ifr is the same, for EFBs from before Japan)
      GET /api/efb/cn/asp, /api/efb/jp/asp      the airspace
      GET /api/efb/cn/apt?icao=ZGSZ             runways with declared distances, ILS and approach frequencies */
+import { kvJson, StoreError } from './kvread.js';
+
 const KEEP_PAST = 1, BODY_MAX = 12_000_000;
 /* box: lat0, lon0, lat1, lon1 of what each covers, with a margin (China's Sanya FIR reaches far south; Japan's Fukuoka
    FIR far east over the Pacific) */
@@ -28,10 +30,16 @@ export const AIP_REG = {
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
 const IDX = {}, APT = {};
+const down = (rg) => AIP_REG[rg || 'cn'].name + ' AIP data is temporarily unavailable; please try again';
+/* the AIRAC index: null when nothing was uploaded yet. A storage error (or an index that is not one) throws StoreError
+   503 and is not kept: an upload or a delete never writes the other AIRACs away from an empty read, and pilots are
+   told it is unavailable rather than given no airways (kvread.js) */
 export async function cnIndex(env, fresh, rg) {
   const r = AIP_REG[rg || 'cn'], m = IDX[rg || 'cn'];
   if (!fresh && m && Date.now() - m.t < 60_000) return m.v;
-  const v = await env.STORE.get(r.p + 'idx', 'json').catch(() => null); IDX[rg || 'cn'] = { v, t: Date.now() }; return v;
+  const v = await kvJson(env.STORE, r.p + 'idx', { shape: 'object', msg: down(rg) });
+  if (v && v.cycles != null && !Array.isArray(v.cycles)) { console.warn('[' + r.p + 'idx] not an AIRAC index'); throw new StoreError(503, down(rg)); }
+  IDX[rg || 'cn'] = { v, t: Date.now() }; return v;
 }
 /* the uploaded AIRAC in force now: the newest one whose effective time has come */
 export function cnActive(idx, now) {
@@ -48,8 +56,13 @@ async function dropCycle(env, rg, c) {
   await Promise.all(keys.map((k) => kv.delete(k).catch(() => {})));
 }
 
-/* admin: POST /admin/api/navdata/cn|jp (an upload), POST /admin/api/navdata/cn|jp/delete { cycle } */
+/* admin: POST /admin/api/navdata/cn|jp (an upload), POST /admin/api/navdata/cn|jp/delete { cycle }. A storage error
+   answers as itself (503), not as navdata.js's catch-all 500 */
 export async function cnAdmin(req, path, env, by) {
+  try { return await cnAdminRun(req, path, env, by); }
+  catch (e) { if (e instanceof StoreError) return jsonRes({ error: e.message }, e.status); throw e; }
+}
+async function cnAdminRun(req, path, env, by) {
   const pm = path.match(/^\/admin\/api\/navdata\/(cn|jp)(\/delete)?$/); if (!pm) return jsonRes({ error: 'Not found' }, 404);
   const rg = pm[1], R = AIP_REG[rg], P = R.p;
   const kv = env.STORE, who = lineS(typeof by === 'string' ? by : (by && by.email) || '', 120), now = Date.now();
@@ -57,7 +70,7 @@ export async function cnAdmin(req, path, env, by) {
   if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
   if (pm[2]) {
     let b = {}; try { b = await req.json(); } catch (e) {}
-    const idx = (await cnIndex(env, true, rg)) || { cycles: [] }, c = (idx.cycles || []).find((x) => x.cycle === String(b.cycle || ''));
+    const idx = structuredClone((await cnIndex(env, true, rg)) || { cycles: [] }), c = (idx.cycles || []).find((x) => x.cycle === String(b.cycle || ''));
     if (!c) return jsonRes({ error: 'That AIRAC is not uploaded' }, 404);
     idx.cycles = idx.cycles.filter((x) => x !== c); idx.at = now;
     await kv.put(P + 'idx', JSON.stringify(idx)); setIdx(rg, idx);
@@ -73,11 +86,13 @@ export async function cnAdmin(req, path, env, by) {
   const cells = Object.keys(b.cells).filter(cellOk);
   if ((R.apt && !Object.keys(b.apt).length) || !cells.length) return jsonRes({ error: R.apt ? 'The data set has no airports or airways' : 'The data set has no airways' }, 400);
   const cycle = String(m.pub).slice(2), eff = new Date(Date.parse(m.eff)).toISOString();
+  /* the index must be readable before anything is written: a failed read stops here (503), nothing half-uploaded */
+  await cnIndex(env, true, rg);
   await Promise.all([
     R.apt ? kv.put(P + 'apt:' + cycle, JSON.stringify(b.apt)) : null,
     kv.put(P + 'asp:' + cycle, JSON.stringify(b.asp)),
     ...cells.map((k) => { const c = b.cells[k] || {}; return kv.put(P + 'c:' + cycle + ':' + k, JSON.stringify({ routes: Array.isArray(c.routes) ? c.routes : [], fixes: Array.isArray(c.fixes) ? c.fixes : [], navs: Array.isArray(c.navs) ? c.navs : [] })); })]);
-  /* a re-upload of the same AIRAC drops its old cells first, in case they differ */
+  /* a re-upload of the same AIRAC drops its old cells first, in case they differ (the index read again, as it is now) */
   const idx = (await cnIndex(env, true, rg)) || { cycles: [] }, old = (idx.cycles || []).find((x) => x.cycle === cycle);
   if (old) { const stale = (old.cells || []).filter((k) => !cells.includes(k)); await Promise.all(stale.map((k) => kv.delete(P + 'c:' + cycle + ':' + k).catch(() => {}))); }
   const st = {}; Object.entries(b.st || {}).forEach(([k, v]) => { if (/^[a-zA-Z]{1,12}$/.test(k) && Number.isFinite(+v)) st[k] = +v; });
@@ -99,8 +114,9 @@ async function regionCell(env, rg, la, lo, sz) {
   if (!act) return none('none');
   const pk = (Math.floor(la / 8) * 8) + ',' + (Math.floor(lo / 8) * 8);
   if (!(act.cells || []).includes(pk)) return none('ok', act.cycle);
-  const d = await env.STORE.get(R.p + 'c:' + act.cycle + ':' + pk, { type: 'json', cacheTtl: 3600 }).catch(() => null) || { routes: [], fixes: [], navs: [] };
-  let { routes, fixes, navs } = d;
+  /* a cell that cannot be read is an error (503, not kept by the EFB), never an empty cell it would keep for half an hour */
+  const d = await kvJson(env.STORE, R.p + 'c:' + act.cycle + ':' + pk, { shape: 'object', msg: down(rg), get: { cacheTtl: 3600 } }) || { routes: [], fixes: [], navs: [] };
+  let routes = d.routes || [], fixes = d.fixes || [], navs = d.navs || [];
   if (sz === 4) { /* a 4-degree cell is a quarter of an 8-degree one */
     const inC = (x, y) => y >= la && y < la + 4 && x >= lo && x < lo + 4;
     routes = routes.filter((r) => { let x0 = 999, x1 = -999, y0 = 999, y1 = -999; (r[9] || []).forEach((g) => g.forEach((p) => { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }));
@@ -126,8 +142,13 @@ export async function aipPoints(env, lat, lon, km = 300) {
   return out;
 }
 
-/* pilots: GET /api/efb/aip/ifr, /api/efb/cn/*, /api/efb/jp/asp (signed in) */
+/* pilots: GET /api/efb/aip/ifr, /api/efb/cn/*, /api/efb/jp/asp (signed in). index.js calls this outside its own catch,
+   so a storage error is answered here: JSON 503 with the CORS headers, never an exception or an empty answer */
 export async function cnPublic(req, url, env, h, me) {
+  try { return await cnPublicRun(req, url, env, h, me); }
+  catch (e) { if (!(e instanceof StoreError)) console.warn('[aip]', e && e.message); return jsonRes({ error: e instanceof StoreError ? e.message : 'AIP data is not available right now' }, e instanceof StoreError ? e.status : 500, h); }
+}
+async function cnPublicRun(req, url, env, h, me) {
   if (req.method !== 'GET') return jsonRes({ error: 'Method not allowed' }, 405, h);
   const path = url.pathname.replace(/\/+$/, ''), priv = { 'Cache-Control': 'private, max-age=1800', Vary: 'Authorization' };
   if (path === '/api/efb/aip/ifr' || path === '/api/efb/cn/ifr') {
@@ -153,7 +174,7 @@ export async function cnPublic(req, url, env, h, me) {
   const act = cnActive(await cnIndex(env, false, rg));
   if (pm[2] === 'asp') {
     if (!act) return jsonRes({ cycle: null, fc: { type: 'FeatureCollection', features: [] } }, 200, { ...h, ...priv });
-    const raw = await env.STORE.get(R.p + 'asp:' + act.cycle, { cacheTtl: 3600 }).catch(() => null);
+    let raw; try { raw = await env.STORE.get(R.p + 'asp:' + act.cycle, { cacheTtl: 3600 }); } catch (e) { throw new StoreError(503, down(rg)); }
     const body = '{"cycle":' + JSON.stringify(act.cycle) + ',"eff":' + JSON.stringify(act.eff) + ',"fc":' + (raw || '{"type":"FeatureCollection","features":[]}') + '}';
     return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', ...h, ...priv } });
   }
@@ -161,6 +182,7 @@ export async function cnPublic(req, url, env, h, me) {
   const icao = String(url.searchParams.get('icao') || '').trim().toUpperCase();
   if (!/^[A-Z]{4}$/.test(icao)) return jsonRes({ error: 'Enter a 4 letter ICAO code' }, 400, h);
   if (!act) return jsonRes({ cycle: null, apt: null }, 200, { ...h, ...priv });
-  if (!APT[rg] || APT[rg].cycle !== act.cycle) { const v = await env.STORE.get(R.p + 'apt:' + act.cycle, { type: 'json', cacheTtl: 3600 }).catch(() => null); APT[rg] = { cycle: act.cycle, v: v || {} }; }
+  /* kept for the whole AIRAC once read: only a read that worked (a failed one is a 503, tried again next time) */
+  if (!APT[rg] || APT[rg].cycle !== act.cycle) { const v = await kvJson(env.STORE, R.p + 'apt:' + act.cycle, { shape: 'object', msg: down(rg), get: { cacheTtl: 3600 } }); APT[rg] = { cycle: act.cycle, v: v || {} }; }
   return jsonRes({ cycle: act.cycle, eff: act.eff, apt: APT[rg].v[icao] || null }, 200, { ...h, ...priv });
 }

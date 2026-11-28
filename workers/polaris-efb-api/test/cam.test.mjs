@@ -971,7 +971,7 @@ await test('admin page, Broadcast (Option A): a PC on Broadcast\'s own channel s
   /* case 1: a PC comes on Broadcast's own channel: the pilot's socket goes at once */
   U.say(m, { t: 'pub', pub: { on: true, v: '1.9.0', mode: 'jpeg', cams: [] }, watchers: 1 });
   assert.equal(p1.closed, true); assert.deepEqual(U.open(), [m]); assert.equal(ui.CAMB.src, 'master');
-  assert.match(st(), /Direct link/); assert.doesNotMatch(st(), /Auto/); assert.match(st(), /v1\.9\.0/);
+  assert.match(st(), /Direct link \(overrides Auto\)/); assert.doesNotMatch(st(), /Auto ·/); assert.match(st(), /v1\.9\.0/);   /* the source says it plainly (P1), never the pilot's Auto */
   g.BC.cfg = { pilot: 'PAW0012' }; ui.bcCamLink(); assert.deepEqual(U.open(), [m]);     /* still only the one */
   /* it goes: Auto again, for the pilot set now */
   U.say(m, { t: 'pub', pub: { on: false, cams: [] }, watchers: 1 });

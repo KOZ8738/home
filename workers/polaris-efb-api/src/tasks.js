@@ -15,6 +15,7 @@
 import { taskMailReady, mailOffList, setMailOff, taskMail, taskSend, taskNotices } from './taskmail.js';
 
 const DAY = 86_400_000, KEEP = 90 * DAY, SHOW_DONE = 14 * DAY, MAX = 2000, TITLE_MAX = 120, BODY_MAX = 4000, NOTE_MAX = 2000;
+export const NOTES_MAX = 100;
 export const TASK_STATES = ['todo', 'doing', 'done'];
 
 class TaskError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -172,6 +173,9 @@ export class Taskboard {
   note(a) {
     const r = this.task(a.id, a.only), text = clean(a.text, NOTE_MAX).trim();
     if (!text) throw new TaskError(400, 'Write the note first');
+    /* a task keeps NOTES_MAX notes at most (P2, Nov 2026): the object's storage stays bounded */
+    const had = (this.one("SELECT COUNT(*) AS n FROM ev WHERE id = ? AND k = 'note'", r.id) || {}).n || 0;
+    if (had >= NOTES_MAX) throw new TaskError(400, 'This task has ' + NOTES_MAX + ' notes, the most one task keeps. Make a new task to go on.');
     const now = Date.now();
     this.sql.exec('UPDATE task SET at = ? WHERE id = ?', now, r.id);
     this.ev(r.id, a.by, 'note', text, now);

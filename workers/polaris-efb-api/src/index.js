@@ -1064,16 +1064,17 @@ async function withTracks(env, l) {
   return l;
 }
 /* every 2 minutes: the gate assignment and the OOOI times, from one read of the flights in the air; every 10, the
-   SIGMETs on the routes (see sigroute.js) */
-async function opsTick(env, ctx) {
+   SIGMETs on the routes (see sigroute.js). One after another, never at once (P1, Nov 2026): each of them may send AOC
+   messages, which all go into the one AOC index (aoc.js), and the arrival report reads the gate log the gate assignment
+   has just written. A step that fails is logged and the next one still runs. */
+export async function opsTick(env, ctx) {
   const d = standDeps(env, ctx); let lp = null; const live = () => (lp = lp || d.live());
   const plan = await autoPlan(env).catch(() => null), sigTick = Math.floor(Date.now() / 60_000) % 10 === 0;
-  await Promise.all([
-    plan ? standWatch(env, { ...d, live, plan }).catch((e) => console.warn('[stands]', e && e.message)) : null,
-    live().then((l) => oooWatch(env, l, { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [],
-      arrived: plan && plan.inr ? (r) => inReport(env, r, { gate: (cs, arr) => arrivalGate(env, cs, arr) }) : null })).catch((e) => console.warn('[ooo]', e && e.message)),
-    sigTick && plan && plan.sig ? live().then((l) => sigRouteWatch(env, l, { sigmets: () => sigmetRoute(), on: true })).catch((e) => console.warn('[sigroute]', e && e.message)) : null,
-  ]);
+  const step = async (tag, fn) => { try { await fn(); } catch (e) { console.warn('[' + tag + ']', e && e.message); } };
+  if (plan) await step('stands', () => standWatch(env, { ...d, live, plan }));
+  await step('ooo', async () => oooWatch(env, await live(), { checkins: async () => ((await crewCall(env, { op: 'ciList' })) || {}).list || [],
+    arrived: plan && plan.inr ? (r) => inReport(env, r, { gate: (cs, arr) => arrivalGate(env, cs, arr) }) : null }));
+  if (sigTick && plan && plan.sig) await step('sigroute', async () => sigRouteWatch(env, await live(), { sigmets: () => sigmetRoute(), on: true }));
 }
 function standDeps(env, ctx) {
   const siteDeps = { vget: (p, q) => vget(env, p, q), all: (p) => all(env, p), cached, edgeCache, configured: Boolean(env.VAMSYS_CLIENT_ID && env.VAMSYS_CLIENT_SECRET) };

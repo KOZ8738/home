@@ -58,6 +58,9 @@ const LAG_JPEG = 8, LAG_H264 = 45, RESUME_H264 = 15, GOP_FRAMES = 75, GOP_BYTES 
 export const CAM_GONE = 'This Polaris Cam link is no longer in use';
 export const CAM_TICKET = 'Polaris Cam ticket expired or invalid';
 const ONLINE_MAX = 200;
+/* on 'cam' also: the pilots' channels staff watched lately (watched { ID: at }, 200 at most, a week), whether a Polaris
+   Cam is on there or not, so a role taken away closes those pages too (/revoke); written at most once an hour a channel */
+const WATCH_MS = 7 * 86400_000, WATCH_EVERY = 3600_000;
 const line = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const tokOk = (t) => typeof t === 'string' && /^[A-Za-z0-9_-]{24,40}$/.test(t);
 const newTok = () => { const b = new Uint8Array(18); crypto.getRandomValues(b); return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -69,6 +72,17 @@ const stub = (env) => env.CAM.get(env.CAM.idFromName('cam'));
 export const normPilot = (v) => { const s = String(v == null ? '' : v).trim().toUpperCase(); return /^[A-Z0-9]{2,16}$/.test(s) ? s : ''; };
 export const pilotOk = (v) => normPilot(v) !== '';
 const pilotStub = (env, p) => env.CAM.get(env.CAM.idFromName('pilot:' + p));
+/* an admin page's sign-in (P2, Nov 2026): kept with its socket { who, exp } (exp in seconds); once it has run out the
+   socket is closed (4401) as it next speaks, and the link goes only to the directors still signed in */
+export const WS_EXPIRED = 'Session expired', WS_REVOKED = 'Your access changed';
+const wsExpired = (a, now = Date.now()) => !!(a && +a.exp > 0 && now > +a.exp * 1000);
+/* close the admin WebSockets of these emails (and, with keep, of every email not in it) on Broadcast's own channel and
+   on the channels of the pilots whose Polaris Cam is on (mail.js revokeWs, a role changed or taken away) */
+export async function camRevoke(env, emails, keep) {
+  if (!env || !env.CAM) return null;
+  const r = await stub(env).fetch('https://cam/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: emails || [], keep: keep || null }) });
+  return r.json().catch(() => null);
+}
 /* a WebSocket answered and closed at once, the code saying why (to Polaris Cam) */
 function refuse(code, why) { const [client, server] = Object.values(new WebSocketPair()); server.accept(); server.close(code, why); return new Response(null, { status: 101, webSocket: client }); }
 /* the list of whose Polaris Cam is on, as kept: well-formed entries only, at most ONLINE_MAX (the latest seen) */
@@ -113,7 +127,7 @@ export function frameIn(buf) {
 /* the admin (from mail.js, after Cloudflare Access and the role: direct = may direct the live broadcast; hasBc = sees
    Broadcast; mail.js lets in only those who see Flight Watch or Broadcast). Broadcast's own channel is for those who
    see Broadcast; a pilot's (?pilot=, or pilot in the POST) for all of them; the link, and a new one, for directors */
-export async function camAdmin(req, url, env, who, direct, hasBc = true) {
+export async function camAdmin(req, url, env, who, direct, hasBc = true, exp = 0) {
   if (!env.CAM) return json({ error: 'Polaris Cam is not set up on the server yet' }, 503);
   const path = url.pathname.replace(/\/+$/, ''), role = direct ? 'dir' : 'view';
   if (path === '/admin/api/cam/online') {
@@ -126,7 +140,7 @@ export async function camAdmin(req, url, env, who, direct, hasBc = true) {
   if (path === '/admin/api/cam' && req.method === 'POST') {
     if (!direct) return json({ error: 'Your role cannot direct the live broadcast' }, 403);
     /* JSON only: a plain form posted from another site cannot make a new link */
-    if (!/application\/json/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
     const t = await req.text(); if (t.length > 2000) return json({ error: 'Too large' }, 413);
     let b; try { b = JSON.parse(t); } catch (e) { return json({ error: 'Bad body' }, 400); }
     if (!b || typeof b !== 'object' || b.op !== 'token') return json({ error: 'Not something Polaris Cam can do' }, 400);
@@ -141,7 +155,7 @@ export async function camAdmin(req, url, env, who, direct, hasBc = true) {
     if (!upgrade(req)) return json({ error: 'WebSocket only' }, 426);
     /* only the admin's own page (not another site the staff member has open) */
     const o = req.headers.get('Origin'); if (o && o !== url.origin) return json({ error: 'Not allowed' }, 403);
-    return S.fetch(new Request('https://cam/ws?role=' + role + q, req));
+    return S.fetch(new Request('https://cam/ws?role=' + role + q + '&who=' + encodeURIComponent(who || '') + '&exp=' + (Math.floor(+exp) || 0), req));
   }
   if (req.method === 'GET' || req.method === 'HEAD') return S.fetch('https://cam/state?role=' + role + q);
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -180,6 +194,7 @@ export class CamRelay {
     this.ctx = ctx; this.env = env; this.cfg = null;
     this.pilot = '';                         /* whose channel this is ('pilot:<ID>'), '' on Broadcast's own ('cam') */
     this.online = null;                      /* on 'cam': whose Polaris Cam is on { ID: { v, mode, cams, at, seen } }, once read */
+    this.watched = null;                     /* on 'cam': the pilots' channels staff watched lately { ID: at }, once read */
     this.pub = null;                         /* { v, mode, cams, at } while Polaris Cam is here */
     this.offAt = 0;                          /* when it left */
     this.last = new Array(CAMS).fill(null);  /* each JPEG camera's latest picture { buf, seq, w, h, at } */
@@ -204,6 +219,13 @@ export class CamRelay {
   to(list, m) { const s = typeof m === 'string' ? m : JSON.stringify(m); for (const w of list) this.send(w, s); }
   pubSock(except) { return this.socks('pub', except)[0] || null; }
   att(w) { try { return (w && w.deserializeAttachment && w.deserializeAttachment()) || null; } catch (e) { return null; } }
+  /* a staff page whose sign-in has run out: closed (4401), and true */
+  expired(w) {
+    if (!wsExpired(this.att(w))) return false;
+    try { w.close(4401, WS_EXPIRED); } catch (e) { /* gone */ }
+    this.flow.delete(w);
+    return true;
+  }
   /* whose channel this is: as asked for, or as kept with Polaris Cam's socket (the object may have been away from
      memory since, and woken by that socket closing) */
   pilotOf(ws) {
@@ -219,12 +241,30 @@ export class CamRelay {
     if (!p || !C || typeof C.idFromName !== 'function' || typeof C.get !== 'function') return null;
     let body = { pilot: p, on: false, pub: null };
     if (on) { const P = this.pubOut(); body = { pilot: p, on: true, pub: { v: P.v, mode: P.mode, cams: P.cams, at: P.at } }; }
+    if (this.watchers()) body.watch = 1;   /* staff are watching this channel (for /revoke) */
     let pr = null;
     try {
       pr = Promise.resolve(C.get(C.idFromName('cam')).fetch('https://cam/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).catch(() => null);
     } catch (e) { return null; }
     try { if (this.ctx.waitUntil) this.ctx.waitUntil(pr); } catch (e) { /* not on this runtime */ }
     return pr;
+  }
+  /* on 'cam': the pilots' channels watched lately, from storage the first time */
+  async watchList() {
+    if (!this.watched) {
+      let o = null; try { o = await this.ctx.storage.get('watched'); } catch (e) { o = null; }
+      const now = Date.now(), out = {};
+      if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (normPilot(k) === k && +v > now - WATCH_MS) out[k] = +v;
+      this.watched = out;
+    }
+    return this.watched;
+  }
+  async noteWatch(p) {
+    const W = await this.watchList(), now = Date.now(); if (now - (W[p] || 0) < WATCH_EVERY) return;
+    W[p] = now;
+    const keep = Object.entries(W).filter(([, t]) => t > now - WATCH_MS).sort((a, b) => b[1] - a[1]).slice(0, ONLINE_MAX);
+    this.watched = Object.fromEntries(keep);
+    try { await this.ctx.storage.put('watched', this.watched); } catch (e) { /* only for /revoke */ }
   }
   /* on 'cam': the list of whose Polaris Cam is on, from storage the first time */
   async onlineList() {
@@ -349,6 +389,7 @@ export class CamRelay {
         /* written only when it says something new (a page finding it right changes nothing kept) */
         if (!same) { this.online = onlineIn(L); await this.ctx.storage.put('online', this.online); }
       } else if (had) { delete L[u]; await this.ctx.storage.put('online', L); }
+      if (b.watch) await this.noteWatch(u);
       return json({ ok: true });
     }
     if (p === '/state') {
@@ -363,8 +404,26 @@ export class CamRelay {
       const old = this.socks('pub').filter((w) => { const a = this.att(w); return !(a && a.auth === 'ticket'); });
       for (const w of old) { try { w.close(4004, CAM_GONE); } catch (e) { /* gone */ } }
       if (old.length) this.dropPub(old[0]);
-      this.to(this.socks('dir'), { t: 'token', token: cfg.token });
+      this.to(this.socks('dir').filter((w) => !this.expired(w)), { t: 'token', token: cfg.token });
       return json({ ok: true, token: cfg.token, pub: this.pubOut(), watchers: this.watchers() });
+    }
+    if (p === '/revoke' && req.method === 'POST') {
+      const b = await req.json().catch(() => ({})), L = (Array.isArray(b && b.emails) ? b.emails : []).map((e) => String(e).toLowerCase());
+      const keep = b && Array.isArray(b.keep) ? b.keep.map((e) => String(e).toLowerCase()) : null;
+      let n = 0;
+      for (const w of this.viewers()) {
+        const who = String((this.att(w) || {}).who || '').toLowerCase();
+        if (L.includes(who) || (keep && !keep.includes(who))) { try { w.close(4403, WS_REVOKED); } catch (e) { /* gone */ } this.flow.delete(w); n++; }
+      }
+      if (n) this.tellAll();
+      /* Broadcast's own object passes it on to the pilots' channels with a Polaris Cam on, or watched lately */
+      const C = this.env && this.env.CAM;
+      if (!this.pilot && C && typeof C.idFromName === 'function') {
+        const on = [...new Set([...Object.keys(await this.onlineList()), ...Object.keys(await this.watchList())])], body = JSON.stringify({ emails: L, keep });
+        const r = await Promise.allSettled(on.map((pl) => pilotStub(this.env, pl).fetch('https://cam/revoke?pilot=' + pl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then((x) => x.json())));
+        for (const x of r) if (x.status === 'fulfilled' && x.value) n += +x.value.closed || 0;
+      }
+      return json({ ok: true, closed: n });
     }
     if (!upgrade(req)) return json({ error: 'Not found' }, 404);
     const [client, server] = Object.values(new WebSocketPair());
@@ -384,8 +443,10 @@ export class CamRelay {
       return ok();
     }
     if (p === '/ws') {
-      const role = url.searchParams.get('role') === 'dir' ? 'dir' : 'view';
+      const role = url.searchParams.get('role') === 'dir' ? 'dir' : 'view', who = line(url.searchParams.get('who'), 120), exp = Math.max(0, Math.floor(+url.searchParams.get('exp') || 0));
+      if (wsExpired({ exp })) { server.accept(); server.close(4401, WS_EXPIRED); return ok(); }
       this.ctx.acceptWebSocket(server, [role]);
+      try { server.serializeAttachment({ who, exp }); } catch (e) { /* kept in memory only */ }
       this.send(server, { t: 'hello', role, ...this.state(role) });
       /* what there is of each camera, so a page opened midway shows something at once: a JPEG camera's latest picture,
          an H.264 camera's GOP so far (or, when there is none whole, a key frame asked of Polaris Cam) */
@@ -432,6 +493,7 @@ export class CamRelay {
       return;
     }
     if (role !== 'dir' && role !== 'view') return;
+    if (this.expired(ws)) return;
     if (j.t === 'ack') this.ack(ws, j);
     else if (j.t === 'key') { const c = j.cam; if (Number.isInteger(c) && c >= 0 && c < CAMS) this.requestKey(c); }
   }

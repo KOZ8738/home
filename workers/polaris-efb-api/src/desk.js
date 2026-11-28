@@ -68,6 +68,17 @@ const statsIn = (s) => {
 const json = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const upgrade = (req) => (req.headers.get('Upgrade') || '').toLowerCase() === 'websocket';
 const stub = (env) => env.DESK.get(env.DESK.idFromName('desk'));
+/* an admin's WebSocket whose Cloudflare Access sign-in has run out (exp, in seconds, kept with the socket) is closed
+   (P2, Nov 2026): the page signs in again, and comes back as its role is then */
+export const WS_EXPIRED = 'Session expired', WS_REVOKED = 'Your access changed';
+export const wsExpired = (a, now = Date.now()) => !!(a && +a.exp > 0 && now > +a.exp * 1000);
+/* close the admin WebSockets of these emails (and, with keep, of every email not in it): a role changed or taken away
+   (mail.js revokeWs) */
+export async function deskRevoke(env, emails, keep) {
+  if (!env || !env.DESK) return null;
+  const r = await stub(env).fetch('https://desk/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: emails || [], keep: keep || null }) });
+  return r.json().catch(() => null);
+}
 
 /* ---- routes ---- */
 /* GET /api/nav/flight: is this pilot's flight the one on the desk */
@@ -83,18 +94,21 @@ export async function deskNav(req, url, env) {
   if (!u) return new Response('Pair Polaris Navdata again on the EFB', { status: 401 });
   return stub(env).fetch(new Request('https://desk/pc?u=' + encodeURIComponent(u), req));
 }
-/* the admin (from mail.js, after Cloudflare Access and the role: direct = may direct the live broadcast) */
-export async function deskAdmin(req, url, env, who, direct) {
+/* the admin (from mail.js, after Cloudflare Access and the role: direct = may direct the live broadcast; exp = when the
+   staff member's Access sign-in runs out, in seconds) */
+export async function deskAdmin(req, url, env, who, direct, exp = 0) {
   if (!env.DESK) return json({ error: 'The broadcast desk is not set up on the server yet' }, 503);
   const path = url.pathname.replace(/\/+$/, ''), role = direct ? 'dir' : 'view';
   if (path === '/admin/api/desk/ws') {
     if (!upgrade(req)) return json({ error: 'WebSocket only' }, 426);
     /* only the admin's own page (not another site the staff member has open) */
     const o = req.headers.get('Origin'); if (o && o !== url.origin) return json({ error: 'Not allowed' }, 403);
-    return stub(env).fetch(new Request('https://desk/ws?role=' + role + '&who=' + encodeURIComponent(who || ''), req));
+    return stub(env).fetch(new Request('https://desk/ws?role=' + role + '&who=' + encodeURIComponent(who || '') + '&exp=' + (Math.floor(+exp) || 0), req));
   }
   if (req.method === 'GET') return stub(env).fetch('https://desk/state?role=' + role);
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  /* the admin page posts JSON, which a form on another site cannot send (mail.js also turns cross-site requests away) */
+  if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
   if (!direct) return json({ error: 'Your role cannot direct the live broadcast' }, 403);
   const t = await req.text(); if (t.length > 20000) return json({ error: 'Too large' }, 413);
   let b; try { b = JSON.parse(t); } catch (e) { return json({ error: 'Bad body' }, 400); }
@@ -117,6 +131,7 @@ export class LiveDesk {
     this.ctx = ctx; this.env = env; this.cfg = null; this.pc = null; this.pvw = ''; this.imgs = {}; this.logs = []; this.pend = new Map();
     this.expect = null; this.acted = {}; this.plan = undefined; this.planAt = 0; this.planBusy = false; this.oo = null; this.land = null; this.ooAt = 0; this.ooBusy = false;
     this.trk = null; this.trkKey = ''; this.trkAt = 0;
+    this.exps = new WeakMap();   /* each staff page's sign-in expiry (from its socket's attachment), read once */
     /* the pages' keep-alive, answered without waking the desk */
     try { ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong')); } catch (e) { /* not on this runtime */ }
   }
@@ -125,8 +140,19 @@ export class LiveDesk {
     return this.cfg;
   }
   socks(tag, except) { return this.ctx.getWebSockets(tag).filter((w) => w !== except && w.readyState !== 2 && w.readyState !== 3); }
+  att(w) { try { return (w && w.deserializeAttachment && w.deserializeAttachment()) || {}; } catch (e) { return {}; } }
+  /* a staff page whose sign-in has run out: closed (4401), and true */
+  expired(w) {
+    let exp = this.exps.get(w); if (exp === undefined) { exp = +this.att(w).exp || 0; this.exps.set(w, exp); }
+    if (!wsExpired({ exp })) return false;
+    try { w.close(4401, WS_EXPIRED); } catch (e) { /* gone */ }
+    return true;
+  }
+  /* the directors still signed in (the overlay link goes only to them) */
+  dirs() { return this.socks('dir').filter((w) => !this.expired(w)); }
   send(w, m) { if (!w) return; try { w.send(typeof m === 'string' ? m : JSON.stringify(m)); } catch (e) { /* gone */ } }
-  to(tags, m, except) { const s = typeof m === 'string' ? m : JSON.stringify(m); for (const t of tags) for (const w of this.socks(t, except)) this.send(w, s); }
+  /* (a staff page whose sign-in has run out gets nothing more: closed instead, whether it speaks or only watches) */
+  to(tags, m, except) { const s = typeof m === 'string' ? m : JSON.stringify(m); for (const t of tags) for (const w of this.socks(t, except)) { if ((t === 'dir' || t === 'view') && this.expired(w)) continue; this.send(w, s); } }
   desk(m) { this.to(['dir', 'view'], m); }
   pcSock() { return this.socks('pc')[0] || null; }
   watchers(except) { return this.socks('dir', except).length + this.socks('view', except).length; }
@@ -143,7 +169,8 @@ export class LiveDesk {
   ovOut() { const c = this.cfg; return { on: c.on, ov: c.ov, title: c.title, sub: c.sub }; }
   snapshot(role) { return { cfg: this.cfgOut(role), pc: this.pcOut(), pvw: this.pvw, log: this.logs.slice(-60), plan: this.plan || null, oo: this.oo, land: this.land }; }
   pushCfg() {
-    this.to(['dir'], { t: 'cfg', cfg: this.cfgOut('dir') }); this.to(['view'], { t: 'cfg', cfg: this.cfgOut('view') });
+    const d = JSON.stringify({ t: 'cfg', cfg: this.cfgOut('dir') }); for (const w of this.dirs()) this.send(w, d);
+    this.to(['view'], { t: 'cfg', cfg: this.cfgOut('view') });
     this.to(['ov'], { t: 'ov', cfg: this.ovOut() }); this.send(this.pcSock(), { cfg: { auto: this.cfg.auto } });
   }
   async saveCfg() { await this.ctx.storage.put('cfg', this.cfg); }
@@ -229,6 +256,17 @@ export class LiveDesk {
     if (p === '/on') return json({ on: cfg.on && !!cfg.pilot && cfg.pilot === String(url.searchParams.get('u') || '').toUpperCase() });
     if (p === '/state') { this.refreshFlight(); return json(this.snapshot(url.searchParams.get('role'))); }
     if (p === '/cfg' && req.method === 'POST') return this.setCfg(await req.json().catch(() => ({})));
+    if (p === '/revoke' && req.method === 'POST') {
+      const b = await req.json().catch(() => ({})), L = (Array.isArray(b && b.emails) ? b.emails : []).map((e) => String(e).toLowerCase());
+      const keep = b && Array.isArray(b.keep) ? b.keep.map((e) => String(e).toLowerCase()) : null;
+      let n = 0;
+      for (const w of [...this.socks('dir'), ...this.socks('view')]) {
+        const who = String(this.att(w).who || '').toLowerCase();
+        if (L.includes(who) || (keep && !keep.includes(who))) { try { w.close(4403, WS_REVOKED); } catch (e) { /* gone */ } n++; }
+      }
+      if (n) this.tellPc();
+      return json({ ok: true, closed: n });
+    }
     if (p === '/token' && req.method === 'POST') {
       const b = await req.json().catch(() => ({}));
       this.cfg.token = newTok(); this.cfg.by = line(b.who, 120); this.cfg.at = Date.now(); await this.saveCfg();
@@ -252,8 +290,9 @@ export class LiveDesk {
       return ok();
     }
     if (p === '/ws') {
-      const role = url.searchParams.get('role') === 'dir' ? 'dir' : 'view', who = line(url.searchParams.get('who'), 120);
-      this.ctx.acceptWebSocket(server, [role]); try { server.serializeAttachment({ who }); } catch (e) { /* kept in memory only */ }
+      const role = url.searchParams.get('role') === 'dir' ? 'dir' : 'view', who = line(url.searchParams.get('who'), 120), exp = Math.max(0, Math.floor(+url.searchParams.get('exp') || 0));
+      if (wsExpired({ exp })) { server.accept(); server.close(4401, WS_EXPIRED); return ok(); }
+      this.ctx.acceptWebSocket(server, [role]); try { server.serializeAttachment({ who, exp }); } catch (e) { /* kept in memory only */ }
       this.send(server, { t: 'hello', role, me: who, ...this.snapshot(role) });
       for (const [name, s] of Object.entries(this.imgs)) this.send(server, { t: 'shot', name, img: s.img, at: s.at });
       this.tellPc(); this.refreshFlight();
@@ -276,7 +315,7 @@ export class LiveDesk {
     await this.conf();
     const role = this.ctx.getTags(ws)[0];
     if (role === 'pc') return this.fromPc(ws, j);
-    if (role === 'dir' || role === 'view') return this.fromDesk(ws, role, j);
+    if (role === 'dir' || role === 'view') { if (this.expired(ws)) return; return this.fromDesk(ws, role, j); }
   }
   fromPc(ws, j) {
     /* the desk was away from memory a while (nothing kept): the PC tells it all again */
@@ -345,7 +384,7 @@ export class LiveDesk {
     }
   }
   async fromDesk(ws, role, j) {
-    let who = ''; try { who = ((ws.deserializeAttachment && ws.deserializeAttachment()) || {}).who || ''; } catch (e) { /* none */ }
+    const who = this.att(ws).who || '';
     if (j.cmd && typeof j.cmd === 'object') {
       const c = j.cmd, id = line(c.id, 40), op = String(c.op || ''), name = sname(c.name);
       const no = (err) => this.send(ws, { t: 'ack', id, ok: false, err });

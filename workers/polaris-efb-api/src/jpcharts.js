@@ -18,6 +18,8 @@
    AIP China's charts (CAAC eAIP, the Full Package of each AIRAC) go the same way (Nov 2026): one version per AIRAC for
    every aerodrome, named for its effective date in Beijing (00:00 Beijing = 16:00 UTC the day before), under cn/ and
    cnch:v1:, through /admin/api/navdata/cncharts…, with cycle=CNyyyymmdd and file=ZBAA/<chart number, as 3P-8>. */
+import { kvJson, plainObj, StoreError } from './kvread.js';
+
 const PDF_MAX = 60 * 1024 * 1024, FILES_MAX = 400, SWIM = 'https://top.swim.mlit.go.jp/swim/', EAIP = 'https://www.eaipchina.cn/';
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 const effIso = (e) => e.slice(0, 4) + '-' + e.slice(4, 6) + '-' + e.slice(6, 8);
@@ -79,10 +81,17 @@ function mk(R) {
   const effT = (e) => Date.UTC(+e.slice(0, 4), +e.slice(4, 6) - 1, +e.slice(6, 8)) - R.off * 3600_000;
   const aptOk = (a) => R.apt.test(a), effOk = (e) => /^20\d{6}$/.test(e) && !isNaN(effT(e));
   let MEM = null;
+  const DOWN = R.label + ' charts are temporarily unavailable; please try again';
+  /* no index yet: no aerodromes. A storage error (or an index that is not one) throws 503 and is not kept: a commit
+     or a delete never writes every other aerodrome's charts away from an empty read (kvread.js) */
   async function readIdx(env, fresh) {
     if (!fresh && MEM && Date.now() - MEM.t < 60_000) return MEM.v;
-    const v = (await env.STORE.get(IDXK, 'json').catch(() => null)) || { at: 0, apts: {} }; MEM = { v, t: Date.now() }; return v;
+    const raw = await kvJson(env.STORE, IDXK, { shape: 'object', msg: DOWN });
+    if (raw && raw.apts != null && !plainObj(raw.apts)) { console.warn('[' + R.p + '] the chart index is not an index'); throw new StoreError(503, DOWN); }
+    const v = raw ? { ...raw, apts: raw.apts || {} } : { at: 0, apts: {} }; MEM = { v, t: Date.now() }; return v;
   }
+  /* an aerodrome's chart list for a version: null when it is not there, 503 when it cannot be read */
+  const readList = (env, apt, eff) => kvJson(env.STORE, LK(apt, eff), { shape: 'object', msg: DOWN, get: { cacheTtl: 300 } });
   /* the version in force: the latest whose date has come, else (nothing yet) the first one to come */
   function pick(vers, now) {
     const t = now || Date.now(), L = (vers || []).slice().sort((a, b) => effT(a.eff) - effT(b.eff));
@@ -95,7 +104,12 @@ function mk(R) {
     let cur; do { const l = await env.CHARTS.list({ prefix: pre, cursor: cur }); if (l.objects.length) await env.CHARTS.delete(l.objects.map((o) => o.key)); cur = l.truncated ? l.cursor : null; } while (cur);
     await env.STORE.delete(LK(apt, eff)).catch(() => {});
   }
+  /* a storage error answers as itself (503), not as navdata.js's catch-all 500 */
   async function admin(req, path, env, by) {
+    try { return await adminRun(req, path, env, by); }
+    catch (e) { if (e instanceof StoreError) return jsonRes({ error: e.message }, e.status); throw e; }
+  }
+  async function adminRun(req, path, env, by) {
     if (!env.CHARTS) return jsonRes({ error: 'The chart storage (R2) is not connected' }, 503);
     const who = lineS(typeof by === 'string' ? by : (by && by.email) || '', 120), now = Date.now(), url = new URL(req.url), B = '/admin/api/navdata/' + R.path;
     if (path === B && req.method === 'GET') return jsonRes({ apts: (await readIdx(env, true)).apts || {} });
@@ -103,6 +117,8 @@ function mk(R) {
     if (path === B + '/put') {
       const apt = String(url.searchParams.get('apt') || ''), eff = String(url.searchParams.get('eff') || ''), i = +url.searchParams.get('i');
       if (!aptOk(apt) || !effOk(eff) || !Number.isInteger(i) || i < 0 || i >= FILES_MAX) return jsonRes({ error: 'Bad chart' }, 400);
+      /* the chart itself, as the admin page sends it (a form on another site cannot send these types) */
+      if (!/^application\/(pdf|octet-stream)\b/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send the chart as application/pdf' }, 415);
       const n = +(req.headers.get('Content-Length') || 0); if (n > PDF_MAX) return jsonRes({ error: 'That PDF is too large' }, 413);
       const buf = await req.arrayBuffer(); const u = new Uint8Array(buf, 0, Math.min(5, buf.byteLength));
       if (buf.byteLength > PDF_MAX) return jsonRes({ error: 'That PDF is too large' }, 413);
@@ -110,11 +126,12 @@ function mk(R) {
       await env.CHARTS.put(OK(apt, eff, i), buf, { httpMetadata: { contentType: 'application/pdf' } });
       return jsonRes({ ok: true, s: buf.byteLength });
     }
-    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
     let b = {}; try { b = await req.json(); } catch (e) {}
     const apt = String(b.apt || '');
     if (!aptOk(apt)) return jsonRes({ error: 'Bad aerodrome' }, 400);
-    const idx = await readIdx(env, true); idx.apts = idx.apts || {};
+    /* a copy to change: the one kept in MEM stays what KV has until the write is done */
+    const idx = structuredClone(await readIdx(env, true));
     if (path === B + '/delete') {
       const vers = idx.apts[apt] || []; for (const v of vers) await dropVersion(env, apt, v.eff);
       delete idx.apts[apt]; idx.at = now; await env.STORE.put(IDXK, JSON.stringify(idx)); MEM = null;
@@ -144,16 +161,17 @@ function mk(R) {
     for (const v of gone) await dropVersion(env, apt, v.eff).catch(() => {});
     return jsonRes({ ok: true, apt, versions: vers });
   }
-  /* the Charts list for an aerodrome, or null when none were uploaded (the next source's answer then) */
+  /* the Charts list for an aerodrome, or null when none were uploaded (the next source's answer then). A storage error
+     throws StoreError 503 (index.js answers it as JSON): never "no charts here" for charts that are */
   async function list(icao, env, me) {
     if (!env.CHARTS || !aptOk(icao)) return null;
-    const vers = ((await readIdx(env)).apts || {})[icao];
+    const vers = (await readIdx(env)).apts[icao];
     if (!vers || !vers.length) return null;
     const base = { src: R.src, label: R.label, aip: R.aip, airport: { icao, name: '' } };
     if (!me) return { ...base, cycle: null, charts: [], notFound: true, signin: true };
     const { act, next, pending } = pick(vers);
-    const L = await env.STORE.get(LK(icao, act.eff), { type: 'json', cacheTtl: 300 }).catch(() => null);
-    if (!L) return { ...base, cycle: null, charts: [], notFound: true };
+    const L = await readList(env, icao, act.eff);
+    if (!L || !Array.isArray(L.files)) return { ...base, cycle: null, charts: [], notFound: true };
     return { ...base, cycle: R.cy + act.eff, eff: effIso(act.eff), from: new Date(effT(act.eff)).toISOString(), to: next ? new Date(effT(next.eff)).toISOString() : null,
       next: next ? { eff: effIso(next.eff) } : null, pending,
       charts: L.files.map((f) => ({ code: f.code, group: f.group, name: f.name, pdf: icao + '/' + f.key, changed: f.chg ? true : f.d === act.eff })), notFound: false };
@@ -165,8 +183,8 @@ function mk(R) {
     if (!new RegExp('^' + R.cy + '\\d{8}$').test(cycle) || !aptOk(apt) || file[4] !== '/' || !key || key.length > 240) return jsonRes({ error: 'Invalid chart' }, 400, h);
     if (!me) return jsonRes({ error: 'Sign in to see ' + R.label + ' charts' }, 401, h);
     if (!env.CHARTS) return jsonRes({ error: 'Chart storage is not connected' }, 503, h);
-    const L = await env.STORE.get(LK(apt, eff), { type: 'json', cacheTtl: 300 }).catch(() => null);
-    const f = L && L.files.find((x) => x.key === key);
+    let L; try { L = await readList(env, apt, eff); } catch (e) { return jsonRes({ error: e.message }, e.status || 503, h); }
+    const f = L && Array.isArray(L.files) && L.files.find((x) => x.key === key);
     if (!f) return jsonRes({ error: 'That chart is no longer in ' + R.label + ' here. Open the chart list again.' }, 404, h);
     const o = await env.CHARTS.get(OK(apt, eff, f.i));
     if (!o) return jsonRes({ error: 'The chart file is missing' }, 404, h);

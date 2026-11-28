@@ -9,11 +9,12 @@
 
    KV (STORE):  mail:v1:index          -> [{ id, t, sendAt, from, subject, body, att:[{ name, type, size }], to, by, edited }]
                 mail:v1:att:<id>:<n>   -> attachment bytes
+                mail:v1:tmp:<id>       -> an attachment uploaded for a mail being written (an hour; metadata { name, type, size, by })
    Vars:        ACCESS_TEAM_DOMAIN (e.g. polaris.cloudflareaccess.com), ACCESS_AUD (the Access application's AUD tag),
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
-import { deskAdmin } from './desk.js';
-import { camAdmin } from './cam.js';
+import { deskAdmin, deskRevoke } from './desk.js';
+import { camAdmin, camRevoke } from './cam.js';
 import { LIVE_JS } from './live-bundle.js';
 import { pmAdmin } from './pm.js';
 import { crew, mailTo, mailPayload, crewTo, toMatch } from './crew.js';
@@ -25,9 +26,13 @@ import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 import { tasksAdmin } from './tasks.js';
 import { taskMailReady } from './taskmail.js';
+import { kvJson, plainObj, queue } from './kvread.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
+/* attachments: uploaded one by one as they are (POST /admin/api/mail/att), kept an hour for the mail they go with;
+   base64 in the mail's JSON only for a small one (a page from before Nov 2026): decoding it costs CPU byte by byte */
+const TMP = 'mail:v1:tmp:', TMP_TTL = 3600, B64_MAX = 64 * 1024;
 const ATT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain'];
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
@@ -41,7 +46,9 @@ async function accessKeys(team, fresh) {
   if (!r.ok) throw new MailError(502, 'Could not read the Cloudflare Access keys');
   const j = await r.json(); certs = { at: Date.now(), keys: j.keys || [] }; return certs.keys;
 }
-export async function accessUser(req, env) {
+/* who is signed in, and until when (P2, Nov 2026): { email, exp } (exp: the Access token's, in seconds). The admin's
+   WebSockets keep exp with the socket and are closed once it has passed (desk.js, cam.js) */
+export async function accessSession(req, env) {
   const team = String(env.ACCESS_TEAM_DOMAIN || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, ''), aud = String(env.ACCESS_AUD || '').trim();
   if (!team || !aud) throw new MailError(503, 'The admin is not set up yet: ACCESS_TEAM_DOMAIN and ACCESS_AUD are missing in wrangler.toml');
   const cookie = (req.headers.get('Cookie') || '').match(/(?:^|;\s*)CF_Authorization=([^;]+)/);
@@ -63,13 +70,50 @@ export async function accessUser(req, env) {
   const email = String(pay.email || '').toLowerCase();
   const extra = String(env.ADMIN_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (extra.length && !extra.includes(email)) throw new MailError(403, 'This email is not on the admin list');
-  return email || 'unknown';
+  return { email: email || 'unknown', exp: +pay.exp || 0 };
 }
+export async function accessUser(req, env) { return (await accessSession(req, env)).email; }
 
 /* ---- storage ---- */
 let memIdx = null; // { at, list } short cache for the public list
-async function readIndex(kv) { const v = await kv.get('mail:v1:index', 'json').catch(() => null); return Array.isArray(v) ? v : []; }
-async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
+/* no index yet is no mail; a storage error (or an index that is not a list) is an error (503), never an empty list:
+   the next mail saved would write that empty list back over every mail kept (see kvread.js) */
+/* What this isolate saved or deleted in the last two minutes is put right in what it reads (P2, Nov 2026, as aoc.js
+   does), should KV still answer with the list from before its own write: a save a moment ago is never lost by the next
+   one, and a mail deleted (or let go past MAIL_MAX) does not come back. Per KV binding: add id -> { at, m }, del id -> at */
+const MINE_MS = 120_000, MINE = new WeakMap();
+const mineOf = (kv) => { let x = MINE.get(kv); if (!x) MINE.set(kv, (x = { add: new Map(), del: new Map() })); return x; };
+const mailV = (m) => (m && (m.edited || m.t)) || 0;
+async function readIndex(kv) {
+  const list = (await kvJson(kv, 'mail:v1:index', { shape: 'array', msg: 'Polaris Mail is temporarily unavailable; please try again', Err: MailError })) || [], now = Date.now(), mine = mineOf(kv);
+  for (const [id, x] of mine.add) if (now - x.at > MINE_MS) mine.add.delete(id);
+  for (const [id, at] of mine.del) if (now - at > MINE_MS) mine.del.delete(id);
+  if (!mine.add.size && !mine.del.size) return list;
+  const out = [], ids = new Set();
+  for (const m of list) {
+    if (!m || mine.del.has(m.id)) continue;
+    const x = mine.add.get(m.id); out.push(x && mailV(x.m) > mailV(m) ? x.m : m); ids.add(m.id);   /* the newer of the two (an edit) */
+  }
+  for (const [id, x] of mine.add) if (!ids.has(id) && !mine.del.has(id)) out.push(x.m);
+  /* newest first, as the index is kept: a mail just sent is never past the pilots' first 100 (mailPublic) */
+  return out.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t));
+}
+/* the index, newest first and MAIL_MAX at most: the mails let go past that take their attachments with them */
+async function writeIndex(kv, list) {
+  list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t));
+  const keep = list.slice(0, MAIL_MAX), gone = list.slice(MAIL_MAX);
+  await kv.put('mail:v1:index', JSON.stringify(keep)); memIdx = null;
+  const mine = mineOf(kv), now = Date.now();
+  for (const m of gone) {
+    if (!m || !m.id) continue;
+    mine.add.delete(m.id); mine.del.set(m.id, now);
+    for (let i = 0; i < (m.att || []).length; i++) { try { await kv.delete('mail:v1:att:' + m.id + ':' + i); } catch (e) { /* best effort: KV error */ } }
+  }
+  return keep;
+}
+/* a save or a delete reads the index from KV itself (never memIdx, the pilots' 20-second copy) and writes it back, one
+   after another in this isolate (kvread.js queue), so two staff saving at once both keep their mail */
+const mailChange = queue();
 const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? (m.to.crew ? { cs: m.to.cs || '', crew: 1 } : { cs: m.to.cs || '', pilot: m.to.pilot || '' }) : null, edited: m.edited || 0 });
 const LINK_MS = 6 * 3600_000;
 
@@ -143,20 +187,38 @@ const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give del
 /* the role there was before roles could be edited, kept until an administrator changes or deletes it */
 const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
-async function readRoles(kv) {
-  if (ROLES_MEM.v && Date.now() - ROLES_MEM.at < 10000) return ROLES_MEM.v;
-  let v = null; try { v = await kv.get(ROLES, 'json'); } catch (e) { v = null; }
-  if (!v || typeof v !== 'object') v = {};
-  if (!v.people || typeof v.people !== 'object') v.people = {};
-  if (!v.roles || typeof v.roles !== 'object') v.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
+const ROLES_DOWN = 'Roles are temporarily unavailable; please try again';
+/* Fails closed. Only a key that is not there means roles are off (everyone signed in is an administrator); a KV error
+   or a stored value that is not a roles record throws MailError 503, and is never kept in ROLES_MEM, so a storage
+   hiccup can never make everyone an administrator, nor let a change write roles back from an empty read.
+   fresh: read KV itself, not the 10-second copy (before a change) */
+async function readRoles(kv, fresh = false) {
+  if (!fresh && ROLES_MEM.v && Date.now() - ROLES_MEM.at < 10000) return ROLES_MEM.v;
+  const raw = await kvJson(kv, ROLES, { shape: 'object', msg: ROLES_DOWN, Err: MailError });
+  let v;
+  if (raw === null) v = { people: {}, roles: JSON.parse(JSON.stringify(DEFAULT_ROLES)) };
+  else {
+    /* every roles record written here has its people (an empty list while roles are off); without them it is not one */
+    if (!plainObj(raw.people) || (raw.roles != null && !plainObj(raw.roles))) { console.warn('[roles] the stored roles are not a roles record'); throw new MailError(503, ROLES_DOWN); }
+    v = { ...raw, roles: raw.roles || JSON.parse(JSON.stringify(DEFAULT_ROLES)) };
+  }
   ROLES_MEM = { at: Date.now(), v }; return v;
 }
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const roleOf = (R, email) => { if (!Object.keys(R.people).length) return 'admin'; const p = own(R.people, email) ? R.people[email] : null; if (!p) return null; return p.role === 'admin' || own(R.roles, p.role) ? p.role : null; };
 const roleName = (R, id) => id === 'admin' ? 'Administrator' : (own(R.roles, id) && R.roles[id].name) || id;
+/* what each change is made from (P2, Nov 2026): a role may make it only while it also sees one of these pages (as the
+   admin page's role editor ties them, RL_ACTS in admin.js), so "send messages" without Messages or Flight Watch, say,
+   lets nothing through. "settings" is the automatic messages (Automatic messages, the gate plan's switches on Gates)
+   and the From names and AOC templates, edited in Messages too. Broadcast's own desk (/admin/api/desk, its channel on
+   /admin/api/cam) wants Broadcast itself.
+   Publishing tasks is from Tasks, which every role sees. Administrators may do everything. */
+export const ACT_PAGES = { live: ['bc', 'fw'], msg: ['comms', 'fw'], gates: ['gates', 'fw'], delay: ['fw', 'reports'], docs: ['docs'], docsdel: ['docs'], cal: ['cal'], navdata: ['navdata'], pilots: ['pilots'], settings: ['settings', 'gates', 'comms'] };
+const actOk = (a, pages) => !ACT_PAGES[a] || ACT_PAGES[a].some((p) => pages.includes(p));
 function permsOf(R, id) {
   if (id === 'admin') return { pages: ['home', 'tasks', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };
-  const r = own(R.roles, id) ? R.roles[id] : {}; return { pages: ['home', 'tasks', ...ROLE_PAGES.filter((p) => (r.pages || []).includes(p))], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a)) };
+  const r = own(R.roles, id) ? R.roles[id] : {}, pages = ROLE_PAGES.filter((p) => (r.pages || []).includes(p));
+  return { pages: ['home', 'tasks', ...pages], can: ROLE_ACTS.filter((a) => (r.can || []).includes(a) && actOk(a, pages)) };
 }
 /* who may update Nav Data (the AIRAC reminders, airacmail.js): Administrators and the roles allowed 'navdata'; while
    roles are off (everyone signed in is an administrator), the ADMIN_EMAILS list, as no one else is known by name */
@@ -166,7 +228,9 @@ export async function navRecipients(env) {
   if (!people.length) return { rolesOff: true, list: [...new Set(String((env && env.ADMIN_EMAILS) || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))] };
   return { list: people.filter((e) => { const id = roleOf(R, e); return !!id && permsOf(R, id).can.includes('navdata'); }) };
 }
-/* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
+/* navRecipients, staffOfPilot and taskStaff only read the roles, and throw (503) when they cannot be read, rather than
+   answer "no staff": the AIRAC reminder and the task emails then wait for the next cron (nothing is marked sent), and
+   the EFB's Calendar keeps the tasks it showed (cal.js) */
 /* the staff member a pilot ID is linked to (Settings › People), for the EFB's Calendar: { email, role, roleName,
    names: { role id: name } }, or null */
 export async function staffOfPilot(env, pilot) {
@@ -179,6 +243,7 @@ export async function staffOfPilot(env, pilot) {
   }
   return null;
 }
+/* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
 export async function taskStaff(env) {
   const kv = env && env.STORE; if (!kv) return { ppl: {}, names: {} };
   const R = await readRoles(kv), ppl = {};
@@ -237,10 +302,11 @@ function roleNeeds(method, path) {
    most every half hour a person */
 const SEEN = 'admin:v1:seen';
 let SEEN_MEM = { at: 0, v: null };
+/* a storage error throws (and is not kept): markSeen then writes nothing, rather than one person over everyone's times */
 async function readSeen(kv) {
   if (SEEN_MEM.v && Date.now() - SEEN_MEM.at < 60_000) return SEEN_MEM.v;
-  let v = null; try { v = await kv.get(SEEN, 'json'); } catch (e) { v = null; }
-  SEEN_MEM = { at: Date.now(), v: v && typeof v === 'object' ? v : {} }; return SEEN_MEM.v;
+  const v = await kv.get(SEEN, 'json');
+  SEEN_MEM = { at: Date.now(), v: plainObj(v) ? v : {} }; return SEEN_MEM.v;
 }
 async function markSeen(kv, who) {
   if (!kv || !who || who === 'unknown') return;
@@ -252,7 +318,12 @@ async function markSeen(kv, who) {
 }
 const lineR = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 async function rolesApi(req, kv, who, env) {
-  const R = await readRoles(kv), seen = await readSeen(kv);
+  /* the roles as KV has them now, never the 10-second copy: a change is made to what is there, and a read that fails
+     (503) refuses the change rather than writing roles back from nothing */
+  const R = await readRoles(kv, true);
+  /* the request was let in by the roles as read a moment ago (mailAdmin); it must still be an administrator's */
+  if (roleOf(R, who) !== 'admin') throw new MailError(403, 'Only an administrator can see or change roles');
+  const seen = await readSeen(kv).catch(() => ({}));
   const list = () => {
     const n = {}; for (const p of Object.values(R.people)) n[p.role] = (n[p.role] || 0) + 1;
     return { on: Object.keys(R.people).length > 0, me: who, mail: { ready: taskMailReady(env), from: String((env && env.MAIL_FROM) || '') },
@@ -263,7 +334,7 @@ async function rolesApi(req, kv, who, env) {
   };
   if (req.method === 'GET') return jsonRes(list());
   if (req.method !== 'POST') throw new MailError(405, 'Method not allowed');
-  if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
+  if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
   let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
   const now = Date.now(), P = { ...R.people }, RS = JSON.parse(JSON.stringify(R.roles));
   if (b.op === 'role') {
@@ -304,27 +375,75 @@ async function rolesApi(req, kv, who, env) {
     if (!Object.values(P).some((p) => p.role === 'admin')) throw new MailError(409, 'Keep at least one administrator');
   }
   const v = { people: P, roles: RS, at: now, by: who }; await kv.put(ROLES, JSON.stringify(v)); ROLES_MEM = { at: Date.now(), v };
+  /* whose access changed: their Broadcast and camera WebSockets close now (they connect again, as their role has it
+     now), not when they next reload. A role given other pages or permissions: its people; a person given another role
+     or none: them; roles turned on: everyone not listed. Best effort: the change is saved whatever happens here */
+  let emails = [], keep = null;
+  const acc = (r) => JSON.stringify([[...((r && r.pages) || [])].sort(), [...((r && r.can) || [])].sort()]);
+  if (b.op === 'role' && b.id && acc(R.roles[String(b.id)]) !== acc(RS[String(b.id)])) emails = Object.entries(P).filter(([, p]) => p && p.role === String(b.id)).map(([e]) => e);
+  else if (b.op !== 'role' && b.op !== 'delrole') {
+    const email = String(b.email || '').trim().toLowerCase(), was = own(R.people, email) ? R.people[email] : null, is = own(P, email) ? P[email] : null;
+    if (!Object.keys(R.people).length) keep = Object.keys(P);
+    if (was && (!is || is.role !== was.role)) emails.push(email);
+  }
+  if (emails.length || keep) await revokeWs(env, emails, keep);
   Object.assign(R, v); return jsonRes({ ok: true, ...list() });
+}
+/* closes the admin WebSockets of these emails (and, with keep, of every email not in it) on the broadcast desk and on
+   Polaris Cam: never in the way of what asked for it */
+export async function revokeWs(env, emails, keep) {
+  const r = await Promise.allSettled([deskRevoke(env, emails, keep), camRevoke(env, emails, keep)]);
+  for (const x of r) if (x.status === 'rejected') console.warn('[roles] could not close a WebSocket:', x.reason && x.reason.message);
 }
 
 /* ---- /admin ---- */
-const ADMIN_FRAME = "frame-ancestors 'self' https://koz8738.com https://www.koz8738.com";
+/* the EFB's Admin app shows this page inside the EFB (koz8738.com), and no other site may frame it; no plugins, no
+   <base> to move the page's links, no form posted elsewhere (P2, Nov 2026). Scripts are not limited here: the page's
+   own are inline, and pdf.js comes from cdnjs */
+const ADMIN_FRAME = "frame-ancestors 'self' https://koz8738.com https://www.koz8738.com; object-src 'none'; base-uri 'none'; form-action 'self'";
+/* an error's message for the admin: one of ours (with a status) as it is, its first line; anything else (a bug, a
+   library's TypeError) is logged and said in plain words, never its insides (P2, Nov 2026) */
+const brief = (e) => String((e && e.message) || e || '').split('\n')[0].replace(/\s+at\s.*$/, '').slice(0, 200);
+export const adminErr = (e) => { if (e && e.status && e.message) return brief(e); console.warn('[admin]', (e && e.stack) || e); return 'Something went wrong on the server. Please try again.'; };
+/* the page with the deny box in it: a replacement function, so "$&" or "$'" in an email or a message stay as they are */
+const denied = (html) => ADMIN_HTML.replace('<!--DENIED-->', () => html);
 const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').slice(0, n);
+/* a change asked for by a page on another site (P1, Nov 2026). Cloudflare Access's sign-in cookie goes with every
+   request the browser makes here, whichever page makes it, so every POST, PUT, PATCH and DELETE to /admin/api/* must
+   come from the admin's own page. The browser says where a request comes from: Sec-Fetch-Site ("same-origin" from the
+   admin's page; "same-site", "cross-site" or "none" otherwise) and Origin. A request with neither (not from a browser)
+   goes on to the checks after this, which also want each body as the admin page sends it (JSON, a PDF, a JPEG, the
+   bytes of a file), what a form on another site cannot send. */
+export function crossSite(req, url) {
+  const site = req.headers.get('Sec-Fetch-Site'), origin = req.headers.get('Origin');
+  return (site != null && site !== 'same-origin') || (origin != null && origin !== url.origin);
+}
 export async function mailAdmin(req, url, env, opts) {
   const path = url.pathname.replace(/\/+$/, '');
-  let who;
-  try { who = await accessUser(req, env); }
+  if (path.startsWith('/admin/api/') && req.method !== 'GET' && req.method !== 'HEAD' && crossSite(req, url)) return jsonRes({ error: 'Cross-site request blocked' }, 403);
+  let who, exp = 0;
+  try { ({ email: who, exp } = await accessSession(req, env)); }
   catch (e) {
-    if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>The admin is locked.</b> ' + String(e.message).replace(/[<>&]/g, '') + '</div>'), { status: e.status || 401, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
-    return jsonRes({ error: e.message }, e.status || 401);
+    const msg = e && e.status ? brief(e) : adminErr(e), st = (e && e.status) || 401;
+    if (path === '/admin') return new Response(denied('<div class="deny"><b>The admin is locked.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: st, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
+    return jsonRes({ error: msg }, st);
   }
   /* the role of the person signed in, and whether this request is theirs to make */
   let role = 'admin', RR = null, perm = permsOf(null, 'admin'), lim = null;
   if (env && env.STORE && path !== '/admin/signin') {
-    RR = await readRoles(env.STORE); role = roleOf(RR, who);
+    /* roles that cannot be read shut the admin (503), never open it: see readRoles */
+    /* a WebSocket opening reads the roles as KV has them now: one closed by a change of role (revokeWs) comes back as
+       the role is now, never as an isolate's 10-second copy had it */
+    try { RR = await readRoles(env.STORE, /\/ws$/.test(path)); }
+    catch (e) {
+      const msg = (e && e.status && e.message) || ROLES_DOWN, hd = { 'Cache-Control': 'no-store', 'Retry-After': '10' };
+      if (path === '/admin') return new Response(denied('<div class="deny"><b>The admin is not available right now.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': ADMIN_FRAME, ...hd } });
+      return jsonRes({ error: msg }, 503, hd);
+    }
+    role = roleOf(RR, who);
     if (!role) {
       const msg = 'Your email (' + who + ') has no role in this admin yet. Ask a Polaris administrator to add you under Settings \u203a People.';
-      if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>Not given a role.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
+      if (path === '/admin') return new Response(denied('<div class="deny"><b>Not given a role.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });
       return jsonRes({ error: msg }, 403);
     }
     perm = permsOf(RR, role);
@@ -348,7 +467,7 @@ export async function mailAdmin(req, url, env, opts) {
     /* the role, already applied: nothing shows, and nothing is asked for, that it does not see */
     const me = { email: who, role, roleName: RR ? roleName(RR, role) : 'Administrator', roles: !!RR && Object.keys(RR.people).length > 0, pages: perm.pages, can: perm.can };
     const cls = permClass(perm), js = JSON.stringify(me).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-    const html = ADMIN_HTML.replace('<html lang="en">', '<html lang="en"' + (cls ? ' class="' + cls + '"' : '') + '>').replace('<!--PERM-->', '<script>window.PM_PERM=' + js + '</script>');
+    const html = ADMIN_HTML.replace('<html lang="en">', () => '<html lang="en"' + (cls ? ' class="' + cls + '"' : '') + '>').replace('<!--PERM-->', () => '<script>window.PM_PERM=' + js + '</script>');
     return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME, 'Referrer-Policy': 'no-referrer' } });
   }
   /* the Admin app's Sign in: Cloudflare Access signs the staff member in on the way here, then back to the EFB */
@@ -358,40 +477,42 @@ export async function mailAdmin(req, url, env, opts) {
   }
   /* Pilots tab: who has signed in to the EFB; staff can end a pilot's sign-ins */
   if (path === '/admin/api/pilots' && req.method === 'GET') {
-    try { return jsonRes(opts && opts.pilots ? await opts.pilots() : { pilots: [] }); } catch (e) { return jsonRes({ error: 'The pilot list is not available right now: ' + e.message }, 502); }
+    try { return jsonRes(opts && opts.pilots ? await opts.pilots() : { pilots: [] }); } catch (e) { return jsonRes({ error: 'The pilot list is not available right now: ' + brief(e) }, 502); }
   }
   if (path === '/admin/api/pilots/signout' && req.method === 'POST') {
-    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) return jsonRes({ error: 'Send JSON' }, 415);
     let b; try { b = await req.json(); } catch (e) { return jsonRes({ error: 'Bad body' }, 400); }
     const ok = opts && opts.signOut ? await opts.signOut(String(b.username || '').toUpperCase().replace(/[^A-Z0-9]/g, '')) : false;
     return ok ? jsonRes({ ok: true }) : jsonRes({ error: 'That pilot has not signed in to the EFB' }, 404);
   }
   /* Broadcast: the live broadcast desk (desk.js); its WebSocket for whoever sees the page, directing for those who may */
-  if (path === '/admin/api/desk' || path === '/admin/api/desk/ws') return deskAdmin(req, url, env, who, perm.can.includes('live'));
+  /* directing the desk is Broadcast's: "direct the live broadcast" and Broadcast itself (ACT_PAGES lets "live" in with
+     Flight Watch too, for the pilots' camera links) */
+  if (path === '/admin/api/desk' || path === '/admin/api/desk/ws') return deskAdmin(req, url, env, who, perm.can.includes('live') && (role === 'admin' || perm.pages.includes('bc')), exp);
   /* Polaris Cam's cockpit cameras (cam.js): Broadcast's own channel for whoever sees Broadcast, each pilot's for whoever
      sees Flight Watch or Broadcast (READS), and who is online for both; the links for those who may direct */
-  if (path === '/admin/api/cam' || path === '/admin/api/cam/ws' || path === '/admin/api/cam/online') return camAdmin(req, url, env, who, perm.can.includes('live'), role === 'admin' || perm.pages.includes('bc'));
+  if (path === '/admin/api/cam' || path === '/admin/api/cam/ws' || path === '/admin/api/cam/online') return camAdmin(req, url, env, who, perm.can.includes('live'), role === 'admin' || perm.pages.includes('bc'), exp);
   /* Live tab: the globe and page script (built from admin-live/), and the Polaris flights now on VATSIM */
   if (path === '/admin/live.js') return new Response(LIVE_JS, { status: 200, headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
   if (path === '/admin/api/live') {
     try { return jsonRes(opts && opts.live ? await opts.live() : { flights: [], apts: {} }); }
-    catch (e) { return jsonRes({ error: 'Live flights are not available right now: ' + e.message }, 502); }
+    catch (e) { return jsonRes({ error: 'Live flights are not available right now: ' + brief(e) }, 502); }
   }
   /* staff diagnostics: what vAMSYS returns for a PIREP's position reports */
-  if (path === '/admin/api/pirep-probe' && opts && opts.probe) { try { return jsonRes(await opts.probe(url.searchParams.get('id'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  if (path === '/admin/api/pirep-probe' && opts && opts.probe) { try { return jsonRes(await opts.probe(url.searchParams.get('id'))); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
   /* staff diagnostics: a pilot's latest bookings as vAMSYS returns them (?pilot=PAW0006) */
   /* staff diagnostics: the latest PIREP, booking and live flight as vAMSYS returns them */
   /* staff: a chart PDF and an airport's named points, as a signed-in pilot gets them (testing the EFB's chart line-up) */
-  if (path === '/admin/api/chart-pdf' && opts && opts.chartPdf) { try { const r = await opts.chartPdf(url); return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('content-type') || 'application/pdf', 'Cache-Control': 'private, max-age=3600' } }); } catch (e) { return jsonRes({ error: e.message }, 502); } }
-  if (path === '/admin/api/chart-fixes' && opts && opts.chartFixes) { try { return jsonRes(await opts.chartFixes(String(url.searchParams.get('icao') || '').toUpperCase(), url)); } catch (e) { return jsonRes({ error: e.message }, 502); } }
-  if (path === '/admin/api/chart-list' && opts && opts.chartList) { try { return jsonRes(await opts.chartList(String(url.searchParams.get('icao') || '').trim().toUpperCase())); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  if (path === '/admin/api/chart-pdf' && opts && opts.chartPdf) { try { const r = await opts.chartPdf(url); return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('content-type') || 'application/pdf', 'Cache-Control': 'private, max-age=3600' } }); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
+  if (path === '/admin/api/chart-fixes' && opts && opts.chartFixes) { try { return jsonRes(await opts.chartFixes(String(url.searchParams.get('icao') || '').toUpperCase(), url)); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
+  if (path === '/admin/api/chart-list' && opts && opts.chartList) { try { return jsonRes(await opts.chartList(String(url.searchParams.get('icao') || '').trim().toUpperCase())); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
   /* staff diagnostics: an eAIP chart list (Hong Kong, Singapore, UK, Norway) as the server reads it; pdf=1 opens the first chart too */
-  if (path === '/admin/api/eaip-probe' && opts && opts.eaProbe) { try { return jsonRes(await opts.eaProbe(url.searchParams.get('icao'), url.searchParams.get('pdf'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
-  if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: e.message }, 502); } }
-  if (path === '/admin/api/bookings-probe' && opts && opts.bkProbe) { try { return jsonRes(await opts.bkProbe(url.searchParams.get('pilot'))); } catch (e) { return jsonRes({ error: e.message }, 502); } }
+  if (path === '/admin/api/eaip-probe' && opts && opts.eaProbe) { try { return jsonRes(await opts.eaProbe(url.searchParams.get('icao'), url.searchParams.get('pdf'))); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
+  if (path === '/admin/api/ops-probe' && opts && opts.opsProbe) { try { return jsonRes(await opts.opsProbe()); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
+  if (path === '/admin/api/bookings-probe' && opts && opts.bkProbe) { try { return jsonRes(await opts.bkProbe(url.searchParams.get('pilot'))); } catch (e) { return jsonRes({ error: brief(e) }, 502); } }
   /* Pilots page: who is checked in for a flight in the EFB now (see crew.js) */
   if (path === '/admin/api/checkins' && req.method === 'GET') {
-    try { return jsonRes(await crew(env, { op: 'ciList' })); } catch (e) { return jsonRes({ error: 'Check-ins are not available right now: ' + e.message }, 502); }
+    try { return jsonRes(await crew(env, { op: 'ciList' })); } catch (e) { return jsonRes({ error: 'Check-ins are not available right now: ' + brief(e) }, 502); }
   }
   /* Inbox tab: pilots' conversations with a department (never messages between pilots, see pm.js) */
   if (path === '/admin/api/inbox' || path.startsWith('/admin/api/inbox/')) return pmAdmin(req, path, env, who);
@@ -405,7 +526,7 @@ export async function mailAdmin(req, url, env, opts) {
   if (path === '/admin/api/cal' || path.startsWith('/admin/api/cal/')) return calAdmin(req, url, path, env, who, opts && opts.events);
   /* Flight Watch on the Live tab: what operations should look at now (see watch.js) */
   if (path === '/admin/api/watch' && req.method === 'GET') {
-    try { return jsonRes(opts && opts.watch ? await opts.watch() : { alerts: [] }); } catch (e) { return jsonRes({ error: 'Flight Watch is not available right now: ' + e.message }, 502); }
+    try { return jsonRes(opts && opts.watch ? await opts.watch() : { alerts: [] }); } catch (e) { return jsonRes({ error: 'Flight Watch is not available right now: ' + brief(e) }, 502); }
   }
   /* Stands tab: the stand plan for the automatic stand assignment, and what it sent (see stands.js) */
   if (path === '/admin/api/aoctpl' || path.startsWith('/admin/api/aoctpl/')) return aocTplAdmin(req, path, env, who);
@@ -421,66 +542,114 @@ export async function mailAdmin(req, url, env, opts) {
     /* Settings page: From names and AOC templates (written only when staff press Save) */
     if (path === '/admin/api/settings' && req.method === 'GET') return jsonRes({ settings: await readSettings(kv) });
     if (path === '/admin/api/settings' && req.method === 'POST') {
-      if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
+      if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
       let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
       const s = { ...cleanSettings(b), at: Date.now(), by: who }; await kv.put(SETTINGS, JSON.stringify(s));
       return jsonRes({ ok: true, settings: s });
     }
     if (path === '/admin/api/mail' && req.method === 'GET') return jsonRes({ mails: (await readIndex(kv)).map((m) => ({ ...pub(m), to: m.to || null, sendAt: m.sendAt || m.t, created: m.t, by: m.by || '' })), now: Date.now() });
+    if (path === '/admin/api/mail/att' && req.method === 'POST') return await attStage(req, url, kv, who);
     if (path === '/admin/api/mail' && req.method === 'POST') {
       /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
-      if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
+      if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
       let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
-      const list = await readIndex(kv), old = b.id ? list.find((m) => m.id === b.id) : null;
-      if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
-      const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
-      if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
-      /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
-      let to = null;
-      if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew: its callsign and the pilots in it
-      else if (b.to) {
-        const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
-        const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
-        if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
-        to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: clean(b.to.name, 60).trim() };
-      }
-      let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
-      if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent
-      const id = old ? old.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-      /* attachments: keep the ones still listed, add the new ones (base64) */
-      const keep = (old && old.att || []).map((a, i) => ({ a, i })).filter((x) => (b.keepAtt || []).includes(x.i));
-      const add = Array.isArray(b.newAtt) ? b.newAtt : [];
-      if (keep.length + add.length > ATT_COUNT) throw new MailError(400, 'At most ' + ATT_COUNT + ' attachments');
-      const files = [];
-      for (const x of keep) files.push({ meta: x.a, bytes: await kv.get('mail:v1:att:' + id + ':' + x.i, 'arrayBuffer') });
-      for (const f of add) {
-        const type = String(f.type || ''), name = clean(f.name, 120).trim() || 'attachment';
-        if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
-        let bin; try { bin = Uint8Array.from(atob(String(f.data || '')), (c) => c.charCodeAt(0)); } catch (e) { throw new MailError(400, name + ': could not read the file'); }
-        if (bin.length > ATT_MAX) throw new MailError(400, name + ': larger than 5 MB');
-        files.push({ meta: { name, type, size: bin.length }, bytes: bin.buffer });
-      }
-      for (let i = 0; i < files.length; i++) if (files[i].bytes) await kv.put('mail:v1:att:' + id + ':' + i, files[i].bytes);
-      for (let i = files.length; i < ((old && old.att) || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
-      const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: files.filter((f) => f.bytes).map((f) => f.meta), to, by: old ? old.by : who };
-      if (old) { m.edited = Date.now(); m.editedBy = who; }
-      await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
-      /* push: a new notice going out now, or a notice that still waits for its time (the object checks it again then) */
-      try {
-        const waiting = sendAt > Date.now() + 1000;
-        if (waiting) await crew(env, { op: 'schedule', id: 'mail:' + id, at: sendAt, kind: 'mail', data: { id } });
-        else if (!old || (old.sendAt || old.t) > Date.now()) { await crew(env, { op: 'unjob', id: 'mail:' + id }); await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: mailPayload(m) }); }
-      } catch (e) { console.warn('[mail push]', e && e.message); }
-      return jsonRes({ ok: true, mail: pub(m) });
+      return await mailChange(() => mailSave(b, env, kv, who));
     }
     if (path === '/admin/api/mail' && req.method === 'DELETE') {
-      const id = String(url.searchParams.get('id') || ''), list = await readIndex(kv), old = list.find((m) => m.id === id);
-      if (!old) throw new MailError(404, 'That mail no longer exists');
-      for (let i = 0; i < (old.att || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
-      await writeIndex(kv, list.filter((m) => m.id !== id));
-      return jsonRes({ ok: true });
+      const id = String(url.searchParams.get('id') || '');
+      return await mailChange(async () => {
+        const list = await readIndex(kv), old = list.find((m) => m.id === id);
+        if (!old) throw new MailError(404, 'That mail no longer exists');
+        for (let i = 0; i < (old.att || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
+        await writeIndex(kv, list.filter((m) => m.id !== id));
+        const mine = mineOf(kv); mine.add.delete(id); mine.del.set(id, Date.now());
+        return jsonRes({ ok: true });
+      });
     }
     return jsonRes({ error: 'Not found' }, 404);
-  } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500); }
+  } catch (e) { return jsonRes({ error: adminErr(e) }, (e && e.status) || 500); }
+}
+/* POST /admin/api/mail/att: one attachment for a mail being written, the file's own bytes as the body
+   (application/octet-stream), its type in X-Type and its name, URI-encoded, in X-Name (or ?type= and ?name=). Kept an
+   hour under mail:v1:tmp:<id> for the mail it goes with (attIds), which moves it into place. The bytes are passed on
+   as they came, never looked at one by one: a 5 MB file as base64 in the mail's JSON took about 300 ms of CPU to
+   decode, and the Workers Free plan allows 10 ms a request (error 1102). */
+async function attStage(req, url, kv, who) {
+  if (!/^application\/octet-stream\b/i.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send the file as application/octet-stream');
+  const dec = (v) => { try { return decodeURIComponent(v); } catch (e) { return v; } };
+  const type = String(req.headers.get('X-Type') || url.searchParams.get('type') || '').toLowerCase().split(';')[0].trim();
+  const name = dec(String(req.headers.get('X-Name') || url.searchParams.get('name') || '')).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 120) || 'attachment';
+  if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
+  if (+(req.headers.get('Content-Length') || 0) > ATT_MAX) throw new MailError(413, name + ': larger than 5 MB');
+  const buf = await req.arrayBuffer();
+  if (buf.byteLength > ATT_MAX) throw new MailError(413, name + ': larger than 5 MB');
+  if (!buf.byteLength) throw new MailError(400, name + ': the file is empty');
+  const id = crypto.randomUUID().replace(/-/g, '');
+  await kv.put(TMP + id, buf, { expirationTtl: TMP_TTL, metadata: { name, type, size: buf.byteLength, by: who } });
+  return jsonRes({ ok: true, att: { id, name, type, size: buf.byteLength } });
+}
+/* a small attachment as base64 in the mail's JSON (pages from before the uploads above): read with a plain loop */
+function b64Bytes(s, name) {
+  s = String(s || '').replace(/\s+/g, '');
+  if (Math.floor(s.length * 3 / 4) > B64_MAX) throw new MailError(413, name + ': attach it again (reload the page first): larger files are uploaded on their own');
+  let bin; try { bin = atob(s); } catch (e) { throw new MailError(400, name + ': could not read the file'); }
+  const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+/* a mail saved (new, or edited): b as the admin page sends it */
+async function mailSave(b, env, kv, who) {
+  const list = await readIndex(kv), old = b.id ? list.find((m) => m.id === b.id) : null;
+  if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
+  const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
+  if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
+  /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
+  let to = null;
+  if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew: its callsign and the pilots in it
+  else if (b.to) {
+    const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+    const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
+    if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
+    to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: clean(b.to.name, 60).trim() };
+  }
+  let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
+  if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent
+  const id = old ? old.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  /* attachments, in this order: the ones kept (keepAtt: their places in the mail as it was), the ones uploaded for it
+     (attIds, see attStage: their bytes move from mail:v1:tmp:<id> as they are) and small ones sent as base64 (newAtt) */
+  const keep = (old && old.att || []).map((a, i) => ({ a, i })).filter((x) => (b.keepAtt || []).includes(x.i));
+  const staged = Array.isArray(b.attIds) ? b.attIds.map(String) : [], add = Array.isArray(b.newAtt) ? b.newAtt : [];
+  if (keep.length + staged.length + add.length > ATT_COUNT) throw new MailError(400, 'At most ' + ATT_COUNT + ' attachments');
+  const files = [];
+  for (const x of keep) files.push({ meta: x.a, bytes: await kv.get('mail:v1:att:' + id + ':' + x.i, 'arrayBuffer') });
+  for (const sid of staged) {
+    if (!/^[a-z0-9]{8,40}$/.test(sid)) throw new MailError(400, 'Not an attachment uploaded here');
+    const g = await kv.getWithMetadata(TMP + sid, 'arrayBuffer'), mt = (g && g.metadata) || {};
+    /* uploaded more than an hour ago (or by someone else): the page uploads it again */
+    if (!g || !g.value || mt.by !== who || !ATT_TYPES.includes(mt.type)) throw new MailError(410, (mt.name || 'An attachment') + ' is no longer on the server: attach it again');
+    files.push({ meta: { name: String(mt.name || 'attachment').slice(0, 120), type: mt.type, size: g.value.byteLength }, bytes: g.value, tmp: sid });
+  }
+  for (const f of add) {
+    const type = String(f.type || ''), name = clean(f.name, 120).trim() || 'attachment';
+    if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
+    const bin = b64Bytes(f.data, name);
+    files.push({ meta: { name, type, size: bin.length }, bytes: bin.buffer });
+  }
+  /* one kept whose bytes are gone is left out, and the rest keep their places in step with their bytes */
+  const att = files.filter((f) => f.bytes);
+  for (let i = 0; i < att.length; i++) await kv.put('mail:v1:att:' + id + ':' + i, att[i].bytes);
+  for (let i = att.length; i < ((old && old.att) || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
+  const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: att.map((f) => f.meta), to, by: old ? old.by : who };
+  if (old) { m.edited = Date.now(); m.editedBy = who; }
+  const kept = await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
+  /* read back as saved, even from a KV location that has not seen this write yet (one let go at once is not kept) */
+  if (kept.includes(m)) { const mine = mineOf(kv); mine.del.delete(id); mine.add.set(id, { at: Date.now(), m }); }
+  for (const f of att) if (f.tmp) await kv.delete(TMP + f.tmp).catch(() => {}); // else it goes by itself within the hour
+  /* push: a new notice going out now, or a notice that still waits for its time (the object checks it again then) */
+  try {
+    const waiting = sendAt > Date.now() + 1000;
+    if (waiting) await crew(env, { op: 'schedule', id: 'mail:' + id, at: sendAt, kind: 'mail', data: { id } });
+    else if (!old || (old.sendAt || old.t) > Date.now()) { await crew(env, { op: 'unjob', id: 'mail:' + id }); await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: mailPayload(m) }); }
+  } catch (e) { console.warn('[mail push]', e && e.message); }
+  return jsonRes({ ok: true, mail: pub(m) });
 }
 export { MailError };

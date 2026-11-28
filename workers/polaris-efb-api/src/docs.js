@@ -45,6 +45,20 @@ async function keysOf(kv, prefix) {
   return out;
 }
 async function dropKeys(kv, keys) { for (const k of keys) await kv.delete(k.name); }
+/* the bytes of uploads not finished (or left half way, until sweep takes them), apart from this one's own earlier try
+   (id, v: its pieces are written over): they count against TOTAL_MAX too (P2, Nov 2026), so uploads that never finish
+   cannot fill KV */
+async function pendingBytes(kv, list, id, v) {
+  const live = new Set(list.map((d) => d.id + ':' + d.v)); let n = 0;
+  for (const k of await keysOf(kv, 'docs:v1:f:')) {
+    const p = k.name.split(':'); // docs v1 f id v i
+    if (live.has(p[3] + ':' + p[4]) || (p[3] === id && +p[4] === v)) continue;
+    n += (k.metadata && +k.metadata.s) || 0;
+  }
+  return n;
+}
+/* an error's message: one of ours as it is; anything else (a bug) logged and said in plain words */
+const errMsg = (e) => { if (e && e.status && e.message) return e.message; console.warn('[docs]', (e && e.stack) || e); return 'Something went wrong on the server. Please try again.'; };
 
 /* the file, piece after piece, as one response */
 function fileResponse(kv, d, headers) {
@@ -95,7 +109,7 @@ export async function docAckPublic(req, env, h, sess) {
   const res = (b, s) => jsonRes(b, s || 200, h);
   try {
     if (!sess) throw new DocError(401, 'Sign in to confirm documents');
-    if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send JSON');
+    if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (er) { throw new DocError(400, 'Bad body'); }
     const kv = env && env.STORE; if (!kv) throw new DocError(503, 'Storage is not set up');
     const d = (await readIndex(kv)).find((x) => x.id === String(b.id || ''));
@@ -149,7 +163,7 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
     }
     /* one piece of a file being uploaded: raw bytes (a form on another site cannot send this type) */
     if (path === '/admin/api/docs/piece' && req.method === 'POST') {
-      if (!/^application\/octet-stream\b/.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send the file as application/octet-stream');
+      if (!/^application\/octet-stream\b/i.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send the file as application/octet-stream');
       const id = String(url.searchParams.get('id') || ''), v = +url.searchParams.get('v'), i = +url.searchParams.get('i'), size = +url.searchParams.get('size');
       if (!okId(id) || !Number.isInteger(v) || v < 1 || v > 1e6 || !Number.isInteger(i) || i < 0 || i >= Math.ceil(FILE_MAX / DOC_PIECE)) throw new DocError(400, 'Bad upload');
       if (!(size > 0)) throw new DocError(400, 'Bad upload: the file size is missing');
@@ -158,8 +172,11 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
       if (old && v <= old.v) throw new DocError(409, 'This document changed meanwhile. Reload the page and try again.');
       if (!old && list.length >= DOCS_MAX) throw new DocError(400, 'There are already ' + DOCS_MAX + ' documents. Delete some first.');
       if (i === 0) {
-        const used = list.filter((d) => d.id !== id).reduce((s, d) => s + (d.size || 0), 0);
-        if (used + size > TOTAL_MAX) throw new DocError(413, 'Not enough room: ' + Math.round(used / 1048576) + ' of ' + Math.round(TOTAL_MAX / 1048576) + ' MB are used. Delete or replace a document first.');
+        /* an upload starting: the pieces left half way a day ago or more go first (at most once an hour), then the room
+           is counted with the uploads still under way */
+        await sweep(kv, list).catch((e) => console.warn('[docs sweep]', e && e.message));
+        const used = list.filter((d) => d.id !== id).reduce((s, d) => s + (d.size || 0), 0), pend = await pendingBytes(kv, list, id, v);
+        if (used + pend + size > TOTAL_MAX) throw new DocError(413, 'Not enough room: ' + Math.round(used / 1048576) + ' of ' + Math.round(TOTAL_MAX / 1048576) + ' MB are used' + (pend ? ', and ' + Math.max(1, Math.round(pend / 1048576)) + ' MB by uploads not finished yet' : '') + '. Delete or replace a document first' + (pend ? ', or try again tomorrow' : '') + '.');
       }
       const buf = await req.arrayBuffer();
       if (!buf.byteLength) throw new DocError(400, 'This piece is empty');
@@ -170,7 +187,7 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
     }
     /* finish an upload (file), or change the title, folder or revision of a document */
     if (path === '/admin/api/docs' && req.method === 'POST') {
-      if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send JSON');
+      if (!/^application\/json\b/i.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send JSON');
       let b; try { b = await req.json(); } catch (e) { throw new DocError(400, 'Bad body'); }
       const id = String(b.id || '');
       if (!okId(id)) throw new DocError(400, 'Bad document id');
@@ -215,6 +232,8 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
     }
     /* a cover for a document that has none (the admin draws the first page): POST /admin/api/docs/cover?id=&v=, a JPEG */
     if (path === '/admin/api/docs/cover' && req.method === 'POST') {
+      /* the picture itself, as the admin page sends it (a form on another site cannot send this type) */
+      if (!/^(image\/jpeg|application\/octet-stream)\b/i.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send the cover as image/jpeg');
       const id = String(url.searchParams.get('id') || ''), v = +url.searchParams.get('v'), list = await readIndex(kv), d = list.find((x) => x.id === id);
       if (!d) throw new DocError(404, 'That document no longer exists');
       if (d.v !== v) throw new DocError(409, 'This document changed meanwhile');
@@ -236,6 +255,6 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
       return new Response(buf, { status: 200, headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' } });
     }
     return jsonRes({ error: 'Not found' }, 404);
-  } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500); }
+  } catch (e) { return jsonRes({ error: errMsg(e) }, (e && e.status) || 500); }
 }
 export { DocError };

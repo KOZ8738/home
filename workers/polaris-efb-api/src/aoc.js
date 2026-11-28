@@ -14,6 +14,7 @@
 
    KV (STORE):  aoc:v1:index -> [{ id, t, title, body, to: { pilot, cid, cs, name } | { crew: 1, cs, m: [{ pilot, cid, name }] } | null, by }] */
 import { crew, mailTo, crewTo, toMatch } from './crew.js';
+import { kvJson, queue } from './kvread.js';
 
 class AocError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const IDX = 'aoc:v1:index', AOC_MAX = 300, BODY_MAX = 2000, SHOW_DAYS = 30;
@@ -27,7 +28,24 @@ const line = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]
 const text = (s, n) => String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
 
 let mem = null; // { at, list } a short cache for the pilots' side
-async function readIndex(kv) { const v = await kv.get(IDX, 'json'); return Array.isArray(v) ? v : []; }
+/* Every change to the index goes through one queue in this isolate (P1, Nov 2026): the gate, arrival report and
+   SIGMET watchers of one cron tick, a staff member's AOC and a delete each read the index, add to it (or take from it)
+   and write it back, so two at once would each write back the list without the other's message. What this isolate
+   added or deleted in the last two minutes is also put right in what it reads, should KV still answer with the list
+   from before its own write. No index yet is no messages; a storage error, or a value that is not a list, is 503
+   (kvread.js): never an empty list written back over every message kept. */
+const change = queue(), MINE_MS = 120_000, MINE = new WeakMap(); // per KV binding: { add: id -> { at, m }, del: id -> at }
+const mineOf = (kv) => { let x = MINE.get(kv); if (!x) MINE.set(kv, (x = { add: new Map(), del: new Map() })); return x; };
+const AOC_DOWN = 'AOC messages are temporarily unavailable; please try again';
+async function readIndex(kv) {
+  const list = (await kvJson(kv, IDX, { shape: 'array', msg: AOC_DOWN, Err: AocError })) || [], now = Date.now(), mine = mineOf(kv);
+  for (const [id, x] of mine.add) if (now - x.at > MINE_MS) mine.add.delete(id);
+  for (const [id, at] of mine.del) if (now - at > MINE_MS) mine.del.delete(id);
+  if (!mine.add.size && !mine.del.size) return list;
+  const out = list.filter((m) => m && !mine.del.has(m.id)), ids = new Set(out.map((m) => m.id));
+  for (const [id, x] of mine.add) if (!ids.has(id) && !mine.del.has(id)) out.push(x.m);
+  return out;
+}
 async function writeIndex(kv, list) { list.sort((a, b) => b.t - a.t); await kv.put(IDX, JSON.stringify(list.slice(0, AOC_MAX))); mem = null; }
 const pub = (m) => ({ id: m.id, t: m.t, title: m.title, body: m.body, to: m.to ? { cs: m.to.cs || '', crew: m.to.crew ? 1 : 0 } : null });
 /* is this message for the signed-in pilot (whose EFB flies callsign cs)? */
@@ -120,16 +138,23 @@ export async function hoppiePeek(req, env, h, sess) {
 
 /* keep an AOC message and tell its pilots' devices (staff on /admin, or the automatic stand assignment, see stands.js) */
 /* notify(to, cat, payload): how to push it (the crew object passes its own outbox; by default a call to the object) */
-export async function aocSend(env, { title, body, to, push, by, auto }, notify) {
+export async function aocSend(env, msg, notify) { return (await aocSendMany(env, [msg], notify))[0]; }
+/* several at once: one read and one write of the index for all of them (in the queue), then each one's push */
+export async function aocSendMany(env, list, notify) {
   const kv = env.STORE;
-  const m = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '', ...(auto ? { auto: String(auto).slice(0, 8) } : {}) };
-  await writeIndex(kv, [m, ...(await readIndex(kv))]);
-  if (push !== false) {
+  const ms = (list || []).map(({ title, body, to, by, auto }) => ({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), t: Date.now(), title: line(title, 40).toUpperCase() || 'CREW MESSAGE', body: text(body, BODY_MAX).toUpperCase(), to: to || null, by: by || '', ...(auto ? { auto: String(auto).slice(0, 8) } : {}) }));
+  if (!ms.length) return ms;
+  await change(async () => {
+    await writeIndex(kv, [...ms, ...(await readIndex(kv))]);
+    const mine = mineOf(kv); for (const m of ms) mine.add.set(m.id, { at: Date.now(), m });
+  });
+  for (let i = 0; i < ms.length; i++) {
+    const m = ms[i]; if (list[i].push === false) continue;
     const payload = { title: 'AOC · ' + m.title, body: m.body.replace(/\s+/g, ' ').slice(0, 180), url: '#messages', tag: 'aoc-' + m.id };
     /* a crew: every pilot listed (EFBs found only by the callsign get it at their next check) */
     try { if (notify) await notify(mailTo(m), 'mail', payload); else await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload }); } catch (e) { console.warn('[aoc push]', e && e.message); }
   }
-  return m;
+  return ms;
 }
 
 /* the last automatic message of each kind (Automatic messages page): { kind: { t, cs } }. Messages sent before they
@@ -172,9 +197,13 @@ export async function aocAdmin(req, url, env, who) {
       return jsonRes({ ok: true, msg: await aocSend(env, { title, body, to, push: b.push !== false, by: who }) });
     }
     if (req.method === 'DELETE') {
-      const id = String(url.searchParams.get('id') || ''), list = await readIndex(kv);
-      if (!list.some((m) => m.id === id)) throw new AocError(404, 'That message no longer exists');
-      await writeIndex(kv, list.filter((m) => m.id !== id));
+      const id = String(url.searchParams.get('id') || '');
+      await change(async () => {
+        const list = await readIndex(kv);
+        if (!list.some((m) => m.id === id)) throw new AocError(404, 'That message no longer exists');
+        await writeIndex(kv, list.filter((m) => m.id !== id));
+        const mine = mineOf(kv); mine.add.delete(id); mine.del.set(id, Date.now());
+      });
       return jsonRes({ ok: true });
     }
     return jsonRes({ error: 'Method not allowed' }, 405);

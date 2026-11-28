@@ -1253,7 +1253,8 @@ void create_controls() {
   make(L"BUTTON", L"傳送到後台", BS_AUTOCHECKBOX | WS_TABSTOP, 96, 546, 140, 22, IdRemote);
   make(L"STATIC", L"後台連線連結", 0, Margin, 578, 86, 20, -1);
   HWND url = make(L"EDIT", L"", ES_AUTOHSCROLL | WS_TABSTOP, 104, 574, PanelWidth - 104 - 8, 25, IdRemoteUrl);
-  SendMessageW(url, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"貼上後台複製的連結"));
+  // Left empty: the automatic mode, as the pilot Polaris Navdata is paired as (remote_stream.hpp).
+  SendMessageW(url, EM_SETCUEBANNER, TRUE, reinterpret_cast<LPARAM>(L"留空＝自動使用 Polaris Navdata 身分；或貼上手動連結"));
   make(L"STATIC", L"", SS_ENDELLIPSIS | SS_NOPREFIX, Margin, 604, PanelWidth - Margin - 8, 20, IdRemoteStatus);
   make(L"STATIC", HintShort, SS_NOTIFY, Margin, PanelHintTop, PanelWidth - Margin - 8, 200, IdHint);
 }

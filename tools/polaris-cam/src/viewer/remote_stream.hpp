@@ -2,7 +2,12 @@
 // Copyright (C) 2026 Polaris. GPL-3.0-only, like the Taxi Cam sources it is built with.
 //
 // One WebSocket to the relay (the website's CamRelay), opened from a link the
-// back office gives out (https://host/live/cam/<token>). Over it go a hello
+// back office gives out (https://host/live/cam/<token>, or a pilot's own
+// https://host/live/cam/p/<pilot>/<token>), or, with no link at all, as the
+// pilot Polaris Navdata on this PC is paired as (the automatic mode: its key,
+// kept in %LOCALAPPDATA%\Polaris Navdata\cloud.json under this Windows user's
+// DPAPI, buys a one-use ticket from POST /api/nav/ticket for
+// /live/cam/pilot/ws?ticket=). Over it go a hello
 // that lists the cameras, a "ping" every 25 s, and, only while someone in the
 // back office watches, each camera at most 960 x 540: as H.264 from the
 // graphics card's own encoder, up to 30 a second (h264_encoder.hpp), or, where
@@ -46,14 +51,74 @@ enum class Codec : unsigned char { jpeg = 1, h264 = 2 };
 struct Endpoint {
   std::wstring host;  // lower case
   unsigned short port = 0;
-  std::wstring path;   // "/live/cam/<token>/ws"
+  std::wstring path;   // "/live/cam/<token>/ws" or "/live/cam/p/<PILOT>/<token>/ws"
   bool secure = true;  // TLS; only 127.0.0.1 and localhost may go without
   bool local = false;  // 127.0.0.1 or localhost: no proxy
 };
-// https://host[:port]/live/cam/<token>, wss://.../live/cam/<token>[/ws], and
-// for a test on this computer http:// or ws:// to 127.0.0.1 or localhost.
-// Spaces around it are ignored. False when it is none of these.
+// https://host[:port]/live/cam/<token>, wss://.../live/cam/<token>[/ws], a
+// pilot's own https://host[:port]/live/cam/p/<pilot>/<token>[/ws] (pilot 2 to
+// 16 letters and digits, upper-cased in path), and for a test on this computer
+// http:// or ws:// to 127.0.0.1 or localhost. Spaces around it are ignored.
+// False when it is none of these (/live/cam/pilot is the automatic mode's,
+// with a ticket: never a link).
 bool parse_url(std::wstring_view text, Endpoint& out);
+
+// --- the automatic mode: as the pilot Polaris Navdata is paired as -------------
+inline constexpr wchar_t DefaultNavdataServer[] = L"https://efb-api.koz8738.com";
+// %LOCALAPPDATA%\Polaris Navdata\cloud.json (where tools/polaris-navdata keeps
+// its pairing); empty when LOCALAPPDATA is not set.
+std::wstring default_navdata_cloud_path();
+// The EFB server a pairing may send its key to: https:// to koz8738.com or a
+// name under it, or, for a test on this computer, http(s):// to 127.0.0.1 or
+// localhost (with a port). Nothing after the host but one "/". False for any
+// other: the key never goes anywhere else.
+bool parse_navdata_server(std::wstring_view text, Endpoint& out);
+// nk.<base64url>.<base64url>, as Polaris Navdata takes it.
+bool navdata_key_ok(std::string_view key);
+// The pilot the key is for: "u" of its middle part (base64url JSON), upper
+// case, 2 to 16 letters and digits; empty when it has none such.
+std::string navdata_key_pilot(std::string_view key);
+// A pilot's name as shown and sent: 2 to 16 ASCII letters and digits, upper
+// case; empty when it is not one.
+std::string pilot_name(std::string_view text);
+// A WebSocket ticket: 16 to 512 of [A-Za-z0-9_.-].
+bool ticket_ok(std::string_view ticket);
+// pilot of {"t":"id","pilot":"..."} (the relay's word on who this is), as
+// pilot_name; empty for any other message.
+std::string id_pilot(std::string_view message);
+// Standard (url false) or base64url (url true) to bytes; padding optional,
+// whitespace skipped. False on anything else.
+bool base64_decode(std::string_view text, std::vector<unsigned char>& out, bool url);
+
+// A pairing as read from cloud.json. The key is the pilot's: never logged,
+// zeroed when this goes.
+struct NavdataPairing {
+  std::string key;     // nk.<payload>.<signature>
+  std::string pilot;   // navdata_key_pilot(key), maybe empty
+  Endpoint server;     // the EFB server (its path unused)
+  NavdataPairing() = default;
+  NavdataPairing(const NavdataPairing&) = delete;
+  NavdataPairing& operator=(const NavdataPairing&) = delete;
+  ~NavdataPairing();
+  void clear() noexcept;
+};
+enum class PairingRead {
+  ok,
+  missing,  // no file (not paired, or unpaired)
+  invalid,  // there, but not a pairing this can use (not JSON, no key, DPAPI refused, another server)
+};
+// cloud.json: {"key":"<base64 of a CurrentUser DPAPI blob of the key's UTF-8>",
+// "enc":true, "server":"https://...", ...}; with "enc" false or not there,
+// key is the key itself. server not there: DefaultNavdataServer.
+PairingRead read_navdata_pairing(const std::wstring& path, NavdataPairing& out);
+// When and how big a file was last written: a pairing refused (401) is read
+// again only once this changes.
+struct FileStamp {
+  bool exists = false;
+  std::uint64_t write_time = 0, size = 0;
+  bool operator==(const FileStamp&) const = default;
+};
+FileStamp file_stamp(const std::wstring& path);
 
 // The 16 bytes before a picture: 'P', version 1, camera, codec (1 JPEG, 2 H.264
 // Annex-B), flags (1: key picture; a JPEG always is), 0, width, height, its
@@ -99,13 +164,15 @@ void shrink_to_bgr(const unsigned char* bgra,
 
 enum class State {
   off,          // not ticked
-  no_url,       // ticked without a link
+  no_url,       // (no longer: ticked without a link is the automatic mode)
   invalid_url,  // the link is not one parse_url takes
   connecting,
-  retrying,  // the connection went or did not open: trying again soon
+  retrying,  // the connection went or did not open (or, automatic, the ticket): trying again soon
   connected,
-  expired,   // the relay closed with 4004 (or refused the link): not tried again
+  expired,   // the relay closed with 4004 (or refused the link), or, automatic, the server
+             // refused Navdata's key (401): not tried again (automatic: until cloud.json changes)
   replaced,  // the relay closed with 4000, another Polaris Cam took over: not tried again
+  not_paired,  // automatic, and no pairing in cloud.json that can be used: looked at again every pair_poll_ms
 };
 
 struct Options {
@@ -119,6 +186,13 @@ struct Options {
   unsigned fail_h264_after = 0;  // for the test: an encoder failure after this many pictures (0 never)
   unsigned silence_ms = 70000;       // nothing heard for this long: the connection is gone
   unsigned first_retry_ms = 1000, last_retry_ms = 15000;
+  // The automatic mode (no link): Navdata's pairing, empty for
+  // default_navdata_cloud_path(); how often it is looked at again while there
+  // is none (or it was refused); the wait after the relay refused a ticket (4001)
+  // before a fresh one (the first time; again at once, the waits above).
+  std::wstring navdata_cloud_path;
+  unsigned pair_poll_ms = 10000;
+  unsigned ticket_retry_ms = 200;
 };
 
 class RemoteStream {
@@ -129,7 +203,8 @@ class RemoteStream {
   RemoteStream(const RemoteStream&) = delete;
   RemoteStream& operator=(const RemoteStream&) = delete;
 
-  // On or off, and the link. Connects again only when either changed.
+  // On or off, and the link. Connects again only when either changed. On with
+  // no link (or only spaces): the automatic mode, as Polaris Navdata's pilot.
   void configure(bool enabled, std::wstring_view url);
   // The cameras the hello lists; it is sent again when they change.
   void set_cams(const std::array<CamInfo, Cams>& cams);
@@ -163,6 +238,13 @@ class RemoteStream {
   std::uint64_t frames_sent() const noexcept { return frames_sent_.load(); }
   std::uint64_t bytes_sent() const noexcept { return bytes_sent_.load(); }
   unsigned connections() const noexcept { return connections_.load(); }
+  // On without a link: as Polaris Navdata's pilot.
+  bool auto_mode() const noexcept { return auto_.load(); }
+  // The pilot: as the relay said ({"t":"id"}), or else as Navdata's key says
+  // (the automatic mode's); empty when neither.
+  std::wstring pilot();
+  // POST /api/nav/ticket answered so far (the automatic mode's).
+  unsigned tickets() const noexcept { return tickets_.load(); }
   // How a camera goes now.
   Codec codec(unsigned cam);
   struct H264Stats {
@@ -216,8 +298,27 @@ class RemoteStream {
     unsigned close = 0;
     std::uint64_t lasted_ms = 0;
   };
+  // POST /api/nav/ticket's answer: http 0 when there was none (the network, a
+  // wait run out, or cut); ticket only with 200 and one ticket_ok takes.
+  struct Ticket {
+    DWORD http = 0;
+    std::string ticket;
+    Ticket() = default;
+    Ticket(const Ticket&) = delete;
+    Ticket& operator=(const Ticket&) = delete;
+    ~Ticket();
+  };
   void start(const Endpoint& endpoint);
   void run(Endpoint endpoint);
+  void run_link(const Endpoint& endpoint);  // a link's: as it always was
+  void run_auto();                          // no link: as Navdata's pilot
+  void pause(unsigned ms);                  // a wait that stop() ends
+  // The session, connection and request to endpoint (its path), where stop()
+  // can cut them. False when no session could be opened (or stop() came
+  // first); request (an HINTERNET) null when the rest could not be.
+  bool open_request(const Endpoint& endpoint, const wchar_t* verb, void*& request);
+  void fetch_ticket(const NavdataPairing& pairing, Ticket& out);
+  void set_key_pilot(const std::string& pilot);
   Outcome connect_once(const Endpoint& endpoint);
   void receive(void* socket);  // HINTERNET (winhttp.h stays out of this header)
   void handle_text(std::string_view message);
@@ -250,6 +351,8 @@ class RemoteStream {
   std::atomic<unsigned> connections_{0};
   std::atomic<bool> stop_{false};
   std::atomic<std::uint64_t> heard_ms_{0};
+  std::atomic<bool> auto_{false};
+  std::atomic<unsigned> tickets_{0};
   bool enabled_ = false;
   std::wstring url_;
   std::thread worker_;
@@ -274,6 +377,8 @@ class RemoteStream {
   bool unwatched_ = false;  // watchers went to 0: drop what waits
   bool finished_ = false;   // the worker has ended
   unsigned close_code_ = 0;
+  std::string key_pilot_;    // the automatic mode's pilot, as Navdata's key says
+  std::string relay_pilot_;  // as the relay said ({"t":"id"})
   void* session_ = nullptr;  // HINTERNET, as the rest
   void* connection_ = nullptr;
   void* request_ = nullptr;

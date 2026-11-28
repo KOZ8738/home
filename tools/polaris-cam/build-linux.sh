@@ -45,7 +45,8 @@ ENGINE=(src/camera/probe.cpp src/camera/local_memory.cpp src/camera/code_contrac
   src/camera/view_cascades.cpp src/camera/owned_entry_inventory.cpp src/camera/owned_view.cpp src/camera/view_pool.cpp
   src/hooks/observer_hook.cpp src/hooks/observer_thunk.S tools/diagnostics/image_inventory.cpp)
 LIBS=(-ld3d12 -ldxgi -ldxguid -ld3dcompiler)
-# Media Foundation, for the back office's H.264 (src/viewer/h264_encoder.cpp).
+# Media Foundation, for the back office's H.264 (src/viewer/h264_encoder.cpp). The viewer and remotetest also take
+# crypt32: CryptUnprotectData, for Polaris Navdata's pairing in the automatic mode (src/viewer/remote_stream.cpp).
 MEDIA=(-lmfplat -lmfuuid -lmf)
 JOBS=${JOBS:-$(nproc)}
 wants() { [[ " $TARGETS " == *" $1 "* ]]; }
@@ -87,7 +88,7 @@ if wants viewer; then
   "$WINDRES" -I "$OUT/generated" -I "$ROOT/src/viewer" -i "$ROOT/src/viewer/viewer.rc" -O coff -o "$OUT/obj/viewer.res.o"
   "$CXX" "${COMMON[@]}" -municode -mwindows "$ROOT/src/viewer/viewer.cpp" "$ROOT/src/viewer/remote_stream.cpp" \
     "$ROOT/src/viewer/h264_encoder.cpp" "$OUT/obj/viewer.res.o" -ld3d11 -ldxgi -ldxguid -lcomctl32 -lshell32 -lole32 -loleaut32 -lgdi32 \
-    -lwinhttp -lwindowscodecs "${MEDIA[@]}" -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
+    -lwinhttp -lwindowscodecs -lcrypt32 "${MEDIA[@]}" -Wl,--no-insert-timestamp -o "$OUT/polaris-cam.exe"
   echo "built polaris-cam.exe"
 fi
 if wants selftest; then
@@ -99,7 +100,7 @@ if wants selftest; then
 fi
 if wants remotetest; then
   "$CXX" "${COMMON[@]}" "$ROOT/test/remote_stream_test.cpp" "$ROOT/src/viewer/remote_stream.cpp" "$ROOT/src/viewer/h264_encoder.cpp" \
-    -ld3d11 -ldxgi -ldxguid -lole32 -loleaut32 -lwinhttp -lwindowscodecs "${MEDIA[@]}" -Wl,--no-insert-timestamp \
+    -ld3d11 -ldxgi -ldxguid -lole32 -loleaut32 -lwinhttp -lwindowscodecs -lcrypt32 "${MEDIA[@]}" -Wl,--no-insert-timestamp \
     -o "$OUT/polaris-cam-remote-test.exe"
   echo "built polaris-cam-remote-test.exe"
 fi

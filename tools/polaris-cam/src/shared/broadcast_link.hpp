@@ -21,8 +21,8 @@ inline constexpr wchar_t LinkName[] = L"Local\\PolarisCam.Link.4";
 // window need not poll for it.
 inline constexpr wchar_t FrameEventName[] = L"Local\\PolarisCam.Frame.4";
 // The prototype's own version, beside the Taxi Cam version it is built on.
-#define POLARIS_CAM_VERSION "0.2.0"
-#define POLARIS_CAM_VERSION_WIDE L"0.2.0"
+#define POLARIS_CAM_VERSION "0.3.0"
+#define POLARIS_CAM_VERSION_WIDE L"0.3.0"
 inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
 // Each version's block is "Local\PolarisCam.Link.<version>".
 // 1: 0.1.0 and 0.1.1, and the 0.1.0 builds with the guarded status text
@@ -30,7 +30,8 @@ inline constexpr std::uint32_t LinkMagic = 0x4D434C50;  // "PLCM"
 // 2: 0.1.2, the memory guard and the bridge's own version.
 // 3: 0.1.3 to 0.1.5, the cameras' draw distance and the anti-aliasing.
 // 4: 0.2.0: Status::message is 156 bytes and text_serial guards aircraft and
-// message (write_status_text / read_status_text).
+// message (write_status_text / read_status_text). 0.3.0 keeps block 4: only
+// the back office's connection changed, not this block.
 inline constexpr std::uint32_t LinkVersion = 4;
 inline constexpr unsigned Feeds = 4;  // Taxi Cam's four camera views
 inline constexpr unsigned Slots = 3;  // textures per camera: newest, being read, being written

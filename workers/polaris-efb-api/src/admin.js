@@ -598,6 +598,13 @@ main#auto>*+*{margin-top:20px}main#auto>#auMsg{margin-top:0}
 .au-n{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
 #auto input[type=number]{width:84px;font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:8px 10px}
 .au-when{margin:0!important}
+.dp-pol{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px 22px}
+.dp-pol label{margin:0;display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:400;color:var(--ink);font-size:13.5px}
+.dp-pol input[type=checkbox]{width:18px;height:18px;margin:0 33px 0 0;accent-color:var(--teal)}
+.dp-log{border-top:1px solid var(--line);margin-top:6px;padding-top:12px}
+.dp-row{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line);font-size:13px;align-items:start}.dp-log .at-l+.dp-row{border-top:0}
+.dp-row>span:first-child{color:var(--label);font-variant-numeric:tabular-nums}.dp-row small{display:block;color:var(--label);font-size:12.5px}
+.tag.r{background:var(--err-bg);color:var(--red)}
 .au-more summary{cursor:pointer;color:var(--accent);font-size:13.5px;font-weight:500}.au-more summary small{color:var(--label);font-weight:400}
 .au-more[open]{display:grid;gap:12px}.au-more[open]>summary{margin-bottom:0}
 .au-pv{display:grid;gap:8px;align-content:start;min-width:0}
@@ -2844,12 +2851,24 @@ async function dcCovFill(){if(DCC.busy||!DC.list||!Array.isArray(DC.list.docs))r
 {const _l=dcLoad;dcLoad=async function(){const r=await _l.apply(this,arguments);dcCovFill();return r}}
 /* ---------- Automatic messages (Nov 2026): the AOC messages the server sends crews by itself. Each is on or off (kept
    with the gate plan, stands.js), the arrival gate has its timing, and each has its wording (aoctpl.js). ---------- */
-const AU_K=[["gate","on","Arrival gate","Before landing: a free gate at the destination, from the gate plan"],["dep","dep","Departure gate","When the crew check in: a free gate at the departure airport"],["ls","ls","Final loadsheet","15 minutes before STD, to crews who checked in with their SimBrief plan"],["sig","sig","SIGMET on the route","In flight: a SIGMET at their level within the next 900 nm, once per FIR and hazard"],["inr","inr","Arrival report","At the gate: OOOI times, block and air time, on time or late, the gate and the METAR"]];
+const AU_K=[["gate","on","Arrival gate","Before landing: a free gate at the destination, from the gate plan"],["dep","dep","Departure gate","When the crew check in: a free gate at the departure airport"],["ls","ls","Final loadsheet","15 minutes before STD, to crews who checked in with their SimBrief plan"],["sig","sig","SIGMET on the route","In flight: a SIGMET at their level within the next 900 nm, once per FIR and hazard"],["inr","inr","Arrival report","At the gate: OOOI times, block and air time, on time or late, the gate and the METAR"],["rel","rel","Dispatch release","When the crew’s plan is in: checked against the dispatch policy, then released, or not, with what to change"]];
 const AT={v:null,ed:{},dirty:{},pt:0,foc:null,open:"",more:{},err:""};
 const auSay=(t,ok)=>{const m=$("#auEdMsg")||$("#auMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
 const auTop=(t,ok)=>{const m=$("#auMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
 const auKind=k=>AT.v&&AT.v.kinds.find(x=>x.k===k);
-const auOn=(v,sw)=>sw==="on"?!!v.on:sw==="dep"?!!v.dep:v[sw]!==false;
+const auOn=(v,sw)=>sw==="rel"?!!(DP.v&&DP.v.policy&&DP.v.policy.on):sw==="on"?!!v.on:sw==="dep"?!!v.dep:v[sw]!==false;
+/* the dispatch release (dispatch.js): on or off, its policy and the last checks, from /admin/api/dispatch */
+const DP={v:null,err:""};
+async function dpLoad(){if(!pgHas("auto"))return;try{DP.v=await api("/admin/api/dispatch");DP.err=""}catch(e){DP.err=e.message}if(pgNow==="auto")auUi()}
+const DP_RES={ok:["s","Released"],remarks:["s","Released with remarks"],capt:["q","Captain’s discretion"],hold:["r","Not released"],fail:["r","Not released"]};
+const dpWhen=t=>{const d=new Date(t),today=d.toISOString().slice(0,10)===new Date().toISOString().slice(0,10);return (today?"":d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})+" ")+stZ(t)};
+function dpEdHtml(){const v=DP.v;if(!v)return '<p class="hint">'+esc(DP.err||"Loading the policy…")+"</p>";const P=v.policy;
+ return '<div class="dp-pol">'+v.fields.map(f=>"<label>"+esc(f.label)+'<input type="number" data-dpf="'+f.k+'" min="'+f.lo+'" max="'+f.hi+'" step="'+(f.hi<=10?0.5:f.hi>=2000?50:1)+'" value="'+esc(String(P[f.k]))+'"></label>').join("")
+  +'<label>An alternate is required<input type="checkbox" data-dpf="altn"'+(P.altn?" checked":"")+"></label></div>"
+  +'<p class="hint" style="margin:0">Weights, block fuel, the final reserve and a missing alternate are hard limits: the crew must plan again. Below the other values the captain may accept with a reason; the release then says CAPT DISCRETION and the flight shows in Flight Watch. Thunderstorms, TEMPO and the like are remarks on the release.'+(P.at?" Policy saved "+esc(dpWhen(P.at))+(P.by?" by "+esc(P.by):"")+".":"")+"</p>"}
+function dpLogHtml(){const L=(DP.v&&DP.v.log)||[];
+ return '<div class="dp-log"><span class="at-l">Last checks</span>'+(L.length?L.slice(0,30).map(x=>{const r=DP_RES[x.res]||["d",x.res],top=(x.items||[]).filter(i=>i.sev!=="warn").slice(0,3);
+  return '<div class="dp-row"><span>'+esc(dpWhen(x.t))+"</span><div><b>"+esc(x.cs)+"</b> "+esc(x.from)+"–"+esc(x.to)+(x.rel?" · "+esc(x.rel):"")+(x.capt?"<small>Captain: "+esc(x.capt.reason)+"</small>":"")+top.map(i=>"<small>"+esc(i.t)+"</small>").join("")+'</div><span class="tag '+r[0]+'">'+esc(r[1])+"</span></div>"}).join(""):'<p class="hint" style="margin:6px 0 0">No plan checked in the last 30 days.</p>')+"</div>"}
 function auLast(l){if(!l)return"Not sent lately";const d=new Date(l.t),today=d.toISOString().slice(0,10)===new Date().toISOString().slice(0,10);
  return "Last: "+(l.cs?l.cs+" · ":"")+(today?"":d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:"UTC"})+" ")+stZ(l.t)}
 async function atLoad(){if(!["gates","auto"].some(pgHas))return;if(AT.v&&Object.keys(AT.dirty).length)return;
@@ -2857,11 +2876,11 @@ async function atLoad(){if(!["gates","auto"].some(pgHas))return;if(AT.v&&Object.
 function auFld(k,f){const F=AT.ed[k],v=F[f[0]]==null?"":F[f[0]];return '<label class="at-f"><span class="at-l">'+esc(f[1])+"</span>"+(f[2]===1?'<input type="text" data-atf="'+f[0]+'" maxlength="60" value="'+esc(v)+'" autocomplete="off" spellcheck="false">':'<textarea data-atf="'+f[0]+'" rows="'+Math.min(18,Math.max(f[2],String(v).split("\\n").length+1))+'" spellcheck="false" wrap="off">'+esc(v)+"</textarea>")+"</label>"}
 function auEdHtml(k){const K=auKind(k),v=ST.saved,sec=f=>/(Chg|None)$/.test(f[0]),main=K.fields.filter(f=>!sec(f)),more=K.fields.filter(sec),gate=k==="gate"||k==="dep";
  return '<div class="au-ed"><div class="au-ec">'
-  +(k==="gate"?'<div class="au-tm"><div><label for="auLead">Send before landing</label><span class="au-n"><input type="number" id="auLead" min="10" max="90" step="5" value="'+(v.lead||30)+'"> minutes</span></div><div><label for="auMiss">No gate rule for the flight</label><select id="auMiss"><option value="skip"'+(v.miss!=="ground"?" selected":"")+'>Send nothing</option><option value="ground"'+(v.miss==="ground"?" selected":"")+'>Send “GATE: CONTACT GROUND”</option></select></div><a class="lk" href="#gates">Gate rules ›</a></div>':k==="dep"?'<div class="au-tm"><a class="lk" href="#gates">Gate rules ›</a></div>':"")
+  +(k==="gate"?'<div class="au-tm"><div><label for="auLead">Send before landing</label><span class="au-n"><input type="number" id="auLead" min="10" max="90" step="5" value="'+(v.lead||30)+'"> minutes</span></div><div><label for="auMiss">No gate rule for the flight</label><select id="auMiss"><option value="skip"'+(v.miss!=="ground"?" selected":"")+'>Send nothing</option><option value="ground"'+(v.miss==="ground"?" selected":"")+'>Send “GATE: CONTACT GROUND”</option></select></div><a class="lk" href="#gates">Gate rules ›</a></div>':k==="dep"?'<div class="au-tm"><a class="lk" href="#gates">Gate rules ›</a></div>':k==="rel"?dpEdHtml():"")
   +'<p class="hint au-when">'+esc(K.when)+".</p>"+main.map(f=>auFld(k,f)).join("")
   +(more.length?'<details class="au-more" data-aumore="'+k+'"'+(AT.more[k]?" open":"")+"><summary>More wording <small>("+more.map(f=>esc(f[1].replace(/^Title|^Message/,x=>x.toLowerCase()))).join("; ")+")</small></summary>"+more.map(f=>auFld(k,f)).join("")+"</details>":"")
   +'<div class="at-tk"><span class="at-l">Insert a field</span><div>'+K.tokens.map(t=>'<button type="button" data-attk="'+t[0]+'" title="'+esc(t[1])+'">{'+t[0]+"}</button>").join("")+"</div></div>"
-  +'<div class="actions"><button class="primary" type="button" data-ausave="'+k+'">Save</button><button type="button" data-aureset="'+k+'"'+(K.changed||AT.dirty[k]?"":" disabled")+'>Default wording</button></div><div id="auEdMsg"></div></div>'
+  +'<div class="actions"><button class="primary" type="button" data-ausave="'+k+'">Save</button><button type="button" data-aureset="'+k+'"'+(K.changed||AT.dirty[k]?"":" disabled")+'>Default wording</button></div><div id="auEdMsg"></div>'+(k==="rel"?dpLogHtml():"")+"</div>"
   +'<div class="au-pv"><span class="at-l">Preview</span><div class="at-card"><b id="auPT"></b><pre id="auPB"></pre></div><p class="hint" style="margin:0">With sample values. <b>{ZFW:9}</b> sets a value to the right in 9 characters; <b>[[ TERMINAL {TERMINAL}]]</b> is left out when a field in it is empty.</p>'
   +'<a class="lk" href="'+(gate?"#gates":"#sent")+'">'+(gate?"Gates sent ›":"AOC messages sent ›")+"</a></div></div>"}
 function auUi(){const el=$("#auList");if(!el)return;const v=ST.saved;
@@ -2877,7 +2896,11 @@ function auPrev(k){const K=auKind(k);if(!K)return;if(K.preview&&!AT.dirty[k]){$(
 /* on and off, and the arrival gate's timing: saved with the gate plan as last saved */
 async function auPlan(patch){const v=ST.saved,b={on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",...patch,apts:v.apts||{}};
  const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});ST.saved=stClone(j.plan);if(!ST.dirty)ST.plan=stClone(j.plan);opsDrop("stands");stStateUi();return j.plan}
-document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||t.dataset.ausw==null)return;if(!ST.saved){t.checked=!t.checked;return}
+document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||t.dataset.ausw==null)return;
+ if(t.dataset.ausw==="rel"){const on=t.checked;if(!DP.v){t.checked=!on;return}t.disabled=true;
+  try{const r=await api("/admin/api/dispatch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({policy:{on}})});DP.v.policy=r.policy;auUi();auTop(on?"Dispatch release is on: the plans of crews who check in are checked and released.":"Dispatch release is off: plans are not checked.",true)}
+  catch(er){t.checked=!on;t.disabled=false;auTop(er.message)}return}
+ if(!ST.saved){t.checked=!t.checked;return}
  const sw=t.dataset.ausw,on=t.checked,name=AU_K.find(x=>x[1]===sw)[2];t.disabled=true;
  try{await auPlan({[sw]:on});auUi();auTop(name+(on?" is on.":" is off: it is not sent."),true)}catch(er){t.checked=!on;t.disabled=false;auTop(er.message)}});
 document.addEventListener("input",e=>{const t=e.target;if(!t.dataset||!t.dataset.atf||!AT.open||!t.closest("#auto"))return;const k=AT.open;AT.ed[k][t.dataset.atf]=t.value;
@@ -2897,11 +2920,13 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
  if(d.ausave){t.disabled=true;const done=[];
   try{if(k==="gate"){const lead=Math.round(+$("#auLead").value),miss=$("#auMiss").value;if(!(lead>=10&&lead<=90))throw new Error("Send between 10 and 90 minutes before landing");
     if(lead!==(ST.saved.lead||30)||miss!==(ST.saved.miss||"skip")){await auPlan({lead,miss});done.push("timing")}}
+   if(k==="rel"&&DP.v){const P=DP.v.policy,b={};document.querySelectorAll("#auto [data-dpf]").forEach(el=>{b[el.dataset.dpf]=el.type==="checkbox"?el.checked:+el.value});
+    if(Object.keys(b).some(x=>b[x]!==P[x])){const r=await api("/admin/api/dispatch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({policy:b})});DP.v.policy=r.policy;done.push("policy")}}
    if(AT.dirty[k]){const r=await api("/admin/api/aoctpl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});AT.ed[k]={...r.fields};AT.v.tpl[k]={...r.fields};K.changed=r.changed;K.preview=r.preview;delete AT.dirty[k];done.push("wording")}
    auUi();auSay(done.length?"Saved. “"+K.name+"” is sent with this "+done.join(" and ")+" from now on.":"Nothing was changed.",true)}
   catch(er){t.disabled=false;auSay(er.message)}}});
 window.addEventListener("beforeunload",e=>{if(Object.keys(AT.dirty).length){e.preventDefault();e.returnValue=""}});
-PG_LOAD.auto=()=>{auUi();stLoad();atLoad()};
+PG_LOAD.auto=()=>{auUi();stLoad();atLoad();dpLoad()};
 
 /* on a phone the section tabs scroll: keep the open one in view */
 const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);

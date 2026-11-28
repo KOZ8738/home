@@ -3177,6 +3177,7 @@ function dl3Ci(){const ci=RS.ci,now=Date.now(),signed=typeof authOn==="function"
     const x=O(),match=!ofp._sample&&S(x.o.icao_code)===ci.from&&S(x.d.icao_code)===ci.to;
     h=`<section class="card feat">${cardH("Checked in",esc((ci.callsign||ci.flight||"")+" · "+ci.from+" → "+ci.to),`<button class="btn sm" type="button" data-dl3co style="color:#fff;border-color:rgba(255,255,255,.4)">Cancel check-in</button>`)}<ol class="rs-tl">${tl}</ol>
       ${typeof pushOn==="function"&&pushOn()?"":`<p class="note">Turn on push notifications in Settings › Notifications to get these briefings while the EFB is closed.</p>`}</section>
+      ${typeof dispHtml==="function"?dispHtml(ci):""}
       ${match?"":`<div class="notice"><b>${ofp._sample?"No SimBrief plan loaded":"The plan loaded is for "+esc(S(x.o.icao_code))+"–"+esc(S(x.d.icao_code))}</b><span>Plan ${esc(ci.from)}–${esc(ci.to)} in SimBrief, then download it here.</span></div>`}
       <section class="card">${cardH("After check-in","Polaris operations")}<div class="card-b"><p class="note" style="margin:0">Your departure and arrival gates, the final loadsheet 15 minutes before departure and the weather at each end come as AOC messages in Messages, where the VATSIM datalink stations (DCL / PDC and CPDLC) are too.</p><div class="row" style="margin-top:12px"><button type="button" class="btn" data-dl3msg>Open Messages</button></div></div></section>`}
   else{const L=dl3CiBks(),now2=Date.now(),soon=((RS.list||[]).filter(b=>{const t=Date.parse(b.departureTime||"");return t&&t>now2-3600e3&&t-now2<12*3600e3}));
@@ -7412,6 +7413,7 @@ function rsBriefHtml(ci){const now=Date.now(),x=O(),match=!ofp._sample&&S(x.o.ic
      <ol class="rs-tl">${tl}</ol>${push}</section>
    <section class="card">${cardH("Flight plan","SimBrief")}<div class="card-b" style="display:grid;gap:12px">${sbCard}
      <div class="row">${sb?`<button class="btn${match?"":" pri"}" data-rssb>Fetch latest from SimBrief</button>`:`<button class="btn" type="button" data-sbset>Set up SimBrief</button>`}<a class="btn${match?"":" pri"}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>${match?`<a class="btn" href="#ofp">Open Flight Plan</a>`:""}</div></div></section>
+   ${typeof dispHtml==="function"?dispHtml(ci):""}
    <section class="card">${cardH("Datalink","DCL / PDC and CPDLC on VATSIM")}${dlHtml(ci)}</section>
    <section class="card">${cardH("Weather","Departure and arrival",`<a class="btn sm" href="#wx">Weather app</a>`)}<div class="rs-wx2">${rsWxHtml(ci.from,"Departure")}${rsWxHtml(ci.to,"Arrival")}</div></section>`}
 V.roster=()=>{rsLoad();const ci=RS.ci,L=RS.list||[],D=rsDuties(L),now=Date.now();
@@ -7694,7 +7696,14 @@ function tileLayer(urlFn,cls,z,ox,oy,w,h,zmax){const zt=Math.max(1,Math.min(zmax
   for(let tx=x0;tx<=x1;tx++)for(let ty=y0;ty<=y1;ty++){const wx=((tx%n)+n)%n;s+=`<image class="${cls}" href="${urlFn(zt,wx,ty)}" x="${(tx*ts-ox).toFixed(1)}" y="${(ty*ts-oy).toFixed(1)}" width="${(ts+.6).toFixed(1)}" height="${(ts+.6).toFixed(1)}" preserveAspectRatio="none"/>`}return s}
 const HZ=h=>{h=String(h||"").toUpperCase();return /TS|CONVECTIVE|TC/.test(h)?"ts":/TURB/.test(h)?"tb":/ICE|IC/.test(h)?"ic":/VA|ASH/.test(h)?"va":/MTN|IFR|OBSC/.test(h)?"ifr":"ot"};
 function mapMinZ(h){if(h==null)h=mapSize().h;return Math.max(2,h?Math.log2(h/TS)+.001:2)}
-function mapClampC(h){if(!MAP.c||!h)return;{const mz=mapMinZ(h);if(MAP.z<mz)MAP.z=mz}const W=TS*Math.pow(2,MAP.z),y=mpx(MAP.c.lat,0,MAP.z)[1];const y2=W<=h?W/2:Math.max(h/2,Math.min(W-h/2,y));if(Math.abs(y2-y)<.5)return;const n=Math.PI-2*Math.PI*y2/W;MAP.c={lat:180/Math.PI*Math.atan(Math.sinh(n)),lon:MAP.c.lon}}
+/* East and west the map goes no further than one world either side of 0°: what is shown stays between 360°W and 360°E
+   (the Pacific and the date line, and a route across them, stay in reach). Further out the base map would repeat, but
+   the route, the ATC areas, SIGMETs, Polaris flights and the simple map's land are drawn for three copies of the world
+   (540°W to 540°E) and would run out one after another. Zoomed out to the whole world it barely pans sideways. */
+const MAP_LON=360;
+function mapClampLon(w){if(!MAP.c||!w)return;const half=w/2/(TS*Math.pow(2,MAP.z))*360,lim=Math.max(0,MAP_LON-half);
+  if(MAP.c.lon>lim||MAP.c.lon<-lim)MAP.c={lat:MAP.c.lat,lon:Math.max(-lim,Math.min(lim,MAP.c.lon))}}
+function mapClampC(h){if(!MAP.c||!h)return;{const mz=mapMinZ(h);if(MAP.z<mz)MAP.z=mz}mapClampLon(mapSize().w);const W=TS*Math.pow(2,MAP.z),y=mpx(MAP.c.lat,0,MAP.z)[1];const y2=W<=h?W/2:Math.max(h/2,Math.min(W-h/2,y));if(Math.abs(y2-y)<.5)return;const n=Math.PI-2*Math.PI*y2/W;MAP.c={lat:180/Math.PI*Math.atan(Math.sinh(n)),lon:MAP.c.lon}}
 /* SIGMET / AIRMET / CWA areas, painted on #sigCv at each redraw */
 const SIGC={polys:[],col:null,at:0};
 function sigCols(){if(SIGC.col&&Date.now()-SIGC.at<4000)return SIGC.col;const cs=getComputedStyle(document.documentElement),v=k=>(cs.getPropertyValue(k)||"").trim();
@@ -7822,7 +7831,7 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
   wrap.addEventListener("pointerdown",e=>{if(!MAP.c||!onMap(e))return;try{wrap.setPointerCapture(e.pointerId)}catch(_){}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st=snap();if(pts.size===1)st.moved=false});
   wrap.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId)||!st)return;if(typeof RUL!=="undefined"&&RUL.on){st.moved=true;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});return}pts.set(e.pointerId,{x:e.clientX,y:e.clientY});const ids=[...pts.keys()];
     if(OV.edit&&OV.img){const sz=mapSize();ovGesture(st,pts,wrap.getBoundingClientRect(),sz.w,sz.h);return}
-    if(ids.length===1){if(st.after)return;const a=st.p.get(ids[0]);if(!a)return;const dx=e.clientX-a.x,dy=e.clientY-a.y;if(Math.abs(dx)+Math.abs(dy)>4)st.moved=true;if(!st.moved)return;if(MAP.follow)mapFollowSet(false);const c=mpx(st.c.lat,st.c.lon,st.z);const n=munpx(c[0]-dx,c[1]-dy,st.z);MAP.c={lat:Math.max(-85,Math.min(85,n[0])),lon:n[1]}}
+    if(ids.length===1){if(st.after)return;const a=st.p.get(ids[0]);if(!a)return;const dx=e.clientX-a.x,dy=e.clientY-a.y;if(Math.abs(dx)+Math.abs(dy)>4)st.moved=true;if(!st.moved)return;if(MAP.follow)mapFollowSet(false);const c=mpx(st.c.lat,st.c.lon,st.z);const n=munpx(c[0]-dx,c[1]-dy,st.z);MAP.c={lat:Math.max(-85,Math.min(85,n[0])),lon:n[1]};{const lo=MAP.c.lon;mapClampLon(mapSize().w);if(MAP.c.lon!==lo){st.c={...MAP.c};st.p.set(ids[0],{x:e.clientX,y:e.clientY})}}}
     else{const [i,j]=ids,a=st.p.get(i),b=st.p.get(j),p=pts.get(i),q=pts.get(j);if(!a||!b)return;const d0=Math.hypot(a.x-b.x,a.y-b.y),d1=Math.hypot(p.x-q.x,p.y-q.y);if(d0<10)return;st.moved=true;
       const z=Math.max(mapMinZ(),Math.min(ZMAX,st.z+Math.log2(Math.max(d1,1)/d0))),r=wrap.getBoundingClientRect(),{w,h}=mapSize(),k=Math.pow(2,z-st.z),c0=mpx(st.c.lat,st.c.lon,st.z);
       const m0x=(a.x+b.x)/2-r.left,m0y=(a.y+b.y)/2-r.top,m1x=m0x,m1y=m0y;
@@ -11294,8 +11303,21 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden&&FTM.open)f
 /* ---------- the final loadsheet: the plan's weights go to the server (Nov 2026) ----------
    When the pilot has checked in for a flight in the EFB and the plan loaded is that flight's, its weights go to the
    EFB server, which sends the crew "LOADSHEET FINAL" as an AOC message 15 minutes before STD (see the server's
-   loadsheet.js). Sent again only when the plan changes. */
+   loadsheet.js). Sent again only when the plan changes.
+   With it goes a summary of the plan for the dispatch release (Nov 2026; the server's dispatch.js checks it against
+   Polaris's dispatch policy and answers with the result, which the check-in shows: dispHtml). force "re": check the
+   same plan again (the weather may have changed); the answer comes back as the promise's value. */
 let ciOfpSent="";
+/* the plan's figures the dispatch check needs (SimBrief's names; times in unix s, lengths in s) */
+function dispPlan(){const g=ofp.general||{},fu=ofp.fuel||{},wt=ofp.weights||{},tm=ofp.times||{},ac=ofp.aircraft||{},pa=ofp.params||{};
+  const A=ofp.alternate,alts=(Array.isArray(A)?A:A?[A]:[]).map(a=>S(a&&a.icao_code).toUpperCase()).filter(Boolean),T=ofp.takeoff_altn,t0=Array.isArray(T)?T[0]:T;
+  return {gen:N(pa.time_generated),flight:(S(g.icao_airline)+S(g.flight_number)).toUpperCase(),reg:S(ac.reg),type:S(ac.icaocode)||S(ac.icao_code),units:/^lb/i.test(S(pa.units))?"lbs":"kgs",
+    taxi:N(fu.taxi),trip:N(fu.enroute_burn)!=null?N(fu.enroute_burn):N(fu.est_burn),cont:N(fu.contingency),altn:N(fu.alternate_burn),fin:N(fu.reserve),extra:N(fu.extra),etops:N(fu.etops),
+    block:N(fu.plan_ramp),tof:N(fu.plan_takeoff),minTo:N(fu.min_takeoff),tanks:N(fu.max_tanks),
+    out:N(tm.sched_out),on:N(tm.est_on),ete:N(tm.est_time_enroute),txo:N(tm.taxi_out),contT:N(tm.contfuel_time),finT:N(tm.reserve_time),extraT:N(tm.extrafuel_time),
+    zfw:N(wt.est_zfw),mzfw:N(wt.max_zfw),tow:N(wt.est_tow),mtow:N(wt.max_tow),ldw:N(wt.est_ldw),mlw:N(wt.max_ldw),
+    alts,toAlt:t0&&typeof t0==="object"?S(t0.icao_code).toUpperCase():"",fl:N(g.initial_altitude),etopsOn:/^(1|true|yes)$/i.test(S(g.is_etops))}}
+function dispGot(j){if(!j||!RS.ci||j.disp===undefined)return;RS.ci.disp=j.disp;store.set("checkin",RS.ci);if(cur==="roster"||cur==="simbrief")render()}
 function ciOfpSync(force){try{
   const ci=RS.ci;if(!ci||!ci.bookingId||ofp._sample||typeof authOn!=="function"||!authOn()||!authSrv())return;
   if(ci.std&&Date.now()>ci.std+3600e3)return;
@@ -11305,9 +11327,53 @@ function ciOfpSync(force){try{
     pax:N(wt.pax_count_actual)!=null?N(wt.pax_count_actual):N(wt.pax_count),bags:N(wt.bag_count),paxWt:N(wt.pax_weight),payload:N(wt.payload),freight:N(wt.freight_added),cargo:N(wt.cargo),
     block:N(fu.plan_ramp),tof:N(fu.plan_takeoff),trip:N(fu.est_burn),taxi:N(fu.taxi),seats:N(ac.max_passengers),reg:S(ac.reg),type:S(ac.icaocode)||S(ac.icao_code),gen:S(pa.time_generated)||S(pa.request_id)};
   if(w.zfw==null||w.tow==null)return;
-  const key=ci.bookingId+"|"+w.gen+"|"+w.zfw+"|"+w.tow;if(!force&&key===ciOfpSent)return;ciOfpSent=key;
-  pmPost("/api/efb/crew/ofp",{bookingId:ci.bookingId,w}).catch(()=>{ciOfpSent=""})}catch(e){}}
+  const p=dispPlan(),re=force==="re";
+  const key=ci.bookingId+"|"+w.gen+"|"+w.zfw+"|"+w.tow+"|"+p.block+"|"+p.alts.join("+");if(!force&&key===ciOfpSent)return;ciOfpSent=key;
+  return pmPost("/api/efb/crew/ofp",{bookingId:ci.bookingId,w,p,recheck:re}).then(j=>{dispGot(j);return j}).catch(er=>{ciOfpSent="";if(re)throw er})}catch(e){if(force==="re")return Promise.reject(e)}}
 setTimeout(()=>ciOfpSync(),6000);
+
+/* ---------- the dispatch release, on the check-in (Nov 2026) ----------
+   What Polaris Dispatch (the EFB server, dispatch.js) made of the plan loaded: released (the release itself comes as
+   an AOC message), or not released with what to change; below the policy but not unsafe, the captain may accept it
+   with a reason, and the release then says CAPT DISCRETION. Shown only while the policy is on (ci.disp is null when
+   it is off). */
+const DISP={busy:"",capt:false,why:"",err:""};
+function dispHtml(ci){const d=ci&&ci.disp;if(!d||!Array.isArray(d.items))return "";
+  const x=O(),match=!ofp._sample&&S(x.o.icao_code)===ci.from&&S(x.d.icao_code)===ci.to,busy=DISP.busy,it=s=>d.items.filter(i=>i.sev===s);
+  const list=L=>L.length?`<ul class="dp-l">${L.map(i=>`<li class="dp-${esc(i.sev)}"><span>${i.sev==="hard"?"✕":i.sev==="soft"?"!":"i"}</span><div>${esc(i.t)}</div></li>`).join("")}</ul>`:"";
+  const rmk=it("warn").length?`<div class="dp-h">Remarks</div>${list(it("warn"))}`:"";
+  const again=`<button class="btn sm" type="button" data-dispre${busy?" disabled":""}>${busy==="re"?"Checking…":"Check again"}</button>`;
+  const err=DISP.err?`<p class="note c-red" style="margin:0">${esc(DISP.err)}</p>`:"",other=match?"":`<p class="note" style="margin:0">The plan loaded now is not this flight’s: what is shown is for the last plan of ${esc(ci.from)}–${esc(ci.to)} sent.</p>`;
+  if(d.rel){const c=d.capt;
+    return `<section class="card">${cardH("Dispatch",`<span class="c-green">Released</span> · ${esc(d.rel.no)}`,again)}<div class="card-b" style="display:grid;gap:10px">
+      <p class="note" style="margin:0">Polaris Dispatch released ${esc(ci.callsign||ci.flight||"the flight")} at ${rsZ(d.rel.at)}${c?" on your discretion":""}. The release is in Messages. Checked ${rsZ(d.at)}.</p>
+      ${c?`<div class="notice"><b>Captain’s discretion</b><span>${esc(c.reason)}</span></div>${list(it("soft"))}`:""}${rmk}${err}${other}
+      <div class="row"><button type="button" class="btn" data-dl3msg>Open Messages</button></div></div></section>`}
+  const fail=d.res==="fail",sb=`<a class="btn${fail?" pri":""}" href="${esc(rsSbUrl(ci))}" target="_blank" rel="noopener">Plan in SimBrief ↗</a>`;
+  const act=fail?`<div class="row">${sb}</div>`:DISP.capt?`<label class="f">Why the flight can go as planned<textarea id="dispWhy" rows="2" maxlength="200" placeholder="RJTT 9999 FEW030 in the latest METAR, improving">${esc(DISP.why)}</textarea></label>
+      <div class="row"><button class="btn pri" type="button" data-dispok${busy?" disabled":""}>${busy==="capt"?"Releasing…":"Accept and release"}</button><button class="btn" type="button" data-dispcapt="0">Cancel</button></div>`
+    :`<div class="row"><button class="btn" type="button" data-dispcapt="1">Accept as captain…</button>${sb}</div>`;
+  return `<section class="card">${cardH("Dispatch",`<span class="${fail?"c-red":"c-amber"}">Not released</span>`,again)}<div class="card-b" style="display:grid;gap:10px">
+    <p class="note" style="margin:0">${fail?"The plan cannot be flown as it is. Plan again in SimBrief and fetch it here: it is checked again by itself.":"The plan is below Polaris’s dispatch policy. Plan again, or accept it as captain with your reason: the release then says CAPT DISCRETION, and Polaris operations sees it."} Checked ${rsZ(d.at)}.</p>
+    ${list(it("hard"))}${list(it("soft"))}${rmk}${act}${err}${other}</div></section>`}
+document.addEventListener("input",e=>{if(e.target&&e.target.id==="dispWhy")DISP.why=e.target.value});
+document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.closest("[data-dispre],[data-dispcapt],[data-dispok]");if(!t||t.disabled)return;const d=t.dataset,ci=RS.ci;if(!ci)return;
+  if(d.dispcapt!=null){DISP.capt=d.dispcapt==="1";DISP.err="";render();if(DISP.capt)setTimeout(()=>{const a=$("#dispWhy");if(a)a.focus()},50);return}
+  if(d.dispre!=null){DISP.busy="re";DISP.err="";render();
+    try{const j=await ciOfpSync("re");if(!j)DISP.err="Load this flight’s SimBrief plan first, then check again."}catch(er){DISP.err=/fetch|network/i.test(er.message)?"Can’t reach the EFB server":er.message}
+    finally{DISP.busy="";render()}return}
+  if(d.dispok!=null){const why=DISP.why.trim();if(why.length<4){DISP.err="Write why the flight can go as planned.";render();return}
+    DISP.busy="capt";DISP.err="";render();
+    try{const j=await pmPost("/api/efb/crew/release",{bookingId:ci.bookingId,reason:why});DISP.capt=false;DISP.why="";dispGot(j);toast("Released · "+(j.disp&&j.disp.rel?j.disp.rel.no:ci.callsign||ci.flight||""))}
+    catch(er){DISP.err=/fetch|network/i.test(er.message)?"Can’t reach the EFB server":er.message}
+    finally{DISP.busy="";render()}}});
+document.head.insertAdjacentHTML("beforeend",`<style>
+.dp-l{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.dp-l li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;align-items:start;font-size:13.5px;line-height:1.45}
+.dp-l li>span{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:600 11px/1 var(--f-ui);color:#fff;margin-top:1px}
+.dp-l .dp-hard>span{background:var(--red)}.dp-l .dp-soft>span{background:var(--amber)}.dp-l .dp-warn>span{background:var(--label)}
+.dp-h{font:500 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--label)}
+</style>`);
 document.head.insertAdjacentHTML("beforeend",`<style>
 /* ---------- Flight › More menu (Nov 2026) ---------- */
 .ftm{position:absolute;bottom:calc(100% + 10px);width:316px;max-width:calc(100% - 12px);box-sizing:border-box;background:color-mix(in srgb,var(--panel) 88%,transparent);

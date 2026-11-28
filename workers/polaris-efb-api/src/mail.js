@@ -95,7 +95,8 @@ async function readIndex(kv) {
     const x = mine.add.get(m.id); out.push(x && mailV(x.m) > mailV(m) ? x.m : m); ids.add(m.id);   /* the newer of the two (an edit) */
   }
   for (const [id, x] of mine.add) if (!ids.has(id) && !mine.del.has(id)) out.push(x.m);
-  return out;
+  /* newest first, as the index is kept: a mail just sent is never past the pilots' first 100 (mailPublic) */
+  return out.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t));
 }
 /* the index, newest first and MAIL_MAX at most: the mails let go past that take their attachments with them */
 async function writeIndex(kv, list) {
@@ -208,9 +209,11 @@ const roleOf = (R, email) => { if (!Object.keys(R.people).length) return 'admin'
 const roleName = (R, id) => id === 'admin' ? 'Administrator' : (own(R.roles, id) && R.roles[id].name) || id;
 /* what each change is made from (P2, Nov 2026): a role may make it only while it also sees one of these pages (as the
    admin page's role editor ties them, RL_ACTS in admin.js), so "send messages" without Messages or Flight Watch, say,
-   lets nothing through. Broadcast's own desk (/admin/api/desk, its channel on /admin/api/cam) wants Broadcast itself.
+   lets nothing through. "settings" is the automatic messages (Automatic messages, the gate plan's switches on Gates)
+   and the From names and AOC templates, edited in Messages too. Broadcast's own desk (/admin/api/desk, its channel on
+   /admin/api/cam) wants Broadcast itself.
    Publishing tasks is from Tasks, which every role sees. Administrators may do everything. */
-export const ACT_PAGES = { live: ['bc', 'fw'], msg: ['comms', 'fw'], gates: ['gates', 'fw'], delay: ['fw', 'reports'], docs: ['docs'], docsdel: ['docs'], cal: ['cal'], navdata: ['navdata'], pilots: ['pilots'], settings: ['settings', 'gates'] };
+export const ACT_PAGES = { live: ['bc', 'fw'], msg: ['comms', 'fw'], gates: ['gates', 'fw'], delay: ['fw', 'reports'], docs: ['docs'], docsdel: ['docs'], cal: ['cal'], navdata: ['navdata'], pilots: ['pilots'], settings: ['settings', 'gates', 'comms'] };
 const actOk = (a, pages) => !ACT_PAGES[a] || ACT_PAGES[a].some((p) => pages.includes(p));
 function permsOf(R, id) {
   if (id === 'admin') return { pages: ['home', 'tasks', ...ROLE_PAGES], can: [...ROLE_ACTS, 'roles', 'diag'] };

@@ -114,7 +114,7 @@ function mkNs(answer = () => ({ ok: true, closed: 0 })) {
   const calls = [];
   return { calls, ns: { idFromName: (n) => n, get: (id) => ({ fetch: async (u, init) => { const req = u instanceof Request ? u : new Request(u, init); calls.push({ id, url: req.url, method: req.method, body: req.method === 'POST' ? await req.text() : null }); return jsonResp(answer(req)); } }) } };
 }
-const { mailAdmin, accessSession, accessUser, ACT_PAGES, ROLE_ACTS } = await import('../src/mail.js');
+const { mailAdmin, mailPublic, accessSession, accessUser, ACT_PAGES, ROLE_ACTS } = await import('../src/mail.js');
 const ENV = (kv, more = {}) => ({ ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD, STORE: kv, CREW: mkCrew().ns, ...more });
 async function admin(kv, email, path, { method = 'GET', body, headers = {}, env, opts = {}, secs } = {}) {
   const hd = { 'Cf-Access-Jwt-Assertion': await signIn(email, secs), ...headers };
@@ -264,7 +264,7 @@ await test('A2 ACT_PAGES: every change but publishing tasks is tied to pages, an
   const RL = vm.runInNewContext(m[1]);
   for (const [k, , , pg] of RL) { if (k === 'tasks') { assert.equal(ACT_PAGES[k], undefined); continue; } assert.ok(ACT_PAGES[k] && ACT_PAGES[k].includes(pg), k + ' -> ' + pg); }
   assert.deepEqual(Object.keys(ACT_PAGES).sort(), ROLE_ACTS.filter((a) => a !== 'tasks').sort());
-  assert.deepEqual(ACT_PAGES.live, ['bc', 'fw']); assert.deepEqual(ACT_PAGES.settings, ['settings', 'gates']); assert.deepEqual(ACT_PAGES.delay, ['fw', 'reports']);
+  assert.deepEqual(ACT_PAGES.live, ['bc', 'fw']); assert.deepEqual(ACT_PAGES.settings, ['settings', 'gates', 'comms']); assert.deepEqual(ACT_PAGES.delay, ['fw', 'reports']);
 });
 
 await test('A2 a role that may change something without seeing any of its pages may not change it (403), and /admin/api/me does not offer it; with a page, it may; administrators always', async () => {
@@ -273,7 +273,8 @@ await test('A2 a role that may change something without seeing any of its pages 
   const kv = mkKv({ [ROLES]: rolesOn({
     blind: { name: 'Blind', pages: ['pilots'], can: ['msg', 'cal', 'live', 'settings', 'gates', 'delay', 'docs', 'navdata', 'pilots', 'tasks'] },
     fw: { name: 'Watch', pages: ['fw'], can: ['msg', 'live', 'gates', 'delay', 'cal'] },
-    gp: { name: 'Gates', pages: ['gates'], can: ['settings'] } }, { 'blind@p.test': { role: 'blind' }, 'fw@p.test': { role: 'fw' }, 'gp@p.test': { role: 'gp' } }) });
+    gp: { name: 'Gates', pages: ['gates'], can: ['settings'] },
+    cm: { name: 'Messages', pages: ['comms'], can: ['msg', 'settings'] } }, { 'blind@p.test': { role: 'blind' }, 'fw@p.test': { role: 'fw' }, 'gp@p.test': { role: 'gp' }, 'cm@p.test': { role: 'cm' } }) });
   const env = ENV(kv, { DESK: D.ns, CAM: mkNs().ns });
   const me = async (e) => (await (await admin(kv, e, '/admin/api/me', { env })).json()).can;
   assert.deepEqual(await me('blind@p.test'), ['pilots', 'tasks']);
@@ -289,6 +290,12 @@ await test('A2 a role that may change something without seeing any of its pages 
   assert.equal(desk.status, 403); assert.equal(D.calls.length, 0, 'the desk was never asked');
   /* settings with Gates: the gate plan's switches */
   const gpr = await admin(kv, 'gp@p.test', '/admin/api/settings', { method: 'POST', body: { froms: ['Ops'], tpl: [] }, env }); assert.equal(gpr.status, 200);
+  /* settings with Messages: the From names and AOC templates, edited on Messages (#cmSet) */
+  assert.deepEqual(await me('cm@p.test'), ['msg', 'settings']);
+  assert.equal((await admin(kv, 'cm@p.test', '/admin/api/settings', { env })).status, 200);
+  const cmr = await admin(kv, 'cm@p.test', '/admin/api/settings', { method: 'POST', body: { froms: ['Crew Management', 'Training'], tpl: [{ title: 'Crew message', body: '' }] }, env });
+  assert.equal(cmr.status, 200); assert.deepEqual(kv.json('admin:v1:settings').froms, ['Crew Management', 'Training']);
+  { const i = ADMIN_HTML.indexOf('<main id="comms"'), j = ADMIN_HTML.indexOf('</main>', i); assert.ok(i > 0 && j > i); assert.match(ADMIN_HTML.slice(i, j), /id="setSave"/, 'the editor is on Messages'); }
   assert.equal((await admin(kv, 'boss@p.test', '/admin/api/desk', { method: 'POST', body: { op: 'cfg', cfg: {} }, env })).status, 200, 'an administrator directs');
 });
 
@@ -339,13 +346,22 @@ await test('A5 mail: a KV location that still answers with the index from before
   assert.deepEqual(kv.json(MIDX).map((m) => m.subject), ['C', 'B', 'A']);
   NOW += 1000; await save({ id: b.id, subject: 'B edited' });
   const list = async () => (await (await admin(kv, 'boss@p.test', '/admin/api/mail')).json()).mails.map((m) => m.subject);
-  assert.deepEqual((await list()).sort(), ['A', 'B edited', 'C']);
+  assert.deepEqual(await list(), ['B edited', 'C', 'A'], 'newest first, as kept (the edit is sent again now)');
   assert.equal((await admin(kv, 'boss@p.test', '/admin/api/mail?id=' + a.id, { method: 'DELETE' })).status, 200);
   NOW += 1000; await save({ subject: 'D' });
   /* (an edit without a send time is sent again now: B edited is newer than C) */
-  assert.deepEqual(kv.json(MIDX).map((m) => m.subject), ['D', 'B edited', 'C']); assert.deepEqual((await list()).sort(), ['B edited', 'C', 'D']);
+  assert.deepEqual(kv.json(MIDX).map((m) => m.subject), ['D', 'B edited', 'C']); assert.deepEqual(await list(), ['D', 'B edited', 'C']);
   /* two minutes on, what KV says is what is read */
   NOW += 121_000; kv.stale.clear(); assert.deepEqual(await list(), ['D', 'B edited', 'C']); void c;
+});
+
+await test('A5 mail: from a KV location a write behind, a mail just sent is first in what pilots read (never past their first 100)', async () => {
+  NOW += 11_000;
+  const old = Array.from({ length: 150 }, (_, i) => mail(i)), kv = mkKv({ [MIDX]: old }); kv.stale.add(MIDX);
+  const r = await admin(kv, 'boss@p.test', '/admin/api/mail', { method: 'POST', body: { from: 'Ops', subject: 'Just sent', body: 'x' } }); assert.equal(r.status, 200);
+  assert.equal(kv.json(MIDX)[0].subject, 'Just sent');
+  const p = await mailPublic(new Request(ORIGIN + '/api/efb/mail'), ENV(kv), {}, { u: 'PAW0006', c: '1234567' }, async () => 'k'), j = await p.json();
+  assert.equal(j.mails.length, 100); assert.equal(j.mails[0].subject, 'Just sent');
 });
 
 const { docsAdmin } = await import('../src/docs.js');
@@ -618,6 +634,12 @@ await test('B12 the auto director: a rule changed shows at once, and goes to the
   /* refused: back to what the desk has */
   const e = x.bcRules('taxi', () => []); assert.deepEqual(clone(BC.cfg.auto.rules), { climb: ['Cockpit', 'Cabin'] }); await settle(); posts[2].r(false); assert.equal(await e, false);
   assert.deepEqual(clone(BC.cfg.auto.rules), { climb: ['Cockpit', 'Cabin'], taxi: ['Gear'] });
+  /* a save that went through, then a later one refused: back to the rules of the save that went through, not older */
+  const f = x.bcRules('landing', (L) => L.concat(['Wing'])); await settle();
+  const g = x.bcRules('landing', (L) => L.concat(['Cabin'])); posts[3].r(true); await settle();
+  assert.deepEqual(posts[4].rules, { climb: ['Cockpit', 'Cabin'], taxi: ['Gear'], landing: ['Wing', 'Cabin'] }); posts[4].r(false);
+  assert.equal(await f, true); assert.equal(await g, false);
+  assert.deepEqual(clone(BC.cfg.auto.rules), { climb: ['Cockpit', 'Cabin'], taxi: ['Gear'], landing: ['Wing'] });
   assert.match(ADMIN_HTML, /case "cfg":BC\.cfg=j\.cfg;if\(BC\.rw&&BC\.cfg&&BC\.cfg\.auto\)BC\.cfg\.auto\.rules=BC\.rw;/, 'a cfg from the desk keeps the rules on their way');
 });
 
@@ -827,7 +849,8 @@ await test('C18–23 the sidebar\'s labels, OOOI on a phone, the Messages list\'
   assert.equal(decl('(max-width:420px)', '.fo-t', 'grid-template-columns'), 'repeat(3,minmax(0,1fr))'); assert.equal(decl('', '.fo-t', 'grid-template-columns'), 'repeat(6,minmax(0,1fr))');
   assert.equal(decl('(max-width:420px)', '.fo-t>div:nth-child(3n+1)', 'border-left'), '0');
   assert.equal(decl('', '.cm-side', 'max-height'), 'calc(100svh - 83px - 16px)');
-  assert.equal(decl('(max-width:900px)', '.help>div', 'position'), 'static'); assert.equal(decl('(max-width:900px)', '.help', 'position'), 'static'); assert.equal(decl('(max-width:600px)', '.help>div', 'position'), 'static');
+  assert.equal(decl('(max-width:900px)', '.help>div', 'position'), 'static'); assert.equal(decl('(max-width:900px)', '.help>div', 'width'), 'auto'); assert.equal(decl('(max-width:900px)', '.help>div', 'max-width'), 'none');
+  assert.equal(decl('(max-width:900px)', '.pg-h:has(>.help[open])', 'flex-wrap'), 'wrap', 'the heading row wraps'); assert.equal(decl('(max-width:900px)', '.pg-h>.help[open]', 'flex-basis'), '100%', 'the open ? under the heading'); assert.equal(decl('(max-width:900px)', '.help', 'position'), 'static'); assert.equal(decl('(max-width:600px)', '.help>div', 'position'), 'static');
   assert.ok(decl('', '.ws-auth', 'position'), 'the sign-in notice is styled');
   const STATIC = (() => { const b = ADMIN_HTML.indexOf('<body>'), e = ADMIN_HTML.indexOf('<script', b); return ADMIN_HTML.slice(b, e); })();
   for (const id of ['send', 'cancel', 'dcSave', 'dcCancel', 'setSave']) assert.match(STATIC, new RegExp('<button type="button"[^>]*id="' + id + '"'), id);

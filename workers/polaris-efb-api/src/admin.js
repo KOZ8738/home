@@ -835,7 +835,7 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
  .hm-c b{font-size:22px}
  .hm-col{gap:12px}
  /* a ? explanation opens across the page, not off its right edge */
- .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;margin-top:8px}
+ .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;max-width:none;margin-top:8px}
  /* wide tables scroll sideways with the pilot or date column kept in view */
  .pl-t th:first-child,.pl-t td:first-child,.ot-tb th:first-child,.ot-tb td:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}
 }
@@ -1001,8 +1001,10 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
  .side.more-l{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px);mask-image:linear-gradient(to right,transparent,#000 40px)}
  .side.more-l.more-r{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
  .nd-flt{top:calc(var(--hdr) + var(--navh))}
- /* a ? explanation opens in the flow of the page, under its ?, on an iPad as on a phone (not over what follows) */
- .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;margin-top:8px}
+ /* a ? explanation opens in the flow of the page, on an iPad as on a phone (not over what follows): the row of its heading
+    wraps, and the open ? takes a row of its own under the heading, the explanation across the page */
+ .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;max-width:none;margin-top:8px}
+ .pg-h:has(>.help[open]){flex-wrap:wrap}.pg-h>.help[open]{flex-basis:100%}
 }
 /* in the EFB's Admin app (a frame): a lower header, and on a narrow screen a shorter map, so the flight list and the open
    flight's panel (the Cockpit Monitor) show without scrolling far */
@@ -3295,6 +3297,7 @@ function bcRules(k,fn){if(!BC.cfg||!BC.cfg.auto)return Promise.resolve(false);if
  const R=JSON.parse(JSON.stringify(BC.cfg.auto.rules||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];BC.rw=R;BC.cfg.auto.rules=R;bcAuto();
  const go=async()=>{if(BC.rw!==R)return true;   /* a later change is waiting: it carries this one */
   const ok=await bcCfg({auto:{rules:R}});
+  if(ok)BC.rsv=JSON.parse(JSON.stringify(R));   /* what the desk has now: a later change refused goes back to this */
   if(BC.rw===R){BC.rw=null;if(!ok&&BC.cfg&&BC.cfg.auto){BC.cfg.auto.rules=BC.rsv||{};bcAuto()}}else if(BC.cfg&&BC.cfg.auto){BC.cfg.auto.rules=BC.rw;bcAuto()}
   return ok};
  const p=bcRQ.then(go);bcRQ=p.then(()=>{},()=>{});return p}

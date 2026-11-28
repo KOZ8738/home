@@ -6,6 +6,13 @@ const store={get(k,d){if(k in mem)return JSON.parse(mem[k]);try{const v=localSto
   set(k,v){mem[k]=JSON.stringify(v);try{localStorage.setItem("pefb:"+k,mem[k])}catch(e){}}};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* an address that came from a server (an AIP's home page) is made a link only when it is https://: never javascript:,
+   data:, http: or anything else; with control characters in it, it is not a link either */
+const safeHttps=u=>{if(typeof u!=="string")return null;const s=u.trim();if(!/^https:\/\//i.test(s)||/[\u0000-\u001f\u007f]/.test(s))return null;try{const x=new URL(s);return x.protocol==="https:"&&x.hostname?x.href:null}catch(e){return null}};
+/* "<label> ↗" as a link to an outside https page, or the label alone when the address isn't one */
+const aHttps=(u,label)=>{const h=safeHttps(u);return h?`<a href="${esc(h)}" target="_blank" rel="noopener">${esc(label)} ↗</a>`:`<span>${esc(label)}</span>`};
+/* an ImageBitmap holds its pixels (often on the GPU) until close(): let go of as soon as it has been drawn */
+const bmFree=bm=>{try{if(bm&&bm.close)bm.close()}catch(e){}};
 const S=x=>(typeof x==="string"||typeof x==="number")?String(x).trim():"";
 const N=x=>{const n=parseFloat(S(x));return isFinite(n)?n:null};
 const fmt=n=>n==null?"—":Math.round(n).toLocaleString("en-US");
@@ -379,8 +386,8 @@ function clTypeCheck(){const t=clType(),k=t.fam+":"+t.code,id=O().id,seen=store.
   if(CLP.typeKey!==k){const first=CLP.typeKey==null;CLP.typeKey=k;CL=buildCL();if(clIdx>=CL.length)clIdx=0;
     if(seen[id]!==k){seen[id]=k;store.set("clTypeSeen",seen);if(!first||t.src!=="OFP"){CLP.typeNote=t.name+" checklists";clPushBanner(clIdx,t.name+" checklists",(t.fam==="A350"?"A350 checklist":"A321 SOP")+" · from "+t.src+(t.ref?" "+t.ref:""));if(cur==="checklist")render();else if(!cur)renderHome()}}}}
 async function clLivePoll(){if(!vamOn()||!CLP.on||CLP.loading){clTypeCheck();return}CLP.loading=true;
-  try{const j=await vamGet("/api/efb/live");const L=j.flights||[];const me=vam.user.toLowerCase();const x=O();
-    const f=L.find(q=>q.pilot&&q.pilot.toLowerCase()===me)||null;CLP.flight=f;CLP.err=null;CLP.at=Date.now();if(typeof MAP!=="undefined")MAP.live=L;
+  try{const lt=typeof MAP!=="undefined"?liveTicket():null;const j=await vamGet("/api/efb/live");const L=j.flights||[];const me=vam.user.toLowerCase();const x=O();
+    const f=L.find(q=>q.pilot&&q.pilot.toLowerCase()===me)||null;CLP.flight=f;CLP.err=null;CLP.at=Date.now();if(lt)livePut(lt,L);
     if(!f)vamLoad("bookings");clTypeCheck();
     if(f){CLP.match=!f.from||!S(x.o.icao_code)||(f.from===S(x.o.icao_code)&&f.to===S(x.d.icao_code));const ph=clPhase(f);CLP.phase=f.phase||"";CLP.why=ph.why;CLP.idx=clDue(ph.sec);if(CLP.idx!=null&&CLP.match)clPush(CLP.idx)}
     else{CLP.idx=null;CLP.why=""}}
@@ -626,24 +633,53 @@ function ovDefault(){if(OV.auto)return{...OV.auto};const s=OV.sel,d=TX.data[s.ic
   return{lat,lon,h:hM,rot:0}}
 function ovFly(){if(!OV.geo||!MAP.c)return;const {h}=mapSize();mapFollowSet(false);MAP.c={lat:OV.geo.lat,lon:OV.geo.lon};const k=.82*h/OV.geo.h;MAP.z=Math.max(mapMinZ(),Math.min(ZMAX,Math.log2(k*40075016.7*Math.cos(OV.geo.lat*Math.PI/180)/TS)));mapSched();updMapNote()}
 /* a PDF document holds a pdf.js worker and its memory until destroy(): every document the overlay lets go of is destroyed */
-function ovDocFree(d){if(!d)return;try{const p=d.destroy&&d.destroy();if(p&&p.catch)p.catch(()=>{})}catch(e){}}
-async function ovPage(n){const pg=await OV.doc.getPage(n),v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:2000/Math.max(v1.width,v1.height)});
+/* and a document still drawing a page is destroyed only once that page is done or has failed (pulled from under pdf.js
+   mid-render, the render throws and its worker can be left half torn down); each document is destroyed once */
+const OVD=new WeakMap();
+const ovDocSt=d=>{let s=OVD.get(d);if(!s){s={busy:0,free:false,gone:false};OVD.set(d,s)}return s};
+function ovDocFree(d){if(!d||typeof d!=="object")return;const s=ovDocSt(d);if(s.gone)return;if(s.busy>0){s.free=true;return}s.gone=true;s.free=false;
+  try{const p=d.destroy&&d.destroy();if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+function ovDocHold(d){ovDocSt(d).busy++}
+function ovDocDone(d){const s=ovDocSt(d);s.busy=Math.max(0,s.busy-1);if(!s.busy&&s.free)ovDocFree(d)}
+/* the dark-mode copy of a chart page: lightness turned over, hues kept (invert, then hue-rotate 180°, as the Charts
+   app's dark view). Drawn through the canvas filter where there is one, on the GPU: the per-pixel loop over a
+   2000-pixel page held the main thread for a few hundred ms on an iPad. Without canvas filters (Safari before 18) the
+   loop does the same sum per pixel (the CSS hue-rotate matrix at 180°), so both give the same picture. */
+const OV_INV="invert(1) hue-rotate(180deg)";
+const OVINV={ok:null};
+function ovFilterOk(){if(OVINV.ok!==null)return OVINV.ok;OVINV.ok=false;
+  try{const a=document.createElement("canvas");a.width=a.height=1;const ga=a.getContext("2d");if(!ga||!("filter" in ga))return OVINV.ok;ga.fillStyle="#fff";ga.fillRect(0,0,1,1);
+    /* asked, not assumed: the property can exist and do nothing, so a white pixel is drawn inverted and read back */
+    const b=document.createElement("canvas");b.width=b.height=1;const gb=b.getContext("2d");gb.filter="invert(1)";if(gb.filter!=="invert(1)")return OVINV.ok;gb.drawImage(a,0,0);OVINV.ok=gb.getImageData(0,0,1,1).data[0]<128}catch(e){OVINV.ok=false}return OVINV.ok}
+function ovInvert(cv){const iv=document.createElement("canvas");iv.width=cv.width;iv.height=cv.height;const g=iv.getContext("2d");
+  if(ovFilterOk()){try{g.filter=OV_INV;g.drawImage(cv,0,0);g.filter="none";return iv}catch(e){OVINV.ok=false;try{g.filter="none"}catch(x){}g.clearRect(0,0,iv.width,iv.height)}}
+  g.drawImage(cv,0,0);
+  try{const im=g.getImageData(0,0,iv.width,iv.height),dd=im.data;for(let i=0;i<dd.length;i+=4){const r=255-dd[i],gg=255-dd[i+1],b=255-dd[i+2];
+      dd[i]=-.574*r+1.43*gg+.144*b;dd[i+1]=.426*r+.43*gg+.144*b;dd[i+2]=.426*r+1.43*gg-.856*b}g.putImageData(im,0,0)}catch(e){}
+  return iv}
+/* one page of the open chart, drawn from document doc for the chart sel. A render that is no longer the one asked for
+   last (another chart, the overlay closed, or another page asked for since: OV.rtok) writes nothing, so an older
+   page never replaces a newer one; the document is held meanwhile (ovDocHold), so it isn't destroyed under it.
+   Resolves true when this page is the one shown. */
+async function ovPage(n,doc,sel){doc=doc||OV.doc;sel=sel||OV.sel;if(!doc||!sel)return false;const tok=OV.rtok=(OV.rtok||0)+1,live=()=>OV.sel===sel&&OV.doc===doc&&OV.rtok===tok;
+  ovDocHold(doc);try{
+  const pg=await doc.getPage(n);if(!live())return false;const v1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:2000/Math.max(v1.width,v1.height)});
   const cv=document.createElement("canvas");cv.width=Math.floor(vp.width);cv.height=Math.floor(vp.height);const g=cv.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,cv.width,cv.height);
   /* the page's render buffers are let go once it is a canvas (or the render failed): the page object stays usable */
   try{await pg.render({canvasContext:g,viewport:vp}).promise}finally{try{if(pg.cleanup)pg.cleanup()}catch(e){}}
-  const iv=document.createElement("canvas");iv.width=cv.width;iv.height=cv.height;const g2=iv.getContext("2d");g2.drawImage(cv,0,0);
-  try{const im=g2.getImageData(0,0,iv.width,iv.height),dd=im.data;for(let i=0;i<dd.length;i+=4){dd[i]=255-dd[i];dd[i+1]=255-dd[i+1];dd[i+2]=255-dd[i+2]}g2.putImageData(im,0,0)}catch(e){}
+  if(!live())return false;const iv=ovInvert(cv);
   OV.crop=null;OV.img=cv;OV.inv=iv;OV.page=n;OV.auto=ovGeoref(OV.raw,pg.view,pg.rotate,n,OV.pages);OV.autoKind=OV.auto?"pdf":"";
-  if(!OV.auto&&/diagram/i.test((OV.sel.group||"")+" "+(OV.sel.name||""))){const g=await ovDiagRef(pg);if(g){OV.auto=g;OV.autoKind="rwy"}}if(!OV.auto){const g=await agRef(pg,OV.sel,n);if(g){OV.auto={lat:g.lat,lon:g.lon,h:g.h,rot:g.rot};OV.autoKind=g.kind}}const saved=await agHand(store.get(ovKey(),null),OV.sel,n,ovKey(),()=>pg);OV.geo=saved||ovDefault();OV.src=saved?"saved":OV.auto?"auto":"";OV.shared=null;OV.shInfo=null;
+  if(!OV.auto&&/diagram/i.test((sel.group||"")+" "+(sel.name||""))){const g=await ovDiagRef(pg);if(!live())return false;if(g){OV.auto=g;OV.autoKind="rwy"}}if(!OV.auto){const g=await agRef(pg,sel,n);if(!live())return false;if(g){OV.auto={lat:g.lat,lon:g.lon,h:g.h,rot:g.rot};OV.autoKind=g.kind}}const saved=await agHand(store.get(ovKey(),null),sel,n,ovKey(),()=>pg);if(!live())return false;OV.geo=saved||ovDefault();OV.src=saved?"saved":OV.auto?"auto":"";OV.shared=null;OV.shInfo=null;
   /* someone at Polaris may have lined this chart up already (charts with their own coordinates keep those) */
-  if(OV.autoKind!=="pdf")ovSharedGet(OV.sel,n,!!saved)}
+  if(OV.autoKind!=="pdf")ovSharedGet(sel,n,!!saved);return true}
+  finally{ovDocDone(doc)}}
 async function ovOpen(c,icao,cycle){ovDocFree(OV.doc);OV.sel={name:c.name,pdf:c.pdf,group:c.group,icao,cycle};OV.doc=null;OV.img=null;OV.inv=null;OV.page=1;OV.pages=1;OV.err=null;OV.edit=false;OV.loading=true;OV.open=false;ovUi();
   const mine=OV.sel;OV.raw="";OV.auto=null;OV.src="";try{const lib=await loadPdfJs();const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),90000);let buf;
     try{const r=await fetch(vam.url.replace(/\/+$/,"")+"/api/efb/chart-pdf?cycle="+cycle+"&file="+encodeURIComponent(c.pdf),{signal:ctrl.signal});if(!r.ok)throw new Error("Chart server answered HTTP "+r.status);buf=await r.arrayBuffer()}finally{clearTimeout(tm)}
     if(OV.sel!==mine)return;try{OV.raw=new TextDecoder("latin1").decode(buf)}catch(e){OV.raw=""}
     /* the document is destroyed in finally unless the overlay kept it (another chart picked meanwhile, or an error) */
     const task=lib.getDocument({data:buf,isEvalSupported:false});let doc=null,kept=false;
-    try{doc=await task.promise;if(OV.sel!==mine)return;OV.doc=doc;OV.pages=doc.numPages;await ovPage(1);if(OV.sel!==mine)return;kept=true;if(cur==="map")ovFly()}
+    try{doc=await task.promise;if(OV.sel!==mine)return;OV.doc=doc;OV.pages=doc.numPages;await ovPage(1,doc,mine);if(OV.sel!==mine)return;kept=true;if(cur==="map")ovFly()}
     finally{if(!doc){try{const p=task.destroy&&task.destroy();if(p&&p.catch)p.catch(()=>{})}catch(e){}}else if(!kept||OV.doc!==doc){if(OV.doc===doc)OV.doc=null;ovDocFree(doc)}}}
   catch(e){if(OV.sel!==mine)return;OV.err=e&&e.name==="AbortError"?"The chart took too long to download. Check the connection and try again.":/fetch|network|load/i.test(e.message||"")?"Couldn’t download this chart. Check the connection and try again.":(e.message||"Chart couldn’t load")}
   OV.loading=false;ovUi();ovSched()}
@@ -921,6 +957,17 @@ function vecSync(){const m=VEC.map;if(!m||!MAP.c||!vecOn())return;try{m.jumpTo({
 /* MapLibre counts maxTileCacheSize per source, and the map has many (base, openAIP, weather, satellites, IFR/VFR):
    600 each filled an iPad's memory on a long flight. A phone or tablet keeps 80 tiles a source, a desktop 150. */
 const VEC_TILE_CACHE=(()=>{try{const touch=(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||/iPad|iPhone|iPod|Android/i.test(navigator.userAgent||"")||(navigator.maxTouchPoints||0)>1;return touch?80:150}catch(e){return 120}})();
+/* graphics taken away and not given back within 10 s (WebKit often never gives them back): the map is let go and built
+   again after the same wait as a map that failed to start (30 s, doubling to 5 min for losses one after another; a map
+   that had been up for 10 minutes starts again from 30 s), so a long flight needs no reload of the page */
+const VEC_LOST_WAIT=10000;
+function vecLostGiveUp(mp){if(VEC.map!==mp||!VEC.lost)return;clearTimeout(VEC.lostTm);VEC.lostTm=0;
+  try{mp.remove()}catch(e){}VEC.map=null;VEC.ready=false;VEC.lost=false;VEC.t0=0;VEC.slow=false;VEC.firOk=false;VEC.key="";try{if(VEC.el)VEC.el.textContent=""}catch(e){}
+  if(VEC.upAt&&Date.now()-VEC.upAt>600000)VEC.lostN=0;VEC.lostN=(VEC.lostN||0)+1;const wait=Math.min(300000,30000*Math.pow(2,VEC.lostN-1));
+  VEC.err="The detail map’s graphics were lost; showing the simple map and starting it again soon.";VEC.retryAt=Date.now()+wait;
+  /* vecEnsure runs from drawMap: one is asked for when the wait is over, even if nothing else moves the map */
+  clearTimeout(VEC.rtm);VEC.rtm=setTimeout(()=>{VEC.rtm=0;if(cur==="map"){drawMap();updMapNote()}},wait+100);
+  if(cur==="map"){drawMap();updMapNote()}}
 /* called from drawMap: makes sure the map exists, sits in the current map view, matches the theme */
 function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)return;
   /* a map library that failed to download is tried again after a wait (30 s, doubling to 5 min), or at once when the connection comes back */
@@ -934,11 +981,12 @@ function vecEnsure(){const wrap=document.querySelector(".mapwrap");if(!wrap)retu
       try{VEC.map=new lib.Map({container:VEC.el,style:vecStyle(key[0]==="d"),interactive:false,attributionControl:false,center:[MAP.c?MAP.c.lon:0,MAP.c?MAP.c.lat:0],zoom:Math.max(0,(MAP.z||5)-1),fadeDuration:300,maxZoom:19.5,maxTileCacheSize:VEC_TILE_CACHE,pixelRatio:Math.min(2,window.devicePixelRatio||1)})}catch(e){try{if(VEC.map)VEC.map.remove()}catch(x){}VEC.map=null;VEC.ready=false;VEC.t0=0;try{VEC.el.textContent=""}catch(x){}
         VEC.err="The detail map couldn’t start; showing the simple map and trying again soon.";VEC.fails=(VEC.fails||0)+1;VEC.retryAt=Date.now()+Math.min(300000,30000*Math.pow(2,VEC.fails-1));
         if(cur==="map"){drawMap();updMapNote()}return}
-      VEC.key=key;VEC.fails=0;
+      VEC.key=key;VEC.fails=0;VEC.upAt=Date.now();
       /* the graphics context can be taken away (iPad memory pressure, GPU reset): the simple map stands in until it is back */
       try{const cvs=VEC.map.getCanvas(),mp=VEC.map;
-        cvs.addEventListener("webglcontextlost",ev=>{try{ev.preventDefault()}catch(x){}if(VEC.map!==mp)return;VEC.lost=true;VEC.ready=false;VEC.err="The detail map’s graphics were reset; showing the simple map until they are back.";if(cur==="map"){drawMap();updMapNote()}},false);
-        cvs.addEventListener("webglcontextrestored",()=>{if(VEC.map!==mp||!VEC.lost)return;VEC.lost=false;VEC.err=null;VEC.ready=true;try{mp.resize();mp.triggerRepaint()}catch(x){}if(cur==="map"){drawMap();updMapNote()}},false)}catch(e){}
+        cvs.addEventListener("webglcontextlost",ev=>{try{ev.preventDefault()}catch(x){}if(VEC.map!==mp)return;VEC.lost=true;VEC.ready=false;VEC.err="The detail map’s graphics were reset; showing the simple map until they are back.";
+          clearTimeout(VEC.lostTm);VEC.lostTm=setTimeout(()=>vecLostGiveUp(mp),VEC_LOST_WAIT);if(cur==="map"){drawMap();updMapNote()}},false);
+        cvs.addEventListener("webglcontextrestored",()=>{if(VEC.map!==mp||!VEC.lost)return;clearTimeout(VEC.lostTm);VEC.lostTm=0;VEC.lostN=0;VEC.lost=false;VEC.err=null;VEC.ready=true;try{mp.resize();mp.triggerRepaint()}catch(x){}if(cur==="map"){drawMap();updMapNote()}},false)}catch(e){}
       VEC.map.on("load",()=>{VEC.ready=true;VEC.slow=false;if(cur==="map"){drawMap();updMapNote()}});
       /* "load" waits for every first tile; slow weather tiles must not make the map look broken, so the style being ready is enough */
       VEC.map.on("style.load",()=>{if(!VEC.ready){VEC.ready=true;VEC.slow=false;if(cur==="map"){drawMap();updMapNote()}}});
@@ -1519,8 +1567,8 @@ function gwxSatProto(){const lib=window.maplibregl;if(!lib||lib._efbir)return;li
     let r=null;if(vam.url)try{r=await fetch(vam.url.replace(/\/+$/,"")+`/api/efb/sat?l=${SAT[0]}&z=${Z}&x=${X}&y=${Y}&s=${slot}`,{signal:abort&&abort.signal});if(r.status===204||!r.ok)r=null}catch(e){if(abort&&abort.signal&&abort.signal.aborted)throw e;r=null}
     if(!r)r=await fetch(url,{signal:abort&&abort.signal});
     if(!r.ok){const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return{data:u8.buffer}}const bm=await createImageBitmap(await r.blob());
-    if(gwwGet())try{const o=await gwwCall({t:"sat",bm,th,sub,thr:SAT[4],rng:SAT[5],Z,X,Y},[bm]);return{data:o.buf}}catch(e){if(abort&&abort.signal&&abort.signal.aborted)throw e;return{data:(()=>{const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return u8.buffer})()}}
-    const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+    if(gwwGet())try{const o=await gwwCall({t:"sat",bm,th,sub,thr:SAT[4],rng:SAT[5],Z,X,Y},[bm]);bmFree(bm);return{data:o.buf}}catch(e){bmFree(bm);if(abort&&abort.signal&&abort.signal.aborted)throw e;return{data:(()=>{const b=atob(GWX_BLANK.split(",")[1]),u8=new Uint8Array(b.length);for(let k=0;k<b.length;k++)u8[k]=b.charCodeAt(k);return u8.buffer})()}}
+    const c=document.createElement("canvas");c.width=bm.width;c.height=bm.height;const g=c.getContext("2d",{willReadFrequently:true});try{g.drawImage(bm,0,0)}finally{bmFree(bm)}
     const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z);
     /* the satellite weight, worked out on an 8-pixel grid and spread over each block */
     const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*(W/8+1)+i]=gwxSatW(lat,lon,sub)}
@@ -1598,7 +1646,7 @@ function gwwSrc(){const ct="{"+Object.entries(GWX_CT).map(([k,v])=>k+":"+(v?`{st
       for(let y=0;y<H;y++){const m=ny+(sy-ny)*(y+.5)/H,lat=(2*Math.atan(Math.exp(m))-Math.PI/2)*180/Math.PI;
         for(let x=0;x<W;x++){const lon=w+(e-w)*(x+.5)/W,v=gwxSample(f,lv,lat,lon),col=gwxColor(f,v),o=(y*W+x)*4;if(!col)continue;im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=Math.round(col[3]*255);if(col[3]>0)any=true}}
       g.putImageData(im,0,0);return any?cv:null}`,
-    `function wSat(q){const{bm,th,sub,thr,rng,Z,X,Y}=q,c=new OffscreenCanvas(bm.width,bm.height),g=c.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+    `function wSat(q){const{bm,th,sub,thr,rng,Z,X,Y}=q,c=new OffscreenCanvas(bm.width,bm.height),g=c.getContext("2d",{willReadFrequently:true});try{g.drawImage(bm,0,0)}finally{try{if(bm&&bm.close)bm.close()}catch(e){}}
       const im=g.getImageData(0,0,c.width,c.height),d=im.data,col=th==="d"?[236,241,246]:[112,124,140],W=c.width,H=c.height,N=W*Math.pow(2,Z),G=W/8+1;
       const wg=new Float32Array((W/8+1)*(H/8+1));for(let j=0;j<=H/8;j++)for(let i=0;i<=W/8;i++){const px=X*W+i*8,py=Y*H+j*8,lon=px/N*360-180,lat=Math.atan(Math.sinh(Math.PI*(1-2*py/N)))*180/Math.PI;wg[j*G+i]=gwxSatW(lat,lon,sub)}
       for(let i=0;i<d.length;i+=4){const pix=i>>2,pxx=pix%W,pyy=(pix/W)|0,gx=pxx/8,gy=pyy/8,ix=gx|0,iy=gy|0,fx=gx-ix,fy=gy-iy,wv=(wg[iy*G+ix]*(1-fx)+wg[iy*G+ix+1]*fx)*(1-fy)+(wg[(iy+1)*G+ix]*(1-fx)+wg[(iy+1)*G+ix+1]*fx)*fy;if(!wv){d[i+3]=0;continue}
@@ -1930,8 +1978,10 @@ function reRoute(){const x=O();const nav=x.fixes.filter(f=>!/^TO[CD]$/.test(S(f.
   let starTail=null;if(reProc(lastNav)&&prev===nav.length-1){let j=segs.length-1;while(j>0&&segs[j].via===lastNav)j--;if(j<segs.length-1){starTail=lastNav;segs.splice(j+1)}}
   const out=[];segs.forEach((s,i)=>{const last=out.length?out[out.length-1]:null;
     if(i===0&&reProc(s.via)){out.push(s.via,s.name);return}
-    /* the first point reached by an airway (not a SID): the airway stays in the route (when the next point goes on along it, "A J5 B" already says so) */
-    if(i===0){const nx=segs[1];if(s.via&&s.via!=="DCT"&&!(nx&&nx.via===s.via))out.push(s.via);out.push(s.name);return}
+    /* the first point after the airport (not a SID): its name alone. In SimBrief's route an airway sits between two points
+       ("A J9 B"); before this one there is only the airport, so "J9 A" would be an airway with no point to start from.
+       When the next point goes on along the same airway, that segment writes "A J9 B" */
+    if(i===0){out.push(s.name);return}
     if(s.via!=="DCT"&&last&&out.length>=2&&out[out.length-2]===s.via){out[out.length-1]=s.name;return}
     out.push(s.via,s.name)});
   if(starTail)out.push(starTail);
@@ -2056,7 +2106,7 @@ function asOpen(icao,tab){if(icao)AS.icao=String(icao).toUpperCase();if(!AS.icao
 function asLoad(icao,n){if(!vam.url||!icao||AS.data[icao]||AS.loading[icao])return;AS.loading[icao]=true;delete AS.err[icao];
   vamGet("/api/efb/airport?icao="+encodeURIComponent(icao),25000).then(j=>{if(j&&j.error&&!j.airport&&!j.notFound)throw new Error(j.error);AS.data[icao]=j})
     .catch(e=>{if(!n){setTimeout(()=>{AS.loading[icao]=false;asLoad(icao,1)},1500);return"retry"}AS.err[icao]=e.message})
-    .then(r=>{if(r==="retry")return;AS.loading[icao]=false;asUi()})}
+    .then(r=>{if(r==="retry")return;AS.loading[icao]=false;/* another airport opened meanwhile: its sheet is left as it is (no jump of its scroll) */if(AS.icao===icao)asUi()})}
 const asErr=icao=>`<p class="as-empty">${esc(AS.err[icao])}</p><p class="as-empty" style="margin-top:-8px"><button class="btn sm" data-asretry="${esc(icao)}">Try again</button></p>`;
 document.addEventListener("click",e=>{const b=e.target.closest("[data-asretry]");if(!b)return;const i=b.dataset.asretry;delete AS.err[i];asLoad(i);asUi()});
 /* "SAN FRANCISCO/SAN FRANCISCO INTL" -> name "San Francisco Intl", city "San Francisco" */
@@ -2099,7 +2149,7 @@ function asCharts(icao){const d=CH.data[icao];
   const cnt={};d.charts.forEach(c=>{const k=asCatOf(c.group);cnt[k]=(cnt[k]||0)+1});
   const list=d.charts.filter(c=>asCatOf(c.group)===AS.cat);
   return `<div class="as-cats" role="group" aria-label="Chart type">${AS_CATS.map(c=>`<button class="as-c c-${c[0].toLowerCase()}" data-ascat="${c[0]}" aria-pressed="${AS.cat===c[0]}"${cnt[c[0]]?"":" disabled"}>${c[0]}</button>`).join("")}</div>
-    <div class="as-list">${list.length?list.map(c=>`<button class="as-ch" data-aspdf="${esc(c.pdf)}" data-asname="${esc(c.name)}" data-asgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<i class="as-chg">Changed</i>':""}</button>`).join(""):`<p class="as-empty">No ${AS.cat} charts.</p>`}</div>${d.src==="ea"?`<p class="as-src">${esc(d.label||"AIP")}${d.eff?" · effective "+esc(d.eff):""}${d.next?` · next from ${esc(d.next.eff)}`:""} · <a href="${esc(d.aip||"#")}" target="_blank" rel="noopener">${esc(d.host||"eAIP")} ↗</a></p>`:d.src==="jp"||d.src==="cn"?`<p class="as-src">${esc(d.label||"AIP Japan")}${d.eff?(d.pending?" · in force from ":" · effective ")+esc(d.eff):""}${d.next?` · next from ${esc(d.next.eff)}`:""} · <a href="${esc(d.aip||"https://top.swim.mlit.go.jp/swim/")}" target="_blank" rel="noopener">${d.src==="cn"?"CAAC eAIP":"JCAB SWIM"} ↗</a></p>`:d.src==="tw"?`<p class="as-src">${esc(d.label||"AIP ROC")}${d.eff?" · effective "+esc(d.eff):""}${d.next?` · AMDT ${esc(d.next.amdt)} from ${esc(d.next.eff)}`:""} · <a href="${esc(d.aip||"https://ais.caa.gov.tw/eaip/")}" target="_blank" rel="noopener">CAA eAIP ↗</a></p>`:""}`}
+    <div class="as-list">${list.length?list.map(c=>`<button class="as-ch" data-aspdf="${esc(c.pdf)}" data-asname="${esc(c.name)}" data-asgroup="${esc(c.group)}" aria-pressed="${!!(OV.sel&&OV.sel.pdf===c.pdf&&OV.sel.name===c.name)}"><span>${esc(c.name)}</span>${c.changed?'<i class="as-chg">Changed</i>':""}</button>`).join(""):`<p class="as-empty">No ${AS.cat} charts.</p>`}</div>${d.src==="ea"?`<p class="as-src">${esc(d.label||"AIP")}${d.eff?" · effective "+esc(d.eff):""}${d.next?` · next from ${esc(d.next.eff)}`:""} · ${aHttps(d.aip,d.host||"eAIP")}</p>`:d.src==="jp"||d.src==="cn"?`<p class="as-src">${esc(d.label||"AIP Japan")}${d.eff?(d.pending?" · in force from ":" · effective ")+esc(d.eff):""}${d.next?` · next from ${esc(d.next.eff)}`:""} · ${aHttps(d.aip||"https://top.swim.mlit.go.jp/swim/",d.src==="cn"?"CAAC eAIP":"JCAB SWIM")}</p>`:d.src==="tw"?`<p class="as-src">${esc(d.label||"AIP ROC")}${d.eff?" · effective "+esc(d.eff):""}${d.next?` · AMDT ${esc(d.next.amdt)} from ${esc(d.next.eff)}`:""} · ${aHttps(d.aip||"https://ais.caa.gov.tw/eaip/","CAA eAIP")}</p>`:""}`}
 const AS_US=[["KATL","Atlanta","Hartsfield-Jackson"],["KBOS","Boston","Logan"],["KBWI","Baltimore","BWI Marshall"],["KBNA","Nashville","Nashville Intl"],["KAUS","Austin","Austin-Bergstrom"],["KCLT","Charlotte","Charlotte Douglas"],["KDCA","Washington","Reagan National"],["KDEN","Denver","Denver Intl"],["KDFW","Dallas/Fort Worth","DFW Intl"],["KDTW","Detroit","Detroit Metro"],["KEWR","Newark","Newark Liberty"],["KFLL","Fort Lauderdale","Fort Lauderdale-Hollywood"],["KIAD","Washington","Dulles"],["KIAH","Houston","George Bush Intercontinental"],["KJFK","New York","John F. Kennedy"],["KLAS","Las Vegas","Harry Reid"],["KLAX","Los Angeles","Los Angeles Intl"],["KLGA","New York","LaGuardia"],["KMCI","Kansas City","Kansas City Intl"],["KMCO","Orlando","Orlando Intl"],["KMIA","Miami","Miami Intl"],["KMSP","Minneapolis","Minneapolis-St Paul"],["KMSY","New Orleans","Louis Armstrong"],["KOAK","Oakland","Oakland Intl"],["KORD","Chicago","O'Hare"],["KPDX","Portland","Portland Intl"],["KPHL","Philadelphia","Philadelphia Intl"],["KPHX","Phoenix","Sky Harbor"],["KRDU","Raleigh-Durham","Raleigh-Durham Intl"],["KSAN","San Diego","San Diego Intl"],["KSAT","San Antonio","San Antonio Intl"],["KSEA","Seattle","Seattle-Tacoma"],["KSFO","San Francisco","San Francisco Intl"],["KSJC","San Jose","Mineta San Jose"],["KSLC","Salt Lake City","Salt Lake City Intl"],["KSMF","Sacramento","Sacramento Intl"],["KSTL","St. Louis","Lambert"],["KTPA","Tampa","Tampa Intl"],["PANC","Anchorage","Ted Stevens"],["PHNL","Honolulu","Daniel K. Inouye"]];
 function asList(){const apts=chApts(),seen=new Set(apts.map(a=>a[1]));const rec=store.get("asRecent",[]).filter(i=>!seen.has(i)).slice(0,6);
   const row=(role,ic)=>{const a=(AS.data[ic]||{}).airport;return `<button class="as-apt" data-asapt="${esc(ic)}"><b class="mono">${esc(ic)}</b><span>${esc(a?asNames(a).name:"")}</span><small>${esc(role)}</small></button>`};
@@ -4536,8 +4586,8 @@ function wxpPos(){const f=WXP.f;if(!f)return null;const la=N(f.lat),lo=N(f.lon);
 /* the live flight: the checklist's poll when it is fresh, else our own (every 30 s while Weather is open) */
 function wxpPoll(){if(!vam.url||!vam.user)return;
   if(typeof CLP!=="undefined"&&CLP.at&&Date.now()-CLP.at<40000){WXP.f=CLP.flight||null;WXP.at=CLP.at;wxpNear();return}
-  if(WXP.busy)return;WXP.busy=true;
-  vamGet("/api/efb/live",15000).then(j=>{const L=(j&&j.flights)||[],me=vam.user.toLowerCase();WXP.f=L.find(q=>q.pilot&&q.pilot.toLowerCase()===me)||null;WXP.at=Date.now();if(typeof MAP!=="undefined")MAP.live=L})
+  if(WXP.busy)return;WXP.busy=true;const lt=typeof MAP!=="undefined"?liveTicket():null;
+  vamGet("/api/efb/live",15000).then(j=>{const L=(j&&j.flights)||[],me=vam.user.toLowerCase();WXP.f=L.find(q=>q.pilot&&q.pilot.toLowerCase()===me)||null;WXP.at=Date.now();if(lt)livePut(lt,L)})
     .catch(()=>{}).finally(()=>{WXP.busy=false;wxpNear()})}
 /* the nearest airport that has a METAR */
 function wxpNear(){const p=wxpPos(),was=WXP.near&&WXP.near.icao+":"+Math.round(WXP.near.nm/5);
@@ -7430,6 +7480,12 @@ V.timer=()=>{let body="";
 /* ---------- Map ---------- */
 const ML=Object.assign({vatsim:true,oaip:true,apts:true,vec:true,tiles:false,fir:true,radar:true,sig:true,traffic:true,wx:true,apt:true},store.get("mapL",{}),{apt:true});
 const MAP={z:5,c:null,tileFail:false,sel:null,live:null,liveAt:0,liveErr:null,loading:false,follow:false};
+/* MAP.live (everyone flying, /api/efb/live) is written by three polls: the checklists', Weather's and the Map's own. Each
+   request takes a number when it is sent (liveSeq); its answer is used only if no request sent after it has answered
+   already (an early request answering late would put the aircraft back where they were), and never after a sign-out,
+   a cleared plan (liveGen) or a change of account */
+function liveTicket(){MAP.liveSeq=(MAP.liveSeq||0)+1;return{seq:MAP.liveSeq,gen:MAP.liveGen||0,who:String(vam.user||"").toLowerCase()}}
+function livePut(t,L){if(!t||(MAP.liveGen||0)!==t.gen||String(vam.user||"").toLowerCase()!==t.who||t.seq<=(MAP.liveShown||0))return false;MAP.liveShown=t.seq;MAP.live=L;return true}
 const ZMAX=18;
 const TS=256;
 function mpx(lat,lon,z){const W=TS*Math.pow(2,z);const s=Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180);return[(lon+180)/360*W,(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*W]}
@@ -7461,9 +7517,14 @@ async function loadFir(){if(FIR.loading||FIR.data||(FIR.err&&Date.now()-FIR.at<F
    is sent at once, and the old one's answer (or failure) is dropped instead of overwriting the new one's */
 const NETG={n:0};
 const RADAR={host:null,path:null,time:null,at:0,err:false,loading:false,frames:[],i:null,play:false,tm:0};
+/* the tiles come from RainViewer only: the host in the answer (RainViewer's, or the EFB server's copy of it) must be one
+   of its https hosts, and a frame's path a plain path on it (starting with "/", no "..", no "//", no scheme) */
+const RADAR_HOST=/^https:\/\/[a-z0-9-]+\.rainviewer\.com$/i;
+const radarHostOk=h=>typeof h==="string"&&RADAR_HOST.test(h);
+const radarPathOk=p=>typeof p==="string"&&/^\/[A-Za-z0-9_\/.-]*$/.test(p)&&!p.includes("..")&&!p.includes("//");
 async function loadRadar(){if((RADAR.loading&&RADAR.net===NETG.n)||(RADAR.path&&Date.now()-RADAR.at<300000)||(RADAR.err&&Date.now()-RADAR.at<60000))return;RADAR.loading=true;RADAR.net=NETG.n;
   const req=RADAR.req=(RADAR.req||0)+1,mine=()=>RADAR.req===req;
-  const use=j=>{if(!mine())return;const past=(j.radar&&j.radar.past)||[];if(!past.length)throw new Error("no frames");const live=RADAR.i==null||RADAR.i>=RADAR.frames.length-1;
+  const use=j=>{if(!mine())return;if(!j||!radarHostOk(j.host))throw new Error("radar host is not RainViewer");const past=((j.radar&&j.radar.past)||[]).filter(f=>f&&radarPathOk(f.path));if(!past.length)throw new Error("no frames");const live=RADAR.i==null||RADAR.i>=RADAR.frames.length-1;
     RADAR.host=j.host;RADAR.frames=past.slice(-13);if(live)RADAR.i=RADAR.frames.length-1;else RADAR.i=Math.min(RADAR.i,RADAR.frames.length-1);RADAR.path=RADAR.frames[RADAR.i].path;RADAR.time=RADAR.frames[RADAR.i].time;RADAR.err=false};
   try{use(await fetch("https://api.rainviewer.com/public/weather-maps.json").then(r=>{if(!r.ok)throw new Error();return r.json()}))}
   catch(e){if(!mine())return;try{if(!vam.url)throw e;use(await vamGet("/api/efb/radar"))}catch(e2){if(mine())RADAR.err=true}}
@@ -7546,7 +7607,7 @@ function drawMap0(){const el=$("#mapSvg");if(!el)return;const {w,h}=mapSize();if
   vecEnsure();
   if(geo&&!vecReady()){s+=`<path class="land" d="${geoFill(geo.land,P,V,K,w,h)}"/><path class="bord" d="${geoLine(geo.bord,P,V,K,w,h,false)}"/>`}
   if(ML.tiles&&!MAP.tileFail){const sty=isDark()?"dark_all":"light_all";s+=tileLayer((zt,x,y)=>`https://${"abcd"[(x+y)%4]}.basemaps.cartocdn.com/${sty}/${zt}/${x}/${y}.png`,"tile",z,ox,oy,w,h,18)}
-  if(ML.radar&&RADAR.path&&!RADAR.err)s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
+  if(ML.radar&&RADAR.path&&!RADAR.err&&radarHostOk(RADAR.host)&&radarPathOk(RADAR.path))s+=tileLayer((zt,x,y)=>`${RADAR.host}${RADAR.path}/256/${zt}/${x}/${y}/2/1_1.png`,"radar",z,ox,oy,w,h,7);
   const sBase=s;s="";
   if(ML.fir&&FIR.data&&!vecFirLn())s+=mapLayer("fir",()=>{let s="";let a="",o="",lb="";const seen=new Set(),occ=[];const fs=z<3?11:z<5?12.5:13.5;
     {const rp=routePts();rp.pts.filter(q=>q.apt).concat(rp.altn?[rp.altn]:[]).forEach(q=>{const [X,Y]=P(q.lat,q.lon);occ.push([X-14,Y-14,X+100,Y+14])})}
@@ -7634,7 +7695,13 @@ function mapBind(){const el=$("#mapSvg"),wrap=el&&el.parentNode;if(!el||wrap._bo
   wrap.addEventListener("pointerup",end);wrap.addEventListener("pointercancel",end);
   ["gesturestart","gesturechange"].forEach(t=>wrap.addEventListener(t,e=>e.preventDefault()));
   wrap.addEventListener("wheel",e=>{if(!onMap(e))return;e.preventDefault();if(OV.edit&&OV.geo){OV.geo={...OV.geo,h:Math.max(200,OV.geo.h*Math.pow(2,Math.max(-.25,Math.min(.25,-e.deltaY/400))))};ovSave();ovSched();return}const r=wrap.getBoundingClientRect(),dz=-e.deltaY/(e.deltaMode===1?4:e.deltaMode===2?1:160);mapZoomSmooth(Math.max(-1.5,Math.min(1.5,dz)),e.clientX-r.left,e.clientY-r.top)},{passive:false});
-  if(window.ResizeObserver)new ResizeObserver(()=>mapSched()).observe(el)}
+  mapRoOff(false);if(window.ResizeObserver)try{MAP.ro=new ResizeObserver(()=>{if(cur==="map")mapSched()});MAP.ro.observe(el)}catch(e){MAP.ro=null}}
+/* the Map's size watchers: render() builds a new map view each time, so the watcher of the last view is let go before
+   the new one starts, and all of them when the Map is left (a watcher keeps what it watches, and the old view, alive) */
+function mapRoOff(leave){if(MAP.ro){try{MAP.ro.disconnect()}catch(e){}MAP.ro=null}if(!leave)return;
+  if(MAP.mcro){try{MAP.mcro.disconnect()}catch(e){}}MAP.mcro=null;MAP.mcroW=null;
+  if(MSZ.ro){try{MSZ.ro.disconnect()}catch(e){}}MSZ.el=null;
+  if(typeof CX!=="undefined"&&CX.ro){try{CX.ro.disconnect()}catch(e){}(CX.roEls||[]).forEach(x=>{x._cxw=0});CX.roEls=[]}}
 function mapMine(){return MAP.live&&vam.user?MAP.live.find(f=>f.pilot&&f.pilot.toLowerCase()===vam.user.toLowerCase()):null}
 /* one switch for "follow my aircraft", so the ME button always shows the real state */
 function mapFollowSet(on){MAP.follow=!!on;const b=$("#mapMe");if(b)b.setAttribute("aria-pressed",String(MAP.follow))}
@@ -7656,9 +7723,9 @@ function mapGoApt(icao){const d=TX.data[icao];mapFollowSet(false);if(d&&d.airpor
   const c=mapAptCandidates().find(a=>a.icao===icao&&a.lat!=null);if(c){MAP.c={lat:c.lat,lon:c.lon};MAP.z=14.2;mapSched()}
   if(!vam.url){toast("Set the EFB server in Settings to load airport layouts");return}TX.fly=c?null:icao;txLoad(icao,!!(TX.err[icao]));updMapNote()}
 function mapLive(){if(!vamOn()||!ML.traffic||(MAP.loading&&MAP.liveNet===NETG.n))return;MAP.loading=true;MAP.liveNet=NETG.n;MAP.liveAt=Date.now();
-  const req=MAP.liveReq=(MAP.liveReq||0)+1,gen=MAP.liveGen||0,who=String(vam.user||"").toLowerCase(),mine=()=>MAP.liveReq===req;
+  const req=MAP.liveReq=(MAP.liveReq||0)+1,gen=MAP.liveGen||0,who=String(vam.user||"").toLowerCase(),mine=()=>MAP.liveReq===req,lt=liveTicket();
   /* the answer is used only for the pilot who asked: not after a sign-out, nor once another account signed in */
-  vamGet("/api/efb/live").then(j=>{if(!mine()||(MAP.liveGen||0)!==gen||String(vam.user||"").toLowerCase()!==who||!vamOn())return;MAP.live=(j&&j.flights)||[];MAP.liveErr=null;mapSelSync();mapFollow();const b=$("#mapMe");if(b)b.disabled=!mapMine();if(MAP.follow&&!mapMine())mapFollowSet(false)}).catch(e=>{if(mine()&&(MAP.liveGen||0)===gen)MAP.liveErr=e.message}).finally(()=>{if(!mine())return;MAP.loading=false;MAP.liveAt=Date.now();if(cur==="map"){mapSched();updMapNote();mapInfo()}})}
+  vamGet("/api/efb/live").then(j=>{if(!mine()||(MAP.liveGen||0)!==gen||String(vam.user||"").toLowerCase()!==who||!vamOn())return;livePut(lt,(j&&j.flights)||[]);MAP.liveErr=null;mapSelSync();mapFollow();const b=$("#mapMe");if(b)b.disabled=!mapMine();if(MAP.follow&&!mapMine())mapFollowSet(false)}).catch(e=>{if(mine()&&(MAP.liveGen||0)===gen)MAP.liveErr=e.message}).finally(()=>{if(!mine())return;MAP.loading=false;MAP.liveAt=Date.now();if(cur==="map"){mapSched();updMapNote();mapInfo()}})}
 /* the connection is back (an EFB often loses it in flight): whatever failed is asked for again straight away */
 window.addEventListener("online",()=>{NETG.n++;GEO.wait=0;FIR.wait=0;if(VEC.err&&!VEC.map)VEC.retryAt=1;OAIP.next=0;RADAR.at=0;SIG.at=0;MAP.liveAt=0;WN.retryAt=0;Object.values(TX.err).forEach(x=>{x.at=0});
   if(cur==="map"){mapLoadAll();drawMap();updMapNote()}});
@@ -7762,7 +7829,7 @@ function route(){
   if(h==="flight"){location.replace("#"+ftLast());return}if(h==="ofp"){DL3.sel="plan";location.replace("#simbrief");return}if(h==="roster"){DL3.sel="plan";if(RS.ci){ofpTab="ci";store.set("ofpTab","ci")}location.replace("#simbrief");return}
   const next=(APPS[h]||isFl(h))&&typeof V[h]==="function"?h:null;const prev=cur;
   if(next===prev){render();return}
-  cur=next;pendingDel=null;pendingReset=null;
+  cur=next;pendingDel=null;pendingReset=null;if(prev==="map"&&next!=="map")try{mapRoOff(true)}catch(e){}
   if(next){
     {const rid=isFl(next)?"flight":next;if(!DOCK.includes(rid))store.set("recents",[rid,...store.get("recents",[]).filter(i=>i!==rid)].slice(0,3))}
     appChrome(next);screenEl.classList.add("in-app");$("#home").inert=true;root.style.setProperty("--sbg","var(--bar)");
@@ -10694,22 +10761,22 @@ document.addEventListener("keydown",e=>{const t=e.target;if(!t||!t.matches||!t.m
   if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();radarPlay(false);radarSet(Math.max(0,Math.min(n-1,RADAR.i+(e.key==="ArrowLeft"?-1:1))));const q=document.querySelector("#radarBar [data-rbtrack]");if(q)q.focus()}});
 document.head.insertAdjacentHTML("beforeend",`<style>
 .screen[data-app="map"] .mapwrap{--rbh:0px}
-.screen.screen.screen[data-app="map"] .mapwrap.rb-on{--rbh:114px;--mb:var(--rbh)}
+.screen.screen.screen[data-app="map"] .mapwrap.rb-on{--rbh:128px;--mb:var(--rbh)}
 .screen.screen.screen[data-app="map"] .mapwrap .radarbar.rbx{left:0!important;right:0!important;bottom:0!important;top:auto!important;width:auto!important;margin:0!important;height:var(--rbh);box-sizing:border-box;
   display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:0!important;padding:8px max(10px,env(safe-area-inset-right,0px)) 8px max(10px,env(safe-area-inset-left,0px))!important;
   border:0;border-top:1px solid var(--ft-line,var(--line));border-radius:0;box-shadow:0 -10px 26px -18px var(--shadow);background:var(--ft-bg,var(--panel));color:var(--ink);z-index:6;font-family:var(--f-ui);touch-action:none}
-.rbx-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;min-height:26px}
-.rbx-btn{justify-self:start;height:26px;padding:0 11px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);font:600 12.5px var(--f-ui);cursor:pointer}
+.rbx-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;min-height:36px}
+.rbx-btn{justify-self:start;height:36px;min-height:36px;min-width:36px;box-sizing:border-box;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);font:600 12.5px var(--f-ui);cursor:pointer}
 .rbx-t{display:flex;align-items:center;gap:8px;font:600 14.5px var(--f-ui);white-space:nowrap}
 .rbx-t svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
 .rbx-n{padding:2px 7px;border:1px solid var(--line);border-radius:4px;background:var(--panel);font:600 11.5px var(--f-mono);color:var(--label)}
-.rbx-now{justify-self:end;display:flex;align-items:baseline;gap:8px;height:26px;box-sizing:border-box;padding:5px 11px 0;border:1px solid var(--line);border-radius:4px;background:var(--panel);font:500 11.5px var(--f-ui);color:var(--label);white-space:nowrap}
+.rbx-now{justify-self:end;display:flex;align-items:baseline;gap:8px;height:36px;box-sizing:border-box;padding:10px 11px 0;border:1px solid var(--line);border-radius:4px;background:var(--panel);font:500 11.5px var(--f-ui);color:var(--label);white-space:nowrap}
 .rbx-now b{font:600 12.5px var(--f-mono);color:var(--ink);letter-spacing:.03em}
 .rbx-now.live{color:var(--green);font-weight:600}
 .rbx-leg i{display:block;height:6px;border-radius:3px;background:linear-gradient(90deg,#88DDEE,#0099CC,#0077AA,#FFEE00,#FFAA00,#FF4400,#C10000,#FF00FF)}
 .rbx-leg div{display:flex;justify-content:space-between;margin-top:3px;font:600 10px/1 var(--f-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--label)}
-.rbx-row{display:flex;align-items:stretch;gap:0;height:32px}
-.rbx-ic{flex:none;width:36px;height:32px;display:grid;place-items:center;border:1px solid var(--line);margin-left:-1px;background:var(--panel);color:var(--ink);cursor:pointer;padding:0}
+.rbx-row{display:flex;align-items:stretch;gap:0;height:36px}
+.rbx-ic{flex:none;width:36px;height:36px;min-width:36px;min-height:36px;box-sizing:border-box;display:grid;place-items:center;border:1px solid var(--line);margin-left:-1px;background:var(--panel);color:var(--ink);cursor:pointer;padding:0}
 .rbx-ic:first-child{margin-left:0;border-radius:4px 0 0 4px}
 .rbx-ic:last-child{margin-left:8px;border-radius:4px}
 .rbx-ic svg{width:19px;height:19px;fill:currentColor}
@@ -10728,9 +10795,9 @@ document.head.insertAdjacentHTML("beforeend",`<style>
 .rbx-track em{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#E5352B;pointer-events:none;transition:left .12s ease-out}
 .rbx-track em::before{content:"";position:absolute;left:-2px;top:0;width:6px;height:5px;background:#E5352B;border-radius:0 0 2px 2px}
 @container screen (max-width:640px){
-  .screen.screen.screen[data-app="map"] .mapwrap.rb-on{--rbh:84px}
+  .screen.screen.screen[data-app="map"] .mapwrap.rb-on{--rbh:98px}
   .rbx-leg{display:none}
-  .rbx-t{font-size:13px}.rbx-now{padding:5px 8px 0}
+  .rbx-t{font-size:13px}.rbx-now{padding:10px 8px 0}
   .rbx-track i span{font-size:9.5px}}
 @media (prefers-reduced-motion:reduce){.rbx-track em{transition:none}}
 /* the pinned charts: in the middle of the Map's free width and on its bottom edge (on top of the radar timeline when
@@ -11198,7 +11265,8 @@ function mcPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)retur
   w.classList.toggle("tb-nr",!!NR.open);w.classList.toggle("tb-sel",!!(MAP.sel&&lpCard()))
   mcCenter(w,ctl);
   /* and again whenever the map or the column changes size (a turned iPad, a button added later) */
-  if(!w._mcro&&typeof ResizeObserver==="function"){try{w._mcro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));w._mcro.observe(w);w._mcro.observe(ctl)}catch(e){}}}
+  if(MAP.mcroW!==w&&typeof ResizeObserver==="function"){if(MAP.mcro)try{MAP.mcro.disconnect()}catch(e){}MAP.mcro=null;MAP.mcroW=null;/* one watcher, on the current map view only */
+    try{const ro=new ResizeObserver(()=>mcCenter(w,w.querySelector(".mapctl")));ro.observe(w);ro.observe(ctl);MAP.mcro=ro;MAP.mcroW=w}catch(e){}}}
 /* the column sits halfway down the left edge, never higher than just below the route strip */
 function mcCenter(w,ctl){if(!w||!ctl||!w.isConnected)return;const st=w.querySelector("#cxStrip");
   let min=12;if(st&&!st.hidden&&st.offsetHeight)min=st.offsetTop+st.offsetHeight+10;
@@ -14061,7 +14129,7 @@ const TR_URL=(z,x,y)=>`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/$
 function trGet(z,x,y){const n=1<<z;x=((x%n)+n)%n;if(y<0||y>=n)return null;const k=z+"/"+x+"/"+y,t=TR.c.get(k);if(t)return t;
   const b=TR.bad.get(k);if(b&&Date.now()-b<30000)return null;if(!TR.busy.has(k)&&TR.busy.size<10)trLoad(z,x,y,k);return null}
 async function trLoad(z,x,y,k){TR.busy.set(k,1);try{const r=await fetch(TR_URL(z,x,y),{mode:"cors"});if(!r.ok)throw new Error("HTTP "+r.status);const bm=await createImageBitmap(await r.blob());
-    const cv=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(256,256):Object.assign(document.createElement("canvas"),{width:256,height:256}),g=cv.getContext("2d",{willReadFrequently:true});g.drawImage(bm,0,0);
+    const cv=typeof OffscreenCanvas!=="undefined"?new OffscreenCanvas(256,256):Object.assign(document.createElement("canvas"),{width:256,height:256}),g=cv.getContext("2d",{willReadFrequently:true});try{g.drawImage(bm,0,0)}finally{bmFree(bm)}
     const d=g.getImageData(0,0,256,256).data,e=new Float32Array(65536);let mx=-1e9;for(let i=0,j=0;j<65536;i+=4,j++){const v=(d[i]*256+d[i+1]+d[i+2]/256-32768)*3.28084;e[j]=v;if(v>mx)mx=v}
     TR.c.set(k,{e,mx,z,x,y});TR.lru.push(k);while(TR.lru.length>150){const o=TR.lru.shift();TR.c.delete(o);for(const ck of [...TR.col.keys()])if(ck.startsWith(o+"@"))TR.col.delete(ck)}TR.ver++}
   catch(er){TR.bad.set(k,Date.now())}finally{TR.busy.delete(k)}}
@@ -14085,7 +14153,7 @@ function trPlace(){if(cur!=="map")return;const w=$("#view .mapwrap");if(!w)retur
   {const ctl=w.querySelector(".mapctl");if(ctl&&!ctl.querySelector("#trBtn")){const b=document.createElement("button");b.type="button";b.className="btn ic";b.id="trBtn";b.dataset.trpf="";b.title="Profile";b.setAttribute("aria-label","Vertical profile");b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path class="tr-gnd" d="M2.5 20.5 6 16.3l2.6 2.1 3.6-4.2 3 3.1 2.4-1.9 3.9 5.1z"/><path d="M3 12.2 7.4 5.8h9.2l4.4 6.4"/></svg>';ctl.insertBefore(b,ctl.querySelector("#asBtn")||ctl.querySelector("#nrBtn")||ctl.querySelector("#mcMore"))}}
   let L=w.querySelector(".tr-leg");if(TR.on&&!L){w.insertAdjacentHTML("beforeend",`<div class="tr-leg"></div>`);L=w.querySelector(".tr-leg")}else if(!TR.on&&L){L.remove();L=null}
   let P=w.querySelector(".tr-prof");if(TR.pf.open&&!P)w.insertAdjacentHTML("beforeend",`<div class="tr-prof"><div class="tr-ph"><b>Profile</b><div class="tr-seg"><button data-trpm="route" aria-pressed="${TR.pf.mode==="route"}">Route</button><button data-trpm="ahead" aria-pressed="${TR.pf.mode==="ahead"}">Ahead 80 NM</button></div><span class="tr-pn" id="trPn"></span><span class="tr-pz"><button class="tr-zb" data-trz="out" aria-label="Zoom out" disabled>−</button><button class="tr-zb" data-trz="in" aria-label="Zoom in">+</button><button class="tr-zf" data-trz="fit" hidden>Fit</button><button class="tr-zb" data-trz="big" aria-pressed="false" aria-label="Taller"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></span><button class="tr-px" data-trpf aria-label="Close">×</button></div><canvas id="trPf"></canvas></div>`);
-  else if(!TR.pf.open&&P)P.remove();if(w.classList.contains("tr-prof-on")!==!!TR.pf.open)w.classList.toggle("tr-prof-on",!!TR.pf.open);const pb=w.querySelector("#trBtn");if(pb)pb.setAttribute("aria-pressed",String(TR.pf.open));{const pp=w.querySelector(".tr-prof");if(pp&&w._mcro&&!pp._mco){pp._mco=1;try{w._mcro.observe(pp)}catch(e){}}try{mcCenter(w,w.querySelector(".mapctl"))}catch(e){}}
+  else if(!TR.pf.open&&P)P.remove();if(w.classList.contains("tr-prof-on")!==!!TR.pf.open)w.classList.toggle("tr-prof-on",!!TR.pf.open);const pb=w.querySelector("#trBtn");if(pb)pb.setAttribute("aria-pressed",String(TR.pf.open));{const pp=w.querySelector(".tr-prof");if(pp&&MAP.mcro&&MAP.mcroW===w&&!pp._mco){pp._mco=1;try{MAP.mcro.observe(pp)}catch(e){}}try{mcCenter(w,w.querySelector(".mapctl"))}catch(e){}}
   /* the layer switch, in Map › layers */
   const ml=w.querySelector("#mlPanel");if(ml&&!ml.querySelector("[data-trl]")){const rows=ml.querySelectorAll(".ml-row"),last=rows[rows.length-1];
     if(last)last.insertAdjacentHTML("afterend",`<button class="ml-row" data-trl aria-pressed="${TR.on}"><span>Terrain hazard</span><i></i></button>`)}
@@ -15966,7 +16034,9 @@ pinUi=function(){CX.F=cxFlight();
   cxMenuUi()};
 /* geometry is read only inside a ResizeObserver, where the layout is already done: the pin bar (for the Profile button
    above it) and the airport chips (for the route strip under them) */
-function cxWatch(el){if(!el||el._cxw)return;el._cxw=1;try{if(!CX.ro)CX.ro=new ResizeObserver(cxGeom);CX.ro.observe(el)}catch(e){}}
+function cxWatch(el){if(!el||el._cxw)return;el._cxw=1;try{if(!CX.ro)CX.ro=new ResizeObserver(cxGeom);
+    /* the elements of an earlier map view (render() replaced it) are no longer watched */
+    CX.roEls=(CX.roEls||[]).filter(x=>{if(x.isConnected)return true;try{CX.ro.unobserve(x)}catch(e){}x._cxw=0;return false});CX.ro.observe(el);CX.roEls.push(el)}catch(e){}}
 function cxGeom(){const w=document.querySelector(".mapwrap");if(!w)return;
   const bar=w.querySelector("#pinBar");if(bar){const h=bar.hidden?0:bar.offsetHeight;if(h)w.style.setProperty("--cxpill",Math.round(w.clientHeight-bar.offsetTop+8)+"px");w.classList.toggle("cx-pill",!!h)}
   const ap=w.querySelector(".mapapt");if(ap&&ap.offsetHeight){CX.apTop=[ap.offsetTop+ap.offsetHeight+8,ap.offsetLeft];const el=w.querySelector("#cxStrip");if(el){el.style.top=CX.apTop[0]+"px";el.style.left=CX.apTop[1]+"px"}}}

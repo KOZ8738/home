@@ -18,6 +18,8 @@
  *   GET /api/efb/fir                    -> FIR / ARTCC boundaries (VATSpy Data Project, CC BY-SA 4.0), simplified
  *   GET /api/efb/radar                  -> RainViewer radar frame list (tiles are loaded straight from RainViewer)
  *   GET /api/efb/vatsim                 -> every VATSIM pilot, slimmed (about a tenth of the network feed); ?cs= one pilot's route
+ *   GET /api/efb/vatsim-atc             -> VATSIM controllers online and the areas they cover: centres, approaches, the airports'
+ *                                          D/G/T/A (VATSpy Data Project and SimAware TRACON Project, CC BY-SA 4.0; see vatspy.js)
  *   GET/POST /api/efb/ovgeo             -> shared chart alignment (POST: a pilot's alignment, or {revert:true})
  *   GET /api/efb/mail, /api/efb/mail-att -> Polaris Mail for the EFB; staff write it on /admin (Cloudflare Access, see mail.js)
  *   GET /api/efb/docs, /api/efb/doc-file, /api/efb/doc-cover -> Polaris documents (manuals, SOPs) for the EFB's Documents;
@@ -87,6 +89,7 @@ import { pfdRoute } from './pfd.js';
 import { shareRoute } from './share.js';
 import { navRoute } from './nav.js';
 import { officialFirs, trimShared } from './fir.js';
+import { atcOnline, atcOpen } from './vatspy.js';
 import { navdataAdmin, navCron } from './navdata.js';
 import { cnPublic, aipPoints } from './cnaip.js';
 import { jpChartsList, jpChartPdf, cnChartsList, cnChartPdf } from './jpcharts.js';
@@ -1084,11 +1087,14 @@ function standDeps(env, ctx) {
     layout: async (icao) => { const l = env.STORE ? await env.STORE.get('layout:v11:' + icao, 'json').catch(() => null) : null; return l && l.v; },
   };
 }
-async function vatsimFeed(ctx) {
-  if (vsMem && Date.now() < vsMem.exp) return vsMem.d;
-  const cache = caches.default, ck = new Request('https://vatsim-feed-cache.local/v1');
-  const hit = await cache.match(ck);
-  if (hit) { const d = await hit.json(), t = Date.parse(d.upd) || 0; if (Date.now() < t + 16000) { vsMem = { exp: t + 16000, d }; return d; } }
+/* One read of the network's feed (vatsimFeed and vatsimStations share it): the pilots, slimmed, for the traffic
+   (kept as before under vatsim-feed-cache v1), and apart from them the controllers and ATIS stations (callsign,
+   frequency, their info text) for the map's ATC layer, the airport ATIS and the datalink list, so those read a small
+   copy instead of the pilots'. Both are kept until just after the feed's next renewal (see vsExp). */
+let stMem = null; // { exp, s } in this isolate
+const ST_KEY = 'https://vatsim-stations-cache.local/v1';
+async function vatsimFetch(ctx) {
+  const cache = caches.default;
   const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
   if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
   const j = await up.json(), r4 = (v) => Math.round(+v * 1e4) / 1e4, rows = [], routes = {}, det = {};
@@ -1101,12 +1107,36 @@ async function vatsimFeed(ctx) {
     /* the rest of the flight plan and pilot details, for the one aircraft the EFB opens */
     det[cs] = { rm: String(f.remarks || '').slice(0, 1200), altn: f.alternate || '', tas: f.cruise_tas || '', dt: f.deptime || '', ete: f.enroute_time || '', fob: f.fuel_time || '', faa: f.aircraft_faa || '', acl: f.aircraft || '', rev: f.revision_id || 0, pr: p.pilot_rating ?? null, mr: p.military_rating ?? null, sv: p.server || '', qnh: p.qnh_mb || null, ass: f.assigned_transponder || '' };
   }
-  const d = { upd: (j.general && j.general.update_timestamp) || new Date().toISOString(), rows, routes, det };
-  const exp = vsExp(d), ttl = Math.max(1, Math.round((exp - Date.now()) / 1000));
-  const res = new Response(JSON.stringify(d), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + ttl } });
-  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
-  vsMem = { exp, d };
-  return d;
+  /* controllers (observers too: the datalink list reads every station's info) and ATIS; text lines kept as lines */
+  const txt = (t) => (Array.isArray(t) ? t.join('\n') : String(t || '')).slice(0, 4000), ctl = [], atis = [];
+  for (const c of j.controllers || []) {
+    if (!c.callsign) continue;
+    ctl.push({ cs: String(c.callsign).toUpperCase(), cid: c.cid || 0, n: String(c.name || '').slice(0, 60), f: String(c.frequency || ''), fac: +c.facility || 0, r: +c.rating || 0, on: c.logon_time || '', x: txt(c.text_atis) });
+  }
+  for (const a of j.atis || []) {
+    if (!a.callsign) continue;
+    atis.push({ cs: String(a.callsign).toUpperCase(), cid: a.cid || 0, n: String(a.name || '').slice(0, 60), f: String(a.frequency || ''), code: a.atis_code || '', on: a.logon_time || '', upd: a.last_updated || '', x: txt(a.text_atis) });
+  }
+  const upd = (j.general && j.general.update_timestamp) || new Date().toISOString();
+  const d = { upd, rows, routes, det }, s = { upd, ctl, atis };
+  const exp = vsExp(d), ttl = Math.max(1, Math.round((exp - Date.now()) / 1000)), hd = { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + ttl };
+  const puts = Promise.all([cache.put(new Request('https://vatsim-feed-cache.local/v1'), new Response(JSON.stringify(d), { headers: hd })), cache.put(new Request(ST_KEY), new Response(JSON.stringify(s), { headers: hd }))]);
+  if (ctx && ctx.waitUntil) ctx.waitUntil(puts); else await puts;
+  vsMem = { exp, d }; stMem = { exp, s };
+  return { d, s };
+}
+async function vatsimFeed(ctx) {
+  if (vsMem && Date.now() < vsMem.exp) return vsMem.d;
+  const hit = await caches.default.match(new Request('https://vatsim-feed-cache.local/v1'));
+  if (hit) { const d = await hit.json(), t = Date.parse(d.upd) || 0; if (Date.now() < t + 16000) { vsMem = { exp: t + 16000, d }; return d; } }
+  return (await vatsimFetch(ctx)).d;
+}
+/** { upd, ctl, atis }: the controllers and ATIS of the feed's latest update */
+async function vatsimStations(ctx) {
+  if (stMem && Date.now() < stMem.exp) return stMem.s;
+  const hit = await caches.default.match(new Request(ST_KEY));
+  if (hit) { const s = await hit.json(), t = Date.parse(s.upd) || 0; if (Date.now() < t + 16000) { stMem = { exp: t + 16000, s }; return s; } }
+  return (await vatsimFetch(ctx)).s;
 }
 /* a pilot's VATSIM flying hours (the network's member statistics), kept for 6 hours */
 async function vatsimHours(cid, ctx) {
@@ -1128,8 +1158,53 @@ async function vatsimRoute(req, url, ctx, h) {
     return json({ cs, route: d.routes[cs] || '', det: (d.det && d.det[cs]) || null, hours: cid ? await vatsimHours(cid, ctx) : null, upd: d.upd }, 200, h);
   }
   const etag = '"vs-' + d.upd + '"';
-  if ((req.headers.get('If-None-Match') || '') === etag) return new Response(null, { status: 304, headers: { ...h, ETag: etag, 'Cache-Control': 'no-cache' } });
+  if (etagIn(req).includes(etag)) return new Response(null, { status: 304, headers: { ...h, ETag: etag, 'Cache-Control': 'no-cache' } });
   return new Response(JSON.stringify({ upd: d.upd, f: VS_FIELDS, p: d.rows }), { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag } });
+}
+/* VATSIM controllers on the map (see vatspy.js). The index (VATSpy's FIRs, UIRs and airports, the TRACON outlines) is
+   built outside the Worker, by scripts/atc-index.mjs (the "VATSIM ATC index" GitHub Action runs it every week and when
+   vatspy.js changes): building it takes about 200 ms of CPU, far past the Free plan's 10 ms. It is kept in KV as
+   atc:v2:lk (the callsign tables and the build's id) and atc:v2:geo:<id> / atc:v2:apt:<id> (outlines and airports,
+   read as text: only what comes online is parsed, see atcOpen). An isolate keeps it for 6 hours, then reads lk again
+   and the other two only when the build has changed; if a new build can't be read whole, the one it has stays.
+   The answer is worked out once per update of the feed and kept at the edge for a minute, so most requests read
+   neither the index nor the pilots; its ETag is a hash of what it says, the same while nobody logs on or off, so an
+   EFB that has it already gets a 304. */
+let atcIx = null, atcMissAt = 0; // { at, v }
+const ATC_LK = 'atc:v2:lk';
+async function atcIdx(env) {
+  const now = Date.now(), kv = env && env.STORE;
+  if (atcIx && now - atcIx.at < 6 * 3600_000) return atcIx.v;
+  if (!atcIx && now - atcMissAt < 60_000) throw new HttpError(503, 'VATSIM ATC areas aren’t ready on the EFB server yet');
+  const keep = () => { if (atcIx) { atcIx.at = now; return atcIx.v; } atcMissAt = now; throw new HttpError(503, 'VATSIM ATC areas aren’t ready on the EFB server yet'); };
+  let lk = null;
+  try { lk = kv ? await kv.get(ATC_LK, { type: 'json', cacheTtl: 300 }) : null; } catch (e) { lk = null; }
+  if (!lk || !lk.id || lk.v !== 2) return keep();
+  if (atcIx && atcIx.v.id === lk.id) { atcIx.at = now; return atcIx.v; }
+  let geo = null, apt = null;
+  try { [geo, apt] = await Promise.all([kv.get('atc:v2:geo:' + lk.id, { type: 'text', cacheTtl: 3600 }), kv.get('atc:v2:apt:' + lk.id, { type: 'text', cacheTtl: 3600 })]); } catch (e) { geo = apt = null; }
+  if (!geo || !apt) return keep();
+  try { atcIx = { at: now, v: atcOpen(lk, geo, apt) }; } catch (e) { console.warn('[atc index]', e && e.message); return keep(); }
+  return atcIx.v;
+}
+let atcMem = null; // { upd, body, etag }
+const etagIn = (req) => String(req.headers.get('If-None-Match') || '').split(',').map((s) => s.trim().replace(/^W\//, ''));
+async function atcRoute(req, env, ctx, h) {
+  const s = await vatsimStations(ctx);
+  if (!atcMem || atcMem.upd !== s.upd) {
+    const ck = new Request('https://vatsim-atc-cache.local/v1/' + encodeURIComponent(s.upd));
+    const hit = await caches.default.match(ck);
+    if (hit) atcMem = { upd: s.upd, body: await hit.text(), etag: hit.headers.get('X-Atc-Etag') || '' };
+    else {
+      const out = atcOnline(s, await atcIdx(env));
+      const body = '{"upd":' + JSON.stringify(s.upd) + ',"h":' + JSON.stringify(out.h) + ',' + out.json.slice(1);
+      atcMem = { upd: s.upd, body, etag: '"atc-' + out.h + '"' };
+      const res = new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', 'X-Atc-Etag': atcMem.etag } });
+      if (ctx && ctx.waitUntil) ctx.waitUntil(caches.default.put(ck, res)); else await caches.default.put(ck, res);
+    }
+  }
+  if (atcMem.etag && etagIn(req).includes(atcMem.etag)) return new Response(null, { status: 304, headers: { ...h, ETag: atcMem.etag, 'Cache-Control': 'no-cache' } });
+  return new Response(atcMem.body, { status: 200, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', ...(atcMem.etag ? { ETag: atcMem.etag } : {}) } });
 }
 /* ATIS for one airport: real-world D-ATIS (atis.info, FAA airports) and VATSIM ATIS (network data feed). Cached 60-120 s. */
 /* VATSIM's own events (my.vatsim.net, public), for the EFB's Calendar ("VATSIM Events"): those not over yet, slimmed
@@ -1150,17 +1225,11 @@ async function vatsimEvents() {
   }, (v) => v && v.events && v.events.length));
 }
 async function fetchT(u, ms, init) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), ms); try { return await fetch(u, { ...(init || {}), signal: ac.signal }); } finally { clearTimeout(tm); } }
+/* every VATSIM ATIS, from the same read of the feed as the traffic (vatsimStations) */
 async function vatsimAtisAll(ctx) {
-  const cache = caches.default, ck = new Request('https://vatsim-atis-cache.local/all');
-  let r = await cache.match(ck); if (r) return await r.json();
-  const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
-  if (!up.ok) throw new Error('VATSIM ' + up.status);
-  const j = await up.json();
-  const list = (j.atis || []).map((a) => ({ cs: a.callsign, f: a.frequency, code: a.atis_code || '', text: Array.isArray(a.text_atis) ? a.text_atis.join(' ') : String(a.text_atis || ''), since: a.logon_time || null, upd: a.last_updated || null }));
-  const out = { at: j.general && j.general.update_timestamp, list };
-  const res = new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } });
-  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, res)); else await cache.put(ck, res);
-  return out;
+  const d = await vatsimStations(ctx);
+  const list = (d.atis || []).map((a) => ({ cs: a.cs, f: a.f, code: a.code || '', text: String(a.x || '').replace(/\n/g, ' '), since: a.on || null, upd: a.upd || null }));
+  return { at: d.upd, list };
 }
 /* ---- datalink (DCL/PDC and CPDLC) offered by VATSIM controllers ----
    VATSIM has no datalink of its own: controllers who offer it use Hoppie's ACARS network and say so in their
@@ -1179,23 +1248,22 @@ export function datalinkOf(text) {
   for (const re of pats) { let m; while ((m = re.exec(t))) { if (!DL_STOP.has(m[1])) { code = m[1]; break; } } if (code) break; }
   return { kind, code };
 }
+/* from the same read of the feed as the traffic (vatsimStations), worked out once per update in this isolate */
+let dlMem = null; // { upd, res }
 async function datalinkRoute(ctx) {
-  const cache = caches.default, ck = new Request('https://vatsim-datalink-cache.local/v1');
-  const hit = await cache.match(ck); if (hit) return await hit.json();
-  const up = await fetchT('https://data.vatsim.net/v3/vatsim-data.json', 10000, { headers: { 'User-Agent': 'PolarisEFB/1.0 (virtual airline EFB)' } });
-  if (!up.ok) throw new HttpError(502, 'VATSIM answered HTTP ' + up.status);
-  const j = await up.json(), out = [];
+  const d = await vatsimStations(ctx);
+  if (dlMem && dlMem.upd === d.upd) return dlMem.res;
+  const out = [];
   const add = (c, isAtis) => {
-    const text = Array.isArray(c.text_atis) ? c.text_atis.join(' ') : String(c.text_atis || '');
-    const d = datalinkOf(text); if (!d) return;
-    const cs = String(c.callsign || '').toUpperCase(), fac = cs.split('_').pop();
-    out.push({ cs, f: c.frequency || '', fac: isAtis ? 'ATIS' : fac, kind: d.kind, code: d.code, text: text.replace(/\s+/g, ' ').slice(0, 400) });
+    const text = String(c.x || '').replace(/\n/g, ' ');
+    const dl = datalinkOf(text); if (!dl) return;
+    const cs = c.cs, fac = cs.split('_').pop();
+    out.push({ cs, f: c.f || '', fac: isAtis ? 'ATIS' : fac, kind: dl.kind, code: dl.code, text: text.replace(/\s+/g, ' ').slice(0, 400) });
   };
-  for (const c of j.controllers || []) add(c, false);
-  for (const a of j.atis || []) add(a, true);
-  const res = { at: (j.general && j.general.update_timestamp) || null, stations: out };
-  const r = new Response(JSON.stringify(res), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' } });
-  if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(ck, r)); else await cache.put(ck, r);
+  for (const c of d.ctl || []) add(c, false);
+  for (const a of d.atis || []) add(a, true);
+  const res = { at: d.upd || null, stations: out };
+  dlMem = { upd: d.upd, res };
   return res;
 }
 async function datisReal(icao, ctx) {
@@ -1834,6 +1902,7 @@ export default {
         case '/api/efb/fir': return json(await firRoute(env, ctx, url.searchParams.get('v') === '2', url.searchParams.get('v') === '3'), 200, h);
         case '/api/efb/radar': return json(await radarRoute(), 200, h);
         case '/api/efb/vatsim': return await vatsimRoute(req, url, ctx, h);
+        case '/api/efb/vatsim-atc': return await atcRoute(req, env, ctx, h);
         case '/api/efb/mail': return await mailPublic(req, env, h, await sessionOf(req, env), linkSig);
         case '/api/efb/mail-att': return await mailAttachment(url, env, h, linkSig);
         case '/api/efb/vatsim-events': return json(await vatsimEvents(), 200, { ...h, 'Cache-Control': 'public, max-age=900' });

@@ -1,3 +1,5 @@
 
 # wrangler local cache (account info)
 .wrangler/
+# the VATSIM ATC index as workers/polaris-efb-api/scripts/atc-index.mjs writes it (it goes to KV, not to git)
+.atc-index/

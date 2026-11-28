@@ -6,7 +6,7 @@ VATSIM with its phase (`live.ts`).
 `opsmap.ts` is the EFB's Map in Operations: MapLibre GL 5 (loaded from jsDelivr, unpkg as the second choice) drawing
 OpenFreeMap's vector tiles in the EFB Map's colours, as a globe when zoomed out. On it: the Polaris flights, tracks and
 the open flight's route; the Polaris airports ringed in their flight category; weather radar, SIGMETs, FIR boundaries and
-VATSIM traffic from the EFB server (`/api/efb/*`, same origin); stand numbers, taxiway names and runway ends close in.
+VATSIM traffic and, with it, the controllers online (areas, callsigns and airports' D/G/T/A, `/api/efb/vatsim-atc`) from the EFB server (`/api/efb/*`, same origin); stand numbers, taxiway names and runway ends close in.
 The layer button in the map's corner switches the overlays (kept in localStorage `pmMapLayers`). When MapLibre cannot
 load, the browser has no WebGL or the base map's tiles cannot be reached, the canvas globe (`globe.ts` and `land.ts`,
 copied from `polaris AIRWAUS WEB/src/pages/network/`) is drawn instead; `?globe` in the address asks for it

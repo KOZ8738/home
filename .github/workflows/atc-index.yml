@@ -1,0 +1,44 @@
+# Builds the VATSIM ATC index for the EFB map's controller layer (workers/polaris-efb-api/scripts/atc-index.mjs) and
+# writes it to the EFB server's KV. The Worker can't build it itself: that takes about 200 ms of CPU, and the Workers
+# Free plan gives a request 10 ms. Runs every Monday (VATSpy and SimAware change a few times a month), when the index
+# code changes, and from the Actions tab (Run workflow).
+# Uses the CLOUDFLARE_API_TOKEN secret that "Deploy EFB Worker" uses (a token made from the "Edit Cloudflare Workers"
+# template may also write KV). Until that secret exists the index is still built and checked, but not written.
+name: VATSIM ATC index
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'   # Mondays 05:17 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/polaris-efb-api/src/vatspy.js'
+      - 'workers/polaris-efb-api/scripts/atc-index.mjs'
+      - '.github/workflows/atc-index.yml'
+
+concurrency:
+  group: atc-index
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Build and check (no Cloudflare token yet, so not written)
+        if: env.HAS_TOKEN != 'true'
+        run: |
+          echo "::notice::Add the CLOUDFLARE_API_TOKEN secret to write the ATC index to KV. Building it to check only."
+          node workers/polaris-efb-api/scripts/atc-index.mjs
+      - name: Build, check and write to KV
+        if: env.HAS_TOKEN == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node workers/polaris-efb-api/scripts/atc-index.mjs --put

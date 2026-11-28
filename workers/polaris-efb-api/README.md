@@ -5,7 +5,7 @@ EFB 本體放在 `https://koz8738.com/efb/`，在這個網域上打開時會自�
 
 它負責：
 - FAA 和台灣 AIP 的航圖、機場滑行道圖、METAR/TAF、SIGMET、FIR 邊界、雷達、高空風
-- VATSIM 即時航班
+- VATSIM 即時航班，和線上的管制員（`/api/efb/vatsim-atc`，見 `src/vatspy.js`）：從 callsign 對出每位管制員負責的區域——區域管制（CTR/FSS）用 VATSpy Data Project 的 FIR／UIR 邊界，進近（APP/DEP）用 SimAware TRACON Project 的範圍，沒有範圍的畫 30 NM 圓；DEL/GND/TWR 和 ATIS 標在機場上（D/G/T/A）。兩份資料都是 CC BY-SA 4.0。索引不在 Worker 裡建（約 200 ms CPU，Workers Free 方案每次請求只有 10 ms）：GitHub Action「VATSIM ATC index」每週一、以及 `src/vatspy.js` 改動時跑 `scripts/atc-index.mjs --put`，寫進 KV 的 `atc:v2:lk`、`atc:v2:geo:<id>`、`atc:v2:apt:<id>`（需要 `CLOUDFLARE_API_TOKEN` secret；也可以在自己電腦 `npx wrangler login` 後執行 `node workers/polaris-efb-api/scripts/atc-index.mjs --put`）。KV 還沒有索引時，這個端點回 503，EFB 顯示「ATC: not ready on the EFB server yet」。VATSIM 的資料檔每次更新只讀一次，航班、管制員、ATIS 和 datalink 清單都從同一份來
 - vAMSYS 的飛行員資料、預訂、機隊和在空中的航班
 - 飛行員登入（Login with vAMSYS）
 - Polaris Mail 和給部門的訊息（Mail 和 AOC 都可以寄給全部、單一飛行員或整個機組，機組規則見 `crewTo` / `toMatch`，在 `src/crew.js`）

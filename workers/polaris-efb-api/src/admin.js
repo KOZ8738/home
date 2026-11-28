@@ -909,6 +909,15 @@ main#bc{display:block;max-width:1480px}main#bc[hidden]{display:none!important}
 .bc-tn i{font-style:normal;flex:none;width:20px;height:20px;border-radius:4px;background:var(--mist);color:var(--label);font:600 12px/20px Jost,system-ui,sans-serif;text-align:center}
 .bc-tn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bc-tag{position:absolute;left:8px;top:8px;font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.08em;border-radius:4px;padding:2px 6px;color:#fff;background:#E5484D}.bc-tag.pv{background:#30A46C}
+/* Polaris Cam: the cockpit cameras, 2 × 2 (one large when picked) */
+.bc-cam .lh{justify-content:flex-start}.bc-cam .bc-st{margin-left:0}
+.bc-cg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.bc-cg.one{grid-template-columns:minmax(0,1fr)}.bc-cg.one .bc-cc:not(.z){display:none}
+.bc-cc{display:block;width:100%;padding:8px;text-align:left;background:var(--soft);border:1px solid var(--line);border-radius:8px;font-weight:400;color:var(--ink);cursor:zoom-in}
+.bc-cc:hover{border-color:var(--accent)}.bc-cg.one .bc-cc{cursor:zoom-out}
+.bc-cc canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.bc-cc .bc-cap em{background:none;color:var(--label);font-weight:500;letter-spacing:0;padding:0;font-variant-numeric:tabular-nums}
+@media(max-width:600px){.bc-cg{grid-template-columns:minmax(0,1fr)}}
 .bc-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
 @media(max-width:1180px){.bc-cols{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.bc-mon,.bc-cols{grid-template-columns:1fr}}
@@ -1106,6 +1115,8 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
   <div class="actions"><button type="button" class="primary bc-act" id="bcSave">Save</button></div>
   <div class="bc-url" id="bcUrlW" hidden><label for="bcUrl">The overlay, for OBS</label><div class="bc-urlr"><input type="text" id="bcUrl" readonly><button type="button" id="bcCopy">Copy</button><button type="button" class="bc-act" id="bcTok">New link</button><a id="bcDemo" target="_blank" rel="noopener">See it with sample numbers</a></div>
    <p class="hint">OBS › Sources › + › Browser: this link, 1920 × 1080, at the top of each camera scene.</p></div>
+  <div class="bc-url" id="bcCamW" hidden><label for="bcCamUrl">Polaris Cam connection link</label><div class="bc-urlr"><input type="text" id="bcCamUrl" readonly><button type="button" id="bcCamCopy">Copy</button><button type="button" id="bcCamTok">New link</button></div>
+   <p class="hint">Polaris Cam on the streaming pilot’s simulator PC: paste this link there. A new link stops the old one.</p></div>
  </div>
 </section>
 <section class="bc-mon">
@@ -1114,6 +1125,9 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
   <div class="bc-take"><button type="button" class="primary bc-act" id="bcTake" disabled>TAKE</button><button type="button" class="bc-act" id="bcBrb">Back soon</button></div>
   <p class="hint">Keys 1–9 pick a scene · Space takes it</p></div>
 </section>
+<section class="bc-cam" id="bcCam"><div class="lh"><h2>Polaris Cam</h2><div class="bc-st" id="bcCamSt"></div></div>
+ <div class="bc-cg" id="bcCamG"><button type="button" class="bc-cc" data-camc="0"><div class="bc-cap"><b>Cam 1</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="1"><div class="bc-cap"><b>Cam 2</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="2"><div class="bc-cap"><b>Cam 3</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="3"><div class="bc-cap"><b>Cam 4</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button></div>
+ <p class="hint">The cockpit cameras from Polaris Cam on the simulator PC, only while this page is open. Click a camera to see it large; click again for all four.</p></section>
 <section class="bc-wall"><div class="lh"><h2>Cameras and scenes</h2><button type="button" class="bc-act bc-sm" id="bcRef">Ask OBS again</button></div><div class="bc-tiles" id="bcTiles"></div></section>
 <div class="bc-cols">
  <section class="bc-ovs"><h2>Overlays on the picture</h2><div id="bcOv"></div></section>
@@ -3064,8 +3078,68 @@ document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#bc
 document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;const t=e.target;if(t&&t.closest&&t.closest("input,select,textarea,[contenteditable],details"))return;
  if(/^[1-9]$/.test(e.key)){const s=bcScenes()[+e.key-1];if(s){e.preventDefault();bcPick(s)}}
  else if(e.key===" "){e.preventDefault();bcTake()}});
+/* Polaris Cam (cam.js): its cockpit cameras, live, from their own WebSocket. Each picture is a 16-byte header
+   ('P', 1, camera, codec, flags, 0, width, height, 0, seq: little-endian) and a JPEG; the page says which it has
+   shown (ack) about every half second, or sooner after 4, so the server knows it keeps up */
+const CAM={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,ts:[],busy:false,next:null,shown:false}))};
+const camCell=i=>document.querySelector('#bcCamG [data-camc="'+i+'"]');
+function camOpen(){if(CAM.ws||!CAM.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/admin/api/cam/ws")}catch(e){return}
+ w.binaryType="arraybuffer";CAM.ws=w;
+ w.onmessage=e=>{if(CAM.ws!==w)return;if(typeof e.data==="string"){let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)camIn(j)}else if(e.data instanceof ArrayBuffer)camFrame(e.data)};
+ w.onclose=()=>{if(CAM.ws!==w)return;CAM.ws=null;CAM.role="";camUi();if(CAM.want){clearTimeout(CAM.retry);CAM.retry=setTimeout(camOpen,3000)}};
+ w.onerror=()=>{}}
+function camClose(){CAM.want=false;clearTimeout(CAM.retry);const w=CAM.ws;CAM.ws=null;CAM.role="";if(w)try{w.close()}catch(e){}camBlank()}
+function camBlank(){CAM.c.forEach((c,i)=>{c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.ts=[];c.next=null;c.shown=false;const el=camCell(i);if(el)el.querySelector("canvas").hidden=true})}
+function camIn(j){switch(j.t){
+ case "hello":CAM.role=j.role||"";CAM.token=j.token||"";CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;camBlank();camUi();break;
+ case "pub":{const was=CAM.pub&&CAM.pub.on;CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;if(was&&!CAM.pub.on)camBlank();camUi();break}
+ case "token":CAM.token=j.token||"";camUi();break;
+ default:}}
+function camFrame(buf){if(buf.byteLength<18)return;const b=new Uint8Array(buf,0,16),d=new DataView(buf);
+ if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=CAM.c[i],seq=d.getUint32(12,true),now=Date.now();
+ c.seq=seq;c.w=d.getUint16(6,true);c.h=d.getUint16(8,true);c.ts.push(now);while(c.ts.length&&now-c.ts[0]>2000)c.ts.shift();
+ if(++c.un>=4)camAck(i);
+ if(b[3]!==1)return;   /* H.264: not shown here yet */
+ if(c.busy){c.next=buf;return}camDraw(i,buf)}
+function camAck(i){const c=CAM.c[i],w=CAM.ws;if(!c.seq||c.seq===c.acked||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"ack",cam:i,seq:c.seq}));c.acked=c.seq;c.un=0}catch(e){}}
+function camDraw(i,buf){const c=CAM.c[i],el=camCell(i);if(!el)return;const cv=el.querySelector("canvas");c.busy=true;
+ const done=()=>{c.busy=false;if(c.next){const n=c.next;c.next=null;camDraw(i,n)}};
+ const paint=(src,w,h)=>{if(!CAM.ws||!CAM.pub.on)return;if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}cv.getContext("2d").drawImage(src,0,0,w,h);if(cv.hidden){cv.hidden=false;c.shown=true;camCaps()}};
+ const blob=new Blob([new Uint8Array(buf,16)],{type:"image/jpeg"});
+ if(typeof createImageBitmap==="function"){createImageBitmap(blob).then(bm=>{try{paint(bm,bm.width,bm.height)}catch(e){}finally{if(bm.close)bm.close()}done()},()=>done());return}
+ const u=URL.createObjectURL(blob),im=new Image();
+ im.onload=()=>{URL.revokeObjectURL(u);try{paint(im,im.naturalWidth,im.naturalHeight)}catch(e){}done()};
+ im.onerror=()=>{URL.revokeObjectURL(u);done()};im.src=u}
+const camFps=c=>{const L=c.ts;if(L.length<2||Date.now()-L[L.length-1]>2000)return 0;return (L.length-1)*1000/Math.max(1,L[L.length-1]-L[0])};
+function camCaps(){const P=CAM.pub||{},L=P.cams||[];
+ for(let i=0;i<4;i++){const el=camCell(i);if(!el)continue;const c=CAM.c[i],k=L.find(x=>x.i===i),cap=el.querySelector(".bc-cap"),ph=el.querySelector(".bc-ph");
+  const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c);
+  cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
+  cap.querySelector("em").textContent=[w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
+  const shown=!el.querySelector("canvas").hidden;
+  ph.hidden=shown;if(!shown)ph.textContent=!CAM.ws?"Not connected":!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!CAM.watchers?"Waiting":"No picture yet";
+  el.classList.toggle("z",CAM.zoom===i);el.setAttribute("aria-pressed",String(CAM.zoom===i))}
+ $("#bcCamG").classList.toggle("one",CAM.zoom>=0)}
+function camUi(){const P=CAM.pub||{},st=$("#bcCamSt");if(!st)return;
+ const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>";
+ st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",P.mode==="h264"?"H.264":"JPEG")+ch("",CAM.watchers+" watching"):ch("bad","Offline");
+ const W=$("#bcCamW");W.hidden=!(CAM.role==="dir"&&CAM.token);if(!W.hidden)$("#bcCamUrl").value=location.origin+"/live/cam/"+CAM.token;
+ camCaps()}
+async function camTok(t){if(CAM.armT&&Date.now()-CAM.armT<5000){CAM.armT=0;t.textContent="New link";t.disabled=true;
+  try{const j=await api("/admin/api/cam",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({op:"token"})});if(j&&j.token)CAM.token=j.token;if(j&&j.pub)CAM.pub=j.pub;bcSay("A new Polaris Cam link: paste it into Polaris Cam on the simulator PC",true)}
+  catch(e){bcSay(e.message)}finally{t.disabled=false;camUi()}return}
+ CAM.armT=Date.now();t.textContent="Press again: the old link stops";setTimeout(()=>{if(CAM.armT&&Date.now()-CAM.armT>=4900){CAM.armT=0;t.textContent="New link"}},5000)}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bcCamG [data-camc],#bcCamCopy,#bcCamTok");if(!t||t.disabled)return;
+ if(t.dataset.camc!=null){const i=+t.dataset.camc;CAM.zoom=CAM.zoom===i?-1:i;camCaps();return}
+ if(t.id==="bcCamCopy"){const u=$("#bcCamUrl").value;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>bcSay("The Polaris Cam link is copied",true),()=>{$("#bcCamUrl").select();bcSay("Copy the selected link")});return}
+ if(t.id==="bcCamTok")camTok(t)});
+setInterval(()=>{for(let i=0;i<4;i++)camAck(i)},500);
+setInterval(()=>{if(CAM.ws&&CAM.ws.readyState===1)try{CAM.ws.send("ping")}catch(e){}},30000);
+setInterval(()=>{if(pgNow==="bc"&&!document.hidden)camCaps()},1000);
+window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")camClose()});
+document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(CAM.hidT);if(document.hidden)CAM.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")camClose()},60000);else if(!CAM.want){CAM.want=true;camOpen();camUi()}});
 /* open only while the page shows (and it is in view): the PC sends its pictures only then */
-PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll()};
+PG_LOAD.bc=()=>{BC.want=true;bcOpen();bcAll();CAM.want=true;camOpen();camUi()};
 window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")bcClose()});
 document.addEventListener("visibilitychange",()=>{if(pgNow!=="bc")return;clearTimeout(BC.hidT);if(document.hidden)BC.hidT=setTimeout(()=>{if(document.hidden&&pgNow==="bc")bcClose()},60000);else if(!BC.want){BC.want=true;bcOpen()}});
 setInterval(()=>{if(pgNow==="bc"&&!document.hidden)bcClock()},1000);

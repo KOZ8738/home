@@ -490,9 +490,6 @@ svg.lrchart{display:block;width:100%;height:150px}
 /* map overlays as cards */
 .mapbar,.mapnote,.maplayers,.mapctl,.mapapt{box-shadow:0 10px 28px -16px var(--shadow)}
 .mapbar{border-radius:4px!important;font-family:var(--f-ui)!important}
-.mapctl{gap:0!important;background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
-.mapctl .btn{border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;min-width:44px;min-height:42px;font:500 15px var(--f-ui)!important}
-.mapctl .btn:last-child{border-bottom:0!important}
 .maplayers{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px;gap:4px!important}
 .maplayers .btn{border-color:transparent!important;background:transparent!important;padding:8px 11px!important;font-size:12.5px!important;border-radius:2px!important}
 .maplayers .btn[aria-pressed="true"]{background:var(--brand)!important;color:#fff!important}
@@ -550,7 +547,6 @@ svg.lrchart{display:block;width:100%;height:150px}
   .chips button{padding:10px 14px}
   /* map — old phone positions for .mapbar/.mapapt/.mapctl/.maplayers/.mapnote are dead:
      later .screen[data-app="map"] rules (and the app script) set the same properties with higher specificity */
-  .mapctl .btn{min-height:44px;min-width:44px}
   .maplayers .btn{flex:none}
   .mapinfo{left:8px;right:8px!important;width:auto!important;max-height:45%;overflow:auto}
   /* performance + loadsheet */
@@ -925,7 +921,7 @@ html.pwa-ios .screen[data-app="map"] .mapwrap{--mb:calc(20px + var(--sab,0px))}
 /* ---------- Map controls, tidy layout ---------- */
 .screen[data-app="map"] .mapwrap{--mt:12px;--mg:max(12px,env(safe-area-inset-left,0px))}
 .screen[data-app="map"] .mapbar{display:none!important}
-.screen[data-app="map"] .mapctl{position:absolute;top:var(--mt)!important;right:max(12px,env(safe-area-inset-right,0px))!important;left:auto!important;display:flex;flex-direction:column;gap:0!important;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 10px 28px -16px var(--shadow);z-index:3}
+.screen[data-app="map"] .mapctl{position:absolute;display:flex;flex-direction:column;gap:0!important;background:var(--panel);border:1px solid var(--line);overflow:hidden;box-shadow:0 10px 28px -16px var(--shadow);z-index:3}
 .screen[data-app="map"] .mapctl .btn{min-width:46px!important;min-height:44px!important;padding:0!important;justify-content:center;border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;background:transparent!important;font:600 13px var(--f-ui)!important;color:var(--ink)}
 .screen[data-app="map"] .mapctl .btn:last-child{border-bottom:0!important}
 .screen[data-app="map"] .mapctl .btn.sep{border-top:3px solid var(--line)!important}
@@ -960,7 +956,6 @@ html.pwa-ios .screen[data-app="map"] .mapwrap{--mb:calc(20px + var(--sab,0px))}
 @container screen (max-width:640px){
   .screen[data-app="map"] .mapwrap{--mt:10px;--mg:8px}
   .screen.isl-on[data-app="map"] .mapwrap{--mt:52px}
-  .screen[data-app="map"] .mapctl{right:8px!important}
   .screen[data-app="map"] .mapctl .btn{min-width:44px!important}
   .screen[data-app="map"] .mapapt{max-width:calc(100% - 68px)!important}
   .screen[data-app="map"] .maplayers{right:60px!important}
@@ -1491,7 +1486,6 @@ tspan.wx-VFR{fill:var(--green)} tspan.wx-MVFR{fill:var(--cyan)} tspan.wx-IFR{fil
 .mapapt{position:absolute;top:56px;left:max(12px,env(safe-area-inset-left,0px));display:flex;gap:6px;flex-wrap:wrap;align-items:center;max-width:calc(100% - 90px)}
 .mapapt .btn{background:var(--panel);padding:6px 9px;font-size:10.5px}
 .mapapt input{padding:5px 7px;font-size:12px}
-.mapctl .btn:disabled{opacity:.4}
 .altn{stroke:var(--bronze);stroke-width:2;stroke-dasharray:6 5;fill:none}
 .apt{fill:var(--panel);stroke:var(--ink);stroke-width:2}
 .apt.alt{stroke:var(--bronze)}
@@ -1507,8 +1501,6 @@ tspan.wx-VFR{fill:var(--green)} tspan.wx-MVFR{fill:var(--cyan)} tspan.wx-IFR{fil
 .acl{fill:var(--amber);font-size:10.5px;font-weight:700;paint-order:stroke;stroke:var(--map-bg);stroke-width:3px;stroke-linejoin:round}
 .acl.mine{fill:var(--green)}
 .mapbar{position:absolute;top:12px;left:max(12px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:12.5px;max-width:calc(100% - 90px)}
-.mapctl{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:12px;display:flex;flex-direction:column;gap:6px}
-.mapctl .btn{justify-content:center;min-width:42px;background:var(--panel);font-size:14px}
 .maplayers{position:absolute;left:max(12px,env(safe-area-inset-left,0px));bottom:28px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 24px)}
 .maplayers .btn{background:var(--panel)}
 .maplayers .btn[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
@@ -1551,7 +1543,6 @@ tspan.wx-VFR{fill:var(--green)} tspan.wx-MVFR{fill:var(--cyan)} tspan.wx-IFR{fil
 .txlegend span{display:flex;align-items:center;gap:5px}
 .txlegend i{display:inline-block;width:16px;height:6px;border-radius:1px}
 .lg-rwy{background:var(--tx-rwy)} .lg-tw{background:var(--tx-pave);box-shadow:inset 0 0 0 1px var(--tx-edge),inset 0 -3px 0 -2px var(--tx-cl)} .lg-hold{background:#E0262E} .lg-stand{background:var(--cyan);width:6px!important;height:6px!important;border-radius:50%!important}
-.mapctl .btn[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
 
 /* performance + loadsheet */
 .pf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,300px);gap:12px;align-items:start}

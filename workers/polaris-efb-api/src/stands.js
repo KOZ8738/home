@@ -11,12 +11,14 @@
    flights in the air (vAMSYS ACARS, and PAW flights seen only on VATSIM, as the admin's Live tab), and sends one
    message per flight once the time to go falls under the lead time. Off until staff turn it on.
 
-   KV (STORE):  stands:v1:plan -> { on, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, fl: 'all'|'dom'|'intl', ac: 'all'|'narrow'|'wide', term }] }, at, by }
-                (ac: 'narrow' is shown as Normal, 'wide' as Heavy)
+   KV (STORE):  stands:v1:plan -> { on, dep, ls, sig, inr, lead, miss: 'skip' | 'ground', apts: { ICAO: [{ stands, fl: 'all'|'dom'|'intl', ac: 'all'|'narrow'|'wide', term }] }, at, swAt, aptsAt, by }
+                (ac: 'narrow' is shown as Normal, 'wide' as Heavy; swAt and aptsAt: when the switches and the gates last
+                changed, at: when either did. A plan from before them reads at for both)
                 stands:v1:log  -> [{ k, t, cs, dep, arr, ac, wide, fl, eta, stand, term, by, aoc, pilot, cid, name }] (two days) */
 import { aocSend } from './aoc.js';
 import { aocTpl, aocMsg } from './aoctpl.js';
 import { PAW_APTS } from './live.js';
+import { kvJson, plainObj } from './kvread.js';
 
 class StandError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const PLAN = 'stands:v1:plan', LOG = 'stands:v1:log', LEAD_DEF = 30, GAP_MS = 45 * 60_000, OCC_M = 45, RULES_MAX = 20, STANDS_MAX = 300;
@@ -66,7 +68,18 @@ const nmBetween = (a, b, c, d) => { const R = 3440.065, r = Math.PI / 180, x = M
 /* ---- storage ---- */
 /* the plan also holds the other automatic AOC switches: dep (departure gate at check-in, off unless turned on),
    ls (final loadsheet before departure), sig (SIGMET on the route) and inr (arrival report at the gate), on unless turned off */
-async function readPlan(kv) { const v = await kv.get(PLAN, 'json'), o = v && typeof v === 'object' ? v : {}; return { on: !!o.on, dep: o.dep === true, ls: o.ls !== false, sig: o.sig !== false, inr: o.inr !== false, lead: o.lead || LEAD_DEF, miss: o.miss === 'ground' ? 'ground' : 'skip', apts: o.apts || {}, at: o.at || 0, by: o.by || '' }; }
+/* no plan yet: everything off and no gates. A storage error (or a plan that is not one) throws StandError 503: a save
+   never merges into an empty plan read by mistake (kvread.js) */
+const PLAN_DOWN = 'The gate plan is temporarily unavailable; please try again';
+const SW_KEYS = ['on', 'dep', 'ls', 'sig', 'inr', 'lead', 'miss'];
+const swOf = (o) => ({ on: !!o.on, dep: o.dep === true, ls: o.ls !== false, sig: o.sig !== false, inr: o.inr !== false, lead: o.lead || LEAD_DEF, miss: o.miss === 'ground' ? 'ground' : 'skip' });
+const tOf = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+async function readPlan(kv) {
+  const v = await kvJson(kv, PLAN, { shape: 'object', msg: PLAN_DOWN, Err: StandError }), o = v || {};
+  if (o.apts != null && !plainObj(o.apts)) { console.warn('[stands] the stored gate plan is not a plan'); throw new StandError(503, PLAN_DOWN); }
+  const at = tOf(o.at, 0);
+  return { ...swOf(o), apts: o.apts || {}, at, swAt: tOf(o.swAt, at), aptsAt: tOf(o.aptsAt, at), by: o.by || '' };
+}
 /* the arrival gate AOC gave a flight in the last 12 hours: { stand, term } or null (the arrival report) */
 export async function arrivalGate(env, cs, arr, now = Date.now()) {
   const kv = env && env.STORE; if (!kv) return null;
@@ -189,6 +202,41 @@ function cleanPlan(b) {
   }
   return { on: !!b.on, dep: !!b.dep, ls: b.ls !== false, sig: b.sig !== false, inr: b.inr !== false, lead, miss: b.miss === 'ground' ? 'ground' : 'skip', apts };
 }
+/* POST /admin/api/stands: the plan has two halves, saved from two pages. Its switches (on, dep, ls, sig, inr, lead,
+   miss) are Automatic messages', part: 'sw'; its gates (apts) are Gates', part: 'apts'. A part save changes only its
+   half: the other is kept as KV has it now (read here, fresh; a read that fails refuses the save, 503), so one page
+   never writes the other's back as it was when it opened. 'sw' is a patch: only the switches sent change. With no
+   part, the whole plan (as before).
+   base: the swAt (part 'sw'), aptsAt (part 'apts') or at (the whole plan) of the plan the page changed. When KV has
+   moved on since (someone else saved that half), the save is refused, 409 { conflict: true, plan: the plan now },
+   rather than lose their change; the other half moving on is no conflict. Without base, no check (older pages).
+   lim (from the admin's roles): the half this person's role may not change is kept as it is (403 for a part save of it). */
+async function savePlan(kv, b, who, lim) {
+  if (!plainObj(b)) throw new StandError(400, 'Bad body');
+  const part = b.part == null || b.part === '' ? '' : String(b.part);
+  if (part && part !== 'sw' && part !== 'apts') throw new StandError(400, 'part is sw or apts');
+  if (part === 'sw' && lim && lim.sw) throw new StandError(403, 'Your role cannot change the automatic messages');
+  if (part === 'apts' && lim && lim.apts) throw new StandError(403, 'Your role cannot change gates');
+  if (part === 'apts' && !plainObj(b.apts)) throw new StandError(400, 'Send the gates (apts)');
+  const base = b.base == null || b.base === '' ? null : +b.base;
+  if (base != null && !isFinite(base)) throw new StandError(400, 'Bad base');
+  const cur = await readPlan(kv), seen = part === 'sw' ? cur.swAt : part === 'apts' ? cur.aptsAt : cur.at;
+  if (base != null && base !== seen) {
+    const what = part === 'sw' ? 'the automatic messages' : part === 'apts' ? 'the gate plan' : 'the plan';
+    const error = cur.by && cur.by === who ? 'You changed ' + what + ' in another window meanwhile, so this change was not saved. The newer one is shown now: make this one again if it is still needed.'
+      : 'Someone else' + (cur.by ? ' (' + cur.by + ')' : '') + ' changed ' + what + ' while you had it open, so yours was not saved. Their change is shown now: make yours again if it is still needed.';
+    return jsonRes({ error, conflict: true, plan: cur }, 409);
+  }
+  /* a whole-plan save without gates keeps the gates (never an empty plan by omission) */
+  const chSw = part !== 'apts' && !(lim && lim.sw), chApts = part !== 'sw' && !(lim && lim.apts) && plainObj(b.apts);
+  const sent = part === 'sw' ? Object.fromEntries(SW_KEYS.filter((k) => b[k] !== undefined).map((k) => [k, b[k]])) : b;
+  const src = { ...swOf(cur), ...(chSw ? sent : {}), apts: chApts ? b.apts : cur.apts };
+  /* later than the plan it replaces, even within the same millisecond, so a base always tells two saves apart */
+  const now = Math.max(Date.now(), cur.at + 1, cur.swAt + 1, cur.aptsAt + 1);
+  const p = { ...cleanPlan(src), at: now, swAt: chSw ? now : cur.swAt, aptsAt: chApts ? now : cur.aptsAt, by: who };
+  await kv.put(PLAN, JSON.stringify(p));
+  return jsonRes({ ok: true, plan: p });
+}
 export async function standsAdmin(req, url, path, env, who, deps, lim) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
@@ -202,12 +250,7 @@ export async function standsAdmin(req, url, path, env, who, deps, lim) {
     /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
     if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new StandError(415, 'Send JSON');
     let b; try { b = await req.json(); } catch (e) { throw new StandError(400, 'Bad body'); }
-    /* the plan's gates are Gates, its automatic-message switches Settings: what this person's role may not change
-       is kept as it is (lim, from the admin's roles) */
-    if (path === '/admin/api/stands' && lim && (lim.sw || lim.apts)) { const o = await readPlan(kv);
-      if (lim.sw) b = { ...b, on: !!o.on, dep: !!o.dep, ls: o.ls !== false, sig: o.sig !== false, inr: o.inr !== false, lead: o.lead || 30, miss: o.miss || 'skip' };
-      if (lim.apts) b = { ...b, apts: o.apts || {} }; }
-    if (path === '/admin/api/stands') { const p = { ...cleanPlan(b), at: Date.now(), by: who }; await kv.put(PLAN, JSON.stringify(p)); return jsonRes({ ok: true, plan: p }); }
+    if (path === '/admin/api/stands') return await savePlan(kv, b, who, lim);
     /* which stand a flight would get now (nothing is sent) */
     if (path === '/admin/api/stands/try') {
       const I = String(b.icao || '').toUpperCase(); if (!okIcao(I)) throw new StandError(400, 'Pick an airport');

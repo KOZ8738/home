@@ -147,7 +147,7 @@ main#inbox{max-width:1180px;grid-template-columns:minmax(0,380px) minmax(0,1fr)}
 .ib-t b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ib-t.new b{font-weight:700}.ib-t .meta{color:var(--label);font-size:12.5px;grid-column:1/3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ib-t time{color:var(--label);font-size:12px}.ib-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:7px;vertical-align:1px}
 .ib-w{font:600 10.5px Jost,system-ui,sans-serif;letter-spacing:.05em;color:#B7791F;margin-left:6px}
-.ib-view{display:flex;flex-direction:column;gap:14px}.ib-vh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.ib-vh h3{margin:0;font:400 21px Marcellus,Georgia,serif}.ib-vh .meta{color:var(--label);font-size:13px;margin-top:3px}
+.ib-view,.ib-ms{display:flex;flex-direction:column;gap:14px}.ib-vh{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.ib-vh h3{margin:0;font:400 21px Marcellus,Georgia,serif}.ib-vh .meta{color:var(--label);font-size:13px;margin-top:3px}
 .ib-m{border:1px solid var(--line);border-radius:8px;padding:12px 14px;max-width:86%;background:var(--soft)}.ib-m.st{margin-left:auto;background:color-mix(in srgb,var(--accent) 10%,var(--bg));border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .ib-m .who{font-size:12.5px;color:var(--label);margin-bottom:6px}.ib-m .who b{color:var(--ink);font-weight:600}.ib-m p{margin:0;white-space:pre-wrap;word-break:break-word}
 .ib-m a{color:var(--accent)}.ib-r textarea{min-height:120px}.ib-note{color:var(--label);font-size:12.5px}
@@ -1208,7 +1208,8 @@ function thmUi(){let t="auto";try{t=localStorage.getItem("pmTheme")||"auto"}catc
 document.addEventListener("click",e=>{const b=e.target.closest("[data-thm]");if(!b)return;const t=b.dataset.thm;try{t==="auto"?localStorage.removeItem("pmTheme"):localStorage.setItem("pmTheme",t)}catch(x){}if(t==="auto")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=t;thmUi()});
 thmUi();
 let S={mails:[],edit:null,keep:[],add:[]};
-const api=async(path,opt)=>{const r=await fetch(path,{credentials:"same-origin",...(opt||{})});let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));return j};
+/* a refusal throws an Error with its message, its status and what the server sent (a 409's plan, say) */
+const api=async(path,opt)=>{const r=await fetch(path,{credentials:"same-origin",...(opt||{})});let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw Object.assign(new Error((j&&j.error)||("HTTP "+r.status)),{status:r.status,data:j});return j};
 const say=(t,ok)=>{$("#msg").innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
 const fmt=ms=>new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})+" "+new Date(ms).toISOString().slice(11,16)+"Z";
 const kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
@@ -1363,7 +1364,13 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-plou
  const u=b.dataset.plout;if(!confirm("Sign "+u+" out of the EFB on every device? They can sign in again with vAMSYS."))return;
  b.disabled=true;try{await api("/admin/api/pilots/signout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u})});$("#plMsg").innerHTML='<div class="msg ok">'+esc(u)+' was signed out.</div>';plLoad()}catch(er){$("#plMsg").innerHTML='<div class="msg err">'+esc(er.message)+'</div>';b.disabled=false}});
 /* ---------- Inbox tab: pilots' conversations with a department ---------- */
-const IB={threads:null,err:"",sel:"",show:"open",dept:"",depts:[]};
+/* The list is drawn again with every load (each minute, and after each change). The open conversation is not: its
+   head (#ibHead) and its messages (#ibMsgs) each only when they changed, and its reply box (#ibForm) only for another
+   conversation, so a reply being written (the text, the cursor, the focus, Reply as) and a reply on its way
+   (IB.sending: Send stays off, a second press does nothing) outlive the minute's load. A reply not sent is kept for
+   its conversation when another is opened (IB.drafts, IB.as).
+   vTh: the conversation #ibView shows; hk, mk, fk: what its head, messages and reply box were drawn from */
+const IB={threads:null,err:"",sel:"",show:"open",dept:"",depts:[],vTh:"",hk:"",mk:"",fk:"",drafts:{},as:{},sending:""};
 const txt=s=>esc(s).replace(/(https?:\\/\\/[^\\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 function ibCount(){const n=(IB.threads||[]).filter(t=>!t.done&&t.waiting&&!t.read).length;["#ibCount","#cmIbN"].forEach(i=>{const b=$(i);if(b){b.hidden=!n;b.textContent=n}})}
 function ibUi(){const L=(IB.threads||[]).filter(t=>(IB.show==="done")===t.done&&(!IB.dept||t.dept===IB.dept));
@@ -1371,10 +1378,25 @@ function ibUi(){const L=(IB.threads||[]).filter(t=>(IB.show==="done")===t.done&&
  if(!IB.threads){$("#ibList").innerHTML='<p class="empty" style="padding:16px 18px">Loading…</p>';return}
  $("#ibList").innerHTML=L.length?L.map(t=>{const last=t.msgs[t.msgs.length-1],nw=t.waiting&&!t.read;return '<button class="ib-t'+(t.th===IB.sel?" on":"")+(nw?" new":"")+'" data-ib="'+esc(t.th)+'"><b>'+(nw?'<span class="ib-dot"></span>':"")+esc(t.subj)+'</b><time>'+ago(last.t)+'</time><span class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+" → "+esc(t.dept)+(t.waiting&&!t.done?'<span class="ib-w">AWAITING REPLY</span>':"")+'</span></button>'}).join(""):'<p class="empty" style="padding:16px 18px">'+(IB.show==="done"?"No conversations marked done.":"Nothing waiting. Messages pilots send to a department arrive here.")+'</p>';
  const t=(IB.threads||[]).find(x=>x.th===IB.sel);if(!t)return;
- const opts=IB.depts.map(d=>'<option'+(d===t.dept?" selected":"")+'>'+esc(d)+'</option>').join("");
- $("#ibView").innerHTML='<div class="ib-view"><div class="ib-vh"><div><h3>'+esc(t.subj)+'</h3><div class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+(t.cs?" · "+esc(t.cs):"")+" → "+esc(t.dept)+'</div></div><div class="actions" style="margin:0"><button data-ibdone="'+(t.done?0:1)+'">'+(t.done?"Reopen":"Mark done")+'</button><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div></div>'+
-  t.msgs.map(m=>'<div class="ib-m'+(m.kind==="reply"?" st":"")+'"><div class="who"><b>'+esc(m.kind==="reply"?m.from:(t.pilot+(t.name?" · "+t.name:"")))+'</b>'+(m.kind==="reply"&&m.by?" · "+esc(m.by):"")+(m.cs&&m.kind!=="reply"?" · "+esc(m.cs):"")+" · "+fmt(m.t)+'</div><p>'+txt(m.body)+'</p></div>').join("")+
-  '<div class="ib-r"><label for="ibBody">Reply to '+esc(t.pilot)+'</label><textarea id="ibBody" maxlength="4000" placeholder="Your reply goes to this pilot\u2019s EFB Mail."></textarea><div class="row" style="margin-top:10px"><div style="flex:0 1 240px"><label for="ibAs" style="margin-top:0">Reply as</label><select id="ibAs">'+opts+'</select></div><div style="flex:0 0 auto;align-self:end"><button class="primary" id="ibSend">Send reply</button></div></div><div id="ibMsg"></div></div></div>'}
+ if(IB.vTh!==t.th||!$("#ibForm")){ibKeep();$("#ibView").innerHTML='<div class="ib-view"><div class="ib-vh" id="ibHead"></div><div class="ib-ms" id="ibMsgs"></div><div class="ib-r" id="ibForm"></div></div>';IB.vTh=t.th;IB.hk=IB.mk=IB.fk=""}
+ const hk=JSON.stringify([t.subj,t.pilot,t.name,t.cs,t.dept,!!t.done]);
+ if(IB.hk!==hk){IB.hk=hk;$("#ibHead").innerHTML='<div><h3>'+esc(t.subj)+'</h3><div class="meta">'+esc(t.pilot)+(t.name?" · "+esc(t.name):"")+(t.cs?" · "+esc(t.cs):"")+" → "+esc(t.dept)+'</div></div><div class="actions" style="margin:0"><button data-ibdone="'+(t.done?0:1)+'">'+(t.done?"Reopen":"Mark done")+'</button><button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button></div>'}
+ const mk=JSON.stringify([t.pilot,t.name,t.msgs.map(m=>[m.t,m.kind,m.from,m.by,m.cs,m.body])]);
+ if(IB.mk!==mk){IB.mk=mk;$("#ibMsgs").innerHTML=t.msgs.map(m=>'<div class="ib-m'+(m.kind==="reply"?" st":"")+'"><div class="who"><b>'+esc(m.kind==="reply"?m.from:(t.pilot+(t.name?" · "+t.name:"")))+'</b>'+(m.kind==="reply"&&m.by?" · "+esc(m.by):"")+(m.cs&&m.kind!=="reply"?" · "+esc(m.cs):"")+" · "+fmt(m.t)+'</div><p>'+txt(m.body)+'</p></div>').join("")}
+ ibForm(t)}
+/* the reply being written in the conversation shown, kept for when it is opened again */
+function ibKeep(){if(!IB.vTh)return;const b=$("#ibBody"),a=$("#ibAs");if(b)IB.drafts[IB.vTh]=b.value;if(a)IB.as[IB.vTh]=a.value}
+const ibSendUi=()=>{const s=$("#ibSend");if(s)s.disabled=!!IB.sending};
+/* the reply box: drawn for a conversation once. Drawn again for the same one only when what it offers changed (the
+   departments to reply as), and then with what was in it: the text, the cursor and the focus, Reply as, the last note */
+function ibForm(t){const k=JSON.stringify([t.th,t.pilot,IB.depts]);if(IB.fk===k&&$("#ibBody")){ibSendUi();return}
+ const ob=$("#ibBody"),oa=$("#ibAs"),om=$("#ibMsg"),ae=document.activeElement;
+ const keep=ob?{v:ob.value,s:ob.selectionStart,e:ob.selectionEnd,fb:ae===ob,fa:!!oa&&ae===oa,as:oa?oa.value:"",m:om?om.innerHTML:""}:null;
+ const as0=keep?keep.as:IB.as[t.th]||"",as=IB.depts.includes(as0)?as0:t.dept;
+ $("#ibForm").innerHTML='<label for="ibBody">Reply to '+esc(t.pilot)+'</label><textarea id="ibBody" maxlength="4000" placeholder="Your reply goes to this pilot\u2019s EFB Mail."></textarea><div class="row" style="margin-top:10px"><div style="flex:0 1 240px"><label for="ibAs" style="margin-top:0">Reply as</label><select id="ibAs">'+IB.depts.map(d=>'<option'+(d===as?" selected":"")+'>'+esc(d)+'</option>').join("")+'</select></div><div style="flex:0 0 auto;align-self:end"><button class="primary" id="ibSend">Send reply</button></div></div><div id="ibMsg"></div>';
+ IB.fk=k;const nb=$("#ibBody");nb.value=keep?keep.v:IB.drafts[t.th]||"";
+ if(keep){$("#ibMsg").innerHTML=keep.m;if(keep.fb){nb.focus();try{nb.setSelectionRange(keep.s,keep.e)}catch(x){}}else if(keep.fa)$("#ibAs").focus()}
+ ibSendUi()}
 async function ibLoad(){if(!pgHas("comms"))return;IB.err="";try{const j=await api("/admin/api/inbox");IB.threads=j.threads;IB.depts=j.depts||[];const sel=$("#ibDept");if(sel.options.length<2)sel.insertAdjacentHTML("beforeend",IB.depts.map(d=>'<option>'+esc(d)+'</option>').join(""))}catch(e){IB.err=e.message}ibCount();ibUi();if(pgNow==="home")hmUi()}
 $("#ibDept").addEventListener("change",e=>{IB.dept=e.target.value;ibUi()});
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],[data-ibs],[data-ibdone],#ibSend");if(!b)return;
@@ -1382,8 +1404,15 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-ib],
  if(b.dataset.ib){IB.sel=b.dataset.ib;const t=IB.threads.find(x=>x.th===IB.sel);ibUi();if(innerWidth<900)requestAnimationFrame(()=>{const v=$("#ibView");if(v&&!v.hidden)v.scrollIntoView({behavior:"smooth",block:"start"})});if(t&&!t.read){t.read=true;ibCount();ibUi();api("/admin/api/inbox/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,read:true})}).catch(()=>{})}return}
  const t=(IB.threads||[]).find(x=>x.th===IB.sel);if(!t)return;
  if(b.dataset.ibdone!=null){try{await api("/admin/api/inbox/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,done:b.dataset.ibdone==="1"})});await ibLoad()}catch(er){alert(er.message)}return}
- if(b.id==="ibSend"){const body=$("#ibBody").value.trim();if(!body){$("#ibMsg").innerHTML='<div class="msg err">Write a reply first.</div>';return}
-  b.disabled=true;try{await api("/admin/api/inbox/reply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th:t.th,dept:$("#ibAs").value,body})});await ibLoad();$("#ibMsg").innerHTML='<div class="msg ok">Sent to '+esc(t.pilot)+'.</div>'}catch(er){$("#ibMsg").innerHTML='<div class="msg err">'+esc(er.message)+'</div>';b.disabled=false}}});
+ /* one reply on its way at a time: Send is off until it is answered, whatever the minute's load draws meanwhile */
+ if(b.id==="ibSend"){if(IB.sending)return;const tb=$("#ibBody"),body=tb?tb.value.trim():"";if(!body){$("#ibMsg").innerHTML='<div class="msg err">Write a reply first.</div>';return}
+  const th=t.th,pilot=t.pilot,dept=$("#ibAs").value;IB.sending=th;ibSendUi();$("#ibMsg").innerHTML="";let er=null;
+  try{await api("/admin/api/inbox/reply",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({th,dept,body})})}catch(x){er=x}
+  IB.sending="";
+  /* sent: the box is emptied, unless more was written in it meanwhile */
+  if(!er){if(String(IB.drafts[th]||"").trim()===body)delete IB.drafts[th];const x=IB.vTh===th&&$("#ibBody");if(x&&x.value.trim()===body)x.value=""}
+  ibSendUi();if(!er)await ibLoad();
+  const m=IB.vTh===th&&$("#ibMsg");if(m)m.innerHTML=er?'<div class="msg err">'+esc(er.message)+'</div>':'<div class="msg ok">Sent to '+esc(pilot)+'.</div>'}});
 if(!document.querySelector(".deny")){if(!["comms","home"].includes(pgOf()))ibLoad();setInterval(()=>{if(!document.hidden)ibLoad()},60000)}
 PG_LOAD.pilots=()=>plLoad();
 /* ---------- Documents tab: manuals and SOPs for the EFB's Documents ---------- */
@@ -1482,8 +1511,13 @@ const stRuleSum=r=>ST_AC[r.ac||"all"]+" · "+ST_FL[r.fl||"all"];
 const stRules=()=>(ST.plan&&ST.plan.apts[ST.sel])||[];
 const stSets=()=>stRules().map(r=>new Set(stExpand(r.stands).stands.map(stNorm)));
 const stAptName=i=>(ST.apts[i]||[])[3]||(ST.maps[i]&&ST.maps[i].name)||"";
-/* Gates saves its gates with the switches as last saved; Automatic messages saves its switches with the gates as last saved */
-function stPlanNow(){const v=ST.saved||{};return {on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",apts:ST.plan.apts}}
+/* the plan's two halves are saved apart (stands.js): Gates sends only its gates (part "apts"), Automatic messages only
+   the switches it changes (part "sw"); the server keeps the other half as it has it. base: when the half this page
+   changed was last saved, as the page read it, so a save over someone else's newer one is refused (409), not lost.
+   Gates' base is the plan its edits started from (ST.plan), not the one the last reload brought (ST.saved) */
+const stAt=(v,k)=>v&&typeof v[k+"At"]==="number"?v[k+"At"]:(v&&v.at)||0;
+const stBody=()=>({part:"apts",base:stAt(ST.plan,"apts"),apts:ST.plan.apts});
+const auBody=patch=>({part:"sw",base:stAt(ST.saved,"sw"),...patch});
 /* gates given to Polaris flights around now (a ring on the map) */
 function stGiven(i){const now=Date.now(),G=new Map();for(const x of ST.log){if(!x.stand||(x.kind==="dep"?x.dep:x.arr)!==i)continue;const t=x.eta||x.t;if(t<now-45*6e4||t>now+12*36e5)continue;const n=stNorm(x.stand),o=G.get(n);if(!o||Math.abs(t-now)<Math.abs((o.eta||o.t)-now))G.set(n,x)}return G}
 const stVat=i=>(ST.busy[i]&&ST.busy[i].vat)||new Set();
@@ -1627,7 +1661,7 @@ function stTakenBefore(res){const i=ST.sel,m=ST.maps[i],refs=m&&m.refs&&m.S.leng
  for(const r of stRules()){if(!(r.ac==="all"||!r.ac||(r.ac==="wide")===H))continue;if(r.fl&&r.fl!=="all"&&r.fl!==fl)continue;let L=stExpand(r.stands).stands;if(refs&&L.some(x=>refs.has(stNorm(x))))L=L.filter(x=>refs.has(stNorm(x)));
   for(const s of L){const n=stNorm(s);if(n===want)return out;if(vat.has(n)||pol.has(n))out.push(s)}}return out}
 let stTryT=0;function stTry(){clearTimeout(stTryT);const i=ST.sel,el=$("#stTryR");if(!el||!i)return;if(!stRules().length){el.innerHTML='<span class="lbl">→ no rules, so no gate</span>';if(ST.tryRes){ST.tryRes=null;stMapRefresh()}return}
- stTryT=setTimeout(async()=>{try{const r=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...stPlanNow(),icao:i,fl:ST.tryFl,wide:ST.tryAc==="wide"})});if(ST.sel!==i)return;
+ stTryT=setTimeout(async()=>{try{const r=await api("/admin/api/stands/try",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({apts:ST.plan.apts,icao:i,fl:ST.tryFl,wide:ST.tryAc==="wide"})});if(ST.sel!==i)return;
   ST.tryRes=r;const t=$("#stTryR");if(!t)return;
   if(r.stand){const tb=stTakenBefore(r);t.innerHTML="→ gets <b>"+esc(r.stand)+"</b>"+(r.term?" · "+esc(r.term):"")+(tb.length?' <span class="lbl">('+esc(tb.slice(0,6).join(", "))+(tb.length>6?" …":"")+" taken)</span>":"")+(ST.view==="map"?' <span class="lbl">· ringed on the map</span>':"")}
   else t.innerHTML=r.none==="full"?'→ <span class="gt-cg">every gate is taken</span> <span class="lbl">(the crew are told to contact ground)</span>':'→ <span class="lbl">no rule fits this flight, so no gate</span>';
@@ -1689,10 +1723,15 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
  if(d.st==="discard"){if(!confirm("Discard the changes to the gate plan?"))return;ST.plan=stClone(ST.saved);ST.dirty=false;ST.ed=-1;stSay("");stAptsUi();stMainUi();return}
  if(d.strm!=null){const k=+d.strm;if(R[k]&&R[k].stands&&!confirm("Remove rule "+(k+1)+" at "+ST.sel+"?"))return;R.splice(k,1);ST.ed=-1;stRulesUi();stChanged();return}
  if(d.stup!=null){const k=+d.stup;[R[k-1],R[k]]=[R[k],R[k-1]];ST.ed=k-1;stRulesUi();stChanged();return}
- if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stPlanNow())});
+ if(b.id==="stSave"){b.disabled=true;try{const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(stBody())});
    ST.saved=stClone(j.plan);ST.plan=stClone(j.plan);ST.dirty=false;ST.ed=-1;opsDrop("stands");stStateUi();stAptsUi();stRulesUi();stMapRefresh();stTry();
    stSay("Saved. "+(j.plan.on||j.plan.dep?"Gates are given from this plan from now on.":"The gate messages are off, so nothing is sent until they are turned on in Automatic messages."),true)}
-  catch(er){stSay(er.message);b.disabled=false}return}
+  catch(er){b.disabled=false;
+   /* someone else saved the gates meanwhile: nothing was overwritten. The edits stay on the page; theirs are what
+      Discard brings back, and Save again (now knowingly over theirs) replaces them */
+   if(er.status===409&&er.data&&er.data.plan){const P2=er.data.plan;ST.saved=stClone(P2);ST.plan.aptsAt=stAt(P2,"apts");opsDrop("stands");stStateUi();
+    stSay((P2.by?String(P2.by).split("@")[0]:"Someone else")+" saved the gate plan at "+stZ(stAt(P2,"apts"))+" while you were editing, so yours was not saved. Discard to see theirs, or Save again to replace theirs with yours.")}
+   else stSay(er.message)}return}
  if(d.stv){ST.logAll=d.stv==="all";stLogUi();return}
  if(b.id==="stReload"){stLoad();stBusy(ST.sel,true);return}
  if(d.stchg){const tr=b.closest("tr");if(tr.nextElementSibling&&tr.nextElementSibling.classList.contains("gt-chg"))return;tr.insertAdjacentHTML("afterend",'<tr class="gt-chg"><td colspan="7"><div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off"><button type="button" class="primary" data-stsend="'+esc(d.stchg)+'">Send GATE CHANGE</button><button type="button" data-stchgx>Cancel</button></div></td></tr>');tr.nextElementSibling.querySelector("input").focus();return}
@@ -2874,12 +2913,16 @@ function auUi(){const el=$("#auList");if(!el)return;const v=ST.saved;
 function auPrev(k){const K=auKind(k);if(!K)return;if(K.preview&&!AT.dirty[k]){$("#auPT").textContent=K.preview.title;$("#auPB").textContent=K.preview.body;$("#auPB").classList.remove("err");return}
  clearTimeout(AT.pt);AT.pt=setTimeout(async()=>{try{const r=await api("/admin/api/aoctpl/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});if(AT.open!==k)return;$("#auPT").textContent=r.title;$("#auPB").textContent=r.body;$("#auPB").classList.remove("err")}
   catch(e){if(AT.open!==k)return;$("#auPB").textContent=e.message;$("#auPB").classList.add("err")}},350)}
-/* on and off, and the arrival gate's timing: saved with the gate plan as last saved */
-async function auPlan(patch){const v=ST.saved,b={on:!!v.on,dep:!!v.dep,ls:v.ls!==false,sig:v.sig!==false,inr:v.inr!==false,lead:v.lead||30,miss:v.miss||"skip",...patch,apts:v.apts||{}};
- const j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});ST.saved=stClone(j.plan);if(!ST.dirty)ST.plan=stClone(j.plan);opsDrop("stands");stStateUi();return j.plan}
+/* on and off, and the arrival gate's timing: only the switches changed are sent (part "sw"); the gates are not, so a
+   switch never puts back gates as they were when this page loaded. Someone else's newer switches (409): nothing is
+   saved, and the page takes theirs (the error says so) */
+async function auPlan(patch){let j;
+ try{j=await api("/admin/api/stands",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(auBody(patch))})}
+ catch(er){if(er.status===409&&er.data&&er.data.plan){ST.saved=stClone(er.data.plan);if(!ST.dirty)ST.plan=stClone(er.data.plan);opsDrop("stands");stStateUi()}throw er}
+ ST.saved=stClone(j.plan);if(!ST.dirty)ST.plan=stClone(j.plan);opsDrop("stands");stStateUi();return j.plan}
 document.addEventListener("change",async e=>{const t=e.target;if(!t.dataset||t.dataset.ausw==null)return;if(!ST.saved){t.checked=!t.checked;return}
  const sw=t.dataset.ausw,on=t.checked,name=AU_K.find(x=>x[1]===sw)[2];t.disabled=true;
- try{await auPlan({[sw]:on});auUi();auTop(name+(on?" is on.":" is off: it is not sent."),true)}catch(er){t.checked=!on;t.disabled=false;auTop(er.message)}});
+ try{await auPlan({[sw]:on});auUi();auTop(name+(on?" is on.":" is off: it is not sent."),true)}catch(er){t.checked=!on;t.disabled=false;if(er.status===409)auUi();auTop(er.message)}});
 document.addEventListener("input",e=>{const t=e.target;if(!t.dataset||!t.dataset.atf||!AT.open||!t.closest("#auto"))return;const k=AT.open;AT.ed[k][t.dataset.atf]=t.value;
  if(!AT.dirty[k]){AT.dirty[k]=1;const r=$('[data-aureset="'+k+'"]');if(r)r.disabled=false}auSay("");auPrev(k)});
 document.addEventListener("focusin",e=>{const t=e.target;if(t&&t.dataset&&t.dataset.atf)AT.foc=t.dataset.atf});
@@ -2899,7 +2942,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest&&e.target.c
     if(lead!==(ST.saved.lead||30)||miss!==(ST.saved.miss||"skip")){await auPlan({lead,miss});done.push("timing")}}
    if(AT.dirty[k]){const r=await api("/admin/api/aoctpl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:k,fields:AT.ed[k]})});AT.ed[k]={...r.fields};AT.v.tpl[k]={...r.fields};K.changed=r.changed;K.preview=r.preview;delete AT.dirty[k];done.push("wording")}
    auUi();auSay(done.length?"Saved. “"+K.name+"” is sent with this "+done.join(" and ")+" from now on.":"Nothing was changed.",true)}
-  catch(er){t.disabled=false;auSay(er.message)}}});
+  catch(er){t.disabled=false;if(er.status===409)auUi();auSay(er.message)}}});
 window.addEventListener("beforeunload",e=>{if(Object.keys(AT.dirty).length){e.preventDefault();e.returnValue=""}});
 PG_LOAD.auto=()=>{auUi();stLoad();atLoad()};
 
@@ -3069,6 +3112,9 @@ async function bcPost(body,okMsg){try{const j=await api("/admin/api/desk",{metho
 const bcCfg=(cfg,okMsg)=>bcPost({op:"cfg",cfg},okMsg);
 function bcRules(k,fn){const R=JSON.parse(JSON.stringify((BC.cfg&&BC.cfg.auto.rules)||{}));R[k]=fn(R[k]||[]);if(!R[k].length)delete R[k];return bcCfg({auto:{rules:R}})}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("#bc button,#bc [data-bcs]");if(!t||t.disabled)return;
+ /* a scene, TAKE or Back soon pressed with the mouse gives the focus back to the page, so 1–9 and Space go on working
+    (a key on a focused button is the button's own); from the keyboard (detail 0) the focus stays where it is */
+ if(e.detail>0&&t.blur&&(t.dataset.bcs!=null||/^(bcTake|bcBrb2?)$/.test(t.id)))t.blur();
  if(t.dataset.bcs!=null){bcPick(t.dataset.bcs);return}
  if(t.dataset.bcrm){const [k,i]=t.dataset.bcrm.split("|");bcRules(k,L=>L.filter((x,n)=>n!==+i));return}
  switch(t.id){
@@ -3092,9 +3138,15 @@ document.addEventListener("change",e=>{const t=e.target;if(!t.closest||!t.closes
  if(t.id==="bcOnC"){const p=$("#bcPilot").value.trim().toUpperCase();bcCfg(Object.assign({on:t.checked},p?{pilot:p}:{}),t.checked?"On the desk: the simulator PC joins within about half a minute":"Off the desk").then(ok=>{if(!ok)t.checked=!t.checked});return}
  if(t.id==="bcSlate")BC.dirty=true});
 document.addEventListener("input",e=>{if(e.target.closest&&e.target.closest("#bcSet")&&e.target.matches("input[type=text]"))BC.dirty=true});
-document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;const t=e.target;if(t&&t.closest&&t.closest("input,select,textarea,[contenteditable],details"))return;
+/* Broadcast's keys, for whoever directs: 1–9 put a scene in Preview, Space takes Preview to Program. Only from the page
+   itself: a key on a field or a control (a button, a link, a summary, a label, a switch…) is that control's (Space
+   presses a focused button, ticks a box, opens a <details>). Space is the page's only when there is a take to do
+   (TAKE is on); otherwise it is left alone (it scrolls, as on any page) */
+const BC_KEYS_OFF='input,select,textarea,[contenteditable],details,button,a,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="switch"],[role="checkbox"],[role="radio"],[role="tab"],[role="option"],[role="slider"],[role="spinbutton"],[role="textbox"],[role="combobox"]';
+const bcCanTake=()=>{const k=$("#bcTake"),g=bcObsOn()?BC.pc.pgm:"";return !!(BC.pvw&&BC.pvw!==g&&k&&!k.disabled)};
+document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.ctrlKey||e.altKey||e.repeat)return;const t=e.target;if(t&&t.closest&&t.closest(BC_KEYS_OFF))return;
  if(/^[1-9]$/.test(e.key)){const s=bcScenes()[+e.key-1];if(s){e.preventDefault();bcPick(s)}}
- else if(e.key===" "){e.preventDefault();bcTake()}});
+ else if(e.key===" "&&bcCanTake()){e.preventDefault();bcTake()}});
 /* Polaris Cam (cam.js): its cockpit cameras, live, from their own WebSocket. Each picture is a 16-byte header
    ('P', 1, camera, codec, flags, 0, width, height, duration_ms, seq: little-endian) and a JPEG (codec 1) or H.264
    Annex-B (codec 2: decoded here with WebCodecs, where the browser has it). The page says what it has had (ack) every

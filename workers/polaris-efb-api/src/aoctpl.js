@@ -13,8 +13,23 @@
           POST /admin/api/aoctpl          { kind, fields } saves one message ({ kind, reset: true } back to the default)
           POST /admin/api/aoctpl/preview  { kind, fields } -> { title, body } with sample values */
 import { aocAutoLast } from './aoc.js';
+import { kvJson, plainObj } from './kvread.js';
 
 const KEY = 'aoc:v1:tpl';
+const TPL_DOWN = 'The message wording is temporarily unavailable; please try again';
+/* what staff saved, as kept: {} when nothing is; a storage error or a record that is not one throws (503), so a save of
+   one message never writes the others back from an empty read (kvread.js) */
+async function readSaved(kv) {
+  const raw = await kvJson(kv, KEY, { shape: 'object', msg: TPL_DOWN });
+  if (raw && raw.m != null && !plainObj(raw.m)) { console.warn('[aoctpl] the stored wording is not a wording record'); throw Object.assign(new Error(TPL_DOWN), { status: 503 }); }
+  return raw || {};
+}
+/* the templates in use, from what staff saved: the defaults with what they wrote over them */
+function tplFrom(raw) {
+  const m = (raw && raw.m) || {}, v = {};
+  for (const K of AOC_KINDS) { v[K.k] = { ...K.def }; const s = m[K.k]; if (s && typeof s === 'object') for (const [f] of K.fields) if (typeof s[f] === 'string' && s[f].trim()) v[K.k][f] = s[f]; }
+  return v;
+}
 const jsonRes = (body, status) => new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 const NOTE_GATE = 'IF ATC ASSIGNS ANOTHER GATE, FOLLOW ATC', NOTE_DEP = 'IF THE GATE IS TAKEN WHEN YOU SET UP, USE A FREE GATE NEARBY AND TELL GROUND';
 
@@ -79,12 +94,15 @@ export function aocFill(tpl, vars) {
 }
 
 let MEM = null;
-/* the templates in use: the defaults with what staff saved over them */
+/* the templates in use, for the automatic messages. A message must still go when KV has a hiccup: then the wording
+   last read (else the defaults), and that answer is not kept, so the saved wording is back with the next read */
 export async function aocTpl(env, fresh) {
   if (!fresh && MEM && Date.now() - MEM.t < 60_000) return MEM.v;
-  const raw = env && env.STORE ? await env.STORE.get(KEY, 'json').catch(() => null) : null, m = (raw && raw.m) || {}, v = {};
-  for (const K of AOC_KINDS) { v[K.k] = { ...K.def }; const s = m[K.k]; if (s && typeof s === 'object') for (const [f] of K.fields) if (typeof s[f] === 'string' && s[f].trim()) v[K.k][f] = s[f]; }
-  MEM = { v, t: Date.now() }; return v;
+  if (!env || !env.STORE) return tplFrom(null);
+  let raw;
+  try { raw = await readSaved(env.STORE); }
+  catch (e) { return MEM ? MEM.v : tplFrom(null); }
+  const v = tplFrom(raw); MEM = { v, t: Date.now() }; return v;
 }
 /* { title, body } of one message. opt: { none } no gate could be given, { chg } staff changed it */
 export function aocMsg(T, kind, vars, opt) {
@@ -118,7 +136,8 @@ export async function aocTplAdmin(req, path, env, who) {
   const kv = env && env.STORE; if (!kv) return jsonRes({ error: 'Storage is not set up' }, 503);
   try {
     if (req.method === 'GET' && path === '/admin/api/aoctpl') {
-      const raw = (await kv.get(KEY, 'json').catch(() => null)) || {}, tpl = await aocTpl(env, true);
+      /* what is kept, or an error (503): never the defaults shown as if they were what staff saved */
+      const raw = await readSaved(kv), tpl = tplFrom(raw); MEM = { v: tpl, t: Date.now() };
       const titles = Object.fromEntries(AOC_KINDS.map((K) => [K.k, [...new Set([tpl[K.k].title, tpl[K.k].titleChg, K.def.title, K.def.titleChg].filter(Boolean).map((x) => String(x).toUpperCase()))]]));
       let last = {}; try { last = await aocAutoLast(env, titles); } catch (e) { last = {}; }
       return jsonRes({ kinds: AOC_KINDS.map((K) => ({ k: K.k, name: K.name, when: K.when, fields: K.fields, tokens: K.tokens, def: K.def, changed: !!(raw.m && raw.m[K.k]), preview: preview(K, tpl[K.k]) })), tpl, at: raw.at || 0, by: raw.by || '', last });
@@ -129,11 +148,12 @@ export async function aocTplAdmin(req, path, env, who) {
     const K = KIND[String(b.kind || '')]; if (!K) return jsonRes({ error: 'No such message' }, 400);
     if (path === '/admin/api/aoctpl/preview') return jsonRes(preview(K, clean(K, b.fields)));
     if (path !== '/admin/api/aoctpl') return jsonRes({ error: 'Not found' }, 404);
-    const raw = (await kv.get(KEY, 'json').catch(() => null)) || {}; raw.m = raw.m && typeof raw.m === 'object' ? raw.m : {};
-    if (b.reset) delete raw.m[K.k]; else raw.m[K.k] = clean(K, b.fields);
+    /* the other messages' wording is kept as read: a read that fails refuses the save (503) */
+    const fields = b.reset ? null : clean(K, b.fields), raw = await readSaved(kv); raw.m = raw.m || {};
+    if (b.reset) delete raw.m[K.k]; else raw.m[K.k] = fields;
     raw.at = Date.now(); raw.by = String(typeof who === 'string' ? who : (who && who.email) || '').slice(0, 120);
-    await kv.put(KEY, JSON.stringify(raw)); MEM = null;
-    const tpl = await aocTpl(env, true);
+    await kv.put(KEY, JSON.stringify(raw));
+    const tpl = tplFrom(raw); MEM = { v: tpl, t: Date.now() };
     return jsonRes({ ok: true, kind: K.k, fields: tpl[K.k], changed: !b.reset, preview: preview(K, tpl[K.k]) });
   } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500); }
 }

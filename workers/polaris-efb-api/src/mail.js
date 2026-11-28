@@ -25,6 +25,7 @@ import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 import { tasksAdmin } from './tasks.js';
 import { taskMailReady } from './taskmail.js';
+import { kvJson, plainObj } from './kvread.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
@@ -68,7 +69,9 @@ export async function accessUser(req, env) {
 
 /* ---- storage ---- */
 let memIdx = null; // { at, list } short cache for the public list
-async function readIndex(kv) { const v = await kv.get('mail:v1:index', 'json').catch(() => null); return Array.isArray(v) ? v : []; }
+/* no index yet is no mail; a storage error (or an index that is not a list) is an error (503), never an empty list:
+   the next mail saved would write that empty list back over every mail kept (see kvread.js) */
+async function readIndex(kv) { return (await kvJson(kv, 'mail:v1:index', { shape: 'array', msg: 'Polaris Mail is temporarily unavailable; please try again', Err: MailError })) || []; }
 async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
 const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? (m.to.crew ? { cs: m.to.cs || '', crew: 1 } : { cs: m.to.cs || '', pilot: m.to.pilot || '' }) : null, edited: m.edited || 0 });
 const LINK_MS = 6 * 3600_000;
@@ -143,12 +146,21 @@ const ACT_NAME = { msg: 'send messages', gates: 'change gates', delay: 'give del
 /* the role there was before roles could be edited, kept until an administrator changes or deletes it */
 const DEFAULT_ROLES = { ops: { name: 'Operations', pages: ROLE_PAGES.filter((p) => p !== 'settings'), can: ['msg', 'gates', 'delay', 'cal'] } };
 let ROLES_MEM = { at: 0, v: null };
-async function readRoles(kv) {
-  if (ROLES_MEM.v && Date.now() - ROLES_MEM.at < 10000) return ROLES_MEM.v;
-  let v = null; try { v = await kv.get(ROLES, 'json'); } catch (e) { v = null; }
-  if (!v || typeof v !== 'object') v = {};
-  if (!v.people || typeof v.people !== 'object') v.people = {};
-  if (!v.roles || typeof v.roles !== 'object') v.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
+const ROLES_DOWN = 'Roles are temporarily unavailable; please try again';
+/* Fails closed. Only a key that is not there means roles are off (everyone signed in is an administrator); a KV error
+   or a stored value that is not a roles record throws MailError 503, and is never kept in ROLES_MEM, so a storage
+   hiccup can never make everyone an administrator, nor let a change write roles back from an empty read.
+   fresh: read KV itself, not the 10-second copy (before a change) */
+async function readRoles(kv, fresh = false) {
+  if (!fresh && ROLES_MEM.v && Date.now() - ROLES_MEM.at < 10000) return ROLES_MEM.v;
+  const raw = await kvJson(kv, ROLES, { shape: 'object', msg: ROLES_DOWN, Err: MailError });
+  let v;
+  if (raw === null) v = { people: {}, roles: JSON.parse(JSON.stringify(DEFAULT_ROLES)) };
+  else {
+    /* every roles record written here has its people (an empty list while roles are off); without them it is not one */
+    if (!plainObj(raw.people) || (raw.roles != null && !plainObj(raw.roles))) { console.warn('[roles] the stored roles are not a roles record'); throw new MailError(503, ROLES_DOWN); }
+    v = { ...raw, roles: raw.roles || JSON.parse(JSON.stringify(DEFAULT_ROLES)) };
+  }
   ROLES_MEM = { at: Date.now(), v }; return v;
 }
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -166,7 +178,9 @@ export async function navRecipients(env) {
   if (!people.length) return { rolesOff: true, list: [...new Set(String((env && env.ADMIN_EMAILS) || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))] };
   return { list: people.filter((e) => { const id = roleOf(R, e); return !!id && permsOf(R, id).can.includes('navdata'); }) };
 }
-/* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
+/* navRecipients, staffOfPilot and taskStaff only read the roles, and throw (503) when they cannot be read, rather than
+   answer "no staff": the AIRAC reminder and the task emails then wait for the next cron (nothing is marked sent), and
+   the EFB's Calendar keeps the tasks it showed (cal.js) */
 /* the staff member a pilot ID is linked to (Settings › People), for the EFB's Calendar: { email, role, roleName,
    names: { role id: name } }, or null */
 export async function staffOfPilot(env, pilot) {
@@ -179,6 +193,7 @@ export async function staffOfPilot(env, pilot) {
   }
   return null;
 }
+/* the staff in each department (a role), and the departments' names, for the task emails (taskmail.js) */
 export async function taskStaff(env) {
   const kv = env && env.STORE; if (!kv) return { ppl: {}, names: {} };
   const R = await readRoles(kv), ppl = {};
@@ -237,10 +252,11 @@ function roleNeeds(method, path) {
    most every half hour a person */
 const SEEN = 'admin:v1:seen';
 let SEEN_MEM = { at: 0, v: null };
+/* a storage error throws (and is not kept): markSeen then writes nothing, rather than one person over everyone's times */
 async function readSeen(kv) {
   if (SEEN_MEM.v && Date.now() - SEEN_MEM.at < 60_000) return SEEN_MEM.v;
-  let v = null; try { v = await kv.get(SEEN, 'json'); } catch (e) { v = null; }
-  SEEN_MEM = { at: Date.now(), v: v && typeof v === 'object' ? v : {} }; return SEEN_MEM.v;
+  const v = await kv.get(SEEN, 'json');
+  SEEN_MEM = { at: Date.now(), v: plainObj(v) ? v : {} }; return SEEN_MEM.v;
 }
 async function markSeen(kv, who) {
   if (!kv || !who || who === 'unknown') return;
@@ -252,7 +268,12 @@ async function markSeen(kv, who) {
 }
 const lineR = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 async function rolesApi(req, kv, who, env) {
-  const R = await readRoles(kv), seen = await readSeen(kv);
+  /* the roles as KV has them now, never the 10-second copy: a change is made to what is there, and a read that fails
+     (503) refuses the change rather than writing roles back from nothing */
+  const R = await readRoles(kv, true);
+  /* the request was let in by the roles as read a moment ago (mailAdmin); it must still be an administrator's */
+  if (roleOf(R, who) !== 'admin') throw new MailError(403, 'Only an administrator can see or change roles');
+  const seen = await readSeen(kv).catch(() => ({}));
   const list = () => {
     const n = {}; for (const p of Object.values(R.people)) n[p.role] = (n[p.role] || 0) + 1;
     return { on: Object.keys(R.people).length > 0, me: who, mail: { ready: taskMailReady(env), from: String((env && env.MAIL_FROM) || '') },
@@ -321,7 +342,14 @@ export async function mailAdmin(req, url, env, opts) {
   /* the role of the person signed in, and whether this request is theirs to make */
   let role = 'admin', RR = null, perm = permsOf(null, 'admin'), lim = null;
   if (env && env.STORE && path !== '/admin/signin') {
-    RR = await readRoles(env.STORE); role = roleOf(RR, who);
+    /* roles that cannot be read shut the admin (503), never open it: see readRoles */
+    try { RR = await readRoles(env.STORE); }
+    catch (e) {
+      const msg = (e && e.status && e.message) || ROLES_DOWN, hd = { 'Cache-Control': 'no-store', 'Retry-After': '10' };
+      if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>The admin is not available right now.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': ADMIN_FRAME, ...hd } });
+      return jsonRes({ error: msg }, 503, hd);
+    }
+    role = roleOf(RR, who);
     if (!role) {
       const msg = 'Your email (' + who + ') has no role in this admin yet. Ask a Polaris administrator to add you under Settings \u203a People.';
       if (path === '/admin') return new Response(ADMIN_HTML.replace('<!--DENIED-->', '<div class="deny"><b>Not given a role.</b> ' + msg.replace(/[<>&]/g, '') + '</div>'), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': ADMIN_FRAME } });

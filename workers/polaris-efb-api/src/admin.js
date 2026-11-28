@@ -3079,32 +3079,86 @@ document.addEventListener("keydown",e=>{if(pgNow!=="bc"||!bcDir()||e.metaKey||e.
  if(/^[1-9]$/.test(e.key)){const s=bcScenes()[+e.key-1];if(s){e.preventDefault();bcPick(s)}}
  else if(e.key===" "){e.preventDefault();bcTake()}});
 /* Polaris Cam (cam.js): its cockpit cameras, live, from their own WebSocket. Each picture is a 16-byte header
-   ('P', 1, camera, codec, flags, 0, width, height, 0, seq: little-endian) and a JPEG; the page says which it has
-   shown (ack) about every half second, or sooner after 4, so the server knows it keeps up */
-const CAM={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,ts:[],busy:false,next:null,shown:false}))};
+   ('P', 1, camera, codec, flags, 0, width, height, duration_ms, seq: little-endian) and a JPEG (codec 1) or H.264
+   Annex-B (codec 2: decoded here with WebCodecs, where the browser has it). The page says what it has had (ack) every
+   0.4 s, or sooner after 4 JPEGs or 8 H.264 frames, so the server knows it keeps up. H.264 plays about half a second
+   behind, to be smooth; every VideoFrame is closed as soon as it is drawn or dropped, and at most 24 wait a camera */
+const CAM={ws:null,want:false,role:"",token:"",pub:{on:false,cams:[]},watchers:0,retry:0,hidT:0,zoom:-1,armT:0,raf:0,
+ c:[0,1,2,3].map(()=>({seq:0,acked:0,un:0,w:0,h:0,dur:33,ts:[],busy:false,next:null,shown:false,codec:0,nowc:false,dec:null,cfg:"",cw:0,ch:0,needKey:true,tsUs:0,keyAt:0,q:[],lastAt:0,lastTs:0}))};
+const CAM_Q=24,CAM_BUF=480,CAM_LOW=450,CAM_HIGH=650;
 const camCell=i=>document.querySelector('#bcCamG [data-camc="'+i+'"]');
+const camWC=()=>typeof VideoDecoder==="function"&&typeof EncodedVideoChunk==="function";
+/* the codec string ('avc1.' + profile, constraints, level) from the SPS (NAL type 7) of a key frame's Annex-B bytes */
+function camAvcCodec(b,w){const n=b.length,hx=x=>(x|256).toString(16).slice(1);
+ for(let i=0;i+6<n;i++){if(b[i]===0&&b[i+1]===0&&b[i+2]===1){if((b[i+3]&31)===7)return "avc1."+hx(b[i+4])+hx(b[i+5])+hx(b[i+6]);i+=2}}
+ return w>1280?"avc1.640028":"avc1.64001f"}
 function camOpen(){if(CAM.ws||!CAM.want||document.querySelector(".deny"))return;let w;try{w=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/admin/api/cam/ws")}catch(e){return}
  w.binaryType="arraybuffer";CAM.ws=w;
  w.onmessage=e=>{if(CAM.ws!==w)return;if(typeof e.data==="string"){let j;try{j=JSON.parse(e.data)}catch(x){return}if(j&&j.t)camIn(j)}else if(e.data instanceof ArrayBuffer)camFrame(e.data)};
- w.onclose=()=>{if(CAM.ws!==w)return;CAM.ws=null;CAM.role="";camUi();if(CAM.want){clearTimeout(CAM.retry);CAM.retry=setTimeout(camOpen,3000)}};
+ w.onclose=()=>{if(CAM.ws!==w)return;CAM.ws=null;CAM.role="";camBlank();camUi();if(CAM.want){clearTimeout(CAM.retry);CAM.retry=setTimeout(camOpen,3000)}};
  w.onerror=()=>{}}
 function camClose(){CAM.want=false;clearTimeout(CAM.retry);const w=CAM.ws;CAM.ws=null;CAM.role="";if(w)try{w.close()}catch(e){}camBlank()}
-function camBlank(){CAM.c.forEach((c,i)=>{c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.ts=[];c.next=null;c.shown=false;const el=camCell(i);if(el)el.querySelector("canvas").hidden=true})}
+/* the frames waiting to be drawn, closed; and the decoder, closed (nothing of either is left behind) */
+function camQDrop(c){while(c.q.length){const x=c.q.shift();try{x.frame.close()}catch(e){}}c.lastAt=0;c.lastTs=0}
+function camDecStop(i){const c=CAM.c[i],d=c.dec;c.dec=null;c.cfg="";c.cw=0;c.ch=0;if(d)try{if(d.state!=="closed")d.close()}catch(e){}camQDrop(c)}
+function camBlank(){CAM.c.forEach((c,i)=>{camDecStop(i);c.seq=0;c.acked=0;c.un=0;c.w=0;c.h=0;c.dur=33;c.ts=[];c.next=null;c.shown=false;c.codec=0;c.nowc=false;c.needKey=true;c.tsUs=0;c.keyAt=0;const el=camCell(i);if(el)el.querySelector("canvas").hidden=true})}
 function camIn(j){switch(j.t){
  case "hello":CAM.role=j.role||"";CAM.token=j.token||"";CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;camBlank();camUi();break;
  case "pub":{const was=CAM.pub&&CAM.pub.on;CAM.pub=j.pub||{on:false,cams:[]};CAM.watchers=j.watchers||0;if(was&&!CAM.pub.on)camBlank();camUi();break}
  case "token":CAM.token=j.token||"";camUi();break;
  default:}}
 function camFrame(buf){if(buf.byteLength<18)return;const b=new Uint8Array(buf,0,16),d=new DataView(buf);
- if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=CAM.c[i],seq=d.getUint32(12,true),now=Date.now();
- c.seq=seq;c.w=d.getUint16(6,true);c.h=d.getUint16(8,true);c.ts.push(now);while(c.ts.length&&now-c.ts[0]>2000)c.ts.shift();
- if(++c.un>=4)camAck(i);
- if(b[3]!==1)return;   /* H.264: not shown here yet */
+ if(b[0]!==0x50||b[1]!==1||b[2]>3)return;const i=b[2],c=CAM.c[i],seq=d.getUint32(12,true),now=Date.now(),codec=b[3];
+ if(codec!==1&&codec!==2)return;
+ c.seq=seq;c.w=d.getUint16(6,true);c.h=d.getUint16(8,true);c.dur=d.getUint16(10,true)||33;c.ts.push(now);while(c.ts.length&&now-c.ts[0]>2000)c.ts.shift();
+ if(++c.un>=(codec===2?8:4))camAck(i);
+ if(codec===2){camH264(i,buf,(b[4]&1)===1);return}
+ /* JPEG: back from H.264, its decoder and frames go at once */
+ if(c.codec!==1){if(c.dec||c.q.length)camDecStop(i);c.codec=1;c.nowc=false;c.needKey=true}
  if(c.busy){c.next=buf;return}camDraw(i,buf)}
 function camAck(i){const c=CAM.c[i],w=CAM.ws;if(!c.seq||c.seq===c.acked||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"ack",cam:i,seq:c.seq}));c.acked=c.seq;c.un=0}catch(e){}}
-function camDraw(i,buf){const c=CAM.c[i],el=camCell(i);if(!el)return;const cv=el.querySelector("canvas");c.busy=true;
- const done=()=>{c.busy=false;if(c.next){const n=c.next;c.next=null;camDraw(i,n)}};
- const paint=(src,w,h)=>{if(!CAM.ws||!CAM.pub.on)return;if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}cv.getContext("2d").drawImage(src,0,0,w,h);if(cv.hidden){cv.hidden=false;c.shown=true;camCaps()}};
+/* a key frame of that camera, please (at most once a second from here; the server holds back the rest) */
+function camKey(i,now){const c=CAM.c[i],w=CAM.ws;now=now||Date.now();if(now-c.keyAt<1000||!w||w.readyState!==1)return;try{w.send(JSON.stringify({t:"key",cam:i}));c.keyAt=now}catch(e){}}
+function camH264(i,buf,key){const c=CAM.c[i];
+ if(c.codec!==2){c.codec=2;c.next=null;c.needKey=true}
+ if(!camWC()){if(!c.nowc){c.nowc=true;camCaps()}return}
+ const data=new Uint8Array(buf,16);
+ if(!c.dec||c.needKey||c.cw!==c.w||c.ch!==c.h){
+  if(!key){camKey(i);return}   /* nothing to decode until a key frame */
+  const codec=camAvcCodec(data,c.w);
+  if(!c.dec||c.dec.state!=="configured"||c.cfg!==codec||c.cw!==c.w||c.ch!==c.h){camDecStop(i);
+   let dec;try{dec=new VideoDecoder({output:f=>camOut(i,dec,f),error:()=>{if(c.dec===dec)camDecErr(i)}});
+    dec.configure({codec,optimizeForLatency:true,hardwareAcceleration:"prefer-hardware"})}   /* no description: SPS/PPS come in the stream */
+   catch(e){if(dec)try{dec.close()}catch(x){}c.keyAt=0;camKey(i);return}
+   c.dec=dec;c.cfg=codec;c.cw=c.w;c.ch=c.h}
+  c.needKey=false}
+ c.tsUs+=c.dur*1000;
+ try{if(!key&&c.dec.decodeQueueSize>30)throw new Error("behind");c.dec.decode(new EncodedVideoChunk({type:key?"key":"delta",timestamp:c.tsUs,data}))}catch(e){camDecErr(i)}}
+/* the decoder failed: start it again from the next key frame (asked for at once) */
+function camDecErr(i){const c=CAM.c[i];camDecStop(i);c.needKey=true;c.keyAt=0;camKey(i)}
+function camOut(i,dec,f){const c=CAM.c[i];if(c.dec!==dec){f.close();return}
+ c.q.push({frame:f,at:performance.now(),ts:f.timestamp});
+ while(c.q.length>CAM_Q||(document.hidden&&c.q.length))c.q.shift().frame.close();
+ camRaf()}
+function camRaf(){if(!CAM.raf&&CAM.c.some(c=>c.q.length))CAM.raf=requestAnimationFrame(camTick)}
+/* each screen refresh: the next frame of each H.264 camera, when it is due. The first at once; then at the stream's own
+   pace, a little slower while less than ~0.45 s waits (so about half a second builds up), the oldest dropped past ~0.65 s */
+function camTick(t){CAM.raf=0;t=t||performance.now();
+ for(let i=0;i<4;i++){const c=CAM.c[i],q=c.q;if(!q.length)continue;
+  if(document.hidden){camQDrop(c);continue}
+  const span=()=>(q[q.length-1].ts-q[0].ts)/1000;
+  if(span()>CAM_HIGH)while(q.length>1&&span()>CAM_BUF){q.shift().frame.close();c.lastAt=0}
+  const h=q[0],due=c.lastAt?c.lastAt+Math.max(0,(h.ts-c.lastTs)/1000)*(span()<CAM_LOW?1.1:1):0;
+  if(t<due)continue;
+  q.shift();
+  try{camPaint(i,h.frame,h.frame.displayWidth||c.w,h.frame.displayHeight||c.h)}catch(e){}finally{h.frame.close()}
+  c.lastAt=due&&t-due<50?due:t;c.lastTs=h.ts}
+ camRaf()}
+function camPaint(i,src,w,h){const c=CAM.c[i],el=camCell(i);if(!el||!CAM.ws||!CAM.pub.on)return;const cv=el.querySelector("canvas");
+ if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}cv.getContext("2d").drawImage(src,0,0,w,h);if(cv.hidden){cv.hidden=false;c.shown=true;camCaps()}}
+function camDraw(i,buf){const c=CAM.c[i];if(!camCell(i))return;c.busy=true;
+ const done=()=>{c.busy=false;if(c.next){const n=c.next;c.next=null;if(c.codec===1)camDraw(i,n)}};
+ const paint=(src,w,h)=>{if(c.codec===1)camPaint(i,src,w,h)};
  const blob=new Blob([new Uint8Array(buf,16)],{type:"image/jpeg"});
  if(typeof createImageBitmap==="function"){createImageBitmap(blob).then(bm=>{try{paint(bm,bm.width,bm.height)}catch(e){}finally{if(bm.close)bm.close()}done()},()=>done());return}
  const u=URL.createObjectURL(blob),im=new Image();
@@ -3113,16 +3167,20 @@ function camDraw(i,buf){const c=CAM.c[i],el=camCell(i);if(!el)return;const cv=el
 const camFps=c=>{const L=c.ts;if(L.length<2||Date.now()-L[L.length-1]>2000)return 0;return (L.length-1)*1000/Math.max(1,L[L.length-1]-L[0])};
 function camCaps(){const P=CAM.pub||{},L=P.cams||[];
  for(let i=0;i<4;i++){const el=camCell(i);if(!el)continue;const c=CAM.c[i],k=L.find(x=>x.i===i),cap=el.querySelector(".bc-cap"),ph=el.querySelector(".bc-ph");
-  const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c);
+  const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c),md=c.codec===2?"H.264":c.codec===1?"JPEG":"";
   cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
-  cap.querySelector("em").textContent=[w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
-  const shown=!el.querySelector("canvas").hidden;
-  ph.hidden=shown;if(!shown)ph.textContent=!CAM.ws?"Not connected":!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!CAM.watchers?"Waiting":"No picture yet";
+  cap.querySelector("em").textContent=[md,w&&h?w+" × "+h:"",f?(f<9.95?f.toFixed(1):Math.round(f))+" fps":""].filter(Boolean).join(" · ");
+  const shown=!el.querySelector("canvas").hidden&&!(c.codec===2&&c.nowc);
+  if(c.codec===2&&c.nowc)el.querySelector("canvas").hidden=true;
+  ph.hidden=shown;if(!shown)ph.textContent=c.codec===2&&c.nowc?"H.264 needs Chrome or Edge":!CAM.ws?"Not connected":!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!CAM.watchers?"Waiting":"No picture yet";
   el.classList.toggle("z",CAM.zoom===i);el.setAttribute("aria-pressed",String(CAM.zoom===i))}
  $("#bcCamG").classList.toggle("one",CAM.zoom>=0)}
+/* the mode of the cameras that are on: H.264, JPEG, or both */
+function camMode(){const P=CAM.pub||{},s=new Set((P.cams||[]).filter(k=>k.on!==false).map(k=>k.codec||P.mode));CAM.c.forEach(c=>{if(c.codec)s.add(c.codec===2?"h264":"jpeg")});
+ if(!s.size)s.add(P.mode==="h264"?"h264":"jpeg");return s.size>1?"H.264 + JPEG":s.has("h264")?"H.264":"JPEG"}
 function camUi(){const P=CAM.pub||{},st=$("#bcCamSt");if(!st)return;
  const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>";
- st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",P.mode==="h264"?"H.264":"JPEG")+ch("",CAM.watchers+" watching"):ch("bad","Offline");
+ st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",camMode())+ch("",CAM.watchers+" watching"):ch("bad","Offline");
  const W=$("#bcCamW");W.hidden=!(CAM.role==="dir"&&CAM.token);if(!W.hidden)$("#bcCamUrl").value=location.origin+"/live/cam/"+CAM.token;
  camCaps()}
 async function camTok(t){if(CAM.armT&&Date.now()-CAM.armT<5000){CAM.armT=0;t.textContent="New link";t.disabled=true;
@@ -3133,7 +3191,7 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
  if(t.dataset.camc!=null){const i=+t.dataset.camc;CAM.zoom=CAM.zoom===i?-1:i;camCaps();return}
  if(t.id==="bcCamCopy"){const u=$("#bcCamUrl").value;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>bcSay("The Polaris Cam link is copied",true),()=>{$("#bcCamUrl").select();bcSay("Copy the selected link")});return}
  if(t.id==="bcCamTok")camTok(t)});
-setInterval(()=>{for(let i=0;i<4;i++)camAck(i)},500);
+setInterval(()=>{for(let i=0;i<4;i++)camAck(i)},400);
 setInterval(()=>{if(CAM.ws&&CAM.ws.readyState===1)try{CAM.ws.send("ping")}catch(e){}},30000);
 setInterval(()=>{if(pgNow==="bc"&&!document.hidden)camCaps()},1000);
 window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")camClose()});

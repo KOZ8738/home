@@ -57,11 +57,11 @@ async function leave(R, ws, code = 1000) { ws.readyState = 3; await R.relay.webS
 const state = async (R, role) => (await (await R.relay.fetch(new Request('https://cam/state?role=' + role))).json());
 const lastOf = (ws, t) => ws.texts().filter((m) => m.t === t).pop();
 
-function frame({ cam = 0, codec = 1, flags = 1, w = 960, h = 540, seq = 1, magic = 0x50, ver = 1, payload } = {}) {
+function frame({ cam = 0, codec = 1, flags = 1, w = 960, h = 540, seq = 1, magic = 0x50, ver = 1, dur = 0, payload } = {}) {
   const pl = payload || Uint8Array.of(0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9);
   const b = new Uint8Array(16 + pl.length), d = new DataView(b.buffer);
   b[0] = magic; b[1] = ver; b[2] = cam; b[3] = codec; b[4] = flags; b[5] = 0;
-  d.setUint16(6, w, true); d.setUint16(8, h, true); d.setUint16(10, 0, true); d.setUint32(12, seq, true);
+  d.setUint16(6, w, true); d.setUint16(8, h, true); d.setUint16(10, dur, true); d.setUint32(12, seq, true);
   b.set(pl, 16); return b.buffer;
 }
 const seqOf = (buf) => new DataView(buf).getUint32(12, true);
@@ -138,10 +138,10 @@ const roles = {
 };
 const kv = { m: new Map([['admin:v1:roles', JSON.stringify(roles)]]), async get(k, t) { const v = this.m.get(k); return v == null ? null : t === 'json' ? JSON.parse(v) : v; }, async put(k, v) { this.m.set(k, v); } };
 const ORIGIN = 'https://efb-api.example';
-async function admin(R, email, path, { method = 'GET', body, ws = false, origin = ORIGIN } = {}) {
+async function admin(R, email, path, { method = 'GET', body, ws = false, origin = ORIGIN, ctype = 'application/json' } = {}) {
   const headers = { 'Cf-Access-Jwt-Assertion': await signIn(email) };
   if (ws) { headers.Upgrade = 'websocket'; if (origin) headers.Origin = origin; }
-  if (body) headers['Content-Type'] = 'application/json';
+  if (body && ctype) headers['Content-Type'] = ctype;
   const req = new Request(ORIGIN + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
   return mailAdmin(req, new URL(req.url), { ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD, STORE: kv, CAM: R.env.CAM }, {});
 }
@@ -251,7 +251,7 @@ await test('pictures: anything else is dropped without a word and without breaki
   await send(R, a, frame({ seq: 5 }));                                            /* pictures only from Polaris Cam */
   assert.equal(a.bins().length, 0);
   assert.deepEqual(R.relay.last, [null, null, null, null]);
-  /* exactly 1 MiB, and a typed array, are fine; H.264 is passed on but not kept */
+  /* exactly 1 MiB, and a typed array, are fine; H.264 is passed on, and kept apart from the JPEGs */
   const big = new Uint8Array(1048576 - 16); big[0] = 0xff; big[1] = 0xd8;
   await send(R, p, frame({ seq: 1, payload: big }));
   await send(R, p, new Uint8Array(frame({ seq: 2 })));
@@ -294,10 +294,300 @@ await test('slow page: after 8 pictures without an ack it pauses (one every 3 s)
   await leave(R, slow); assert.equal(R.relay.flow.has(slow), false);
 });
 
-await test('slow page: a page with many pictures out is not sent more than 32 seqs are kept for, and memory stays at 1 picture a camera', async () => {
+await test('slow page: a page with many pictures out is not sent more than 96 seqs are kept for, and memory stays at 1 picture a camera', async () => {
   const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t), slow = await viewer(R, 'view');
   for (let s = 1; s <= 500; s++) { NOW += 3001; for (let c = 0; c < 4; c++) await send(R, p, frame({ cam: c, seq: s })); }
-  for (let c = 0; c < 4; c++) { assert.ok(R.relay.flow.get(slow)[c].ring.length <= 32); assert.equal(R.relay.last[c].seq, 500); }
+  for (let c = 0; c < 4; c++) { assert.ok(R.relay.flow.get(slow)[c].ring.length <= 96); assert.equal(R.relay.last[c].seq, 500); }
+});
+
+/* ---- 6. Stage 2: the JSON-only link, H.264 ---- */
+await test('roles: POST /admin/api/cam that is not JSON (a plain cross-site form) is refused 415, the link unchanged', async () => {
+  const R = mkRelay(), t1 = (await state(R, 'dir')).token;
+  for (const ctype of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', null]) {
+    const r = await admin(R, 'dir@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token' }, ctype });
+    assert.equal(r.status, 415, String(ctype)); assert.deepEqual(await r.json(), { error: 'Send JSON' });
+  }
+  assert.equal((await state(R, 'dir')).token, t1);
+  /* the role is still checked first */
+  assert.equal((await admin(R, 'watch@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token' }, ctype: 'text/plain' })).status, 403);
+  const ok = await admin(R, 'dir@p.test', '/admin/api/cam', { method: 'POST', body: { op: 'token' }, ctype: 'application/json; charset=utf-8' });
+  assert.equal(ok.status, 200); assert.notEqual((await ok.json()).token, t1);
+});
+
+/* an H.264 frame: a key frame is SPS (High 3.1) + PPS + IDR, 4-byte start codes; a P frame one 4-byte slice */
+const SPS = [0, 0, 0, 1, 0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40, 0x50, 0x05, 0xbb, 0x01, 0x10], PPS = [0, 0, 0, 1, 0x68, 0xeb, 0xe3, 0xcb, 0x22, 0xc0];
+function h264({ cam = 0, key = false, seq, size = 0, dur = 33, w = 960, h = 540 } = {}) {
+  const head = key ? [...SPS, ...PPS, 0, 0, 0, 1, 0x65, 0x88, 0x84] : [0, 0, 0, 1, 0x41, 0x9a, 0x02];
+  const pl = new Uint8Array(Math.max(head.length, size)); pl.set(head); pl.fill(0x5a, head.length);
+  return frame({ cam, codec: 2, flags: key ? 1 : 0, seq, w, h, dur, payload: pl });
+}
+const keysTo = (p) => p.texts().filter((m) => m.t === 'key');
+
+await test('H.264: Annex-B frames (00 00 00 01 or 00 00 01) pass, anything else or too short is dropped; duration_ms is read', async () => {
+  const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t), a = await viewer(R, 'dir');
+  const good = [Uint8Array.of(0, 0, 0, 1, 0x65), Uint8Array.of(0, 0, 1, 0x65, 0x88), Uint8Array.of(0, 0, 1, 0x67, 0x64, 0, 0x1f)];
+  const bad = [Uint8Array.of(0, 0, 2, 1, 0x65), Uint8Array.of(1, 0, 0, 1, 0x65), Uint8Array.of(0, 0, 0, 0, 1), Uint8Array.of(0, 0, 1, 0x65),
+    Uint8Array.of(0xff, 0xd8, 0xff, 0xe0, 1), Uint8Array.of(0, 0, 0, 2, 0x65)];
+  for (const pl of bad) assert.equal(frameIn(frame({ codec: 2, payload: pl })), null, String(pl));
+  for (const pl of good) assert.ok(frameIn(frame({ codec: 2, payload: pl })), String(pl));
+  /* a JPEG sent as codec 2 is not H.264, nor H.264 as codec 1 */
+  assert.equal(frameIn(frame({ codec: 1, payload: Uint8Array.of(0, 0, 0, 1, 0x65) })), null);
+  const f = frameIn(frame({ codec: 2, flags: 0, dur: 50, seq: 9, payload: good[0] }));
+  assert.deepEqual([f.codec, f.key, f.dur, f.seq], [2, false, 50, 9]);
+  assert.equal(frameIn(frame({ codec: 1, flags: 0 })).key, true);           /* a JPEG is always a key frame */
+  let s = 0; for (const pl of [...bad, ...good]) await send(R, p, frame({ codec: 2, flags: 1, seq: ++s, payload: pl }));
+  assert.deepEqual(a.bins().map(seqOf), [7, 8, 9]);
+  /* hello: each camera's own codec, or the top-level mode */
+  const hh = helloIn({ mode: 'h264', cams: [{ i: 0 }, { i: 1, codec: 'jpeg' }, { i: 2, codec: 'vp9' }] });
+  assert.deepEqual(hh.cams.map((c) => c.codec), ['h264', 'jpeg', 'h264']);
+  assert.deepEqual(helloIn({ cams: [{ i: 3, codec: 'h264' }, { i: 0 }] }).cams.map((c) => c.codec), ['jpeg', 'h264']);
+});
+
+await test('H.264 GOP: a page opened midway gets the GOP from the latest key frame at once; a new key frame replaces it; past 75 frames or 768 KB it is not kept and a key frame is asked for', async () => {
+  const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t);
+  await send(R, p, h264({ key: true, seq: 1 })); for (let s = 2; s <= 10; s++) await send(R, p, h264({ seq: s }));
+  /* JPEG of another camera, kept as before */
+  await send(R, p, frame({ cam: 2, seq: 500 }));
+  const late = await viewer(R, 'view');
+  assert.deepEqual(late.bins().map((b) => [camOf(b), seqOf(b)]), [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9], [0, 10], [2, 500]]);
+  assert.equal(late.bins()[0].byteLength, h264({ key: true, seq: 1 }).byteLength);
+  assert.equal(keysTo(p).length, 0);                                       /* it had a whole GOP: nothing asked */
+  /* the live frames after it go straight through (the replay is one picture out) */
+  for (let s = 11; s <= 50; s++) await send(R, p, h264({ seq: s }));
+  assert.equal(late.bins().filter((b) => camOf(b) === 0).length, 50);
+  await send(R, p, h264({ key: true, seq: 51 })); await send(R, p, h264({ seq: 52 }));
+  assert.deepEqual(R.relay.gop[0].frames.map((f) => f.seq), [51, 52]);
+  const late2 = await viewer(R, 'view');
+  assert.deepEqual(late2.bins().filter((b) => camOf(b) === 0).map(seqOf), [51, 52]);
+  /* 75 frames are kept, the 76th stops it until the next key frame */
+  await send(R, p, h264({ key: true, seq: 100 })); for (let s = 101; s <= 174; s++) await send(R, p, h264({ seq: s }));
+  assert.equal(R.relay.gop[0].frames.length, 75); assert.equal(R.relay.gop[0].cut, false);
+  await send(R, p, h264({ seq: 175 }));
+  assert.equal(R.relay.gop[0].cut, true); assert.equal(R.relay.gop[0].frames.length, 0);
+  await send(R, p, h264({ seq: 176 })); assert.equal(R.relay.gop[0].frames.length, 0);    /* nothing more until a key frame */
+  NOW += 5000;
+  const late3 = await viewer(R, 'view');
+  assert.equal(late3.bins().filter((b) => camOf(b) === 0).length, 0);         /* no broken GOP */
+  assert.deepEqual(keysTo(p), [{ t: 'key', cam: 0 }]);                        /* instead: a key frame, asked of Polaris Cam */
+  await viewer(R, 'view'); assert.equal(keysTo(p).length, 1);                 /* a second page within the second: not again */
+  /* 768 KB: a 500 KB key frame and a 300 KB P frame are not kept together */
+  await send(R, p, h264({ key: true, seq: 200, size: 500 * 1024 })); assert.equal(R.relay.gop[0].frames.length, 1);
+  await send(R, p, h264({ seq: 201, size: 300 * 1024 }));
+  assert.equal(R.relay.gop[0].cut, true); assert.equal(R.relay.gop[0].bytes, 0);
+  /* a key frame over 768 KB on its own is not kept at all */
+  await send(R, p, h264({ key: true, seq: 300, size: 800 * 1024 })); assert.equal(R.relay.gop[0].cut, true); assert.equal(R.relay.gop[0].frames.length, 0);
+  NOW += 1001; const late4 = await viewer(R, 'view');
+  assert.equal(late4.bins().filter((b) => camOf(b) === 0).length, 0); assert.equal(keysTo(p).length, 2);
+  /* never more than 768 KB a camera, whatever comes */
+  await send(R, p, h264({ key: true, seq: 400, size: 100 * 1024 }));
+  for (let s = 401; s < 500; s++) { await send(R, p, h264({ seq: s, size: 20 * 1024 })); assert.ok(R.relay.gop[0].bytes <= 768 * 1024 && R.relay.gop[0].frames.length <= 75); }
+  /* Polaris Cam leaves: dropped */
+  await leave(R, p); assert.deepEqual(R.relay.gop, [null, null, null, null]);
+});
+
+await test('H.264 slow page: past 45 frames out it gets no P frame, one key frame every 3 s only, and after its ack catches up a key frame is asked for and the next one starts it again; a page that acks gets every frame', async () => {
+  const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t);
+  const fast = await viewer(R, 'dir'), slow = await viewer(R, 'view');
+  const KEYS = new Set([1, 31, 61, 91, 121]); let seq = 0;
+  const shoot = async (n) => { for (let i = 0; i < n; i++) { seq++; NOW += 33; await send(R, p, h264({ seq, key: KEYS.has(seq) })); await send(R, fast, JSON.stringify({ t: 'ack', cam: 0, seq: fast.bins().map(seqOf).pop() })); } };
+  const isKey = (b) => (new Uint8Array(b)[4] & 1) === 1;
+  await shoot(45);
+  assert.deepEqual(slow.bins().map(seqOf), Array.from({ length: 45 }, (_, i) => i + 1));
+  await shoot(30);                                                            /* 46..75, with a key frame at 61: too soon */
+  assert.equal(slow.bins().length, 45);
+  const f = R.relay.flow.get(slow)[0]; assert.equal(f.needKey, true); assert.ok(f.pausedAt > 0);
+  NOW += 3000; await shoot(30);                                                /* 76..105: the key frame at 91 goes, as a probe */
+  assert.deepEqual(slow.bins().slice(45).map(seqOf), [91]);
+  assert.ok(slow.bins().slice(45).every(isKey));                               /* never a P frame while paused */
+  assert.equal(f.needKey, true); assert.equal(keysTo(p).length, 0);
+  /* it acks the probe: caught up (under 15 out), so a key frame is asked for */
+  await send(R, slow, JSON.stringify({ t: 'ack', cam: 0, seq: 91 }));
+  assert.equal(f.ring.length, 0); assert.equal(f.pausedAt, 0);
+  assert.deepEqual(keysTo(p), [{ t: 'key', cam: 0 }]);
+  await shoot(5); assert.equal(slow.bins().length, 46);                        /* P frames still held back until a key frame */
+  KEYS.add(seq + 1); await shoot(10);                                          /* Polaris Cam's key frame: on again */
+  assert.deepEqual(slow.bins().slice(46).map(seqOf), Array.from({ length: 10 }, (_, i) => seq - 9 + i));
+  assert.equal(isKey(slow.bins()[46]), true); assert.equal(f.needKey, false);
+  /* the page that acks: every frame, none dropped */
+  assert.deepEqual(fast.bins().map(seqOf), Array.from({ length: seq }, (_, i) => i + 1));
+  assert.equal(R.relay.flow.get(fast)[0].needKey, false);
+});
+
+await test('H.264 key frames: a page\'s { t:"key" } goes to Polaris Cam at most once a second a camera; bad cameras are ignored', async () => {
+  const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t), a = await viewer(R, 'dir'), b = await viewer(R, 'view');
+  for (let i = 0; i < 5; i++) { await send(R, a, JSON.stringify({ t: 'key', cam: 1 })); await send(R, b, JSON.stringify({ t: 'key', cam: 1 })); NOW += 100; }
+  assert.deepEqual(keysTo(p), [{ t: 'key', cam: 1 }]);
+  await send(R, a, JSON.stringify({ t: 'key', cam: 2 })); assert.equal(keysTo(p).length, 2);   /* another camera: its own second */
+  NOW += 600; await send(R, b, JSON.stringify({ t: 'key', cam: 1 })); assert.equal(keysTo(p).length, 3);
+  for (const cam of [4, -1, '0', 1.5, null, undefined]) await send(R, a, JSON.stringify({ t: 'key', cam }));
+  NOW += 2000; for (const cam of [4, -1, '0', 1.5, null]) await send(R, a, JSON.stringify({ t: 'key', cam }));
+  assert.equal(keysTo(p).length, 3);
+  /* Polaris Cam itself cannot ask, and nothing goes to the pages */
+  await send(R, p, JSON.stringify({ t: 'key', cam: 3 })); assert.equal(keysTo(p).length, 3);
+  assert.equal(a.texts().some((m) => m.t === 'key'), false);
+  /* without Polaris Cam: nothing to ask, and no error */
+  await leave(R, p); NOW += 2000; await send(R, a, JSON.stringify({ t: 'key', cam: 0 }));
+});
+
+await test('H.264 <-> JPEG on the same camera: what is kept and each page\'s flow follow the codec, nothing left over', async () => {
+  const R = mkRelay(), t = (await state(R, 'dir')).token, p = await pubJoin(R, t), a = await viewer(R, 'dir');
+  for (let s = 1; s <= 10; s++) await send(R, p, frame({ seq: s }));          /* JPEG, unacked: a is paused at 8 */
+  assert.equal(a.bins().length, 8); assert.equal(R.relay.last[0].seq, 10);
+  /* it says camera 1 is H.264 now: the JPEG kept of it goes */
+  await send(R, p, JSON.stringify({ t: 'hello', v: '2.0.0', mode: 'jpeg', cams: [{ i: 0, name: 'Cockpit', codec: 'h264' }] }));
+  assert.equal(R.relay.last[0], null);
+  assert.equal(lastOf(a, 'pub').pub.cams[0].codec, 'h264');
+  /* its first frame is a P frame: not sent (the flow starts afresh, waiting for a key frame), a key frame asked for */
+  await send(R, p, h264({ seq: 11 }));
+  assert.equal(a.bins().length, 8); assert.deepEqual(keysTo(p), [{ t: 'key', cam: 0 }]);
+  await send(R, p, h264({ key: true, seq: 12 })); await send(R, p, h264({ seq: 13 }));
+  assert.deepEqual(a.bins().slice(8).map(seqOf), [12, 13]);                    /* the JPEG pause is not carried over */
+  assert.deepEqual(R.relay.flow.get(a)[0].ring, [12, 13]); assert.equal(R.relay.flow.get(a)[0].codec, 2);
+  assert.deepEqual(R.relay.gop[0].frames.map((f) => f.seq), [12, 13]); assert.equal(R.relay.last[0], null);
+  const late = await viewer(R, 'view'); assert.deepEqual(late.bins().map(seqOf), [12, 13]);
+  /* back to JPEG (without a hello first): the GOP goes, the latest JPEG is kept, every page gets it */
+  await send(R, p, frame({ seq: 14 }));
+  assert.equal(R.relay.gop[0], null); assert.equal(R.relay.last[0].seq, 14);
+  assert.equal(seqOf(a.bins().pop()), 14); assert.equal(seqOf(late.bins().pop()), 14);
+  assert.deepEqual(R.relay.flow.get(a)[0].ring, [14]); assert.equal(R.relay.flow.get(a)[0].codec, 1);
+  const late2 = await viewer(R, 'view'); assert.deepEqual(late2.bins().map(seqOf), [14]);
+  /* a hello saying JPEG drops a GOP kept */
+  await send(R, p, h264({ key: true, seq: 15 })); assert.ok(R.relay.gop[0]);
+  await send(R, p, JSON.stringify({ t: 'hello', mode: 'jpeg', cams: [{ i: 0 }] })); assert.equal(R.relay.gop[0], null);
+  /* Polaris Cam comes back: nothing kept from before */
+  await send(R, p, h264({ key: true, seq: 16 }));
+  const p2 = await pubJoin(R, t); assert.deepEqual(R.relay.gop, [null, null, null, null]); assert.deepEqual(R.relay.last, [null, null, null, null]);
+  assert.equal(R.relay.flow.size, 0); assert.equal(p2.closed, null);
+});
+
+/* ---- 7. the admin page's player (admin.js), run here with WebCodecs stood in for ---- */
+const { ADMIN_HTML } = await import('../src/admin.js');
+const camSrc = (() => {
+  const a = ADMIN_HTML.indexOf('/* Polaris Cam (cam.js): its cockpit cameras'), b = ADMIN_HTML.indexOf('async function camTok(t)');
+  assert.ok(a > 0 && b > a, 'the Polaris Cam player in admin.js');
+  return ADMIN_HTML.slice(a, b) + '\n;globalThis.__cam={CAM,camFrame,camIn,camAvcCodec,camBlank,camClose,camTick,camAck,camUi};';
+})();
+function mkPage({ wc = true } = {}) {
+  const vm = globalThis.__vm, st = { made: 0, closed: 0, decs: [], raf: [], T: 1000 };
+  class VideoFrame { constructor(ts) { this.timestamp = ts; this.displayWidth = 960; this.displayHeight = 540; this.done = false; st.made++; } close() { if (!this.done) { this.done = true; st.closed++; } } }
+  class VideoDecoder {
+    constructor({ output, error }) { this.output = output; this.error = error; this.state = 'unconfigured'; this.decodeQueueSize = 0; this.chunks = []; st.decs.push(this); }
+    configure(c) { if (this.state === 'closed') throw new Error('closed'); this.config = c; this.state = 'configured'; }
+    decode(ch) { if (this.state !== 'configured') throw new Error('not configured'); this.chunks.push(ch); this.output(new VideoFrame(ch.timestamp)); }
+    close() { this.state = 'closed'; }
+  }
+  class EncodedVideoChunk { constructor(o) { this.type = o.type; this.timestamp = o.timestamp; this.data = o.data; } }
+  const mkCell = () => {
+    const canvas = { hidden: true, width: 0, height: 0, draws: 0, getContext() { return { drawImage: () => { canvas.draws++; } }; } };
+    const span = { textContent: '' }, em = { textContent: '' }, cap = { querySelector: (s) => (s === 'span' ? span : em) }, ph = { hidden: false, textContent: '' };
+    return { canvas, em, ph, classList: { toggle() {} }, setAttribute() {}, querySelector: (s) => (s === 'canvas' ? canvas : s === '.bc-cap' ? cap : s === '.bc-ph' ? ph : null) };
+  };
+  const cells = [mkCell(), mkCell(), mkCell(), mkCell()], els = { '#bcCamG': { classList: { toggle() {} } }, '#bcCamSt': { innerHTML: '' }, '#bcCamW': { hidden: true }, '#bcCamUrl': { value: '' } };
+  const ws = { readyState: 1, sent: [], send(m) { this.sent.push(m); }, close() {}, texts() { return this.sent.map((m) => JSON.parse(m)); } };
+  const document = { hidden: false, querySelector(s) { const m = /data-camc="(\d)"/.exec(s); return m ? cells[+m[1]] : null; } };
+  const g = {
+    document, $: (s) => els[s], esc: (s) => String(s), location: { origin: ORIGIN, protocol: 'https:', host: 'efb-api.example' }, Date, Blob, URL, console,
+    performance: { now: () => st.T }, requestAnimationFrame: (cb) => { st.raf.push(cb); return st.raf.length; },
+    createImageBitmap: async () => ({ width: 960, height: 540, close() {} }), setTimeout, clearTimeout,
+    ...(wc ? { VideoDecoder, EncodedVideoChunk, VideoFrame } : {}),
+  };
+  vm.createContext(g); vm.runInContext(camSrc, g);
+  const P = g.__cam; P.CAM.ws = ws;
+  P.camIn({ t: 'hello', role: 'view', pub: { on: true, v: '2.0.0', mode: 'h264', cams: [{ i: 0, name: 'Cockpit', on: true, w: 960, h: 540, codec: 'h264' }] }, watchers: 1 });
+  /* a screen refresh, `ms` later */
+  const tick = (ms = 16) => { st.T += ms; const L = st.raf.splice(0); for (const cb of L) cb(st.T); };
+  return { P, st, ws, cells, document, tick, g };
+}
+globalThis.__vm = await import('node:vm');
+
+await test('admin player: camAvcCodec reads profile, constraints and level from the SPS (High 3.1, High 4.0, Main, Baseline), or falls back by width', async () => {
+  const { P } = mkPage();
+  const C = (a, w = 960) => P.camAvcCodec(Uint8Array.from(a), w);
+  assert.equal(C([...SPS, ...PPS, 0, 0, 0, 1, 0x65, 0x88]), 'avc1.64001f');
+  assert.equal(C([0, 0, 0, 1, 0x67, 0x64, 0x00, 0x28, 0xac, 0xd9, 0x40, 0x78, 0x02, 0x27, 0xe5, 0, 0, 0, 1, 0x68, 0xeb, 0, 0, 1, 0x65, 0x88]), 'avc1.640028');
+  assert.equal(C([0, 0, 0, 1, 0x09, 0xf0, 0, 0, 1, 0x67, 0x4d, 0x40, 0x29, 0x95, 0xa0, 0x1e]), 'avc1.4d4029');   /* after an AUD, 3-byte start code */
+  assert.equal(C([0, 0, 1, 0x27, 0x42, 0xc0, 0x1e, 0x8c, 0x8d]), 'avc1.42c01e');                               /* nal_ref_idc 1 */
+  assert.equal(C([0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0]), 'avc1.64001f');                                        /* no SPS: by width */
+  assert.equal(C([0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0], 1920), 'avc1.640028');
+  assert.equal(C([0, 0, 0, 1, 0x67, 0x64]), 'avc1.64001f');                                                    /* cut short */
+  assert.equal(C([]), 'avc1.64001f');
+});
+
+await test('admin player: H.264 is decoded with WebCodecs (Annex-B, no description), drawn smoothly, every VideoFrame closed; an error resets it and asks for a key frame; JPEG and leaving close everything', async () => {
+  const { P, st, ws, cells, document, tick } = mkPage();
+  const c = P.CAM.c[0], keys = () => ws.texts().filter((m) => m.t === 'key'), acks = () => ws.texts().filter((m) => m.t === 'ack');
+  /* a P frame first: nothing to decode, a key frame asked for (once a second at most) */
+  P.camFrame(h264({ seq: 1 })); P.camFrame(h264({ seq: 2 }));
+  assert.equal(st.decs.length, 0); assert.deepEqual(keys(), [{ t: 'key', cam: 0 }]);
+  /* the key frame: a decoder, configured from its SPS */
+  P.camFrame(h264({ key: true, seq: 3 }));
+  assert.equal(st.decs.length, 1);
+  const d0 = st.decs[0];
+  assert.deepEqual({ ...d0.config }, { codec: 'avc1.64001f', optimizeForLatency: true, hardwareAcceleration: 'prefer-hardware' });
+  assert.equal('description' in d0.config, false);
+  assert.equal(d0.chunks[0].type, 'key'); assert.equal(d0.chunks[0].data[4], 0x67);   /* the picture, without the header */
+  for (let s = 4; s <= 12; s++) P.camFrame(h264({ seq: s, dur: s < 8 ? 33 : 0 }));
+  assert.deepEqual(d0.chunks.map((x) => x.type), ['key', ...Array(9).fill('delta')]);
+  const ts = d0.chunks.map((x) => x.timestamp);
+  assert.ok(ts.every((x, i) => i === 0 || x - ts[i - 1] === 33000), String(ts));      /* duration_ms (0: 33) */
+  /* acks: after 8 frames at once */
+  assert.ok(acks().length >= 1); assert.equal(acks()[0].cam, 0);
+  /* the first frame is drawn at once, then at the stream's pace */
+  tick(); assert.equal(cells[0].canvas.draws, 1); assert.equal(cells[0].canvas.hidden, false);
+  assert.equal(st.closed, 1);
+  for (let i = 0; i < 40; i++) tick(16);
+  assert.ok(cells[0].canvas.draws > 5 && cells[0].canvas.draws <= 10, String(cells[0].canvas.draws));
+  /* a burst with no screen refresh: at most 24 wait, the rest closed */
+  for (let s = 13; s <= 80; s++) { P.camFrame(h264({ seq: s })); assert.ok(c.q.length <= 24); }
+  assert.equal(st.made - st.closed, c.q.length);
+  /* far behind (over 0.65 s waiting): the oldest are dropped and closed */
+  tick(16); assert.ok((c.q[c.q.length - 1].ts - c.q[0].ts) / 1000 <= 650);
+  assert.equal(st.made - st.closed, c.q.length);
+  /* the caption says what it is */
+  P.camUi(); assert.match(cells[0].em.textContent, /^H\.264 · 960 × 540/);
+  /* a hidden page keeps none */
+  document.hidden = true; P.camFrame(h264({ seq: 81 })); assert.equal(c.q.length, 0); document.hidden = false;
+  assert.equal(st.made, st.closed);
+  /* the decoder fails: closed, its frames closed, a key frame asked for at once; P frames wait for it */
+  P.camFrame(h264({ seq: 82 })); P.camFrame(h264({ seq: 83 })); assert.ok(c.q.length > 0);
+  const nk = keys().length; d0.error(new Error('decode'));
+  assert.equal(d0.state, 'closed'); assert.equal(c.dec, null); assert.equal(c.q.length, 0); assert.equal(c.needKey, true);
+  assert.equal(keys().length, nk + 1); assert.equal(st.made, st.closed);
+  P.camFrame(h264({ seq: 84 })); assert.equal(st.decs.length, 1);
+  P.camFrame(h264({ key: true, seq: 85, w: 1920, h: 1080 })); assert.equal(st.decs.length, 2);
+  assert.equal(st.decs[1].config.codec, 'avc1.64001f');                          /* from the SPS, not the width */
+  /* decode() throwing does the same */
+  st.decs[1].decode = () => { throw new Error('boom'); };
+  P.camFrame(h264({ seq: 86, w: 1920, h: 1080 })); assert.equal(c.dec, null); assert.equal(c.needKey, true);
+  P.camFrame(h264({ key: true, seq: 87, w: 1920, h: 1080 })); P.camFrame(h264({ seq: 88, w: 1920, h: 1080 }));
+  assert.equal(st.decs.length, 3); assert.ok(c.q.length >= 1);
+  /* back to JPEG: the decoder and its frames go at once, the JPEG is drawn as in Stage 1 */
+  P.camFrame(frame({ seq: 89 }));
+  assert.equal(st.decs[2].state, 'closed'); assert.equal(c.dec, null); assert.equal(c.q.length, 0); assert.equal(c.codec, 1);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(cells[0].canvas.width, 960); P.camUi(); assert.match(cells[0].em.textContent, /^JPEG/);
+  /* H.264 again on two cameras, then the page leaves: every decoder closed, every frame closed */
+  P.camFrame(h264({ key: true, seq: 90 })); P.camFrame(h264({ cam: 1, key: true, seq: 1 })); P.camFrame(h264({ cam: 1, seq: 2 }));
+  assert.ok(P.CAM.c[1].q.length > 0);
+  P.camClose();
+  assert.ok(st.decs.every((d) => d.state === 'closed')); assert.ok(P.CAM.c.every((x) => !x.dec && !x.q.length));
+  assert.equal(st.made, st.closed);
+});
+
+await test('admin player: Polaris Cam going offline (and camBlank) closes all four decoders; a browser without WebCodecs says so and does not fail', async () => {
+  const { P, st } = mkPage();
+  for (let i = 0; i < 4; i++) { P.camFrame(h264({ cam: i, key: true, seq: 1 })); P.camFrame(h264({ cam: i, seq: 2 })); }
+  assert.equal(st.decs.length, 4);
+  P.camIn({ t: 'pub', pub: { on: false, cams: [] }, watchers: 1 });
+  assert.ok(st.decs.every((d) => d.state === 'closed')); assert.equal(st.made, st.closed);
+  const N = mkPage({ wc: false });
+  assert.doesNotThrow(() => { N.P.camFrame(h264({ key: true, seq: 1 })); N.P.camFrame(h264({ seq: 2 })); });
+  N.P.camUi();
+  assert.equal(N.cells[0].ph.hidden, false); assert.equal(N.cells[0].ph.textContent, 'H.264 needs Chrome or Edge');
+  assert.match(N.cells[0].em.textContent, /^H\.264/);
+  /* and JPEG still works there */
+  N.P.camFrame(frame({ seq: 3 })); await new Promise((r) => setTimeout(r, 10));
+  assert.equal(N.cells[0].canvas.hidden, false); N.P.camUi(); assert.equal(N.cells[0].ph.hidden, true);
 });
 
 globalThis.fetch = realFetch; Date.now = realNow;

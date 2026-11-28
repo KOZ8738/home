@@ -1004,7 +1004,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
  /* a ? explanation opens in the flow of the page, on an iPad as on a phone (not over what follows): the row of its heading
     wraps, and the open ? takes a row of its own under the heading, the explanation across the page */
  .help{position:static}.help>div{position:static;top:auto;left:12px;right:12px;width:auto;max-width:none;margin-top:8px}
- .pg-h:has(>.help[open]){flex-wrap:wrap}.pg-h>.help[open]{flex-basis:100%}
+ .pg-h:has(>.help[open]),.cm-h:has(>.help[open]){flex-wrap:wrap}.pg-h>.help[open],.cm-h>.help[open]{flex-basis:100%}
 }
 /* in the EFB's Admin app (a frame): a lower header, and on a narrow screen a shorter map, so the flight list and the open
    flight's panel (the Cockpit Monitor) show without scrolling far */

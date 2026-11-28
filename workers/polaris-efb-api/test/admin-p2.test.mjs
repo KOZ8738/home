@@ -850,7 +850,7 @@ await test('C18–23 the sidebar\'s labels, OOOI on a phone, the Messages list\'
   assert.equal(decl('(max-width:420px)', '.fo-t>div:nth-child(3n+1)', 'border-left'), '0');
   assert.equal(decl('', '.cm-side', 'max-height'), 'calc(100svh - 83px - 16px)');
   assert.equal(decl('(max-width:900px)', '.help>div', 'position'), 'static'); assert.equal(decl('(max-width:900px)', '.help>div', 'width'), 'auto'); assert.equal(decl('(max-width:900px)', '.help>div', 'max-width'), 'none');
-  assert.equal(decl('(max-width:900px)', '.pg-h:has(>.help[open])', 'flex-wrap'), 'wrap', 'the heading row wraps'); assert.equal(decl('(max-width:900px)', '.pg-h>.help[open]', 'flex-basis'), '100%', 'the open ? under the heading'); assert.equal(decl('(max-width:900px)', '.help', 'position'), 'static'); assert.equal(decl('(max-width:600px)', '.help>div', 'position'), 'static');
+  for (const h of ['.pg-h', '.cm-h']) { assert.equal(decl('(max-width:900px)', h + ':has(>.help[open])', 'flex-wrap'), 'wrap', h + ' heading row wraps'); assert.equal(decl('(max-width:900px)', h + '>.help[open]', 'flex-basis'), '100%', h + ' open ? under the heading'); } assert.equal(decl('(max-width:900px)', '.help', 'position'), 'static'); assert.equal(decl('(max-width:600px)', '.help>div', 'position'), 'static');
   assert.ok(decl('', '.ws-auth', 'position'), 'the sign-in notice is styled');
   const STATIC = (() => { const b = ADMIN_HTML.indexOf('<body>'), e = ADMIN_HTML.indexOf('<script', b); return ADMIN_HTML.slice(b, e); })();
   for (const id of ['send', 'cancel', 'dcSave', 'dcCancel', 'setSave']) assert.match(STATIC, new RegExp('<button type="button"[^>]*id="' + id + '"'), id);

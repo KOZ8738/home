@@ -3,7 +3,9 @@
 //
 //   polaris-cam-remote-test.exe        (Node.js 18 or later on PATH)
 //
-// First the parts on their own: links, the picture header, the hello, the
+// First the parts on their own: links (the Broadcast link and a pilot's own),
+// Polaris Navdata's pairing (cloud.json with a key under this Windows user's
+// DPAPI, the servers its key may go to), the picture header, the hello, the
 // relay's messages, NAL units, the halving, and the H.264 encoder on this
 // computer's graphics card (its NV12 colours, key pictures, P pictures, a key
 // picture when asked). Then the real thing against a stand-in for the
@@ -13,7 +15,11 @@
 // JPEG, each H.264 picture's NAL units and its SPS's size and colour) and
 // plays the relay's part: watch 1 and 0, a key picture asked for, a network
 // that stops, a close with 4004, 1011 and 4000, a refused link, one that never
-// answers. Its findings come back as lines on its output. Camera 0's pictures
+// answers; and the EFB server's for the automatic mode (no link): tickets for
+// Navdata's key at POST /api/nav/ticket (401, 503, one never answered), and
+// /live/cam/pilot/ws with one (4001 for a ticket used, 4000, 4004). The test's
+// own cloud.json files are in its temporary folder: this PC's own pairing is
+// never read. Its findings come back as lines on its output. Camera 0's pictures
 // are copied from a Direct3D 11 texture on the software adapter, as the window
 // does with the bridge's. Without a hardware H.264 encoder only JPEG is tested.
 // Exit code 0 when everything held.
@@ -22,6 +28,7 @@
 #include <d3d11_1.h>
 #include <wincodec.h>
 #include <windows.h>
+#include <wincrypt.h>
 #include <psapi.h>
 #include <algorithm>
 #include <chrono>
@@ -97,6 +104,213 @@ void test_parse() {
       ++failures;
     }
   }
+  // A pilot's own link: /live/cam/p/<pilot>/<token>, the pilot upper case.
+  CHECK(parse_url(L"https://efb-api.koz8738.com/live/cam/p/paw0006/Tok_en-1", e) && e.host == L"efb-api.koz8738.com" && e.port == 443 &&
+        e.secure && !e.local && e.path == L"/live/cam/p/PAW0006/Tok_en-1/ws");
+  CHECK(parse_url(L"  wss://Example.COM:8443/live/cam/p/PaW0006/tok/ws/ \r\n", e) && e.host == L"example.com" && e.port == 8443 &&
+        e.path == L"/live/cam/p/PAW0006/tok/ws");
+  CHECK(parse_url(L"http://127.0.0.1:8787/live/cam/p/ab/t/", e) && !e.secure && e.local && e.port == 8787 && e.path == L"/live/cam/p/AB/t/ws");
+  CHECK(parse_url(L"ws://localhost:9000/live/cam/p/X1/tok/ws", e) && !e.secure && e.local && e.path == L"/live/cam/p/X1/tok/ws");
+  CHECK(parse_url(L"https://example.com/live/cam/p/ABCDEFGHIJ123456/tok?from=admin#x", e) && e.path == L"/live/cam/p/ABCDEFGHIJ123456/tok/ws");
+  CHECK(parse_url(L"http://example.com/live/cam/p/paw1/tok", e) && e.secure && e.port == 443);  // not this computer: TLS
+  // The Broadcast link as before, also with a token that starts like one.
+  CHECK(parse_url(L"https://example.com/live/cam/pilots", e) && e.path == L"/live/cam/pilots/ws");
+  CHECK(parse_url(L"https://example.com/live/cam/pp/ws", e) && e.path == L"/live/cam/pp/ws");
+  for (const wchar_t* bad :
+       {L"https://example.com/live/cam/p", L"https://example.com/live/cam/p/", L"https://example.com/live/cam/p/ws",
+        L"https://example.com/live/cam/p/PAW0006", L"https://example.com/live/cam/p/PAW0006/", L"https://example.com/live/cam/p/PAW0006/ws",
+        L"https://example.com/live/cam/p//tok", L"https://example.com/live/cam/p/A/tok", L"https://example.com/live/cam/p/ABCDEFGHIJ1234567/tok",
+        L"https://example.com/live/cam/p/PAW-06/tok", L"https://example.com/live/cam/p/PAW_06/tok", L"https://example.com/live/cam/p/PAW.06/tok",
+        L"https://example.com/live/cam/p/ＰＡＷ/tok", L"https://example.com/live/cam/p/PAW0006/tok/extra",
+        L"https://example.com/live/cam/p/PAW0006/tok/ws/x", L"https://example.com/live/cam/p/PAW0006/..", L"https://example.com/live/cam/p/PAW0006/.",
+        L"https://example.com/live/cam/p/PAW0006/to ken", L"https://example.com/live/cam/P/PAW0006/tok", L"https://example.com/live/cam/pilot",
+        L"https://example.com/live/cam/pilot/", L"https://example.com/live/cam/pilot/ws", L"https://example.com/live/cam/Pilot/ws",
+        L"https://example.com/live/cam/pilot/ws?ticket=wn.abcdefghijklmnop.sig", L"http://127.0.0.1:8787/live/cam/pilot/ws"}) {
+    if (parse_url(bad, e)) {
+      std::printf("FAIL: taken as a link: \"%ls\" (%ls)\n", bad, e.path.c_str());
+      ++failures;
+    }
+  }
+}
+
+// --- the automatic mode: Navdata's pairing ---------------------------------------------
+std::string b64(std::string_view bytes, bool url) {
+  const char* chars = url ? "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+                          : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  std::size_t i = 0;
+  for (; i + 2 < bytes.size(); i += 3) {
+    const unsigned v = (static_cast<unsigned char>(bytes[i]) << 16) | (static_cast<unsigned char>(bytes[i + 1]) << 8) |
+                       static_cast<unsigned char>(bytes[i + 2]);
+    out += chars[(v >> 18) & 63];
+    out += chars[(v >> 12) & 63];
+    out += chars[(v >> 6) & 63];
+    out += chars[v & 63];
+  }
+  if (i < bytes.size()) {
+    const unsigned v = (static_cast<unsigned char>(bytes[i]) << 16) | (i + 1 < bytes.size() ? static_cast<unsigned char>(bytes[i + 1]) << 8 : 0);
+    out += chars[(v >> 18) & 63];
+    out += chars[(v >> 12) & 63];
+    if (i + 1 < bytes.size())
+      out += chars[(v >> 6) & 63];
+    else if (!url)
+      out += '=';
+    if (!url)
+      out += '=';
+  }
+  return out;
+}
+// A key as the EFB server signs one: nk.<base64url of {"u","kid","exp"}>.<signature>.
+std::string make_key(const char* user, const char* signature) {
+  return "nk." + b64(std::string("{\"u\":\"") + user + "\",\"kid\":\"k1\",\"exp\":9999999999999}", true) + "." + signature;
+}
+// As Polaris Navdata keeps it: ProtectedData.Protect(UTF-8, null, CurrentUser), base64.
+std::string protect(const std::string& text) {
+  DATA_BLOB in{static_cast<DWORD>(text.size()), reinterpret_cast<BYTE*>(const_cast<char*>(text.data()))}, out{};
+  if (!CryptProtectData(&in, nullptr, nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &out))
+    return {};
+  const std::string blob(reinterpret_cast<const char*>(out.pbData), out.cbData);
+  LocalFree(out.pbData);
+  return b64(blob, false);
+}
+// cloud.json as Polaris Navdata writes it (server left out when empty).
+std::string cloud_json(const std::string& key, bool enc, const std::string& server) {
+  std::string out = "{\"key\":\"" + (enc ? protect(key) : key) + "\",\"enc\":" + (enc ? "true" : "false") + ",\"kid\":\"k1\"";
+  if (!server.empty())
+    out += ",\"server\":\"" + server + "\"";
+  return out + ",\"auto\":true,\"cal\":[1,1]}";
+}
+bool write_text(const std::wstring& path, const std::string& text) {
+  FILE* file = _wfopen(path.c_str(), L"wb");
+  if (!file)
+    return false;
+  const bool ok = std::fwrite(text.data(), 1, text.size(), file) == text.size();
+  return std::fclose(file) == 0 && ok;
+}
+
+void test_navdata() {
+  std::printf("== Navdata's pairing (cloud.json, DPAPI)\n");
+  // Its keys, its pilots, its tickets.
+  CHECK(navdata_key_ok("nk.abc.def") && navdata_key_ok("nk.A-b_9.x-Y_z"));
+  for (const char* bad : {"", "nk.", "nk.abc", "nk..def", "nk.abc.", "xx.abc.def", "NK.abc.def", "nk.a+b.def", "nk.a/b.def", "nk.a.b.c",
+                          "nk.abc.def ", " nk.abc.def", "nk.abc.d=f"})
+    if (navdata_key_ok(bad)) {
+      std::printf("FAIL: taken as a key: \"%s\"\n", bad);
+      ++failures;
+    }
+  CHECK(pilot_name("paw0006") == "PAW0006" && pilot_name("AB") == "AB" && pilot_name("ABCDEFGHIJ123456") == "ABCDEFGHIJ123456");
+  CHECK(pilot_name("A").empty() && pilot_name("ABCDEFGHIJ1234567").empty() && pilot_name("PAW-06").empty() && pilot_name("PAW 06").empty() &&
+        pilot_name("").empty());
+  const std::string key = make_key("PAW0006", "sig");
+  CHECK(navdata_key_ok(key) && navdata_key_pilot(key) == "PAW0006");
+  CHECK(navdata_key_pilot(make_key("paw0007", "s")) == "PAW0007");
+  CHECK(navdata_key_pilot(make_key("P", "s")).empty());
+  CHECK(navdata_key_pilot("nk." + b64("{\"kid\":\"k1\"}", true) + ".s").empty());
+  CHECK(navdata_key_pilot("nk.bm90IGpzb24.s").empty());  // "not json"
+  CHECK(ticket_ok("wn.dGVzdHRpY2tldA.c2lnbmF0dXJl") && ticket_ok(std::string(512, 'a')));
+  CHECK(!ticket_ok("wn.test.sig") && !ticket_ok(std::string(513, 'a')) && !ticket_ok("wn.abcdefghijklmn+p.sig") &&
+        !ticket_ok("wn.abcdefghijklmnop.s g") && !ticket_ok("wn.abcdefghijklmnop.s\"g"));
+  CHECK(id_pilot("{\"t\":\"id\",\"pilot\":\"PAW0006\"}") == "PAW0006");
+  CHECK(id_pilot("{ \"pilot\" : \"paw0006\" , \"t\" : \"id\" }") == "PAW0006");
+  CHECK(id_pilot("{\"t\":\"id\",\"pilot\":\"X\"}").empty() && id_pilot("{\"t\":\"id\",\"pilot\":7}").empty() &&
+        id_pilot("{\"t\":\"watch\",\"n\":1,\"pilot\":\"PAW0006\"}").empty() && id_pilot("pong").empty());
+  std::vector<unsigned char> bytes;
+  CHECK(base64_decode("aGVsbG8=", bytes, false) && std::string(bytes.begin(), bytes.end()) == "hello");
+  CHECK(base64_decode("aGVsbG8", bytes, false) && std::string(bytes.begin(), bytes.end()) == "hello");
+  CHECK(base64_decode("aGVs\r\nbG8gd29ybGQ=", bytes, false) && std::string(bytes.begin(), bytes.end()) == "hello world");
+  CHECK(base64_decode("-_8", bytes, true) && bytes.size() == 2 && bytes[0] == 0xFB && bytes[1] == 0xFF);
+  CHECK(base64_decode("+/8=", bytes, false) && bytes.size() == 2 && bytes[0] == 0xFB && bytes[1] == 0xFF);
+  CHECK(!base64_decode("-_8", bytes, false) && !base64_decode("+/8", bytes, true) && !base64_decode("a", bytes, false) &&
+        !base64_decode("aGVsbG8===", bytes, false) && !base64_decode("aGV=sbG8", bytes, false) && !base64_decode("aGVsbG8*", bytes, false));
+  // The servers its key may go to: the EFB server's, and this computer (a test).
+  Endpoint e;
+  CHECK(parse_navdata_server(DefaultNavdataServer, e) && e.host == L"efb-api.koz8738.com" && e.port == 443 && e.secure && !e.local);
+  CHECK(parse_navdata_server(L"HTTPS://EFB-API.KOZ8738.COM/", e) && e.host == L"efb-api.koz8738.com" && e.secure);
+  CHECK(parse_navdata_server(L"https://koz8738.com", e) && e.host == L"koz8738.com");
+  CHECK(parse_navdata_server(L"https://a.b-c.koz8738.com", e) && e.host == L"a.b-c.koz8738.com");
+  CHECK(parse_navdata_server(L"http://127.0.0.1:8787", e) && e.host == L"127.0.0.1" && e.port == 8787 && !e.secure && e.local);
+  CHECK(parse_navdata_server(L"https://localhost:9443", e) && e.port == 9443 && e.secure && e.local);
+  CHECK(parse_navdata_server(L"http://localhost", e) && e.port == 80 && !e.secure && e.local);
+  for (const wchar_t* bad :
+       {L"", L"https://evil.example.com", L"http://efb-api.koz8738.com", L"https://efb-api.koz8738.com:8443", L"https://evilkoz8738.com",
+        L"https://koz8738.com.evil.com", L"https://efb-api.koz8738.com/api", L"https://efb-api.koz8738.com?x", L"https://efb-api.koz8738.com#x",
+        L"https://user@efb-api.koz8738.com", L"https://.koz8738.com", L"https://a..koz8738.com", L"ftp://koz8738.com",
+        L"wss://efb-api.koz8738.com", L"https://192.168.1.2:8787", L"http://127.0.0.2:8787", L"https://[::1]:8787", L"efb-api.koz8738.com",
+        L"https://efb-api.koz8738.com//", L"http://localhost:0", L"http://localhost:99999"}) {
+    if (parse_navdata_server(bad, e)) {
+      std::printf("FAIL: taken as the EFB server: \"%ls\"\n", bad);
+      ++failures;
+    }
+  }
+  {
+    // %LOCALAPPDATA%\Polaris Navdata\cloud.json, as tools/polaris-navdata keeps it (only its name: never read here).
+    const std::wstring path = default_navdata_cloud_path();
+    constexpr std::wstring_view Tail = L"\\Polaris Navdata\\cloud.json";
+    const wchar_t* local = _wgetenv(L"LOCALAPPDATA");
+    CHECK(local && path == std::wstring(local) + std::wstring(Tail));
+  }
+
+  // cloud.json itself, in a folder of this test's own.
+  wchar_t temp[MAX_PATH]{};
+  GetTempPathW(MAX_PATH, temp);
+  wchar_t name[64];
+  std::swprintf(name, 64, L"polaris-cam-navdata-test-%lu", GetCurrentProcessId());
+  const std::wstring folder = std::wstring(temp) + name, cloud = folder + L"\\cloud.json";
+  CreateDirectoryW(folder.c_str(), nullptr);
+  NavdataPairing pairing;
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::missing && pairing.key.empty());
+  CHECK(read_navdata_pairing(folder + L"\\nowhere\\cloud.json", pairing) == PairingRead::missing);
+  CHECK(read_navdata_pairing(L"", pairing) == PairingRead::missing);
+  CHECK(!file_stamp(cloud).exists);
+  // 1. As Navdata keeps it on Windows: DPAPI, no server (the EFB server's).
+  const std::string protected_key = protect(key);
+  CHECK(!protected_key.empty());
+  CHECK(write_text(cloud, cloud_json(key, true, "")));
+  const FileStamp first = file_stamp(cloud);
+  CHECK(first.exists && first.size > 0);
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::ok);
+  CHECK(pairing.key == key && pairing.pilot == "PAW0006");
+  CHECK(pairing.server.host == L"efb-api.koz8738.com" && pairing.server.port == 443 && pairing.server.secure && !pairing.server.local);
+  // 2. The server named, this computer's (as Navdata's --cloud-server for a test), its '/' escaped as JSON may.
+  CHECK(write_text(cloud, cloud_json(key, true, "http:\\/\\/127.0.0.1:8787")));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::ok && pairing.key == key && pairing.server.host == L"127.0.0.1" &&
+        pairing.server.port == 8787 && !pairing.server.secure && pairing.server.local);
+  CHECK(write_text(cloud, cloud_json(key, true, "https://efb-api.koz8738.com")));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::ok && pairing.server.host == L"efb-api.koz8738.com");
+  // 3. Another server: the key does not go there.
+  CHECK(write_text(cloud, cloud_json(key, true, "https://evil.example.com")));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::invalid && pairing.key.empty() && pairing.pilot.empty());
+  // 4. Without DPAPI (enc false, or not there): the key as it is.
+  CHECK(write_text(cloud, cloud_json(make_key("paw0007", "plain"), false, "http://localhost:9000")));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::ok && pairing.key == make_key("paw0007", "plain") && pairing.pilot == "PAW0007" &&
+        pairing.server.port == 9000);
+  CHECK(write_text(cloud, "\xEF\xBB\xBF {\"key\":\"" + key + "\"}\r\n"));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::ok && pairing.key == key);
+  // 5. Unpaired (no key) and not pairings.
+  CHECK(write_text(cloud, "{\"key\":\"\",\"enc\":false}"));
+  CHECK(read_navdata_pairing(cloud, pairing) == PairingRead::missing);
+  for (const std::string& bad : {std::string(""), std::string("not json"), std::string("{\"enc\":true}"), std::string("{\"key\":null}"),
+                                 std::string("{\"key\":12345}"), std::string("{\"key\":\"nk.abc.def"),
+                                 std::string("{\"key\":\"not a key\",\"enc\":false}"), std::string("{\"key\":\"!!!\",\"enc\":true}"),
+                                 "{\"key\":\"" + b64("not a DPAPI blob at all", false) + "\",\"enc\":true}",
+                                 "{\"key\":\"" + protect("nk.only-two") + "\",\"enc\":true}",
+                                 "{\"key\":\"" + key + "\",\"server\":\"http://example.com\"}",
+                                 "{\"key\":\"" + key + "\",\"server\":\"https://efb-api.koz8738.com.evil.com\"}"}) {
+    CHECK(write_text(cloud, bad));
+    if (read_navdata_pairing(cloud, pairing) != PairingRead::invalid || !pairing.key.empty()) {
+      std::printf("FAIL: taken as a pairing: %s\n", bad.c_str());
+      ++failures;
+    }
+  }
+  // 6. Written again: its stamp changes (what a refused key waits for).
+  CHECK(write_text(cloud, cloud_json(key, true, "")));
+  const FileStamp again = file_stamp(cloud);
+  CHECK(again.exists && !(again == FileStamp{}));
+  CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "other-signature"), true, "")));
+  CHECK(!(file_stamp(cloud) == again));
+  DeleteFileW(cloud.c_str());
+  CHECK(!file_stamp(cloud).exists);
+  RemoveDirectoryW(folder.c_str());
 }
 void test_header() {
   unsigned char h[HeaderSize];
@@ -378,7 +592,65 @@ const http = require('http'), crypto = require('crypto'), fs = require('fs'), pa
 const outDir = process.argv[2];
 const log = (...a) => process.stdout.write(a.join(' ') + '\n');
 const counts = {}, conns = {};
+// The EFB server's POST /api/nav/ticket, for the automatic mode: Navdata's key
+// (nk.<payload>.<sig>) as the Bearer; what it does goes by the key's <sig>:
+// revoked* 401, flaky* 503 the first time, hang* never answers, any other a
+// ticket, good for one connection (as the server's: one use).
+const issued = new Map(), asked = {};
+let ticketN = 0;
+function onRequest(req, res) {
+  const q = req.url.indexOf('?'), pathname = q < 0 ? req.url : req.url.slice(0, q);
+  if (pathname !== '/api/nav/ticket') { res.writeHead(426); res.end(); return; }
+  if (req.method !== 'POST') { log('TICKETMETHOD', req.method); res.writeHead(405); res.end(); return; }
+  if (q >= 0) log('TICKETQUERY');
+  const m = /^Bearer (nk\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+))$/.exec(req.headers.authorization || '');
+  if (!m) { log('TICKETBADAUTH', JSON.stringify(req.headers.authorization || '')); res.writeHead(401); res.end('{"error":"Not paired"}'); return; }
+  let u = '';
+  try { u = JSON.parse(Buffer.from(m[2], 'base64url').toString('utf8')).u; } catch { u = '?'; }
+  const sig = m[3]; asked[sig] = (asked[sig] || 0) + 1;
+  req.resume();
+  if (sig.startsWith('hang')) { log('TICKETHANG', sig); req.socket.on('error', () => {}); return; }
+  if (sig.startsWith('revoked')) { log('TICKET401', sig); res.writeHead(401, { 'Content-Type': 'application/json' }); res.end('{"error":"Not paired"}'); return; }
+  if (sig.startsWith('flaky') && asked[sig] === 1) { log('TICKET503', sig); res.writeHead(503); res.end(); return; }
+  const n = ++ticketN, t = 'wn.' + Buffer.from(JSON.stringify({ u, n, exp: Date.now() + 60000 })).toString('base64url') + '.' + sig;
+  issued.set(t, { sig, n, used: false });
+  log('TICKET', sig, n, 'u=' + u);
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ticket: t }));
+}
+function accept(req, socket, what) {
+  if (req.headers.upgrade?.toLowerCase() !== 'websocket' || req.headers['sec-websocket-version'] !== '13') log('BADUPGRADE', what);
+  const accept = crypto.createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+}
 function onUpgrade(req, socket) {
+  // Navdata's key goes to /api/nav/ticket only, never with the WebSocket.
+  if (req.url.includes('nk.')) log('KEYINURL');
+  if (req.headers.authorization) log('AUTHONWS');
+  const q = req.url.indexOf('?'), pathname = q < 0 ? req.url : req.url.slice(0, q);
+  if (pathname === '/live/cam/pilot/ws') {
+    // The automatic mode's: as the pilot whose ticket it is; the pilot named at once.
+    const t = new URLSearchParams(q < 0 ? '' : req.url.slice(q + 1)).get('ticket') || '';
+    const rec = issued.get(t);
+    accept(req, socket, 'pilot');
+    if (!rec || rec.used) { log(rec ? 'TICKETREUSED' : 'TICKETUNKNOWN', rec ? rec.sig : t.slice(0, 12)); new Conn(socket, 'pilot-bad', 0).close(4001, 'ticket'); return; }
+    rec.used = true;
+    const token = 'pilot-' + rec.sig;
+    counts[token] = (counts[token] || 0) + 1;
+    log('PILOTCONNECT', rec.sig, counts[token], 'ticket=' + rec.n);
+    conns[token] = new Conn(socket, token, counts[token]);
+    conns[token].text('{"t":"id","pilot":"PAW0006"}');
+    return;
+  }
+  const p = /^\/live\/cam\/p\/([A-Z0-9]{2,16})\/([A-Za-z0-9_-]+)\/ws$/.exec(req.url);
+  if (p) {
+    // A pilot's own link (manual).
+    const token = 'p-' + p[1] + '-' + p[2];
+    accept(req, socket, token);
+    counts[token] = (counts[token] || 0) + 1;
+    log('PCONNECT', p[1], p[2], counts[token]);
+    conns[token] = new Conn(socket, token, counts[token]);
+    return;
+  }
   const m = /^\/live\/cam\/([A-Za-z0-9_-]+)\/ws$/.exec(req.url);
   const token = m ? m[1] : '';
   if (!m || token === 'missing') {
@@ -387,9 +659,7 @@ function onUpgrade(req, socket) {
     return;
   }
   if (token === 'hang') { log('HANGING'); socket.on('error', () => {}); return; }  // never answers
-  if (req.headers.upgrade?.toLowerCase() !== 'websocket' || req.headers['sec-websocket-version'] !== '13') log('BADUPGRADE', token);
-  const accept = crypto.createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
-  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+  accept(req, socket, token);
   counts[token] = (counts[token] || 0) + 1;
   log('CONNECT', token, counts[token]);
   conns[token] = new Conn(socket, token, counts[token]);
@@ -610,6 +880,22 @@ function sps(nal) {
   } else if (c.token === 'fallback') {
     c.watch(1);
     c.onframe = () => { if (c.jpegs >= 5 && !c.done) { c.done = true; c.close(4004, 'expired'); } };
+  } else if (c.token.startsWith('pilot-')) {
+    // The automatic mode's, by the key's <sig>: replace* 4000, gone* 4004; good*
+    // watched, and its first connection closed with 4001 (its ticket run out)
+    // after five pictures; any other watched until the test is done.
+    const sig = c.token.slice(6);
+    if (sig.startsWith('replace')) { setTimeout(() => c.close(4000, 'replaced'), 200); return; }
+    if (sig.startsWith('gone')) { setTimeout(() => c.close(4004, 'gone'), 200); return; }
+    c.watch(1);
+    c.onframe = () => {
+      if (c.valid < 5 || c.done) return;
+      c.done = true; c.onframe = null;
+      if (sig.startsWith('good') && c.n === 1) setTimeout(() => c.close(4001, 'ticket expired'), 200);
+      else log('PILOTFRAMES', sig, c.n, c.valid);
+    };
+  } else if (c.token.startsWith('p-')) {
+    setTimeout(() => c.close(4004, 'revoked'), 300);
   }
 }
 // Commands from the test, one a line.
@@ -623,15 +909,17 @@ process.stdin.on('data', d => {
       log('RESUMED', c.token); c.s.resume(); c.parse();
     } else if (line === 'stats stall' && conns.stall) {
       const c = conns.stall; log('STALLSTATS', 'h264=' + c.h264[0], 'gapkeys=' + c.gapKeys, 'after=' + c.afterResume);
+    } else if (line.startsWith('unwatch ') && conns[line.slice(8)]) {
+      conns[line.slice(8)].watch(0);
     }
   }
 });
-const server = http.createServer((req, res) => { res.writeHead(426); res.end(); });
+const server = http.createServer(onRequest);
 server.on('upgrade', onUpgrade);
 server.listen(0, '127.0.0.1', () => {
   const port = server.address().port;
   // localhost may be ::1 first
-  const six = http.createServer((req, res) => { res.writeHead(426); res.end(); });
+  const six = http.createServer(onRequest);
   six.on('upgrade', onUpgrade);
   six.on('error', () => {});
   six.listen(port, '::1', () => {});
@@ -1205,16 +1493,24 @@ int run_relay_tests() {
       CHECK(relay.count("REFUSED missing") == 1);
     }
 
-    // 7. Links that are not links.
+    // 7. Links that are not links; and no link at all, the automatic mode (with
+    //    a cloud.json of its own that is not there: never this PC's own pairing).
     {
       std::printf("== not a link\n");
-      RemoteStream stream;
+      Options options;
+      options.navdata_cloud_path = folder + L"\\none\\cloud.json";
+      RemoteStream stream(options);
       stream.configure(true, L"https://example.com/live/other/tok");
-      CHECK(stream.state() == State::invalid_url);
+      CHECK(stream.state() == State::invalid_url && !stream.auto_mode());
       CHECK(stream.status_text(now_ms()) == L"遠端：連線碼格式不正確");
+      stream.configure(true, L"https://example.com/live/cam/pilot/ws");
+      CHECK(stream.state() == State::invalid_url);
       stream.configure(true, L"   ");
-      CHECK(stream.state() == State::no_url);
+      CHECK(stream.auto_mode());
+      CHECK(wait_until(5000, [&] { return stream.state() == State::not_paired; }));
       CHECK(!stream.wants_frame(0, now_ms()));
+      stream.configure(false, L"   ");
+      CHECK(stream.state() == State::off && !stream.auto_mode());
     }
 
     // 8. Turned off while the relay has not answered: at once, not after WinHTTP's waits.
@@ -1260,6 +1556,214 @@ int run_relay_tests() {
       CHECK(wait_until(5000, [&] { return relay.count("CLIENTCLOSE stay 1000") == 1; }));
       CHECK(relay.count("CONNECT stay") == 1);
     }
+
+    // 10. A pilot's own link (manual): its path as the relay sees it, then 4004.
+    {
+      std::printf("== a pilot's own link, then close 4004\n");
+      Options options;
+      options.prefer_h264 = false;
+      RemoteStream stream(options);
+      stream.set_cams(cams);
+      std::swprintf(url, 160, L" http://127.0.0.1:%d/live/cam/p/paw0006/ownTok-1/ ", port);
+      stream.configure(true, url);
+      CHECK(!stream.auto_mode());
+      CHECK(wait_until(10000, [&] { return stream.state() == State::expired; }));
+      CHECK(relay.count("PCONNECT PAW0006 ownTok-1 1") == 1 && relay.count("HELLO_OK p-PAW0006-ownTok-1") == 1);
+      CHECK(relay.count("SERVERCLOSE p-PAW0006-ownTok-1 4004") == 1);
+      CHECK(stream.status_text(now_ms()) == L"遠端：連線碼已失效，請從後台重新複製");
+      sleep_ms(2000);
+      CHECK(relay.count("PCONNECT PAW0006") == 1);  // not tried again
+    }
+
+    // 11. No link: as Navdata's pilot. Not paired yet (no cloud.json): it waits,
+    //     and connects by itself once the pilot pairs (cloud.json written, with
+    //     DPAPI). A ticket for the key, the relay with it, the pilot named by the
+    //     relay; pictures; the relay closes with 4001 (the ticket run out): a fresh
+    //     ticket at once, and the relay again with it. Watch 0; leaving.
+    {
+      std::printf("== automatic: not paired, paired, a ticket, 4001, a fresh ticket\n");
+      const std::wstring dir = folder + L"\\auto1", cloud = dir + L"\\cloud.json";
+      Options options;
+      options.prefer_h264 = false;
+      options.ping_ms = 400;
+      options.navdata_cloud_path = cloud;
+      options.pair_poll_ms = 300;
+      RemoteStream stream(options);
+      stream.set_cams(cams);
+      stream.configure(true, L"");
+      CHECK(stream.auto_mode());
+      CHECK(wait_until(5000, [&] { return stream.state() == State::not_paired; }));
+      const auto unpaired = stream.status_text(now_ms());
+      std::printf("  status: %ls\n", unpaired.c_str());
+      CHECK(unpaired == L"遠端：未配對 Polaris Navdata（請於 EFB 配對，或貼上手動連結）");
+      sleep_ms(1000);
+      CHECK(stream.state() == State::not_paired && relay.count("TICKET") == 0);
+      char server[64];
+      std::snprintf(server, sizeof(server), "http://127.0.0.1:%d", port);
+      CreateDirectoryW(dir.c_str(), nullptr);
+      CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "good1"), true, server)));
+      const auto paired_at = now_ms();
+      bool sending_text = false, connecting_text = false;
+      std::uint64_t last_picture = 0;
+      CHECK(wait_until(30000, [&] {
+        const auto now = now_ms();
+        if (now - last_picture >= 200) {
+          last_picture = now;
+          stream.maybe_capture(0, device, context, texture, 1920, 1080, now);
+        }
+        stream.poll(device, context);
+        const auto text = stream.status_text(now);
+        if (!connecting_text && stream.state() == State::connecting && text == L"遠端：連線中…（自動｜PAW0006）")
+          connecting_text = true;
+        double fps = 0;
+        if (!sending_text && stream.watchers() == 1 &&
+            std::swscanf(text.c_str(), L"遠端：傳送中（自動｜PAW0006｜1 人｜JPEG｜%lf fps｜", &fps) == 1) {
+          sending_text = true;
+          std::printf("  status: %ls\n", text.c_str());
+        }
+        return relay.count("PILOTFRAMES good1 2") == 1;
+      }));
+      std::printf("  connected %llu ms after cloud.json was written\n",
+                  static_cast<unsigned long long>(relay.time_of("PILOTCONNECT good1 1", 1) - paired_at));
+      CHECK(relay.time_of("PILOTCONNECT good1 1", 1) - paired_at <= 3000);
+      CHECK(sending_text);
+      CHECK(stream.pilot() == L"PAW0006");
+      CHECK(relay.count("TICKET good1 1 u=PAW0006") == 1 && relay.count("TICKET good1 2 u=PAW0006") == 1);
+      CHECK(relay.count("PILOTCONNECT good1 1 ticket=1") == 1 && relay.count("PILOTCONNECT good1 2 ticket=2") == 1);
+      CHECK(relay.count("SERVERCLOSE pilot-good1 4001") == 1);
+      CHECK(relay.count("HELLO_OK pilot-good1 mode=jpeg") == 2);
+      const auto refused_at = relay.time_of("SERVERCLOSE pilot-good1 4001", 1), fresh_at = relay.time_of("TICKET good1 2", 1);
+      std::printf("  a fresh ticket %llu ms after 4001\n", static_cast<unsigned long long>(fresh_at - refused_at));
+      CHECK(fresh_at > refused_at && fresh_at - refused_at <= 1500);
+      CHECK(relay.count("FRAME pilot-good1") >= 10);
+      // Not watched: 待機中, as the pilot.
+      relay.command("unwatch pilot-good1");
+      CHECK(wait_until(5000, [&] { return stream.watchers() == 0; }));
+      const auto idle = stream.status_text(now_ms());
+      std::printf("  status: %ls\n", idle.c_str());
+      CHECK(idle == L"遠端：待機中（自動｜PAW0006｜0 人觀看）");
+      CHECK(stream.tickets() == 2 && stream.connections() == 2);
+      const auto before = now_ms();
+      stream.stop();
+      std::printf("  stopped in %llu ms\n", static_cast<unsigned long long>(now_ms() - before));
+      CHECK(now_ms() - before < 600);
+      // The answer to 4001, and the close of our own when leaving.
+      CHECK(wait_until(5000, [&] { return relay.count("CLIENTCLOSE pilot-good1 1000") == 2; }));
+      (void)connecting_text;  // shown only for a moment: not required
+      DeleteFileW(cloud.c_str());
+      RemoveDirectoryW(dir.c_str());
+    }
+
+    // 12. The key refused (401: unpaired on the EFB, or signed out): expired, and
+    //     not asked again until cloud.json changes; paired again (another key),
+    //     its first ask fails (503): tried again after the wait, then connected,
+    //     as the pilot the relay names (the key's until then).
+    {
+      std::printf("== automatic: 401 until cloud.json changes; 503 tried again\n");
+      const std::wstring dir = folder + L"\\auto2", cloud = dir + L"\\cloud.json";
+      char server[64];
+      std::snprintf(server, sizeof(server), "http://localhost:%d/", port);
+      CreateDirectoryW(dir.c_str(), nullptr);
+      CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "revoked1"), true, server)));
+      Options options;
+      options.prefer_h264 = false;
+      options.navdata_cloud_path = cloud;
+      options.pair_poll_ms = 300;
+      RemoteStream stream(options);
+      stream.set_cams(cams);
+      stream.configure(true, L" ");
+      CHECK(wait_until(10000, [&] { return stream.state() == State::expired; }));
+      const auto expired = stream.status_text(now_ms());
+      std::printf("  status: %ls\n", expired.c_str());
+      CHECK(expired == L"遠端：Navdata 配對已失效，請重新配對（或貼上手動連結）");
+      sleep_ms(2000);  // several looks at cloud.json
+      CHECK(stream.state() == State::expired && relay.count("TICKET401 revoked1") == 1);
+      CHECK(write_text(cloud, cloud_json(make_key("paw0007", "flaky1"), true, server)));
+      bool retrying_text = false, key_pilot = false;
+      CHECK(wait_until(15000, [&] {
+        const auto text = stream.status_text(now_ms());
+        if (stream.state() == State::retrying && text == L"遠端：連線中斷，稍後自動重試…（自動｜PAW0007）")
+          retrying_text = true;
+        if (text.find(L"PAW0007") != std::wstring::npos)
+          key_pilot = true;
+        return stream.state() == State::connected && stream.watchers() == 1 && stream.pilot() == L"PAW0006";
+      }));
+      CHECK(retrying_text && key_pilot);
+      CHECK(relay.count("TICKET503 flaky1") == 1 && relay.count("TICKET flaky1") == 1 && relay.count("PILOTCONNECT flaky1 1") == 1);
+      CHECK(relay.count("TICKET401 revoked1") == 1);
+      const auto gap = relay.time_of("TICKET flaky1", 1) - relay.time_of("TICKET503 flaky1", 1);
+      std::printf("  asked again %llu ms after the 503\n", static_cast<unsigned long long>(gap));
+      CHECK(gap >= 800 && gap <= 4000);
+      stream.configure(false, L" ");
+      CHECK(stream.state() == State::off);
+      CHECK(wait_until(5000, [&] { return relay.count("CLIENTCLOSE pilot-flaky1 1000") == 1; }));
+      DeleteFileW(cloud.c_str());
+      RemoveDirectoryW(dir.c_str());
+    }
+
+    // 13. Automatic, the relay closes with 4000 (another Polaris Cam took over):
+    //     not tried again; with 4004: expired. Turned off while the ticket has
+    //     not come: at once. Unpaired (cloud.json gone) while not paired: still waits.
+    {
+      std::printf("== automatic: 4000, 4004, off while asking for a ticket\n");
+      const std::wstring dir = folder + L"\\auto3", cloud = dir + L"\\cloud.json";
+      char server[64];
+      std::snprintf(server, sizeof(server), "http://127.0.0.1:%d", port);
+      CreateDirectoryW(dir.c_str(), nullptr);
+      Options options;
+      options.prefer_h264 = false;
+      options.navdata_cloud_path = cloud;
+      options.pair_poll_ms = 300;
+      {
+        CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "replace1"), false, server)));
+        RemoteStream stream(options);
+        stream.set_cams(cams);
+        stream.configure(true, L"");
+        CHECK(wait_until(10000, [&] { return stream.state() == State::replaced; }));
+        const auto text = stream.status_text(now_ms());
+        std::printf("  status: %ls\n", text.c_str());
+        CHECK(text == L"遠端：已有另一個 Polaris Cam 連線（自動｜PAW0006）");
+        sleep_ms(2500);
+        CHECK(relay.count("TICKET replace1") == 1 && relay.count("PILOTCONNECT replace1") == 1);
+      }
+      {
+        CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "gone1"), false, server)));
+        RemoteStream stream(options);
+        stream.set_cams(cams);
+        stream.configure(true, L"");
+        CHECK(wait_until(10000, [&] { return stream.state() == State::expired; }));
+        sleep_ms(1500);
+        CHECK(stream.state() == State::expired && relay.count("TICKET gone1") == 1);
+      }
+      {
+        CHECK(write_text(cloud, cloud_json(make_key("PAW0006", "hang1"), false, server)));
+        RemoteStream stream(options);
+        stream.configure(true, L"");
+        CHECK(wait_until(5000, [&] { return relay.count("TICKETHANG hang1") >= 1; }));
+        sleep_ms(300);
+        CHECK(stream.state() == State::connecting);
+        const auto before = now_ms();
+        stream.configure(false, L"");
+        const auto took = now_ms() - before;
+        std::printf("  off in %llu ms while the ticket was asked for\n", static_cast<unsigned long long>(took));
+        CHECK(took < 250 && stream.state() == State::off);
+      }
+      {
+        DeleteFileW(cloud.c_str());
+        RemoteStream stream(options);
+        stream.configure(true, L"");
+        CHECK(wait_until(5000, [&] { return stream.state() == State::not_paired; }));
+        const auto before = now_ms();
+        stream.stop();
+        CHECK(now_ms() - before < 250);
+      }
+      RemoveDirectoryW(dir.c_str());
+    }
+    // Navdata's key went to /api/nav/ticket only, as a Bearer, and nowhere else.
+    CHECK(relay.count("KEYINURL") == 0 && relay.count("AUTHONWS") == 0 && relay.count("TICKETBADAUTH") == 0 && relay.count("TICKETMETHOD") == 0 &&
+          relay.count("TICKETQUERY") == 0);
+    CHECK(relay.count("TICKETREUSED") == 0 && relay.count("TICKETUNKNOWN") == 0);
+    CHECK(relay.count("BADFRAME") == 0 && relay.count("HELLO_BAD") == 0 && relay.count("EARLYFRAME pilot-") == 0);
     texture->Release();
     context->Release();
     device->Release();
@@ -1276,6 +1780,7 @@ int main() {
   std::setlocale(LC_ALL, ".UTF-8");
   const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
   test_parse();
+  test_navdata();
   test_header();
   test_json();
   test_nal();

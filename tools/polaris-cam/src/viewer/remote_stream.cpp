@@ -3,11 +3,13 @@
 #include "remote_stream.hpp"
 #include <objbase.h>
 #include <wincodec.h>
+#include <wincrypt.h>
 #include <winhttp.h>
 #include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include "../shared/broadcast_link.hpp"
 #include "h264_encoder.hpp"
@@ -32,6 +34,95 @@ bool unreserved(wchar_t c) noexcept {
 }
 std::uint64_t ticks() noexcept {
   return GetTickCount64();
+}
+bool alnum(char c) noexcept {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+}
+bool alnum(wchar_t c) noexcept {
+  return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z') || (c >= L'0' && c <= L'9');
+}
+bool base64url_char(char c) noexcept {
+  return alnum(c) || c == '-' || c == '_';
+}
+// Secrets (the key, a ticket, a header with either) do not stay in memory once used.
+void wipe(std::string& text) noexcept {
+  if (!text.empty())
+    SecureZeroMemory(text.data(), text.size());
+  text.clear();
+}
+void wipe(std::wstring& text) noexcept {
+  if (!text.empty())
+    SecureZeroMemory(text.data(), text.size() * sizeof(wchar_t));
+  text.clear();
+}
+void wipe(std::vector<unsigned char>& bytes) noexcept {
+  if (!bytes.empty())
+    SecureZeroMemory(bytes.data(), bytes.size());
+  bytes.clear();
+}
+// ASCII only (a key, a ticket, a server's name): false for anything else.
+bool ascii_wide(std::string_view text, std::wstring& out) {
+  out.clear();
+  out.reserve(text.size());
+  for (const char c : text) {
+    if (static_cast<unsigned char>(c) >= 0x80)
+      return false;
+    out += static_cast<wchar_t>(c);
+  }
+  return true;
+}
+// A JSON string's text (json_field's, between the quotes) with its escapes
+// undone; \u only for ASCII. False on anything else.
+bool json_unescape(std::string_view text, std::string& out) {
+  out.clear();
+  out.reserve(text.size());
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    const char c = text[i];
+    if (c != '\\') {
+      out += c;
+      continue;
+    }
+    if (++i >= text.size())
+      return false;
+    switch (text[i]) {
+      case '"': out += '"'; break;
+      case '\\': out += '\\'; break;
+      case '/': out += '/'; break;
+      case 'b': out += '\b'; break;
+      case 'f': out += '\f'; break;
+      case 'n': out += '\n'; break;
+      case 'r': out += '\r'; break;
+      case 't': out += '\t'; break;
+      case 'u': {
+        unsigned value = 0;
+        if (i + 4 >= text.size())  // four hex digits after the u
+          return false;
+        const auto [end, error] = std::from_chars(text.data() + i + 1, text.data() + i + 5, value, 16);
+        if (error != std::errc{} || end != text.data() + i + 5 || value >= 0x80)
+          return false;
+        out += static_cast<char>(value);
+        i += 4;
+        break;
+      }
+      default:
+        return false;
+    }
+  }
+  return true;
+}
+// A string field of a flat JSON object, its escapes undone: false when it is
+// not there, or not a string (a number, null, true), or not ended.
+bool json_string(std::string_view message, std::string_view key, std::string& out) {
+  out.clear();
+  const auto value = json_field(message, key);
+  const char* begin = message.data();
+  const char* end = begin + message.size();
+  if (!value.data() || value.data() <= begin || value.data() > end || value.data()[-1] != '"')
+    return false;
+  const char* after = value.data() + value.size();
+  if (after >= end || *after != '"')
+    return false;
+  return json_unescape(value, out);
 }
 }  // namespace
 
@@ -91,11 +182,41 @@ bool parse_url(std::wstring_view text, Endpoint& out) {
   if (path.substr(0, Prefix.size()) != Prefix)
     return false;
   path.remove_prefix(Prefix.size());
-  const auto token_end = std::min(path.find(L'/'), path.size());
-  const auto token = path.substr(0, token_end);
+  // The first part: the token of the Broadcast link, or "p" of a pilot's own.
+  const auto first_end = std::min(path.find(L'/'), path.size());
+  const auto first = path.substr(0, first_end);
+  std::wstring_view token = first, tail = path.substr(first_end);
+  std::wstring pilot;  // upper case; empty for the Broadcast link
+  if (first == L"p") {
+    // p/<pilot>/<token>[/ws]
+    auto rest = tail;
+    if (rest.size() < 2 || rest.front() != L'/')
+      return false;
+    rest.remove_prefix(1);
+    const auto pilot_end = std::min(rest.find(L'/'), rest.size());
+    const auto name_part = rest.substr(0, pilot_end);
+    if (name_part.size() < 2 || name_part.size() > 16 || !std::all_of(name_part.begin(), name_part.end(), [](wchar_t c) { return alnum(c); }))
+      return false;
+    for (const wchar_t c : name_part)
+      pilot += c >= L'a' && c <= L'z' ? static_cast<wchar_t>(c - 32) : c;
+    rest.remove_prefix(pilot_end);
+    if (rest.size() < 2 || rest.front() != L'/')
+      return false;  // no token
+    rest.remove_prefix(1);
+    const auto token_end = std::min(rest.find(L'/'), rest.size());
+    token = rest.substr(0, token_end);
+    tail = rest.substr(token_end);
+    if (token == L"ws")
+      return false;  // p/<pilot>/ws: the token left out
+  } else {
+    std::wstring lowered;
+    for (const wchar_t c : first)
+      lowered += lower(c);
+    if (lowered == L"pilot")
+      return false;  // the automatic mode's, with a ticket: not a link
+  }
   if (token.empty() || token.size() > 256 || !std::all_of(token.begin(), token.end(), unreserved) || token == L"." || token == L"..")
     return false;
-  const auto tail = path.substr(token_end);
   if (!tail.empty() && tail != L"/" && tail != L"/ws" && tail != L"/ws/")
     return false;
   const bool local = name == L"127.0.0.1" || name == L"localhost";
@@ -104,7 +225,8 @@ bool parse_url(std::wstring_view text, Endpoint& out) {
     secure = true;
   out.host = name;
   out.port = static_cast<unsigned short>(port ? port : secure ? 443u : 80u);
-  out.path = std::wstring(Prefix) + std::wstring(token) + L"/ws";
+  out.path = pilot.empty() ? std::wstring(Prefix) + std::wstring(token) + L"/ws"
+                           : std::wstring(Prefix) + L"p/" + pilot + L"/" + std::wstring(token) + L"/ws";
   out.secure = secure;
   out.local = local;
   return true;
@@ -245,6 +367,276 @@ int key_request(std::string_view message) {
   return value;
 }
 
+// --- the automatic mode: Polaris Navdata's pairing -------------------------------
+std::wstring default_navdata_cloud_path() {
+  const wchar_t* local = _wgetenv(L"LOCALAPPDATA");
+  if (!local || !*local)
+    return {};
+  return std::wstring(local) + L"\\Polaris Navdata\\cloud.json";
+}
+
+bool parse_navdata_server(std::wstring_view text, Endpoint& out) {
+  while (!text.empty() && space(text.front()))
+    text.remove_prefix(1);
+  while (!text.empty() && space(text.back()))
+    text.remove_suffix(1);
+  const auto scheme_end = text.find(L"://");
+  if (scheme_end == std::wstring_view::npos || scheme_end > 5)
+    return false;
+  std::wstring scheme;
+  for (const wchar_t c : text.substr(0, scheme_end))
+    scheme += lower(c);
+  const bool https = scheme == L"https";
+  if (!https && scheme != L"http")
+    return false;
+  auto authority = text.substr(scheme_end + 3);
+  if (!authority.empty() && authority.back() == L'/')
+    authority.remove_suffix(1);
+  std::wstring_view host = authority, port_text;
+  if (const auto colon = authority.rfind(L':'); colon != std::wstring_view::npos) {
+    host = authority.substr(0, colon);
+    port_text = authority.substr(colon + 1);
+    if (port_text.empty())
+      return false;
+  }
+  if (host.empty() || host.size() > 253)
+    return false;
+  std::wstring name;
+  for (const wchar_t c : host) {
+    if (!(alnum(c) || c == L'-' || c == L'.'))
+      return false;  // also a path, a query, userinfo (@) and IPv6 ([)
+    name += lower(c);
+  }
+  unsigned port = 0;
+  if (!port_text.empty()) {
+    if (port_text.size() > 5)
+      return false;
+    for (const wchar_t c : port_text) {
+      if (c < L'0' || c > L'9')
+        return false;
+      port = port * 10 + static_cast<unsigned>(c - L'0');
+    }
+    if (port == 0 || port > 65535)
+      return false;
+  }
+  const bool local = name == L"127.0.0.1" || name == L"localhost";
+  if (!local) {
+    // https://koz8738.com or https://<name>.koz8738.com, as Polaris Navdata's okServer, and nothing else.
+    constexpr std::wstring_view Domain = L"koz8738.com";
+    if (!https || port)
+      return false;
+    if (name != Domain) {
+      if (name.size() <= Domain.size() + 1 || name.compare(name.size() - Domain.size() - 1, std::wstring::npos, L".koz8738.com") != 0)
+        return false;
+      // Each name before it: letters, digits and '-', none empty.
+      const std::wstring_view labels(name.data(), name.size() - Domain.size() - 1);
+      std::size_t begin = 0;
+      for (;;) {
+        const auto dot = labels.find(L'.', begin);
+        const auto label = labels.substr(begin, dot == std::wstring_view::npos ? std::wstring_view::npos : dot - begin);
+        if (label.empty() || label.find(L'.') != std::wstring_view::npos)
+          return false;
+        if (dot == std::wstring_view::npos)
+          break;
+        begin = dot + 1;
+      }
+    }
+  }
+  out.host = name;
+  out.port = static_cast<unsigned short>(port ? port : https ? 443u : 80u);
+  out.path.clear();
+  out.secure = https;
+  out.local = local;
+  return true;
+}
+
+bool navdata_key_ok(std::string_view key) {
+  if (key.size() < 6 || key.size() > 4096 || key.substr(0, 3) != "nk.")
+    return false;
+  key.remove_prefix(3);
+  const auto dot = key.find('.');
+  if (dot == std::string_view::npos || dot == 0 || dot + 1 == key.size())
+    return false;
+  const auto payload = key.substr(0, dot), signature = key.substr(dot + 1);
+  return std::all_of(payload.begin(), payload.end(), base64url_char) && std::all_of(signature.begin(), signature.end(), base64url_char);
+}
+
+std::string pilot_name(std::string_view text) {
+  if (text.size() < 2 || text.size() > 16)
+    return {};
+  std::string out;
+  for (const char c : text) {
+    if (!alnum(c))
+      return {};
+    out += c >= 'a' && c <= 'z' ? static_cast<char>(c - 32) : c;
+  }
+  return out;
+}
+
+std::string navdata_key_pilot(std::string_view key) {
+  if (!navdata_key_ok(key))
+    return {};
+  const auto payload = key.substr(3, key.find('.', 3) - 3);
+  std::vector<unsigned char> bytes;
+  if (!base64_decode(payload, bytes, true))
+    return {};
+  const std::string_view json(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  std::string u;
+  return json_string(json, "u", u) ? pilot_name(u) : std::string{};
+}
+
+bool ticket_ok(std::string_view ticket) {
+  return ticket.size() >= 16 && ticket.size() <= 512 &&
+         std::all_of(ticket.begin(), ticket.end(), [](char c) { return alnum(c) || c == '_' || c == '.' || c == '-'; });
+}
+
+std::string id_pilot(std::string_view message) {
+  if (json_field(message, "t") != "id")
+    return {};
+  std::string pilot;
+  return json_string(message, "pilot", pilot) ? pilot_name(pilot) : std::string{};
+}
+
+bool base64_decode(std::string_view text, std::vector<unsigned char>& out, bool url) {
+  out.clear();
+  out.reserve(text.size() * 3 / 4);
+  unsigned buffer = 0, bits = 0;
+  std::size_t chars = 0, padding = 0;
+  for (const char c : text) {
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+      continue;
+    if (c == '=') {
+      if (++padding > 2)
+        return false;
+      continue;
+    }
+    if (padding)
+      return false;  // nothing after the padding
+    unsigned value = 0;
+    if (c >= 'A' && c <= 'Z')
+      value = static_cast<unsigned>(c - 'A');
+    else if (c >= 'a' && c <= 'z')
+      value = static_cast<unsigned>(c - 'a') + 26;
+    else if (c >= '0' && c <= '9')
+      value = static_cast<unsigned>(c - '0') + 52;
+    else if (c == (url ? '-' : '+'))
+      value = 62;
+    else if (c == (url ? '_' : '/'))
+      value = 63;
+    else
+      return false;
+    buffer = ((buffer << 6) | value) & 0xFFFFFFu;
+    bits += 6;
+    ++chars;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push_back(static_cast<unsigned char>((buffer >> bits) & 0xFF));
+    }
+  }
+  if (chars % 4 == 1 || (padding && (chars + padding) % 4 != 0))
+    return false;
+  return true;
+}
+
+NavdataPairing::~NavdataPairing() {
+  clear();
+}
+void NavdataPairing::clear() noexcept {
+  wipe(key);
+  pilot.clear();
+  server = Endpoint{};
+}
+
+PairingRead read_navdata_pairing(const std::wstring& path, NavdataPairing& out) {
+  out.clear();
+  if (path.empty())
+    return PairingRead::missing;
+  HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (file == INVALID_HANDLE_VALUE) {
+    const DWORD error = GetLastError();
+    return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? PairingRead::missing : PairingRead::invalid;
+  }
+  std::string text;
+  LARGE_INTEGER size{};
+  bool read = GetFileSizeEx(file, &size) && size.QuadPart >= 0 && size.QuadPart <= 65536;
+  if (read) {
+    text.resize(static_cast<std::size_t>(size.QuadPart));
+    DWORD got = 0;
+    read = text.empty() || (ReadFile(file, text.data(), static_cast<DWORD>(text.size()), &got, nullptr) && got == text.size());
+  }
+  CloseHandle(file);
+  std::string stored, key, server_text;
+  std::vector<unsigned char> blob;
+  auto done = [&](PairingRead result) {
+    wipe(text);
+    wipe(stored);
+    wipe(key);
+    wipe(blob);
+    if (result != PairingRead::ok)
+      out.clear();
+    return result;
+  };
+  if (!read)
+    return done(PairingRead::invalid);
+  std::string_view json = text;
+  if (json.substr(0, 3) == "\xEF\xBB\xBF")
+    json.remove_prefix(3);
+  while (!json.empty() && (json.front() == ' ' || json.front() == '\t' || json.front() == '\r' || json.front() == '\n'))
+    json.remove_prefix(1);
+  while (!json.empty() && (json.back() == ' ' || json.back() == '\t' || json.back() == '\r' || json.back() == '\n'))
+    json.remove_suffix(1);
+  if (json.size() < 2 || json.front() != '{' || json.back() != '}')
+    return done(PairingRead::invalid);
+  if (!json_string(json, "key", stored))
+    return done(PairingRead::invalid);
+  if (stored.empty())
+    return done(PairingRead::missing);  // unpaired
+  if (json_field(json, "enc") == "true") {
+    // Polaris Navdata's ProtectedData.Protect(UTF-8, null, CurrentUser), as base64.
+    if (!base64_decode(stored, blob, false) || blob.empty())
+      return done(PairingRead::invalid);
+    DATA_BLOB in{static_cast<DWORD>(blob.size()), blob.data()}, plain{};
+    if (!CryptUnprotectData(&in, nullptr, nullptr, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &plain))
+      return done(PairingRead::invalid);  // another Windows user's, or another PC's
+    if (plain.pbData) {
+      key.assign(reinterpret_cast<const char*>(plain.pbData), plain.cbData);
+      SecureZeroMemory(plain.pbData, plain.cbData);
+      LocalFree(plain.pbData);
+    }
+  } else {
+    key = stored;  // as the tests keep it
+  }
+  while (!key.empty() && (key.back() == ' ' || key.back() == '\r' || key.back() == '\n' || key.back() == '\t'))
+    key.pop_back();
+  if (!navdata_key_ok(key))
+    return done(PairingRead::invalid);
+  Endpoint server;
+  std::wstring wide;
+  if (json_string(json, "server", server_text) && !server_text.empty()) {
+    // Another server than the EFB's (or this computer, for a test): the key does not go there.
+    if (!ascii_wide(server_text, wide) || !parse_navdata_server(wide, server))
+      return done(PairingRead::invalid);
+  } else if (!parse_navdata_server(DefaultNavdataServer, server)) {
+    return done(PairingRead::invalid);
+  }
+  out.key.swap(key);
+  out.pilot = navdata_key_pilot(out.key);
+  out.server = server;
+  return done(PairingRead::ok);
+}
+
+FileStamp file_stamp(const std::wstring& path) {
+  WIN32_FILE_ATTRIBUTE_DATA data{};
+  if (path.empty() || !GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data))
+    return {};
+  FileStamp stamp;
+  stamp.exists = true;
+  stamp.write_time = (static_cast<std::uint64_t>(data.ftLastWriteTime.dwHighDateTime) << 32) | data.ftLastWriteTime.dwLowDateTime;
+  stamp.size = (static_cast<std::uint64_t>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+  return stamp;
+}
+
 void output_size(unsigned width, unsigned height, unsigned& out_width, unsigned& out_height) noexcept {
   out_width = width;
   out_height = height;
@@ -374,6 +766,12 @@ void RemoteStream::configure(bool enabled, std::wstring_view url) {
   stop();
   enabled_ = enabled;
   url_ = url;
+  auto_ = false;
+  {
+    std::lock_guard lock(mutex_);
+    key_pilot_.clear();
+    relay_pilot_.clear();
+  }
   if (!enabled) {
     set_state(State::off);
     return;
@@ -382,7 +780,9 @@ void RemoteStream::configure(bool enabled, std::wstring_view url) {
   while (!trimmed.empty() && space(trimmed.front()))
     trimmed.remove_prefix(1);
   if (trimmed.empty()) {
-    set_state(State::no_url);
+    // No link: as the pilot Polaris Navdata on this PC is paired as (run_auto).
+    auto_ = true;
+    start(Endpoint{});
     return;
   }
   Endpoint endpoint;
@@ -504,6 +904,24 @@ void RemoteStream::run(Endpoint endpoint) {
     }
     build_hello_locked();
   }
+  if (auto_.load())
+    run_auto();
+  else
+    run_link(endpoint);
+  watchers_ = 0;
+  if (SUCCEEDED(com))
+    CoUninitialize();
+  std::lock_guard lock(mutex_);
+  finished_ = true;
+  wake_.notify_all();
+}
+
+void RemoteStream::pause(unsigned ms) {
+  std::unique_lock lock(mutex_);
+  wake_.wait_for(lock, std::chrono::milliseconds(ms), [this] { return stopping(); });
+}
+
+void RemoteStream::run_link(const Endpoint& endpoint) {
   unsigned retry = options_.first_retry_ms;
   while (!stopping()) {
     set_state(State::connecting);
@@ -528,16 +946,123 @@ void RemoteStream::run(Endpoint endpoint) {
     }
     retry = std::min(retry * 2, options_.last_retry_ms);
   }
-  watchers_ = 0;
-  if (SUCCEEDED(com))
-    CoUninitialize();
-  std::lock_guard lock(mutex_);
-  finished_ = true;
-  wake_.notify_all();
 }
 
-RemoteStream::Outcome RemoteStream::connect_once(const Endpoint& endpoint) {
-  Outcome outcome;
+// No link: Navdata's pairing (read again each time round, the pilot may have
+// paired again meanwhile), a ticket for it, and the relay with the ticket.
+//   no pairing             not_paired; looked at again every pair_poll_ms
+//   the key refused (401)  expired; read again only once cloud.json changes
+//   no ticket otherwise    retrying (the network, 5xx, a wait run out), the waits as a link's
+//   the ticket refused     retrying; a fresh ticket at once (4001: a ticket lasts a minute, and once)
+//   4000                   replaced: not tried again, as a link's
+//   4004                   expired, as the key refused
+void RemoteStream::run_auto() {
+  const std::wstring path = options_.navdata_cloud_path.empty() ? default_navdata_cloud_path() : options_.navdata_cloud_path;
+  unsigned retry = options_.first_retry_ms;
+  unsigned refused = 0;  // tickets the relay refused in a row
+  bool revoked = false;  // the key was refused: until cloud.json changes
+  FileStamp revoked_stamp;
+  NavdataPairing pairing;
+  while (!stopping()) {
+    const FileStamp stamp = file_stamp(path);
+    if (revoked) {
+      if (stamp == revoked_stamp) {
+        pause(options_.pair_poll_ms);
+        continue;
+      }
+      revoked = false;  // written again (paired again), or gone
+      retry = options_.first_retry_ms;
+      refused = 0;
+    }
+    if (read_navdata_pairing(path, pairing) != PairingRead::ok) {
+      set_key_pilot({});
+      set_state(State::not_paired);
+      retry = options_.first_retry_ms;
+      refused = 0;
+      pause(options_.pair_poll_ms);
+      continue;
+    }
+    set_key_pilot(pairing.pilot);
+    set_state(State::connecting);
+    Ticket ticket;
+    fetch_ticket(pairing, ticket);
+    if (stopping())
+      break;
+    if (ticket.http == 401 || ticket.http == 403) {
+      // Unpaired on the EFB, or signed out there.
+      pairing.clear();
+      revoked = true;
+      revoked_stamp = stamp;
+      set_state(State::expired);
+      continue;
+    }
+    if (ticket.ticket.empty()) {
+      set_state(State::retrying);
+      pause(retry);
+      retry = std::min(retry * 2, options_.last_retry_ms);
+      continue;
+    }
+    Endpoint endpoint = pairing.server;
+    std::wstring wide;
+    ascii_wide(ticket.ticket, wide);  // ticket_ok: ASCII
+    wipe(ticket.ticket);
+    endpoint.path = L"/live/cam/pilot/ws?ticket=" + wide;
+    wipe(wide);
+    const Outcome outcome = connect_once(endpoint);
+    wipe(endpoint.path);
+    if (stopping())
+      break;
+    if (outcome.close == 4000) {
+      set_state(State::replaced);
+      break;
+    }
+    if (outcome.close == 4004) {
+      pairing.clear();
+      revoked = true;
+      revoked_stamp = stamp;
+      set_state(State::expired);
+      continue;
+    }
+    if (outcome.upgraded && outcome.lasted_ms >= 10000) {
+      retry = options_.first_retry_ms;
+      refused = 0;
+    }
+    set_state(State::retrying);
+    if (outcome.close == 4001 || (!outcome.upgraded && (outcome.http == 401 || outcome.http == 403))) {
+      if (++refused == 1) {
+        pause(options_.ticket_retry_ms);
+        continue;
+      }
+    } else {
+      refused = 0;
+    }
+    pause(retry);
+    retry = std::min(retry * 2, options_.last_retry_ms);
+  }
+  pairing.clear();
+}
+
+void RemoteStream::set_key_pilot(const std::string& pilot) {
+  std::lock_guard lock(mutex_);
+  if (pilot == key_pilot_)
+    return;
+  key_pilot_ = pilot;
+  relay_pilot_.clear();  // another pilot's pairing: what the relay said was of the one before
+}
+
+std::wstring RemoteStream::pilot() {
+  std::lock_guard lock(mutex_);
+  std::wstring out;
+  ascii_wide(relay_pilot_.empty() ? key_pilot_ : relay_pilot_, out);  // pilot_name: ASCII
+  return out;
+}
+
+RemoteStream::Ticket::~Ticket() {
+  wipe(ticket);
+}
+
+bool RemoteStream::open_request(const Endpoint& endpoint, const wchar_t* verb, void*& request_out) {
+  request_out = nullptr;
   const auto agent = L"PolarisCam/" POLARIS_CAM_VERSION_WIDE;
   // The system's proxy (a company's, or one set up automatically); this computer never goes through one.
   HINTERNET session = WinHttpOpen(agent, endpoint.local ? WINHTTP_ACCESS_TYPE_NO_PROXY : WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
@@ -545,18 +1070,18 @@ RemoteStream::Outcome RemoteStream::connect_once(const Endpoint& endpoint) {
   if (!session && !endpoint.local)
     session = WinHttpOpen(agent, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
   if (!session)
-    return outcome;
+    return false;
   {
     std::lock_guard lock(mutex_);
     if (stopping()) {  // stop() cut the handles before this one was there
       WinHttpCloseHandle(session);
-      return outcome;
+      return false;
     }
     session_ = session;
   }
   WinHttpSetTimeouts(session, 10000, 10000, 15000, 15000);
   HINTERNET connection = WinHttpConnect(session, endpoint.host.c_str(), endpoint.port, 0);
-  HINTERNET request = connection ? WinHttpOpenRequest(connection, L"GET", endpoint.path.c_str(), nullptr, WINHTTP_NO_REFERER,
+  HINTERNET request = connection ? WinHttpOpenRequest(connection, verb, endpoint.path.c_str(), nullptr, WINHTTP_NO_REFERER,
                                                       WINHTTP_DEFAULT_ACCEPT_TYPES, endpoint.secure ? WINHTTP_FLAG_SECURE : 0)
                                  : nullptr;
   {
@@ -572,6 +1097,76 @@ RemoteStream::Outcome RemoteStream::connect_once(const Endpoint& endpoint) {
       request = nullptr;
     }
   }
+  request_out = request;
+  return true;
+}
+
+// POST <server>/api/nav/ticket with Navdata's key: {"ticket":"wn...."}. Cut by
+// stop() as connect_once is. Neither the key nor the ticket is ever logged.
+void RemoteStream::fetch_ticket(const NavdataPairing& pairing, Ticket& out) {
+  out.http = 0;
+  wipe(out.ticket);
+  Endpoint endpoint = pairing.server;
+  endpoint.path = L"/api/nav/ticket";
+  void* handle = nullptr;
+  if (!open_request(endpoint, L"POST", handle))
+    return;
+  HINTERNET request = handle;
+  std::wstring headers, key;
+  std::string body, ticket;
+  if (request && !stopping() && ascii_wide(pairing.key, key)) {
+    // The key goes to this server only: no redirect is followed with it.
+    DWORD no_redirects = WINHTTP_DISABLE_REDIRECTS;
+    WinHttpSetOption(request, WINHTTP_OPTION_DISABLE_FEATURE, &no_redirects, sizeof(no_redirects));
+    headers = L"Authorization: Bearer " + key + L"\r\nAccept: application/json\r\n";
+    wipe(key);
+    const bool sent = WinHttpSendRequest(request, headers.c_str(), static_cast<DWORD>(headers.size()), WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    wipe(headers);
+    if (sent && WinHttpReceiveResponse(request, nullptr)) {
+      DWORD status = 0, size = sizeof(status);
+      WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, WINHTTP_HEADER_NAME_BY_INDEX, &status, &size,
+                          WINHTTP_NO_HEADER_INDEX);
+      out.http = status;
+      if (status == 200) {
+        // {"ticket":"wn.<payload>.<signature>"}: a few hundred bytes; more is not an answer.
+        bool whole = false;
+        for (;;) {
+          DWORD available = 0;
+          if (!WinHttpQueryDataAvailable(request, &available))
+            break;
+          if (available == 0) {
+            whole = true;
+            break;
+          }
+          if (body.size() + available > 8192)
+            break;
+          const std::size_t at = body.size();
+          body.resize(at + available);
+          DWORD read = 0;
+          if (!WinHttpReadData(request, body.data() + at, available, &read))
+            break;
+          body.resize(at + read);
+        }
+        if (whole && json_string(body, "ticket", ticket) && ticket_ok(ticket)) {
+          out.ticket.swap(ticket);
+          tickets_.fetch_add(1);
+        }
+      }
+    }
+  }
+  wipe(key);
+  wipe(headers);
+  wipe(body);
+  wipe(ticket);
+  abort_handles();
+}
+
+RemoteStream::Outcome RemoteStream::connect_once(const Endpoint& endpoint) {
+  Outcome outcome;
+  void* handle = nullptr;
+  if (!open_request(endpoint, L"GET", handle))
+    return outcome;
+  HINTERNET request = handle;
   HINTERNET socket = nullptr;
   if (request && !stopping() && WinHttpSetOption(request, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, nullptr, 0) &&
       WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
@@ -783,6 +1378,15 @@ void RemoteStream::handle_text(std::string_view message) {
       key_wanted_[static_cast<unsigned>(cam)] = true;
       ++h264_.key_requests;
       wake_.notify_all();
+    }
+    return;
+  }
+  if (json_field(message, "t") == "id") {
+    // The relay's word on whose cameras these are (the ticket's pilot).
+    const std::string pilot = id_pilot(message);
+    if (!pilot.empty()) {
+      std::lock_guard lock(mutex_);
+      relay_pilot_ = pilot;
     }
     return;
   }
@@ -1181,21 +1785,30 @@ std::wstring RemoteStream::status_text(std::uint64_t now) {
     rate_frames_ = frames;
     rate_bytes_ = bytes;
   }
+  // The automatic mode says so, and whose cameras: 自動｜PAW0006.
+  const bool automatic = auto_mode();
+  std::wstring who;
+  if (automatic) {
+    const auto name = pilot();
+    who = name.empty() ? L"自動" : L"自動｜" + name;
+  }
   switch (state()) {
     case State::off:
       return L"遠端：未開啟";
     case State::no_url:
       return L"遠端：請貼上後台連線連結";
+    case State::not_paired:
+      return L"遠端：未配對 Polaris Navdata（請於 EFB 配對，或貼上手動連結）";
     case State::invalid_url:
       return L"遠端：連線碼格式不正確";
     case State::connecting:
-      return L"遠端：連線中…";
+      return automatic ? L"遠端：連線中…（" + who + L"）" : L"遠端：連線中…";
     case State::retrying:
-      return L"遠端：連線中斷，稍後自動重試…";
+      return automatic ? L"遠端：連線中斷，稍後自動重試…（" + who + L"）" : L"遠端：連線中斷，稍後自動重試…";
     case State::expired:
-      return L"遠端：連線碼已失效，請從後台重新複製";
+      return automatic ? L"遠端：Navdata 配對已失效，請重新配對（或貼上手動連結）" : L"遠端：連線碼已失效，請從後台重新複製";
     case State::replaced:
-      return L"遠端：已有另一個 Polaris Cam 連線";
+      return automatic ? L"遠端：已有另一個 Polaris Cam 連線（" + who + L"）" : L"遠端：已有另一個 Polaris Cam 連線";
     case State::connected:
       break;
   }
@@ -1214,12 +1827,21 @@ std::wstring RemoteStream::status_text(std::uint64_t now) {
   }
   const wchar_t* mode = h264 && jpeg ? L"H.264＋JPEG" : h264 ? L"H.264" : L"JPEG";
   const int watchers = this->watchers();
-  wchar_t text[128];
-  if (watchers <= 0) {
-    std::swprintf(text, 128, L"遠端：已連線（無人觀看｜%ls）", mode);
+  wchar_t text[160];
+  if (automatic) {
+    if (watchers <= 0)
+      std::swprintf(text, 160, L"遠端：待機中（%ls｜0 人觀看）", who.c_str());
+    else
+      std::swprintf(text, 160, L"遠端：傳送中（%ls｜%d 人｜%ls｜%.1f fps｜%.0f KB/s）", who.c_str(), watchers, mode, fps_,
+                    bytes_per_second_ / 1024.0);
     return text;
   }
-  std::swprintf(text, 128, L"遠端：傳送中（%d 人｜%ls｜%.1f fps｜%.0f KB/s）", watchers, mode, fps_, bytes_per_second_ / 1024.0);
+  // A link's: as it always was.
+  if (watchers <= 0) {
+    std::swprintf(text, 160, L"遠端：已連線（無人觀看｜%ls）", mode);
+    return text;
+  }
+  std::swprintf(text, 160, L"遠端：傳送中（%d 人｜%ls｜%.1f fps｜%.0f KB/s）", watchers, mode, fps_, bytes_per_second_ / 1024.0);
   return text;
 }
 }  // namespace polaris_cam::remote

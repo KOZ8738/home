@@ -9,6 +9,7 @@
 
    KV (STORE):  mail:v1:index          -> [{ id, t, sendAt, from, subject, body, att:[{ name, type, size }], to, by, edited }]
                 mail:v1:att:<id>:<n>   -> attachment bytes
+                mail:v1:tmp:<id>       -> an attachment uploaded for a mail being written (an hour; metadata { name, type, size, by })
    Vars:        ACCESS_TEAM_DOMAIN (e.g. polaris.cloudflareaccess.com), ACCESS_AUD (the Access application's AUD tag),
                 ADMIN_EMAILS (optional extra allow list, comma separated) */
 import { ADMIN_HTML } from './admin.js';
@@ -25,10 +26,13 @@ import { calAdmin } from './cal.js';
 import { oooAdmin } from './ooo.js';
 import { tasksAdmin } from './tasks.js';
 import { taskMailReady } from './taskmail.js';
-import { kvJson, plainObj } from './kvread.js';
+import { kvJson, plainObj, queue } from './kvread.js';
 
 class MailError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 const MAIL_MAX = 300, BODY_MAX = 20000, ATT_MAX = 5 * 1024 * 1024, ATT_COUNT = 5;
+/* attachments: uploaded one by one as they are (POST /admin/api/mail/att), kept an hour for the mail they go with;
+   base64 in the mail's JSON only for a small one (a page from before Nov 2026): decoding it costs CPU byte by byte */
+const TMP = 'mail:v1:tmp:', TMP_TTL = 3600, B64_MAX = 64 * 1024;
 const ATT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain'];
 const jsonRes = (body, status, headers) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers } });
 
@@ -73,6 +77,9 @@ let memIdx = null; // { at, list } short cache for the public list
    the next mail saved would write that empty list back over every mail kept (see kvread.js) */
 async function readIndex(kv) { return (await kvJson(kv, 'mail:v1:index', { shape: 'array', msg: 'Polaris Mail is temporarily unavailable; please try again', Err: MailError })) || []; }
 async function writeIndex(kv, list) { list.sort((a, b) => (b.sendAt || b.t) - (a.sendAt || a.t)); await kv.put('mail:v1:index', JSON.stringify(list.slice(0, MAIL_MAX))); memIdx = null; }
+/* a save or a delete reads the index from KV itself (never memIdx, the pilots' 20-second copy) and writes it back, one
+   after another in this isolate (kvread.js queue), so two staff saving at once both keep their mail */
+const mailChange = queue();
 const pub = (m) => ({ id: m.id, t: m.sendAt || m.t, from: m.from, subject: m.subject, body: m.body, att: (m.att || []).map((a, i) => ({ n: i, name: a.name, type: a.type, size: a.size })), to: m.to ? (m.to.crew ? { cs: m.to.cs || '', crew: 1 } : { cs: m.to.cs || '', pilot: m.to.pilot || '' }) : null, edited: m.edited || 0 });
 const LINK_MS = 6 * 3600_000;
 
@@ -331,8 +338,19 @@ async function rolesApi(req, kv, who, env) {
 /* ---- /admin ---- */
 const ADMIN_FRAME = "frame-ancestors 'self' https://koz8738.com https://www.koz8738.com";
 const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').slice(0, n);
+/* a change asked for by a page on another site (P1, Nov 2026). Cloudflare Access's sign-in cookie goes with every
+   request the browser makes here, whichever page makes it, so every POST, PUT, PATCH and DELETE to /admin/api/* must
+   come from the admin's own page. The browser says where a request comes from: Sec-Fetch-Site ("same-origin" from the
+   admin's page; "same-site", "cross-site" or "none" otherwise) and Origin. A request with neither (not from a browser)
+   goes on to the checks after this, which also want each body as the admin page sends it (JSON, a PDF, a JPEG, the
+   bytes of a file), what a form on another site cannot send. */
+export function crossSite(req, url) {
+  const site = req.headers.get('Sec-Fetch-Site'), origin = req.headers.get('Origin');
+  return (site != null && site !== 'same-origin') || (origin != null && origin !== url.origin);
+}
 export async function mailAdmin(req, url, env, opts) {
   const path = url.pathname.replace(/\/+$/, '');
+  if (path.startsWith('/admin/api/') && req.method !== 'GET' && req.method !== 'HEAD' && crossSite(req, url)) return jsonRes({ error: 'Cross-site request blocked' }, 403);
   let who;
   try { who = await accessUser(req, env); }
   catch (e) {
@@ -455,60 +473,105 @@ export async function mailAdmin(req, url, env, opts) {
       return jsonRes({ ok: true, settings: s });
     }
     if (path === '/admin/api/mail' && req.method === 'GET') return jsonRes({ mails: (await readIndex(kv)).map((m) => ({ ...pub(m), to: m.to || null, sendAt: m.sendAt || m.t, created: m.t, by: m.by || '' })), now: Date.now() });
+    if (path === '/admin/api/mail/att' && req.method === 'POST') return await attStage(req, url, kv, who);
     if (path === '/admin/api/mail' && req.method === 'POST') {
       /* same-origin only: the admin page posts as JSON, which a form on another site cannot send */
       if (!/application\/json/.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send JSON');
       let b; try { b = await req.json(); } catch (e) { throw new MailError(400, 'Bad body'); }
-      const list = await readIndex(kv), old = b.id ? list.find((m) => m.id === b.id) : null;
-      if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
-      const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
-      if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
-      /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
-      let to = null;
-      if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew: its callsign and the pilots in it
-      else if (b.to) {
-        const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
-        const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
-        if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
-        to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: clean(b.to.name, 60).trim() };
-      }
-      let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
-      if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent
-      const id = old ? old.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-      /* attachments: keep the ones still listed, add the new ones (base64) */
-      const keep = (old && old.att || []).map((a, i) => ({ a, i })).filter((x) => (b.keepAtt || []).includes(x.i));
-      const add = Array.isArray(b.newAtt) ? b.newAtt : [];
-      if (keep.length + add.length > ATT_COUNT) throw new MailError(400, 'At most ' + ATT_COUNT + ' attachments');
-      const files = [];
-      for (const x of keep) files.push({ meta: x.a, bytes: await kv.get('mail:v1:att:' + id + ':' + x.i, 'arrayBuffer') });
-      for (const f of add) {
-        const type = String(f.type || ''), name = clean(f.name, 120).trim() || 'attachment';
-        if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
-        let bin; try { bin = Uint8Array.from(atob(String(f.data || '')), (c) => c.charCodeAt(0)); } catch (e) { throw new MailError(400, name + ': could not read the file'); }
-        if (bin.length > ATT_MAX) throw new MailError(400, name + ': larger than 5 MB');
-        files.push({ meta: { name, type, size: bin.length }, bytes: bin.buffer });
-      }
-      for (let i = 0; i < files.length; i++) if (files[i].bytes) await kv.put('mail:v1:att:' + id + ':' + i, files[i].bytes);
-      for (let i = files.length; i < ((old && old.att) || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
-      const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: files.filter((f) => f.bytes).map((f) => f.meta), to, by: old ? old.by : who };
-      if (old) { m.edited = Date.now(); m.editedBy = who; }
-      await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
-      /* push: a new notice going out now, or a notice that still waits for its time (the object checks it again then) */
-      try {
-        const waiting = sendAt > Date.now() + 1000;
-        if (waiting) await crew(env, { op: 'schedule', id: 'mail:' + id, at: sendAt, kind: 'mail', data: { id } });
-        else if (!old || (old.sendAt || old.t) > Date.now()) { await crew(env, { op: 'unjob', id: 'mail:' + id }); await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: mailPayload(m) }); }
-      } catch (e) { console.warn('[mail push]', e && e.message); }
-      return jsonRes({ ok: true, mail: pub(m) });
+      return await mailChange(() => mailSave(b, env, kv, who));
     }
     if (path === '/admin/api/mail' && req.method === 'DELETE') {
-      const id = String(url.searchParams.get('id') || ''), list = await readIndex(kv), old = list.find((m) => m.id === id);
-      if (!old) throw new MailError(404, 'That mail no longer exists');
-      for (let i = 0; i < (old.att || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
-      await writeIndex(kv, list.filter((m) => m.id !== id));
-      return jsonRes({ ok: true });
+      const id = String(url.searchParams.get('id') || '');
+      return await mailChange(async () => {
+        const list = await readIndex(kv), old = list.find((m) => m.id === id);
+        if (!old) throw new MailError(404, 'That mail no longer exists');
+        for (let i = 0; i < (old.att || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
+        await writeIndex(kv, list.filter((m) => m.id !== id));
+        return jsonRes({ ok: true });
+      });
     }
     return jsonRes({ error: 'Not found' }, 404);
   } catch (e) { return jsonRes({ error: e.message || 'Error' }, e.status || 500); }
+}
+/* POST /admin/api/mail/att: one attachment for a mail being written, the file's own bytes as the body
+   (application/octet-stream), its type in X-Type and its name, URI-encoded, in X-Name (or ?type= and ?name=). Kept an
+   hour under mail:v1:tmp:<id> for the mail it goes with (attIds), which moves it into place. The bytes are passed on
+   as they came, never looked at one by one: a 5 MB file as base64 in the mail's JSON took about 300 ms of CPU to
+   decode, and the Workers Free plan allows 10 ms a request (error 1102). */
+async function attStage(req, url, kv, who) {
+  if (!/^application\/octet-stream\b/i.test(req.headers.get('Content-Type') || '')) throw new MailError(415, 'Send the file as application/octet-stream');
+  const dec = (v) => { try { return decodeURIComponent(v); } catch (e) { return v; } };
+  const type = String(req.headers.get('X-Type') || url.searchParams.get('type') || '').toLowerCase().split(';')[0].trim();
+  const name = dec(String(req.headers.get('X-Name') || url.searchParams.get('name') || '')).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 120) || 'attachment';
+  if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
+  if (+(req.headers.get('Content-Length') || 0) > ATT_MAX) throw new MailError(413, name + ': larger than 5 MB');
+  const buf = await req.arrayBuffer();
+  if (buf.byteLength > ATT_MAX) throw new MailError(413, name + ': larger than 5 MB');
+  if (!buf.byteLength) throw new MailError(400, name + ': the file is empty');
+  const id = crypto.randomUUID().replace(/-/g, '');
+  await kv.put(TMP + id, buf, { expirationTtl: TMP_TTL, metadata: { name, type, size: buf.byteLength, by: who } });
+  return jsonRes({ ok: true, att: { id, name, type, size: buf.byteLength } });
+}
+/* a small attachment as base64 in the mail's JSON (pages from before the uploads above): read with a plain loop */
+function b64Bytes(s, name) {
+  s = String(s || '').replace(/\s+/g, '');
+  if (Math.floor(s.length * 3 / 4) > B64_MAX) throw new MailError(413, name + ': attach it again (reload the page first): larger files are uploaded on their own');
+  let bin; try { bin = atob(s); } catch (e) { throw new MailError(400, name + ': could not read the file'); }
+  const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+/* a mail saved (new, or edited): b as the admin page sends it */
+async function mailSave(b, env, kv, who) {
+  const list = await readIndex(kv), old = b.id ? list.find((m) => m.id === b.id) : null;
+  if (b.id && !old) throw new MailError(404, 'That mail no longer exists');
+  const from = clean(b.from, 60).trim(), subject = clean(b.subject, 160).trim(), body = clean(b.body, BODY_MAX).trim();
+  if (!from || !subject || !body) throw new MailError(400, 'From, subject and message are all needed');
+  /* one pilot: Polaris pilot ID and/or VATSIM CID (callsign and name are labels for staff) */
+  let to = null;
+  if (b.to && b.to.crew) to = crewTo(b.to); // a flight's crew: its callsign and the pilots in it
+  else if (b.to) {
+    const up = (v, n) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n);
+    const tp = up(b.to.pilot, 12), tcid = String(b.to.cid || '').replace(/\D/g, '').slice(0, 9);
+    if (!tp && !tcid) throw new MailError(400, "Add the pilot's ID (for example PAW0006) or VATSIM CID");
+    to = { pilot: tp, cid: tcid, cs: up(b.to.cs, 10), name: clean(b.to.name, 60).trim() };
+  }
+  let sendAt = b.sendAt ? Date.parse(b.sendAt) : Date.now(); if (!isFinite(sendAt)) throw new MailError(400, 'The send time is not a date');
+  if (old && (old.sendAt || old.t) <= Date.now() && sendAt > Date.now()) sendAt = old.sendAt || old.t; // a sent mail stays sent
+  const id = old ? old.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  /* attachments, in this order: the ones kept (keepAtt: their places in the mail as it was), the ones uploaded for it
+     (attIds, see attStage: their bytes move from mail:v1:tmp:<id> as they are) and small ones sent as base64 (newAtt) */
+  const keep = (old && old.att || []).map((a, i) => ({ a, i })).filter((x) => (b.keepAtt || []).includes(x.i));
+  const staged = Array.isArray(b.attIds) ? b.attIds.map(String) : [], add = Array.isArray(b.newAtt) ? b.newAtt : [];
+  if (keep.length + staged.length + add.length > ATT_COUNT) throw new MailError(400, 'At most ' + ATT_COUNT + ' attachments');
+  const files = [];
+  for (const x of keep) files.push({ meta: x.a, bytes: await kv.get('mail:v1:att:' + id + ':' + x.i, 'arrayBuffer') });
+  for (const sid of staged) {
+    if (!/^[a-z0-9]{8,40}$/.test(sid)) throw new MailError(400, 'Not an attachment uploaded here');
+    const g = await kv.getWithMetadata(TMP + sid, 'arrayBuffer'), mt = (g && g.metadata) || {};
+    /* uploaded more than an hour ago (or by someone else): the page uploads it again */
+    if (!g || !g.value || mt.by !== who || !ATT_TYPES.includes(mt.type)) throw new MailError(410, (mt.name || 'An attachment') + ' is no longer on the server: attach it again');
+    files.push({ meta: { name: String(mt.name || 'attachment').slice(0, 120), type: mt.type, size: g.value.byteLength }, bytes: g.value, tmp: sid });
+  }
+  for (const f of add) {
+    const type = String(f.type || ''), name = clean(f.name, 120).trim() || 'attachment';
+    if (!ATT_TYPES.includes(type)) throw new MailError(400, name + ': only PDF, PNG, JPG, WebP or text files');
+    const bin = b64Bytes(f.data, name);
+    files.push({ meta: { name, type, size: bin.length }, bytes: bin.buffer });
+  }
+  /* one kept whose bytes are gone is left out, and the rest keep their places in step with their bytes */
+  const att = files.filter((f) => f.bytes);
+  for (let i = 0; i < att.length; i++) await kv.put('mail:v1:att:' + id + ':' + i, att[i].bytes);
+  for (let i = att.length; i < ((old && old.att) || []).length; i++) await kv.delete('mail:v1:att:' + id + ':' + i);
+  const m = { id, t: old ? old.t : Date.now(), sendAt, from, subject, body, att: att.map((f) => f.meta), to, by: old ? old.by : who };
+  if (old) { m.edited = Date.now(); m.editedBy = who; }
+  await writeIndex(kv, [m, ...list.filter((x) => x.id !== id)]);
+  for (const f of att) if (f.tmp) await kv.delete(TMP + f.tmp).catch(() => {}); // else it goes by itself within the hour
+  /* push: a new notice going out now, or a notice that still waits for its time (the object checks it again then) */
+  try {
+    const waiting = sendAt > Date.now() + 1000;
+    if (waiting) await crew(env, { op: 'schedule', id: 'mail:' + id, at: sendAt, kind: 'mail', data: { id } });
+    else if (!old || (old.sendAt || old.t) > Date.now()) { await crew(env, { op: 'unjob', id: 'mail:' + id }); await crew(env, { op: 'notify', to: mailTo(m), cat: 'mail', payload: mailPayload(m) }); }
+  } catch (e) { console.warn('[mail push]', e && e.message); }
+  return jsonRes({ ok: true, mail: pub(m) });
 }
 export { MailError };

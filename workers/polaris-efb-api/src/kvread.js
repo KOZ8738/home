@@ -7,6 +7,15 @@
 export class StoreError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 export const plainObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
+/* One change after another (P1, Nov 2026). A value kept in KV that is read, changed and written back (the AOC index,
+   the mail index) loses whatever another change wrote between that read and that write: two at once in one isolate
+   (the 2-minute cron's watchers, two staff saving) each write back the list without the other's. q = queue();
+   q(async () => { read; change; write }) runs them in the order asked, each after the last has finished or failed. */
+export function queue() {
+  let tail = Promise.resolve();
+  return (fn) => { const p = tail.then(() => fn()); tail = p.then(() => {}, () => {}); return p; };
+}
+
 /* o = { shape: 'object' | 'array', msg: the error's message, Err: the module's error class (status, msg), get: KV options
    such as { cacheTtl } }. Resolves to the value, or null when the key is not there. */
 export async function kvJson(kv, key, o = {}) {

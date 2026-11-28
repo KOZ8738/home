@@ -26,6 +26,9 @@ const STEPS: [Phase, string][] = [
 ];
 const LABEL = Object.fromEntries(STEPS) as Record<Phase, string>;
 const POLL_MS = 15_000;
+/** answers the open flight may be missing from before it is closed: a pilot's connection drops for a moment, or one
+    VATSIM file leaves them out, and the operations panel (an AOC being written, the Cockpit Monitor) stays open */
+const GRACE = 2;
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T | null;
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -72,6 +75,9 @@ const S = {
   src: { vamsys: false, vatsim: true } as { vamsys: boolean; vatsim: boolean },
   /** a flight to open once the list has come (a link from Home) */
   want: null as string | null,
+  /** the open flight as last seen, and how many answers in a row it has been missing from (see GRACE) */
+  seen: null as Flight | null,
+  miss: 0,
   /** when VATSIM made the file the last answer came from, on this browser's clock (0: not known) */
   vupdAt: 0,
 };
@@ -200,8 +206,14 @@ async function poll(force = false): Promise<void> {
   } catch (e) {
     S.error = (e as Error).message; S.loaded = true;
   }
-  if (S.sel && !S.flights.some((f) => f.callsign === S.sel)) { S.sel = null; S.follow = false; selChanged(); }
-  if (S.want && S.flights.some((f) => f.callsign === S.want)) { const w = S.want; S.want = null; pick(w); }
+  /* the open flight: kept through GRACE answers without it (shown as last seen), then closed. An answer that did not
+     come (S.error) says nothing about it */
+  if (S.sel) {
+    const f = S.flights.find((x) => x.callsign === S.sel);
+    if (f) { S.seen = f; S.miss = 0; }
+    else if (!S.error && ++S.miss > GRACE) { S.sel = null; S.seen = null; S.miss = 0; S.follow = false; selChanged(); }
+  }
+  if (S.want && S.flights.some((f) => f.callsign === S.want)) { const w = S.want; S.want = null; choose(w); }
   else if (S.want && S.loaded && !S.error) S.want = null;
   render();
   window.dispatchEvent(new CustomEvent('pm:live', { detail: S.flights.map(sum) }));
@@ -259,7 +271,9 @@ function glide(): void {
 glide();
 
 /* ---------- render ---------- */
-const sel = () => S.flights.find((f) => f.callsign === S.sel) || null;
+const sel = () => S.flights.find((f) => f.callsign === S.sel) || (S.sel && S.seen && S.seen.callsign === S.sel ? S.seen : null);
+/** the open flight is not in the last answer (within GRACE) */
+const lost = (f: Flight) => !S.flights.includes(f);
 /* when the flight lands: vAMSYS's ETA, else the distance to go at the ground speed */
 function etaOf(f: Flight): Date | null {
   const v = f.raw.eta ? new Date(f.raw.eta) : null;
@@ -276,7 +290,7 @@ function selChanged(): void { const f = sel(); window.dispatchEvent(new CustomEv
   sel: () => { const f = sel(); return f ? sum(f) : null; },
   flights: () => S.flights.map(sum),
   /* open a flight (Home, Flight Watch's alerts): now if it is on the map, else once the list has come */
-  show: (cs: string) => { if (S.flights.some((f) => f.callsign === cs)) pick(cs); else S.want = cs; },
+  show: (cs: string) => { if (S.flights.some((f) => f.callsign === cs)) choose(cs); else S.want = cs; },
 };
 const ft = (n: number) => (n >= 18000 ? 'FL' + String(Math.round(n / 100)).padStart(3, '0') : n.toLocaleString('en-US') + ' ft');
 const dur = (ms: number) => { const m = Math.max(0, Math.round(ms / 60000)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
@@ -326,6 +340,7 @@ function render(): void {
     <button class="lv-back" data-lv="close"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>All flights</button>
     <div class="lv-dh"><div><b>${esc(r.cs)}</b>${r.sample ? '<span class="lv-tag">SAMPLE</span>' : ''}<small>${r.pilot ? esc(r.pilot) + (r.rank ? ' · ' + esc(r.rank) : '') + (r.name ? ' · ' + esc(r.name) : '') : esc(r.name || '')}${r.cid ? ' · CID ' + r.cid : ''}</small><span class="lv-srcb ${r.src === 'vAMSYS' ? 'va' : 'vs'}">${r.sample ? 'Sample' : r.src === 'vAMSYS' ? 'vAMSYS ACARS' + (r.net ? ' · ' + esc(r.net) : '') : 'VATSIM only'}</span></div>
       <div class="lv-dbtn"><button data-lv="follow" aria-pressed="${S.follow}" title="Keep this flight in view">Follow</button></div></div>
+    ${lost(f) ? '<p class="lv-lost" role="status">Not in the last update: shown as last seen. It closes if it does not come back.</p>' : ''}
     <div class="lv-od">
       <div><b>${esc(aptCode(r.dep))}</b><small>${esc(f.dep?.city || (r.dep ? '' : 'No flight plan'))}</small></div>
       <div class="lv-bar"><span style="width:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"></span><i style="left:${f.pct == null ? 0 : (f.pct * 100).toFixed(1)}%"><svg viewBox="-10 -10 20 20"><path d="M0,-10 L1.5,-6.5 L1.5,-2.2 L9,2.2 L9,4 L1.5,2 L1.2,6.6 L4,8.6 L4,10 L0,9 L-4,10 L-4,8.6 L-1.2,6.6 L-1.5,2 L-9,4 L-9,2.2 L-1.5,-2.2 L-1.5,-6.5Z"/></svg></i></div>
@@ -358,7 +373,7 @@ function showTab(): void {
     if (!S.globe) {
       const c = $<HTMLCanvasElement>('#lvGlobe')!, ac = new AbortController();
       // the EFB's Map (MapLibre), or the canvas globe when that cannot run here
-      S.globe = createMap(c.parentElement!, c, { signal: ac.signal, onPick: (cs) => pick(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
+      S.globe = createMap(c.parentElement!, c, { signal: ac.signal, onPick: (cs) => choose(cs), layout: loadLayout, onUserMove: () => { if (S.follow) { S.follow = false; render(); } } });
     }
     render();
     void poll(true);
@@ -371,9 +386,17 @@ async function loadLayout(icao: string): Promise<Layout | null> {
   const j = await r.json();
   return j && !j.notFound ? (j as Layout) : null;
 }
+/* a flight opened or closed by hand (the list, the map, Close, Esc, a link from Home): the operations panel may ask to
+   stay (a message to the crew not sent yet: pmLeave in admin.js); false keeps the open flight */
+function choose(cs: string | null): void {
+  const leave = (window as unknown as { pmLeave?: (cur: string, next: string | null) => boolean }).pmLeave;
+  if (S.sel && cs !== S.sel && leave && !leave(S.sel, cs)) return;
+  pick(cs);
+}
 function pick(cs: string | null): void {
   const was = S.sel;
   S.sel = cs;
+  S.seen = cs ? S.flights.find((f) => f.callsign === cs) || (cs === was ? S.seen : null) : null; S.miss = 0;
   render();
   if (was !== cs) selChanged();
   const f = sel();
@@ -383,14 +406,13 @@ function pick(cs: string | null): void {
 document.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
   const fb = t.closest<HTMLElement>('[data-cs]');
-  if (fb) { pick(fb.dataset.cs === S.sel ? null : fb.dataset.cs!); return; }
+  if (fb) { choose(fb.dataset.cs === S.sel ? null : fb.dataset.cs!); return; }
   const b = t.closest<HTMLElement>('[data-lv]');
   if (!b) return;
   const k = b.dataset.lv;
   if (k === 'in') S.globe?.zoomBy(1.5);
   else if (k === 'out') S.globe?.zoomBy(1 / 1.5);
-  else if (k === 'all') { S.follow = false; pick(null); }
-  else if (k === 'close') { S.follow = false; pick(null); }
+  else if (k === 'all' || k === 'close') { choose(null); if (!S.sel) S.follow = false; }
   else if (k === 'follow') { S.follow = !S.follow; const f = sel(); if (S.follow && f) S.globe?.frameFlight(f); render(); }
   else if (k === 'msg' || k === 'aoc') {
     const f = sel();
@@ -401,7 +423,8 @@ document.addEventListener('click', (e) => {
   else if (k === 'sample') { S.sample = true; S.flights = build(samples(), Date.now()); pick('PAW806'); }
   else if (k === 'nosample') { S.sample = false; S.sel = null; S.flights = []; S.globe?.overview(); void poll(true); }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.sel && onFw() && !(e.target as HTMLElement).closest?.('input,textarea,select')) { S.follow = false; pick(null); } });
+/* Esc closes the open flight, unless the page took it first (the Cockpit Monitor's zoom, in admin.js, preventDefault) */
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented && S.sel && onFw() && !(e.target as HTMLElement).closest?.('input,textarea,select')) { choose(null); if (!S.sel) S.follow = false; } });
 window.addEventListener('pm:tab', showTab);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && onFw()) void poll(true); });
 // keep the "x s old" line and the live badge fresh between polls

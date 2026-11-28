@@ -95,6 +95,8 @@ export async function deskAdmin(req, url, env, who, direct) {
   }
   if (req.method === 'GET') return stub(env).fetch('https://desk/state?role=' + role);
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  /* the admin page posts JSON, which a form on another site cannot send (mail.js also turns cross-site requests away) */
+  if (!/application\/json/i.test(req.headers.get('Content-Type') || '')) return json({ error: 'Send JSON' }, 415);
   if (!direct) return json({ error: 'Your role cannot direct the live broadcast' }, 403);
   const t = await req.text(); if (t.length > 20000) return json({ error: 'Too large' }, 413);
   let b; try { b = JSON.parse(t); } catch (e) { return json({ error: 'Bad body' }, 400); }

@@ -24,7 +24,7 @@ if(window.parent!==window){document.documentElement.classList.add("in-efb");try{
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--logo:#8FCBD0;--logo2:#C2A88F;color-scheme:dark;--teal:#1A6772;--teal-d:#22808D;--accent:#7CC2C9;--mist:#222225;--bronze:#A78970;--ink:#E8E8E9;--label:#9C9CA1;--line:#2E2E32;--bg:#1A1A1C;--soft:#121213;--field:#222225;--off:#5C5C61;--red:#F2A3A3;--red-l:#4A2427;--green:#8FCFA6;--ok-bg:#1D2A23;--err-bg:#3A1C1E;--q-bg:#2E2A24;--q:#D9C2AD}}
 body,header,section,input,select,textarea,button,.preview{transition:background-color .25s,border-color .25s,color .25s}
 *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--soft);color:var(--ink);font:15px/1.5 Jost,"Avenir Next","Segoe UI",system-ui,sans-serif}
-header{background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;height:59px;display:flex;align-items:center;gap:14px}
+header{background:var(--bg);border-bottom:1px solid var(--line);padding:0 24px;height:var(--hdr);display:flex;align-items:center;gap:14px}
 header h1{font:400 22px Marcellus,Georgia,serif;margin:0;color:var(--accent)}
 .brand{display:flex;align-items:center;gap:14px}.brand .logo{height:30px;width:auto;aspect-ratio:15092/3905;display:block;flex:none}.logo .lg1{fill:var(--logo,#1A6770)}.logo .lg2{fill:var(--logo2,#A78970)}.brand span{font:400 21px Marcellus,Georgia,serif;color:var(--bronze);padding-left:14px;border-left:1px solid var(--line);line-height:26px;letter-spacing:.02em}
 @media(max-width:520px){.brand .logo{height:24px}.brand span{font-size:18px}}header .who{margin-left:auto;color:var(--label);font-size:13px}
@@ -279,7 +279,7 @@ main#cal{max-width:1380px;grid-template-columns:minmax(0,1fr) 380px;align-items:
 @media(max-width:700px){.ca-d{min-height:64px}.ca-c{font-size:0;padding:0;height:6px;border:0;background:var(--c)}.ca-c b{display:none}.ca-wd span{font-size:10px;padding:4px 2px}.ca-bar h2{min-width:0;font-size:18px}.ca-tz{display:none}}
 /* ---------- shell: the header stays, the sections are in a sidebar (Nov 2026) ---------- */
 header{position:sticky;top:0;z-index:20}
-.side{position:fixed;top:59px;left:0;bottom:0;width:212px;overflow-y:auto;background:var(--bg);border-right:1px solid var(--line);padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;z-index:15}
+.side{position:fixed;top:var(--hdr);left:0;bottom:0;width:212px;overflow-y:auto;background:var(--bg);border-right:1px solid var(--line);padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;z-index:15}
 .side a{display:flex;align-items:center;gap:11px;padding:7px 10px;border-radius:6px;color:var(--label);text-decoration:none;font:500 14px Jost,"Avenir Next","Segoe UI",system-ui,sans-serif;white-space:nowrap}
 .side a>span:first-of-type{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .side a svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -296,10 +296,10 @@ header{position:sticky;top:0;z-index:20}
 body{padding-left:212px}
 body:has(.deny){padding-left:0}.deny~.side{display:none}
 main{scroll-margin-top:70px}
-main#live{height:calc(100vh - 59px);height:calc(100svh - 59px)}
+main#live{height:calc(100vh - var(--hdr));height:calc(100svh - var(--hdr))}
 @media(max-width:900px){
  body{padding-left:0}
- .side{position:sticky;top:59px;bottom:auto;width:auto;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--line);padding:6px 8px;gap:2px;scrollbar-width:none}
+ .side{position:sticky;top:var(--hdr);bottom:auto;width:auto;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--line);padding:6px 8px;gap:2px;scrollbar-width:none}
  .side::-webkit-scrollbar{display:none}
  .side .sg{display:none}.side .sx{margin-top:0}
  .side a{flex:none;padding:6px 11px;gap:7px}.side a svg{width:16px;height:16px}
@@ -807,7 +807,7 @@ main#pilots.pf .pl-t th:nth-child(3),main#pilots.pf .pl-t td:nth-child(3),main#p
 .nd-cyl li.later .nd-tag{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
 .nd-cyl li.old{opacity:.7}
 .nd-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;margin-top:4px;padding:18px 14px;border:1.5px dashed color-mix(in srgb,var(--label) 55%,transparent);border-radius:6px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}
-.nd-drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.nd-drop input,.nd-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .nd-drop b{font-size:14px;color:var(--ink)}.nd-drop small{font-size:12px;color:var(--label)}
 .nd-drop:hover,.nd-drop:focus-within{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .nd-drop.over{border-color:var(--accent);border-style:solid;background:color-mix(in srgb,var(--accent) 10%,transparent)}
@@ -931,7 +931,9 @@ main#bc{display:block;max-width:1480px}main#bc[hidden]{display:none!important}
 .fo-camb{display:flex;gap:4px}.fo-camb button{margin:0;padding:3px 10px;font-size:12px;height:26px}
 .fo-camst{margin-left:0}.fo-cg{gap:8px;margin-top:10px}.fo-cg .bc-cc{padding:6px}
 .fo-cg .bc-cap{gap:6px;margin-bottom:6px;min-height:18px}.fo-cg .bc-cap b{font-size:10.5px}.fo-cg .bc-cap span{font-size:12.5px}.fo-cg:not(.one) .bc-cap em{display:none}
-@media(max-width:600px){.fo-cg{grid-template-columns:repeat(2,minmax(0,1fr))}.fo-cg.one{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.fo-cg,.fo-cg.one{grid-template-columns:minmax(0,1fr)}}
+/* one camera on: that camera, large (the others are not drawn) */
+.bc-cg.solo{grid-template-columns:minmax(0,1fr)}.bc-cg.solo .bc-cc[hidden]{display:none}.bc-cg.solo:not(.one) .bc-cc{cursor:default}
 .fo-camk{margin-top:10px}.fo-camk summary{cursor:pointer;font-size:12.5px;color:var(--accent)}.fo-camk .bc-urlr{margin-top:8px}.fo-camk .bc-urlr input{flex:1 1 200px;font-size:12px}
 .fo-camhint{margin:8px 0 0}
 .bc-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
@@ -966,6 +968,52 @@ main#bc{display:block;max-width:1480px}main#bc[hidden]{display:none!important}
 .bc-l time{color:var(--label);font-variant-numeric:tabular-nums}.bc-l small{display:block;color:var(--label);font-size:12px}
 .bc-sm{padding:5px 11px;font-size:13px}
 html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
+/* ---------- iPad, phones and the EFB's Admin app (P1, Nov 2026) ---------- */
+:root{--hdr:59px;--navh:0px}
+/* Flight Watch: the open flight while it is missing from an update (admin-live, GRACE) */
+.lv-lost{margin:0 0 10px;padding:6px 10px;border-radius:6px;background:color-mix(in srgb,#E5A00D 14%,transparent);color:var(--ink);font-size:12.5px}
+/* Nav Data's filter bar sticks under the header (and the sections bar on a narrow screen), never behind them */
+.nd-flt{top:var(--hdr)}
+/* a ? explanation is never cut off: it scrolls within itself */
+.help>div{max-height:min(70dvh,420px);overflow:auto;overscroll-behavior:contain}
+/* Broadcast: where the pictures come from, and the way to the link */
+.bc-src-go{margin-left:4px;padding:2px 9px;font-size:12px;min-height:0}
+/* targets: at least 36 px to press on a desktop (the small ones reach past their edges, so nothing moves), 44 px on a
+   touch screen or a narrow window */
+.help>summary,.bc-chip button,.fw-b button,.fo-camb button,.lv-dbtn button,.fo-g button,.fw-cp{position:relative}
+.help>summary::after{content:"";position:absolute;inset:-7px;border-radius:50%}
+.bc-chip button::after,.fw-b button::after,.fo-camb button::after,.lv-dbtn button::after,.fo-g button::after,.fw-cp::after{content:"";position:absolute;left:-2px;right:-2px;top:50%;height:36px;transform:translateY(-50%)}
+.gm-z button{width:36px;height:36px}
+@media(pointer:coarse),(max-width:900px){
+ .help>summary{width:32px;height:32px}
+ .fw-b button,.fo-camb button,.lv-dbtn button,.fo-g button,.fo-ge button,.bc-src-go{min-height:44px;height:auto}
+ .lv-back{min-height:44px;padding-bottom:0;margin-bottom:6px}
+ .fw-cp{min-height:36px}
+ .bc-chip button{min-width:36px;min-height:36px}
+ .bc-chip button::after,.fw-b button::after,.fo-camb button::after,.lv-dbtn button::after,.fo-g button::after,.fw-cp::after{height:44px}
+ .gm-z button{width:44px;height:44px}
+}
+@media(max-width:900px){
+ /* the sections bar under the header: 44 px tabs, and a fade at an edge with more tabs past it (sideScroll) */
+ :root{--navh:53px}
+ html{scroll-padding-top:calc(var(--hdr) + var(--navh))}
+ /* (the page keeps clear of the two bars itself now: what is scrolled to needs no room of its own for them) */
+ main{scroll-margin-top:0}#ibView,#cmItem,#cmCompose{scroll-margin-top:8px}
+ .side{padding:4px 8px}
+ .side a{min-height:44px}
+ .side.more-r{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent)}
+ .side.more-l{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px);mask-image:linear-gradient(to right,transparent,#000 40px)}
+ .side.more-l.more-r{-webkit-mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+ .nd-flt{top:calc(var(--hdr) + var(--navh))}
+ /* a ? explanation opens across the page, not off its edge, on an iPad as on a phone */
+ .help{position:static}.help>div{top:auto;left:12px;right:12px;width:auto;margin-top:8px}
+}
+/* in the EFB's Admin app (a frame): a lower header, and on a narrow screen a shorter map, so the flight list and the open
+   flight's panel (the Cockpit Monitor) show without scrolling far */
+html.in-efb{--hdr:48px}
+html.in-efb header{padding:0 14px;gap:10px}html.in-efb .brand .logo{height:24px}html.in-efb .brand span{font-size:18px}
+@media(max-width:900px){html.in-efb main#live{grid-template-rows:40dvh auto}}
+@media(max-width:900px) and (max-height:500px){html.in-efb main#live{grid-template-rows:60dvh auto}}
 </style></head><body>
 <header><h1 class="brand"><svg class="logo" role="img" aria-label="Polaris" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15092.484 3905.46"><g id="Asset_30" data-name="Asset 30"><g><g><polygon points="1904.622,369.472 1904.528,119.039 1954.699,370.183 1964.691,420.197 1985.701,525.369 1991.983,556.813 2127.906,1237.207 2133.942,1267.418 2175.221,1474.052 2205.806,1627.151 2208.049,1638.378 2208.289,1639.577 2198.471,1649.418 1928.519,1920.038 1905.275,1943.339 2178.597,1942.992 2196.588,1942.969 2292.604,1942.847 2196.588,1942.97 2178.597,1942.993 1906.108,1943.341 2178.048,1943.816 2196.003,1943.847 3295.655,1945.769 3326.686,1945.823 3434.563,1946.012 3484.213,1946.099 3683.295,1946.447 3684.587,1946.705 3483.711,1987.063 3433.753,1997.1 3324.685,2019.013 3293.253,2025.328 2370.425,2210.733 2203.558,2244.258 2203.422,2244.285 1906.607,1944.744 1905.275,1943.4 1905.275,1944.746 1905.276,1948.056 2078.169,2120.51 1905.276,1948.058 1905.276,1948.076 1905.279,1976.469 1905.303,2220.019 1905.304,2237.983 1905.311,2304.179 1905.313,2327.917 1905.37,2905.996 1905.374,2938.032 1905.412,3331.58 1905.416,3362.611 1905.427,3474.618 1905.432,3524.269 1905.457,3777.46 1905.457,3785.26 1853.82,3523.396 1843.952,3473.349 1821.618,3360.087 1815.411,3328.609 1751.325,3003.61 1745.219,2972.644 1635.127,2414.335 1606.24,2267.839 1601.742,2245.028 1727.244,2119.501 1738.029,2108.715 1773.427,2073.31 1773.428,2073.309 1881.665,1966.568 1901.925,1946.588 1902.867,1945.659 1902.339,1945.129 1902.869,1945.657 1902.87,1945.656 1903.792,1944.748 1905.217,1943.342 1905.216,1941.439 1905.109,1656.963 1905.041,1476.749 1905.026,1436.619 1904.692,554.257 1904.68,523.226 1904.641,419.122" class="lg1"/><polygon points="2227.828,1618.584 2730.499,1115.533 2373.989,1650.044 2228.062,1619.754" class="lg1"/><polygon points="1587.568,1629.093 1092.466,1131.996 1618.458,1485.934 1591.032,1628.415" class="lg1"/><polygon points="1607.337,1648.942 1610.829,1648.259 1642.951,1680.457 1666.349,1703.91 1901.939,1940.056 1904.267,1942.389 1905.217,1943.342 1903.319,1943.338 1901.935,1943.335 1900.547,1943.332 1609.751,1942.748 1518.378,1942.564 1427.355,1942.381 1376.003,1942.278 518.334,1940.554 518.334,1940.554 487.303,1940.491 487.303,1940.491 379.079,1940.274 379.079,1940.274 329.428,1940.174 329.428,1940.174 120.047,1939.753 330.136,1898.674 380.144,1888.896 489.267,1867.559 520.684,1861.416 1437.628,1682.125" class="lg1"/><polygon points="1065.16,2781.715 1433.539,2232.373 1581.485,2262.597 1581.522,2262.786 1581.928,2264.846 1068.705,2778.171" class="lg1"/><polygon points="2194.461,2412.427 2222.688,2266.599 2562.141,2607.241 2579.384,2624.545 2708.399,2754.011 2708.869,2754.716 2541.209,2643.154 2518.502,2628.045" class="lg1"/><path d="M1833.036 371.165 L1904.48 0 L1978.611 371.075 L1978.611 371.075 C2290.231 385.035 2578.32 489.409 2817.277 658.595 L2897.526 595.883 L2965.268 544.96 C2965.833 544.535 2966.516 544.293 2967.223 544.269 L2972.062 544.099 C2974.421 544.026 2976.159 546.288 2975.477 548.55 L2974.083 553.173 C2973.879 553.85 2973.472 554.448 2972.916 554.887 L2906.505 607.325 L2831.401 668.712 C3210.137 943.157 3462.108 1381.815 3482.83 1880.202 L3802.989 1946.656 L3482.935 2010.958 C3450.276 2828.268 2795.744 3485.567 1979.572 3522.621 L1979.572 3522.621 L1905.469 3905.46 L1905.469 3905.284 L1905.437 3905.46 L1829.907 3522.427 C1533.482 3508.197 1258.51 3412.145 1027.084 3256.364 L1023.69 3257.226 L965.367 3270.134 L911.981 3279.994 L865.091 3286.778 L823.499 3290.861 L786.009 3292.624 C785.942 3292.627 785.874 3292.628 785.807 3292.627 L753.713 3292.254 C753.635 3292.253 753.556 3292.25 753.478 3292.243 L724.855 3289.953 C724.768 3289.946 724.68 3289.936 724.593 3289.922 L699.049 3285.896 C698.949 3285.881 698.85 3285.86 698.752 3285.836 L676.479 3280.292 C676.363 3280.263 676.248 3280.228 676.136 3280.187 L656.548 3273.086 C656.423 3273.041 656.301 3272.989 656.183 3272.93 L638.933 3264.322 C638.804 3264.258 638.679 3264.185 638.559 3264.105 L623.442 3254.022 C623.307 3253.932 623.179 3253.833 623.059 3253.725 L610.32 3242.359 C610.191 3242.243 610.07 3242.118 609.96 3241.985 L599.246 3229.05 C599.135 3228.915 599.033 3228.772 598.943 3228.622 L590.266 3214.137 C590.178 3213.991 590.101 3213.838 590.036 3213.68 L583.442 3197.702 C583.385 3197.565 583.337 3197.423 583.299 3197.28 L577.254 3174.766 C577.225 3174.658 577.201 3174.548 577.183 3174.438 L573.26 3150.891 C573.242 3150.786 573.229 3150.679 573.222 3150.573 L571.415 3125.638 C571.408 3125.538 571.405 3125.437 571.406 3125.336 L571.806 3098.899 C571.808 3098.808 571.813 3098.716 571.821 3098.625 L574.542 3070.008 C574.55 3069.927 574.56 3069.846 574.574 3069.766 L579.654 3039.367 C579.666 3039.292 579.681 3039.218 579.698 3039.144 L587.304 3006.856 C587.32 3006.787 587.339 3006.72 587.359 3006.653 L597.752 2972.1 C597.769 2972.041 597.789 2971.982 597.81 2971.924 L611.395 2934.195 L628.056 2894.137 L634.771 2879.838 C453.887 2633.63 342.765 2332.984 330.541 2007.039 L0 1939.512 L331.032 1874.785 C367.611 1061.528 1020.002 408.598 1833.036 371.165 Z M1904.528 119.039 L1904.622 369.472 L1904.641 419.122 L1904.68 523.226 L1904.692 554.257 L1905.026 1436.619 L1905.041 1476.749 L1905.109 1656.963 L1905.216 1941.439 L1905.217 1943.342 L1903.792 1944.748 L1902.87 1945.656 L1902.869 1945.657 L1902.339 1945.129 L1902.867 1945.659 L1901.925 1946.588 L1881.665 1966.568 L1773.428 2073.309 L1773.427 2073.31 L1738.029 2108.715 L1727.244 2119.501 L1601.742 2245.028 L1606.24 2267.839 L1635.127 2414.335 L1745.219 2972.644 L1751.325 3003.61 L1815.411 3328.609 L1821.618 3360.087 L1843.952 3473.349 L1853.82 3523.396 L1905.457 3785.26 L1905.457 3777.46 L1905.432 3524.269 L1905.427 3474.618 L1905.416 3362.611 L1905.412 3331.58 L1905.374 2938.032 L1905.37 2905.996 L1905.313 2327.917 L1905.311 2304.179 L1905.304 2237.983 L1905.303 2220.019 L1905.279 1976.469 L1905.276 1948.076 L1905.276 1948.058 L2078.169 2120.51 L1905.276 1948.056 L1905.275 1944.746 L1905.275 1943.4 L1906.607 1944.744 L2203.422 2244.285 L2203.558 2244.258 L2370.425 2210.733 L3293.253 2025.328 L3324.685 2019.013 L3433.753 1997.1 L3483.711 1987.063 L3684.587 1946.705 L3683.295 1946.447 L3484.213 1946.099 L3434.563 1946.012 L3326.686 1945.823 L3295.655 1945.769 L2196.003 1943.847 L2178.048 1943.816 L1906.108 1943.341 L2178.597 1942.993 L2196.588 1942.97 L2292.604 1942.847 L2196.588 1942.969 L2178.597 1942.992 L1905.275 1943.339 L1928.519 1920.038 L2198.471 1649.418 L2208.289 1639.577 L2208.049 1638.378 L2205.806 1627.151 L2175.221 1474.052 L2133.942 1267.418 L2127.906 1237.207 L1991.983 556.813 L1985.701 525.369 L1964.691 420.197 L1954.699 370.183 Z M1905.217 1943.342 L1904.267 1942.389 L1901.939 1940.056 L1666.349 1703.91 L1642.951 1680.457 L1610.829 1648.259 L1607.337 1648.942 L1437.628 1682.125 L520.684 1861.416 L489.267 1867.559 L380.144 1888.896 L330.136 1898.674 L120.047 1939.753 L329.428 1940.174 L329.428 1940.174 L379.079 1940.274 L379.079 1940.274 L487.303 1940.491 L487.303 1940.491 L518.334 1940.554 L518.334 1940.554 L1376.003 1942.278 L1427.355 1942.381 L1518.378 1942.564 L1609.751 1942.748 L1900.547 1943.332 L1901.935 1943.335 L1903.319 1943.338 Z M1988.639 421.274 L2009.737 526.884 C2260.688 544.831 2493.592 628.004 2691.588 759.541 C2697.075 763.186 2702.536 766.869 2707.969 770.588 C3056.86 1009.421 3293.717 1399.946 3323.509 1847.132 L3432.652 1869.786 C3408.69 1387.589 3161.164 964.24 2791.589 701.253 C2786.565 697.677 2781.518 694.132 2776.449 690.616 C2550.597 533.976 2280.474 436.676 1988.639 421.274 Z M1823.374 421.361 C1045.536 463.227 422.32 1086.929 381.222 1864.971 L490.724 1843.56 C539.349 1140.198 1100.299 577.826 1803.045 526.971 Z M2016.048 558.474 L2148.072 1219.346 L2158.689 1209.942 L2315.919 1073.585 L2477.149 936.684 L2635.42 805.161 L2666.326 780.058 C2476.684 655.972 2254.838 577.024 2016.048 558.474 Z M1796.967 558.55 C1116.268 611.907 573.475 1156.085 522.282 1837.389 L1423.751 1661.124 L1038.032 1077.342 L1621.529 1469.976 Z M2683.101 791.209 L2647.999 820.315 L2491.244 953.292 L2331.594 1091.666 L2175.953 1229.439 L2154.045 1249.244 L2196.127 1459.896 L2784.563 1061.426 L2389.779 1653.321 L3291.944 1840.58 C3260.118 1403.651 3026.132 1022.822 2683.101 791.209 Z M2730.499 1115.533 L2227.828 1618.584 L2228.062 1619.754 L2373.989 1650.044 Z M1092.466 1131.996 L1587.568 1629.093 L1591.032 1628.415 L1618.458 1485.934 Z M380.658 2017.277 C394.348 2319.061 495.591 2598.028 659.588 2829.379 C669.202 2842.942 679.032 2856.342 689.073 2869.573 C789.851 3002.369 911.854 3118.175 1050.027 3211.938 L1081.646 3204.199 L1153.505 3184.492 L1195.643 3171.81 C1019.016 3069.348 866.512 2929.899 748.731 2764.063 C739.054 2750.437 729.611 2736.634 720.409 2722.659 C589.699 2524.15 507.463 2290.891 490.55 2039.728 Z M3432.795 2021.031 L3323.213 2043.047 C3274.238 2745.94 2713.609 3307.853 2011.273 3358.841 L1989.286 3472.431 C2770.153 3430.893 3395.419 2802.995 3432.795 2021.031 Z M522.113 2046.176 C539.564 2283.58 616.699 2504.397 738.574 2693.681 L770.783 2644.84 L813.528 2584.563 L862.425 2519.265 L916.992 2449.788 L977.581 2376.026 L1045.333 2296.753 L1119.286 2213.414 L1154.249 2175.316 Z M3291.637 2049.391 L2384.188 2231.706 L2614.597 2582.82 L2781.659 2504.037 L2912.337 2440.633 C2912.905 2440.358 2913.537 2440.243 2914.166 2440.302 L2915.652 2440.44 C2918.178 2440.676 2919.597 2443.462 2918.302 2445.644 L2917.54 2446.927 C2917.218 2447.47 2916.753 2447.914 2916.197 2448.211 L2787.999 2516.657 L2626.324 2600.689 L2762.687 2808.49 L2525.629 2650.75 L2428.721 2697.991 L2252.742 2781.377 L2110.373 2846.858 L2017.386 3327.257 C2697.6 3273.76 3240.022 2730.133 3291.637 2049.391 Z M1199.892 2184.641 L1149.639 2240.528 L1077.015 2324.064 L1010.589 2403.401 L951.316 2477.074 L898.063 2546.314 L850.485 2611.214 L809.057 2670.908 L771.581 2727.474 L766.575 2735.488 C888.346 2910.375 1049.316 3055.928 1236.755 3159.419 L1325.097 3130.673 L1424.384 3096.195 L1532.938 3056.272 L1650.097 3011.021 L1723.245 2981.509 L1614.195 2428.479 L1010.553 2836.334 L1010.633 2836.254 L1010.538 2836.319 L1417.703 2229.138 Z M1433.539 2232.373 L1065.16 2781.715 L1068.705 2778.171 L1581.928 2264.846 L1581.522 2262.786 L1581.485 2262.597 Z M2222.688 2266.599 L2194.461 2412.427 L2518.502 2628.045 L2541.209 2643.154 L2708.869 2754.716 L2708.399 2754.011 L2579.384 2624.545 L2562.141 2607.241 Z M2191.381 2428.34 L2116.783 2813.742 L2241.758 2757.581 L2418.202 2675.858 L2502.774 2635.542 Z M665.204 2919.911 L652.274 2950.246 L639.133 2985.762 C639.112 2985.82 639.092 2985.878 639.073 2985.937 L629.114 3018.028 C629.093 3018.095 629.074 3018.162 629.058 3018.23 L621.818 3047.798 C621.8 3047.872 621.785 3047.946 621.772 3048.021 L616.933 3075.491 C616.919 3075.571 616.908 3075.652 616.899 3075.733 L614.259 3101.134 C614.25 3101.225 614.244 3101.317 614.242 3101.409 L613.694 3124.299 C613.692 3124.399 613.694 3124.5 613.7 3124.601 L615.046 3145.755 C615.052 3145.862 615.064 3145.968 615.081 3146.074 L618.175 3165.713 C618.193 3165.823 618.215 3165.933 618.243 3166.041 L622.9 3184.022 C622.938 3184.166 622.984 3184.307 623.04 3184.445 L627.329 3195.113 C627.393 3195.271 627.468 3195.424 627.555 3195.572 L632.94 3204.752 C633.029 3204.903 633.129 3205.047 633.239 3205.183 L639.88 3213.353 C639.99 3213.487 640.109 3213.613 640.237 3213.73 L648.429 3221.175 C648.549 3221.284 648.676 3221.384 648.81 3221.475 L659.317 3228.621 C659.437 3228.703 659.561 3228.776 659.69 3228.842 L672.474 3235.364 C672.592 3235.425 672.713 3235.478 672.837 3235.524 L688.177 3241.24 C688.289 3241.281 688.403 3241.317 688.519 3241.347 L706.977 3246.115 C707.075 3246.141 707.174 3246.161 707.273 3246.178 L729.511 3249.883 C729.597 3249.898 729.685 3249.909 729.773 3249.917 L755.478 3252.201 C755.556 3252.208 755.635 3252.212 755.714 3252.214 L785.271 3252.816 C785.339 3252.818 785.406 3252.817 785.474 3252.814 L820.81 3251.463 L860.543 3247.913 L905.856 3241.762 L957.921 3232.617 L984.827 3226.908 C864.424 3140.032 756.769 3036.586 665.204 2919.911 Z M1729.392 3012.683 L1661.923 3040.593 L1544.696 3087.052 L1435.958 3128.126 L1336.362 3163.691 L1280.32 3182.471 C1436.068 3261.368 1608.692 3311.773 1791.339 3326.833 Z M1239.198 3196.064 L1163.738 3219.496 L1092.459 3239.716 C1305.247 3374.032 1553.503 3457.265 1820.002 3472.194 L1797.575 3358.458 C1596.898 3343.162 1407.888 3286.146 1239.198 3196.064 Z" class="lg2"/><path d="M3000.794 2368.893 C3019.684 2356.512 3036.552 2302.346 3043.794 2304.444 C3051.037 2306.543 3036.336 2361.337 3045.682 2381.898 C3046.452 2383.592 3046.743 2384.634 3047.449 2385.915 C3048.154 2387.197 3048.879 2388 3049.899 2389.556 C3062.28 2408.446 3116.446 2425.314 3114.348 2432.556 C3112.25 2439.799 3057.455 2425.098 3036.894 2434.444 C3035.2 2435.214 3034.158 2435.505 3032.877 2436.21 C3031.595 2436.916 3030.792 2437.641 3029.236 2438.661 C3010.346 2451.042 2993.478 2505.208 2986.236 2503.11 C2978.994 2501.011 2993.694 2446.217 2984.348 2425.656 C2983.579 2423.962 2983.287 2422.92 2982.582 2421.639 C2981.876 2420.357 2981.151 2419.554 2980.131 2417.998 C2967.75 2399.108 2913.584 2382.24 2915.682 2374.998 C2917.781 2367.755 2972.575 2382.456 2993.136 2373.11 C2994.83 2372.34 2995.872 2372.049 2997.153 2371.343 C2998.435 2370.638 2999.238 2369.913 3000.794 2368.893 Z" class="lg2"/></g><g><path d="M4555.784 993.393 L4555.784 961.588 L4683.02 961.588 L4934.027 961.588 L5346.408 961.588 C5582.591 961.588 5995.111 1060.39 5995.111 1525.597 C5995.111 1990.805 5541.722 2084.342 5376.301 2084.342 L4934.027 2084.342 L4934.027 2914.192 L4683.02 2914.192 L4683.02 1232.257 L4683.02 1210.038 C4681.351 1154.448 4666.195 1012.43 4555.784 993.393 Z M4934.027 1073.435 L4934.027 1975.808 L5314.902 1975.808 C5534.427 1975.808 5726.976 1825.867 5726.976 1525.597 C5726.976 1225.328 5537.677 1073.435 5328.873 1073.435 Z" class="lg1"/><path d="M6162.687 1937.947 C6162.687 1472.577 6440.852 925.218 7110.863 925.218 C7767.08 925.218 8027.952 1535.288 8027.952 1937.947 C8027.952 2489.072 7679.777 2961.465 7110.863 2961.465 C6467.077 2961.465 6162.687 2476.506 6162.687 1937.947 Z M6448.694 1933.731 C6448.694 2320.285 6594.807 2853.968 7110.863 2853.968 C7610.46 2853.968 7738.836 2281.413 7738.836 1939.183 C7738.836 1651.955 7626.485 1038.732 7095.319 1032.975 C6569.967 1027.281 6448.694 1618.896 6448.694 1933.731 Z" class="lg1"/><path d="M8170.885 992.217 L8170.885 961.645 L8297.651 961.645 L8543.494 961.645 L8548.659 961.645 L8548.659 2802.004 L9055.431 2802.004 L9148.53 2802.004 C9180.429 2801.205 9214.392 2799.364 9239.576 2795.465 C9303.429 2785.578 9410.95 2757.976 9449.262 2720.488 L9468.624 2720.488 L9423.065 2914.249 L8548.659 2914.249 L8297.651 2914.249 L8297.651 2802.004 L8297.651 1239.526 C8297.651 1239.517 8297.651 1239.508 8297.651 1239.498 C8297.651 1103.733 8279.43 1068.948 8248.945 1035.58 C8218.46 1002.211 8170.885 992.217 8170.885 992.217 Z" class="lg1"/><path d="M10311.469 1128.699 L10382.399 940.01 L10503.527 940.01 L11104.222 2576.823 L11104.224 2576.829 C11205.069 2850.79 11330.058 2914.192 11330.058 2914.192 L11228.033 2914.192 L11159.889 2914.192 L10966.728 2914.192 L10734.92 2282.546 L9998.851 2282.546 L9828.336 2736.152 C9828.238 2736.414 9828.14 2736.676 9828.04 2736.937 L9828.04 2736.939 L9826.776 2740.301 C9795.609 2824.172 9788.896 2914.192 9788.896 2914.192 L9761.408 2914.192 L9640.28 2914.192 L9620.591 2914.192 C9635.399 2907.37 9687.309 2783.168 9729.607 2676.566 Z M10371.305 1291.746 L10041.619 2168.775 L10693.167 2168.775 Z" class="lg1"/><path d="M11465.356 992.724 L11465.356 963.48 L11595.087 963.48 L11602.195 963.48 L11692.209 963.48 L11733.248 963.48 L11846.094 963.48 L11934.079 963.48 L12247.917 963.48 C12354.113 963.48 12853.407 982.242 12853.407 1491.098 C12853.407 1771.903 12630.249 1965.376 12378.93 1991.644 C12425.995 2015.323 12509.405 2049.548 12625.834 2302.109 C12742.264 2554.669 12763.081 2595.34 12763.081 2595.34 L12763.081 2595.342 C12885.416 2854.193 13026.525 2915.969 13026.525 2915.969 L12816.062 2915.969 L12757.942 2916.006 C12684.954 2916.054 12631.449 2897.849 12556.363 2741 C12481.278 2584.152 12329.616 2256.546 12329.616 2256.546 C12257.186 2102.253 12194.352 2019.939 12097.754 2019.939 L11846.094 2019.939 L11846.094 2916.084 L11595.087 2916.084 L11595.087 1234.203 C11595.087 1027.499 11506.003 1004.289 11465.356 992.724 Z M11846.094 1076.686 L11846.094 1906.732 L12180.947 1906.732 C12286.772 1906.732 12592.858 1842.627 12592.858 1498.398 C12592.858 1257.665 12467.615 1076.686 12204.967 1076.686 L12025.468 1076.686 L12020.709 1076.686 Z" class="lg1"/><path d="M13120.586 992.724 L13120.586 963.48 L13243.325 963.48 L13257.425 963.48 L13388.479 963.48 L13494.332 963.48 L13494.332 2916.084 L13243.325 2916.084 L13243.325 1220.19 C13243.325 1007.768 13152.875 1002.979 13120.586 992.724 Z" class="lg1"/><path d="M14989.739 1340.928 L14989.739 1097.506 C14989.739 1097.506 14825.947 925.591 14457.733 925.591 C14089.52 925.591 13840.417 1135.072 13840.417 1418.954 C13840.417 1702.835 13944.686 1854.983 14355.87 2016.634 C14783.952 2184.929 14846.778 2298.805 14846.778 2485.451 C14846.778 2672.097 14719.23 2848.723 14413.551 2848.723 C14107.873 2848.723 13941.053 2674.451 13840.417 2522.269 L13819.109 2522.269 L13819.109 2764.668 C13819.109 2764.668 14065.824 2958.293 14413.551 2958.293 C14761.279 2958.293 15092.484 2783.886 15092.484 2422.209 C15092.484 2060.531 14894.511 1937.286 14551.951 1797.148 C14209.392 1657.01 14073.702 1577.227 14073.702 1367.836 C14073.702 1158.446 14234.219 1029.725 14457.733 1029.725 C14681.248 1029.725 14878.94 1171.657 14956.795 1340.928 Z" class="lg1"/></g></g></g></svg><span>Operations</span></h1><span class="who" id="who"></span><div class="thm" role="group" aria-label="Appearance"><button data-thm="light" title="Light" aria-label="Light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button data-thm="auto" title="Match system" aria-label="Match system"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button><button data-thm="dark" title="Dark" aria-label="Dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button></div></header>
 <!--DENIED-->
@@ -1143,7 +1191,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </section>
 <section class="bc-cam" id="bcCam"><div class="lh"><h2>Polaris Cam</h2><div class="bc-st" id="bcCamSt"></div></div>
  <div class="bc-cg" id="bcCamG"><button type="button" class="bc-cc" data-camc="0"><div class="bc-cap"><b>Cam 1</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="1"><div class="bc-cap"><b>Cam 2</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="2"><div class="bc-cap"><b>Cam 3</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button><button type="button" class="bc-cc" data-camc="3"><div class="bc-cap"><b>Cam 4</b><span>—</span><em></em></div><div class="bc-fr"><canvas hidden></canvas><span class="bc-ph">No picture</span></div></button></div>
- <p class="hint">The cockpit cameras from Polaris Cam on the simulator PC, only while this page is open: the streaming pilot’s own when their Polaris Cam signs in with Polaris Navdata (Auto), or the PC connected with the link under Setup (Direct link), which comes first. Click a camera to see it large; click again for all four.</p></section>
+ <p class="hint">The cockpit cameras from Polaris Cam on the simulator PC, only while this page is open: the streaming pilot’s own when their Polaris Cam signs in with Polaris Navdata (Auto), or the PC connected with the link under Setup (Direct link), which comes first and overrides Auto. Click a camera to see it large; click it again (or Esc) for all four.</p></section>
 <section class="bc-wall"><div class="lh"><h2>Cameras and scenes</h2><button type="button" class="bc-act bc-sm" id="bcRef">Ask OBS again</button></div><div class="bc-tiles" id="bcTiles"></div></section>
 <div class="bc-cols">
  <section class="bc-ovs"><h2>Overlays on the picture</h2><div id="bcOv"></div></section>
@@ -1166,6 +1214,7 @@ html.no-a-live #bc .bc-act{pointer-events:none;opacity:.5}
 </section>
 <div class="nd-flt" id="ndFlt"><div class="nd-tabs" id="ndTabs" role="tablist" aria-label="Show"></div><input type="search" id="ndQ" placeholder="Find a country or source" aria-label="Find a country or source" autocomplete="off"></div>
 <div id="ndList"><section><span class="empty">Loading…</span></section></div>
+<input type="file" id="ndFile" class="nd-file" tabindex="-1" aria-hidden="true">
 </main>
 <main id="docs" hidden>
 <section>
@@ -1317,11 +1366,16 @@ function kindUi(){const a=kind()==="aoc";$("#mkMail").hidden=a;$("#mkAoc").hidde
  $("#kindHint").textContent=a?"Shows in the EFB under Flight › Messages for 30 days. Pilots cannot answer an AOC message.":"Pilots read notices in the EFB’s Mail and can answer; answers arrive in the Inbox.";
  if(!S.edit){$("#formTitle").textContent=a?"New AOC message":"New notice";const t=toGet();$("#send").textContent=(a?"Send AOC to ":"Send to ")+(t?(t.crew||t.pilot||t.cid?toWho(t):"this pilot"):"all pilots")}acPreview()}
 /* the Live tab's "Message" and "AOC" buttons, and the Pilots tab's "Message" */
-window.pmCompose=function(t,k){if(S.edit)reset();kindSet(k);
+/* true when the composer is opened for it; false when staff keep the message they are writing (asked, as New does) */
+window.pmCompose=function(t,k){if(cmDirty()&&!confirm("Discard the message you are writing?"))return false;
+ reset();$("#acTitle").value="CREW MESSAGE";$("#acBody").value="";kindSet(k);
  /* from a Live flight, Mail or AOC goes to its crew: the callsign, and this pilot to start with */
- if(t&&!t.crew&&t.cs)t={crew:true,cs:t.cs,m:t.pilot||t.cid?[{pilot:t.pilot||"",cid:String(t.cid||""),name:t.name&&t.name!==t.pilot?t.name:""}]:[]};toSet(t);if($("#from").value===SETV.froms[0]&&SETV.froms.includes("Flight Operations"))$("#from").value="Flight Operations";say("");CM.item="";CM.pane="compose";cmUi();location.hash="#comms";setTimeout(()=>{(k==="aoc"?$("#acBody"):$("#subject")).focus()},60)};
+ if(t&&!t.crew&&t.cs)t={crew:true,cs:t.cs,m:t.pilot||t.cid?[{pilot:t.pilot||"",cid:String(t.cid||""),name:t.name&&t.name!==t.pilot?t.name:""}]:[]};toSet(t);if($("#from").value===SETV.froms[0]&&SETV.froms.includes("Flight Operations"))$("#from").value="Flight Operations";say("");CM.item="";CM.pane="compose";cmUi();location.hash="#comms";setTimeout(()=>{(k==="aoc"?$("#acBody"):$("#subject")).focus()},60);return true};
 function preview(){const b=$("#body").value,t=toGet();$("#preview").innerHTML=b.trim()?"<h4 style='margin-top:0'>"+esc($("#subject").value||"(no subject)")+"</h4><div class='hint' style='margin:-2px 0 10px'>From "+esc($("#from").value||"…")+" · "+(t?"To "+esc(toLabel(t))+(t.name?" ("+esc(t.name)+")":""):"To all Polaris pilots")+"</div>"+md(b):'<span class="empty">The message as pilots will see it.</span>'}
-async function load(){if(!pgHas("comms"))return;const [a,b]=await Promise.allSettled([api("/admin/api/mail"),api("/admin/api/aoc")]);if(a.status==="fulfilled")S.mails=a.value.mails||[];if(b.status==="fulfilled"){S.aoc=b.value.msgs||[];S.aocV=b.value}
+S.loading=0;
+async function load(){if(!pgHas("comms"))return;S.loading++;let a,b;
+ try{[a,b]=await Promise.allSettled([api("/admin/api/mail"),api("/admin/api/aoc")])}finally{S.loading--}
+ if(a.status==="fulfilled")S.mails=a.value.mails||[];if(b.status==="fulfilled"){S.aoc=b.value.msgs||[];S.aocV=b.value}
  S.listErr=[a,b].filter(x=>x.status==="rejected").map(x=>x.reason.message).join(" · ");listUi()}
 function reset(){S.edit=null;S.keep=[];S.add=[];S.crew=[];$("#crCs").value="";$("#formTitle").textContent="New notice";$("#send").textContent="Send to all pilots";$("#cancel").hidden=true;["subject","body"].forEach(i=>$("#"+i).value="");$("#from").value=SETV.froms[0]||"Crew Management";$("#when").value="now";$("#atRow").hidden=true;$("#file").value="";attsUi();toSet(null)}
 const localInput=ms=>new Date(ms).toISOString().slice(0,16);
@@ -1338,15 +1392,22 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button");i
  else if(t.id==="crAddB")crAdd();
  else if(t.id==="send"&&kind()==="aoc"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body=$("#acBody").value.trim();if(!body){say("Write the message first.");return}if(/___/.test(body)){say("Fill in the ___ first.");tplCaret($("#acBody"));return}
   t.disabled=true;try{await api("/admin/api/aoc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("#acTitle").value,body,to,push:$("#acPush").checked})});$("#acBody").value="";acPreview();say("AOC message sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}
- else if(t.id==="send"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body={id:S.edit||undefined,to,from:$("#from").value,subject:$("#subject").value,body:$("#body").value,keepAtt:S.keep,newAtt:S.add.map(f=>({name:f.name,type:f.type,data:f.data}))};
+ else if(t.id==="send"){const to=toGet();if(to&&to.crew){if(!to.cs){say("Add the flight's callsign (for example PAW123).");return}}else if(to&&!to.pilot&&!to.cid){say("Add the pilot's ID (for example PAW0006) or VATSIM CID.");return}const body={id:S.edit||undefined,to,from:$("#from").value,subject:$("#subject").value,body:$("#body").value,keepAtt:S.keep};
   if($("#when").value==="later"){if(!$("#at").value){say("Pick when it goes out.");return}const at=$("#at").value;body.sendAt=new Date(at+(at.length===16?":00Z":"Z")).toISOString()}
-  t.disabled=true;try{await api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const was=S.edit,later=body.sendAt&&Date.parse(body.sendAt)>Date.now();reset();say(was?"Saved.":later?"Scheduled.":"Sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}});
+  /* the attachments first, each as it is; one the server no longer has (an hour went by) goes up again, once */
+  const post=async()=>{await attUp();body.attIds=S.add.map(f=>f.id);return api("/admin/api/mail",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})};
+  t.disabled=true;try{try{await post()}catch(er){if(er.status!==410)throw er;S.add.forEach(f=>{f.id=""});await post()}const was=S.edit,later=body.sendAt&&Date.parse(body.sendAt)>Date.now();reset();say(was?"Saved.":later?"Scheduled.":"Sent to "+toLabel(to)+".",true);load()}catch(er){say(er.message)}finally{t.disabled=false}}});
 $("#when").addEventListener("change",()=>{$("#atRow").hidden=$("#when").value!=="later"});
 document.querySelectorAll("input[name=kind]").forEach(x=>x.addEventListener("change",kindUi));$("#crCs").addEventListener("input",toUi);$("#crAdd").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();crAdd()}});["acTitle","acBody"].forEach(i=>$("#"+i).addEventListener("input",acPreview));
 ["subject","body","from"].forEach(i=>$("#"+i).addEventListener("input",preview));
 document.querySelectorAll("input[name=to]").forEach(x=>x.addEventListener("change",toUi));["toPilot","toCid"].forEach(i=>$("#"+i).addEventListener("input",()=>{$("#toName").value="";$("#toCs").value="";toUi()}));
-$("#file").addEventListener("change",async e=>{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
- const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(f)});S.add.push({name:f.name,type:f.type||"application/octet-stream",size:f.size,data})}e.target.value="";attsUi()});
+/* an attachment is kept as the file it is; it goes up on its own when the mail is sent (attUp), never as base64 */
+const ATT_EXT={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",txt:"text/plain"};
+$("#file").addEventListener("change",e=>{for(const f of e.target.files){if(f.size>5242880){say(f.name+" is larger than 5 MB.");continue}
+ S.add.push({name:f.name,type:f.type||ATT_EXT[String(f.name).split(".").pop().toLowerCase()]||"",size:f.size,file:f,id:""})}e.target.value="";attsUi()});
+/* each new attachment, uploaded (once: its id is kept for a second try of the same mail) */
+async function attUp(){for(const f of S.add){if(f.id)continue;say("Uploading "+f.name+"…",true);
+ const j=await api("/admin/api/mail/att",{method:"POST",headers:{"Content-Type":"application/octet-stream","X-Type":f.type||"application/octet-stream","X-Name":encodeURIComponent(f.name)},body:f.file});f.id=j.att.id}}
 /* ---------- Pilots tab ---------- */
 const PL={list:null,err:""};
 const ago=ms=>{if(!ms)return "—";const d=Math.round((Date.now()-ms)/60000);return d<1?"just now":d<60?d+" min ago":d<1440?Math.round(d/60)+" h ago":new Date(ms).toLocaleDateString(undefined,{dateStyle:"medium"})};
@@ -1482,7 +1543,7 @@ PG_LOAD.docs=()=>dcLoad();
 /* ---------- Gates (Nov 2026): the gate plan of each airport drawn on its map from OpenStreetMap, the rules, a try-out,
    and the gates sent in the last two days (stands.js on the server). Whether the gate messages go out, when, and
    their wording are on the Automatic messages page. ---------- */
-const ST={plan:null,saved:null,log:[],apts:{},sel:"",dirty:false,maps:{},busy:{},err:"",view:"map",logAll:false,ed:-1,pop:"",q:"",tryAc:"narrow",tryFl:"intl",tryRes:null,M:null,ready:false};
+const ST={plan:null,saved:null,log:[],apts:{},sel:"",dirty:false,maps:{},busy:{},err:"",view:"map",logAll:false,ed:-1,pop:"",q:"",tryAc:"narrow",tryFl:"intl",tryRes:null,M:null,ready:false,chgBusy:new Set()};
 const stZ=t=>{const d=new Date(t);return String(d.getUTCHours()).padStart(2,"0")+String(d.getUTCMinutes()).padStart(2,"0")+"Z"};
 const stSay=(t,ok)=>{const m=$("#stMsg");if(m)m.innerHTML=t?'<div class="msg '+(ok?"ok":"err")+'">'+esc(t)+"</div>":""};
 const stClone=v=>JSON.parse(JSON.stringify(v));
@@ -1668,13 +1729,24 @@ let stTryT=0;function stTry(){clearTimeout(stTryT);const i=ST.sel,el=$("#stTryR"
   stMapRefresh()}catch(e){const t=$("#stTryR");if(t)t.innerHTML='<span class="gt-bad">'+esc(e.message)+"</span>"}},350)}
 
 /* ---- the gates sent ---- */
-function stLogUi(){const el=$("#stLog");if(!el)return;if(ST.err){el.innerHTML='<div class="msg err">'+esc(ST.err)+"</div>";return}
+/* a gate's "Change" row: the new gate and terminal being written (v), drawn under its flight's row */
+function stChgRow(tr,k,v){tr.insertAdjacentHTML("afterend",'<tr class="gt-chg"><td colspan="7"><div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off"><button type="button" class="primary" data-stsend="'+esc(k)+'"'+(ST.chgBusy.has(k)?" disabled":"")+'>Send GATE CHANGE</button><button type="button" data-stchgx>Cancel</button></div></td></tr>');
+ const r=tr.nextElementSibling,I=r.querySelectorAll("input");(v||[]).forEach((x,i)=>{if(I[i])I[i].value=x});return r}
+/* the change rows open now, with what is typed in them and which field has the focus (the cursor too) */
+function stChgOpen(el){return Array.from(el.querySelectorAll(".gt-chg")).map(r=>{const b=r.querySelector("[data-stsend]"),I=Array.from(r.querySelectorAll("input")),a=document.activeElement,f=I.indexOf(a);
+ return b?{k:b.dataset.stsend,v:I.map(x=>x.value),f,s:f>=0?[a.selectionStart,a.selectionEnd]:null}:null}).filter(Boolean)}
+/* the gates sent, drawn again (the 2-minute reload too): a change row being written stays open as it was; a reload
+   that fails says so above the list it had */
+function stLogUi(){const el=$("#stLog");if(!el)return;const keep=stChgOpen(el),err=ST.err?'<div class="msg err">'+esc(ST.err)+"</div>":"";
+ if(ST.err&&!ST.log.length){el.innerHTML=err;return}
  const all=ST.logAll||!ST.sel,i=ST.sel,L=ST.log.filter(x=>all||(x.kind==="dep"?x.dep===i:x.arr===i)).slice().sort((a,b)=>(b.eta||b.t)-(a.eta||a.t));
  document.querySelectorAll("[data-stv]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.stv===(all?"all":"apt"))));const ab=$('[data-stv="apt"]');if(ab)ab.textContent=i||"This airport";
- el.innerHTML=L.length?'<div class="gt-tw"><table class="gt-t gt-lt"><thead><tr><th>Flight</th><th>Route</th><th>Gate</th><th>Time</th><th>Sent</th><th>By</th><th></th></tr></thead><tbody>'+L.map(x=>{const dep=x.kind==="dep",key=esc(x.k)+"|"+x.t;
+ el.innerHTML=err+(L.length?'<div class="gt-tw"><table class="gt-t gt-lt"><thead><tr><th>Flight</th><th>Route</th><th>Gate</th><th>Time</th><th>Sent</th><th>By</th><th></th></tr></thead><tbody>'+L.map(x=>{const dep=x.kind==="dep",key=esc(x.k)+"|"+x.t;
   return '<tr><td><span class="k2">'+(dep?"DEP":"ARR")+'</span><b class="mono">'+esc(x.cs)+"</b></td><td>"+esc((x.dep||"----")+" → "+(x.arr||"----"))+'</td><td class="mono">'+(x.stand?esc(x.stand)+(x.term?" · T"+esc(String(x.term).replace(/^T(ERMINAL)? */,"")):""):'<span class="gt-cg">'+(dep?"ANY FREE GATE":"CONTACT GROUND")+"</span>")
    +'</td><td class="mono">'+(dep?"STD ":"ETA ")+stZ(x.eta)+'</td><td class="mono">'+stZ(x.changed||x.t)+(x.changed?' <small class="lbl">changed</small>':"")+'</td><td class="lbl">'+(x.by==="AUTO"?"Automatic":esc(String(x.by).split("@")[0]))+'</td><td class="r"><button type="button" class="lnk" data-stchg="'+key+'">Change</button></td></tr>'}).join("")+"</tbody></table></div>"
-  :'<p class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</p>"}
+  :'<p class="empty">'+(all?"Nothing sent in the last two days.":"No gate sent at "+esc(i)+" in the last two days.")+"</p>");
+ for(const x of keep){const b=Array.from(el.querySelectorAll("[data-stchg]")).find(y=>y.dataset.stchg===x.k);if(!b)continue;
+  const r=stChgRow(b.closest("tr"),x.k,x.v);if(x.f>=0){const I=r.querySelectorAll("input")[x.f];if(I){I.focus();if(x.s)try{I.setSelectionRange(x.s[0],x.s[1])}catch(e){}}}}}
 /* full: the page opened (draw it all); otherwise only what may have moved (a rule being written stays as it is) */
 async function stLoad(full){if(!["gates","auto","fw"].some(pgHas))return;ST.err="";
  try{const j=await api("/admin/api/stands");ST.log=j.log||[];ST.apts=j.apts||{};ST.saved=stClone(j.plan);OPS.stands={at:Date.now(),v:j,p:null,err:""};if(!ST.dirty||!ST.plan)ST.plan=stClone(j.plan);
@@ -1734,10 +1806,15 @@ document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.c
    else stSay(er.message)}return}
  if(d.stv){ST.logAll=d.stv==="all";stLogUi();return}
  if(b.id==="stReload"){stLoad();stBusy(ST.sel,true);return}
- if(d.stchg){const tr=b.closest("tr");if(tr.nextElementSibling&&tr.nextElementSibling.classList.contains("gt-chg"))return;tr.insertAdjacentHTML("afterend",'<tr class="gt-chg"><td colspan="7"><div class="chg"><input type="text" maxlength="8" placeholder="New gate" autocomplete="off" spellcheck="false"><input type="text" maxlength="20" placeholder="Terminal" autocomplete="off"><button type="button" class="primary" data-stsend="'+esc(d.stchg)+'">Send GATE CHANGE</button><button type="button" data-stchgx>Cancel</button></div></td></tr>');tr.nextElementSibling.querySelector("input").focus();return}
+ if(d.stchg){const tr=b.closest("tr");if(tr.nextElementSibling&&tr.nextElementSibling.classList.contains("gt-chg"))return;stChgRow(tr,d.stchg).querySelector("input").focus();return}
  if(d.stchgx!=null){b.closest("tr").remove();return}
- if(d.stsend){const [k,t]=d.stsend.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}b.disabled=true;
-  try{await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,t:+t,stand,term:I[1].value.trim()||undefined})});await stLoad()}catch(er){alert(er.message);b.disabled=false}return}});
+ if(d.stsend){const key=d.stsend,[k,t]=key.split("|"),I=b.parentElement.querySelectorAll("input"),stand=I[0].value.trim();if(!stand){I[0].focus();return}if(ST.chgBusy.has(key))return;
+  /* the row may be drawn again while this is on its way (the reload): the one there now is the one to change */
+  const cur=()=>Array.from(document.querySelectorAll("#stLog [data-stsend]")).find(y=>y.dataset.stsend===key);
+  ST.chgBusy.add(key);b.disabled=true;
+  try{await api("/admin/api/stands/change",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,t:+t,stand,term:I[1].value.trim()||undefined})});
+   ST.chgBusy.delete(key);const x=cur();if(x)x.closest("tr").remove();await stLoad()}
+  catch(er){ST.chgBusy.delete(key);const x=cur();if(x)x.disabled=false;alert(er.message)}return}});
 window.addEventListener("beforeunload",e=>{if(ST.dirty){e.preventDefault();e.returnValue=""}});
 PG_LOAD.gates=()=>stLoad(true);PG_TICK.gates=[()=>{stLoad();if(ST.sel)stBusy(ST.sel,true)},120000];
 /* ---------- Messages › From names and AOC templates (was Settings › Composer) ---------- */
@@ -2010,7 +2087,9 @@ async function fwLoad(){if(FW.busy||document.querySelector(".deny")||!pgHas("fw"
  catch(e){FW.err="Flight Watch: "+e.message}finally{FW.busy=false}fwUi()}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest(".fw button");if(!b)return;
  if(b.dataset.fwshow){if(window.pmLive)window.pmLive.show(b.dataset.fwshow);return}
- if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(!a||!window.pmLive)return;FO.mode="aoc";window.pmLive.show(a.cs);setTimeout(()=>{const x=$("#foBody");if(x)x.focus()},400);return}
+ if(b.dataset.fwaoc){const a=FW.list.find(x=>x.k===b.dataset.fwaoc);if(!a||!window.pmLive)return;const m0=FO.mode;FO.mode="aoc";window.pmLive.show(a.cs);
+  /* open now (or already): its AOC; another flight kept open (an unsent message there): as it was */
+  if(FO.f&&FO.f.cs===a.cs){FO.mode="aoc";foModeUi()}else if(FO.f)FO.mode=m0;setTimeout(()=>{const x=$("#foBody");if(x)x.focus()},400);return}
  if(b.dataset.fwseen){FW.seen[b.dataset.fwseen]=Date.now();fwSave();fwUi();return}
  if(b.dataset.fw==="unhide"){FW.seen={};fwSave();fwUi()}});
 /* the list is drawn again with every update: mark its rows again */
@@ -2084,7 +2163,25 @@ function foRows(){fwCamRows();const o=opsV("ooo");if(!o)return;const now=Date.no
   else if(r&&r.sta&&r.in==null){const f=F.find(x=>x.cs===cs),al=f&&f.eta?otLate(f.eta,r.sta):null;if(al>15)t="ARR +"+al}
   let s=row.querySelector(".fo-x");if(!t){if(s)s.remove();return}
   if(!s){s=document.createElement("span");s.className="fo-x late";(row.querySelector(".lv-al")||row).appendChild(s)}s.textContent=t})}
-window.addEventListener("pm:sel",e=>{FO.f=e.detail;FO.edit=null;foUi()});
+/* the message being written to a flight's crew, kept per callsign: the panel is drawn again when another flight opens
+   or the open one drops off the map (admin-live keeps it open through two updates first), and the writing comes back
+   with the flight. Opening another flight by hand asks first (pmLeave, called by admin-live) */
+FO.drafts={};
+function foDraft(){if(!$("#foBody")&&!$("#foMBody"))return null;const v=id=>{const x=$(id);return x?x.value:""};
+ return{mode:FO.mode,title:v("#foTitle"),body:v("#foBody"),subj:v("#foSubj"),mbody:v("#foMBody"),from:v("#foFrom"),push:$("#foPush")?$("#foPush").checked:true}}
+const foDraftHas=d=>!!d&&!!(d.body.trim()||d.subj.trim()||d.mbody.trim()||(d.title.trim()&&d.title.trim().toUpperCase()!=="CREW MESSAGE"));
+function foDraftPut(d){if(!d)return;const set=(id,v)=>{const x=$(id);if(x&&v!=null)x.value=v};set("#foTitle",d.title);set("#foBody",d.body);set("#foSubj",d.subj);set("#foMBody",d.mbody);
+ const fr=$("#foFrom");if(fr&&d.from&&SETV.froms.includes(d.from))fr.value=d.from;const pu=$("#foPush");if(pu)pu.checked=d.push!==false}
+function foDraftClear(){["#foBody","#foSubj","#foMBody"].forEach(id=>{const x=$(id);if(x)x.value=""});const t=$("#foTitle");if(t)t.value="CREW MESSAGE"}
+/* AOC or Mail, as FO.mode says */
+function foModeUi(){document.querySelectorAll("#lvOps [data-fom]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.fom===FO.mode)));const A=$("#foAoc"),M=$("#foMail");if(A)A.hidden=FO.mode!=="aoc";if(M)M.hidden=FO.mode!=="mail"}
+/* admin-live, before another flight is opened (or this one closed) by hand: false keeps this one open */
+window.pmLeave=cs=>{const f=FO.f;if(!f||f.cs!==cs)return true;const d=foDraft();if(!foDraftHas(d))return true;
+ if(!confirm("Discard the message to the "+cs+" crew that is not sent yet?"))return false;
+ delete FO.drafts[cs];foDraftClear();return true};
+window.addEventListener("pm:sel",e=>{const old=FO.f;if(old){const d=foDraft();if(foDraftHas(d))FO.drafts[old.cs]=d;else delete FO.drafts[old.cs]}
+ FO.f=e.detail;FO.edit=null;const d=FO.f&&FO.drafts[FO.f.cs];if(d)FO.mode=d.mode;foUi();
+ if(d){foDraftPut(d);foSay("The message you had not sent is here again.",true)}});
 window.addEventListener("pm:live",e=>{const L=e.detail||[];if(FO.f){const n=L.find(x=>x.cs===FO.f.cs);if(n){const ph=FO.f.phase;FO.f=n;if(n.phase!==ph)foInfoUi()}}foRows()});
 document.addEventListener("input",e=>{const t=e.target;if(FO.edit&&(t.id==="foGate"||t.id==="foTerm"))FO.edit[t.id==="foGate"?"stand":"term"]=t.value});
 document.addEventListener("change",async e=>{const t=e.target,f=FO.f;if(!f)return;
@@ -2095,9 +2192,9 @@ document.addEventListener("change",async e=>{const t=e.target,f=FO.f;if(!f)retur
   if(b.value.trim()&&!confirm("Replace what you wrote with the "+x.title+" template?"))return;
   $("#foTitle").value=x.title;b.value=tplFill(x.body,f);tplCaret(b)}});
 document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("#lvOps [data-fog],#lvOps [data-fom],#foSend,#foMSend,#lvOps [data-fofull]");if(!b)return;const f=FO.f;if(!f)return;const d=b.dataset;
- if(d.fom){FO.mode=d.fom;document.querySelectorAll("#lvOps [data-fom]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.fom===FO.mode)));$("#foAoc").hidden=FO.mode!=="aoc";$("#foMail").hidden=FO.mode!=="mail";foSay("");return}
+ if(d.fom){FO.mode=d.fom;foModeUi();foSay("");return}
  if(d.fofull!=null){e.preventDefault();const a=FO.mode==="aoc",ti=a?$("#foTitle").value:$("#foSubj").value,bo=a?$("#foBody").value:$("#foMBody").value,fr=$("#foFrom").value;
-  window.pmCompose({pilot:f.pilot,cid:f.cid,cs:f.cs,name:f.name},a?"aoc":"mail");if(a){if(ti)$("#acTitle").value=ti;if(bo)$("#acBody").value=bo;acPreview()}else{$("#from").value=fr;if(ti)$("#subject").value=ti;if(bo)$("#body").value=bo;preview()}return}
+  if(!window.pmCompose({pilot:f.pilot,cid:f.cid,cs:f.cs,name:f.name},a?"aoc":"mail"))return;if(a){if(ti)$("#acTitle").value=ti;if(bo)$("#acBody").value=bo;acPreview()}else{$("#from").value=fr;if(ti)$("#subject").value=ti;if(bo)$("#body").value=bo;preview()}return}
  if(d.fog==="chg"||d.fog==="new"){const x=foGates(f)[d.fokind];FO.edit={kind:d.fokind,x:x?{k:x.k,t:x.t}:null,stand:"",term:x&&x.term||""};foInfoUi(true);const g=$("#foGate");if(g)g.focus();return}
  if(d.fog==="x"){FO.edit=null;foInfoUi(true);return}
  if(d.fog==="pick"){const E=FO.edit;if(!E)return;b.disabled=true;
@@ -2134,6 +2231,14 @@ function cmNew(k){if(CM.pane==="compose"&&cmDirty()&&!confirm("Discard the messa
 /* an old address: #aoc opens a new AOC message, #inbox the Inbox */
 function cmAsk(a){if(a==="aoc")cmNew("aoc");else if(a==="inbox")cmSeg("inbox");else if(a==="templates"){cmPane("set");setLoad()}
  else if(a==="sent"){S.kf="aoc";document.querySelectorAll("[data-kf]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.kf==="aoc")));cmSeg("sent")}}
+/* an AOC message (Home's "has not accepted"): shown from the list there is, or Flight Watch's copy of it (one just sent
+   from there), and again once the list has come from the server; "Loading…" meanwhile, never an empty pane */
+async function cmAocOpen(id){const item="aoc:"+id,have=()=>S.aoc.some(m=>m.id===id);
+ if(!have()){const v=opsV("aoc"),m=v&&(v.msgs||[]).find(x=>x.id===id);if(m){S.aoc=[m].concat(S.aoc);if(!S.aocV)S.aocV=v}}
+ if(S.kf==="mail"){S.kf="all";document.querySelectorAll("[data-kf]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.kf==="all")))}
+ CM.seg="sent";CM.item=item;CM.pane="item";if(IB.sel){IB.sel="";ibUi()}S.loading++;cmUi();listUi();
+ try{await load()}finally{S.loading--}
+ if(CM.item===item&&CM.pane==="item")listUi()}
 /* a conversation (Home's "waiting for a reply") */
 function ibOpen(th){IB.sel=th;const t=(IB.threads||[]).find(x=>x.th===th);if(t&&t.done!==(IB.show==="done")){IB.show=t.done?"done":"open";document.querySelectorAll("[data-ibs]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.ibs===IB.show)))}
  CM.seg="inbox";CM.pane="thread";cmUi();ibUi();
@@ -2149,7 +2254,7 @@ function listUi(){const now=Date.now(),seg=CM.seg,nq=S.mails.filter(m=>m.sendAt>
   :'<p class="empty" style="padding:16px 18px">'+(seg==="later"?"Nothing scheduled.":S.kf==="aoc"?"No AOC messages yet.":S.kf==="mail"?"No notices yet.":"Nothing sent yet.")+"</p>");
  if(CM.pane==="item")cmItemUi()}
 function cmItemUi(){const i=CM.item.indexOf(":"),k=CM.item.slice(0,i),id=CM.item.slice(i+1),el=$("#cmItem"),x='<button type="button" class="cm-x" data-cmclose aria-label="Close">✕</button>';
- if(k==="aoc"){const m=S.aoc.find(v=>v.id===id);if(!m){CM.pane="empty";CM.item="";cmUi();return}
+ if(k==="aoc"){const m=S.aoc.find(v=>v.id===id);if(!m&&S.loading){el.innerHTML='<div class="cm-v"><div class="cm-ch"><h3>AOC message</h3>'+x+'</div><p class="empty">Loading…</p></div>';return}if(!m){CM.pane="empty";CM.item="";cmUi();return}
   el.innerHTML='<div class="cm-v"><div class="cm-ch"><h3>'+esc(m.title)+'<span class="tag a">AOC</span></h3>'+x+'</div><div class="meta">'+fmt(m.t)+" · to "+esc(m.to?toLabel(m.to):"all pilots")+(m.by?" · "+(m.by==="AUTO"?"sent automatically":"by "+esc(m.by)):"")+'</div><div class="ac-box"><div class="h">AOC MSG DISPLAY</div><div class="b"><i>'+esc(m.title)+" "+cmZ(m.t)+"</i>"+esc(m.body)+"</div></div>"+(akOf(m,S.aocV)?'<h4 class="ak-h">On the flight deck</h4>'+akList(m,S.aocV)+'<p class="hint">The message stays on the pilot’s EFB until ACCEPT or REJECT.</p>':m.to?"":'<p class="hint">To all pilots: read in Messages, no ACCEPT asked.</p>')+'<div class="actions"><button class="warn" data-acdel="'+esc(m.id)+'">Delete</button></div><p class="hint">Deleting takes it off every EFB.</p></div>';return}
  const m=S.mails.find(v=>v.id===id);if(!m){CM.pane="empty";CM.item="";cmUi();return}const q=m.sendAt>Date.now();
  el.innerHTML='<div class="cm-v"><div class="cm-ch"><h3>'+esc(m.subject)+'<span class="tag '+(q?"q":"s")+'">'+(q?"SCHEDULED":"SENT")+"</span></h3>"+x+'</div><div class="meta">From '+esc(m.from)+" · to "+esc(m.to?toLabel(m.to):"all pilots")+" · "+(q?"goes out ":"")+fmt(m.sendAt)+(m.by?" · by "+esc(m.by):"")+(m.edited?" · edited":"")+'</div><div class="cm-body">'+md(m.body)+"</div>"+
@@ -2259,7 +2364,7 @@ document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest
  if(g.startsWith("fw:")){location.hash="#fw";if(window.pmLive)window.pmLive.show(g.slice(3));return}
  if(g.startsWith("ib:")){ibOpen(g.slice(3));location.hash="#comms";return}
  if(g.startsWith("nav:")){ND.tab="all";ND.q="";{const q=$("#ndQ");if(q)q.value=""}location.hash="#navdata";setTimeout(()=>{const c=document.getElementById("nd-"+g.slice(4));if(c){c.scrollIntoView({block:"center"});c.classList.add("flash");setTimeout(()=>c.classList.remove("flash"),1600)}},700);return}
- if(g.startsWith("aoc:")){location.hash="#comms";setTimeout(()=>{cmSeg("sent");CM.item="aoc:"+g.slice(4);CM.pane="item";cmUi();listUi()},60);return}
+ if(g.startsWith("aoc:")){location.hash="#comms";cmAocOpen(g.slice(4));return}
  if(g==="need"){OT.need=true;OT.p=7;document.querySelectorAll("[data-otp]").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.otp==="7")));const n=$("#otNeed");if(n)n.setAttribute("aria-pressed","true");location.hash="#reports"}});
 PG_LOAD.home=()=>{hmClock();hmUi();hmLoad()};PG_TICK.home=[hmLoad,30000];
 /* ---------- Tasks (Nov 2026): published to a department (a role) by an administrator, or a role with "Publish tasks",
@@ -2655,20 +2760,23 @@ const ndIn=(t,now)=>{const d=Math.ceil((t-now)/864e5);return d<=0?"today":d===1?
 const ndCnt=v=>{const L=(v&&v.src)||[];return{bad:L.filter(s=>s.state==="bad").length,warn:L.filter(s=>s.state==="warn").length,ok:L.filter(s=>s.state==="ok").length,off:L.filter(s=>s.state==="off").length}};
 /* the sidebar's count: sources to look at */
 function ndBadge(v){const n=$("#ndN");if(!n||!v)return;const c=ndCnt(v),k=c.bad+c.warn;n.hidden=!k;n.textContent=k||"";n.classList.toggle("red",!!c.bad)}
+/* the list is drawn again only when what it shows has changed (the minute's reload of the same answer leaves it, and
+   whatever is open or focused in it, alone) */
+const ndSet=(sel,h)=>{const el=$(sel);if(el&&el.__h!==h){el.__h=h;el.innerHTML=h}};
 function ndUi(){const v=opsV("nav"),o=OPS.nav;
- if(!v){$("#ndList").innerHTML='<section>'+(o&&o.err?'<div class="msg err">'+esc(o.err)+"</div>":'<span class="empty">Loading…</span>')+"</section>";return}
+ if(!v){ndSet("#ndList",'<section>'+(o&&o.err?'<div class="msg err">'+esc(o.err)+"</div>":'<span class="empty">Loading…</span>')+"</section>");return}
  const now=v.now||Date.now(),cur=v.airac.cur,nx=v.airac.next,c=ndCnt(v);ndBadge(v);
  $("#ndCyc").innerHTML='<div><span>AIRAC in force</span><b>'+esc(cur.cycle)+'</b><small>'+ndDay(Date.parse(cur.from))+" – "+ndDay(Date.parse(cur.to))+'</small></div><div><span>Next</span><b>'+esc(nx.cycle)+"</b><small>from "+ndDay(Date.parse(nx.from))+" "+new Date(nx.from).toISOString().slice(11,16)+"Z · "+ndIn(Date.parse(nx.from),now)+'</small></div><div><span>Checked</span><b>'+(v.at?akZ(v.at):"–")+"</b><small>"+(v.at?ndDay(v.at)+" · every 6 h":"not yet")+"</small></div>";
  ndRmUi(v);
  $("#ndSum").innerHTML=[c.ok?'<i class="ok">'+c.ok+" current</i>":"",c.warn?'<i class="warn">'+c.warn+" to look at</i>":"",c.bad?'<i class="bad">'+c.bad+" not working</i>":"",c.off?'<i class="off">'+c.off+" not set up</i>":""].join("");
  const chk=ndChk(v),lbl={ok:"Current",warn:"Look at",bad:"Not working",off:"Not set up"};ndTabsUi(v);
  const secs=ndSections(v);
- $("#ndList").innerHTML=(secs.length?"":'<section><p class="nd-none">'+(ND.q?"Nothing matches “"+esc(ND.q)+"”.":ND.tab==="attn"?"Nothing needs attention: every source is current.":"Nothing here.")+"</p></section>")
+ ndSet("#ndList",(secs.length?"":'<section><p class="nd-none">'+(ND.q?"Nothing matches “"+esc(ND.q)+"”.":ND.tab==="attn"?"Nothing needs attention: every source is current.":"Nothing here.")+"</p></section>")
   +secs.map(r=>'<section class="nd-reg'+(r.attn?" attn":"")+'"><h3>'+esc(r.n)+"<small>"+r.L.length+"</small></h3>"+'<div class="nd-grid">'+r.L.map(s=>'<article class="nd-c '+s.state+(ND.run&&ND.run.cur.includes(s.id)?" chkg":"")+'" id="nd-'+esc(s.id)+'"><div class="nd-h"><b>'+(s.region==="Worldwide"?esc(s.name):'<span class="nd-cty">'+esc(s.region)+"</span><br>"+esc(s.name))+'</b><span class="nd-st '+s.state+'">'+lbl[s.state]+"</span></div>"
    +'<div class="nd-by">'+(s.link?'<a href="'+esc(s.link)+'" target="_blank" rel="noopener">'+esc(s.by)+" ↗</a>":esc(s.by))+"</div>"
    +'<p class="nd-line">'+esc(s.line)+"</p>"+(s.rows.length?'<dl class="nd-rows">'+s.rows.map(x=>"<dt>"+esc(x[0])+"</dt><dd>"+esc(x[1])+"</dd>").join("")+"</dl>":"")
    +(s.id==="cn-aip"?ndAipHtml(s,"cn"):s.id==="jp-aip"?ndAipHtml(s,"jp"):s.id==="jp-charts"?ndJcHtml(s,"jpc"):s.id==="cn-charts"?ndJcHtml(s,"cnc"):"")+'<p class="nd-what">'+esc(s.what)+'</p><div class="nd-f"><small>'+esc(s.how)+(s.at&&chk.has(s.id)?" · checked "+ndDay(s.at)+" "+akZ(s.at):"")+"</small>"
-   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+ndBtnTxt(s.id)+"</button>":"")+"</div></article>").join("")+"</div></section>").join("");
+   +(chk.has(s.id)?'<button type="button" data-ndchk="'+esc(s.id)+'"'+(ND.busy?" disabled":"")+">"+ndBtnTxt(s.id)+"</button>":"")+"</div></article>").join("")+"</div></section>").join(""));
  ndProgUi(v);ndAllBtn()}
 /* the tabs: what needs attention, everything, or one part of the world; and a search by country or source */
 const ND_AREAS=["Asia and Pacific","Europe","Americas","Worldwide"];
@@ -2753,8 +2861,10 @@ const ND_DROP={cn:["Drop the AIP data set zip here","or click to choose it · ea
  jp:["Drop the 3_AIP(Shapefile, KML) zip here","or click to choose it · SWIM portal › AIP File Download › 3_AIP(Shapefile, KML), downloaded as a zip. It holds the current and the next AIRAC; both are uploaded."],
  cnc:["Drop the eAIP Full Package folder here","or click to choose it · eaipchina.cn › e-AIP › DOWNLOAD › Full Package, unzipped: the EAIP…_Web folder. Only aerodromes not uploaded yet for that AIRAC are sent."],
  jpc:["Drop the AD2_Separate folder here","or click to choose it · SWIM portal › AIP File Download › 1_AIP(PDF) › the AIP date › AD2_Separate. Only aerodrome folders not uploaded yet are sent."]};
+/* a drop zone: a click (or Enter, Space) opens the page's one file picker (#ndFile, outside the list, so a reload of the
+   list while the picker is open loses nothing) for this zone: a zip, or a folder */
 const ndDrop=(rg,s)=>{const c=ND.up[rg],d=ND_DROP[rg];
- return '<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop="'+rg+'"><input type="file" '+(rg==="jpc"||rg==="cnc"?'webkitdirectory multiple':'accept=".zip,application/zip"')+' data-ndfile="'+rg+'"'+(c.busy?" disabled":"")+">"
+ return '<label class="nd-drop'+(c.busy?" busy":"")+'" data-nddrop="'+rg+'" role="button" tabindex="0"'+(c.busy?' aria-disabled="true"':"")+">"
   +"<b>"+esc(c.busy?(c.msg||"Working…"):d[0])+"</b><small>"+(c.busy?"Keep this page open until it finishes":esc(d[1]))+"</small></label>"
   +(c.err?'<div class="msg err">'+esc(c.err)+"</div>":c.ok?'<div class="msg ok">'+esc(c.ok)+"</div>":"")};
 function ndAipHtml(s,rg){const c=ND.up[rg],L=((s.cn&&s.cn.cycles)||[]).slice().sort((a,b)=>Date.parse(b.eff)-Date.parse(a.eff));
@@ -2848,7 +2958,12 @@ const ndCcFiles=items=>ndRun("cnc",async c=>{let ad=null;const byT=new Map();
 /* a dropped folder: walk it (only Chrome and Edge give folders to a drop) */
 async function ndWalk(entry,path,out){if(entry.isFile){const f=await new Promise((res,rej)=>entry.file(res,rej));out.push({path:path+entry.name,file:f});return}
  if(!entry.isDirectory)return;const rd=entry.createReader();for(;;){const L=await new Promise((res,rej)=>rd.readEntries(res,rej));if(!L.length)break;for(const e of L)await ndWalk(e,path+entry.name+"/",out)}}
-document.addEventListener("change",e=>{const t=e.target;if(!t||!t.dataset||!t.dataset.ndfile)return;const rg=t.dataset.ndfile,F=Array.from(t.files||[]);t.value="";if(!F.length)return;
+function ndPick(rg){const f=$("#ndFile");if(!f||!ND.up[rg]||ND.up[rg].busy)return;ND.pick=rg;const dir=rg==="jpc"||rg==="cnc";
+ if(dir){f.setAttribute("webkitdirectory","");f.multiple=true;f.removeAttribute("accept")}else{f.removeAttribute("webkitdirectory");f.multiple=false;f.accept=".zip,application/zip"}
+ f.value="";f.click()}
+document.addEventListener("click",e=>{const z=e.target.closest&&e.target.closest("[data-nddrop]");if(!z)return;e.preventDefault();ndPick(z.dataset.nddrop)});
+document.addEventListener("keydown",e=>{const z=e.target&&e.target.closest&&e.target.closest("[data-nddrop]");if(!z||(e.key!=="Enter"&&e.key!==" "))return;e.preventDefault();ndPick(z.dataset.nddrop)});
+document.addEventListener("change",e=>{const t=e.target;if(!t||t.id!=="ndFile")return;const rg=ND.pick,F=Array.from(t.files||[]);t.value="";if(!rg||!F.length||!ND.up[rg]||ND.up[rg].busy)return;
  if(rg==="cn")ndCnFile(F[0]);else if(rg==="jp")ndJpFile(F[0]);else(rg==="cnc"?ndCcFiles:ndJcFiles)(F.map(f=>({path:f.webkitRelativePath||f.name,file:f})))});
 const ndFiles=e=>!!(e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes("Files"));
 ["dragenter","dragover"].forEach(k=>document.addEventListener(k,e=>{if(pgNow!=="navdata"||!ndFiles(e))return;e.preventDefault();const z=e.target.closest&&e.target.closest("[data-nddrop]"),ok=z&&!ND.up[z.dataset.nddrop].busy;
@@ -2949,6 +3064,12 @@ PG_LOAD.auto=()=>{auUi();stLoad();atLoad()};
 /* on a phone the section tabs scroll: keep the open one in view */
 const tabSee=()=>setTimeout(()=>{const a=document.querySelector(".side a[aria-current=true]");if(a&&a.parentElement.scrollWidth>a.parentElement.clientWidth)a.scrollIntoView({inline:"nearest",block:"nearest"})},60);
 window.addEventListener("hashchange",tabSee);window.addEventListener("load",tabSee);
+/* the sections bar on a narrow screen scrolls sideways: a fade at the edge that has more tabs past it (Settings is often
+   off to the right) */
+function sideScroll(){const s=document.querySelector(".side");if(!s)return;const over=s.scrollWidth-s.clientWidth>2;
+ s.classList.toggle("more-l",over&&s.scrollLeft>2);s.classList.toggle("more-r",over&&s.scrollLeft<s.scrollWidth-s.clientWidth-2)}
+{const s=document.querySelector(".side");if(s){s.addEventListener("scroll",sideScroll,{passive:true});sideScroll()}}
+window.addEventListener("resize",sideScroll);window.addEventListener("load",sideScroll);window.addEventListener("hashchange",()=>setTimeout(sideScroll,120));
 /* ---------- Documents: who has confirmed reading (for a document that asks for it) ---------- */
 function dcAckHtml(d){if(!d.ack)return "";const A=(DC.list&&DC.list.acks||{})[d.id]||{},P=(PL.list&&PL.list.pilots)||[],all=P.map(p=>p.u);
  const cur=Object.keys(A).filter(u=>A[u].v===d.v),miss=all.filter(u=>!cur.includes(u)),open=DC.who===d.id;
@@ -3021,7 +3142,9 @@ function bcIn(j){const P=BC.pc;switch(j.t){
  case "log":BC.log.push(j.e);if(BC.log.length>100)BC.log.shift();bcLogUi();break;
  case "ack":{const f=BC.cb[j.id];delete BC.cb[j.id];if(f)f(j);else if(!j.ok)bcSay(j.err);break}
  default:}}
-function bcAll(){bcStatus();bcSetUi(true);bcMon();bcTiles();bcOvs();bcAuto();bcFlight();bcHealth();bcEm();bcLogUi()}
+/* everything again (a new connection, the PC or OBS coming or going): Setup keeps what is being typed (bcSetUi(false));
+   only Save puts the saved settings back over it */
+function bcAll(){bcStatus();bcSetUi(false);bcMon();bcTiles();bcOvs();bcAuto();bcFlight();bcHealth();bcEm();bcLogUi()}
 /* the chips at the top */
 function bcStatus(){const el=$("#bcSt");if(!el)return;const c=BC.cfg,ch=(k,t)=>'<span class="bc-c '+k+'"><i></i>'+esc(t)+"</span>";
  if(!BC.conn||!c){el.innerHTML=ch("warn","Connecting to the desk…");return}
@@ -3040,7 +3163,8 @@ function bcSetUi(force){const c=BC.cfg;if(!c)return;const d=bcDir();
  if(force||!BC.dirty){$("#bcOnC").checked=!!c.on;$("#bcPilot").value=c.pilot||"";$("#bcTitle").value=c.title||"";$("#bcSub").value=c.sub||"";BC.dirty=false}
  const auto=bcScenes().find(s=>BC_SLATE.test(s)),L=bcScenes().slice();if(c.slate&&!L.includes(c.slate))L.unshift(c.slate);
  const want=BC.dirty?$("#bcSlate").value:c.slate||"";
- $("#bcSlate").innerHTML='<option value="">'+esc(auto?"Automatic: "+auto:bcScenes().length?"Automatic: none sounds like it":"Automatic (from OBS’s scenes)")+"</option>"+L.map(s=>'<option value="'+esc(s)+'"'+(s===want?" selected":"")+">"+esc(s)+"</option>").join("");
+ {const sl=$("#bcSlate"),h='<option value="">'+esc(auto?"Automatic: "+auto:bcScenes().length?"Automatic: none sounds like it":"Automatic (from OBS’s scenes)")+"</option>"+L.map(s=>'<option value="'+esc(s)+'"'+(s===want?" selected":"")+">"+esc(s)+"</option>").join("");
+  if(sl.dataset.k!==h){sl.dataset.k=h;sl.innerHTML=h}else if(!BC.dirty&&sl.value!==want)sl.value=want}
  const P=BC.plan;$("#bcSub").placeholder=P?[P.ac,[P.dep&&(P.dep.name||P.dep.icao),P.arr&&(P.arr.name||P.arr.icao)].filter(Boolean).join(" → ")].filter(Boolean).join(" · "):"From the pilot’s plan";
  $("#bcUrlW").hidden=!(d&&c.token);$("#bcSetB").hidden=!d;if(!d)$("#bcSet").hidden=true;document.querySelectorAll("#bc .bc-take,#bc .bc-pvw .hint").forEach(x=>{x.hidden=!d});if(d&&c.token){const u=location.origin+"/live/o/"+c.token;$("#bcUrl").value=u;$("#bcDemo").href=u+"?demo=1"}
  document.querySelectorAll("#bcSet .bc-act").forEach(x=>{x.disabled=!d})}
@@ -3092,12 +3216,16 @@ function bcHealth(){const el=$("#bcHl");if(!el)return;const s=bcSt(),r=(k,t,v)=>
  if(bcPcOn())out.push(r(BC.pc.remote?"ok":"","Start and end from here",BC.pc.remote?"Allowed":"Off on the PC"));
  el.innerHTML=out.join("")}
 /* the buttons for a bad moment; ending the stream asks to be pressed twice */
+/* (with the stats every 2 s: drawn again only when which buttons there are changes; their text, armed look and
+   whether they can be pressed are changed in place, so a click, the second press of bcArm and the focus are kept) */
 function bcEm(){const el=$("#bcEm");if(!el)return;const s=bcSt(),on=bcObsOn(),d=bcDir(),rem=bcPcOn()&&BC.pc.remote,air=!!(s&&s.stream&&s.stream.on),rec=!!(s&&s.rec&&s.rec.on),sl=bcSlate();
- const b=(id,t,ok,arm)=>'<button type="button" class="bc-act'+(BC.arm===id?" arm":"")+'" id="'+id+'"'+(d&&ok?"":" disabled")+">"+esc(BC.arm===id?arm:t)+"</button>";
- el.innerHTML=b("bcBrb2",sl?"Back soon (“"+sl+"”)":"Back soon: pick its scene under Setup",on&&!!sl,"")+
-  (air?b("bcStop","End the stream…",on&&rem,"Press again to end the stream"):b("bcStart","Start the stream…",on&&rem,"Press again to start the stream"))+
-  (rec?b("bcRecS","Stop the recording…",on&&rem,"Press again to stop the recording"):b("bcRec","Start the recording (backup)",on&&rem,""))+
-  (bcPcOn()&&!rem?'<p class="hint">Start and end: off on the simulator PC (its EFB, Ground › Simulator PC › Broadcast).</p>':"")}
+ const B=[["bcBrb2",sl?"Back soon (“"+sl+"”)":"Back soon: pick its scene under Setup",on&&!!sl,""],
+  air?["bcStop","End the stream…",on&&rem,"Press again to end the stream"]:["bcStart","Start the stream…",on&&rem,"Press again to start the stream"],
+  rec?["bcRecS","Stop the recording…",on&&rem,"Press again to stop the recording"]:["bcRec","Start the recording (backup)",on&&rem,""]];
+ const hint=bcPcOn()&&!rem,key=B.map(x=>x[0]).join("|")+(hint?"|h":"");
+ if(el.dataset.k!==key){el.dataset.k=key;el.innerHTML=B.map(x=>'<button type="button" class="bc-act" id="'+x[0]+'"></button>').join("")+(hint?'<p class="hint">Start and end: off on the simulator PC (its EFB, Ground › Simulator PC › Broadcast).</p>':"")}
+ for(const [id,t,ok,arm] of B){const x=el.querySelector("#"+id);if(!x)continue;const a=BC.arm===id&&!!arm,txt=a?arm:t,dis=!(d&&ok);
+  if(x.textContent!==txt)x.textContent=txt;if(x.disabled!==dis)x.disabled=dis;x.classList.toggle("arm",a)}}
 function bcArm(id,go){if(BC.arm===id&&Date.now()-BC.armT<5000){BC.arm="";go()}else{BC.arm=id;BC.armT=Date.now();setTimeout(()=>{if(BC.arm===id&&Date.now()-BC.armT>=4900){BC.arm="";bcEm()}},5000)}bcEm()}
 function bcLogUi(){const el=$("#bcLog");if(!el)return;const L=BC.log.slice(-40).reverse();
  el.innerHTML=L.length?L.map(e=>'<div class="bc-l"><time>'+bcHm(e.t)+"</time><div>"+esc(e.what)+(e.by?"<small>"+esc(e.by)+"</small>":"")+"</div></div>").join(""):'<span class="empty">Nothing yet.</span>'}
@@ -3254,8 +3382,10 @@ function mkCamView(o){
   const u=URL.createObjectURL(blob),im=new Image();
   im.onload=()=>{URL.revokeObjectURL(u);try{paint(im,im.naturalWidth,im.naturalHeight)}catch(e){}done()};
   im.onerror=()=>{URL.revokeObjectURL(u);done()};im.src=u};
+ /* the one camera Polaris Cam has on, when it has only one (-1 otherwise): shown alone, large, not as one of four */
+ V.solo=()=>{const P=V.pub||{};if(!V.ws||!P.on)return -1;const on=(P.cams||[]).filter(k=>k&&k.on!==false&&k.i>=0&&k.i<4);return on.length===1?on[0].i:-1};
  /* each camera's caption, and what it says while there is no picture; one camera large (zoom) or all four */
- V.caps=()=>{if(!live())return;const P=V.pub||{},L=P.cams||[];
+ V.caps=()=>{if(!live())return;const P=V.pub||{},L=P.cams||[],solo=V.solo();if(solo>=0&&V.zoom>=0&&V.zoom!==solo)V.zoom=-1;
   for(let i=0;i<4;i++){const el=cell(i);if(!el)continue;const c=V.c[i],k=L.find(x=>x.i===i),cap=el.querySelector(".bc-cap"),ph=el.querySelector(".bc-ph");
    const w=c.w||(k&&k.w),h=c.h||(k&&k.h),f=camFps(c),md=c.codec===2?"H.264":c.codec===1?"JPEG":"";
    cap.querySelector("span").textContent=(k&&k.name)||"Camera "+(i+1);
@@ -3263,8 +3393,8 @@ function mkCamView(o){
    const shown=!el.querySelector("canvas").hidden&&!(c.codec===2&&c.nowc);
    if(c.codec===2&&c.nowc)el.querySelector("canvas").hidden=true;
    ph.hidden=shown;if(!shown)ph.textContent=c.codec===2&&c.nowc?"H.264 needs Chrome or Edge":!V.ws?(o.idle?o.idle(V):"Not connected"):!P.on?"Polaris Cam is offline":k&&!k.on?"Off":!V.watchers?"Waiting":"No picture yet";
-   el.classList.toggle("z",V.zoom===i);el.setAttribute("aria-pressed",String(V.zoom===i))}
-  const g=$(o.grid);if(g)g.classList.toggle("one",V.zoom>=0)};
+   el.classList.toggle("z",V.zoom===i);el.setAttribute("aria-pressed",String(V.zoom===i));el.hidden=solo>=0&&i!==solo}
+  const g=$(o.grid);if(g){g.classList.toggle("one",V.zoom>=0);g.classList.toggle("solo",solo>=0)}};
  /* the mode of the cameras that are on: H.264, JPEG, or both */
  V.mode=()=>{const P=V.pub||{},s=new Set((P.cams||[]).filter(k=>k.on!==false).map(k=>k.codec||P.mode));V.c.forEach(c=>{if(c.codec)s.add(c.codec===2?"h264":"jpeg")});
   if(!s.size)s.add(P.mode==="h264"?"h264":"jpeg");return s.size>1?"H.264 + JPEG":s.has("h264")?"H.264":"JPEG"};
@@ -3283,8 +3413,10 @@ const camCaps=()=>(CAMB.src==="pilot"?CAMP:CAM).caps();
 /* Broadcast's status line: where the pictures come from (Direct link: a PC on Broadcast's own channel; Auto: the
    streaming pilot's own), then as Polaris Cam is; the link under Setup, for directors */
 function camUi(){const st=$("#bcCamSt");if(!st)return;const pv=CAMB.src==="pilot",V=pv?CAMP:CAM,P=V.pub||{};
- const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>",src=t=>'<span class="bc-c bc-src">'+esc(t)+"</span>";
- st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):(pv?src("Auto · "+CAMB.pilot):CAM.pub&&CAM.pub.on?src("Direct link"):"")+
+ const ch=(cls,t)=>'<span class="bc-c '+cls+'"><i></i>'+esc(t)+"</span>";
+ const go=CAM.role==="dir"&&CAM.token?'<button type="button" class="bc-src-go" data-bccamset title="Setup › Polaris Cam connection link">Link…</button>':"";
+ st.innerHTML=!CAM.ws||!CAM.role?ch("","Connecting…"):(pv?'<span class="bc-c bc-src" title="The streaming pilot’s own Polaris Cam, signed in with Polaris Navdata. A PC on the Direct link (Setup) takes over">'+esc("Auto · "+CAMB.pilot)+"</span>"+go
+   :CAM.pub&&CAM.pub.on?'<span class="bc-c bc-src" title="A PC connected with the Polaris Cam link under Setup: it is shown instead of the streaming pilot’s own">Direct link (overrides Auto)</span>'+go:go)+
   (!V.ws||!V.role?ch("","Connecting…"):P.on?ch("ok","Online")+(P.v?ch("","v"+P.v):"")+ch("",V.mode())+ch("",V.watchers+" watching"):ch("bad","Offline"));
  const W=$("#bcCamW");W.hidden=!(CAM.role==="dir"&&CAM.token);if(!W.hidden)$("#bcCamUrl").value=location.origin+"/live/cam/"+CAM.token;
  V.caps()}
@@ -3311,8 +3443,19 @@ document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest
  if(t.dataset.camc!=null){(CAMB.src==="pilot"?CAMP:CAM).zoomTo(+t.dataset.camc);return}
  if(t.id==="bcCamCopy"){const u=$("#bcCamUrl").value;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>bcSay("The Polaris Cam link is copied",true),()=>{$("#bcCamUrl").select();bcSay("Copy the selected link")});return}
  if(t.id==="bcCamTok")camTok(t)});
+/* Link… beside the source: Setup opened at the Polaris Cam link */
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-bccamset]");if(!t)return;const s=$("#bcSet"),b=$("#bcSetB"),u=$("#bcCamUrl");if(!s)return;
+ if(s.hidden){s.hidden=false;if(b)b.setAttribute("aria-expanded","true");bcSetUi(false)}
+ if(u){u.scrollIntoView({block:"center"});u.focus();u.select()}});
 /* every player: its acks every 0.4 s, the keep-alive every 30 s, its captions (fps) every second while its page shows */
 setInterval(()=>{CAM_VIEWS.forEach(V=>{for(let i=0;i<4;i++)V.ack(i)})},400);
+/* Esc: a camera seen large goes back to all of them (Flight Watch's Cockpit Monitor, Broadcast's Polaris Cam). Taken
+   first (capture) and marked done, so Flight Watch's own Esc (it closes the open flight) leaves it; not from a field */
+function camEsc(e){if(e.key!=="Escape"||e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey)return;const t=e.target;
+ if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
+ const V=pgNow==="fw"?FWV:pgNow==="bc"?(CAMB.src==="pilot"?CAMP:CAM):null;if(!V||V.zoom<0)return;
+ e.preventDefault();V.zoom=-1;V.caps()}
+document.addEventListener("keydown",camEsc,true);
 setInterval(()=>{CAM_VIEWS.forEach(V=>{if(V.ws&&V.ws.readyState===1)try{V.ws.send("ping")}catch(e){}})},30000);
 setInterval(()=>{if(document.hidden)return;CAM_VIEWS.forEach(V=>{if(V.ws&&V.page===pgNow)V.caps()})},1000);
 window.addEventListener("pm:tab",()=>{if(pgNow!=="bc")bcCamOff()});
@@ -3369,7 +3512,7 @@ function fwCamStrip(){const el=$("#fwCam");if(!el)return;const L=Object.keys(FW_
 const fwCamHtml=(p,g)=>'<div class="fo-s fo-cam"><div class="fo-camh"><h4>Cockpit Monitor <small>'+esc(p)+'</small></h4><div class="fo-camb"><button type="button" data-fwc="go" id="foCamGo">Connect</button>'+(g?'<button type="button" data-fwc="x" title="Close" aria-label="Close">✕</button>':"")+"</div></div>"+
  '<div class="bc-st fo-camst" id="foCamSt"></div><div class="bc-cg fo-cg" id="foCamG" hidden>'+camGridHtml()+"</div>"+
  (fwCamDir()?'<details class="fo-camk" id="foCamK"><summary>Manual link for '+esc(p)+'</summary><div class="bc-urlr"><input type="text" id="foCamUrl" readonly placeholder="Loading…" aria-label="Polaris Cam link for '+esc(p)+'"><button type="button" data-fwc="copy">Copy</button><button type="button" data-fwc="tok">New link</button></div><p class="hint">For a PC whose Polaris Cam does not sign in with Polaris Navdata: paste this link into Polaris Cam there. A new link stops the PC on the old one (not one signed in with Navdata).</p><div id="foCamSay"></div></details>':"")+
- '<p class="hint fo-camhint">'+(g?"No flight of "+esc(p)+" on the map: parked, or testing. ":"")+"Only while you watch: their PC sends nothing otherwise. Click a camera to see it large.</p></div>";
+ '<p class="hint fo-camhint">'+(g?"No flight of "+esc(p)+" on the map: parked, or testing. ":"")+"Only while you watch: their PC sends nothing otherwise. Click a camera to see it large; Esc for all of them.</p></div>";
 function fwCamCard(){const p=FW_CAM.pilot,fl=!!FO.f,fc=$("#foCam"),gc=$("#fwCamGround");
  if(fc)fc.innerHTML=fl&&p?fwCamHtml(p,false):"";
  if(gc){const g=!fl&&!!p;gc.innerHTML=g?fwCamHtml(p,true):"";gc.hidden=!g}

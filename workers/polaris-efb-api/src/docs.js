@@ -215,6 +215,8 @@ export async function docsAdmin(req, url, path, env, who, ctx) {
     }
     /* a cover for a document that has none (the admin draws the first page): POST /admin/api/docs/cover?id=&v=, a JPEG */
     if (path === '/admin/api/docs/cover' && req.method === 'POST') {
+      /* the picture itself, as the admin page sends it (a form on another site cannot send this type) */
+      if (!/^(image\/jpeg|application\/octet-stream)/i.test(req.headers.get('Content-Type') || '')) throw new DocError(415, 'Send the cover as image/jpeg');
       const id = String(url.searchParams.get('id') || ''), v = +url.searchParams.get('v'), list = await readIndex(kv), d = list.find((x) => x.id === id);
       if (!d) throw new DocError(404, 'That document no longer exists');
       if (d.v !== v) throw new DocError(409, 'This document changed meanwhile');
